@@ -1,0 +1,16 @@
+<!--
+  WinSW config for Obliance Agent.
+  This file is installed alongside OblianceService.exe (WinSW) in the install folder.
+  The <arguments> element is rewritten at install time by the MSI (WiX util:XmlConfig).
+-->
+<service>
+  <id>OblianceAgent</id>
+  <name>Obliance Monitoring Agent</name>
+  <description>Sends system metrics to the Obliance monitoring platform.</description>
+  <executable>%BASE%\obliance-agent.exe</executable>
+  <arguments>--url "" --key ""</arguments>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <log mode="none"/>
+</service>

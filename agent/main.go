@@ -1,0 +1,388 @@
+package main
+
+import (
+	"crypto/rand"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// agentVersion is injected at build time via:
+//   go build -ldflags="-X main.agentVersion=x.y.z"
+// The agent/VERSION file is the single source of truth — no need to edit this file.
+var agentVersion = "dev"
+
+var (
+	configDir  string
+	configFile string
+)
+
+func init() {
+	if runtime.GOOS == "windows" {
+		programData := os.Getenv("PROGRAMDATA")
+		if programData == "" {
+			programData = `C:\ProgramData`
+		}
+		configDir = filepath.Join(programData, "OblianceAgent")
+	} else {
+		configDir = "/etc/obliance-agent"
+	}
+	configFile = filepath.Join(configDir, "config.json")
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+type Config struct {
+	ServerURL            string `json:"serverUrl"`
+	APIKey               string `json:"apiKey"`
+	DeviceUUID           string `json:"deviceUuid"`
+	CheckIntervalSeconds int    `json:"checkIntervalSeconds"`
+	AgentVersion         string `json:"agentVersion"`
+	BackoffUntil         int64  `json:"_backoffUntil,omitempty"`
+}
+
+func loadConfig() (*Config, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func saveConfig(cfg *Config) error {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configFile, data, 0644)
+}
+
+// setupConfig loads or creates config from file, registry (Windows), or CLI flags.
+func setupConfig(urlArg, keyArg string) *Config {
+	cfg, err := loadConfig()
+	if err != nil {
+		// No config file — try Windows registry as fallback
+		regCfg, regErr := loadConfigFromRegistry()
+		if regErr == nil {
+			cfg = regCfg
+		}
+	}
+
+	if cfg == nil {
+		if urlArg == "" || keyArg == "" {
+			fmt.Fprintf(os.Stderr, "First run: provide --url <serverUrl> --key <apiKey>\n")
+			fmt.Fprintf(os.Stderr, "Example: obliance-agent --url https://obliance.example.com --key your-api-key\n")
+			os.Exit(1)
+		}
+		cfg = &Config{
+			ServerURL:            strings.TrimRight(urlArg, "/"),
+			APIKey:               keyArg,
+			DeviceUUID:           generateUUID(),
+			CheckIntervalSeconds: 60,
+			AgentVersion:         agentVersion,
+		}
+		if err := saveConfig(cfg); err != nil {
+			log.Printf("Warning: could not save config: %v", err)
+		} else {
+			log.Printf("First run: config saved to %s", configFile)
+		}
+	}
+
+	// CLI flags override config file (useful for updates)
+	if urlArg != "" {
+		cfg.ServerURL = strings.TrimRight(urlArg, "/")
+	}
+	if keyArg != "" {
+		cfg.APIKey = keyArg
+	}
+
+	if cfg.DeviceUUID == "" {
+		cfg.DeviceUUID = generateUUID()
+		_ = saveConfig(cfg)
+		log.Printf("Generated device UUID: %s", cfg.DeviceUUID)
+	}
+	if cfg.CheckIntervalSeconds == 0 {
+		cfg.CheckIntervalSeconds = 60
+	}
+	// Always use the binary's built-in version (overrides stale config.json value).
+	// Save back to disk so config.json stays accurate after an update.
+	if cfg.AgentVersion != agentVersion {
+		cfg.AgentVersion = agentVersion
+		if err := saveConfig(cfg); err != nil {
+			log.Printf("Warning: could not update agentVersion in config: %v", err)
+		} else {
+			log.Printf("Agent version updated to %s in config", agentVersion)
+		}
+	}
+
+	return cfg
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+func generateUUID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant bits
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// ── Version comparison ────────────────────────────────────────────────────────
+
+// parseSemver parses a "MAJOR.MINOR.PATCH" string (leading "v" is stripped).
+// Returns (0,0,0) on any parse error so malformed versions are treated as
+// lower than any real version.
+func parseSemver(v string) (int, int, int) {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0
+	}
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	patch, _ := strconv.Atoi(parts[2])
+	return major, minor, patch
+}
+
+// isStrictlyNewer returns true only when remote is strictly greater than current.
+func isStrictlyNewer(remote, current string) bool {
+	rMaj, rMin, rPatch := parseSemver(remote)
+	cMaj, cMin, cPatch := parseSemver(current)
+	if rMaj != cMaj {
+		return rMaj > cMaj
+	}
+	if rMin != cMin {
+		return rMin > cMin
+	}
+	return rPatch > cPatch
+}
+
+// ── Auto-update ───────────────────────────────────────────────────────────────
+
+// checkForUpdate calls GET /api/agent/version once (at startup) and delegates
+// to applyUpdateIfNewer. During normal operation the version is piggybacked
+// on every push response, so this startup check just handles the initial boot.
+func checkForUpdate(cfg *Config) {
+	type versionResponse struct {
+		Version string `json:"version"`
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Get(cfg.ServerURL + "/api/agent/version")
+	if err != nil {
+		log.Printf("Auto-update: version check failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var info versionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil || info.Version == "" {
+		return
+	}
+
+	applyUpdateIfNewer(cfg, info.Version)
+}
+
+// applyUpdateIfNewer downloads and applies an update when remoteVersion is
+// strictly newer than the running agentVersion. Safe to call from push()
+// (periodic) and checkForUpdate (startup) — exits/restarts if an update is
+// applied, returns immediately if already up to date or on any error.
+func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
+	if !isStrictlyNewer(remoteVersion, agentVersion) {
+		return
+	}
+
+	log.Printf("Auto-update: new version available %s → %s, downloading...", agentVersion, remoteVersion)
+
+	// Notify the server we are about to go offline for an update.
+	// This sets the "UPDATING" badge in the UI and suppresses offline alerts
+	// for up to 10 minutes, so admins are not paged during a routine update.
+	notifyServerUpdating(cfg)
+
+	// On Windows we download the full MSI so that the installer handles all
+	// dependencies (PawnIO kernel driver, service registration, etc.).
+	// On other platforms we download the bare binary.
+	var filename string
+	if runtime.GOOS == "windows" {
+		filename = "obliance-agent.msi"
+	} else {
+		filename = fmt.Sprintf("obliance-agent-%s-%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	client := &http.Client{Timeout: 120 * time.Second} // larger timeout for MSI download
+	dlResp, err := client.Get(cfg.ServerURL + "/api/agent/download/" + filename)
+	if err != nil {
+		log.Printf("Auto-update: download request failed: %v", err)
+		return
+	}
+	defer dlResp.Body.Close()
+	if dlResp.StatusCode != 200 {
+		log.Printf("Auto-update: download failed (HTTP %d)", dlResp.StatusCode)
+		return
+	}
+
+	if runtime.GOOS == "windows" {
+		// Save MSI to a temp path — it does not need to be next to the exe.
+		msiPath := filepath.Join(os.TempDir(), "obliance-agent-update.msi")
+		f, err := os.OpenFile(msiPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Printf("Auto-update: cannot write MSI temp file: %v", err)
+			return
+		}
+		if _, err := io.Copy(f, dlResp.Body); err != nil {
+			f.Close()
+			os.Remove(msiPath)
+			log.Printf("Auto-update: MSI download write error: %v", err)
+			return
+		}
+		f.Close()
+
+		// Launch msiexec via a detached batch script — the script outlives the
+		// service process. msiexec will stop the service, install the new version
+		// (including any updated dependencies such as PawnIO), then restart it.
+		if err := applyWindowsMSIUpdate(msiPath, cfg.ServerURL, cfg.APIKey); err != nil {
+			os.Remove(msiPath)
+			log.Printf("Auto-update: Windows MSI update failed: %v", err)
+			return
+		}
+	} else {
+		// Unix: write the new binary then atomically rename it over the running one.
+		exePath, err := os.Executable()
+		if err != nil {
+			log.Printf("Auto-update: cannot resolve executable path: %v", err)
+			return
+		}
+		tmpPath := exePath + ".new"
+		f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		if err != nil {
+			log.Printf("Auto-update: cannot write temp file: %v", err)
+			return
+		}
+		if _, err := io.Copy(f, dlResp.Body); err != nil {
+			f.Close()
+			os.Remove(tmpPath)
+			log.Printf("Auto-update: download write error: %v", err)
+			return
+		}
+		f.Close()
+		if err := os.Rename(tmpPath, exePath); err != nil {
+			os.Remove(tmpPath)
+			log.Printf("Auto-update: rename failed: %v", err)
+			return
+		}
+		log.Printf("Auto-update: updated to v%s, restarting...", remoteVersion)
+		// Unix: exec into the new binary in-place (same PID, works without a service manager).
+		restartWithNewBinary(exePath)
+		return // not reached; restartWithNewBinary always exits
+	}
+
+	// Windows: the detached batch script handles the restart via msiexec.
+	// Exit here so the exe file is unlocked before msiexec tries to overwrite it.
+	log.Printf("Auto-update: MSI update to v%s initiated — service will restart shortly...", remoteVersion)
+	restartWithNewBinary("") // Windows version ignores the argument and calls os.Exit(0)
+}
+
+// applyWindowsMSIUpdate launches a detached batch script that runs msiexec
+// silently. The script is used instead of calling msiexec directly so that it
+// outlives the service process (the agent exits immediately after Start()).
+//
+// msiexec /quiet handles the full install sequence:
+//  1. Stop the OblianceAgent service (WiX <ServiceControl Stop="both">)
+//  2. Overwrite obliance-agent.exe and any other packaged files
+//  3. Run deferred custom actions (e.g. PawnIO kernel driver installation)
+//  4. Restart the OblianceAgent service with the new binary
+//
+// SERVERURL and APIKEY are forwarded so that the service arguments in the MSI
+// are populated even when config.json already exists (belt-and-suspenders).
+func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
+	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
+	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	script := fmt.Sprintf(
+		"@echo off\r\n"+
+			"timeout /t 2 /nobreak >nul\r\n"+
+			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
+			"del /q \"%s\"\r\n"+
+			"del /q \"%%~f0\"\r\n",
+		msiPath, serverURL, apiKey, logPath, msiPath)
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		return fmt.Errorf("write MSI update script: %w", err)
+	}
+	// Start the batch script detached; it will outlive the current service process.
+	return exec.Command("cmd", "/c", scriptPath).Start()
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+
+var backoffSteps = []int{5 * 60, 10 * 60, 30 * 60, 60 * 60}
+var backoffLevel = 0
+
+func mainLoop(cfg *Config) {
+	log.Printf("Obliance Agent v%s starting", cfg.AgentVersion)
+	log.Printf("Server: %s", cfg.ServerURL)
+	log.Printf("Device UUID: %s", cfg.DeviceUUID)
+
+	// Initialise the command dispatcher used by push() to dispatch commands
+	// received in push responses and to accumulate acks for the next push.
+	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL)
+
+	// Check for a newer version before entering the main loop.
+	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).
+	// On Windows: writes %TEMP%\obliance-update.bat, exits; batch stops service,
+	//             moves new exe in place, restarts service.
+	checkForUpdate(cfg)
+
+	for {
+		now := time.Now().UnixMilli()
+		if cfg.BackoffUntil > 0 && now < cfg.BackoffUntil {
+			waitSec := (cfg.BackoffUntil - now) / 1000
+			if waitSec > 60 {
+				waitSec = 60
+			}
+			log.Printf("In backoff period, waiting %ds...", waitSec)
+			time.Sleep(time.Duration(waitSec) * time.Second)
+			continue
+		}
+
+		push(cfg)
+		time.Sleep(time.Duration(cfg.CheckIntervalSeconds) * time.Second)
+	}
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+func main() {
+	urlFlag := flag.String("url", "", "Server URL (required on first run)")
+	keyFlag := flag.String("key", "", "API key (required on first run)")
+	flag.Parse()
+
+	// On Windows: detect service mode and hand off to SCM handler.
+	// On Linux: runAsService is a no-op that returns immediately.
+	if runAsService(urlFlag, keyFlag) {
+		return
+	}
+
+	// Interactive / Linux mode
+	cfg := setupConfig(*urlFlag, *keyFlag)
+	mainLoop(cfg)
+}

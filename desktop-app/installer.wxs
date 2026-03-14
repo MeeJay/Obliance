@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  installer.wxs - WiX v4 source for the Obliance Windows installer
+
+  Requirements:
+    dotnet tool install -global wix
+    wix extension add WixToolset.UI.wixext  (optional, for UI)
+
+  Build (from desktop-app/ directory):
+    wix build installer.wxs -o dist\OblianceSetup.msi
+
+  Or use build-windows.ps1 which handles the full pipeline.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Obliance"
+      Manufacturer="Obliance"
+      Version="DESKTOP_VERSION_PLACEHOLDER"
+      UpgradeCode="F8A2C3D4-E5B6-4789-9ABC-DEF012345678"
+      Compressed="yes">
+
+    <!--
+      Embed the cabinet file directly inside the MSI so the installer is
+      a single self-contained file (no external cab1.cab required).
+    -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      MajorUpgrade: silently removes any older version before installing.
+      If the user has a NEWER version, show a friendly error and abort.
+    -->
+    <MajorUpgrade
+        DowngradeErrorMessage="A newer version of Obliance is already installed. Uninstall it first." />
+
+    <!-- Install to %ProgramFiles%\Obliance\ -->
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="Obliance">
+
+        <!-- Main component: the executable + Start Menu shortcut -->
+        <Component Id="MainExecutable">
+          <File Source="dist\Obliance.exe" KeyPath="yes">
+            <Shortcut
+                Id="StartMenuShortcut"
+                Directory="ProgramMenuFolder"
+                Name="Obliance"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                Advertise="no" />
+          </File>
+        </Component>
+
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Desktop shortcut (optional feature, pre-selected) -->
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent">
+        <Shortcut
+            Id="DesktopShortcut"
+            Name="Obliance"
+            WorkingDirectory="INSTALLFOLDER"
+            Target="[INSTALLFOLDER]Obliance.exe"
+            Icon="AppIcon" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\Obliance\Obliance"
+            Name="DesktopShortcut"
+            Value="1"
+            Type="integer"
+            KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <!-- Start Menu folder (needed as shortcut target directory) -->
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <!-- Feature tree -->
+    <Feature Id="Main" Title="Obliance" Level="1" AllowAbsent="no">
+      <ComponentRef Id="MainExecutable" />
+    </Feature>
+
+    <Feature Id="DesktopIcon" Title="Desktop shortcut" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <!-- App icon (title bar, Add/Remove Programs) -->
+    <Icon Id="AppIcon" SourceFile="logo.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK"    Value="https://obliance.app" />
+
+  </Package>
+</Wix>

@@ -1,0 +1,9 @@
+# Force LF for shell scripts (Docker entrypoints run on Linux)
+*.sh text eol=lf
+
+# Force LF for other Linux-executed files
+server/docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+
+# Keep JSON files with LF to avoid noise in diffs
+*.json text eol=lf

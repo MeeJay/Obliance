@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: obliance
+      POSTGRES_USER: obliance
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Expose on LAN so you can run migrations from your PC / pgAdmin.
+    # Remove this if you don't need external access.
+    #ports:
+    #  - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obliance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  server:
+    image: meejay/obliance-server:${OBLIANCE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://obliance:${DB_PASSWORD:-changeme}@postgres:5432/obliance
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-in-production}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+    volumes:
+      # Persistent custom directory: scripts, SSH keys, etc.
+      # SSH keys: chmod 700 custom/.ssh && chmod 600 custom/.ssh/id_*
+      - ${CUSTOM_DIR:-./custom}:/custom
+
+  client:
+    image: meejay/obliance-client:${OBLIANCE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${LISTEN_PORT:-3000}:80"
+
+  # ─── Watchtower (optional) ────────────────────────────────────────────────
+  # Automatically pulls & restarts containers when a new image is pushed.
+  # Works per image tag: set OBLIANCE_VERSION=latest/dev/stable etc.
+  # Enable: docker compose --profile watchtower up -d
+  # Or add COMPOSE_PROFILES=watchtower to your .env
+  watchtower:
+    image: containrrr/watchtower
+    profiles: ["watchtower"]
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Remove old images after update to save disk space
+      WATCHTOWER_CLEANUP: "true"
+      # Check interval in seconds (default: 1h)
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_INTERVAL:-3600}
+      # Optional: send notifications (slack/email/etc.) on update
+      # WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+
+volumes:
+  postgres_data:

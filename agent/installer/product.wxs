@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Obliance Agent - Windows MSI Installer
+  Built with WiX v4+ on Windows.
+
+  Prerequisites (one-time setup):
+    dotnet tool install -g wix
+    go install (Go 1.22+, https://go.dev/dl)
+
+  Build (from agent/ directory):
+    build-msi.bat
+
+  Install command:
+    msiexec /i obliance-agent.msi SERVERURL="https://..." APIKEY="your-key" /quiet
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Obliance Agent"
+           Manufacturer="Obliance"
+           Version="AGENT_VERSION_PLACEHOLDER"
+           Language="1033"
+           UpgradeCode="3A7B2C1D-4E5F-6789-ABCD-EF0123456789">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Obliance Agent is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Properties passed via: msiexec /i ... SERVERURL="..." APIKEY="..." -->
+    <Property Id="SERVERURL" Secure="yes" />
+    <Property Id="APIKEY" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="OblianceAgent">
+
+        <!--
+          The Go binary is a proper Windows service executable.
+          It calls SetServiceStatus(SERVICE_RUNNING) via golang.org/x/sys/windows/svc,
+          so the MSI Wait="yes" (default) resolves normally without hanging.
+          The url and key flags are passed as service arguments; on first run the
+          agent writes config.json and from then on reads that file directly.
+        -->
+        <Component Id="AgentExe" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234560001">
+          <!--
+            DefaultVersion forces MSI to always overwrite the exe even when the binary on disk
+            has no Win32 version resource (Go binaries are unversioned by default).
+            Without this, MSI may skip the copy if it finds an "unversioned but modified" file
+            on disk (e.g. leftover from a failed previous install), leaving the wrong binary in place.
+            65535.0.0.0 is always greater than any real version, so the source file always wins.
+          -->
+          <File Id="AgentExeFile" Source="dist\obliance-agent.exe" Name="obliance-agent.exe"
+                DefaultVersion="65535.0.0.0" />
+          <ServiceInstall Id="AgentSvc"
+                          Name="OblianceAgent"
+                          DisplayName="Obliance Monitoring Agent"
+                          Description="Sends system metrics to the Obliance monitoring platform."
+                          Start="auto"
+                          Type="ownProcess"
+                          Account="LocalSystem"
+                          ErrorControl="normal"
+                          Arguments='--url "[SERVERURL]" --key "[APIKEY]"' />
+          <ServiceControl Id="AgentSvcStart" Name="OblianceAgent" Start="install" />
+          <ServiceControl Id="AgentSvcStop"  Name="OblianceAgent" Stop="both" Remove="uninstall" Wait="yes" />
+        </Component>
+
+        <!--
+          PawnIO kernel driver installer (v2.x, by namazso).
+          PawnIO is required by LibreHardwareMonitorLib to read CPU/MB temperatures
+          via ring-0 MSR access (Tctl/Tdie, effective clocks, SMU power).
+
+          The agent's PowerShell sensor script calls "Start-Service PawnIO" before
+          querying LibreHardwareMonitorLib so that PawnIO starts on-demand after
+          each reboot (the kernel service is demand-start, not auto-start).
+
+          Two copies of the same binary are bundled:
+            PawnIO_setup.exe  — executed during install (default mode = install)
+            uninstall.exe     — executed during uninstall (PawnIO_setup.exe detects
+                                its own filename: when named "uninstall.exe" it
+                                uninstalls PawnIO instead of installing it)
+
+          The CA.InstallPawnIO custom action also passes "-install -silent" to
+          suppress the UI (confirmed working in PawnIO >= 2.x by community reports,
+          even though the flag is not in the official README).  Return="asyncNoWait"
+          launches PawnIO_setup.exe asynchronously so MSI continues immediately to
+          StartServices without waiting for the driver installation to complete.
+
+          Additionally, <ServiceControl Stop/Remove="uninstall"> is registered on
+          the PawnIOSetup component as a belt-and-suspenders fallback: WiX's native
+          DeleteServices action will stop and remove the PawnIO service registration
+          at sequence 2000 (before RemoveFiles at 3500), regardless of whether the
+          uninstall CA succeeds.
+        -->
+
+        <!-- PawnIO installer binary — used as installer during install CA -->
+        <Component Id="PawnIOSetup" Guid="C3D4E5F6-A7B8-9012-CDEF-EF1234560003">
+          <File Id="PawnIOSetupExe" Source="PawnIO_setup.exe" Name="PawnIO_setup.exe" />
+          <!--
+            Native WiX service control: stops and removes the PawnIO kernel service
+            during uninstall via the standard MSI DeleteServices/StopServices actions.
+            This runs at MSI sequence ~1900-2000, before RemoveFiles (3500),
+            ensuring clean service removal even if the uninstall CA is skipped.
+          -->
+          <!--
+            Stop PawnIO during BOTH install and uninstall:
+            - "both" ensures WiX's StopServices action (seq ~1900, before InstallFiles ~3650)
+              stops PawnIO before CA.InstallPawnIO tries to reinstall the driver.
+              Without this, if PawnIO is already running (e.g. after a failed upgrade),
+              PawnIO_setup.exe -install hangs trying to replace the in-use kernel driver.
+            - Wait="no" avoids MSI blocking on kernel-driver unload (can be slow/unpredictable).
+          -->
+          <ServiceControl Id="PawnIOSvcStop" Name="PawnIO" Stop="both" Remove="uninstall" Wait="no" />
+        </Component>
+
+        <!-- Same binary installed as "uninstall.exe" — PawnIO_setup.exe checks its own
+             filename and behaves as an uninstaller when named "uninstall.exe" (v2.0.1+).
+             This binary is executed by the CA.UninstallPawnIO custom action. -->
+        <Component Id="PawnIOUninstall" Guid="D4E5F6A7-B8C9-0123-DEFA-F01234560004">
+          <File Id="PawnIOUninstallExe" Source="PawnIO_setup.exe" Name="uninstall.exe" />
+        </Component>
+
+        <!--
+          Registry fallback: agent reads these on first run if config.json is absent
+          and the service arguments are not yet parsed (edge cases).
+          Written to 64-bit hive via -arch x64 build flag.
+        -->
+        <Component Id="AgentConfig" Guid="B2C3D4E5-F6A7-8901-BCDE-EF1234560002">
+          <RegistryValue Root="HKLM" Key="SOFTWARE\OblianceAgent"
+                         Name="ServerUrl" Type="string" Value="[SERVERURL]" KeyPath="yes" />
+          <RegistryValue Root="HKLM" Key="SOFTWARE\OblianceAgent"
+                         Name="ApiKey"    Type="string" Value="[APIKEY]" />
+        </Component>
+
+      </Directory>
+    </StandardDirectory>
+
+    <!--
+      Custom Actions for PawnIO driver lifecycle.
+
+      CA.InstallPawnIO   — deferred, elevated (Impersonate="no"), After InstallFiles.
+                           Runs PawnIO_setup.exe -install -silent to install and start
+                           the PawnIO kernel driver.  Return="asyncNoWait" so the driver
+                           installs in the background and MSI immediately continues to
+                           StartServices (starts OblianceAgent) without waiting.
+                           Condition: only on fresh install or reinstall.
+
+      CA.UninstallPawnIO — deferred, elevated, Before RemoveFiles.
+                           Runs uninstall.exe (same binary as PawnIO_setup.exe, but named
+                           "uninstall.exe") so PawnIO_setup detects its filename and enters
+                           uninstall mode, cleaning up PawnIO.sys and the registry entry.
+                           Return="ignore" so the MSI does not fail if PawnIO was already
+                           removed by the ServiceControl fallback.
+                           Condition: only on genuine uninstall (not upgrade).
+    -->
+    <!--
+      Return="asyncNoWait" is critical here.
+      Return="ignore" only ignores the exit code but STILL WAITS for the process to finish.
+      If PawnIO_setup.exe -install hangs (e.g. when the driver is already loaded), MSI would
+      freeze indefinitely at this step and StartServices (which starts OblianceAgent) would
+      never fire — the service appears in SCM but never starts.
+      asyncNoWait launches PawnIO_setup.exe detached; MSI continues immediately to StartServices.
+      PawnIO finishes installing in the background; by the time the agent first calls
+      "Start-Service PawnIO" it will already be available.
+    -->
+    <CustomAction Id="CA.InstallPawnIO"
+                  FileRef="PawnIOSetupExe"
+                  ExeCommand="-install -silent"
+                  Execute="deferred"
+                  Return="asyncNoWait"
+                  Impersonate="no" />
+
+    <CustomAction Id="CA.UninstallPawnIO"
+                  FileRef="PawnIOUninstallExe"
+                  ExeCommand=""
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <!-- Install PawnIO after files are laid down, before the agent service starts -->
+      <Custom Action="CA.InstallPawnIO" After="InstallFiles" Condition="NOT Installed OR REINSTALL" />
+      <!-- Uninstall PawnIO before MSI removes the uninstall.exe file -->
+      <Custom Action="CA.UninstallPawnIO" Before="RemoveFiles" Condition="Installed AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <Feature Id="Main">
+      <ComponentRef Id="AgentExe" />
+      <ComponentRef Id="AgentConfig" />
+      <ComponentRef Id="PawnIOSetup" />
+      <ComponentRef Id="PawnIOUninstall" />
+    </Feature>
+
+  </Package>
+</Wix>

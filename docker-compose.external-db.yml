@@ -1,0 +1,32 @@
+# Use this compose file if you already have PostgreSQL running (e.g. on Unraid).
+# Usage: docker compose -f docker-compose.external-db.yml up -d
+#
+# Required .env variables:
+#   DATABASE_URL=postgres://obliance:<password>@<host>:5432/obliance
+#   SESSION_SECRET=<random-string>
+
+services:
+  server:
+    image: meejay/obliance-server:${OBLIANCE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+    volumes:
+      # Persistent custom directory: scripts, SSH keys, etc.
+      # SSH keys: chmod 700 custom/.ssh && chmod 600 custom/.ssh/id_*
+      - ${CUSTOM_DIR:-./custom}:/custom
+
+  client:
+    image: meejay/obliance-client:${OBLIANCE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${LISTEN_PORT:-3000}:80"

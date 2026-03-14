@@ -1,0 +1,385 @@
+{
+  "_note": "Obliance import template — fill in the sections you need and delete the rest. UUIDs are optional; omit them to always create new records. Unused sections can be removed entirely.",
+  "version": 1,
+  "sections": ["monitorGroups", "monitors"],
+
+  "monitorGroups": [
+    {
+      "_note": "A top-level group. 'uuid' is optional — set one to allow idempotent re-imports.",
+      "uuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "name": "Production",
+      "description": "All production services",
+      "parentUuid": null,
+      "sortOrder": 0,
+      "groupNotifications": false
+    },
+    {
+      "uuid": "aaaaaaaa-0000-0000-0000-000000000002",
+      "name": "API",
+      "description": "REST and GraphQL endpoints",
+      "parentUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "sortOrder": 0,
+      "groupNotifications": false
+    }
+  ],
+
+  "monitors": [
+    {
+      "_note": "HTTP(S) monitor — checks a URL and optional keyword/status codes.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000001",
+      "name": "Homepage",
+      "description": "Main website availability",
+      "type": "http",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 20,
+      "maxRetries": 3,
+      "timeoutMs": 10000,
+      "upsideDown": false,
+      "url": "https://example.com",
+      "method": "GET",
+      "headers": null,
+      "body": null,
+      "expectedStatusCodes": [200, 301, 302],
+      "keyword": null,
+      "keywordIsPresent": true,
+      "ignoreSsl": false
+    },
+    {
+      "_note": "HTTP monitor with keyword check — verifies body contains a specific string.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000002",
+      "name": "API Health Endpoint",
+      "type": "http",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000002",
+      "isActive": true,
+      "intervalSeconds": 30,
+      "retryIntervalSeconds": 10,
+      "maxRetries": 2,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "url": "https://api.example.com/health",
+      "method": "GET",
+      "headers": { "Authorization": "Bearer your-token-here" },
+      "body": null,
+      "expectedStatusCodes": [200],
+      "keyword": "\"status\":\"ok\"",
+      "keywordIsPresent": true,
+      "ignoreSsl": false
+    },
+    {
+      "_note": "JSON API monitor — checks a specific value in a JSON response.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000003",
+      "name": "API Queue Depth",
+      "type": "json_api",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000002",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 20,
+      "maxRetries": 2,
+      "timeoutMs": 8000,
+      "upsideDown": false,
+      "url": "https://api.example.com/metrics",
+      "method": "GET",
+      "headers": null,
+      "jsonPath": "$.queue.depth",
+      "jsonExpectedValue": "0"
+    },
+    {
+      "_note": "Ping (ICMP) monitor — hostname or IP, no port needed.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000004",
+      "name": "Database Server Ping",
+      "type": "ping",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 15,
+      "maxRetries": 3,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "hostname": "db.internal.example.com"
+    },
+    {
+      "_note": "TCP port monitor — verifies a TCP port is open and accepting connections.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000005",
+      "name": "PostgreSQL Port",
+      "type": "tcp",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 20,
+      "maxRetries": 2,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "hostname": "db.internal.example.com",
+      "port": 5432
+    },
+    {
+      "_note": "DNS monitor — checks that a DNS record resolves to an expected value.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000006",
+      "name": "DNS A Record",
+      "type": "dns",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 300,
+      "retryIntervalSeconds": 60,
+      "maxRetries": 2,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "hostname": "example.com",
+      "dnsRecordType": "A",
+      "dnsResolver": "1.1.1.1",
+      "dnsExpectedValue": "93.184.216.34"
+    },
+    {
+      "_note": "SSL certificate monitor — warns N days before expiry.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000007",
+      "name": "SSL Certificate",
+      "type": "ssl",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 3600,
+      "retryIntervalSeconds": 600,
+      "maxRetries": 2,
+      "timeoutMs": 10000,
+      "upsideDown": false,
+      "hostname": "example.com",
+      "port": 443,
+      "sslWarnDays": 30
+    },
+    {
+      "_note": "SMTP monitor — connects to a mail server and performs EHLO handshake.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000008",
+      "name": "Mail Server",
+      "type": "smtp",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 300,
+      "retryIntervalSeconds": 60,
+      "maxRetries": 2,
+      "timeoutMs": 10000,
+      "upsideDown": false,
+      "smtpHost": "mail.example.com",
+      "smtpPort": 587
+    },
+    {
+      "_note": "Docker container monitor — checks that a container is running. dockerHost can be 'local' or a tcp:// address.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000009",
+      "name": "App Container",
+      "type": "docker",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 30,
+      "retryIntervalSeconds": 10,
+      "maxRetries": 2,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "dockerHost": "local",
+      "dockerContainerName": "my-app"
+    },
+    {
+      "_note": "Script monitor — runs a shell command; exit code 0 = up, non-zero = down.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000010",
+      "name": "Custom Health Script",
+      "type": "script",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 120,
+      "retryIntervalSeconds": 30,
+      "maxRetries": 2,
+      "timeoutMs": 15000,
+      "upsideDown": false,
+      "scriptCommand": "/opt/checks/check-service.sh",
+      "scriptExpectedExit": 0
+    },
+    {
+      "_note": "Push monitor — passive; external systems POST to /api/heartbeat/<token>. Set pushMaxIntervalSec to the max expected gap between pushes.",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000011",
+      "name": "Nightly Backup Job",
+      "type": "push",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 60,
+      "maxRetries": 0,
+      "timeoutMs": 5000,
+      "upsideDown": false,
+      "pushToken": "your-unique-push-token-here",
+      "pushMaxIntervalSec": 90000
+    },
+    {
+      "_note": "Game server monitor — uses GameDig to query game servers. gameType must be a valid GameDig game ID (e.g. 'minecraft', 'csgo', 'tf2').",
+      "uuid": "bbbbbbbb-0000-0000-0000-000000000012",
+      "name": "Minecraft Server",
+      "type": "game_server",
+      "groupUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "isActive": true,
+      "intervalSeconds": 60,
+      "retryIntervalSeconds": 20,
+      "maxRetries": 2,
+      "timeoutMs": 10000,
+      "upsideDown": false,
+      "gameType": "minecraft",
+      "gameHost": "mc.example.com",
+      "gamePort": 25565
+    }
+  ],
+
+  "settings": [
+    {
+      "_note": "Global settings apply to all monitors unless overridden. Supported keys: checkIntervalSeconds, retryIntervalSeconds, maxRetries, timeoutMs, heartbeatRetentionDays.",
+      "scope": "global",
+      "scopeUuid": null,
+      "key": "checkIntervalSeconds",
+      "value": "60"
+    },
+    {
+      "_note": "Group-level override — scopeUuid must match a monitorGroup uuid in this file.",
+      "scope": "group",
+      "scopeUuid": "aaaaaaaa-0000-0000-0000-000000000002",
+      "key": "checkIntervalSeconds",
+      "value": "30"
+    },
+    {
+      "_note": "Monitor-level override — scopeUuid must match a monitor uuid in this file.",
+      "scope": "monitor",
+      "scopeUuid": "bbbbbbbb-0000-0000-0000-000000000001",
+      "key": "checkIntervalSeconds",
+      "value": "120"
+    }
+  ],
+
+  "notificationChannels": [
+    {
+      "_note": "Notification channel + its bindings. 'type' must be one of: webhook, slack, discord, telegram, email, gotify, ntfy, pushover, matrix.",
+      "uuid": "cccccccc-0000-0000-0000-000000000001",
+      "name": "Slack #alerts",
+      "type": "slack",
+      "isEnabled": true,
+      "config": {
+        "webhookUrl": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+      },
+      "bindings": [
+        {
+          "_note": "Global binding — this channel receives notifications for all monitors. overrideMode: 'merge' (add to inherited) or 'replace' (replace inherited).",
+          "scope": "global",
+          "scopeUuid": null,
+          "overrideMode": "merge"
+        }
+      ]
+    },
+    {
+      "uuid": "cccccccc-0000-0000-0000-000000000002",
+      "name": "Discord #production",
+      "type": "discord",
+      "isEnabled": true,
+      "config": {
+        "webhookUrl": "https://discord.com/api/webhooks/YOUR/WEBHOOK"
+      },
+      "bindings": [
+        {
+          "_note": "Group-scoped binding — only fires for monitors in this group.",
+          "scope": "group",
+          "scopeUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+          "overrideMode": "merge"
+        }
+      ]
+    },
+    {
+      "uuid": "cccccccc-0000-0000-0000-000000000003",
+      "name": "Telegram Bot",
+      "type": "telegram",
+      "isEnabled": true,
+      "config": {
+        "botToken": "YOUR_BOT_TOKEN",
+        "chatId": "YOUR_CHAT_ID"
+      },
+      "bindings": []
+    },
+    {
+      "uuid": "cccccccc-0000-0000-0000-000000000004",
+      "name": "Email Alerts",
+      "type": "email",
+      "isEnabled": true,
+      "config": {
+        "host": "smtp.example.com",
+        "port": 587,
+        "secure": false,
+        "user": "alerts@example.com",
+        "pass": "your-smtp-password",
+        "from": "alerts@example.com",
+        "to": "oncall@example.com"
+      },
+      "bindings": []
+    },
+    {
+      "uuid": "cccccccc-0000-0000-0000-000000000005",
+      "name": "Generic Webhook",
+      "type": "webhook",
+      "isEnabled": true,
+      "config": {
+        "url": "https://your-server.example.com/webhook",
+        "method": "POST",
+        "headers": { "X-Secret": "your-secret-here" }
+      },
+      "bindings": []
+    }
+  ],
+
+  "agentGroups": [
+    {
+      "_note": "Agent groups work the same as monitor groups but for Obliance desktop/server agents.",
+      "uuid": "dddddddd-0000-0000-0000-000000000001",
+      "name": "Servers",
+      "description": "Physical and virtual servers",
+      "parentUuid": null,
+      "sortOrder": 0
+    }
+  ],
+
+  "remediationActions": [
+    {
+      "_note": "Webhook remediation — POSTs to a URL when triggered. type: 'webhook'.",
+      "uuid": "eeeeeeee-0000-0000-0000-000000000001",
+      "name": "Restart App via Webhook",
+      "type": "webhook",
+      "enabled": true,
+      "config": {
+        "url": "https://ci.example.com/api/restart",
+        "method": "POST",
+        "headers": { "Authorization": "Bearer your-ci-token" },
+        "body": "{\"service\": \"app\"}"
+      }
+    },
+    {
+      "_note": "Script remediation — runs a shell command on the Obliance server. type: 'script'.",
+      "uuid": "eeeeeeee-0000-0000-0000-000000000002",
+      "name": "Restart Service (script)",
+      "type": "script",
+      "enabled": true,
+      "config": {
+        "command": "sudo systemctl restart my-app"
+      }
+    }
+  ],
+
+  "remediationBindings": [
+    {
+      "_note": "Links a remediation action to a scope. actionUuid must match a remediationAction uuid. scope: 'global'|'group'|'monitor'. triggerOn: 'down'|'up'|'any'. cooldownSeconds prevents repeated triggers.",
+      "actionUuid": "eeeeeeee-0000-0000-0000-000000000001",
+      "scope": "monitor",
+      "scopeUuid": "bbbbbbbb-0000-0000-0000-000000000001",
+      "overrideMode": "merge",
+      "triggerOn": "down",
+      "cooldownSeconds": 300
+    },
+    {
+      "actionUuid": "eeeeeeee-0000-0000-0000-000000000002",
+      "scope": "group",
+      "scopeUuid": "aaaaaaaa-0000-0000-0000-000000000001",
+      "overrideMode": "merge",
+      "triggerOn": "down",
+      "cooldownSeconds": 600
+    }
+  ]
+}

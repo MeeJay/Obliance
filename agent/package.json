@@ -1,0 +1,20 @@
+{
+  "name": "@obliance/agent",
+  "version": "1.0.0",
+  "description": "Obliance monitoring agent",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "build:win": "pkg src/index.js --targets node18-win-x64 --output dist/obliance-agent-win.exe"
+  },
+  "pkg": {
+    "assets": [],
+    "targets": ["node18-win-x64"]
+  },
+  "dependencies": {
+    "systeminformation": "^5.23.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

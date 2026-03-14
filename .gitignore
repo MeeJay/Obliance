@@ -1,0 +1,25 @@
+node_modules/
+dist/
+!agent/dist/
+agent/dist/*.exe
+agent/dist/*.wixpdb
+agent/bin/*.exe
+agent/*.exe
+!desktop-app/dist/
+.env
+*.log
+.DS_Store
+Thumbs.db
+coverage/
+.vscode/
+.idea/
+*.tsbuildinfo
+*.bat
+
+# Claude Code internal files (conversation history, memory, etc.)
+.claude/
+CLAUDE.md
+
+# Local dev / planning notes
+PLAN.md
+custom/
