@@ -7,3 +7,8 @@ Dockerfile text eol=lf
 
 # Keep JSON files with LF to avoid noise in diffs
 *.json text eol=lf
+
+# Go module files and version files — LF everywhere
+*.mod text eol=lf
+*.sum text eol=lf
+VERSION text eol=lf

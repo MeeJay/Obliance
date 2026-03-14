@@ -3,6 +3,7 @@ dist/
 !agent/dist/
 agent/dist/*.exe
 agent/dist/*.wixpdb
+desktop-app/dist/*.wixpdb
 agent/bin/*.exe
 agent/*.exe
 !desktop-app/dist/
