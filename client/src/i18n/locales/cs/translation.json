@@ -286,6 +286,12 @@
       "sendCode": "Odeslat kód",
       "codeSent": "Kód odeslán na váš e-mail",
       "invalidCode": "Neplatný kód"
+    },
+    "appearance": {
+      "title": "VZHLED",
+      "subtitle": "Vyberte vizuální téma pro vaše rozhraní.",
+      "saved": "Motiv uložen",
+      "failed": "Motiv se nepodařilo uložit"
     }
   },
   "notFound": {

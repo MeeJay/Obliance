@@ -286,6 +286,12 @@
       "sendCode": "Code senden",
       "codeSent": "Code an Ihre E-Mail gesendet",
       "invalidCode": "Ungültiger Code"
+    },
+    "appearance": {
+      "title": "ERSCHEINUNGSBILD",
+      "subtitle": "Wählen Sie das visuelle Thema für Ihre Oberfläche.",
+      "saved": "Thema gespeichert",
+      "failed": "Thema konnte nicht gespeichert werden"
     }
   },
   "notFound": {

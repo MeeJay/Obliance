@@ -6,44 +6,44 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Obliance dark theme palette
+        // All colors use CSS custom properties so themes can swap them at runtime.
+        // CSS vars hold space-separated RGB triplets so Tailwind's opacity modifier
+        // syntax (e.g. bg-accent/30) works correctly.
         bg: {
-          primary: '#0d1117',
-          secondary: '#161b22',
-          tertiary: '#1c2333',
-          hover: '#21262d',
-          active: '#282e38',
+          primary:   'rgb(var(--c-bg-primary)   / <alpha-value>)',
+          secondary: 'rgb(var(--c-bg-secondary) / <alpha-value>)',
+          tertiary:  'rgb(var(--c-bg-tertiary)  / <alpha-value>)',
+          hover:     'rgb(var(--c-bg-hover)     / <alpha-value>)',
+          active:    'rgb(var(--c-bg-active)    / <alpha-value>)',
         },
         border: {
-          DEFAULT: '#30363d',
-          light: '#3d444d',
+          DEFAULT: 'rgb(var(--c-border)       / <alpha-value>)',
+          light:   'rgb(var(--c-border-light) / <alpha-value>)',
         },
         text: {
-          primary: '#e6edf3',
-          secondary: '#8b949e',
-          muted: '#6e7681',
+          primary:   'rgb(var(--c-text-primary)   / <alpha-value>)',
+          secondary: 'rgb(var(--c-text-secondary) / <alpha-value>)',
+          muted:     'rgb(var(--c-text-muted)     / <alpha-value>)',
         },
         status: {
-          up: '#2ea043',
-          'up-bg': '#0d2818',
-          down: '#f85149',
-          'down-bg': '#3d1418',
-          pending: '#d29922',
-          'pending-bg': '#2e2111',
-          maintenance: '#58a6ff',
-          'maintenance-bg': '#0d2546',
-          paused: '#8b949e',
-          'paused-bg': '#1c2333',
-          'ssl-warning': '#d29922',
-          'ssl-warning-bg': '#2e2111',
-          'ssl-expired': '#a371f7',
-          'ssl-expired-bg': '#271a45',
+          up:                'rgb(var(--c-status-up)              / <alpha-value>)',
+          'up-bg':           'rgb(var(--c-status-up-bg)           / <alpha-value>)',
+          down:              'rgb(var(--c-status-down)            / <alpha-value>)',
+          'down-bg':         'rgb(var(--c-status-down-bg)         / <alpha-value>)',
+          pending:           'rgb(var(--c-status-pending)         / <alpha-value>)',
+          'pending-bg':      'rgb(var(--c-status-pending-bg)      / <alpha-value>)',
+          maintenance:       'rgb(var(--c-status-maintenance)     / <alpha-value>)',
+          'maintenance-bg':  'rgb(var(--c-status-maintenance-bg)  / <alpha-value>)',
+          paused:            'rgb(var(--c-status-paused)          / <alpha-value>)',
+          'paused-bg':       'rgb(var(--c-status-paused-bg)       / <alpha-value>)',
         },
         accent: {
-          DEFAULT: '#58a6ff',
-          hover: '#79c0ff',
-          dark: '#1f6feb',
+          DEFAULT: 'rgb(var(--c-accent)       / <alpha-value>)',
+          hover:   'rgb(var(--c-accent-hover) / <alpha-value>)',
+          dark:    'rgb(var(--c-accent-dark)  / <alpha-value>)',
         },
+        // Alias used by ThemePicker and interactive components
+        primary: 'rgb(var(--c-primary) / <alpha-value>)',
       },
       fontFamily: {
         sans: [

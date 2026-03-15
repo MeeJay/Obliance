@@ -286,6 +286,12 @@
       "sendCode": "Wyślij kod",
       "codeSent": "Kod wysłany na Twój e-mail",
       "invalidCode": "Nieprawidłowy kod"
+    },
+    "appearance": {
+      "title": "WYGLĄD",
+      "subtitle": "Wybierz motyw wizualny interfejsu.",
+      "saved": "Motyw zapisany",
+      "failed": "Nie udało się zapisać motywu"
     }
   },
   "notFound": {

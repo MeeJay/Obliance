@@ -625,6 +625,12 @@
       "enterCode": "Enter the code sent to {{email}}",
       "emailOtpEnabled": "Email OTP enabled",
       "invalidCode": "Invalid code"
+    },
+    "appearance": {
+      "title": "APPEARANCE",
+      "subtitle": "Select the visual theme for your interface.",
+      "saved": "Theme saved",
+      "failed": "Failed to save theme"
     }
   },
   "users": {

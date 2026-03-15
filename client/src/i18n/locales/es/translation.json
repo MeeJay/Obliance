@@ -419,6 +419,12 @@
       "sendCode": "Enviar código",
       "codeSent": "Código enviado a su correo",
       "invalidCode": "Código inválido"
+    },
+    "appearance": {
+      "title": "APARIENCIA",
+      "subtitle": "Seleccione el tema visual para su interfaz.",
+      "saved": "Tema guardado",
+      "failed": "Error al guardar el tema"
     }
   },
   "users": {

@@ -286,6 +286,12 @@
       "sendCode": "コードを送信",
       "codeSent": "メールにコードを送信しました",
       "invalidCode": "無効なコード"
+    },
+    "appearance": {
+      "title": "外観",
+      "subtitle": "インターフェースのビジュアルテーマを選択してください。",
+      "saved": "テーマを保存しました",
+      "failed": "テーマの保存に失敗しました"
     }
   },
   "notFound": {

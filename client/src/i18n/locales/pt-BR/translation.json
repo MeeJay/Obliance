@@ -286,6 +286,12 @@
       "sendCode": "Enviar código",
       "codeSent": "Código enviado para seu e-mail",
       "invalidCode": "Código inválido"
+    },
+    "appearance": {
+      "title": "APARÊNCIA",
+      "subtitle": "Selecione o tema visual para sua interface.",
+      "saved": "Tema salvo",
+      "failed": "Falha ao salvar o tema"
     }
   },
   "notFound": {

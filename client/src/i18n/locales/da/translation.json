@@ -286,6 +286,12 @@
       "sendCode": "Send kode",
       "codeSent": "Kode sendt til din e-mail",
       "invalidCode": "Ugyldig kode"
+    },
+    "appearance": {
+      "title": "UDSEENDE",
+      "subtitle": "Vælg det visuelle tema for din grænseflade.",
+      "saved": "Tema gemt",
+      "failed": "Kunne ikke gemme temaet"
     }
   },
   "notFound": {

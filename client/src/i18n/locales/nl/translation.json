@@ -286,6 +286,12 @@
       "sendCode": "Code versturen",
       "codeSent": "Code verstuurd naar uw e-mail",
       "invalidCode": "Ongeldige code"
+    },
+    "appearance": {
+      "title": "UITERLIJK",
+      "subtitle": "Selecteer het visuele thema voor uw interface.",
+      "saved": "Thema opgeslagen",
+      "failed": "Thema opslaan mislukt"
     }
   },
   "notFound": {

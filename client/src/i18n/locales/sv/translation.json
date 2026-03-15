@@ -286,6 +286,12 @@
       "sendCode": "Skicka kod",
       "codeSent": "Kod skickad till din e-post",
       "invalidCode": "Ogiltig kod"
+    },
+    "appearance": {
+      "title": "UTSEENDE",
+      "subtitle": "Välj det visuella temat för ditt gränssnitt.",
+      "saved": "Tema sparat",
+      "failed": "Det gick inte att spara temat"
     }
   },
   "notFound": {

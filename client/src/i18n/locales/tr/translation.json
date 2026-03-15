@@ -286,6 +286,12 @@
       "sendCode": "Kod gönder",
       "codeSent": "Kod e-postanıza gönderildi",
       "invalidCode": "Geçersiz kod"
+    },
+    "appearance": {
+      "title": "GÖRÜNÜM",
+      "subtitle": "Arayüzünüz için görsel temayı seçin.",
+      "saved": "Tema kaydedildi",
+      "failed": "Tema kaydedilemedi"
     }
   },
   "notFound": {

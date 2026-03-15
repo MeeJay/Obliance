@@ -286,6 +286,12 @@
       "sendCode": "Invia codice",
       "codeSent": "Codice inviato alla tua e-mail",
       "invalidCode": "Codice non valido"
+    },
+    "appearance": {
+      "title": "ASPETTO",
+      "subtitle": "Seleziona il tema visivo per la tua interfaccia.",
+      "saved": "Tema salvato",
+      "failed": "Impossibile salvare il tema"
     }
   },
   "notFound": {

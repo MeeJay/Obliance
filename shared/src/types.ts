@@ -25,12 +25,15 @@ export interface UserWithPassword extends User {
   totpSecret: string | null;
 }
 
+export type AppTheme = 'modern' | 'neon';
+
 export interface UserPreferences {
   toastEnabled?: boolean;
   toastPosition?: 'top-center' | 'bottom-right';
   multiTenantNotifications?: boolean;
   sidebarFloating?: boolean;
   theme?: 'dark' | 'light';
+  preferredTheme?: AppTheme;
 }
 
 // ─── TENANTS ─────────────────────────────────────────────────────────────────

@@ -598,6 +598,12 @@
       "enterCode": "Saisissez le code envoyé à {{email}}",
       "emailOtpEnabled": "OTP par e-mail activé",
       "invalidCode": "Code invalide"
+    },
+    "appearance": {
+      "title": "APPARENCE",
+      "subtitle": "Sélectionnez le thème visuel de votre interface.",
+      "saved": "Thème enregistré",
+      "failed": "Échec de l'enregistrement du thème"
     }
   },
   "users": {

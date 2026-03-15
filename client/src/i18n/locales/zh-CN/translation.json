@@ -286,6 +286,12 @@
       "sendCode": "发送验证码",
       "codeSent": "验证码已发送至您的邮箱",
       "invalidCode": "验证码无效"
+    },
+    "appearance": {
+      "title": "外观",
+      "subtitle": "选择界面的视觉主题。",
+      "saved": "主题已保存",
+      "failed": "保存主题失败"
     }
   },
   "notFound": {
