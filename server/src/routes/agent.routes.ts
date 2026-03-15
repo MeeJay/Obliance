@@ -59,33 +59,81 @@ router.post('/register', agentAuth, async (req, res, next) => {
 });
 
 // POST /api/agent/push
-// Main agent push endpoint: receives metrics + ACKs, returns config + commands
+// Main agent push endpoint: receives metrics + ACKs, returns config + commands.
+// Also auto-registers the device on first contact (no separate /register call needed).
 router.post('/push', agentAuth, async (req, res, next) => {
   try {
-    const body = req.body as AgentPushRequest;
-    const { deviceUuid, metrics, acks = [], agentVersion } = body;
+    const body = req.body as AgentPushRequest & {
+      hostname?: string;
+      osInfo?: { platform?: string; distro?: string; release?: string; arch?: string };
+    };
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
     const tenantId = req.agentTenantId!;
 
-    // Find device
-    const device = await db('devices')
-      .where({ uuid: deviceUuid, tenant_id: tenantId, approval_status: 'approved' })
+    // Map platform string to OsType
+    function toOsType(platform?: string): string {
+      if (!platform) return 'other';
+      const p = platform.toLowerCase();
+      if (p === 'windows') return 'windows';
+      if (p === 'darwin') return 'macos';
+      if (p === 'linux') return 'linux';
+      return 'other';
+    }
+
+    // Look up device regardless of approval status
+    let device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
       .first();
 
     if (!device) {
-      return res.status(403).json({ error: 'Device not found or not approved' });
+      // ── First contact: auto-register the device ──────────────────────────────
+      const result = await deviceService.registerDevice({
+        uuid: deviceUuid,
+        hostname: hostname || deviceUuid,
+        osType: toOsType(osInfo?.platform),
+        osName: osInfo?.distro || osInfo?.platform,
+        osVersion: osInfo?.release,
+        osArch: osInfo?.arch,
+        agentVersion,
+        ipPublic: req.ip,
+        apiKeyId: req.agentApiKeyId!,
+        tenantId,
+      });
+      device = await db('devices').where({ id: result.deviceId }).first();
+    } else {
+      // ── Subsequent contact: keep device info fresh ───────────────────────────
+      await db('devices').where({ id: device.id }).update({
+        hostname: hostname || device.hostname,
+        os_type: toOsType(osInfo?.platform) || device.os_type,
+        os_name: osInfo?.distro || osInfo?.platform || device.os_name,
+        os_version: osInfo?.release || device.os_version,
+        os_arch: osInfo?.arch || device.os_arch,
+        agent_version: agentVersion || device.agent_version,
+        ip_public: req.ip || device.ip_public,
+        updated_at: new Date(),
+      });
+      device = await db('devices').where({ id: device.id }).first();
     }
 
-    // Process ACKs from previous commands
+    // ── Access control ─────────────────────────────────────────────────────────
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    if (device.approval_status === 'pending') {
+      // Device exists but not yet approved — tell agent to wait
+      return res.status(202).json({ nextPollIn: 30 });
+    }
+
+    // ── Approved device: full push processing ──────────────────────────────────
     if (acks.length > 0) {
       await commandService.processAcks(device.id, tenantId, acks);
     }
 
-    // Handle push: update metrics, get commands + config
     const response = await deviceService.handlePush(device.id, tenantId, { ...body, agentVersion });
-
     res.json(response);
   } catch (err) {
     next(err);
