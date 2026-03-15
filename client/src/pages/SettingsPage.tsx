@@ -213,56 +213,40 @@ export function SettingsPage() {
     setAgentGlobal(updated);
   }
 
-  // Save helpers — always bundle URL + key together so a key-only save never wipes the URL.
-  // Pass `explicitApiKey` when generating a key (React state won't have updated yet).
-  async function saveObliviewConfig(explicitApiKey?: string) {
+  async function saveObliviewConfig() {
     try {
-      const key = explicitApiKey !== undefined ? explicitApiKey : obliviewApiKey;
       const patch: { url?: string | null; apiKey?: string | null } = { url: obliviewUrl.trim() || null };
-      if (key.trim()) patch.apiKey = key.trim();
+      if (obliviewApiKey.trim()) patch.apiKey = obliviewApiKey.trim();
       const updated = await appConfigApi.patchObliviewConfig(patch);
       setObliviewCfg(updated);
-      setObliviewUrl(updated.url ?? '');
       setObliviewApiKey('');
-      toast.success(t('common.saved'));
     } catch {
-      toast.error(t('settings.failedUpdate'));
+      toast.error('Failed to save Obliview integration');
     }
   }
 
-  async function saveObliguardConfig(explicitApiKey?: string) {
+  async function saveObliguardConfig() {
     try {
-      const key = explicitApiKey !== undefined ? explicitApiKey : obliguardApiKey;
       const patch: { url?: string | null; apiKey?: string | null } = { url: obliguardUrl.trim() || null };
-      if (key.trim()) patch.apiKey = key.trim();
+      if (obliguardApiKey.trim()) patch.apiKey = obliguardApiKey.trim();
       const updated = await appConfigApi.patchObliguardConfig(patch);
       setObliguardCfg(updated);
-      setObliguardUrl(updated.url ?? '');
       setObliguardApiKey('');
-      toast.success(t('common.saved'));
     } catch {
-      toast.error(t('settings.failedUpdate'));
+      toast.error('Failed to save Obliguard integration');
     }
   }
 
-  async function saveOblimapConfig(explicitApiKey?: string) {
+  async function saveOblimapConfig() {
     try {
-      const key = explicitApiKey !== undefined ? explicitApiKey : oblimapApiKey;
       const patch: { url?: string | null; apiKey?: string | null } = { url: oblimapUrl.trim() || null };
-      if (key.trim()) patch.apiKey = key.trim();
+      if (oblimapApiKey.trim()) patch.apiKey = oblimapApiKey.trim();
       const updated = await appConfigApi.patchOblimapConfig(patch);
       setOblimapCfg(updated);
-      setOblimapUrl(updated.url ?? '');
       setOblimapApiKey('');
-      toast.success(t('common.saved'));
     } catch {
-      toast.error(t('settings.failedUpdate'));
+      toast.error('Failed to save Oblimap integration');
     }
-  }
-
-  function generateSecret(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from({ length: 48 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   }
 
   return (
@@ -561,7 +545,7 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { const s = generateSecret(); setObliviewApiKey(s); void saveObliviewConfig(s); }}
+                    onClick={() => setObliviewApiKey(crypto.randomUUID())}
                     title="Generate a new random secret"
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >
@@ -651,7 +635,7 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { const s = generateSecret(); setObliguardApiKey(s); void saveObliguardConfig(s); }}
+                    onClick={() => setObliguardApiKey(crypto.randomUUID())}
                     title="Generate a new random secret"
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >
@@ -741,7 +725,7 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { const s = generateSecret(); setOblimapApiKey(s); void saveOblimapConfig(s); }}
+                    onClick={() => setOblimapApiKey(crypto.randomUUID())}
                     title="Generate a new random secret"
                     className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >

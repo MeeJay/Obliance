@@ -18,7 +18,7 @@
            Manufacturer="Obliance"
            Version="AGENT_VERSION_PLACEHOLDER"
            Language="1033"
-           UpgradeCode="3A7B2C1D-4E5F-6789-ABCD-EF0123456789">
+           UpgradeCode="B5C6D7E8-F9A0-1234-BCDE-F01234567891">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of Obliance Agent is already installed." />
     <MediaTemplate EmbedCab="yes" />
