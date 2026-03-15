@@ -44,7 +44,16 @@ export const profileController = {
 
       if ('displayName' in data) updatePayload.display_name = data.displayName;
       if ('preferences' in data) {
-        updatePayload.preferences = data.preferences !== undefined ? JSON.stringify(data.preferences) : null;
+        if (data.preferences === null || data.preferences === undefined) {
+          updatePayload.preferences = null;
+        } else {
+          // Merge with existing preferences so partial updates don't wipe other fields
+          const currentRow = await db('users').select('preferences').where({ id: req.session.userId }).first();
+          const existing = currentRow?.preferences
+            ? (typeof currentRow.preferences === 'string' ? JSON.parse(currentRow.preferences) : currentRow.preferences)
+            : {};
+          updatePayload.preferences = JSON.stringify({ ...existing, ...data.preferences });
+        }
       }
       if ('email' in data) updatePayload.email = data.email || null;
       if ('preferredLanguage' in data) updatePayload.preferred_language = data.preferredLanguage;

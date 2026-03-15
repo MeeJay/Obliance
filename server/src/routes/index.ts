@@ -28,6 +28,7 @@ import complianceRoutes from './compliance.routes';
 import remoteRoutes from './remote.routes';
 import reportRoutes from './report.routes';
 import agentRoutes from './agent.routes';
+import agentAdminRoutes from './agentAdmin.routes';
 
 const router = Router();
 
@@ -63,6 +64,7 @@ tenantRouter.use('/teams',       teamsRoutes);
 tenantRouter.use('/maintenance', maintenanceRoutes);
 tenantRouter.use('/admin',       adminRoutes);
 tenantRouter.use('/admin/smtp-servers', smtpRoutes);
+tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key management
 
 router.use('/', tenantRouter);
 

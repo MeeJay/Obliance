@@ -28,7 +28,6 @@ export function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const [savingPrefs, setSavingPrefs] = useState(false);
 
   // Theme state — initialise from localStorage so the picker shows the active theme immediately
   const [preferredTheme, setPreferredTheme] = useState<AppTheme>(loadSavedTheme);
@@ -105,20 +104,21 @@ export function ProfilePage() {
     }
   };
 
-  const handleSavePreferences = async () => {
-    setSavingPrefs(true);
+  const handleAlertToggle = async (enabled: boolean) => {
+    setEnabled(enabled);
     try {
-      await profileApi.update({
-        preferences: {
-          toastEnabled: alertEnabled,
-          toastPosition: alertPosition,
-        },
-      });
-      toast.success(t('profile.alerts.preferencesSaved'));
+      await profileApi.update({ preferences: { toastEnabled: enabled } });
     } catch {
-      toast.error(t('profile.alerts.failedPreferences'));
-    } finally {
-      setSavingPrefs(false);
+      // non-critical, ignore
+    }
+  };
+
+  const handleAlertPosition = async (pos: 'top-center' | 'bottom-right') => {
+    setPosition(pos);
+    try {
+      await profileApi.update({ preferences: { toastPosition: pos } });
+    } catch {
+      // non-critical, ignore
     }
   };
 
@@ -282,7 +282,7 @@ export function ProfilePage() {
             </div>
             <button
               type="button"
-              onClick={() => setEnabled(!alertEnabled)}
+              onClick={() => handleAlertToggle(!alertEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
                 alertEnabled ? 'bg-accent' : 'bg-bg-tertiary'
               }`}
@@ -306,7 +306,7 @@ export function ProfilePage() {
                   name="alertPosition"
                   value="bottom-right"
                   checked={alertPosition === 'bottom-right'}
-                  onChange={() => setPosition('bottom-right')}
+                  onChange={() => handleAlertPosition('bottom-right')}
                   className="accent-accent mt-0.5"
                 />
                 <div>
@@ -322,7 +322,7 @@ export function ProfilePage() {
                   name="alertPosition"
                   value="top-center"
                   checked={alertPosition === 'top-center'}
-                  onChange={() => setPosition('top-center')}
+                  onChange={() => handleAlertPosition('top-center')}
                   className="accent-accent mt-0.5"
                 />
                 <div>
@@ -335,10 +335,6 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <Button type="button" onClick={handleSavePreferences} loading={savingPrefs}>
-            <Save size={16} className="mr-1.5" />
-            {t('profile.alerts.savePreferences')}
-          </Button>
         </div>
       </div>
 

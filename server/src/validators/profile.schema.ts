@@ -1,9 +1,13 @@
 import { z } from 'zod';
 
 const userPreferencesSchema = z.object({
-  toastEnabled: z.boolean(),
-  toastPosition: z.enum(['top-center', 'bottom-right']),
-}).nullable().optional();
+  toastEnabled:              z.boolean().optional(),
+  toastPosition:             z.enum(['top-center', 'bottom-right']).optional(),
+  multiTenantNotifications:  z.boolean().optional(),
+  sidebarFloating:           z.boolean().optional(),
+  theme:                     z.enum(['dark', 'light']).optional(),
+  preferredTheme:            z.enum(['modern', 'neon']).optional(),
+}).passthrough().nullable().optional();
 
 export const updateProfileSchema = z.object({
   displayName: z.string().max(100).nullable().optional(),
