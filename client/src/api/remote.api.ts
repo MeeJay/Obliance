@@ -15,8 +15,9 @@ export const remoteApi = {
   async endSession(sessionId: string): Promise<void> {
     await apiClient.post(`/remote/sessions/${sessionId}/end`);
   },
-  getTunnelWsUrl(sessionId: string, token: string): string {
+  /** Build the browser-side WebSocket URL for a VNC tunnel session. */
+  getTunnelWsUrl(sessionToken: string): string {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.host}/api/remote/tunnel/${sessionId}?token=${token}`;
+    return `${proto}//${window.location.host}/api/remote/tunnel/${sessionToken}`;
   },
 };

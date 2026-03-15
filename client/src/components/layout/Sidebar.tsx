@@ -42,10 +42,8 @@ import { useUiStore } from '@/store/uiStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
-import { appConfigApi } from '@/api/appConfig.api';
-import { ssoApi } from '@/api/sso.api';
 import { getSocket } from '@/socket/socketClient';
-import type { Device, DeviceGroupTreeNode, DeviceStatus, SsoIntegrationConfig } from '@obliance/shared';
+import type { Device, DeviceGroupTreeNode, DeviceStatus } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
@@ -305,11 +303,6 @@ export function Sidebar() {
   const [adminMenuOpen, setAdminMenuOpen] = usePersisted<boolean>('sidebar:admin-open', true);
   const splitContainerRef = useRef<HTMLDivElement>(null);
 
-  // ── SSO app configs ────────────────────────────────────────────────────────
-  const [obliviewCfg, setObliviewCfg] = useState<SsoIntegrationConfig | null>(null);
-  const [obliguardCfg, setObliguardCfg] = useState<SsoIntegrationConfig | null>(null);
-  const [oblimapCfg, setOblimapCfg] = useState<SsoIntegrationConfig | null>(null);
-
   // ── Device & group state ────────────────────────────────────────────────────
   const [devices, setDevices] = useState<Device[]>([]);
   const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
@@ -333,12 +326,6 @@ export function Sidebar() {
     const id = setInterval(loadDeviceData, 30_000);
     return () => clearInterval(id);
   }, [loadDeviceData]);
-
-  useEffect(() => {
-    appConfigApi.getObliviewConfig().then(setObliviewCfg).catch(() => {});
-    appConfigApi.getObliguardConfig().then(setObliguardCfg).catch(() => {});
-    appConfigApi.getOblimapConfig().then(setOblimapCfg).catch(() => {});
-  }, []);
 
   // ── Real-time socket updates ────────────────────────────────────────────────
   useEffect(() => {
@@ -451,18 +438,6 @@ export function Sidebar() {
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   }, [setSplitPercent]);
-
-  // ── SSO switch handler ─────────────────────────────────────────────────────
-  async function handleSwitch(appUrl: string, appName: string) {
-    try {
-      const token = await ssoApi.generateSwitchToken();
-      const currentUrl = window.location.origin;
-      const target = `${appUrl}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(currentUrl)}&source=obliance&redirect=/`;
-      window.location.href = target;
-    } catch {
-      toast.error(`Failed to switch to ${appName}`);
-    }
-  }
 
   // ── Nav items ──────────────────────────────────────────────────────────────
   const mainNavItems: NavItem[] = [
@@ -692,42 +667,6 @@ export function Sidebar() {
           <UserCircle size={18} />
           <span className="truncate flex-1">{user?.displayName || user?.username}</span>
         </Link>
-
-        {/* SSO switch buttons */}
-        {(obliviewCfg?.url || obliguardCfg?.url || oblimapCfg?.url) && (
-          <div className="px-1 py-1 space-y-0.5">
-            {obliviewCfg?.url && (
-              <button
-                onClick={() => void handleSwitch(obliviewCfg.url!, 'Obliview')}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
-                title="Switch to Obliview"
-              >
-                <ArrowLeftRight size={13} className="shrink-0" />
-                <span className="truncate">Go to Obliview</span>
-              </button>
-            )}
-            {obliguardCfg?.url && (
-              <button
-                onClick={() => void handleSwitch(obliguardCfg.url!, 'Obliguard')}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
-                title="Switch to Obliguard"
-              >
-                <ArrowLeftRight size={13} className="shrink-0" />
-                <span className="truncate">Go to Obliguard</span>
-              </button>
-            )}
-            {oblimapCfg?.url && (
-              <button
-                onClick={() => void handleSwitch(oblimapCfg.url!, 'Oblimap')}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
-                title="Switch to Oblimap"
-              >
-                <ArrowLeftRight size={13} className="shrink-0" />
-                <span className="truncate">Go to Oblimap</span>
-              </button>
-            )}
-          </div>
-        )}
 
         <button
           onClick={() => { useAuthStore.getState().logout(); }}

@@ -15,6 +15,7 @@ class ScriptService {
       runtime: row.runtime,
       content: row.content,
       timeoutSeconds: row.timeout_seconds,
+      expectedExitCode: row.expected_exit_code ?? 0,
       runAs: row.run_as,
       isBuiltin: row.is_builtin,
       createdBy: row.created_by,
@@ -58,7 +59,7 @@ class ScriptService {
 
   async createScript(tenantId: number, data: {
     name: string; description?: string; categoryId?: number; platform: string;
-    runtime: string; content: string; timeoutSeconds?: number; runAs?: string;
+    runtime: string; content: string; timeoutSeconds?: number; expectedExitCode?: number; runAs?: string;
     tags?: string[]; parameters?: Omit<ScriptParameter, 'id' | 'scriptId'>[];
     createdBy?: number;
   }): Promise<Script> {
@@ -72,6 +73,7 @@ class ScriptService {
       runtime: data.runtime || 'bash',
       content: data.content,
       timeout_seconds: data.timeoutSeconds || 300,
+      expected_exit_code: data.expectedExitCode ?? 0,
       run_as: data.runAs || 'system',
       is_builtin: false,
       created_by: data.createdBy,
@@ -96,7 +98,7 @@ class ScriptService {
 
   async updateScript(id: number, tenantId: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
-    runtime: string; content: string; timeoutSeconds: number; runAs: string;
+    runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
     tags: string[]; updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
@@ -107,6 +109,7 @@ class ScriptService {
     if (data.runtime !== undefined) updates.runtime = data.runtime;
     if (data.content !== undefined) updates.content = data.content;
     if (data.timeoutSeconds !== undefined) updates.timeout_seconds = data.timeoutSeconds;
+    if (data.expectedExitCode !== undefined) updates.expected_exit_code = data.expectedExitCode;
     if (data.runAs !== undefined) updates.run_as = data.runAs;
     if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;

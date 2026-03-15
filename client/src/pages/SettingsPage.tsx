@@ -498,7 +498,7 @@ export function SettingsPage() {
             </h2>
             <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-5">
               <p className="text-xs text-text-muted">
-                Link Obliance to Obliview to enable SSO switching between the two apps. Users can click &ldquo;Go to Obliview&rdquo; in the sidebar to jump directly into Obliview.
+                Link Obliance to Obliview to enable SSO switching between the two apps. When enabled, users can click the Obliview button in the header to jump directly into Obliview.
               </p>
 
               <div>
@@ -570,11 +570,25 @@ export function SettingsPage() {
               </div>
 
               {obliviewCfg?.url && obliviewCfg.apiKeySet && (
-                <div className="pt-4 border-t border-border mt-2">
-                  <p className="text-xs text-green-400 flex items-center gap-1.5">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
-                    Integration active — users can switch between Obliance and Obliview via SSO.
-                  </p>
+                <div className="pt-4 border-t border-border mt-2 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Enable SSO switching</p>
+                    <p className="text-xs text-text-muted mt-0.5">Allow users to switch between Obliance and Obliview via SSO.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={appConfig?.enable_foreign_sso ?? false}
+                    disabled={configSaving || !appConfig}
+                    onClick={() => setConfigKey('enable_foreign_sso', !(appConfig?.enable_foreign_sso ?? false))}
+                    className={cn(
+                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+                      (appConfig?.enable_foreign_sso ?? false) ? 'bg-accent' : 'bg-bg-tertiary',
+                    )}
+                  >
+                    <span className={cn('pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
+                      (appConfig?.enable_foreign_sso ?? false) ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
                 </div>
               )}
             </div>
@@ -588,7 +602,7 @@ export function SettingsPage() {
             </h2>
             <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-5">
               <p className="text-xs text-text-muted">
-                Link Obliance to Obliguard to enable SSO switching between the two apps. Users can click &ldquo;Go to Obliguard&rdquo; in the sidebar to jump directly into Obliguard.
+                Link Obliance to Obliguard to enable SSO switching between the two apps. When enabled, users can click the Obliguard button in the header to jump directly into Obliguard.
               </p>
 
               <div>
@@ -660,11 +674,25 @@ export function SettingsPage() {
               </div>
 
               {obliguardCfg?.url && obliguardCfg.apiKeySet && (
-                <div className="pt-4 border-t border-border mt-2">
-                  <p className="text-xs text-green-400 flex items-center gap-1.5">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
-                    Integration active — users can switch between Obliance and Obliguard via SSO.
-                  </p>
+                <div className="pt-4 border-t border-border mt-2 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Enable SSO switching</p>
+                    <p className="text-xs text-text-muted mt-0.5">Allow users to switch between Obliance and Obliguard via SSO.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={appConfig?.enable_obliguard_sso ?? false}
+                    disabled={configSaving || !appConfig}
+                    onClick={() => setConfigKey('enable_obliguard_sso', !(appConfig?.enable_obliguard_sso ?? false))}
+                    className={cn(
+                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+                      (appConfig?.enable_obliguard_sso ?? false) ? 'bg-accent' : 'bg-bg-tertiary',
+                    )}
+                  >
+                    <span className={cn('pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
+                      (appConfig?.enable_obliguard_sso ?? false) ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
                 </div>
               )}
             </div>
@@ -678,7 +706,7 @@ export function SettingsPage() {
             </h2>
             <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-5">
               <p className="text-xs text-text-muted">
-                Link Obliance to Oblimap to enable SSO switching between the two apps. Users can click &ldquo;Go to Oblimap&rdquo; in the sidebar to jump directly into Oblimap.
+                Link Obliance to Oblimap to enable SSO switching between the two apps. When enabled, users can click the Oblimap button in the header to jump directly into Oblimap.
               </p>
 
               <div>
@@ -750,11 +778,25 @@ export function SettingsPage() {
               </div>
 
               {oblimapCfg?.url && oblimapCfg.apiKeySet && (
-                <div className="pt-4 border-t border-border mt-2">
-                  <p className="text-xs text-green-400 flex items-center gap-1.5">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
-                    Integration active — users can switch between Obliance and Oblimap via SSO.
-                  </p>
+                <div className="pt-4 border-t border-border mt-2 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Enable SSO switching</p>
+                    <p className="text-xs text-text-muted mt-0.5">Allow users to switch between Obliance and Oblimap via SSO.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={appConfig?.enable_oblimap_sso ?? false}
+                    disabled={configSaving || !appConfig}
+                    onClick={() => setConfigKey('enable_oblimap_sso', !(appConfig?.enable_oblimap_sso ?? false))}
+                    className={cn(
+                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+                      (appConfig?.enable_oblimap_sso ?? false) ? 'bg-accent' : 'bg-bg-tertiary',
+                    )}
+                  >
+                    <span className={cn('pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
+                      (appConfig?.enable_oblimap_sso ?? false) ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
                 </div>
               )}
             </div>

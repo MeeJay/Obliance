@@ -43,7 +43,7 @@ class ScheduleService {
         // Check run conditions
         if (!await this.checkConditions(schedule.run_conditions || [], device)) continue;
 
-        // Create execution record + command
+            // Create execution record + command
         await this.dispatchExecution(schedule, device, now, false);
       }
 
@@ -176,6 +176,7 @@ class ScheduleService {
         content: script.content,
         parameters: schedule.parameter_values || {},
         timeoutSeconds: script.timeout_seconds,
+        expectedExitCode: script.expected_exit_code ?? 0,
         runAs: script.run_as,
       },
       priority: 'normal',
@@ -219,7 +220,8 @@ class ScheduleService {
         deviceId, tenantId, type: 'run_script',
         payload: {
           executionId: exec.id, runtime: script.runtime, content: script.content,
-          parameters: parameterValues, timeoutSeconds: script.timeout_seconds, runAs: script.run_as,
+          parameters: parameterValues, timeoutSeconds: script.timeout_seconds,
+          expectedExitCode: script.expected_exit_code ?? 0, runAs: script.run_as,
         },
         priority: 'high', expiresInSeconds: script.timeout_seconds + 300,
         sourceType: 'script_execution', sourceId: exec.id, createdBy: userId,

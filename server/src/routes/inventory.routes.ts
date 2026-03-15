@@ -3,29 +3,29 @@ import { inventoryService } from '../services/inventory.service';
 
 const router = Router();
 
-router.get('/device/:deviceId/hardware', async (req, res, next) => {
+router.get('/:deviceId/hardware', async (req, res, next) => {
   try {
     const hw = await inventoryService.getHardware(parseInt(req.params.deviceId));
     if (!hw) return res.status(404).json({ error: 'No hardware inventory' });
-    res.json(hw);
+    res.json({ data: hw });
   } catch (err) { next(err); }
 });
 
-router.get('/device/:deviceId/software', async (req, res, next) => {
+router.get('/:deviceId/software', async (req, res, next) => {
   try {
-    const sw = await inventoryService.getSoftware(
+    const items = await inventoryService.getSoftware(
       parseInt(req.params.deviceId), req.query.search as string
     );
-    res.json(sw);
+    res.json({ data: { items, total: items.length } });
   } catch (err) { next(err); }
 });
 
-router.post('/device/:deviceId/scan', async (req, res, next) => {
+router.post('/:deviceId/scan', async (req, res, next) => {
   try {
     const cmd = await inventoryService.triggerScan(
       parseInt(req.params.deviceId), req.tenantId!, req.session.userId!
     );
-    res.json(cmd);
+    res.json({ data: cmd });
   } catch (err) { next(err); }
 });
 

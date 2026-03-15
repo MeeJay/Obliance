@@ -4,7 +4,10 @@ import { complianceService } from '../services/compliance.service';
 const router = Router();
 
 router.get('/policies', async (req, res, next) => {
-  try { res.json(await complianceService.getPolicies(req.tenantId!)); } catch (err) { next(err); }
+  try {
+    const policies = await complianceService.getPolicies(req.tenantId!);
+    res.json({ data: policies });
+  } catch (err) { next(err); }
 });
 
 router.post('/policies', async (req, res, next) => {
@@ -12,14 +15,14 @@ router.post('/policies', async (req, res, next) => {
     const policy = await complianceService.createPolicy(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
-    res.status(201).json(policy);
+    res.status(201).json({ data: policy });
   } catch (err) { next(err); }
 });
 
 router.put('/policies/:id', async (req, res, next) => {
   try {
     const policy = await complianceService.updatePolicy(parseInt(req.params.id), req.tenantId!, req.body);
-    res.json(policy);
+    res.json({ data: policy });
   } catch (err) { next(err); }
 });
 
@@ -36,23 +39,67 @@ router.post('/policies/:id/check/:deviceId', async (req, res, next) => {
       parseInt(req.params.deviceId), parseInt(req.params.id),
       req.tenantId!, req.session.userId!
     );
-    res.json(cmd);
+    res.json({ data: cmd });
   } catch (err) { next(err); }
 });
 
+// Body-based check endpoint matching client call: POST /compliance/check { deviceId, policyId }
+router.post('/check', async (req, res, next) => {
+  try {
+    const { deviceId, policyId } = req.body;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+
+    if (policyId) {
+      // Check against a specific policy
+      const cmd = await complianceService.triggerCheck(
+        parseInt(deviceId), parseInt(policyId),
+        req.tenantId!, req.session.userId!
+      );
+      res.json({ data: cmd });
+    } else {
+      // Check against all enabled policies for this device
+      const policies = await complianceService.getPolicies(req.tenantId!);
+      const enabled = policies.filter(p => p.enabled);
+      const cmds = await Promise.all(
+        enabled.map(p => complianceService.triggerCheck(
+          parseInt(deviceId), p.id, req.tenantId!, req.session.userId!
+        ))
+      );
+      res.json({ data: cmds });
+    }
+  } catch (err) { next(err); }
+});
+
+// GET /compliance/results?deviceId=&policyId= — matches client call
+router.get('/results', async (req, res, next) => {
+  try {
+    const { deviceId } = req.query as any;
+    if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+    const items = await complianceService.getLatestResults(parseInt(deviceId), req.tenantId!);
+    res.json({ data: { items, total: items.length } });
+  } catch (err) { next(err); }
+});
+
+// Legacy path kept for backward compat
 router.get('/results/device/:deviceId', async (req, res, next) => {
   try {
-    const results = await complianceService.getLatestResults(parseInt(req.params.deviceId), req.tenantId!);
-    res.json(results);
+    const items = await complianceService.getLatestResults(parseInt(req.params.deviceId), req.tenantId!);
+    res.json({ data: { items, total: items.length } });
   } catch (err) { next(err); }
 });
 
 router.get('/overview', async (req, res, next) => {
-  try { res.json(await complianceService.getTenantCompliance(req.tenantId!)); } catch (err) { next(err); }
+  try {
+    const overview = await complianceService.getTenantCompliance(req.tenantId!);
+    res.json({ data: overview });
+  } catch (err) { next(err); }
 });
 
 router.get('/templates', async (req, res, next) => {
-  try { res.json(await complianceService.getTemplates(req.tenantId!)); } catch (err) { next(err); }
+  try {
+    const templates = await complianceService.getTemplates(req.tenantId!);
+    res.json({ data: templates });
+  } catch (err) { next(err); }
 });
 
 router.post('/templates', async (req, res, next) => {
@@ -60,7 +107,7 @@ router.post('/templates', async (req, res, next) => {
     const t = await complianceService.createTemplate(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
-    res.status(201).json(t);
+    res.status(201).json({ data: t });
   } catch (err) { next(err); }
 });
 

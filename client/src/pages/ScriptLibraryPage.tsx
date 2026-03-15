@@ -33,6 +33,7 @@ interface ScriptFormData {
   runtime: ScriptRuntime;
   content: string;
   timeoutSeconds: number;
+  expectedExitCode: number;
   runAs: 'system' | 'user';
   tags: string;
   categoryId: number | null;
@@ -45,6 +46,7 @@ const defaultForm: ScriptFormData = {
   runtime: 'powershell',
   content: '',
   timeoutSeconds: 300,
+  expectedExitCode: 0,
   runAs: 'system',
   tags: '',
   categoryId: null,
@@ -99,6 +101,7 @@ export function ScriptLibraryPage() {
         runtime: form.runtime,
         content: form.content,
         timeoutSeconds: form.timeoutSeconds,
+        expectedExitCode: form.expectedExitCode,
         runAs: form.runAs,
         tags,
         categoryId: form.categoryId,
@@ -150,6 +153,7 @@ export function ScriptLibraryPage() {
       runtime: script.runtime,
       content: script.content,
       timeoutSeconds: script.timeoutSeconds,
+      expectedExitCode: script.expectedExitCode ?? 0,
       runAs: script.runAs,
       tags: script.tags.join(', '),
       categoryId: script.categoryId,
@@ -306,6 +310,16 @@ export function ScriptLibraryPage() {
                 />
               </div>
               <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Expected exit code</label>
+                <input
+                  type="number"
+                  value={form.expectedExitCode}
+                  onChange={(e) => setForm({ ...form, expectedExitCode: parseInt(e.target.value, 10) || 0 })}
+                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                  title="The agent marks the execution as 'success' only when the script exits with this code (default: 0)"
+                />
+              </div>
+              <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">Run As</label>
                 <select
                   value={form.runAs}
@@ -365,7 +379,7 @@ export function ScriptLibraryPage() {
               <div>
                 <h2 className="text-xl font-bold text-text-primary">{selectedScript.name}</h2>
                 <p className="text-sm text-text-muted mt-1">
-                  {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · run as {selectedScript.runAs}
+                  {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · exit code {selectedScript.expectedExitCode ?? 0} · run as {selectedScript.runAs}
                 </p>
               </div>
               <div className="flex gap-2">

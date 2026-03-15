@@ -24,6 +24,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        ws: true, // proxy WebSocket upgrades (needed for VNC tunnel)
       },
       '/socket.io': {
         target: 'http://localhost:3001',

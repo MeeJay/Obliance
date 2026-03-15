@@ -1,9 +1,12 @@
-import { LogOut, Menu, Download } from 'lucide-react';
+import { LogOut, Menu, Download, ArrowLeftRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useSocketStore } from '@/store/socketStore';
+import { appConfigApi } from '@/api/appConfig.api';
+import { ssoApi } from '@/api/sso.api';
 import { Button } from '@/components/common/Button';
 import { NotificationCenter } from './NotificationCenter';
 import { TenantSwitcher } from './TenantSwitcher';
@@ -18,6 +21,20 @@ export function Header() {
   const { user, logout } = useAuthStore();
   const { toggleSidebar, sidebarFloating } = useUiStore();
   const { status: socketStatus } = useSocketStore();
+  const [obliviewUrl, setObliviewUrl] = useState<string | null>(null);
+  const [obliguardUrl, setObliguardUrl] = useState<string | null>(null);
+  const [oblimapUrl, setOblimapUrl]     = useState<string | null>(null);
+  const [, startSsoTransition] = useTransition();
+
+  useEffect(() => {
+    appConfigApi.getConfig()
+      .then((cfg) => {
+        setObliviewUrl(cfg.obliview_url ?? null);
+        setObliguardUrl(cfg.obliguard_url ?? null);
+        setOblimapUrl(cfg.oblimap_url ?? null);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
@@ -44,6 +61,71 @@ export function Header() {
 
         {/* Tenant switcher — hidden when single-tenant (tenants.length <= 1) */}
         <TenantSwitcher />
+
+        {/* Cross-app switch buttons — always shown when integration URL is configured */}
+        {obliviewUrl && (
+          <button
+            type="button"
+            onClick={() => {
+              startSsoTransition(() => {
+                ssoApi.generateSwitchToken()
+                  .then((token) => {
+                    const from = window.location.origin;
+                    window.location.href = `${obliviewUrl}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&source=obliance`;
+                  })
+                  .catch(() => { window.location.href = obliviewUrl; });
+              });
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border transition-all
+              text-[#6366f1] bg-[#1e1b4b]/40 border-[#4338ca]/50
+              hover:text-white hover:bg-[#1e1b4b]/60 hover:border-[#4f46e5]"
+          >
+            <ArrowLeftRight size={12} />
+            Obliview
+          </button>
+        )}
+        {obliguardUrl && (
+          <button
+            type="button"
+            onClick={() => {
+              startSsoTransition(() => {
+                ssoApi.generateSwitchToken()
+                  .then((token) => {
+                    const from = window.location.origin;
+                    window.location.href = `${obliguardUrl}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&source=obliance`;
+                  })
+                  .catch(() => { window.location.href = obliguardUrl; });
+              });
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border transition-all
+              text-[#fb923c] bg-[#431407]/40 border-[#c2410c]/50
+              hover:text-white hover:bg-[#431407]/60 hover:border-[#ea580c]"
+          >
+            <ArrowLeftRight size={12} />
+            Obliguard
+          </button>
+        )}
+        {oblimapUrl && (
+          <button
+            type="button"
+            onClick={() => {
+              startSsoTransition(() => {
+                ssoApi.generateSwitchToken()
+                  .then((token) => {
+                    const from = window.location.origin;
+                    window.location.href = `${oblimapUrl}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&source=obliance`;
+                  })
+                  .catch(() => { window.location.href = oblimapUrl; });
+              });
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border transition-all
+              text-[#10b981] bg-[#022c22]/40 border-[#047857]/50
+              hover:text-white hover:bg-[#022c22]/60 hover:border-[#059669]"
+          >
+            <ArrowLeftRight size={12} />
+            Oblimap
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-4">

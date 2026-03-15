@@ -88,6 +88,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
       .where({ uuid: deviceUuid, tenant_id: tenantId })
       .first();
 
+    // Extract real WAN IP: first entry in X-Forwarded-For beats req.ip when behind proxies
+    const ipPublic = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+
     if (!device) {
       // ── First contact: auto-register the device ──────────────────────────────
       const result = await deviceService.registerDevice({
@@ -98,7 +101,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         osVersion: osInfo?.release,
         osArch: osInfo?.arch,
         agentVersion,
-        ipPublic: req.ip,
+        ipPublic,
         apiKeyId: req.agentApiKeyId!,
         tenantId,
       });
@@ -112,7 +115,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         os_version: osInfo?.release || device.os_version,
         os_arch: osInfo?.arch || device.os_arch,
         agent_version: agentVersion || device.agent_version,
-        ip_public: req.ip || device.ip_public,
+        ip_public: ipPublic || device.ip_public,
         updated_at: new Date(),
       });
       device = await db('devices').where({ id: device.id }).first();

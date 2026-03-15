@@ -101,8 +101,28 @@ class CommandService {
         }
       } catch {}
 
-      // Update linked script execution if applicable
-      // (sourceType is tracked on the Command record, not on CommandAck)
+      // Update linked script execution when the command is terminal
+      if (isTerminal && row && row.source_type === 'script_execution' && row.source_id) {
+        try {
+          const result = ack.result as any;
+          const execStatus =
+            ack.status === 'success' ? 'success' :
+            ack.status === 'timeout' ? 'timeout' : 'failure';
+
+          await db('script_executions').where({ id: row.source_id }).update({
+            status: execStatus,
+            exit_code: result?.exitCode ?? null,
+            stdout: result?.stdout ?? null,
+            stderr: result?.stderr ?? null,
+            started_at: result?.duration != null
+              ? new Date(Date.now() - (result.duration as number))
+              : new Date(),
+            finished_at: new Date(),
+          });
+        } catch (execErr) {
+          logger.error(execErr, 'Failed to update script_execution from ack');
+        }
+      }
     }
   }
 

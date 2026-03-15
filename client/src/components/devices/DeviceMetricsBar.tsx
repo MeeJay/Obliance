@@ -31,19 +31,19 @@ export function DeviceMetricsBar({ metrics, compact = false }: Props) {
         {metrics.cpu != null && (
           <span className="flex items-center gap-1">
             <Cpu className="w-3 h-3" />
-            {metrics.cpu.total}%
+            {metrics.cpu.percent}%
           </span>
         )}
         {metrics.memory != null && (
           <span className="flex items-center gap-1">
             <MemoryStick className="w-3 h-3" />
-            {metrics.memory.pct}%
+            {metrics.memory.percent}%
           </span>
         )}
         {metrics.disks && metrics.disks.length > 0 && (
           <span className="flex items-center gap-1">
             <HardDrive className="w-3 h-3" />
-            {metrics.disks[0].pct}%
+            {metrics.disks[0].percent}%
           </span>
         )}
       </div>
@@ -56,21 +56,21 @@ export function DeviceMetricsBar({ metrics, compact = false }: Props) {
         <div className="flex items-center gap-2">
           <Cpu className="w-3 h-3 text-text-muted shrink-0" />
           <span className="text-xs text-text-muted w-12">CPU</span>
-          <PercentBar value={metrics.cpu.total} className="flex-1" />
+          <PercentBar value={metrics.cpu.percent} className="flex-1" />
         </div>
       )}
       {metrics.memory != null && (
         <div className="flex items-center gap-2">
           <MemoryStick className="w-3 h-3 text-text-muted shrink-0" />
           <span className="text-xs text-text-muted w-12">RAM</span>
-          <PercentBar value={metrics.memory.pct} className="flex-1" />
+          <PercentBar value={metrics.memory.percent} className="flex-1" />
         </div>
       )}
       {metrics.disks && metrics.disks.map((disk) => (
         <div key={disk.mount} className="flex items-center gap-2">
           <HardDrive className="w-3 h-3 text-text-muted shrink-0" />
           <span className="text-xs text-text-muted w-12 truncate">{disk.mount}</span>
-          <PercentBar value={disk.pct} className="flex-1" />
+          <PercentBar value={disk.percent} className="flex-1" />
         </div>
       ))}
     </div>

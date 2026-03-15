@@ -6,23 +6,24 @@ const router = Router();
 router.get('/', async (req, res, next) => {
   try {
     const { status, severity, deviceId } = req.query as any;
-    const updates = await updateService.getTenantUpdates(req.tenantId!, {
+    const items = await updateService.getTenantUpdates(req.tenantId!, {
       status, severity, deviceId: deviceId ? parseInt(deviceId) : undefined,
     });
-    res.json(updates);
+    res.json({ data: { items, total: items.length } });
   } catch (err) { next(err); }
 });
 
 router.get('/stats', async (req, res, next) => {
   try {
     const stats = await updateService.getUpdateStats(req.tenantId!);
-    res.json(stats);
+    res.json({ data: stats });
   } catch (err) { next(err); }
 });
 
 router.get('/policies', async (req, res, next) => {
   try {
-    res.json(await updateService.getPolicies(req.tenantId!));
+    const policies = await updateService.getPolicies(req.tenantId!);
+    res.json({ data: policies });
   } catch (err) { next(err); }
 });
 
@@ -31,7 +32,7 @@ router.post('/policies', async (req, res, next) => {
     const policy = await updateService.createPolicy(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
-    res.status(201).json(policy);
+    res.status(201).json({ data: policy });
   } catch (err) { next(err); }
 });
 
@@ -70,7 +71,17 @@ router.post('/device/:deviceId/scan', async (req, res, next) => {
     const cmd = await updateService.triggerUpdateScan(
       parseInt(req.params.deviceId), req.tenantId!, req.session.userId!
     );
-    res.json(cmd);
+    res.json({ data: cmd });
+  } catch (err) { next(err); }
+});
+
+// Alias matching client URL: POST /updates/scan/:deviceId
+router.post('/scan/:deviceId', async (req, res, next) => {
+  try {
+    const cmd = await updateService.triggerUpdateScan(
+      parseInt(req.params.deviceId), req.tenantId!, req.session.userId!
+    );
+    res.json({ data: cmd });
   } catch (err) { next(err); }
 });
 

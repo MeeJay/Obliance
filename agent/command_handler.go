@@ -97,12 +97,10 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 		result, execErr = d.handleCheckCompliance(cmd)
 
 	case "open_remote_tunnel":
-		log.Printf("Command %s (open_remote_tunnel): VNC tunnel not yet implemented", cmd.ID)
-		result = map[string]string{"message": "VNC tunnel not yet implemented"}
+		result, execErr = d.handleOpenRemoteTunnel(cmd)
 
 	case "close_remote_tunnel":
-		log.Printf("Command %s (close_remote_tunnel): VNC tunnel not yet implemented", cmd.ID)
-		result = map[string]string{"message": "VNC tunnel not yet implemented"}
+		result, execErr = d.handleCloseRemoteTunnel(cmd)
 
 	case "reboot":
 		execErr = d.handleReboot(cmd)
@@ -120,9 +118,33 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 		ack.Status = "failure"
 		ack.Result = map[string]string{"error": execErr.Error()}
 	} else {
-		log.Printf("Command %s (%s) completed successfully", cmd.ID, cmd.Type)
-		ack.Status = "success"
 		ack.Result = result
+		// For run_script: compare actual exit code against expectedExitCode from payload.
+		// A mismatch means the script did not exit as expected → mark as failure but
+		// still include the full ScriptResult so stdout/stderr are accessible.
+		if cmd.Type == "run_script" {
+			if sr, ok := result.(*ScriptResult); ok {
+				expectedCode := 0
+				if cmd.Payload != nil {
+					if v, ok2 := cmd.Payload["expectedExitCode"].(float64); ok2 {
+						expectedCode = int(v)
+					}
+				}
+				if sr.ExitCode != expectedCode {
+					log.Printf("Command %s (run_script) exit code mismatch: got %d, expected %d", cmd.ID, sr.ExitCode, expectedCode)
+					ack.Status = "failure"
+				} else {
+					log.Printf("Command %s (%s) completed successfully (exit code %d)", cmd.ID, cmd.Type, sr.ExitCode)
+					ack.Status = "success"
+				}
+			} else {
+				log.Printf("Command %s (%s) completed successfully", cmd.ID, cmd.Type)
+				ack.Status = "success"
+			}
+		} else {
+			log.Printf("Command %s (%s) completed successfully", cmd.ID, cmd.Type)
+			ack.Status = "success"
+		}
 	}
 	d.addAck(ack)
 }

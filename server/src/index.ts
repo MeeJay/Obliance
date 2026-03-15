@@ -1,5 +1,9 @@
 import './env';
 import http from 'http';
+import type { IncomingMessage } from 'http';
+import type { Duplex } from 'stream';
+import { WebSocketServer } from 'ws';
+import type { WebSocket } from 'ws';
 import { config } from './config';
 import { db } from './db';
 import { createApp } from './app';
@@ -9,6 +13,7 @@ import { deviceService } from './services/device.service';
 import { setLiveAlertIO } from './services/liveAlert.service';
 import { scheduleService } from './services/schedule.service';
 import { commandService } from './services/command.service';
+import { remoteService } from './services/remote.service';
 
 async function main() {
   // Run database migrations
@@ -23,8 +28,91 @@ async function main() {
   const app = createApp();
   const server = http.createServer(app);
 
-  // Attach Socket.io
+  // Attach Socket.io — this registers its own 'upgrade' listener on `server`
   const io = createSocketServer(server);
+
+  // ── VNC WebSocket tunnel ──────────────────────────────────────────────────
+  // socket.io/engine.io registers an upgrade handler that destroys sockets whose
+  // path doesn't match "/socket.io/".  To safely handle VNC tunnel upgrades on
+  // the same HTTP port we intercept ALL upgrade events, route /api/remote/*
+  // paths to our own WS server, and forward everything else to socket.io's
+  // original listeners.
+  const vncWss = new WebSocketServer({ noServer: true });
+
+  // Capture and remove the upgrade listeners socket.io just registered so we
+  // can act as the sole dispatcher.
+  const sioUpgradeListeners = server.rawListeners('upgrade').slice();
+  server.removeAllListeners('upgrade');
+
+  // Session-token pattern: 64 hex chars produced by crypto.randomBytes(32)
+  const BROWSER_RE = /^\/api\/remote\/tunnel\/([0-9a-f]{64})$/;
+  const AGENT_RE   = /^\/api\/remote\/agent-tunnel\/([0-9a-f]{64})$/;
+
+  server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+
+    // ── Browser VNC viewer ──────────────────────────────────────────────────
+    const browserMatch = BROWSER_RE.exec(pathname);
+    if (browserMatch) {
+      const sessionToken = browserMatch[1];
+      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+        try {
+          const session = await db('remote_sessions')
+            .where({ session_token: sessionToken })
+            .first();
+          if (!session || session.status === 'closed') {
+            ws.close(4004, 'Session not found or already closed');
+            return;
+          }
+          remoteService.registerBrowserTunnel(sessionToken, ws);
+          logger.info({ sessionToken }, 'Browser VNC tunnel connected');
+        } catch (err) {
+          logger.error(err, 'VNC browser tunnel setup error');
+          ws.close(4000, 'Internal error');
+        }
+      });
+      return; // handled — do NOT forward to socket.io
+    }
+
+    // ── Agent VNC tunnel ────────────────────────────────────────────────────
+    const agentMatch = AGENT_RE.exec(pathname);
+    if (agentMatch) {
+      const sessionToken = agentMatch[1];
+      const apiKey = request.headers['x-api-key'] as string | undefined;
+      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+        try {
+          if (!apiKey) {
+            ws.close(4003, 'Missing X-Api-Key header');
+            return;
+          }
+          const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
+          if (!keyRow) {
+            ws.close(4003, 'Invalid API key');
+            return;
+          }
+          const session = await db('remote_sessions')
+            .where({ session_token: sessionToken })
+            .first();
+          if (!session) {
+            ws.close(4004, 'Session not found');
+            return;
+          }
+          remoteService.registerAgentTunnel(sessionToken, ws);
+          logger.info({ sessionToken }, 'Agent VNC tunnel connected');
+        } catch (err) {
+          logger.error(err, 'VNC agent tunnel setup error');
+          ws.close(4000, 'Internal error');
+        }
+      });
+      return; // handled — do NOT forward to socket.io
+    }
+
+    // ── Everything else → forward to socket.io's original listeners ─────────
+    for (const listener of sioUpgradeListeners) {
+      (listener as (...args: unknown[]) => void).call(server, request, socket, head);
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Initialize services that need the io instance
   deviceService.setIO(io);
@@ -48,6 +136,7 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     scheduleService.stop();
+    vncWss.close();
     server.close(() => {
       db.destroy();
       process.exit(0);
