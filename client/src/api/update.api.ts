@@ -8,12 +8,17 @@ export const updateApi = {
     const res = await apiClient.get<ApiResponse<{ items: DeviceUpdate[]; total: number }>>('/updates', { params });
     return res.data.data ?? { items: [], total: 0 };
   },
-  async approveUpdate(id: number): Promise<DeviceUpdate> {
-    const res = await apiClient.post<ApiResponse<DeviceUpdate>>(`/updates/${id}/approve`);
-    return res.data.data!;
+  async approveUpdate(deviceId: number, updateId: number): Promise<void> {
+    await apiClient.post(`/updates/device/${deviceId}/approve`, { updateId });
   },
-  async bulkApprove(updateIds: number[]): Promise<void> {
-    await apiClient.post('/updates/bulk/approve', { updateIds });
+  async approveAll(deviceId: number, severities?: string[]): Promise<void> {
+    await apiClient.post(`/updates/device/${deviceId}/approve`, {
+      severities: severities ?? ['critical', 'important', 'moderate', 'optional', 'unknown'],
+    });
+  },
+  async deployApproved(deviceId: number): Promise<{ dispatched: number }> {
+    const res = await apiClient.post<{ dispatched: number }>(`/updates/device/${deviceId}/deploy`);
+    return res.data;
   },
   async triggerScan(deviceId: number): Promise<void> {
     await apiClient.post(`/updates/scan/${deviceId}`);

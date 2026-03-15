@@ -430,21 +430,23 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
 function UpdatesTab({ deviceId }: { deviceId: number }) {
   const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const result = await updateApi.listUpdates({ deviceId });
-        setUpdates(result.items);
-      } catch {
-        toast.error('Failed to load updates');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [deviceId]);
+  const load = async () => {
+    setIsLoading(true);
+    try {
+      const result = await updateApi.listUpdates({ deviceId });
+      setUpdates(result.items);
+    } catch {
+      toast.error('Failed to load updates');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [deviceId]);
 
   const handleScan = async () => {
     try {
@@ -452,6 +454,45 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
       toast.success('Update scan queued');
     } catch {
       toast.error('Failed to queue scan');
+    }
+  };
+
+  const handleApprove = async (updateId: number) => {
+    setApprovingId(updateId);
+    try {
+      await updateApi.approveUpdate(deviceId, updateId);
+      setUpdates((prev) => prev.map((u) => u.id === updateId ? { ...u, status: 'approved' } : u));
+      toast.success('Update approved');
+    } catch {
+      toast.error('Failed to approve update');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleApproveAll = async () => {
+    setIsApprovingAll(true);
+    try {
+      await updateApi.approveAll(deviceId);
+      setUpdates((prev) => prev.map((u) => u.status === 'available' ? { ...u, status: 'approved' } : u));
+      toast.success('All updates approved');
+    } catch {
+      toast.error('Failed to approve all updates');
+    } finally {
+      setIsApprovingAll(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    setIsDeploying(true);
+    try {
+      const result = await updateApi.deployApproved(deviceId);
+      toast.success(`${result.dispatched} update(s) queued for installation`);
+      await load();
+    } catch {
+      toast.error('Failed to deploy updates');
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -463,38 +504,98 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
     unknown: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
   };
 
+  const STATUS_LABEL: Record<string, string> = {
+    available: 'Available',
+    approved: 'Approved',
+    pending_install: 'Installing…',
+    installed: 'Installed',
+    failed: 'Failed',
+  };
+
+  const available = updates.filter((u) => u.status === 'available');
+  const approved = updates.filter((u) => u.status === 'approved');
+
   if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{updates.filter((u) => u.status === 'available').length} available updates</p>
-        <button
-          onClick={handleScan}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
-        >
-          <Scan className="w-3.5 h-3.5" />
-          Scan
-        </button>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-text-muted">
+          {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} available</span>}
+          {available.length > 0 && approved.length > 0 && <span className="text-text-muted"> · </span>}
+          {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} approved</span>}
+          {available.length === 0 && approved.length === 0 && <span>No pending updates</span>}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {available.length > 0 && (
+            <button
+              onClick={handleApproveAll}
+              disabled={isApprovingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isApprovingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              Approve All
+            </button>
+          )}
+          {approved.length > 0 && (
+            <button
+              onClick={handleDeploy}
+              disabled={isDeploying}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+              Deploy ({approved.length})
+            </button>
+          )}
+          <button
+            onClick={handleScan}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
+          >
+            <Scan className="w-3.5 h-3.5" />
+            Scan
+          </button>
+        </div>
       </div>
+
+      {/* Update list */}
       {updates.length === 0 ? (
         <div className="p-12 text-center text-text-muted">
           <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No updates found</p>
+          <p>No updates found — run a scan to check for updates</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {updates.map((update) => (
-            <div key={update.id} className="p-4 bg-bg-secondary border border-border rounded-xl flex items-start gap-3">
-              <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 mt-0.5', SEVERITY_COLORS[update.severity] ?? SEVERITY_COLORS.unknown)}>
-                {update.severity}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-text-primary font-medium">{update.title ?? update.updateUid}</p>
-                <p className="text-xs text-text-muted">{update.source} · {update.status}</p>
+        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+          <div className="divide-y divide-border">
+            {updates.map((update) => (
+              <div key={update.id} className="px-4 py-3 flex items-center gap-3">
+                <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full border shrink-0', SEVERITY_COLORS[update.severity] ?? SEVERITY_COLORS.unknown)}>
+                  {update.severity}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-text-primary font-medium truncate">{update.title ?? update.updateUid}</p>
+                  <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
+                    update.status === 'approved' ? 'text-green-400' :
+                    update.status === 'installed' ? 'text-blue-400' :
+                    update.status === 'failed' ? 'text-red-400' : '',
+                  )}>{STATUS_LABEL[update.status] ?? update.status}</span></p>
+                </div>
+                {update.status === 'available' && (
+                  <button
+                    onClick={() => handleApprove(update.id)}
+                    disabled={approvingId === update.id}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors"
+                  >
+                    {approvingId === update.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
+                    Approve
+                  </button>
+                )}
+                {update.status === 'approved' && (
+                  <span className="shrink-0 text-xs text-green-400 opacity-60">✓ Approved</span>
+                )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1107,6 +1208,45 @@ export function DeviceDetailPage() {
   const [obliguardUrl, setObliguardUrl] = useState<string | null>(null);
   const [oblimapUrl, setOblimapUrl] = useState<string | null>(null);
 
+  // Quick-action state (header buttons — visible on every tab)
+  const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
+  const [headerVncSession, setHeaderVncSession] = useState<RemoteSession | null>(null);
+  const [isStartingVnc, setIsStartingVnc] = useState(false);
+
+  const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown') => {
+    setHeaderPending((p) => new Set(p).add(type));
+    try {
+      await commandApi.enqueue(deviceId, type, {});
+      toast.success(`${type.replace(/_/g, ' ')} command sent`);
+    } catch {
+      toast.error(`Failed to send ${type} command`);
+    } finally {
+      setHeaderPending((p) => { const n = new Set(p); n.delete(type); return n; });
+    }
+  };
+
+  const handleHeaderVnc = async () => {
+    setIsStartingVnc(true);
+    try {
+      const session = await remoteApi.startSession(deviceId, 'vnc');
+      toast.success('VNC session created — waiting for agent…');
+      // Listen via socket for tunnel ready
+      const socket = getSocket();
+      if (socket) {
+        const onReady = (s: RemoteSession) => {
+          if (s.deviceId !== deviceId || s.id !== session.id) return;
+          if (s.protocol === 'vnc') setHeaderVncSession(s);
+          socket.off('REMOTE_TUNNEL_READY', onReady);
+        };
+        socket.on('REMOTE_TUNNEL_READY', onReady);
+      }
+    } catch {
+      toast.error('Failed to start VNC session');
+    } finally {
+      setIsStartingVnc(false);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
@@ -1159,6 +1299,15 @@ export function DeviceDetailPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* VNC overlay launched from header */}
+      {headerVncSession && (
+        <VncViewer
+          session={headerVncSession}
+          title={`VNC — ${device.displayName || device.hostname}`}
+          onClose={() => setHeaderVncSession(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-4">
         <Link to="/devices" className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5">
@@ -1211,6 +1360,47 @@ export function DeviceDetailPage() {
               Oblimap
             </button>
           )}
+          {/* ── Quick actions ── */}
+          <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
+            <button
+              onClick={handleHeaderVnc}
+              disabled={isStartingVnc || device.status !== 'online'}
+              title="VNC Remote Control"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {isStartingVnc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+              VNC
+            </button>
+            <div className="w-px h-5 bg-border" />
+            <button
+              onClick={() => handleHeaderAction('restart_agent')}
+              disabled={headerPending.has('restart_agent')}
+              title="Restart Agent"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Agent
+            </button>
+            <button
+              onClick={() => handleHeaderAction('reboot')}
+              disabled={headerPending.has('reboot')}
+              title="Reboot device"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Reboot
+            </button>
+            <button
+              onClick={() => handleHeaderAction('shutdown')}
+              disabled={headerPending.has('shutdown')}
+              title="Shutdown device"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
+              Off
+            </button>
+          </div>
+
           <button
             onClick={() => fetchDevice(deviceId)}
             className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
