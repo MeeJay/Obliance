@@ -94,6 +94,7 @@
     "compliance": "Conformité",
     "remote": "Distant",
     "reports": "Rapports",
+    "history": "Historique",
     "download": "Télécharger",
     "navigation": "Navigation"
   },
@@ -534,7 +535,11 @@
       "otpSmtpDesc": "Utilisé pour envoyer des codes à usage unique quand l'OTP par e-mail est activé.",
       "noneOption": "— Aucun —"
     },
-    "failedUpdate": "Échec de la mise à jour du paramètre"
+    "failedUpdate": "Échec de la mise à jour du paramètre",
+    "agent": {
+      "scanInterval": "Intervalle de scan par défaut",
+      "scanIntervalDesc": "Fréquence à laquelle les agents scannent automatiquement l'inventaire, les mises à jour et la conformité (secondes). 0 = désactivé."
+    }
   },
   "profile": {
     "title": "Mon profil",

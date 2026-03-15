@@ -36,6 +36,7 @@ type pushResponse struct {
 	Config        *struct {
 		CheckIntervalSeconds int `json:"checkIntervalSeconds"`
 		PushIntervalSeconds  int `json:"pushIntervalSeconds"`
+		ScanIntervalSeconds  int `json:"scanIntervalSeconds"`
 	} `json:"config,omitempty"`
 	Commands    []AgentCommand `json:"commands,omitempty"`
 	NextPollIn  int            `json:"nextPollIn,omitempty"` // seconds
@@ -113,6 +114,12 @@ func push(cfg *Config) {
 				cfg.CheckIntervalSeconds = interval
 				_ = saveConfig(cfg)
 				log.Printf("Check interval updated to %ds", cfg.CheckIntervalSeconds)
+			}
+			// Update scan interval if the server provides one.
+			if result.Config.ScanIntervalSeconds != cfg.ScanIntervalSeconds {
+				cfg.ScanIntervalSeconds = result.Config.ScanIntervalSeconds
+				_ = saveConfig(cfg)
+				log.Printf("Scan interval updated to %ds", cfg.ScanIntervalSeconds)
 			}
 		}
 

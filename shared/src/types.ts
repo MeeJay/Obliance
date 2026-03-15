@@ -297,6 +297,7 @@ export interface AgentPushResponse {
 
 export interface AgentConfig {
   pushIntervalSeconds: number;
+  scanIntervalSeconds?: number;  // 0 = disabled, >0 = run all scans every N seconds
   displayConfig: DeviceDisplayConfig;
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;

@@ -63,6 +63,7 @@ export function SettingsPage() {
   const [agentGlobal, setAgentGlobal] = useState<AgentGlobalConfig | null>(null);
   const [agentSaving, setAgentSaving] = useState(false);
   const [agentInterval, setAgentInterval] = useState('');
+  const [agentScanInterval, setAgentScanInterval] = useState('');
   const [agentMaxMissed, setAgentMaxMissed] = useState('');
 
   // ── SSO Integration Configs ──
@@ -88,6 +89,7 @@ export function SettingsPage() {
     appConfigApi.getAgentGlobal().then((cfg) => {
       setAgentGlobal(cfg);
       setAgentInterval(cfg.checkIntervalSeconds !== null ? String(cfg.checkIntervalSeconds) : '');
+      setAgentScanInterval(cfg.scanIntervalSeconds !== null ? String(cfg.scanIntervalSeconds) : '');
       setAgentMaxMissed(cfg.maxMissedPushes !== null ? String(cfg.maxMissedPushes) : '');
     }).catch(() => {});
     appConfigApi.getObliviewConfig().then((cfg) => { setObliviewCfg(cfg); setObliviewUrl(cfg.url ?? ''); }).catch(() => {});
@@ -196,6 +198,7 @@ export function SettingsPage() {
     try {
       const updated = await appConfigApi.patchAgentGlobal({
         checkIntervalSeconds: agentInterval.trim() ? Number(agentInterval) : null,
+        scanIntervalSeconds: agentScanInterval.trim() ? Number(agentScanInterval) : null,
         heartbeatMonitoring: agentGlobal.heartbeatMonitoring,
         maxMissedPushes: agentMaxMissed.trim() ? Number(agentMaxMissed) : null,
       });
@@ -280,6 +283,23 @@ export function SettingsPage() {
                     type="number" value={agentInterval} min={5} max={86400}
                     onChange={e => setAgentInterval(e.target.value)}
                     placeholder={String(DEFAULT_AGENT_GLOBAL_CONFIG.checkIntervalSeconds)}
+                    className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
+                  />
+                  <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>
+                </div>
+              </div>
+
+              {/* Scan Interval */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.scanInterval')}</div>
+                  <div className="text-xs text-text-muted">{t('settings.agent.scanIntervalDesc')}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" value={agentScanInterval} min={0} max={86400}
+                    onChange={e => setAgentScanInterval(e.target.value)}
+                    placeholder="0"
                     className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
                   />
                   <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>

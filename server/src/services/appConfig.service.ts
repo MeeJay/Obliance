@@ -8,6 +8,7 @@ const OBLIMAP_CONFIG_KEY = 'oblimap_config';
 
 export interface AgentGlobalConfig {
   checkIntervalSeconds: number | null;
+  scanIntervalSeconds: number | null;  // 0 = disabled, >0 = run all scans every N seconds
   heartbeatMonitoring: boolean | null;
   maxMissedPushes: number | null;
   notificationTypes: DeviceNotificationTypes | null;
@@ -83,6 +84,7 @@ export const appConfigService = {
     if (!raw) {
       return {
         checkIntervalSeconds: null,
+        scanIntervalSeconds: null,
         heartbeatMonitoring: null,
         maxMissedPushes: null,
         notificationTypes: null,
@@ -93,6 +95,7 @@ export const appConfigService = {
     } catch {
       return {
         checkIntervalSeconds: null,
+        scanIntervalSeconds: null,
         heartbeatMonitoring: null,
         maxMissedPushes: null,
         notificationTypes: null,

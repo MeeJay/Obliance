@@ -5,6 +5,7 @@ interface ApiResponse<T> { data?: T; error?: string; }
 
 export interface AgentGlobalConfig {
   checkIntervalSeconds: number | null;
+  scanIntervalSeconds: number | null;  // 0 = disabled
   heartbeatMonitoring: boolean;
   maxMissedPushes: number | null;
   notificationTypes: DeviceNotificationTypes | null;

@@ -47,6 +47,7 @@ type Config struct {
 	APIKey               string `json:"apiKey"`
 	DeviceUUID           string `json:"deviceUuid"`
 	CheckIntervalSeconds int    `json:"checkIntervalSeconds"`
+	ScanIntervalSeconds  int    `json:"scanIntervalSeconds,omitempty"` // 0 = disabled
 	AgentVersion         string `json:"agentVersion"`
 	BackoffUntil         int64  `json:"_backoffUntil,omitempty"`
 }
@@ -335,6 +336,24 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 var backoffSteps = []int{5 * 60, 10 * 60, 30 * 60, 60 * 60}
 var backoffLevel = 0
 
+// runScanAll triggers an automatic scan of inventory, updates, and compliance
+// by dispatching synthetic commands through the dispatcher.  The ACKs are
+// accumulated and sent on the next push cycle.  If the server-side command IDs
+// don't exist in the DB the server simply ignores the unknown ACKs.
+func runScanAll(cfg *Config) {
+	if dispatcher == nil {
+		return
+	}
+	log.Printf("Periodic Scan All triggered")
+	for _, t := range []string{"scan_inventory", "scan_updates", "check_compliance"} {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		syntheticID := fmt.Sprintf("auto-%08x-%04x-%04x-%04x-%012x",
+			b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+		dispatcher.HandleCommand(AgentCommand{ID: syntheticID, Type: t})
+	}
+}
+
 func mainLoop(cfg *Config) {
 	log.Printf("Obliance Agent v%s starting", cfg.AgentVersion)
 	log.Printf("Server: %s", cfg.ServerURL)
@@ -348,6 +367,23 @@ func mainLoop(cfg *Config) {
 	// so the server can push commands instantly (e.g. open_remote_tunnel for VNC)
 	// instead of waiting for the next poll cycle (up to 60 s).
 	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
+
+	// Periodic scan goroutine — wakes up every minute and triggers a full scan
+	// when cfg.ScanIntervalSeconds seconds have elapsed since the last scan.
+	go func() {
+		lastScan := time.Time{} // zero = never scanned
+		for {
+			time.Sleep(60 * time.Second)
+			secs := cfg.ScanIntervalSeconds
+			if secs <= 0 {
+				continue // disabled
+			}
+			if time.Since(lastScan) >= time.Duration(secs)*time.Second {
+				runScanAll(cfg)
+				lastScan = time.Now()
+			}
+		}
+	}()
 
 	// Check for a newer version before entering the main loop.
 	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).

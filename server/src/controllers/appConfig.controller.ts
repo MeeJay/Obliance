@@ -37,9 +37,10 @@ export const appConfigController = {
   /** PATCH /admin/config/agent-global */
   async patchAgentGlobal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { checkIntervalSeconds, heartbeatMonitoring, maxMissedPushes, notificationTypes } = req.body;
+      const { checkIntervalSeconds, scanIntervalSeconds, heartbeatMonitoring, maxMissedPushes, notificationTypes } = req.body;
       const patch: Record<string, unknown> = {};
       if ('checkIntervalSeconds' in req.body) patch.checkIntervalSeconds = checkIntervalSeconds;
+      if ('scanIntervalSeconds' in req.body) patch.scanIntervalSeconds = scanIntervalSeconds;
       if ('heartbeatMonitoring' in req.body) patch.heartbeatMonitoring = heartbeatMonitoring;
       if ('maxMissedPushes' in req.body) patch.maxMissedPushes = maxMissedPushes;
       if ('notificationTypes' in req.body) patch.notificationTypes = notificationTypes;

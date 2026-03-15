@@ -17,6 +17,7 @@ import { UpdatesPage } from '@/pages/UpdatesPage';
 import { CompliancePage } from '@/pages/CompliancePage';
 import { RemoteSessionsPage } from '@/pages/RemoteSessionsPage';
 import { ReportsPage } from '@/pages/ReportsPage';
+import { HistoryPage } from '@/pages/HistoryPage';
 import { GroupManagePage } from '@/pages/GroupManagePage';
 import { GroupDetailPage } from '@/pages/GroupDetailPage';
 import { GroupEditPage } from '@/pages/GroupEditPage';
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/remote" element={<RemoteSessionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/history" element={<HistoryPage />} />
             {/* Groups */}
             <Route path="/group/:id" element={<GroupDetailPage />} />
             <Route path="/group/:id/edit" element={<GroupEditPage />} />

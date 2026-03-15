@@ -4,7 +4,7 @@ import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
-  Server, Power, RotateCcw, Loader2,
+  Server, Power, RotateCcw, Loader2, ScanLine,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -1395,7 +1395,9 @@ export function DeviceDetailPage() {
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
   const [headerVncSession, setHeaderVncSession] = useState<RemoteSession | null>(null);
+  const [waitingVncSession, setWaitingVncSession] = useState<RemoteSession | null>(null);
   const [isStartingVnc, setIsStartingVnc] = useState(false);
+  const vncReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
 
   const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown') => {
     setHeaderPending((p) => new Set(p).add(type));
@@ -1413,21 +1415,56 @@ export function DeviceDetailPage() {
     setIsStartingVnc(true);
     try {
       const session = await remoteApi.startSession(deviceId, 'vnc');
+      setWaitingVncSession(session);
       toast.success('VNC session created — waiting for agent…');
-      // Listen via socket for tunnel ready
       const socket = getSocket();
       if (socket) {
         const onReady = (s: RemoteSession) => {
           if (s.deviceId !== deviceId || s.id !== session.id) return;
-          if (s.protocol === 'vnc') setHeaderVncSession(s);
+          if (s.protocol === 'vnc') {
+            setWaitingVncSession(null);
+            setHeaderVncSession(s);
+          }
           socket.off('REMOTE_TUNNEL_READY', onReady);
+          vncReadyListenerRef.current = null;
         };
+        vncReadyListenerRef.current = onReady;
         socket.on('REMOTE_TUNNEL_READY', onReady);
       }
     } catch {
       toast.error('Failed to start VNC session');
     } finally {
       setIsStartingVnc(false);
+    }
+  };
+
+  const handleCancelVnc = async () => {
+    const socket = getSocket();
+    if (socket && vncReadyListenerRef.current) {
+      socket.off('REMOTE_TUNNEL_READY', vncReadyListenerRef.current);
+      vncReadyListenerRef.current = null;
+    }
+    const session = waitingVncSession;
+    setWaitingVncSession(null);
+    if (session) {
+      try { await remoteApi.endSession(session.id); } catch {}
+    }
+  };
+
+  const [isScanningAll, setIsScanningAll] = useState(false);
+  const handleScanAll = async () => {
+    setIsScanningAll(true);
+    try {
+      await Promise.all([
+        commandApi.enqueue(deviceId, 'scan_inventory'),
+        commandApi.enqueue(deviceId, 'scan_updates'),
+        commandApi.enqueue(deviceId, 'check_compliance'),
+      ]);
+      toast.success('Scan All commands dispatched');
+    } catch {
+      toast.error('Failed to dispatch Scan All');
+    } finally {
+      setIsScanningAll(false);
     }
   };
 
@@ -1544,17 +1581,41 @@ export function DeviceDetailPage() {
               Oblimap
             </button>
           )}
+          {/* ── Scan All ── */}
+          <button
+            onClick={handleScanAll}
+            disabled={isScanningAll || device.status !== 'online'}
+            title="Scan All — triggers inventory, updates and compliance scans"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+            Scan All
+          </button>
+
           {/* ── Quick actions ── */}
           <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
             <button
               onClick={handleHeaderVnc}
-              disabled={isStartingVnc || device.status !== 'online'}
+              disabled={isStartingVnc || !!waitingVncSession || device.status !== 'online'}
               title="VNC Remote Control"
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {isStartingVnc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-              VNC
+              {isStartingVnc
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : waitingVncSession
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <MonitorPlay className="w-3.5 h-3.5" />}
+              {waitingVncSession ? 'Waiting…' : 'VNC'}
             </button>
+            {waitingVncSession && (
+              <button
+                onClick={handleCancelVnc}
+                title="Cancel VNC"
+                className="p-1 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             <div className="w-px h-5 bg-border" />
             <button
               onClick={() => handleHeaderAction('restart_agent')}

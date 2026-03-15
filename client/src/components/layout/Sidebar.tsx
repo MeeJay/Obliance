@@ -34,6 +34,7 @@ import {
   ShieldCheck,
   FileBarChart2,
   Download,
+  History,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
@@ -449,6 +450,7 @@ export function Sidebar() {
     { label: t('nav.compliance'), path: '/compliance', icon: <ShieldCheck size={18} /> },
     { label: t('nav.remote'),     path: '/remote',     icon: <Laptop size={18} /> },
     { label: t('nav.reports'),    path: '/reports',    icon: <FileBarChart2 size={18} /> },
+    { label: t('nav.history'),    path: '/history',    icon: <History size={18} /> },
     { label: t('nav.download'),   path: '/download',   icon: <Download size={18} /> },
   ];
 

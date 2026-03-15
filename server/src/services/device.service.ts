@@ -5,6 +5,7 @@ import { db } from '../db';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '@obliance/shared';
 import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck } from '@obliance/shared';
+import { appConfigService } from './appConfig.service';
 
 // ── Agent version cache (re-read from disk every 5 min) ──────────────────────
 let _cachedVersion: string | null = null;
@@ -337,6 +338,7 @@ class DeviceService {
     return {
       config: {
         pushIntervalSeconds: config.pushIntervalSeconds,
+        ...(config.scanIntervalSeconds > 0 && { scanIntervalSeconds: config.scanIntervalSeconds }),
         displayConfig: config.displayConfig,
         sensorDisplayNames: config.sensorDisplayNames,
         notificationTypes: config.notificationTypes,
@@ -365,13 +367,17 @@ class DeviceService {
       pushIntervalSeconds = device.push_interval_seconds || groupConfig.pushIntervalSeconds || 60;
     }
 
-    // Get fast poll from app_config
+    // Get fast poll and scan interval from app_config
     const fastPollConfig = await db('app_config').where({ key: 'fast_poll_interval' }).first();
     if (fastPollConfig?.value) fastPollInterval = parseInt(fastPollConfig.value);
+
+    const globalCfg = await appConfigService.getAgentGlobal();
+    const scanIntervalSeconds = globalCfg.scanIntervalSeconds ?? 0;
 
     return {
       pushIntervalSeconds,
       fastPollInterval,
+      scanIntervalSeconds,
       displayConfig: device.display_config || {},
       sensorDisplayNames: device.sensor_display_names || {},
       notificationTypes: device.notification_types || {},

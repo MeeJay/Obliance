@@ -2,7 +2,8 @@ node_modules
 **/node_modules
 **/dist
 !agent/dist
-!desktop-app/dist
+!obli.tools/dist
+!obli.tools/VERSION
 .git
 .env
 *.md

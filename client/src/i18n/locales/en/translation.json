@@ -95,6 +95,7 @@
     "compliance": "Compliance",
     "remote": "Remote",
     "reports": "Reports",
+    "history": "History",
     "download": "Download",
     "navigation": "Navigation"
   },
@@ -517,7 +518,9 @@
       "heartbeatMonitoring": "Heartbeat Monitoring",
       "heartbeatMonitoringDesc": "Alert when an agent stops pushing (goes offline). Overridable per group or device.",
       "maxMissedPushes": "Max Missed Pushes",
-      "maxMissedPushesDesc": "Consecutive missed pushes before marking an agent as offline. Overridable per group."
+      "maxMissedPushesDesc": "Consecutive missed pushes before marking an agent as offline. Overridable per group.",
+      "scanInterval": "Default Scan Interval",
+      "scanIntervalDesc": "How often agents automatically scan inventory, updates and compliance (seconds). 0 = disabled."
     },
     "smtp": {
       "title": "SMTP Servers",
