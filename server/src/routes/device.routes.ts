@@ -60,6 +60,24 @@ router.post('/:id/refuse', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/:id/suspend
+router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
+  try {
+    const device = await deviceService.suspendDevice(parseInt(req.params.id), req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    res.json(device);
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/unsuspend
+router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
+  try {
+    const device = await deviceService.unsuspendDevice(parseInt(req.params.id), req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    res.json(device);
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/devices/:id
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {

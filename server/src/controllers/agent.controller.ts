@@ -213,8 +213,14 @@ export function agentInstallerWindowsMsi(_req: Request, res: Response): void {
 
 export async function listKeys(req: Request, res: Response): Promise<void> {
   const rows = await db('agent_api_keys')
-    .where({ tenant_id: req.tenantId })
-    .orderBy('created_at', 'desc');
+    .where({ 'agent_api_keys.tenant_id': req.tenantId })
+    .leftJoin('devices', function () {
+      this.on('devices.api_key_id', '=', 'agent_api_keys.id')
+          .andOn('devices.approval_status', db.raw("'approved'"));
+    })
+    .groupBy('agent_api_keys.id')
+    .select('agent_api_keys.*', db.raw('COUNT(devices.id)::int as device_count'))
+    .orderBy('agent_api_keys.created_at', 'desc');
   res.json({ success: true, data: rows });
 }
 

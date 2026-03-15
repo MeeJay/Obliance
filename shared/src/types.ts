@@ -211,6 +211,7 @@ export interface AgentApiKey {
   createdBy: number | null;
   createdAt: string;
   lastUsedAt: string | null;
+  deviceCount: number;
 }
 
 // ─── COMMAND QUEUE ────────────────────────────────────────────────────────────

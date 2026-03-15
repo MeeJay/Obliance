@@ -38,6 +38,14 @@ export const deviceApi = {
   async bulkDelete(deviceIds: number[]): Promise<void> {
     await apiClient.delete('/devices/bulk/delete', { data: { deviceIds } });
   },
+  async suspend(id: number): Promise<Device> {
+    const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/suspend`);
+    return res.data.data!;
+  },
+  async unsuspend(id: number): Promise<Device> {
+    const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/unsuspend`);
+    return res.data.data!;
+  },
 
   // API Keys
   async listKeys(): Promise<AgentApiKey[]> {

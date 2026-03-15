@@ -133,6 +133,22 @@ class DeviceService {
     return this.getDeviceById(id, tenantId);
   }
 
+  async suspendDevice(id: number, tenantId: number) {
+    await db('devices').where({ id, tenant_id: tenantId }).update({
+      status: 'suspended',
+      updated_at: new Date(),
+    });
+    return this.getDeviceById(id, tenantId);
+  }
+
+  async unsuspendDevice(id: number, tenantId: number) {
+    await db('devices').where({ id, tenant_id: tenantId }).update({
+      status: 'offline',
+      updated_at: new Date(),
+    });
+    return this.getDeviceById(id, tenantId);
+  }
+
   async deleteDevice(id: number, tenantId: number) {
     await db('devices').where({ id, tenant_id: tenantId }).delete();
     if (this.io) {
