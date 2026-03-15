@@ -69,15 +69,15 @@ COPY --from=go-agent-builder /build/dist/obliance-agent-darwin-arm64  ./agent/di
 # If absent, the /api/agent/installer/windows.msi endpoint returns 404.
 COPY agent/dist/ ./agent/dist/
 
-# Desktop app VERSION file (read by GET /api/agent/desktop-version to drive the update banner).
+# Obli.tools VERSION file (read by GET /api/agent/desktop-version to drive the update banner).
 # Must be present — without it the endpoint returns 0.0.0 and the banner never fires.
-COPY desktop-app/VERSION ./desktop-app/
+COPY obli.tools/VERSION ./obli.tools/
 
-# Desktop app release binaries (build on Windows: build_icon_and_obliance.ps1 → dist/Obliance.exe)
-#                              (build on macOS:   desktop-app/build-mac.sh   → dist/Obliance.zip)
+# Obli.tools release binaries (build on Windows: obli.tools/build-windows.ps1 → dist/ObliTools.exe)
+#                              (build on macOS:   obli.tools/build-mac.sh      → dist/ObliTools-*.dmg/zip)
 # If absent, the /downloads/:filename endpoint returns 404 (no hard failure).
-RUN mkdir -p ./desktop-app/dist
-COPY desktop-app/dist/ ./desktop-app/dist/
+RUN mkdir -p ./obli.tools/dist
+COPY obli.tools/dist/ ./obli.tools/dist/
 
 COPY server/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

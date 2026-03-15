@@ -33,7 +33,7 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
   { id: 'remote', label: 'Remote', icon: MonitorPlay },
   { id: 'services', label: 'Services', icon: Server },
-  { id: 'commands', label: 'Commands', icon: History },
+  { id: 'commands', label: 'Tasks', icon: History },
 ];
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
@@ -900,72 +900,256 @@ function RemoteTab({ device }: { device: Device }) {
   );
 }
 
-// ─── Commands Tab ──────────────────────────────────────────────────────────────
+// ─── Commands / Tasks Tab ───────────────────────────────────────────────────────
+
+const COMMAND_LABELS: Record<string, string> = {
+  run_script: 'Run Script',
+  install_update: 'Install Update',
+  scan_inventory: 'Scan Inventory',
+  scan_updates: 'Scan Updates',
+  check_compliance: 'Check Compliance',
+  open_remote_tunnel: 'Open Tunnel',
+  close_remote_tunnel: 'Close Tunnel',
+  reboot: 'Reboot',
+  shutdown: 'Shutdown',
+  restart_agent: 'Restart Agent',
+  list_services: 'List Services',
+  restart_service: 'Restart Service',
+  install_software: 'Install Software',
+  uninstall_software: 'Uninstall Software',
+};
+
+const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  pending:     { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Pending' },
+  sent:        { color: 'text-blue-300',   bg: 'bg-blue-400/10',   label: 'Sent' },
+  ack_running: { color: 'text-blue-400',   bg: 'bg-blue-400/10',   label: 'Running' },
+  success:     { color: 'text-green-400',  bg: 'bg-green-400/10',  label: 'Success' },
+  failure:     { color: 'text-red-400',    bg: 'bg-red-400/10',    label: 'Failed' },
+  timeout:     { color: 'text-orange-400', bg: 'bg-orange-400/10', label: 'Timeout' },
+  cancelled:   { color: 'text-gray-400',   bg: 'bg-gray-400/10',   label: 'Cancelled' },
+};
+
+type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
+  const socket = getSocket();
   const [commands, setCommands] = useState<Command[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<CmdFilter>('all');
+  const [cancelling, setCancelling] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const result = await commandApi.list(deviceId);
-        setCommands(result.items);
-      } catch {
-        toast.error('Failed to load commands');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [deviceId]);
-
-  const STATUS_COLORS: Record<string, string> = {
-    success: 'text-green-400',
-    failure: 'text-red-400',
-    ack_running: 'text-blue-400',
-    pending: 'text-yellow-400',
-    sent: 'text-blue-400',
-    timeout: 'text-orange-400',
-    cancelled: 'text-gray-400',
+  const load = async () => {
+    setIsLoading(true);
+    try {
+      const result = await commandApi.list(deviceId);
+      setCommands(result.items);
+    } catch {
+      toast.error('Failed to load tasks');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+  useEffect(() => { load(); }, [deviceId]);
+
+  // Real-time: update or prepend commands as they change
+  useEffect(() => {
+    const onUpdate = (cmd: Command) => {
+      if (cmd.deviceId !== deviceId) return;
+      setCommands(prev => {
+        const idx = prev.findIndex(c => c.id === cmd.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = cmd;
+          return next;
+        }
+        return [cmd, ...prev];
+      });
+    };
+    socket.on('COMMAND_UPDATED', onUpdate);
+    socket.on('COMMAND_RESULT', onUpdate);
+    return () => {
+      socket.off('COMMAND_UPDATED', onUpdate);
+      socket.off('COMMAND_RESULT', onUpdate);
+    };
+  }, [deviceId, socket]);
+
+  const handleCancel = async (cmdId: string) => {
+    setCancelling(prev => new Set(prev).add(cmdId));
+    try {
+      await commandApi.cancel(cmdId);
+      setCommands(prev => prev.map(c => c.id === cmdId ? { ...c, status: 'cancelled' as const } : c));
+    } catch {
+      toast.error('Failed to cancel task');
+    } finally {
+      setCancelling(prev => { const s = new Set(prev); s.delete(cmdId); return s; });
+    }
+  };
+
+  const counts: Record<CmdFilter, number> = {
+    all:       commands.length,
+    queued:    commands.filter(c => c.status === 'pending' || c.status === 'sent').length,
+    running:   commands.filter(c => c.status === 'ack_running').length,
+    done:      commands.filter(c => c.status === 'success').length,
+    failed:    commands.filter(c => c.status === 'failure' || c.status === 'timeout').length,
+    cancelled: commands.filter(c => c.status === 'cancelled').length,
+  };
+
+  const filtered = commands.filter(cmd => {
+    if (filter === 'queued')    return cmd.status === 'pending' || cmd.status === 'sent';
+    if (filter === 'running')   return cmd.status === 'ack_running';
+    if (filter === 'done')      return cmd.status === 'success';
+    if (filter === 'failed')    return cmd.status === 'failure' || cmd.status === 'timeout';
+    if (filter === 'cancelled') return cmd.status === 'cancelled';
+    return true;
+  });
+
+  const FILTER_PILLS: { key: CmdFilter; label: string }[] = [
+    { key: 'all',       label: 'All' },
+    { key: 'queued',    label: 'Queued' },
+    { key: 'running',   label: 'Running' },
+    { key: 'done',      label: 'Done' },
+    { key: 'failed',    label: 'Failed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-48">
+      <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      {commands.length === 0 ? (
+      {/* Header: filters + refresh */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {FILTER_PILLS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={clsx(
+                'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+                filter === key
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-bg-secondary text-text-muted hover:text-text-primary border-border'
+              )}
+            >
+              {label}
+              {counts[key] > 0 && (
+                <span className={clsx(
+                  'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                  filter === key ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted'
+                )}>
+                  {counts[key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-border text-text-muted hover:text-text-primary transition-colors text-xs"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </button>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
         <div className="p-12 text-center text-text-muted">
           <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No commands issued yet</p>
+          <p>{filter === 'all' ? 'No tasks issued yet' : 'No tasks with this status'}</p>
         </div>
       ) : (
         <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Command</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Task</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Priority</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
+                <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {commands.map((cmd) => (
-                <tr key={cmd.id} className="hover:bg-bg-tertiary transition-colors">
-                  <td className="px-4 py-2 text-sm text-text-primary font-mono">{cmd.type}</td>
-                  <td className="px-4 py-2">
-                    <span className={clsx('text-xs font-medium', STATUS_COLORS[cmd.status] ?? 'text-text-muted')}>
-                      {cmd.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell">{cmd.priority}</td>
-                  <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell">
-                    {new Date(cmd.createdAt).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((cmd) => {
+                const sc = CMD_STATUS_CONFIG[cmd.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: cmd.status };
+                const isRunning = cmd.status === 'ack_running';
+                const canCancel = cmd.status === 'pending';
+                const durationMs = cmd.result?.duration;
+                const payloadKeys = Object.keys(cmd.payload ?? {});
+
+                return (
+                  <tr key={cmd.id} className="hover:bg-bg-tertiary transition-colors">
+                    {/* Task label + details */}
+                    <td className="px-4 py-3 max-w-0">
+                      <div className="text-sm text-text-primary font-medium truncate">
+                        {COMMAND_LABELS[cmd.type] ?? cmd.type}
+                      </div>
+                      {payloadKeys.length > 0 && (
+                        <div className="text-xs text-text-muted mt-0.5 font-mono truncate">
+                          {payloadKeys.filter(k => k !== 'sessionToken').map(k => `${k}=${String(cmd.payload[k])}`).join(' ')}
+                        </div>
+                      )}
+                      {cmd.result?.error && (
+                        <div className="text-xs text-red-400 mt-0.5 truncate" title={cmd.result.error}>
+                          {cmd.result.error}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Status badge */}
+                    <td className="px-4 py-3">
+                      <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
+                        {isRunning && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {sc.label}
+                      </span>
+                    </td>
+
+                    {/* Priority */}
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className={clsx('text-xs capitalize', {
+                        'text-red-400':    cmd.priority === 'urgent',
+                        'text-orange-400': cmd.priority === 'high',
+                        'text-text-muted': cmd.priority === 'normal' || cmd.priority === 'low',
+                      })}>
+                        {cmd.priority}
+                      </span>
+                    </td>
+
+                    {/* Created at */}
+                    <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
+                      {new Date(cmd.createdAt).toLocaleString()}
+                    </td>
+
+                    {/* Duration */}
+                    <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
+                      {durationMs != null
+                        ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
+                        : '—'}
+                    </td>
+
+                    {/* Cancel action */}
+                    <td className="px-4 py-3 text-right">
+                      {canCancel && (
+                        <button
+                          onClick={() => handleCancel(cmd.id)}
+                          disabled={cancelling.has(cmd.id)}
+                          title="Cancel task"
+                          className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
+                        >
+                          {cancelling.has(cmd.id)
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <X className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

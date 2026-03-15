@@ -13,6 +13,6 @@ export const commandApi = {
     return res.data.data!;
   },
   async cancel(commandId: string): Promise<void> {
-    await apiClient.post(`/commands/${commandId}/cancel`);
+    await apiClient.delete(`/commands/${commandId}`);
   },
 };
