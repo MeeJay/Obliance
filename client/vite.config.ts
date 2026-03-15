@@ -18,6 +18,10 @@ export default defineConfig({
       '@obliance/shared': path.resolve(__dirname, '../shared/src'),
     },
   },
+  build: {
+    // noVNC uses top-level await internally — requires ES2022+ target
+    target: 'esnext',
+  },
   server: {
     port: 5173,
     proxy: {
