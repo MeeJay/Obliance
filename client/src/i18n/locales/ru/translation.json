@@ -350,9 +350,9 @@
     "actionUnsuspend": "Возобновить",
     "actionRefuse": "Отклонить",
     "actionDelete": "Удалить",
-    "confirmDelete": "Удалить это устройство?",
-    "confirmRefuse": "Отклонить это устройство?",
-    "confirmSuspend": "Приостановить это устройство?",
+    "confirmDelete": "Удалить {{hostname}}?",
+    "confirmRefuse": "Отклонить {{hostname}}?",
+    "confirmSuspend": "Приостановить {{hostname}}?",
     "noDevices": "Устройства не найдены.",
     "statusOnline": "В сети",
     "statusOffline": "Не в сети",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-ключи",
       "description": "API-ключи используются для аутентификации агентов при установке.",
-      "newKey": "Название нового ключа",
+      "newKey": "Новый ключ",
       "create": "Создать",
       "creating": "Создание...",
       "noKeys": "API-ключей пока нет.",
@@ -371,18 +371,24 @@
       "copied": "Скопировано!",
       "revokeKey": "Отозвать ключ",
       "confirmRevoke": "Отозвать этот API-ключ?",
-      "devices": "устройств",
+      "devices": "{{count}} устр.",
       "created": "Создан",
       "lastUsed": "Последнее использование",
       "never": "Никогда",
-      "newKeyAlert": "Новый ключ создан — скопируйте его сейчас, он больше не будет показан:"
+      "newKeyAlert": "Новый ключ создан — скопируйте его сейчас, он больше не будет показан:",
+      "namePlaceholder": "Имя ключа...",
+      "createSuccess": "API-ключ создан",
+      "failedCreate": "Не удалось создать ключ",
+      "confirmDelete": "Удалить этот API-ключ?",
+      "deleteSuccess": "API-ключ удалён",
+      "failedDelete": "Не удалось удалить ключ"
     },
     "addModal": {
       "title": "Добавить устройство",
-      "agentVersion": "Версия агента",
+      "agentVersion": "Агент v{{version}}",
       "loading": "Загрузка...",
       "noKeys": "Нет доступных API-ключей. Создайте один на вкладке API-ключи.",
-      "deviceCount": "устройств",
+      "deviceCount": "{{count}} устр.",
       "copyCommand": "Копировать",
       "copied": "Скопировано!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Закрыть"
-    }
+    },
+    "approveSuccess": "Устройство одобрено",
+    "refuseSuccess": "Устройство отклонено",
+    "suspendSuccess": "Устройство приостановлено",
+    "unsuspendSuccess": "Устройство возобновлено",
+    "deleteSuccess": "Устройство удалено"
   }
 }

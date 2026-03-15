@@ -8,14 +8,12 @@ const router = Router();
 
 // GET is available to all authenticated users (needed for profile page to check allow_2fa)
 router.get('/', requireAuth, appConfigController.getAll);
-// PUT is admin only
-router.put('/:key', requireAuth, requireRole('admin'), appConfigController.set);
 
-// Agent global defaults — admin only
+// Agent global defaults — admin only (specific routes BEFORE the /:key wildcard)
 router.get('/agent-global', requireAuth, requireRole('admin'), appConfigController.getAgentGlobal);
 router.patch('/agent-global', requireAuth, requireRole('admin'), appConfigController.patchAgentGlobal);
 
-// ── SSO integration configs ──────────────────────────────────────────────────
+// ── SSO integration configs (specific routes BEFORE the /:key wildcard) ──────
 
 // Obliview integration config
 router.get('/obliview', requireAuth, requireRole('admin'), async (req, res, next) => {
@@ -52,5 +50,8 @@ router.put('/oblimap', requireAuth, requireRole('admin'), async (req, res, next)
     res.json({ success: true, data });
   } catch (e) { next(e); }
 });
+
+// ── Generic key/value setter (LAST — wildcard must not shadow specific routes above) ──
+router.put('/:key', requireAuth, requireRole('admin'), appConfigController.set);
 
 export default router;

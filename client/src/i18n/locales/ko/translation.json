@@ -350,9 +350,9 @@
     "actionUnsuspend": "재개",
     "actionRefuse": "거부",
     "actionDelete": "삭제",
-    "confirmDelete": "이 장치를 삭제하시겠습니까?",
-    "confirmRefuse": "이 장치를 거부하시겠습니까?",
-    "confirmSuspend": "이 장치를 정지하시겠습니까?",
+    "confirmDelete": "{{hostname}}를 삭제하시겠습니까?",
+    "confirmRefuse": "{{hostname}}를 거부하시겠습니까?",
+    "confirmSuspend": "{{hostname}}를 일시 중단하시겠습니까?",
     "noDevices": "장치를 찾을 수 없습니다.",
     "statusOnline": "온라인",
     "statusOffline": "오프라인",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API 키",
       "description": "API 키는 설치 중 에이전트를 인증하는 데 사용됩니다.",
-      "newKey": "새 키 이름",
+      "newKey": "새 키",
       "create": "생성",
       "creating": "생성 중...",
       "noKeys": "API 키가 없습니다.",
@@ -371,18 +371,24 @@
       "copied": "복사됨!",
       "revokeKey": "키 취소",
       "confirmRevoke": "이 API 키를 취소하시겠습니까?",
-      "devices": "대의 장치",
+      "devices": "{{count}}대",
       "created": "생성됨",
       "lastUsed": "마지막 사용",
       "never": "없음",
-      "newKeyAlert": "새 키가 생성되었습니다 — 지금 복사하세요. 다시 표시되지 않습니다:"
+      "newKeyAlert": "새 키가 생성되었습니다 — 지금 복사하세요. 다시 표시되지 않습니다:",
+      "namePlaceholder": "키 이름...",
+      "createSuccess": "API 키가 생성되었습니다",
+      "failedCreate": "키 생성에 실패했습니다",
+      "confirmDelete": "이 API 키를 삭제하시겠습니까?",
+      "deleteSuccess": "API 키가 삭제되었습니다",
+      "failedDelete": "키 삭제에 실패했습니다"
     },
     "addModal": {
       "title": "장치 추가",
-      "agentVersion": "에이전트 버전",
+      "agentVersion": "에이전트 v{{version}}",
       "loading": "로딩 중...",
       "noKeys": "사용 가능한 API 키가 없습니다. API 키 탭에서 먼저 생성하세요.",
-      "deviceCount": "대의 장치",
+      "deviceCount": "{{count}}대",
       "copyCommand": "복사",
       "copied": "복사됨!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, 관리자)",
       "close": "닫기"
-    }
+    },
+    "approveSuccess": "기기가 승인되었습니다",
+    "refuseSuccess": "기기가 거부되었습니다",
+    "suspendSuccess": "기기가 일시 중단되었습니다",
+    "unsuspendSuccess": "기기가 재개되었습니다",
+    "deleteSuccess": "기기가 삭제되었습니다"
   }
 }

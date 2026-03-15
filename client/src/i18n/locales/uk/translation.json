@@ -350,9 +350,9 @@
     "actionUnsuspend": "Поновити",
     "actionRefuse": "Відхилити",
     "actionDelete": "Видалити",
-    "confirmDelete": "Видалити цей пристрій?",
-    "confirmRefuse": "Відхилити цей пристрій?",
-    "confirmSuspend": "Призупинити цей пристрій?",
+    "confirmDelete": "Видалити {{hostname}}?",
+    "confirmRefuse": "Відхилити {{hostname}}?",
+    "confirmSuspend": "Призупинити {{hostname}}?",
     "noDevices": "Пристроїв не знайдено.",
     "statusOnline": "В мережі",
     "statusOffline": "Поза мережею",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-ключі",
       "description": "API-ключі використовуються для автентифікації агентів під час встановлення.",
-      "newKey": "Назва нового ключа",
+      "newKey": "Новий ключ",
       "create": "Створити",
       "creating": "Створення...",
       "noKeys": "API-ключів ще немає.",
@@ -371,18 +371,24 @@
       "copied": "Скопійовано!",
       "revokeKey": "Відкликати ключ",
       "confirmRevoke": "Відкликати цей API-ключ?",
-      "devices": "пристроїв",
+      "devices": "{{count}} пристр.",
       "created": "Створено",
       "lastUsed": "Останнє використання",
       "never": "Ніколи",
-      "newKeyAlert": "Новий ключ створено — скопіюйте його зараз, він більше не буде показаний:"
+      "newKeyAlert": "Новий ключ створено — скопіюйте його зараз, він більше не буде показаний:",
+      "namePlaceholder": "Назва ключа...",
+      "createSuccess": "API-ключ створено",
+      "failedCreate": "Не вдалося створити ключ",
+      "confirmDelete": "Видалити цей API-ключ?",
+      "deleteSuccess": "API-ключ видалено",
+      "failedDelete": "Не вдалося видалити ключ"
     },
     "addModal": {
       "title": "Додати пристрій",
-      "agentVersion": "Версія агента",
+      "agentVersion": "Агент v{{version}}",
       "loading": "Завантаження...",
       "noKeys": "Немає доступних API-ключів. Спочатку створіть один на вкладці API-ключі.",
-      "deviceCount": "пристроїв",
+      "deviceCount": "{{count}} пристр.",
       "copyCommand": "Копіювати",
       "copied": "Скопійовано!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Адмін)",
       "close": "Закрити"
-    }
+    },
+    "approveSuccess": "Пристрій схвалено",
+    "refuseSuccess": "Пристрій відхилено",
+    "suspendSuccess": "Пристрій призупинено",
+    "unsuspendSuccess": "Пристрій відновлено",
+    "deleteSuccess": "Пристрій видалено"
   }
 }

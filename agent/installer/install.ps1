@@ -20,9 +20,21 @@ Write-Host "=============================="
 Write-Host " Server : $ServerUrl"
 Write-Host ""
 
+# ── Check elevation ───────────────────────────────────────────────────────────
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+
+if (-not $isAdmin) {
+    Write-Error "This script must be run as Administrator. Right-click PowerShell > Run as Administrator."
+    exit 1
+}
+
 # ── 1. Download MSI ───────────────────────────────────────────────────────────
 
-$TempMsi = Join-Path $env:TEMP "obliance-agent.msi"
+$TempMsi  = Join-Path $env:TEMP "obliance-agent.msi"
+$LogFile  = Join-Path $env:TEMP "obliance-agent-install.log"
 
 Write-Host "[1/2] Downloading agent MSI..."
 try {
@@ -33,15 +45,18 @@ try {
     exit 1
 }
 
-# ── 2. Install silently (UAC prompt for elevation) ────────────────────────────
+# ── 2. Install silently (already admin — no UAC needed) ───────────────────────
 
-Write-Host "[2/2] Installing (admin rights required — UAC prompt may appear)..."
-$ArgList = "/i `"$TempMsi`" SERVERURL=`"$ServerUrl`" APIKEY=`"$ApiKey`" /quiet /norestart /l*v `"$env:TEMP\obliance-agent-install.log`""
-$proc = Start-Process msiexec -ArgumentList $ArgList -Wait -Verb RunAs -PassThru
+Write-Host "[2/2] Installing..."
+$ArgList = "/i `"$TempMsi`" SERVERURL=`"$ServerUrl`" APIKEY=`"$ApiKey`" /quiet /norestart /l*v `"$LogFile`""
+
+# Run msiexec directly (no -Verb RunAs — already elevated, and RunAs from an
+# elevated context can deadlock Start-Process -Wait).
+$proc = Start-Process "msiexec.exe" -ArgumentList $ArgList -Wait -PassThru
 Remove-Item $TempMsi -ErrorAction SilentlyContinue
 
 if ($proc.ExitCode -ne 0) {
-    Write-Error "Installation failed (msiexec exit code $($proc.ExitCode)). See $env:TEMP\obliance-agent-install.log"
+    Write-Error "Installation failed (msiexec exit code $($proc.ExitCode)). Log: $LogFile"
     exit 1
 }
 

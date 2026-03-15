@@ -350,9 +350,9 @@
     "actionUnsuspend": "Genaktiver",
     "actionRefuse": "Afvis",
     "actionDelete": "Slet",
-    "confirmDelete": "Slet denne enhed?",
-    "confirmRefuse": "Afvis denne enhed?",
-    "confirmSuspend": "Suspendere denne enhed?",
+    "confirmDelete": "Slet {{hostname}}?",
+    "confirmRefuse": "Afvis {{hostname}}?",
+    "confirmSuspend": "Suspender {{hostname}}?",
     "noDevices": "Ingen enheder fundet.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-nøgler",
       "description": "API-nøgler bruges til at autentificere agenter under installation.",
-      "newKey": "Nyt nøglenavn",
+      "newKey": "Ny nøgle",
       "create": "Opret",
       "creating": "Opretter...",
       "noKeys": "Ingen API-nøgler endnu.",
@@ -371,18 +371,24 @@
       "copied": "Kopieret!",
       "revokeKey": "Tilbagekald nøgle",
       "confirmRevoke": "Tilbagekald denne API-nøgle?",
-      "devices": "enheder",
+      "devices": "{{count}} enhed(er)",
       "created": "Oprettet",
       "lastUsed": "Sidst brugt",
       "never": "Aldrig",
-      "newKeyAlert": "Ny nøgle oprettet — kopiér den nu, den vises ikke igen:"
+      "newKeyAlert": "Ny nøgle oprettet — kopiér den nu, den vises ikke igen:",
+      "namePlaceholder": "Nøglenavn...",
+      "createSuccess": "API-nøgle oprettet",
+      "failedCreate": "Oprettelse af nøgle mislykkedes",
+      "confirmDelete": "Slet denne API-nøgle?",
+      "deleteSuccess": "API-nøgle slettet",
+      "failedDelete": "Sletning af nøgle mislykkedes"
     },
     "addModal": {
       "title": "Tilføj enhed",
-      "agentVersion": "Agentversion",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Indlæser...",
       "noKeys": "Ingen API-nøgler tilgængelige. Opret en i fanen API-nøgler.",
-      "deviceCount": "enhed/enheder",
+      "deviceCount": "{{count}} enhed(er)",
       "copyCommand": "Kopiér",
       "copied": "Kopieret!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Luk"
-    }
+    },
+    "approveSuccess": "Enhed godkendt",
+    "refuseSuccess": "Enhed afvist",
+    "suspendSuccess": "Enhed suspenderet",
+    "unsuspendSuccess": "Enhed genaktiveret",
+    "deleteSuccess": "Enhed slettet"
   }
 }

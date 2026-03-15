@@ -350,9 +350,9 @@
     "actionUnsuspend": "Hervatten",
     "actionRefuse": "Weigeren",
     "actionDelete": "Verwijderen",
-    "confirmDelete": "Dit apparaat verwijderen?",
-    "confirmRefuse": "Dit apparaat weigeren?",
-    "confirmSuspend": "Dit apparaat opschorten?",
+    "confirmDelete": "{{hostname}} verwijderen?",
+    "confirmRefuse": "{{hostname}} weigeren?",
+    "confirmSuspend": "{{hostname}} opschorten?",
     "noDevices": "Geen apparaten gevonden.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-sleutels",
       "description": "API-sleutels worden gebruikt om agents te verifiëren tijdens de installatie.",
-      "newKey": "Naam nieuwe sleutel",
+      "newKey": "Nieuwe sleutel",
       "create": "Aanmaken",
       "creating": "Aanmaken...",
       "noKeys": "Nog geen API-sleutels.",
@@ -371,18 +371,24 @@
       "copied": "Gekopieerd!",
       "revokeKey": "Sleutel intrekken",
       "confirmRevoke": "Deze API-sleutel intrekken?",
-      "devices": "apparaten",
+      "devices": "{{count}} apparaat/apparaten",
       "created": "Aangemaakt",
       "lastUsed": "Laatst gebruikt",
       "never": "Nooit",
-      "newKeyAlert": "Nieuwe sleutel aangemaakt — kopieer hem nu, hij wordt niet meer getoond:"
+      "newKeyAlert": "Nieuwe sleutel aangemaakt — kopieer hem nu, hij wordt niet meer getoond:",
+      "namePlaceholder": "Sleutelnaam...",
+      "createSuccess": "API-sleutel aangemaakt",
+      "failedCreate": "Aanmaken sleutel mislukt",
+      "confirmDelete": "Deze API-sleutel verwijderen?",
+      "deleteSuccess": "API-sleutel verwijderd",
+      "failedDelete": "Verwijderen sleutel mislukt"
     },
     "addModal": {
       "title": "Apparaat toevoegen",
-      "agentVersion": "Agentversie",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Laden...",
       "noKeys": "Geen API-sleutels beschikbaar. Maak er een aan in het tabblad API-sleutels.",
-      "deviceCount": "apparaat/apparaten",
+      "deviceCount": "{{count}} apparaat/apparaten",
       "copyCommand": "Kopiëren",
       "copied": "Gekopieerd!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Sluiten"
-    }
+    },
+    "approveSuccess": "Apparaat goedgekeurd",
+    "refuseSuccess": "Apparaat geweigerd",
+    "suspendSuccess": "Apparaat opgeschort",
+    "unsuspendSuccess": "Apparaat geheractiveerd",
+    "deleteSuccess": "Apparaat verwijderd"
   }
 }

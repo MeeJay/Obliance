@@ -350,9 +350,9 @@
     "actionUnsuspend": "استئناف",
     "actionRefuse": "رفض",
     "actionDelete": "حذف",
-    "confirmDelete": "حذف هذا الجهاز؟",
-    "confirmRefuse": "رفض هذا الجهاز؟",
-    "confirmSuspend": "إيقاف هذا الجهاز مؤقتاً؟",
+    "confirmDelete": "حذف {{hostname}}؟",
+    "confirmRefuse": "رفض {{hostname}}؟",
+    "confirmSuspend": "تعليق {{hostname}}؟",
     "noDevices": "لم يتم العثور على أجهزة.",
     "statusOnline": "متصل",
     "statusOffline": "غير متصل",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "مفاتيح API",
       "description": "تُستخدم مفاتيح API للتحقق من هوية العملاء أثناء التثبيت.",
-      "newKey": "اسم المفتاح الجديد",
+      "newKey": "مفتاح جديد",
       "create": "إنشاء",
       "creating": "جارٍ الإنشاء...",
       "noKeys": "لا توجد مفاتيح API حتى الآن.",
@@ -371,18 +371,24 @@
       "copied": "تم النسخ!",
       "revokeKey": "إلغاء المفتاح",
       "confirmRevoke": "إلغاء مفتاح API هذا؟",
-      "devices": "أجهزة",
+      "devices": "{{count}} جهاز",
       "created": "تاريخ الإنشاء",
       "lastUsed": "آخر استخدام",
       "never": "أبداً",
-      "newKeyAlert": "تم إنشاء مفتاح جديد — انسخه الآن، لن يظهر مجدداً:"
+      "newKeyAlert": "تم إنشاء مفتاح جديد — انسخه الآن، لن يظهر مجدداً:",
+      "namePlaceholder": "اسم المفتاح...",
+      "createSuccess": "تم إنشاء مفتاح API",
+      "failedCreate": "فشل إنشاء المفتاح",
+      "confirmDelete": "حذف مفتاح API هذا؟",
+      "deleteSuccess": "تم حذف مفتاح API",
+      "failedDelete": "فشل حذف المفتاح"
     },
     "addModal": {
       "title": "إضافة جهاز",
-      "agentVersion": "إصدار العميل",
+      "agentVersion": "الوكيل v{{version}}",
       "loading": "جارٍ التحميل...",
       "noKeys": "لا توجد مفاتيح API متاحة. أنشئ مفتاحاً في علامة تبويب مفاتيح API أولاً.",
-      "deviceCount": "جهاز",
+      "deviceCount": "{{count}} جهاز",
       "copyCommand": "نسخ",
       "copied": "تم النسخ!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell، مدير النظام)",
       "close": "إغلاق"
-    }
+    },
+    "approveSuccess": "تمت الموافقة على الجهاز",
+    "refuseSuccess": "تم رفض الجهاز",
+    "suspendSuccess": "تم تعليق الجهاز",
+    "unsuspendSuccess": "تم استئناف الجهاز",
+    "deleteSuccess": "تم حذف الجهاز"
   }
 }

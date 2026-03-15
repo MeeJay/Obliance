@@ -350,9 +350,9 @@
     "actionUnsuspend": "Obnovit",
     "actionRefuse": "Zamítnout",
     "actionDelete": "Smazat",
-    "confirmDelete": "Smazat toto zařízení?",
-    "confirmRefuse": "Zamítnout toto zařízení?",
-    "confirmSuspend": "Pozastavit toto zařízení?",
+    "confirmDelete": "Smazat {{hostname}}?",
+    "confirmRefuse": "Zamítnout {{hostname}}?",
+    "confirmSuspend": "Pozastavit {{hostname}}?",
     "noDevices": "Nenalezena žádná zařízení.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API klíče",
       "description": "API klíče se používají k ověřování agentů během instalace.",
-      "newKey": "Název nového klíče",
+      "newKey": "Nový klíč",
       "create": "Vytvořit",
       "creating": "Vytváření...",
       "noKeys": "Zatím žádné API klíče.",
@@ -371,18 +371,24 @@
       "copied": "Zkopírováno!",
       "revokeKey": "Odvolat klíč",
       "confirmRevoke": "Odvolat tento API klíč?",
-      "devices": "zařízení",
+      "devices": "{{count}} zařízení",
       "created": "Vytvořeno",
       "lastUsed": "Naposledy použito",
       "never": "Nikdy",
-      "newKeyAlert": "Nový klíč byl vytvořen — zkopírujte ho nyní, nebude znovu zobrazen:"
+      "newKeyAlert": "Nový klíč byl vytvořen — zkopírujte ho nyní, nebude znovu zobrazen:",
+      "namePlaceholder": "Název klíče...",
+      "createSuccess": "API klíč vytvořen",
+      "failedCreate": "Vytvoření klíče selhalo",
+      "confirmDelete": "Smazat tento API klíč?",
+      "deleteSuccess": "API klíč smazán",
+      "failedDelete": "Mazání klíče selhalo"
     },
     "addModal": {
       "title": "Přidat zařízení",
-      "agentVersion": "Verze agenta",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Načítání...",
       "noKeys": "Žádné dostupné API klíče. Nejprve vytvořte jeden na kartě API klíče.",
-      "deviceCount": "zařízení",
+      "deviceCount": "{{count}} zařízení",
       "copyCommand": "Kopírovat",
       "copied": "Zkopírováno!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Zavřít"
-    }
+    },
+    "approveSuccess": "Zařízení schváleno",
+    "refuseSuccess": "Zařízení zamítnuto",
+    "suspendSuccess": "Zařízení pozastaveno",
+    "unsuspendSuccess": "Zařízení obnoveno",
+    "deleteSuccess": "Zařízení smazáno"
   }
 }

@@ -976,9 +976,9 @@
     "actionUnsuspend": "Unsuspend",
     "actionRefuse": "Refuse",
     "actionDelete": "Delete",
-    "confirmDelete": "Delete this device?",
-    "confirmRefuse": "Refuse this device?",
-    "confirmSuspend": "Suspend this device?",
+    "confirmDelete": "Delete {{hostname}}?",
+    "confirmRefuse": "Refuse {{hostname}}?",
+    "confirmSuspend": "Suspend {{hostname}}?",
     "noDevices": "No devices found.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -989,7 +989,7 @@
     "apiKeys": {
       "title": "API Keys",
       "description": "API Keys are used to authenticate agents during installation.",
-      "newKey": "New Key Name",
+      "newKey": "New Key",
       "create": "Create",
       "creating": "Creating...",
       "noKeys": "No API keys yet.",
@@ -997,18 +997,24 @@
       "copied": "Copied!",
       "revokeKey": "Revoke key",
       "confirmRevoke": "Revoke this API key?",
-      "devices": "devices",
+      "devices": "{{count}} device(s)",
       "created": "Created",
       "lastUsed": "Last used",
       "never": "Never",
-      "newKeyAlert": "New key created — copy it now, it won't be shown again:"
+      "newKeyAlert": "New key created — copy it now, it won't be shown again:",
+      "namePlaceholder": "Key name...",
+      "createSuccess": "API key created",
+      "failedCreate": "Failed to create key",
+      "confirmDelete": "Delete this API key? This will prevent agents using it from registering.",
+      "deleteSuccess": "API key deleted",
+      "failedDelete": "Failed to delete key"
     },
     "addModal": {
       "title": "Add Device",
-      "agentVersion": "Agent version",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Loading...",
       "noKeys": "No API keys available. Create one in the API Keys tab first.",
-      "deviceCount": "device(s)",
+      "deviceCount": "{{count}} device(s)",
       "copyCommand": "Copy",
       "copied": "Copied!",
       "linux": "Linux",
@@ -1016,6 +1022,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Close"
-    }
+    },
+    "approveSuccess": "Device approved",
+    "refuseSuccess": "Device refused",
+    "suspendSuccess": "Device suspended",
+    "unsuspendSuccess": "Device unsuspended",
+    "deleteSuccess": "Device deleted"
   }
 }

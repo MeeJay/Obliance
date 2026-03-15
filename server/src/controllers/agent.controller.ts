@@ -221,7 +221,18 @@ export async function listKeys(req: Request, res: Response): Promise<void> {
     .groupBy('agent_api_keys.id')
     .select('agent_api_keys.*', db.raw('COUNT(devices.id)::int as device_count'))
     .orderBy('agent_api_keys.created_at', 'desc');
-  res.json({ success: true, data: rows });
+
+  const data = rows.map((r: any) => ({
+    id: r.id,
+    tenantId: r.tenant_id,
+    name: r.name,
+    key: r.key,
+    createdBy: r.created_by,
+    createdAt: r.created_at,
+    lastUsedAt: r.last_used_at,
+    deviceCount: r.device_count ?? 0,
+  }));
+  res.json({ success: true, data });
 }
 
 export async function createKey(req: Request, res: Response): Promise<void> {
@@ -238,7 +249,19 @@ export async function createKey(req: Request, res: Response): Promise<void> {
     key: rawKey,
     created_by: userId,
   }).returning('*');
-  res.status(201).json({ success: true, data: row });
+  res.status(201).json({
+    success: true,
+    data: {
+      id: row.id,
+      tenantId: row.tenant_id,
+      name: row.name,
+      key: row.key,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at ?? null,
+      deviceCount: 0,
+    },
+  });
 }
 
 export async function deleteKey(req: Request, res: Response): Promise<void> {

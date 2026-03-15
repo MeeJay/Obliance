@@ -350,9 +350,9 @@
     "actionUnsuspend": "再開",
     "actionRefuse": "拒否",
     "actionDelete": "削除",
-    "confirmDelete": "このデバイスを削除しますか？",
-    "confirmRefuse": "このデバイスを拒否しますか？",
-    "confirmSuspend": "このデバイスを停止しますか？",
+    "confirmDelete": "{{hostname}}を削除しますか？",
+    "confirmRefuse": "{{hostname}}を拒否しますか？",
+    "confirmSuspend": "{{hostname}}を一時停止しますか？",
     "noDevices": "デバイスが見つかりません。",
     "statusOnline": "オンライン",
     "statusOffline": "オフライン",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "APIキー",
       "description": "APIキーはインストール時にエージェントを認証するために使用されます。",
-      "newKey": "新しいキー名",
+      "newKey": "新しいキー",
       "create": "作成",
       "creating": "作成中...",
       "noKeys": "APIキーはまだありません。",
@@ -371,18 +371,24 @@
       "copied": "コピーしました！",
       "revokeKey": "キーを失効",
       "confirmRevoke": "このAPIキーを失効しますか？",
-      "devices": "台のデバイス",
+      "devices": "{{count}}台",
       "created": "作成日",
       "lastUsed": "最終使用",
       "never": "なし",
-      "newKeyAlert": "新しいキーが作成されました — 今すぐコピーしてください。次回は表示されません："
+      "newKeyAlert": "新しいキーが作成されました — 今すぐコピーしてください。次回は表示されません：",
+      "namePlaceholder": "キー名...",
+      "createSuccess": "APIキーを作成しました",
+      "failedCreate": "キーの作成に失敗しました",
+      "confirmDelete": "このAPIキーを削除しますか？",
+      "deleteSuccess": "APIキーを削除しました",
+      "failedDelete": "キーの削除に失敗しました"
     },
     "addModal": {
       "title": "デバイスを追加",
-      "agentVersion": "エージェントバージョン",
+      "agentVersion": "エージェント v{{version}}",
       "loading": "読み込み中...",
       "noKeys": "利用可能なAPIキーがありません。まずAPIキータブでキーを作成してください。",
-      "deviceCount": "台のデバイス",
+      "deviceCount": "{{count}}台",
       "copyCommand": "コピー",
       "copied": "コピーしました！",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS（Intel）",
       "windows": "Windows（PowerShell、管理者）",
       "close": "閉じる"
-    }
+    },
+    "approveSuccess": "デバイスを承認しました",
+    "refuseSuccess": "デバイスを拒否しました",
+    "suspendSuccess": "デバイスを一時停止しました",
+    "unsuspendSuccess": "デバイスを再開しました",
+    "deleteSuccess": "デバイスを削除しました"
   }
 }

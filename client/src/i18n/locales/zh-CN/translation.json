@@ -350,9 +350,9 @@
     "actionUnsuspend": "恢复",
     "actionRefuse": "拒绝",
     "actionDelete": "删除",
-    "confirmDelete": "删除此设备？",
-    "confirmRefuse": "拒绝此设备？",
-    "confirmSuspend": "暂停此设备？",
+    "confirmDelete": "删除 {{hostname}}？",
+    "confirmRefuse": "拒绝 {{hostname}}？",
+    "confirmSuspend": "暂停 {{hostname}}？",
     "noDevices": "未找到设备。",
     "statusOnline": "在线",
     "statusOffline": "离线",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API 密钥",
       "description": "API 密钥用于在安装过程中对代理进行身份验证。",
-      "newKey": "新密钥名称",
+      "newKey": "新密钥",
       "create": "创建",
       "creating": "创建中...",
       "noKeys": "暂无 API 密钥。",
@@ -371,18 +371,24 @@
       "copied": "已复制！",
       "revokeKey": "撤销密钥",
       "confirmRevoke": "撤销此 API 密钥？",
-      "devices": "台设备",
+      "devices": "{{count}}台设备",
       "created": "创建于",
       "lastUsed": "最后使用",
       "never": "从不",
-      "newKeyAlert": "新密钥已创建 — 请立即复制，之后将不再显示："
+      "newKeyAlert": "新密钥已创建 — 请立即复制，之后将不再显示：",
+      "namePlaceholder": "密钥名称...",
+      "createSuccess": "API密钥已创建",
+      "failedCreate": "创建密钥失败",
+      "confirmDelete": "删除此API密钥？",
+      "deleteSuccess": "API密钥已删除",
+      "failedDelete": "删除密钥失败"
     },
     "addModal": {
       "title": "添加设备",
-      "agentVersion": "代理版本",
+      "agentVersion": "代理 v{{version}}",
       "loading": "加载中...",
       "noKeys": "没有可用的 API 密钥。请先在 API 密钥选项卡中创建一个。",
-      "deviceCount": "台设备",
+      "deviceCount": "{{count}}台设备",
       "copyCommand": "复制",
       "copied": "已复制！",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS（Intel）",
       "windows": "Windows（PowerShell，管理员）",
       "close": "关闭"
-    }
+    },
+    "approveSuccess": "设备已批准",
+    "refuseSuccess": "设备已拒绝",
+    "suspendSuccess": "设备已暂停",
+    "unsuspendSuccess": "设备已恢复",
+    "deleteSuccess": "设备已删除"
   }
 }

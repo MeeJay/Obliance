@@ -350,9 +350,9 @@
     "actionUnsuspend": "Wznów",
     "actionRefuse": "Odrzuć",
     "actionDelete": "Usuń",
-    "confirmDelete": "Usunąć to urządzenie?",
-    "confirmRefuse": "Odrzucić to urządzenie?",
-    "confirmSuspend": "Zawiesić to urządzenie?",
+    "confirmDelete": "Usunąć {{hostname}}?",
+    "confirmRefuse": "Odrzucić {{hostname}}?",
+    "confirmSuspend": "Zawiesić {{hostname}}?",
     "noDevices": "Nie znaleziono urządzeń.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "Klucze API",
       "description": "Klucze API służą do uwierzytelniania agentów podczas instalacji.",
-      "newKey": "Nazwa nowego klucza",
+      "newKey": "Nowy klucz",
       "create": "Utwórz",
       "creating": "Tworzenie...",
       "noKeys": "Brak kluczy API.",
@@ -371,18 +371,24 @@
       "copied": "Skopiowano!",
       "revokeKey": "Unieważnij klucz",
       "confirmRevoke": "Unieważnić ten klucz API?",
-      "devices": "urządzeń",
+      "devices": "{{count}} urządz.",
       "created": "Utworzono",
       "lastUsed": "Ostatnie użycie",
       "never": "Nigdy",
-      "newKeyAlert": "Nowy klucz został utworzony — skopiuj go teraz, nie zostanie ponownie wyświetlony:"
+      "newKeyAlert": "Nowy klucz został utworzony — skopiuj go teraz, nie zostanie ponownie wyświetlony:",
+      "namePlaceholder": "Nazwa klucza...",
+      "createSuccess": "Klucz API utworzony",
+      "failedCreate": "Nie udało się utworzyć klucza",
+      "confirmDelete": "Usunąć ten klucz API?",
+      "deleteSuccess": "Klucz API usunięty",
+      "failedDelete": "Nie udało się usunąć klucza"
     },
     "addModal": {
       "title": "Dodaj urządzenie",
-      "agentVersion": "Wersja agenta",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Ładowanie...",
       "noKeys": "Brak dostępnych kluczy API. Utwórz jeden w zakładce Klucze API.",
-      "deviceCount": "urządzenie/urządzenia",
+      "deviceCount": "{{count}} urządz.",
       "copyCommand": "Kopiuj",
       "copied": "Skopiowano!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Zamknij"
-    }
+    },
+    "approveSuccess": "Urządzenie zatwierdzone",
+    "refuseSuccess": "Urządzenie odrzucone",
+    "suspendSuccess": "Urządzenie zawieszone",
+    "unsuspendSuccess": "Urządzenie odwieszone",
+    "deleteSuccess": "Urządzenie usunięte"
   }
 }

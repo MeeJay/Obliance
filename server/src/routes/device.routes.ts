@@ -7,10 +7,10 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, status, search } = req.query as any;
+    const { groupId, status, approvalStatus, search } = req.query as any;
     const devices = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
-      status, search,
+      status, approvalStatus, search,
     });
     res.json(devices);
   } catch (err) { next(err); }

@@ -53,10 +53,16 @@ class DeviceService {
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
-  async getDevices(tenantId: number, filters?: { groupId?: number; status?: string; search?: string }) {
+  async getDevices(tenantId: number, filters?: { groupId?: number; status?: string; approvalStatus?: string; search?: string }) {
     let q = db('devices').where({ tenant_id: tenantId });
     if (filters?.groupId) q = q.where({ group_id: filters.groupId });
     if (filters?.status) q = q.where({ status: filters.status });
+    if (filters?.approvalStatus === 'suspended') {
+      // "Suspended" filter = devices whose status is suspended (regardless of approvalStatus)
+      q = q.where({ status: 'suspended' });
+    } else if (filters?.approvalStatus) {
+      q = q.where({ approval_status: filters.approvalStatus });
+    }
     if (filters?.search) q = q.where(function() {
       this.whereILike('hostname', `%${filters.search}%`)
           .orWhereILike('display_name', `%${filters.search}%`);

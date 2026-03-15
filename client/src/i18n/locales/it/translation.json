@@ -350,9 +350,9 @@
     "actionUnsuspend": "Riattiva",
     "actionRefuse": "Rifiuta",
     "actionDelete": "Elimina",
-    "confirmDelete": "Eliminare questo dispositivo?",
-    "confirmRefuse": "Rifiutare questo dispositivo?",
-    "confirmSuspend": "Sospendere questo dispositivo?",
+    "confirmDelete": "Eliminare {{hostname}}?",
+    "confirmRefuse": "Rifiutare {{hostname}}?",
+    "confirmSuspend": "Sospendere {{hostname}}?",
     "noDevices": "Nessun dispositivo trovato.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "Chiavi API",
       "description": "Le chiavi API vengono utilizzate per autenticare gli agenti durante l'installazione.",
-      "newKey": "Nome nuova chiave",
+      "newKey": "Nuova chiave",
       "create": "Crea",
       "creating": "Creazione...",
       "noKeys": "Nessuna chiave API ancora.",
@@ -371,18 +371,24 @@
       "copied": "Copiato!",
       "revokeKey": "Revoca chiave",
       "confirmRevoke": "Revocare questa chiave API?",
-      "devices": "dispositivi",
+      "devices": "{{count}} dispositivo/i",
       "created": "Creato",
       "lastUsed": "Ultimo utilizzo",
       "never": "Mai",
-      "newKeyAlert": "Nuova chiave creata — copiarla ora, non verrà mostrata di nuovo:"
+      "newKeyAlert": "Nuova chiave creata — copiarla ora, non verrà mostrata di nuovo:",
+      "namePlaceholder": "Nome chiave...",
+      "createSuccess": "Chiave API creata",
+      "failedCreate": "Impossibile creare la chiave",
+      "confirmDelete": "Eliminare questa chiave API?",
+      "deleteSuccess": "Chiave API eliminata",
+      "failedDelete": "Impossibile eliminare la chiave"
     },
     "addModal": {
       "title": "Aggiungi dispositivo",
-      "agentVersion": "Versione agente",
+      "agentVersion": "Agente v{{version}}",
       "loading": "Caricamento...",
       "noKeys": "Nessuna chiave API disponibile. Crearne una nella scheda Chiavi API.",
-      "deviceCount": "dispositivo/i",
+      "deviceCount": "{{count}} dispositivo/i",
       "copyCommand": "Copia",
       "copied": "Copiato!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Chiudi"
-    }
+    },
+    "approveSuccess": "Dispositivo approvato",
+    "refuseSuccess": "Dispositivo rifiutato",
+    "suspendSuccess": "Dispositivo sospeso",
+    "unsuspendSuccess": "Dispositivo riattivato",
+    "deleteSuccess": "Dispositivo eliminato"
   }
 }

@@ -350,9 +350,9 @@
     "actionUnsuspend": "Entsperren",
     "actionRefuse": "Ablehnen",
     "actionDelete": "Löschen",
-    "confirmDelete": "Dieses Gerät löschen?",
-    "confirmRefuse": "Dieses Gerät ablehnen?",
-    "confirmSuspend": "Dieses Gerät sperren?",
+    "confirmDelete": "{{hostname}} löschen?",
+    "confirmRefuse": "{{hostname}} ablehnen?",
+    "confirmSuspend": "{{hostname}} sperren?",
     "noDevices": "Keine Geräte gefunden.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-Schlüssel",
       "description": "API-Schlüssel werden zur Authentifizierung von Agenten bei der Installation verwendet.",
-      "newKey": "Name des neuen Schlüssels",
+      "newKey": "Neuer Schlüssel",
       "create": "Erstellen",
       "creating": "Wird erstellt...",
       "noKeys": "Noch keine API-Schlüssel.",
@@ -371,18 +371,24 @@
       "copied": "Kopiert!",
       "revokeKey": "Schlüssel widerrufen",
       "confirmRevoke": "Diesen API-Schlüssel widerrufen?",
-      "devices": "Geräte",
+      "devices": "{{count}} Gerät(e)",
       "created": "Erstellt",
       "lastUsed": "Zuletzt verwendet",
       "never": "Nie",
-      "newKeyAlert": "Neuer Schlüssel erstellt — jetzt kopieren, er wird nicht mehr angezeigt:"
+      "newKeyAlert": "Neuer Schlüssel erstellt — jetzt kopieren, er wird nicht mehr angezeigt:",
+      "namePlaceholder": "Schlüsselname...",
+      "createSuccess": "API-Schlüssel erstellt",
+      "failedCreate": "Fehler beim Erstellen des Schlüssels",
+      "confirmDelete": "Diesen API-Schlüssel löschen?",
+      "deleteSuccess": "API-Schlüssel gelöscht",
+      "failedDelete": "Fehler beim Löschen des Schlüssels"
     },
     "addModal": {
       "title": "Gerät hinzufügen",
-      "agentVersion": "Agent-Version",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Laden...",
       "noKeys": "Keine API-Schlüssel verfügbar. Erstellen Sie einen im Tab API-Schlüssel.",
-      "deviceCount": "Gerät(e)",
+      "deviceCount": "{{count}} Gerät(e)",
       "copyCommand": "Kopieren",
       "copied": "Kopiert!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Schließen"
-    }
+    },
+    "approveSuccess": "Gerät genehmigt",
+    "refuseSuccess": "Gerät abgelehnt",
+    "suspendSuccess": "Gerät gesperrt",
+    "unsuspendSuccess": "Gerät entsperrt",
+    "deleteSuccess": "Gerät gelöscht"
   }
 }

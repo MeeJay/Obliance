@@ -350,9 +350,9 @@
     "actionUnsuspend": "Devam Ettir",
     "actionRefuse": "Reddet",
     "actionDelete": "Sil",
-    "confirmDelete": "Bu cihazı silmek istiyor musunuz?",
-    "confirmRefuse": "Bu cihazı reddetmek istiyor musunuz?",
-    "confirmSuspend": "Bu cihazı askıya almak istiyor musunuz?",
+    "confirmDelete": "{{hostname}} silinsin mi?",
+    "confirmRefuse": "{{hostname}} reddedilsin mi?",
+    "confirmSuspend": "{{hostname}} askıya alınsın mı?",
     "noDevices": "Cihaz bulunamadı.",
     "statusOnline": "Çevrimiçi",
     "statusOffline": "Çevrimdışı",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API Anahtarları",
       "description": "API anahtarları, kurulum sırasında ajanların kimliğini doğrulamak için kullanılır.",
-      "newKey": "Yeni anahtar adı",
+      "newKey": "Yeni Anahtar",
       "create": "Oluştur",
       "creating": "Oluşturuluyor...",
       "noKeys": "Henüz API anahtarı yok.",
@@ -371,18 +371,24 @@
       "copied": "Kopyalandı!",
       "revokeKey": "Anahtarı iptal et",
       "confirmRevoke": "Bu API anahtarını iptal etmek istiyor musunuz?",
-      "devices": "cihaz",
+      "devices": "{{count}} cihaz",
       "created": "Oluşturulma",
       "lastUsed": "Son kullanım",
       "never": "Hiç",
-      "newKeyAlert": "Yeni anahtar oluşturuldu — şimdi kopyalayın, bir daha gösterilmeyecek:"
+      "newKeyAlert": "Yeni anahtar oluşturuldu — şimdi kopyalayın, bir daha gösterilmeyecek:",
+      "namePlaceholder": "Anahtar adı...",
+      "createSuccess": "API anahtarı oluşturuldu",
+      "failedCreate": "Anahtar oluşturulamadı",
+      "confirmDelete": "Bu API anahtarı silinsin mi?",
+      "deleteSuccess": "API anahtarı silindi",
+      "failedDelete": "Anahtar silinemedi"
     },
     "addModal": {
       "title": "Cihaz Ekle",
-      "agentVersion": "Ajan versiyonu",
+      "agentVersion": "Ajan v{{version}}",
       "loading": "Yükleniyor...",
       "noKeys": "Kullanılabilir API anahtarı yok. Önce API Anahtarları sekmesinde bir tane oluşturun.",
-      "deviceCount": "cihaz",
+      "deviceCount": "{{count}} cihaz",
       "copyCommand": "Kopyala",
       "copied": "Kopyalandı!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Yönetici)",
       "close": "Kapat"
-    }
+    },
+    "approveSuccess": "Cihaz onaylandı",
+    "refuseSuccess": "Cihaz reddedildi",
+    "suspendSuccess": "Cihaz askıya alındı",
+    "unsuspendSuccess": "Cihaz askıdan çıkarıldı",
+    "deleteSuccess": "Cihaz silindi"
   }
 }

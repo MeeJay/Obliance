@@ -350,9 +350,9 @@
     "actionUnsuspend": "Återaktivera",
     "actionRefuse": "Avvisa",
     "actionDelete": "Ta bort",
-    "confirmDelete": "Ta bort den här enheten?",
-    "confirmRefuse": "Avvisa den här enheten?",
-    "confirmSuspend": "Inaktivera den här enheten?",
+    "confirmDelete": "Radera {{hostname}}?",
+    "confirmRefuse": "Neka {{hostname}}?",
+    "confirmSuspend": "Suspendera {{hostname}}?",
     "noDevices": "Inga enheter hittades.",
     "statusOnline": "Online",
     "statusOffline": "Offline",
@@ -363,7 +363,7 @@
     "apiKeys": {
       "title": "API-nycklar",
       "description": "API-nycklar används för att autentisera agenter vid installation.",
-      "newKey": "Nytt nyckelnamn",
+      "newKey": "Ny nyckel",
       "create": "Skapa",
       "creating": "Skapar...",
       "noKeys": "Inga API-nycklar än.",
@@ -371,18 +371,24 @@
       "copied": "Kopierat!",
       "revokeKey": "Återkalla nyckel",
       "confirmRevoke": "Återkalla den här API-nyckeln?",
-      "devices": "enheter",
+      "devices": "{{count}} enhet(er)",
       "created": "Skapad",
       "lastUsed": "Senast använd",
       "never": "Aldrig",
-      "newKeyAlert": "Ny nyckel skapad — kopiera den nu, den visas inte igen:"
+      "newKeyAlert": "Ny nyckel skapad — kopiera den nu, den visas inte igen:",
+      "namePlaceholder": "Nyckelnamn...",
+      "createSuccess": "API-nyckel skapad",
+      "failedCreate": "Misslyckades med att skapa nyckel",
+      "confirmDelete": "Ta bort denna API-nyckel?",
+      "deleteSuccess": "API-nyckel borttagen",
+      "failedDelete": "Misslyckades med att ta bort nyckel"
     },
     "addModal": {
       "title": "Lägg till enhet",
-      "agentVersion": "Agentversion",
+      "agentVersion": "Agent v{{version}}",
       "loading": "Laddar...",
       "noKeys": "Inga API-nycklar tillgängliga. Skapa en i fliken API-nycklar.",
-      "deviceCount": "enhet/enheter",
+      "deviceCount": "{{count}} enhet(er)",
       "copyCommand": "Kopiera",
       "copied": "Kopierat!",
       "linux": "Linux",
@@ -390,6 +396,11 @@
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
       "close": "Stäng"
-    }
+    },
+    "approveSuccess": "Enhet godkänd",
+    "refuseSuccess": "Enhet nekad",
+    "suspendSuccess": "Enhet suspenderad",
+    "unsuspendSuccess": "Enhet återaktiverad",
+    "deleteSuccess": "Enhet raderad"
   }
 }

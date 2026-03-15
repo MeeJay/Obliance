@@ -72,7 +72,7 @@ tenantRouter.use('/notifications', notificationsRoutes);
 tenantRouter.use('/users',       usersRoutes);
 tenantRouter.use('/teams',       teamsRoutes);
 tenantRouter.use('/maintenance', maintenanceRoutes);
-tenantRouter.use('/admin',       adminRoutes);
+tenantRouter.use('/admin/config', adminRoutes);
 tenantRouter.use('/admin/smtp-servers', smtpRoutes);
 tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key management
 
