@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -107,6 +109,15 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "shutdown":
 		execErr = d.handleShutdown(cmd)
+
+	case "restart_agent":
+		execErr = d.handleRestartAgent(cmd)
+
+	case "list_services":
+		result, execErr = d.handleListServices(cmd)
+
+	case "restart_service":
+		result, execErr = d.handleRestartService(cmd)
 
 	default:
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
@@ -338,6 +349,173 @@ func (d *CommandDispatcher) handleShutdown(cmd AgentCommand) error {
 	default:
 		return fmt.Errorf("shutdown: unsupported platform %s", runtime.GOOS)
 	}
+}
+
+// ServiceInfo describes a single OS service returned by list_services.
+type ServiceInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName,omitempty"`
+	Status      string `json:"status"` // running, stopped, unknown
+	StartType   string `json:"startType,omitempty"` // auto, manual, disabled, unknown
+}
+
+func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, error) {
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			`Get-Service | Select-Object Name,DisplayName,Status,StartType | ConvertTo-Json -Compress`).Output()
+		if err != nil {
+			return nil, fmt.Errorf("list_services: powershell failed: %w", err)
+		}
+		// PowerShell returns either an array or a single object — normalise to array.
+		trimmed := strings.TrimSpace(string(out))
+		if len(trimmed) == 0 {
+			return []ServiceInfo{}, nil
+		}
+		var raw []json.RawMessage
+		if trimmed[0] == '[' {
+			if err := json.Unmarshal([]byte(trimmed), &raw); err != nil {
+				return nil, fmt.Errorf("list_services: parse error: %w", err)
+			}
+		} else {
+			raw = []json.RawMessage{json.RawMessage(trimmed)}
+		}
+		type psService struct {
+			Name        string      `json:"Name"`
+			DisplayName string      `json:"DisplayName"`
+			Status      interface{} `json:"Status"` // can be int or string
+			StartType   interface{} `json:"StartType"`
+		}
+		psStatusMap := map[string]string{
+			"1": "stopped", "4": "running", "2": "starting", "3": "stopping",
+		}
+		psStartMap := map[string]string{
+			"0": "boot", "1": "system", "2": "auto", "3": "manual", "4": "disabled",
+		}
+		services := make([]ServiceInfo, 0, len(raw))
+		for _, r := range raw {
+			var ps psService
+			if err := json.Unmarshal(r, &ps); err != nil {
+				continue
+			}
+			statusStr := fmt.Sprintf("%v", ps.Status)
+			if v, ok := psStatusMap[statusStr]; ok {
+				statusStr = v
+			} else {
+				statusStr = strings.ToLower(statusStr)
+			}
+			startStr := fmt.Sprintf("%v", ps.StartType)
+			if v, ok := psStartMap[startStr]; ok {
+				startStr = v
+			} else {
+				startStr = strings.ToLower(startStr)
+			}
+			services = append(services, ServiceInfo{
+				Name: ps.Name, DisplayName: ps.DisplayName,
+				Status: statusStr, StartType: startStr,
+			})
+		}
+		return map[string]interface{}{"services": services, "count": len(services)}, nil
+
+	case "linux":
+		out, err := exec.Command("systemctl", "list-units", "--type=service",
+			"--all", "--no-pager", "--output=json").Output()
+		if err != nil {
+			// fallback: plain text
+			out2, _ := exec.Command("systemctl", "list-units", "--type=service",
+				"--all", "--no-pager").Output()
+			return map[string]interface{}{
+				"services": strings.TrimSpace(string(out2)),
+				"format":   "text",
+			}, nil
+		}
+		var units []map[string]interface{}
+		if err := json.Unmarshal(out, &units); err != nil {
+			return map[string]interface{}{"raw": strings.TrimSpace(string(out))}, nil
+		}
+		services := make([]ServiceInfo, 0, len(units))
+		for _, u := range units {
+			name, _ := u["unit"].(string)
+			desc, _ := u["description"].(string)
+			active, _ := u["active"].(string)
+			status := "stopped"
+			if active == "active" {
+				status = "running"
+			}
+			services = append(services, ServiceInfo{Name: name, DisplayName: desc, Status: status})
+		}
+		return map[string]interface{}{"services": services, "count": len(services)}, nil
+
+	case "darwin":
+		out, err := exec.Command("launchctl", "list").Output()
+		if err != nil {
+			return nil, fmt.Errorf("list_services: launchctl failed: %w", err)
+		}
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		services := make([]ServiceInfo, 0, len(lines))
+		for _, line := range lines[1:] { // skip header
+			fields := strings.Fields(line)
+			if len(fields) < 3 {
+				continue
+			}
+			status := "stopped"
+			if fields[0] != "-" {
+				status = "running"
+			}
+			services = append(services, ServiceInfo{Name: fields[2], Status: status})
+		}
+		return map[string]interface{}{"services": services, "count": len(services)}, nil
+
+	default:
+		return nil, fmt.Errorf("list_services: unsupported platform %s", runtime.GOOS)
+	}
+}
+
+func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{}, error) {
+	name := payloadString(cmd.Payload, "name")
+	if name == "" {
+		return nil, fmt.Errorf("restart_service: name not specified")
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			fmt.Sprintf(`Restart-Service -Name '%s' -Force -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
+		if err != nil {
+			return nil, fmt.Errorf("restart_service: %w", err)
+		}
+		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
+
+	case "linux":
+		out, err := exec.Command("systemctl", "restart", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("restart_service: systemctl restart %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "restarted"}, nil
+
+	case "darwin":
+		// Attempt launchctl kickstart then stop+start as fallback.
+		out, err := exec.Command("launchctl", "kickstart", "-k", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("restart_service: launchctl kickstart %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "restarted"}, nil
+
+	default:
+		return nil, fmt.Errorf("restart_service: unsupported platform %s", runtime.GOOS)
+	}
+}
+
+func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
+	log.Printf("Command %s: restarting agent service...", cmd.ID)
+	// Exit cleanly after a short delay so the ack can be sent first.
+	// The service manager (Windows SCM / systemd / launchd) restarts the
+	// process automatically, which triggers checkForUpdate() at startup.
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(0)
+	}()
+	return nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

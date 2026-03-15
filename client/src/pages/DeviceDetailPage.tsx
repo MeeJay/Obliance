@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
-  Scan, WifiOff, Clock, Network, CircuitBoard, X
+  Scan, WifiOff, Clock, Network, CircuitBoard, X,
+  Server, Power, RotateCcw, Loader2,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -22,7 +23,7 @@ import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceU
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'commands';
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'commands';
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'overview', label: 'Overview', icon: Monitor },
@@ -31,6 +32,7 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'updates', label: 'Updates', icon: Package },
   { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
   { id: 'remote', label: 'Remote', icon: MonitorPlay },
+  { id: 'services', label: 'Services', icon: Server },
   { id: 'commands', label: 'Commands', icon: History },
 ];
 
@@ -871,6 +873,228 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
   );
 }
 
+// ─── Services Tab ──────────────────────────────────────────────────────────────
+
+interface ServiceInfo {
+  name: string;
+  displayName?: string;
+  status: string;
+  startType?: string;
+}
+
+function ServicesTab({ device }: { device: Device }) {
+  const [services, setServices] = useState<ServiceInfo[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
+  const [restartingService, setRestartingService] = useState<string | null>(null);
+  const [listCmdId, setListCmdId] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const isOnline = device.status === 'online';
+
+  // Listen for command results from server (via socket)
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onCmd = (cmd: Command) => {
+      if (cmd.deviceId !== device.id) return;
+      const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
+      if (!terminal) return;
+
+      if (cmd.type === 'list_services' && cmd.id === listCmdId) {
+        setIsLoadingServices(false);
+        if (cmd.status === 'success') {
+          const svcs = (cmd.result as any)?.services as ServiceInfo[] | undefined;
+          setServices(svcs ?? []);
+        } else {
+          toast.error('Failed to load services');
+        }
+        setListCmdId(null);
+      }
+
+      if (cmd.type === 'restart_service') {
+        const name = (cmd.payload as any)?.name as string;
+        setRestartingService((prev) => prev === name ? null : prev);
+        if (cmd.status === 'success') toast.success(`Service ${name} restarted`);
+        else toast.error(`Failed to restart ${name}`);
+      }
+
+      if (cmd.type === 'restart_agent' || cmd.type === 'reboot' || cmd.type === 'shutdown') {
+        setPendingActions((prev) => { const n = new Set(prev); n.delete(cmd.type); return n; });
+        if (cmd.status === 'success') toast.success(`${cmd.type.replace('_', ' ')} executed`);
+        else toast.error(`${cmd.type.replace('_', ' ')} failed`);
+      }
+    };
+
+    socket.on('COMMAND_RESULT', onCmd);
+    socket.on('COMMAND_UPDATED', onCmd);
+    return () => { socket.off('COMMAND_RESULT', onCmd); socket.off('COMMAND_UPDATED', onCmd); };
+  }, [device.id, listCmdId]);
+
+  const handleListServices = async () => {
+    setIsLoadingServices(true);
+    try {
+      const cmd = await commandApi.enqueue(device.id, 'list_services');
+      setListCmdId(cmd.id);
+    } catch {
+      setIsLoadingServices(false);
+      toast.error('Failed to dispatch list_services command');
+    }
+  };
+
+  const handleRestartService = async (name: string) => {
+    setRestartingService(name);
+    try {
+      await commandApi.enqueue(device.id, 'restart_service', { name });
+    } catch {
+      setRestartingService(null);
+      toast.error('Failed to send restart command');
+    }
+  };
+
+  const handleAction = async (type: 'restart_agent' | 'reboot' | 'shutdown', payload?: Record<string, any>) => {
+    setPendingActions((prev) => new Set(prev).add(type));
+    try {
+      await commandApi.enqueue(device.id, type, payload ?? {});
+      toast.success(`${type.replace(/_/g, ' ')} command sent`);
+    } catch {
+      setPendingActions((prev) => { const n = new Set(prev); n.delete(type); return n; });
+      toast.error(`Failed to send ${type} command`);
+    }
+  };
+
+  const filtered = filter
+    ? services.filter((s) =>
+        s.name.toLowerCase().includes(filter.toLowerCase()) ||
+        (s.displayName ?? '').toLowerCase().includes(filter.toLowerCase())
+      )
+    : services;
+
+  return (
+    <div className="space-y-6">
+      {/* Device Actions */}
+      <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
+        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Device Actions</h3>
+        {!isOnline && (
+          <p className="text-sm text-yellow-400 flex items-center gap-2">
+            <WifiOff className="w-4 h-4" />
+            Device is offline — commands will be queued until reconnection
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => handleAction('restart_agent')}
+            disabled={pendingActions.has('restart_agent')}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pendingActions.has('restart_agent') ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Restart Agent
+          </button>
+          <button
+            onClick={() => handleAction('reboot', { delaySeconds: 0 })}
+            disabled={pendingActions.has('reboot')}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-500/10 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pendingActions.has('reboot') ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Reboot
+          </button>
+          <button
+            onClick={() => handleAction('shutdown', { delaySeconds: 0 })}
+            disabled={pendingActions.has('shutdown')}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {pendingActions.has('shutdown') ? <Loader2 className="w-4 h-4 animate-spin" /> : <Power className="w-4 h-4" />}
+            Shutdown
+          </button>
+        </div>
+      </div>
+
+      {/* Services list */}
+      <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-text-primary">
+            Services {services.length > 0 && <span className="text-text-muted font-normal">({services.length})</span>}
+          </h3>
+          <div className="flex items-center gap-2">
+            {services.length > 0 && (
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter…"
+                className="px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-36"
+              />
+            )}
+            <button
+              onClick={handleListServices}
+              disabled={isLoadingServices}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoadingServices ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {services.length === 0 && !isLoadingServices ? (
+          <div className="p-10 text-center text-text-muted text-sm">
+            <Server className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p>Click <strong>Refresh</strong> to load the service list from the agent</p>
+          </div>
+        ) : isLoadingServices && services.length === 0 ? (
+          <div className="flex items-center justify-center h-24">
+            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+          </div>
+        ) : (
+          <div className="overflow-auto max-h-[60vh]">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-bg-secondary z-10">
+                <tr className="border-b border-border">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase">Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Display Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Start</th>
+                  <th className="px-4 py-2 w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((svc) => (
+                  <tr key={svc.name} className="hover:bg-bg-tertiary transition-colors">
+                    <td className="px-4 py-2 text-xs font-mono text-text-primary">{svc.name}</td>
+                    <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell">{svc.displayName || '—'}</td>
+                    <td className="px-4 py-2">
+                      <span className={clsx(
+                        'text-xs px-2 py-0.5 rounded-full border',
+                        svc.status === 'running'  ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+                        svc.status === 'stopped'  ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+                                                    'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+                      )}>
+                        {svc.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">{svc.startType || '—'}</td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        onClick={() => handleRestartService(svc.name)}
+                        disabled={restartingService === svc.name}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-blue-400 hover:bg-blue-400/10 border border-transparent hover:border-blue-400/20 rounded-lg disabled:opacity-50 transition-colors"
+                        title={`Restart ${svc.name}`}
+                      >
+                        {restartingService === svc.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                        Restart
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main DeviceDetailPage ──────────────────────────────────────────────────────
 
 export function DeviceDetailPage() {
@@ -1028,6 +1252,7 @@ export function DeviceDetailPage() {
         {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
         {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
         {activeTab === 'remote' && <RemoteTab device={device} />}
+        {activeTab === 'services' && <ServicesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
       </div>
     </div>

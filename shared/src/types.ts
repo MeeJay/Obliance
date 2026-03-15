@@ -234,6 +234,9 @@ export type CommandType =
   | 'close_remote_tunnel'
   | 'reboot'
   | 'shutdown'
+  | 'restart_agent'
+  | 'list_services'
+  | 'restart_service'
   | 'install_software'
   | 'uninstall_software';
 
