@@ -966,6 +966,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
         return [cmd, ...prev];
       });
     };
+    if (!socket) return;
     socket.on('COMMAND_UPDATED', onUpdate);
     socket.on('COMMAND_RESULT', onUpdate);
     return () => {

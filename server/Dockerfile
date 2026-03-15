@@ -69,15 +69,17 @@ COPY --from=go-agent-builder /build/dist/obliance-agent-darwin-arm64  ./agent/di
 # If absent, the /api/agent/installer/windows.msi endpoint returns 404.
 COPY agent/dist/ ./agent/dist/
 
-# Obli.tools VERSION file (read by GET /api/agent/desktop-version to drive the update banner).
-# Must be present — without it the endpoint returns 0.0.0 and the banner never fires.
-COPY obli.tools/VERSION ./obli.tools/
+# Obli.tools VERSION file — obli.tools/ is a symlink to an external directory and cannot be
+# followed by the Docker build context. The version is injected via --build-arg at build time;
+# defaults to "0.0.0" so the build never fails when the arg is omitted.
+ARG OBLITOOLS_VERSION=0.0.0
+RUN mkdir -p ./obli.tools && printf '%s' "${OBLITOOLS_VERSION}" > ./obli.tools/VERSION
 
 # Obli.tools release binaries (build on Windows: obli.tools/build-windows.ps1 → dist/ObliTools.exe)
 #                              (build on macOS:   obli.tools/build-mac.sh      → dist/ObliTools-*.dmg/zip)
-# If absent, the /downloads/:filename endpoint returns 404 (no hard failure).
+# obli.tools/ is a symlink outside the build context; the dist dir is pre-created so the
+# /downloads/:filename endpoint returns 404 for absent files (no hard failure).
 RUN mkdir -p ./obli.tools/dist
-COPY obli.tools/dist/ ./obli.tools/dist/
 
 COPY server/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

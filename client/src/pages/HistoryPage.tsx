@@ -180,6 +180,7 @@ export function HistoryPage() {
         return [updated, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       });
     };
+    if (!socket) return;
     socket.on('COMMAND_UPDATED', onCmd);
     socket.on('COMMAND_RESULT', onCmd);
     socket.on('EXECUTION_UPDATED', onExec);
