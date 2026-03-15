@@ -12,7 +12,7 @@ router.get('/', async (req, res, next) => {
       groupId: groupId ? parseInt(groupId) : undefined,
       status, approvalStatus, search,
     });
-    res.json(devices);
+    res.json({ data: devices });
   } catch (err) { next(err); }
 });
 
@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
 router.get('/summary', async (req, res, next) => {
   try {
     const summary = await deviceService.getFleetSummary(req.tenantId!);
-    res.json(summary);
+    res.json({ data: summary });
   } catch (err) { next(err); }
 });
 
@@ -29,7 +29,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const device = await deviceService.getDeviceById(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -38,7 +38,7 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const device = await deviceService.updateDevice(parseInt(req.params.id), req.tenantId!, req.body);
     if (!device) return res.status(404).json({ error: 'Device not found' });
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -48,7 +48,7 @@ router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
     const device = await deviceService.approveDevice(
       parseInt(req.params.id), req.tenantId!, req.session.userId!
     );
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -56,7 +56,7 @@ router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
 router.post('/:id/refuse', requireRole('admin'), async (req, res, next) => {
   try {
     const device = await deviceService.refuseDevice(parseInt(req.params.id), req.tenantId!);
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -65,7 +65,7 @@ router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
   try {
     const device = await deviceService.suspendDevice(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -74,7 +74,7 @@ router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
   try {
     const device = await deviceService.unsuspendDevice(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
-    res.json(device);
+    res.json({ data: device });
   } catch (err) { next(err); }
 });
 
@@ -89,17 +89,19 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
 // POST /api/devices/bulk/approve
 router.post('/bulk/approve', requireRole('admin'), async (req, res, next) => {
   try {
-    const { ids } = req.body;
-    await deviceService.bulkApprove(ids, req.tenantId!, req.session.userId!);
-    res.json({ success: true, count: ids.length });
+    const { ids, deviceIds } = req.body;
+    const list = ids ?? deviceIds ?? [];
+    await deviceService.bulkApprove(list, req.tenantId!, req.session.userId!);
+    res.json({ success: true, count: list.length });
   } catch (err) { next(err); }
 });
 
 // POST /api/devices/bulk/delete
 router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
   try {
-    const { ids } = req.body;
-    await deviceService.bulkDelete(ids, req.tenantId!);
+    const { ids, deviceIds } = req.body;
+    const list = ids ?? deviceIds ?? [];
+    await deviceService.bulkDelete(list, req.tenantId!);
     res.json({ success: true });
   } catch (err) { next(err); }
 });

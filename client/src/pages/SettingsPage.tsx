@@ -213,36 +213,47 @@ export function SettingsPage() {
     setAgentGlobal(updated);
   }
 
-  async function saveObliviewConfig(patch: { url?: string | null; apiKey?: string | null }) {
+  // Save helpers — always bundle URL + key together so a key-only save never wipes the URL.
+  // Pass `explicitApiKey` when generating a key (React state won't have updated yet).
+  async function saveObliviewConfig(explicitApiKey?: string) {
     try {
+      const key = explicitApiKey !== undefined ? explicitApiKey : obliviewApiKey;
+      const patch: { url?: string | null; apiKey?: string | null } = { url: obliviewUrl.trim() || null };
+      if (key.trim()) patch.apiKey = key.trim();
       const updated = await appConfigApi.patchObliviewConfig(patch);
       setObliviewCfg(updated);
       setObliviewUrl(updated.url ?? '');
-      if (patch.apiKey !== undefined) setObliviewApiKey('');
+      setObliviewApiKey('');
       toast.success(t('common.saved'));
     } catch {
       toast.error(t('settings.failedUpdate'));
     }
   }
 
-  async function saveObliguardConfig(patch: { url?: string | null; apiKey?: string | null }) {
+  async function saveObliguardConfig(explicitApiKey?: string) {
     try {
+      const key = explicitApiKey !== undefined ? explicitApiKey : obliguardApiKey;
+      const patch: { url?: string | null; apiKey?: string | null } = { url: obliguardUrl.trim() || null };
+      if (key.trim()) patch.apiKey = key.trim();
       const updated = await appConfigApi.patchObliguardConfig(patch);
       setObliguardCfg(updated);
       setObliguardUrl(updated.url ?? '');
-      if (patch.apiKey !== undefined) setObliguardApiKey('');
+      setObliguardApiKey('');
       toast.success(t('common.saved'));
     } catch {
       toast.error(t('settings.failedUpdate'));
     }
   }
 
-  async function saveOblimapConfig(patch: { url?: string | null; apiKey?: string | null }) {
+  async function saveOblimapConfig(explicitApiKey?: string) {
     try {
+      const key = explicitApiKey !== undefined ? explicitApiKey : oblimapApiKey;
+      const patch: { url?: string | null; apiKey?: string | null } = { url: oblimapUrl.trim() || null };
+      if (key.trim()) patch.apiKey = key.trim();
       const updated = await appConfigApi.patchOblimapConfig(patch);
       setOblimapCfg(updated);
       setOblimapUrl(updated.url ?? '');
-      if (patch.apiKey !== undefined) setOblimapApiKey('');
+      setOblimapApiKey('');
       toast.success(t('common.saved'));
     } catch {
       toast.error(t('settings.failedUpdate'));
@@ -507,28 +518,38 @@ export function SettingsPage() {
               </p>
 
               <div>
-                <Input
-                  label="Obliview URL"
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-text-secondary">Obliview URL</label>
+                  {obliviewCfg?.url && (
+                    <a href={obliviewCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://obliview.example.com"
                   value={obliviewUrl}
                   onChange={(e) => setObliviewUrl(e.target.value)}
-                  onBlur={() => saveObliviewConfig({ url: obliviewUrl.trim() || null })}
-                  placeholder="https://obliview.example.com"
+                  onBlur={() => void saveObliviewConfig()}
+                  className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  Shared secret
+                  Secret
+                  {obliviewCfg?.apiKeySet && (
+                    <span className="ml-2 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20">SET</span>
+                  )}
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
                       type={showObliviewKey ? 'text' : 'password'}
+                      placeholder={obliviewCfg?.apiKeySet ? '••••••••••••••••••••••••••••••••••••' : 'Generate or paste a secret…'}
                       value={obliviewApiKey}
                       onChange={(e) => setObliviewApiKey(e.target.value)}
-                      onBlur={() => { if (obliviewApiKey) saveObliviewConfig({ apiKey: obliviewApiKey }); }}
-                      placeholder={obliviewCfg?.apiKeySet ? '(secret is set)' : 'Enter or generate a secret'}
-                      className="w-full rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-primary pr-9 focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-text-muted"
+                      onBlur={() => { if (obliviewApiKey.trim()) void saveObliviewConfig(); }}
+                      className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
                     <button
                       type="button"
@@ -540,45 +561,36 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    title="Generate a new secret"
-                    onClick={() => { const s = generateSecret(); setObliviewApiKey(s); saveObliviewConfig({ apiKey: s }); }}
-                    className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                    onClick={() => { const s = generateSecret(); setObliviewApiKey(s); void saveObliviewConfig(s); }}
+                    title="Generate a new random secret"
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={13} />
+                    Generate
                   </button>
-                  {obliviewCfg?.apiKeySet && (
+                  {obliviewApiKey && (
                     <button
                       type="button"
-                      title="Copy secret"
-                      onClick={() => { if (obliviewApiKey) { void navigator.clipboard.writeText(obliviewApiKey); toast.success('Copied'); } }}
-                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                      onClick={() => { void navigator.clipboard.writeText(obliviewApiKey); toast.success('Copied!'); }}
+                      title="Copy to clipboard"
+                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                     >
                       <Copy size={14} />
                     </button>
                   )}
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
-                  Use the same secret in Obliview &rarr; Settings &rarr; Obliance Integration.
+                  Use the same secret in{' '}
+                  <span className="text-text-secondary font-medium">Obliview → Settings → Obliance Integration</span>.
                 </p>
               </div>
 
-              {obliviewUrl && obliviewCfg?.apiKeySet && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Enable SSO</p>
-                    <p className="text-xs text-text-muted">Allow users to switch between Obliance and Obliview via SSO.</p>
-                  </div>
-                  <button
-                    role="switch"
-                    aria-checked={appConfig?.allow_2fa ? true : false}
-                    onClick={() => saveObliviewConfig({ url: obliviewUrl.trim() || null })}
-                    className={cn(
-                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none',
-                      obliviewUrl && obliviewCfg?.apiKeySet ? 'bg-accent' : 'bg-bg-tertiary',
-                    )}
-                  >
-                    <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', obliviewUrl && obliviewCfg?.apiKeySet ? 'translate-x-4' : 'translate-x-0')} />
-                  </button>
+              {obliviewCfg?.url && obliviewCfg.apiKeySet && (
+                <div className="pt-4 border-t border-border mt-2">
+                  <p className="text-xs text-green-400 flex items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Integration active — users can switch between Obliance and Obliview via SSO.
+                  </p>
                 </div>
               )}
             </div>
@@ -596,28 +608,38 @@ export function SettingsPage() {
               </p>
 
               <div>
-                <Input
-                  label="Obliguard URL"
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-text-secondary">Obliguard URL</label>
+                  {obliguardCfg?.url && (
+                    <a href={obliguardCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://obliguard.example.com"
                   value={obliguardUrl}
                   onChange={(e) => setObliguardUrl(e.target.value)}
-                  onBlur={() => saveObliguardConfig({ url: obliguardUrl.trim() || null })}
-                  placeholder="https://obliguard.example.com"
+                  onBlur={() => void saveObliguardConfig()}
+                  className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  Shared secret
+                  Secret
+                  {obliguardCfg?.apiKeySet && (
+                    <span className="ml-2 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20">SET</span>
+                  )}
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
                       type={showObliguardKey ? 'text' : 'password'}
+                      placeholder={obliguardCfg?.apiKeySet ? '••••••••••••••••••••••••••••••••••••' : 'Generate or paste a secret…'}
                       value={obliguardApiKey}
                       onChange={(e) => setObliguardApiKey(e.target.value)}
-                      onBlur={() => { if (obliguardApiKey) saveObliguardConfig({ apiKey: obliguardApiKey }); }}
-                      placeholder={obliguardCfg?.apiKeySet ? '(secret is set)' : 'Enter or generate a secret'}
-                      className="w-full rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-primary pr-9 focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-text-muted"
+                      onBlur={() => { if (obliguardApiKey.trim()) void saveObliguardConfig(); }}
+                      className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
                     <button
                       type="button"
@@ -629,45 +651,36 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    title="Generate a new secret"
-                    onClick={() => { const s = generateSecret(); setObliguardApiKey(s); saveObliguardConfig({ apiKey: s }); }}
-                    className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                    onClick={() => { const s = generateSecret(); setObliguardApiKey(s); void saveObliguardConfig(s); }}
+                    title="Generate a new random secret"
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={13} />
+                    Generate
                   </button>
-                  {obliguardCfg?.apiKeySet && (
+                  {obliguardApiKey && (
                     <button
                       type="button"
-                      title="Copy secret"
-                      onClick={() => { if (obliguardApiKey) { void navigator.clipboard.writeText(obliguardApiKey); toast.success('Copied'); } }}
-                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                      onClick={() => { void navigator.clipboard.writeText(obliguardApiKey); toast.success('Copied!'); }}
+                      title="Copy to clipboard"
+                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                     >
                       <Copy size={14} />
                     </button>
                   )}
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
-                  Use the same secret in Obliguard &rarr; Settings &rarr; Obliance Integration.
+                  Use the same secret in{' '}
+                  <span className="text-text-secondary font-medium">Obliguard → Settings → Obliance Integration</span>.
                 </p>
               </div>
 
-              {obliguardUrl && obliguardCfg?.apiKeySet && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Enable SSO</p>
-                    <p className="text-xs text-text-muted">Allow users to switch between Obliance and Obliguard via SSO.</p>
-                  </div>
-                  <button
-                    role="switch"
-                    aria-checked={true}
-                    onClick={() => saveObliguardConfig({ url: obliguardUrl.trim() || null })}
-                    className={cn(
-                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none',
-                      obliguardUrl && obliguardCfg?.apiKeySet ? 'bg-accent' : 'bg-bg-tertiary',
-                    )}
-                  >
-                    <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', obliguardUrl && obliguardCfg?.apiKeySet ? 'translate-x-4' : 'translate-x-0')} />
-                  </button>
+              {obliguardCfg?.url && obliguardCfg.apiKeySet && (
+                <div className="pt-4 border-t border-border mt-2">
+                  <p className="text-xs text-green-400 flex items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Integration active — users can switch between Obliance and Obliguard via SSO.
+                  </p>
                 </div>
               )}
             </div>
@@ -685,28 +698,38 @@ export function SettingsPage() {
               </p>
 
               <div>
-                <Input
-                  label="Oblimap URL"
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="text-sm font-medium text-text-secondary">Oblimap URL</label>
+                  {oblimapCfg?.url && (
+                    <a href={oblimapCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://oblimap.example.com"
                   value={oblimapUrl}
                   onChange={(e) => setOblimapUrl(e.target.value)}
-                  onBlur={() => saveOblimapConfig({ url: oblimapUrl.trim() || null })}
-                  placeholder="https://oblimap.example.com"
+                  onBlur={() => void saveOblimapConfig()}
+                  className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  Shared secret
+                  Secret
+                  {oblimapCfg?.apiKeySet && (
+                    <span className="ml-2 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20">SET</span>
+                  )}
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2">
                   <div className="relative flex-1">
                     <input
                       type={showOblimapKey ? 'text' : 'password'}
+                      placeholder={oblimapCfg?.apiKeySet ? '••••••••••••••••••••••••••••••••••••' : 'Generate or paste a secret…'}
                       value={oblimapApiKey}
                       onChange={(e) => setOblimapApiKey(e.target.value)}
-                      onBlur={() => { if (oblimapApiKey) saveOblimapConfig({ apiKey: oblimapApiKey }); }}
-                      placeholder={oblimapCfg?.apiKeySet ? '(secret is set)' : 'Enter or generate a secret'}
-                      className="w-full rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-primary pr-9 focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-text-muted"
+                      onBlur={() => { if (oblimapApiKey.trim()) void saveOblimapConfig(); }}
+                      className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
                     />
                     <button
                       type="button"
@@ -718,45 +741,36 @@ export function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    title="Generate a new secret"
-                    onClick={() => { const s = generateSecret(); setOblimapApiKey(s); saveOblimapConfig({ apiKey: s }); }}
-                    className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                    onClick={() => { const s = generateSecret(); setOblimapApiKey(s); void saveOblimapConfig(s); }}
+                    title="Generate a new random secret"
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={13} />
+                    Generate
                   </button>
-                  {oblimapCfg?.apiKeySet && (
+                  {oblimapApiKey && (
                     <button
                       type="button"
-                      title="Copy secret"
-                      onClick={() => { if (oblimapApiKey) { void navigator.clipboard.writeText(oblimapApiKey); toast.success('Copied'); } }}
-                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                      onClick={() => { void navigator.clipboard.writeText(oblimapApiKey); toast.success('Copied!'); }}
+                      title="Copy to clipboard"
+                      className="p-2 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
                     >
                       <Copy size={14} />
                     </button>
                   )}
                 </div>
                 <p className="mt-1.5 text-xs text-text-muted">
-                  Use the same secret in Oblimap &rarr; Settings &rarr; Obliance Integration.
+                  Use the same secret in{' '}
+                  <span className="text-text-secondary font-medium">Oblimap → Settings → Obliance Integration</span>.
                 </p>
               </div>
 
-              {oblimapUrl && oblimapCfg?.apiKeySet && (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">Enable SSO</p>
-                    <p className="text-xs text-text-muted">Allow users to switch between Obliance and Oblimap via SSO.</p>
-                  </div>
-                  <button
-                    role="switch"
-                    aria-checked={true}
-                    onClick={() => saveOblimapConfig({ url: oblimapUrl.trim() || null })}
-                    className={cn(
-                      'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none',
-                      oblimapUrl && oblimapCfg?.apiKeySet ? 'bg-accent' : 'bg-bg-tertiary',
-                    )}
-                  >
-                    <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', oblimapUrl && oblimapCfg?.apiKeySet ? 'translate-x-4' : 'translate-x-0')} />
-                  </button>
+              {oblimapCfg?.url && oblimapCfg.apiKeySet && (
+                <div className="pt-4 border-t border-border mt-2">
+                  <p className="text-xs text-green-400 flex items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Integration active — users can switch between Obliance and Oblimap via SSO.
+                  </p>
                 </div>
               )}
             </div>
