@@ -95,18 +95,20 @@ export function UpdatesPage() {
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     try {
-      await updateApi.bulkApprove(Array.from(selectedIds));
+      // Approve each selected update individually (server approves per device+updateId)
+      const selected = updates.filter((u) => selectedIds.has(u.id));
+      await Promise.all(selected.map((u) => updateApi.approveUpdate(u.deviceId, u.id)));
       setSelectedIds(new Set());
-      toast.success(`${selectedIds.size} updates approved`);
+      toast.success(`${selected.length} updates approved`);
       await load();
     } catch {
       toast.error('Failed to approve updates');
     }
   };
 
-  const handleApprove = async (id: number) => {
+  const handleApprove = async (update: DeviceUpdate) => {
     try {
-      await updateApi.approveUpdate(id);
+      await updateApi.approveUpdate(update.deviceId, update.id);
       toast.success('Update approved');
       await load();
     } catch {
@@ -364,7 +366,7 @@ export function UpdatesPage() {
                         <td className="px-4 py-3 text-right">
                           {update.status === 'available' && (
                             <button
-                              onClick={() => handleApprove(update.id)}
+                              onClick={() => handleApprove(update)}
                               className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors"
                             >
                               Approve

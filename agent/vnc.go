@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -137,7 +138,8 @@ func startMacVNC() error {
 	if _, err := os.Stat(kickstart); err == nil {
 		// Activate Screen Sharing through the ARD kickstart utility.
 		// The agent runs as root (LaunchDaemon), so this always succeeds.
-		err := exec.Command(kickstart,
+		// Use CombinedOutput so we can detect macOS TCC permission warnings.
+		out, err := exec.Command(kickstart,
 			"-activate",
 			"-configure",
 			"-access", "-on",
@@ -145,12 +147,26 @@ func startMacVNC() error {
 			"-privs", "-all",
 			"-clientopts", "-setvnclegacy", "-vnclegacy", "yes",
 			"-restart", "-agent",
-		).Run()
+		).CombinedOutput()
+
+		outStr := strings.TrimSpace(string(out))
 		if err == nil {
 			log.Printf("VNC: macOS Screen Sharing activated via ARD kickstart")
+			// Surface TCC permission warnings so admins can act on them.
+			if strings.Contains(outStr, "Screen recording might be disabled") {
+				log.Printf("VNC: WARNING — Screen Recording permission is not granted to screensharingd. " +
+					"The remote session may show a blank screen. " +
+					"Fix: System Settings → Privacy & Security → Screen Recording → enable Screen Sharing, " +
+					"or push a TCC MDM profile granting com.apple.screencapture to com.apple.screensharing.")
+			}
+			if strings.Contains(outStr, "Screen control might be disabled") {
+				log.Printf("VNC: WARNING — Accessibility permission is not granted. " +
+					"Remote input (keyboard/mouse) may not work. " +
+					"Fix: System Settings → Privacy & Security → Accessibility → enable Remote Management.")
+			}
 			return waitForVNC()
 		}
-		log.Printf("VNC: ARD kickstart returned error (%v), falling back to launchctl", err)
+		log.Printf("VNC: ARD kickstart returned error (%v) output: %s — falling back to launchctl", err, outStr)
 	}
 
 	// Fallback: load the Screen Sharing LaunchDaemon directly.
