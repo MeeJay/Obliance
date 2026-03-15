@@ -88,9 +88,10 @@ class CommandService {
         .where({ id: ack.commandId, device_id: deviceId })
         .update(updates);
 
-      // Emit update
+      // Emit update and keep row for script_execution linkage below
+      let row: any;
       try {
-        const row = await db('command_queue').where({ id: ack.commandId }).first();
+        row = await db('command_queue').where({ id: ack.commandId }).first();
         if (row) {
           const io = getIO();
           const cmd = this.rowToCommand(row);

@@ -1,28 +1,26 @@
-// Minimal type declarations for @novnc/novnc/core/rfb.js
-// The package ships .d.ts but Vite may need this fallback for some setups.
-declare module '@novnc/novnc/core/rfb.js' {
-  interface RFBOptions {
-    /** true = view-only (no input events sent to server) */
-    viewOnly?: boolean;
-    /** true = scale viewport to fit the container */
-    scaleViewport?: boolean;
-    /** true = show a dot cursor when the remote cursor is outside */
-    showDotCursor?: boolean;
-    /** Credentials passed on the 'credentialsrequired' event */
-    credentials?: { username?: string; password?: string; target?: string };
-  }
+// Minimal type declarations for @novnc/novnc
+// noVNC does not ship its own .d.ts; this file covers what we use.
 
-  type RFBEventMap = {
-    connect: CustomEvent<void>;
-    disconnect: CustomEvent<{ clean: boolean }>;
-    credentialsrequired: CustomEvent<{ types: string[] }>;
-    securityfailure: CustomEvent<{ status: number; reason?: string }>;
-    capabilities: CustomEvent<{ capabilities: Record<string, boolean> }>;
-    clipboard: CustomEvent<{ text: string }>;
-    bell: CustomEvent<void>;
-    desktopname: CustomEvent<{ name: string }>;
-  };
+interface RFBOptions {
+  viewOnly?: boolean;
+  scaleViewport?: boolean;
+  showDotCursor?: boolean;
+  credentials?: { username?: string; password?: string; target?: string };
+}
 
+type RFBEventMap = {
+  connect: CustomEvent<void>;
+  disconnect: CustomEvent<{ clean: boolean }>;
+  credentialsrequired: CustomEvent<{ types: string[] }>;
+  securityfailure: CustomEvent<{ status: number; reason?: string }>;
+  capabilities: CustomEvent<{ capabilities: Record<string, boolean> }>;
+  clipboard: CustomEvent<{ text: string }>;
+  bell: CustomEvent<void>;
+  desktopname: CustomEvent<{ name: string }>;
+};
+
+// Declare the package-root entry point (@novnc/novnc → core/rfb.js via "main" field)
+declare module '@novnc/novnc' {
   export default class RFB extends EventTarget {
     constructor(target: HTMLElement, url: string, options?: RFBOptions);
     viewOnly: boolean;
@@ -48,4 +46,10 @@ declare module '@novnc/novnc/core/rfb.js' {
       options?: boolean | EventListenerOptions,
     ): void;
   }
+}
+
+// Also declare the subpath for any code that imports it directly
+declare module '@novnc/novnc/core/rfb.js' {
+  import RFB from '@novnc/novnc';
+  export default RFB;
 }
