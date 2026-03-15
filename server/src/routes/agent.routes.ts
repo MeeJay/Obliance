@@ -5,8 +5,29 @@ import { deviceService } from '../services/device.service';
 import { commandService } from '../services/command.service';
 import { logger } from '../utils/logger';
 import type { AgentPushRequest } from '@obliance/shared';
+import {
+  agentVersion,
+  desktopVersion,
+  agentDownload,
+  agentInstallerLinux,
+  agentInstallerMacos,
+  agentInstallerWindows,
+  agentInstallerWindowsMsi,
+} from '../controllers/agent.controller';
 
 const router = Router();
+
+// ── Public: version info, binary downloads, installer scripts ────────────────
+// These are called by PowerShell / bash BEFORE any login — no auth required.
+
+router.get('/version',             agentVersion);
+router.get('/version/desktop',     desktopVersion);
+router.get('/download/:filename',  agentDownload);
+router.get('/installer/linux',     agentInstallerLinux);
+router.get('/installer/macos',     agentInstallerMacos);
+router.get('/installer/windows',   agentInstallerWindows);
+// Convenience URL matching Obliview pattern: /api/agent/installer/windows.msi
+router.get('/installer/windows.msi', agentInstallerWindowsMsi);
 
 // POST /api/agent/register
 // Agent registers itself and gets back its device UUID confirmation

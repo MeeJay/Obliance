@@ -220,9 +220,8 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 	// for up to 10 minutes, so admins are not paged during a routine update.
 	notifyServerUpdating(cfg)
 
-	// On Windows we download the full MSI so that the installer handles all
-	// dependencies (PawnIO kernel driver, service registration, etc.).
-	// On other platforms we download the bare binary.
+	// On Windows we download the full MSI so that the installer handles
+	// service registration and other setup. On other platforms we download the bare binary.
 	var filename string
 	if runtime.GOOS == "windows" {
 		filename = "obliance-agent.msi"
@@ -259,8 +258,8 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 		f.Close()
 
 		// Launch msiexec via a detached batch script — the script outlives the
-		// service process. msiexec will stop the service, install the new version
-		// (including any updated dependencies such as PawnIO), then restart it.
+		// service process. msiexec will stop the service, install the new version,
+		// then restart it.
 		if err := applyWindowsMSIUpdate(msiPath, cfg.ServerURL, cfg.APIKey); err != nil {
 			os.Remove(msiPath)
 			log.Printf("Auto-update: Windows MSI update failed: %v", err)
@@ -310,8 +309,7 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 // msiexec /quiet handles the full install sequence:
 //  1. Stop the OblianceAgent service (WiX <ServiceControl Stop="both">)
 //  2. Overwrite obliance-agent.exe and any other packaged files
-//  3. Run deferred custom actions (e.g. PawnIO kernel driver installation)
-//  4. Restart the OblianceAgent service with the new binary
+//  3. Restart the OblianceAgent service with the new binary
 //
 // SERVERURL and APIKEY are forwarded so that the service arguments in the MSI
 // are populated even when config.json already exists (belt-and-suspenders).

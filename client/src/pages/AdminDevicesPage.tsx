@@ -377,7 +377,7 @@ export function AdminDevicesPage() {
           {/* New key created alert */}
           {showNewKey && (
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-2">
-              <p className="text-sm font-medium text-green-400">{t('devices.apiKeys.newKeyWarning')}</p>
+              <p className="text-sm font-medium text-green-400">{t('devices.apiKeys.newKeyAlert')}</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-sm font-mono bg-bg-tertiary p-2 rounded text-text-primary break-all">{showNewKey}</code>
                 <button
