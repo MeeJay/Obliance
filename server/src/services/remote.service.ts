@@ -144,12 +144,20 @@ class RemoteService {
   async cleanupStaleSessions() {
     const timeout = await db('app_config').where({ key: 'remote_session_timeout_minutes' }).first();
     const minutes = parseInt(timeout?.value || '60');
-    const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+    const now = new Date();
 
+    // "waiting" sessions: short fuse (6 min) — the open_remote_tunnel command expires
+    // in 5 min, so after 6 min a waiting session is definitively stuck.
     await db('remote_sessions')
-      .whereIn('status', ['waiting', 'connecting'])
-      .where('started_at', '<', cutoff)
-      .update({ status: 'timeout', ended_at: new Date(), end_reason: 'timeout' });
+      .where({ status: 'waiting' })
+      .where('started_at', '<', new Date(Date.now() - 6 * 60 * 1000))
+      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' });
+
+    // "connecting" sessions: use the admin-configured timeout
+    await db('remote_sessions')
+      .where({ status: 'connecting' })
+      .where('started_at', '<', new Date(Date.now() - minutes * 60 * 1000))
+      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' });
   }
 }
 

@@ -211,24 +211,24 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
           {/* Memory */}
           <div className="p-4 bg-bg-secondary border border-border rounded-xl">
             <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><MemoryStick className="w-4 h-4" />Memory</h4>
-            <p className="text-text-primary">{(hardware.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB total</p>
+            <p className="text-text-primary">{((hardware.memory.total ?? 0) / 1024 / 1024 / 1024).toFixed(1)} GB total</p>
             <div className="mt-2 space-y-1">
-              {hardware.memory.slots.map((slot, i) => (
-                <p key={i} className="text-xs text-text-muted">{slot.bank}: {(slot.size / 1024 / 1024 / 1024).toFixed(0)} GB {slot.type} @ {slot.speed} MHz</p>
+              {(hardware.memory.slots ?? []).map((slot, i) => (
+                <p key={i} className="text-xs text-text-muted">{slot.bank}: {((slot.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB {slot.type} @ {slot.speed} MHz</p>
               ))}
             </div>
           </div>
           {/* Disks */}
-          {hardware.disks.length > 0 && (
+          {(hardware.disks ?? []).length > 0 && (
             <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
               <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />Disks</h4>
               <div className="space-y-2">
-                {hardware.disks.map((disk, i) => (
+                {(hardware.disks ?? []).map((disk, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm">
                     <span className="text-text-primary">{disk.model ?? disk.device}</span>
                     <span className="text-text-muted text-xs">{disk.type}</span>
-                    <span className="text-text-muted text-xs">{(disk.size / 1024 / 1024 / 1024).toFixed(0)} GB</span>
-                    <span className="text-text-muted text-xs">{disk.mounts.map((m) => m.mount).join(', ')}</span>
+                    <span className="text-text-muted text-xs">{((disk.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB</span>
+                    <span className="text-text-muted text-xs">{(disk.mounts ?? []).map((m) => m.mount).join(', ')}</span>
                   </div>
                 ))}
               </div>
