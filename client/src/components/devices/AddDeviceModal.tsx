@@ -45,7 +45,8 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function KeySection({ apiKey, origin, t }: { apiKey: AgentApiKey; origin: string; t: (k: string, o?: object) => string }) {
+function KeySection({ apiKey, origin }: { apiKey: AgentApiKey; origin: string }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const truncatedKey = `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}`;
 
@@ -145,7 +146,7 @@ export function AddDeviceModal({ onClose }: Props) {
             <p className="text-sm text-text-muted text-center py-10">{t('devices.addModal.noKeys')}</p>
           ) : (
             keys.map(key => (
-              <KeySection key={key.id} apiKey={key} origin={origin} t={t} />
+              <KeySection key={key.id} apiKey={key} origin={origin} />
             ))
           )}
         </div>

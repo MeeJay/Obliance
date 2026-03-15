@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import type { DeviceStatus } from '@obliance/shared';
+import type { ApprovalStatus, DeviceStatus } from '@obliance/shared';
 
 const STATUS_CONFIG: Record<DeviceStatus, { label: string; color: string; dot: string }> = {
   online:      { label: 'Online',      color: 'text-green-400 bg-green-400/10 border-green-400/30',    dot: 'bg-green-400' },
@@ -11,14 +11,19 @@ const STATUS_CONFIG: Record<DeviceStatus, { label: string; color: string; dot: s
   suspended:   { label: 'Suspended',   color: 'text-gray-500 bg-gray-500/10 border-gray-500/20',       dot: 'bg-gray-500' },
 };
 
+const REFUSED_CONFIG = { label: 'Refused', color: 'text-red-400 bg-red-400/10 border-red-400/30', dot: 'bg-red-400' };
+
 interface Props {
   status: DeviceStatus;
+  approvalStatus?: ApprovalStatus;
   size?: 'sm' | 'md';
   showDot?: boolean;
 }
 
-export function DeviceStatusBadge({ status, size = 'md', showDot = true }: Props) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.offline;
+export function DeviceStatusBadge({ status, approvalStatus, size = 'md', showDot = true }: Props) {
+  const cfg = approvalStatus === 'refused'
+    ? REFUSED_CONFIG
+    : STATUS_CONFIG[status] ?? STATUS_CONFIG.offline;
   return (
     <span className={clsx(
       'inline-flex items-center gap-1.5 font-medium border rounded-full',
