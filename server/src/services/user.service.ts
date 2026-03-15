@@ -28,6 +28,10 @@ function rowToUser(row: UserRow): User {
     enrollmentVersion: (row as any).enrollment_version ?? 0,
     totpEnabled: (row as any).totp_enabled ?? false,
     emailOtpEnabled: (row as any).email_otp_enabled ?? false,
+    foreignSource: (row as any).foreign_source ?? null,
+    foreignId: (row as any).foreign_id ?? null,
+    foreignSourceUrl: (row as any).foreign_source_url ?? null,
+    hasPassword: (row as any).has_password ?? true,
   };
 }
 

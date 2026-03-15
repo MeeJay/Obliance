@@ -328,7 +328,7 @@ router.post('/complete-link', async (req: Request, res: Response, next: NextFunc
         if (cfg.otp_smtp_server_id) {
           const code = twoFactorService.generateEmailOtp();
           req.session.pendingEmailOtp = { code, email: localUser.email, expires: Date.now() + 10 * 60 * 1000 };
-          await twoFactorService.sendEmailOtp(cfg.otp_smtp_server_id, localUser.email, code);
+          await twoFactorService.sendEmailOtp(Number(cfg.otp_smtp_server_id), localUser.email, code);
         }
       }
 
@@ -412,7 +412,7 @@ router.post('/verify-link-2fa', async (req: Request, res: Response, next: NextFu
       if (!cfg.otp_smtp_server_id) throw new AppError(400, 'No SMTP server configured for OTP');
       const newCode = twoFactorService.generateEmailOtp();
       req.session.pendingEmailOtp = { code: newCode, email: localUser.email, expires: Date.now() + 10 * 60 * 1000 };
-      await twoFactorService.sendEmailOtp(cfg.otp_smtp_server_id, localUser.email, newCode);
+      await twoFactorService.sendEmailOtp(Number(cfg.otp_smtp_server_id), localUser.email, newCode);
       res.json({ success: true });
       return;
     }
