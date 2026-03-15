@@ -102,6 +102,18 @@ class CommandService {
         }
       } catch {}
 
+      // If a remote tunnel command failed, mark the session as failed so the UI stops waiting
+      if (isTerminal && ack.status === 'failure' && row && row.type === 'open_remote_tunnel') {
+        try {
+          const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
+          if (payload.sessionToken) {
+            await db('remote_sessions')
+              .where({ session_token: payload.sessionToken, status: 'waiting' })
+              .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' });
+          }
+        } catch {}
+      }
+
       // Update linked script execution when the command is terminal
       if (isTerminal && row && row.source_type === 'script_execution' && row.source_id) {
         try {

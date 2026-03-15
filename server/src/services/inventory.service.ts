@@ -53,7 +53,7 @@ class InventoryService {
     await db('devices').where({ id: deviceId }).update({
       cpu_model: data.cpu?.model,
       cpu_cores: data.cpu?.cores,
-      ram_total_gb: data.memory?.total ? Math.round(data.memory.total / (1024**3) * 100) / 100 : undefined,
+      ram_total_gb: data.memory?.totalMb ? Math.round(data.memory.totalMb / 1024 * 100) / 100 : undefined,
       updated_at: new Date(),
     });
   }

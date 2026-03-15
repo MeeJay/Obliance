@@ -14,6 +14,8 @@ import {
   agentInstallerWindows,
   agentInstallerWindowsMsi,
 } from '../controllers/agent.controller';
+import { inventoryService } from '../services/inventory.service';
+import { updateService } from '../services/update.service';
 
 const router = Router();
 
@@ -141,6 +143,60 @@ router.post('/push', agentAuth, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/agent/inventory
+// Called by the agent after a scan_inventory command completes.
+// Saves hardware + software inventory for the device.
+router.post('/inventory', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: req.agentTenantId! })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const data = req.body;
+    // Save hardware (cpu, memory, disks, networkInterfaces, gpu, motherboard, bios, raw)
+    await inventoryService.saveHardware(device.id, data);
+    // Save software list
+    if (Array.isArray(data.software) && data.software.length > 0) {
+      await inventoryService.saveSoftware(device.id, data.software);
+    }
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/updates
+// Called by the agent after a scan_updates command completes.
+// Upserts the list of available OS/software updates.
+router.post('/updates', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { updates } = req.body as { updates: any[] };
+    if (Array.isArray(updates) && updates.length > 0) {
+      await updateService.upsertUpdates(device.id, tenantId, updates);
+    }
+
+    res.json({ ok: true, count: updates?.length ?? 0 });
+  } catch (err) { next(err); }
 });
 
 export default router;
