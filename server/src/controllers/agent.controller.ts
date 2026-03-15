@@ -80,6 +80,13 @@ function readVersionFile(filename: string): { version: string; buildDate?: strin
 
 export function agentVersion(_req: Request, res: Response): void {
   try {
+    // Primary: agent/VERSION plain-text (always present in Docker image)
+    const vp = path.resolve(__dirname, '../../../../agent/VERSION');
+    if (fs.existsSync(vp)) {
+      const version = fs.readFileSync(vp, 'utf-8').trim();
+      if (version) { res.json({ version }); return; }
+    }
+    // Fallback: version-agent.json built artefact
     const info = readVersionFile('version-agent.json');
     if (!info) throw new Error('version file not found');
     res.json(info);
