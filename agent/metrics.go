@@ -683,8 +683,16 @@ func getLocalNetworkInfo() (ipLocal, macAddress string) {
 		return "", ""
 	}
 	for _, iface := range ifaces {
-		// Skip loopback and interfaces without a hardware address
-		if iface.Flags&uint32(net.FlagLoopback) != 0 || iface.HardwareAddr == "" {
+		// gopsutil Flags is []string (e.g. ["up","loopback","broadcast"]).
+		// Skip loopback and interfaces without a hardware address.
+		isLoopback := false
+		for _, f := range iface.Flags {
+			if f == "loopback" {
+				isLoopback = true
+				break
+			}
+		}
+		if isLoopback || iface.HardwareAddr == "" {
 			continue
 		}
 		for _, addr := range iface.Addrs {

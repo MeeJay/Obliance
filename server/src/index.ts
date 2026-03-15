@@ -15,7 +15,6 @@ import { scheduleService } from './services/schedule.service';
 import { commandService } from './services/command.service';
 import { remoteService } from './services/remote.service';
 import { agentHub } from './services/agentHub.service';
-import { agentHub } from './services/agentHub.service';
 
 async function main() {
   // Run database migrations
