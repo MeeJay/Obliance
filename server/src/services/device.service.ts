@@ -1,8 +1,34 @@
+import path from 'path';
+import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '@obliance/shared';
 import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck } from '@obliance/shared';
+
+// ── Agent version cache (re-read from disk every 5 min) ──────────────────────
+let _cachedVersion: string | null = null;
+let _cachedVersionAt = 0;
+
+function getAgentVersion(): string {
+  const now = Date.now();
+  if (_cachedVersion && now - _cachedVersionAt < 5 * 60 * 1000) {
+    return _cachedVersion;
+  }
+  // 1. agent/VERSION plain-text file (source of truth, present in dev + prod)
+  try {
+    const vp = path.resolve(__dirname, '../../../agent/VERSION');
+    const v = fs.readFileSync(vp, 'utf-8').trim();
+    if (v) { _cachedVersion = v; _cachedVersionAt = now; return v; }
+  } catch { /* fall through */ }
+  // 2. Compiled dist artefact — version-agent.json
+  try {
+    const jp = path.resolve(__dirname, '../../../agent/dist/version-agent.json');
+    const raw = JSON.parse(fs.readFileSync(jp, 'utf-8')) as { version: string };
+    if (raw.version) { _cachedVersion = raw.version; _cachedVersionAt = now; return raw.version; }
+  } catch { /* fall through */ }
+  return '';
+}
 
 class DeviceService {
   private io: SocketIOServer | null = null;
@@ -306,6 +332,8 @@ class DeviceService {
         .update({ status: 'sent', sent_at: now, updated_at: now });
     }
 
+    const latestVersion = getAgentVersion();
+
     return {
       config: {
         pushIntervalSeconds: config.pushIntervalSeconds,
@@ -320,6 +348,7 @@ class DeviceService {
         priority: c.priority,
       })),
       nextPollIn,
+      ...(latestVersion ? { latestVersion } : {}),
     };
   }
 

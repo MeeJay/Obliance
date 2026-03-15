@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { appConfigService } from '../services/appConfig.service';
 import { AppError } from '../middleware/errorHandler';
 
-const ALLOWED_KEYS = ['allow_2fa', 'force_2fa', 'otp_smtp_server_id'] as const;
+const ALLOWED_KEYS = [
+  'allow_2fa', 'force_2fa', 'otp_smtp_server_id',
+  'enable_foreign_sso', 'enable_obliguard_sso', 'enable_oblimap_sso',
+] as const;
 
 export const appConfigController = {
   async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {

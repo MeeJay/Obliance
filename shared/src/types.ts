@@ -288,6 +288,8 @@ export interface AgentPushResponse {
   config: AgentConfig;
   commands: AgentCommand[];
   nextPollIn: number; // seconds until next push
+  /** Piggybacked on every response so agents update without an extra round-trip. */
+  latestVersion?: string;
 }
 
 export interface AgentConfig {
