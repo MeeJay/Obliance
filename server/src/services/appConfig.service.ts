@@ -2,6 +2,9 @@ import { db } from '../db';
 import type { AppConfigData, DeviceNotificationTypes } from '@obliance/shared';
 
 const AGENT_GLOBAL_CONFIG_KEY = 'agent_global_config';
+const OBLIVIEW_CONFIG_KEY = 'obliview_config';
+const OBLIGUARD_CONFIG_KEY = 'obliguard_config';
+const OBLIMAP_CONFIG_KEY = 'oblimap_config';
 
 export interface AgentGlobalConfig {
   checkIntervalSeconds: number | null;
@@ -31,9 +34,22 @@ export const appConfigService = {
       .merge({ value });
   },
 
-  async getAll(): Promise<AppConfigData> {
+  async getAll(): Promise<AppConfigData & {
+    obliview_url: string | null;
+    obliguard_url: string | null;
+    oblimap_url: string | null;
+    enable_foreign_sso: boolean;
+    enable_obliguard_sso: boolean;
+    enable_oblimap_sso: boolean;
+  }> {
     const rows = await db('app_config').select('key', 'value');
     const map = Object.fromEntries(rows.map((r: { key: string; value: string }) => [r.key, r.value]));
+
+    const parseUrl = (key: string): string | null => {
+      if (!map[key]) return null;
+      try { return (JSON.parse(map[key]) as { url?: string }).url || null; } catch { return null; }
+    };
+
     return {
       allow_2fa: map['allow_2fa'] ?? 'false',
       force_2fa: map['force_2fa'] ?? 'false',
@@ -45,7 +61,20 @@ export const appConfigService = {
       remote_session_timeout_minutes: map['remote_session_timeout_minutes'] ?? '30',
       catchup_window_days: map['catchup_window_days'] ?? '7',
       inventory_retention_days: map['inventory_retention_days'] ?? '90',
-    } as AppConfigData;
+      obliview_url: parseUrl(OBLIVIEW_CONFIG_KEY),
+      obliguard_url: parseUrl(OBLIGUARD_CONFIG_KEY),
+      oblimap_url: parseUrl(OBLIMAP_CONFIG_KEY),
+      enable_foreign_sso: map['enable_foreign_sso'] === 'true',
+      enable_obliguard_sso: map['enable_obliguard_sso'] === 'true',
+      enable_oblimap_sso: map['enable_oblimap_sso'] === 'true',
+    } as AppConfigData & {
+      obliview_url: string | null;
+      obliguard_url: string | null;
+      oblimap_url: string | null;
+      enable_foreign_sso: boolean;
+      enable_obliguard_sso: boolean;
+      enable_oblimap_sso: boolean;
+    };
   },
 
   /** Get global agent defaults from app_config */
@@ -93,5 +122,95 @@ export const appConfigService = {
       critical: nt?.critical ?? DEFAULT_NOTIFICATION_TYPES.critical,
       update:   nt?.update   ?? DEFAULT_NOTIFICATION_TYPES.update,
     };
+  },
+
+  // ── Obliview integration config ────────────────────────────────────────────
+
+  async getObliviewConfig(): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const raw = await this.get(OBLIVIEW_CONFIG_KEY);
+    if (!raw) return { url: null, apiKeySet: false };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKeySet: !!cfg.apiKey };
+    } catch { return { url: null, apiKeySet: false }; }
+  },
+
+  async getObliviewRaw(): Promise<{ url: string | null; apiKey: string | null }> {
+    const raw = await this.get(OBLIVIEW_CONFIG_KEY);
+    if (!raw) return { url: null, apiKey: null };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKey: cfg.apiKey ?? null };
+    } catch { return { url: null, apiKey: null }; }
+  },
+
+  async patchObliviewConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const existing = await this.getObliviewRaw();
+    const merged = {
+      url: 'url' in patch ? (patch.url ?? null) : existing.url,
+      apiKey: ('apiKey' in patch && patch.apiKey) ? patch.apiKey : existing.apiKey,
+    };
+    await this.set(OBLIVIEW_CONFIG_KEY, JSON.stringify(merged));
+    return { url: merged.url, apiKeySet: !!merged.apiKey };
+  },
+
+  // ── Obliguard integration config ───────────────────────────────────────────
+
+  async getObliguardConfig(): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const raw = await this.get(OBLIGUARD_CONFIG_KEY);
+    if (!raw) return { url: null, apiKeySet: false };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKeySet: !!cfg.apiKey };
+    } catch { return { url: null, apiKeySet: false }; }
+  },
+
+  async getObliguardRaw(): Promise<{ url: string | null; apiKey: string | null }> {
+    const raw = await this.get(OBLIGUARD_CONFIG_KEY);
+    if (!raw) return { url: null, apiKey: null };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKey: cfg.apiKey ?? null };
+    } catch { return { url: null, apiKey: null }; }
+  },
+
+  async patchObliguardConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const existing = await this.getObliguardRaw();
+    const merged = {
+      url: 'url' in patch ? (patch.url ?? null) : existing.url,
+      apiKey: ('apiKey' in patch && patch.apiKey) ? patch.apiKey : existing.apiKey,
+    };
+    await this.set(OBLIGUARD_CONFIG_KEY, JSON.stringify(merged));
+    return { url: merged.url, apiKeySet: !!merged.apiKey };
+  },
+
+  // ── Oblimap integration config ─────────────────────────────────────────────
+
+  async getOblimapConfig(): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const raw = await this.get(OBLIMAP_CONFIG_KEY);
+    if (!raw) return { url: null, apiKeySet: false };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKeySet: !!cfg.apiKey };
+    } catch { return { url: null, apiKeySet: false }; }
+  },
+
+  async getOblimapRaw(): Promise<{ url: string | null; apiKey: string | null }> {
+    const raw = await this.get(OBLIMAP_CONFIG_KEY);
+    if (!raw) return { url: null, apiKey: null };
+    try {
+      const cfg = JSON.parse(raw) as { url?: string; apiKey?: string };
+      return { url: cfg.url ?? null, apiKey: cfg.apiKey ?? null };
+    } catch { return { url: null, apiKey: null }; }
+  },
+
+  async patchOblimapConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<{ url: string | null; apiKeySet: boolean }> {
+    const existing = await this.getOblimapRaw();
+    const merged = {
+      url: 'url' in patch ? (patch.url ?? null) : existing.url,
+      apiKey: ('apiKey' in patch && patch.apiKey) ? patch.apiKey : existing.apiKey,
+    };
+    await this.set(OBLIMAP_CONFIG_KEY, JSON.stringify(merged));
+    return { url: merged.url, apiKeySet: !!merged.apiKey };
   },
 };

@@ -8,6 +8,8 @@ declare module 'express-session' {
     username: string;
     role: string;
     currentTenantId: number;
+    pendingMfaLinkToken?: string;
+    pendingEmailOtp?: { code: string; email: string; expires: number };
   }
 }
 

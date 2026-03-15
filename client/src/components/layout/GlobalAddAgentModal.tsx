@@ -71,11 +71,10 @@ export function GlobalAddAgentModal() {
               const expanded = expandedKeys.has(apiKey.id);
               const linuxCmd = deviceApi.getInstallerUrl('linux', apiKey.key);
               const macosCmd = deviceApi.getInstallerUrl('macos', apiKey.key);
-              const msiUrl = `${window.location.origin}/api/agent/installer/windows.msi`;
               const origin = window.location.origin;
               const linuxOneliner = `curl -fsSL "${linuxCmd}" | bash`;
               const macosOneliner = `sudo bash -c "$(curl -fsSL '${macosCmd}')"`;
-              const windowsCmd = `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${msiUrl}" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${apiKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m`;
+              const windowsCmd = `irm "${origin}/api/agent/installer/windows?key=${apiKey.key}" | iex`;
 
               return (
                 <div key={apiKey.id} className="rounded-lg border border-border bg-bg-secondary">

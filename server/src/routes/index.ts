@@ -4,6 +4,7 @@ import { requireTenant } from '../middleware/tenant';
 
 // Route imports
 import authRoutes from './auth.routes';
+import ssoRoutes from './sso.routes';
 import profileRoutes from './profile.routes';
 import tenantRoutes from './tenant.routes';
 import usersRoutes from './users.routes';
@@ -29,12 +30,21 @@ import remoteRoutes from './remote.routes';
 import reportRoutes from './report.routes';
 import agentRoutes from './agent.routes';
 import agentAdminRoutes from './agentAdmin.routes';
+import oblianceRoutes from './obliance.routes';
+import obliviewRoutes from './obliview.routes';
+import obliguardRoutes from './obliguard.routes';
+import oblimapRoutes from './oblimap.routes';
 
 const router = Router();
 
 // ── Public / auth ────────────────────────────────────────────────────────────
 router.use('/auth', authRoutes);
+router.use('/sso', ssoRoutes);           // cross-app SSO (generate-token, validate-token, exchange, users)
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
+router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
+router.use('/obliview', obliviewRoutes);   // proxy to Obliview
+router.use('/obliguard', obliguardRoutes); // proxy to Obliguard
+router.use('/oblimap', oblimapRoutes);     // proxy to Oblimap
 
 // ── Authenticated, no tenant required ───────────────────────────────────────
 router.use('/profile', requireAuth, profileRoutes);

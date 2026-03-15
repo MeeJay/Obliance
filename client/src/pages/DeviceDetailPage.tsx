@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  Monitor, ArrowLeft, RefreshCw, Cpu, MemoryStick, HardDrive,
+  Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock
 } from 'lucide-react';
+import { appConfigApi } from '@/api/appConfig.api';
+import { ssoApi } from '@/api/sso.api';
 import { inventoryApi } from '@/api/inventory.api';
 import { commandApi } from '@/api/command.api';
 import { scriptApi } from '@/api/script.api';
@@ -677,6 +679,9 @@ export function DeviceDetailPage() {
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
+  const [obliviewUrl, setObliviewUrl] = useState<string | null>(null);
+  const [obliguardUrl, setObliguardUrl] = useState<string | null>(null);
+  const [oblimapUrl, setOblimapUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -688,6 +693,28 @@ export function DeviceDetailPage() {
   }, [deviceId, fetchDevice]);
 
   const device = getDevice(deviceId);
+
+  useEffect(() => {
+    if (!device?.uuid) return;
+    setObliviewUrl(null);
+    setObliguardUrl(null);
+    setOblimapUrl(null);
+    appConfigApi.proxyObliviewLink(device.uuid).then((url) => setObliviewUrl(url)).catch(() => {});
+    appConfigApi.proxyObliguardLink(device.uuid).then((url) => setObliguardUrl(url)).catch(() => {});
+    appConfigApi.proxyOblimapLink(device.uuid).then((url) => setOblimapUrl(url)).catch(() => {});
+  }, [device?.uuid]);
+
+  function handleSwitch(targetUrl: string) {
+    ssoApi.generateSwitchToken()
+      .then((token) => {
+        const from = window.location.origin;
+        try {
+          const url = new URL(targetUrl);
+          window.location.href = `${url.origin}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&source=obliance&redirect=${encodeURIComponent(url.pathname)}`;
+        } catch { window.location.href = targetUrl; }
+      })
+      .catch(() => { window.location.href = targetUrl; });
+  }
 
   if (isLoading) {
     return (
@@ -723,7 +750,43 @@ export function DeviceDetailPage() {
             {device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown IP'} · Agent v{device.agentVersion ?? '?'}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {obliviewUrl && (
+            <button
+              type="button"
+              onClick={() => handleSwitch(obliviewUrl)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                text-[#6366f1] bg-[#1e1b4b]/40 border-[#4338ca]/50
+                hover:text-white hover:bg-[#1e1b4b]/60 hover:border-[#6366f1]"
+            >
+              <ArrowLeftRight size={13} />
+              Obliview
+            </button>
+          )}
+          {obliguardUrl && (
+            <button
+              type="button"
+              onClick={() => handleSwitch(obliguardUrl)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                text-[#fb923c] bg-[#431407]/40 border-[#c2410c]/50
+                hover:text-white hover:bg-[#431407]/60 hover:border-[#ea580c]"
+            >
+              <ArrowLeftRight size={13} />
+              Obliguard
+            </button>
+          )}
+          {oblimapUrl && (
+            <button
+              type="button"
+              onClick={() => handleSwitch(oblimapUrl)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                text-[#10b981] bg-[#022c22]/40 border-[#047857]/50
+                hover:text-white hover:bg-[#022c22]/60 hover:border-[#059669]"
+            >
+              <ArrowLeftRight size={13} />
+              Oblimap
+            </button>
+          )}
           <button
             onClick={() => fetchDevice(deviceId)}
             className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"

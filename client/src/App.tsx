@@ -30,6 +30,7 @@ import { ImportExportPage } from '@/pages/ImportExportPage';
 import { AdminMaintenancePage } from '@/pages/AdminMaintenancePage';
 import { AdminTenantsPage } from '@/pages/AdminTenantsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ForeignAuthPage } from '@/pages/ForeignAuthPage';
 import '@/i18n';
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/foreign" element={<ForeignAuthPage />} />
 
         {/* Protected */}
         <Route element={<ProtectedRoute />}>

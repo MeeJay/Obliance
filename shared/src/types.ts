@@ -18,6 +18,11 @@ export interface User {
   emailOtpEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+  // SSO
+  foreignSource: string | null;
+  foreignId: number | null;
+  foreignSourceUrl: string | null;
+  hasPassword: boolean;
 }
 
 export interface UserWithPassword extends User {
@@ -1052,4 +1057,11 @@ export interface NotificationPluginMeta {
   name: string;
   description: string;
   configFields: NotificationConfigField[];
+}
+
+// ─── SSO CONFIG ──────────────────────────────────────────────────────────────
+
+export interface SsoIntegrationConfig {
+  url: string | null;
+  apiKeySet: boolean;
 }
