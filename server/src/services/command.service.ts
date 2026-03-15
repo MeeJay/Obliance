@@ -107,9 +107,25 @@ class CommandService {
         try {
           const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
           if (payload.sessionToken) {
-            await db('remote_sessions')
-              .where({ session_token: payload.sessionToken, status: 'waiting' })
-              .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' });
+            const [updatedSession] = await db('remote_sessions')
+              .where({ session_token: payload.sessionToken })
+              .whereIn('status', ['waiting', 'connecting'])
+              .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' })
+              .returning('*');
+            if (updatedSession) {
+              try {
+                const io = getIO();
+                io.to(`tenant:${updatedSession.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, {
+                  id: updatedSession.id, deviceId: updatedSession.device_id,
+                  tenantId: updatedSession.tenant_id, protocol: updatedSession.protocol,
+                  status: updatedSession.status, sessionToken: updatedSession.session_token,
+                  startedBy: updatedSession.started_by, startedAt: updatedSession.started_at,
+                  connectedAt: updatedSession.connected_at, endedAt: updatedSession.ended_at,
+                  durationSeconds: updatedSession.duration_seconds,
+                  endReason: updatedSession.end_reason, createdAt: updatedSession.created_at,
+                });
+              } catch {}
+            }
           }
         } catch {}
       }

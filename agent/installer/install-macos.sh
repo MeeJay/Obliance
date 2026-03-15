@@ -88,6 +88,29 @@ echo "[3/3] Installing service..."
 # Clean up temp binary (the binary already copied itself to /usr/local/bin/)
 rm -f "$TMP_BINARY"
 
+# ── 4. Activate Screen Sharing (built-in VNC on port 5900) ───────────────────
+
+echo "[+] Activating Screen Sharing for remote access..."
+
+KICKSTART="/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart"
+
+if [ -f "$KICKSTART" ]; then
+  # ARD kickstart is the recommended way to enable VNC on macOS.
+  # -setvnclegacy yes  → enables the plain VNC path (not just ARD protocol)
+  # The agent runs as root (LaunchDaemon) so activation always succeeds.
+  "$KICKSTART" -activate -configure \
+    -access -on \
+    -allowAccessFor -allUsers \
+    -privs -all \
+    -clientopts -setvnclegacy -vnclegacy yes \
+    -restart -agent 2>/dev/null || true
+  echo "    Screen Sharing activated (VNC on port 5900)."
+else
+  # Fallback for older macOS versions or stripped installations.
+  launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null || true
+  echo "    Screen Sharing loaded via launchctl."
+fi
+
 echo ""
 echo "=============================="
 echo " Installation complete!"

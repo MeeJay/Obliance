@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
-  Scan, WifiOff, Clock
+  Scan, WifiOff, Clock, Network, CircuitBoard, X
 } from 'lucide-react';
+import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
 import { ssoApi } from '@/api/sso.api';
 import { inventoryApi } from '@/api/inventory.api';
@@ -232,6 +233,64 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+          {/* GPU */}
+          {(hardware.gpu ?? []).length > 0 && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />GPU</h4>
+              <div className="space-y-2">
+                {(hardware.gpu ?? []).map((gpu, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="text-text-primary font-medium">{gpu.name}</span>
+                    {gpu.vram > 0 && (
+                      <span className="text-text-muted text-xs">
+                        {gpu.vram >= 1024 * 1024 * 1024
+                          ? `${(gpu.vram / 1024 / 1024 / 1024).toFixed(1)} GB VRAM`
+                          : `${(gpu.vram / 1024 / 1024).toFixed(0)} MB VRAM`}
+                      </span>
+                    )}
+                    {gpu.driver && <span className="text-text-muted text-xs">Driver {gpu.driver}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Network Interfaces */}
+          {(hardware.networkInterfaces ?? []).length > 0 && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Network className="w-4 h-4" />Network Interfaces</h4>
+              <div className="space-y-2">
+                {(hardware.networkInterfaces ?? []).map((iface, i) => (
+                  <div key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
+                    <span className="text-text-primary font-medium">{iface.name}</span>
+                    {iface.mac && <span className="text-text-muted text-xs font-mono">{iface.mac}</span>}
+                    {iface.type && <span className="text-text-muted text-xs">{iface.type}</span>}
+                    {(iface.addresses ?? []).length > 0 && (
+                      <span className="text-text-muted text-xs">{(iface.addresses ?? []).join(' · ')}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Motherboard & BIOS */}
+          {(hardware.motherboard?.manufacturer || hardware.motherboard?.model || hardware.bios?.vendor) && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><CircuitBoard className="w-4 h-4" />Motherboard & BIOS</h4>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+                {[
+                  ['Board', [hardware.motherboard?.manufacturer, hardware.motherboard?.model].filter(Boolean).join(' ') || null],
+                  ['Revision', hardware.motherboard?.version ?? null],
+                  ['BIOS', hardware.bios?.vendor ? `${hardware.bios.vendor}${hardware.bios.version ? ` · ${hardware.bios.version}` : ''}` : null],
+                  ['BIOS Date', hardware.bios?.date ?? null],
+                ].filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k as string} className="flex justify-between text-sm">
+                    <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
+                    <dd className="text-text-primary font-medium text-right truncate">{v as string}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           )}
         </div>
@@ -498,12 +557,100 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   );
 }
 
+// ─── VNC Viewer ──────────────────────────────────────────────────────────────
+
+function VncViewer({ session, title, onClose }: { session: RemoteSession; title: string; onClose: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rfbRef = useRef<any>(null);
+  const [vncStatus, setVncStatus] = useState<'connecting' | 'connected' | 'failed'>('connecting');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let rfb: any;
+    const origin = window.location.origin;
+    const wsUrl = origin.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://')
+      + `/api/remote/tunnel/${session.sessionToken}`;
+
+    import('@novnc/novnc').then(({ default: RFB }) => {
+      if (!containerRef.current) return;
+      rfb = new RFB(containerRef.current, wsUrl, { scaleViewport: true });
+      rfbRef.current = rfb;
+
+      rfb.addEventListener('connect', () => setVncStatus('connected'));
+      rfb.addEventListener('disconnect', (e: CustomEvent<{ clean: boolean }>) => {
+        if (!e.detail.clean) {
+          setVncStatus('failed');
+          setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
+        } else {
+          onClose();
+        }
+      });
+      rfb.addEventListener('securityfailure', () => {
+        setVncStatus('failed');
+        setErrorMsg('VNC authentication failed');
+      });
+    }).catch(() => {
+      setVncStatus('failed');
+      setErrorMsg('Failed to load VNC client library');
+    });
+
+    return () => {
+      try { rfb?.disconnect(); } catch {}
+    };
+  }, [session.sessionToken]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-border shrink-0">
+        <div className="flex items-center gap-3">
+          <MonitorPlay className="w-4 h-4 text-accent" />
+          <span className="text-sm font-medium text-text-primary">{title}</span>
+          <span className={clsx(
+            'text-xs px-2 py-0.5 rounded-full border',
+            vncStatus === 'connected' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+            vncStatus === 'failed'    ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+                                       'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+          )}>
+            {vncStatus === 'connecting' ? 'Connecting…' : vncStatus}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      {/* Canvas */}
+      <div ref={containerRef} className="flex-1 overflow-hidden" />
+      {/* Error overlay */}
+      {vncStatus === 'failed' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80" style={{ top: '42px' }}>
+          <div className="text-center p-8">
+            <WifiOff className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <p className="text-red-400 font-medium text-lg mb-1">Connection failed</p>
+            <p className="text-text-muted text-sm mb-6">{errorMsg ?? 'VNC tunnel could not be established'}</p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-muted hover:text-text-primary transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Remote Tab ──────────────────────────────────────────────────────────────
 
 function RemoteTab({ device }: { device: Device }) {
   const [sessions, setSessions] = useState<RemoteSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -520,13 +667,42 @@ function RemoteTab({ device }: { device: Device }) {
     load();
   }, [device.id]);
 
+  // Real-time session status updates via socket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onSessionUpdated = (session: RemoteSession) => {
+      if (session.deviceId !== device.id) return;
+      setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
+    };
+
+    const onTunnelReady = (session: RemoteSession) => {
+      if (session.deviceId !== device.id) return;
+      setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
+      // Auto-open the VNC viewer as soon as the tunnel is established
+      if (session.protocol === 'vnc') {
+        setVncSession(session);
+      } else {
+        toast.success(`${session.protocol.toUpperCase()} tunnel ready`);
+      }
+    };
+
+    socket.on('REMOTE_SESSION_UPDATED', onSessionUpdated);
+    socket.on('REMOTE_TUNNEL_READY', onTunnelReady);
+
+    return () => {
+      socket.off('REMOTE_SESSION_UPDATED', onSessionUpdated);
+      socket.off('REMOTE_TUNNEL_READY', onTunnelReady);
+    };
+  }, [device.id]);
+
   const handleStartSession = async (protocol: 'vnc' | 'rdp' | 'ssh') => {
     setIsStarting(true);
     try {
       const session = await remoteApi.startSession(device.id, protocol);
       setSessions((prev) => [session, ...prev]);
-      toast.success(`Remote session started (${protocol.toUpperCase()})`);
-      // TODO: open noVNC / RDP client in modal
+      toast.success(`${protocol.toUpperCase()} session created — waiting for agent…`);
     } catch {
       toast.error('Failed to start remote session');
     } finally {
@@ -537,7 +713,15 @@ function RemoteTab({ device }: { device: Device }) {
   const isOnline = device.status === 'online';
 
   return (
-    <div className="space-y-4">
+    <>
+      {vncSession && (
+        <VncViewer
+          session={vncSession}
+          title={`VNC — ${device.displayName || device.hostname}`}
+          onClose={() => setVncSession(null)}
+        />
+      )}
+      <div className="space-y-4">
       {/* Start session buttons */}
       <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
         <h3 className="text-sm font-semibold text-text-primary">Start Remote Session</h3>
@@ -576,24 +760,40 @@ function RemoteTab({ device }: { device: Device }) {
             {sessions.map((session) => (
               <div key={session.id} className="px-4 py-3 flex items-center gap-4">
                 <div className="flex-1">
-                  <p className="text-sm text-text-primary">{session.protocol.toUpperCase()} · {session.status}</p>
-                  <p className="text-xs text-text-muted">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-text-primary">{session.protocol.toUpperCase()}</p>
+                    <span className={clsx(
+                      'text-xs px-2 py-0.5 rounded-full border',
+                      session.status === 'active'     ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+                      session.status === 'waiting'    ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30 animate-pulse' :
+                      session.status === 'connecting' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30 animate-pulse' :
+                      session.status === 'failed'     ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+                      session.status === 'timeout'    ? 'text-orange-400 bg-orange-400/10 border-orange-400/30' :
+                                                        'text-gray-400 bg-gray-400/10 border-gray-400/30',
+                    )}>
+                      {session.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
                     {new Date(session.startedAt).toLocaleString()}
-                    {session.durationSeconds && ` · ${Math.round(session.durationSeconds / 60)}min`}
+                    {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
                   </p>
                 </div>
-                <span className={clsx(
-                  'text-xs px-2 py-0.5 rounded-full border',
-                  session.status === 'active' ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30'
-                )}>
-                  {session.status}
-                </span>
+                {session.status === 'active' && session.protocol === 'vnc' && (
+                  <button
+                    onClick={() => setVncSession(session)}
+                    className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+                  >
+                    Open
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

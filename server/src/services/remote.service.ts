@@ -140,7 +140,7 @@ class RemoteService {
     }
   }
 
-  // Expire stale sessions
+  // Expire stale sessions and notify the UI
   async cleanupStaleSessions() {
     const timeout = await db('app_config').where({ key: 'remote_session_timeout_minutes' }).first();
     const minutes = parseInt(timeout?.value || '60');
@@ -148,16 +148,26 @@ class RemoteService {
 
     // "waiting" sessions: short fuse (6 min) — the open_remote_tunnel command expires
     // in 5 min, so after 6 min a waiting session is definitively stuck.
-    await db('remote_sessions')
+    const timedOutWaiting = await db('remote_sessions')
       .where({ status: 'waiting' })
       .where('started_at', '<', new Date(Date.now() - 6 * 60 * 1000))
-      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' });
+      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' })
+      .returning('*');
 
     // "connecting" sessions: use the admin-configured timeout
-    await db('remote_sessions')
+    const timedOutConnecting = await db('remote_sessions')
       .where({ status: 'connecting' })
       .where('started_at', '<', new Date(Date.now() - minutes * 60 * 1000))
-      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' });
+      .update({ status: 'timeout', ended_at: now, end_reason: 'timeout' })
+      .returning('*');
+
+    // Notify UI for each session that was timed out
+    const allTimedOut = [...(timedOutWaiting || []), ...(timedOutConnecting || [])];
+    for (const row of allTimedOut) {
+      try {
+        getIO().to(`tenant:${row.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, this.rowToSession(row));
+      } catch {}
+    }
   }
 }
 

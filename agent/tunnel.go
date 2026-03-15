@@ -4,13 +4,15 @@ package main
 //
 // Flow:
 //   Server sends open_remote_tunnel → agent:
-//     1. Connects to the Obliance server via WebSocket
+//     1. Ensures a VNC server is listening on localhost:5900 (starts it if not)
+//     2. Connects to the Obliance server via WebSocket
 //        (ws(s)://<serverURL>/api/remote/agent-tunnel/<sessionToken>)
-//     2. Connects to the local VNC service (localhost:5900 TCP)
-//     3. Relays bytes bidirectionally until one side closes
+//     3. Connects to the local VNC service (localhost:5900 TCP)
+//     4. Relays bytes bidirectionally until one side closes
 //
 // The relay runs entirely in background goroutines; the command ack is sent
 // immediately after the connections are established (not when they close).
+// VNC auto-start logic lives in vnc.go.
 
 import (
 	"fmt"
@@ -96,7 +98,15 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 
 	log.Printf("Command %s: opening VNC tunnel → %s", cmd.ID, wsURL)
 
-	// 1. Connect WebSocket to Obliance server
+	// 1. Make sure VNC is running on this machine (start it if needed).
+	//    We do this BEFORE connecting to the server so the session stays in
+	//    'waiting' state while VNC spins up — the UI sees a clean transition
+	//    directly to 'active' once both connections are established.
+	if err := ensureVNCRunning(); err != nil {
+		return nil, fmt.Errorf("open_remote_tunnel: %w", err)
+	}
+
+	// 2. Connect WebSocket to Obliance server
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
 	})
@@ -104,18 +114,18 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 		return nil, fmt.Errorf("open_remote_tunnel: server WS connect failed: %w", err)
 	}
 
-	// 2. Connect TCP to local VNC service
+	// 3. Connect TCP to local VNC service (guaranteed to be up by ensureVNCRunning)
 	vnc, err := net.Dial("tcp", "localhost:5900")
 	if err != nil {
 		ws.Close()
-		return nil, fmt.Errorf("open_remote_tunnel: VNC connect failed (is VNC enabled on localhost:5900?): %w", err)
+		return nil, fmt.Errorf("open_remote_tunnel: VNC connect failed: %w", err)
 	}
 
 	closeCh := make(chan struct{})
 	ts := &tunnelState{ws: ws, vnc: vnc, closeCh: closeCh}
 	activeTunnels.add(sessionToken, ts)
 
-	// 3. VNC → WebSocket relay (reads TCP bytes, sends WS binary frames)
+	// 4. VNC → WebSocket relay (reads TCP bytes, sends WS binary frames)
 	go func() {
 		defer func() {
 			activeTunnels.remove(sessionToken)
@@ -144,7 +154,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 		}
 	}()
 
-	// 4. WebSocket → VNC relay (reads WS frames, writes TCP bytes)
+	// 5. WebSocket → VNC relay (reads WS frames, writes TCP bytes)
 	go func() {
 		defer func() {
 			ts.close()

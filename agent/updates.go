@@ -171,7 +171,180 @@ foreach ($u in $result.Updates) {
 			RequiresReboot: requiresReboot,
 		})
 	}
+	// Also scan app package managers (winget, chocolatey)
+	updates = append(updates, scanWingetUpdates()...)
+	updates = append(updates, scanChocolateyUpdates()...)
+
 	return updates, nil
+}
+
+// scanWingetUpdates detects outdated apps via Windows Package Manager (winget).
+// Available on Windows 10 1709+ / Windows 11. Returns an empty slice when winget
+// is not installed or when every app is up to date.
+func scanWingetUpdates() []UpdateInfo {
+	wingetPath, err := exec.LookPath("winget")
+	if err != nil {
+		return nil
+	}
+
+	// --include-unknown: include apps without a known source version
+	// --accept-source-agreements: non-interactive
+	// --disable-interactivity: suppress progress bars (winget ≥1.5)
+	cmd := exec.Command(wingetPath,
+		"upgrade", "--include-unknown",
+		"--accept-source-agreements",
+		"--disable-interactivity",
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	// Strip ANSI escape codes that winget may emit in some terminal modes.
+	ansiStripped := stripANSI(string(out))
+	// Normalise CRLF → LF
+	normalized := strings.ReplaceAll(ansiStripped, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(normalized, "\n")
+
+	// Find the separator line (a long run of dashes).
+	sepIdx := -1
+	for i, line := range lines {
+		trimmed := strings.Trim(line, "- \t")
+		if len(line) > 20 && trimmed == "" {
+			sepIdx = i
+			break
+		}
+	}
+	if sepIdx <= 0 || sepIdx >= len(lines)-1 {
+		return nil
+	}
+
+	header := lines[sepIdx-1]
+	// Determine column offsets from the header.
+	namePos := strings.Index(header, "Name")
+	idPos := strings.Index(header, "Id")
+	versionPos := strings.Index(header, "Version")
+	availablePos := strings.Index(header, "Available")
+	sourcePos := strings.Index(header, "Source")
+	if namePos < 0 || availablePos < 0 {
+		return nil
+	}
+
+	var updates []UpdateInfo
+	for _, line := range lines[sepIdx+1:] {
+		runes := []rune(line)
+		if len(runes) <= availablePos {
+			continue
+		}
+
+		name := runeSlice(runes, namePos, idPos)
+		id := runeSlice(runes, idPos, versionPos)
+		available := runeSlice(runes, availablePos, sourcePos)
+
+		if name == "" || available == "" || name == "Name" {
+			continue
+		}
+		// winget appends a footer like "N upgrades available."
+		if strings.Contains(strings.ToLower(name), "upgrade") && strings.Contains(name, ".") {
+			continue
+		}
+
+		uid := sanitizeUID(id)
+		if uid == "" {
+			uid = sanitizeUID(name)
+		}
+		source := "winget"
+		if sourcePos >= 0 && len(runes) > sourcePos {
+			if s := strings.TrimSpace(string(runes[sourcePos:])); s != "" {
+				source = s
+			}
+		}
+
+		updates = append(updates, UpdateInfo{
+			UpdateUID: uid,
+			Title:     name + " → " + available,
+			Severity:  "unknown",
+			Category:  "Application",
+			Source:    source,
+		})
+	}
+	return updates
+}
+
+// scanChocolateyUpdates detects outdated Chocolatey packages.
+// Requires Chocolatey to be installed. Returns an empty slice otherwise.
+func scanChocolateyUpdates() []UpdateInfo {
+	chocoPath, err := exec.LookPath("choco")
+	if err != nil {
+		return nil
+	}
+
+	// -r = machine-readable pipe-separated output; --ignore-unfound = don't fail
+	// on packages that have no remote source.
+	out, err := exec.Command(chocoPath, "outdated", "-r", "--ignore-unfound").Output()
+	if err != nil {
+		return nil
+	}
+
+	var updates []UpdateInfo
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Format: packagename|currentVersion|newVersion|isPinned
+		parts := strings.SplitN(line, "|", 4)
+		if len(parts) < 3 {
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		available := strings.TrimSpace(parts[2])
+		pinned := len(parts) >= 4 && strings.EqualFold(strings.TrimSpace(parts[3]), "true")
+		if name == "" || available == "" || pinned {
+			continue
+		}
+		updates = append(updates, UpdateInfo{
+			UpdateUID: sanitizeUID("choco-" + name),
+			Title:     name + " → " + available,
+			Severity:  "unknown",
+			Category:  "Application",
+			Source:    "chocolatey",
+		})
+	}
+	return updates
+}
+
+// stripANSI removes ANSI escape sequences (e.g. colour codes) from s.
+func stripANSI(s string) string {
+	var b strings.Builder
+	i := 0
+	for i < len(s) {
+		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
+			// Skip until the terminating letter (a–z / A–Z)
+			i += 2
+			for i < len(s) && !(s[i] >= 'A' && s[i] <= 'Z' || s[i] >= 'a' && s[i] <= 'z') {
+				i++
+			}
+			i++ // skip the terminating letter
+		} else {
+			b.WriteByte(s[i])
+			i++
+		}
+	}
+	return b.String()
+}
+
+// runeSlice extracts runes[start:end], trimming whitespace.
+// end <= 0 or end > len means "to end of slice".
+func runeSlice(runes []rune, start, end int) string {
+	if start < 0 || start >= len(runes) {
+		return ""
+	}
+	if end <= 0 || end > len(runes) {
+		return strings.TrimSpace(string(runes[start:]))
+	}
+	return strings.TrimSpace(string(runes[start:end]))
 }
 
 func installWindowsUpdate(updateUID string) error {
