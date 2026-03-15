@@ -68,8 +68,10 @@ router.post('/push', agentAuth, async (req, res, next) => {
     const body = req.body as AgentPushRequest & {
       hostname?: string;
       osInfo?: { platform?: string; distro?: string; release?: string; arch?: string };
+      ipLocal?: string;
+      macAddress?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -104,6 +106,8 @@ router.post('/push', agentAuth, async (req, res, next) => {
         osArch: osInfo?.arch,
         agentVersion,
         ipPublic,
+        ipLocal,
+        macAddress,
         apiKeyId: req.agentApiKeyId!,
         tenantId,
       });
@@ -118,6 +122,8 @@ router.post('/push', agentAuth, async (req, res, next) => {
         os_arch: osInfo?.arch || device.os_arch,
         agent_version: agentVersion || device.agent_version,
         ip_public: ipPublic || device.ip_public,
+        ip_local: ipLocal || device.ip_local,
+        mac_address: macAddress || device.mac_address,
         updated_at: new Date(),
       });
       device = await db('devices').where({ id: device.id }).first();

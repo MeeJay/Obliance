@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { db } from '../db';
 import { commandService } from './command.service';
+import { agentHub } from './agentHub.service';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import type { RemoteSession, RemoteProtocol } from '@obliance/shared';
@@ -34,14 +35,26 @@ class RemoteService {
 
     const session = this.rowToSession(row);
 
-    // Send command to agent to open tunnel (agent will pick it up on next push)
-    await commandService.enqueue({
-      deviceId, tenantId, type: 'open_remote_tunnel',
-      payload: { sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}` },
-      priority: 'urgent',
-      expiresInSeconds: 300, // 5 minutes to connect
-      createdBy: userId,
+    // Deliver the open_remote_tunnel command to the agent.
+    // Prefer the persistent command channel (instant delivery, <1 s).
+    // Fall back to the DB command queue when the agent is not connected on
+    // the command channel (older agent version or temporary disconnect).
+    const commandPayload = { sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}` };
+    const delivered = agentHub.push(deviceId, {
+      type: 'command',
+      id: `vnc_${sessionToken.slice(0, 8)}`,
+      commandType: 'open_remote_tunnel',
+      payload: commandPayload,
     });
+    if (!delivered) {
+      await commandService.enqueue({
+        deviceId, tenantId, type: 'open_remote_tunnel',
+        payload: commandPayload,
+        priority: 'urgent',
+        expiresInSeconds: 300,
+        createdBy: userId,
+      });
+    }
 
     // Notify UI
     try {
@@ -65,13 +78,22 @@ class RemoteService {
       duration_seconds: duration, end_reason: reason,
     });
 
-    // Tell agent to close tunnel
-    await commandService.enqueue({
-      deviceId: session.device_id, tenantId,
-      type: 'close_remote_tunnel',
-      payload: { sessionToken: session.session_token },
-      priority: 'urgent',
+    // Tell agent to close tunnel (command channel first, DB queue as fallback)
+    const closePayload = { sessionToken: session.session_token };
+    const closePushed = agentHub.push(session.device_id, {
+      type: 'command',
+      id: `close_${session.session_token.slice(0, 8)}`,
+      commandType: 'close_remote_tunnel',
+      payload: closePayload,
     });
+    if (!closePushed) {
+      await commandService.enqueue({
+        deviceId: session.device_id, tenantId,
+        type: 'close_remote_tunnel',
+        payload: closePayload,
+        priority: 'urgent',
+      });
+    }
 
     // Clean up in-memory tunnel
     this.tunnels.delete(session.session_token);

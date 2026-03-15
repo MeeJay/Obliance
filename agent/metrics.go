@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"math"
+	"net"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -671,6 +672,34 @@ func collectMetrics() Metrics {
 	m.GPUs = collectGPUs()
 
 	return m
+}
+
+// getLocalNetworkInfo returns the primary local IPv4 address and its
+// associated MAC address by scanning network interfaces and returning the
+// first non-loopback, non-link-local address it finds.
+func getLocalNetworkInfo() (ipLocal, macAddress string) {
+	ifaces, err := gnet.Interfaces()
+	if err != nil {
+		return "", ""
+	}
+	for _, iface := range ifaces {
+		// Skip loopback and interfaces without a hardware address
+		if iface.Flags&uint32(net.FlagLoopback) != 0 || iface.HardwareAddr == "" {
+			continue
+		}
+		for _, addr := range iface.Addrs {
+			ip, _, err := net.ParseCIDR(addr.Addr)
+			if err != nil {
+				continue
+			}
+			// IPv4 only, skip link-local (169.254.x.x)
+			if ip.To4() == nil || ip.IsLinkLocalUnicast() || ip.IsLoopback() {
+				continue
+			}
+			return ip.String(), iface.HardwareAddr
+		}
+	}
+	return "", ""
 }
 
 func getOSInfo() OSInfo {

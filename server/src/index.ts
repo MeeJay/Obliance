@@ -14,6 +14,8 @@ import { setLiveAlertIO } from './services/liveAlert.service';
 import { scheduleService } from './services/schedule.service';
 import { commandService } from './services/command.service';
 import { remoteService } from './services/remote.service';
+import { agentHub } from './services/agentHub.service';
+import { agentHub } from './services/agentHub.service';
 
 async function main() {
   // Run database migrations
@@ -45,8 +47,9 @@ async function main() {
   server.removeAllListeners('upgrade');
 
   // Session-token pattern: 64 hex chars produced by crypto.randomBytes(32)
-  const BROWSER_RE = /^\/api\/remote\/tunnel\/([0-9a-f]{64})$/;
-  const AGENT_RE   = /^\/api\/remote\/agent-tunnel\/([0-9a-f]{64})$/;
+  const BROWSER_RE    = /^\/api\/remote\/tunnel\/([0-9a-f]{64})$/;
+  const AGENT_RE      = /^\/api\/remote\/agent-tunnel\/([0-9a-f]{64})$/;
+  const AGENT_CMD_RE  = /^\/api\/agent\/ws$/;
 
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -101,6 +104,25 @@ async function main() {
           logger.info({ sessionToken }, 'Agent VNC tunnel connected');
         } catch (err) {
           logger.error(err, 'VNC agent tunnel setup error');
+          ws.close(4000, 'Internal error');
+        }
+      });
+      return; // handled — do NOT forward to socket.io
+    }
+
+    // ── Agent command channel ───────────────────────────────────────────────
+    if (AGENT_CMD_RE.test(pathname)) {
+      const apiKey = request.headers['x-api-key'] as string | undefined;
+      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+        try {
+          if (!apiKey) { ws.close(4003, 'Missing X-Api-Key'); return; }
+          const keyRow = await db('agent_api_keys').where({ key: apiKey, is_active: true }).first();
+          if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
+          const device = await db('devices').where({ api_key_id: keyRow.id }).first();
+          if (!device) { ws.close(4004, 'Device not found'); return; }
+          agentHub.register(device.id, device.tenant_id, ws);
+        } catch (err) {
+          logger.error(err, 'Agent command channel setup error');
           ws.close(4000, 'Internal error');
         }
       });

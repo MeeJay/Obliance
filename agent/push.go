@@ -18,6 +18,8 @@ type pushBody struct {
 	OSInfo       OSInfo       `json:"osInfo"`
 	Metrics      Metrics      `json:"metrics"`
 	Acks         []CommandAck `json:"acks,omitempty"`
+	IPLocal      string       `json:"ipLocal,omitempty"`
+	MACAddress   string       `json:"macAddress,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -55,6 +57,7 @@ func push(cfg *Config) {
 		acks = dispatcher.GetAndClearAcks()
 	}
 
+	ipLocal, macAddress := getLocalNetworkInfo()
 	body := pushBody{
 		DeviceUUID:   cfg.DeviceUUID,
 		Hostname:     hostname,
@@ -62,6 +65,8 @@ func push(cfg *Config) {
 		OSInfo:       getOSInfo(),
 		Metrics:      collectMetrics(),
 		Acks:         acks,
+		IPLocal:      ipLocal,
+		MACAddress:   macAddress,
 	}
 
 	data, err := json.Marshal(body)

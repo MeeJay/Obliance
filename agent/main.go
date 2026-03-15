@@ -344,6 +344,11 @@ func mainLoop(cfg *Config) {
 	// received in push responses and to accumulate acks for the next push.
 	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL)
 
+	// Start the persistent command channel — keeps a long-lived WebSocket open
+	// so the server can push commands instantly (e.g. open_remote_tunnel for VNC)
+	// instead of waiting for the next poll cycle (up to 60 s).
+	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
+
 	// Check for a newer version before entering the main loop.
 	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).
 	// On Windows: writes %TEMP%\obliance-update.bat, exits; batch stops service,
