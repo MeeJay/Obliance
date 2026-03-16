@@ -71,7 +71,6 @@ export function SettingsPage() {
 
   // ── Agent Global Config ──
   const [agentGlobal, setAgentGlobal] = useState<AgentGlobalConfig | null>(null);
-  const [agentSaving, setAgentSaving] = useState(false);
   const [agentInterval, setAgentInterval] = useState('');
   const [agentScanInterval, setAgentScanInterval] = useState('');
   const [agentMaxMissed, setAgentMaxMissed] = useState('');
@@ -208,22 +207,22 @@ export function SettingsPage() {
     }
   }
 
-  async function saveAgentMainConfig() {
+  async function saveAgentMainConfig(overrides?: { interval?: string; scan?: string; missed?: string }) {
     if (!agentGlobal) return;
-    setAgentSaving(true);
+    const interval  = overrides?.interval ?? agentInterval;
+    const scan      = overrides?.scan     ?? agentScanInterval;
+    const missed    = overrides?.missed   ?? agentMaxMissed;
     try {
       const updated = await appConfigApi.patchAgentGlobal({
-        checkIntervalSeconds: agentInterval.trim() ? Number(agentInterval) : null,
-        scanIntervalSeconds: agentScanInterval.trim() ? Number(agentScanInterval) : null,
-        heartbeatMonitoring: agentGlobal.heartbeatMonitoring,
-        maxMissedPushes: agentMaxMissed.trim() ? Number(agentMaxMissed) : null,
+        checkIntervalSeconds: interval.trim() ? Number(interval) : null,
+        scanIntervalSeconds:  scan.trim()     ? Number(scan)     : null,
+        heartbeatMonitoring:  agentGlobal.heartbeatMonitoring,
+        maxMissedPushes:      missed.trim()   ? Number(missed)   : null,
       });
       setAgentGlobal(updated);
       toast.success(t('common.saved'));
     } catch {
       toast.error(t('settings.failedUpdate'));
-    } finally {
-      setAgentSaving(false);
     }
   }
 
@@ -305,6 +304,7 @@ export function SettingsPage() {
                     <Server size={12} /> Versions
                   </p>
                   <AboutRow label="Server"  value={`v${systemInfo.appVersion}`} />
+                  <AboutRow label="Client"  value={`v${systemInfo.clientVersion}`} />
                   <AboutRow label="Agent"   value={`v${systemInfo.agentVersion}`} />
                   <AboutRow label="Node.js" value={systemInfo.nodeVersion} />
                 </div>
@@ -380,6 +380,8 @@ export function SettingsPage() {
                   <input
                     type="number" value={agentInterval} min={5} max={86400}
                     onChange={e => setAgentInterval(e.target.value)}
+                    onBlur={e => saveAgentMainConfig({ interval: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     placeholder={String(DEFAULT_AGENT_GLOBAL_CONFIG.checkIntervalSeconds)}
                     className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
                   />
@@ -397,6 +399,8 @@ export function SettingsPage() {
                   <input
                     type="number" value={agentScanInterval} min={0} max={86400}
                     onChange={e => setAgentScanInterval(e.target.value)}
+                    onBlur={e => saveAgentMainConfig({ scan: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     placeholder="0"
                     className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
                   />
@@ -441,20 +445,12 @@ export function SettingsPage() {
                   <input
                     type="number" value={agentMaxMissed} min={1} max={20}
                     onChange={e => setAgentMaxMissed(e.target.value)}
+                    onBlur={e => saveAgentMainConfig({ missed: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     placeholder={String(DEFAULT_AGENT_GLOBAL_CONFIG.maxMissedPushes)}
                     className="w-20 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
                   />
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={saveAgentMainConfig}
-                  disabled={agentSaving || !agentGlobal}
-                  className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-60 transition-colors"
-                >
-                  {agentSaving ? t('common.saving') : t('common.save')}
-                </button>
               </div>
             </div>
 

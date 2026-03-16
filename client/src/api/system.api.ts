@@ -1,5 +1,6 @@
 export interface SystemInfo {
   appVersion:    string;
+  clientVersion: string;
   nodeVersion:   string;
   agentVersion:  string;
   uptimeSeconds: number;

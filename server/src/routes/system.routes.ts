@@ -26,6 +26,13 @@ router.get('/', requireAuth, requireRole('admin'), async (_req: Request, res: Re
     }
   } catch { /* ignore */ }
 
+  // Client version from client/package.json
+  let clientVersion = 'unknown';
+  try {
+    const clientPkg = JSON.parse(readFileSync(join(process.cwd(), '..', 'client', 'package.json'), 'utf-8')) as { version: string };
+    clientVersion = clientPkg.version;
+  } catch { /* ignore */ }
+
   // Memory
   const mem = process.memoryUsage();
   const processRssMb   = Math.round(mem.rss      / 1024 / 1024 * 10) / 10;
@@ -52,6 +59,7 @@ router.get('/', requireAuth, requireRole('admin'), async (_req: Request, res: Re
     appVersion,
     nodeVersion:   process.version,
     agentVersion,
+    clientVersion,
     uptimeSeconds: Math.floor(process.uptime()),
     memory: { processRssMb, processHeapMb, systemTotalMb, systemFreeMb },
     cpu: {

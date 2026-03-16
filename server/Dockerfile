@@ -53,6 +53,9 @@ RUN cd server && npm install --omit=dev
 
 COPY --from=builder /app/server/dist/ ./server/dist/
 
+# Client package.json — version used by GET /api/system
+COPY client/package.json ./client/
+
 # Agent installer scripts + VERSION file (used by GET /api/agent/version)
 COPY agent/installer/ ./agent/installer/
 COPY agent/VERSION ./agent/

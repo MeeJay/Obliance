@@ -81,24 +81,46 @@ export function SettingField({
 
       {/* Value input */}
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          value={isOverriding ? localValue : numericInherited}
-          onChange={(e) => setLocalValue(parseInt(e.target.value, 10) || 0)}
-          onBlur={handleBlur}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleBlur();
-          }}
-          disabled={scope !== 'global' && !isOverriding}
-          min={definition.min}
-          max={definition.max}
-          className={`w-24 rounded-md border px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-accent ${
-            scope !== 'global' && !isOverriding
-              ? 'border-border bg-bg-tertiary text-text-muted cursor-not-allowed'
-              : 'border-border bg-bg-tertiary text-text-primary'
-          }`}
-        />
-        <span className="text-xs text-text-muted w-12">{definition.unit}</span>
+        {definition.type === 'boolean' ? (
+          <button
+            role="switch"
+            aria-checked={!!(isOverriding ? localValue : numericInherited)}
+            disabled={scope !== 'global' && !isOverriding}
+            onClick={async () => {
+              if (scope !== 'global' && !isOverriding) return;
+              const next = (isOverriding ? localValue : numericInherited) ? 0 : 1;
+              setLocalValue(next);
+              setSaving(true);
+              try { await onSave(definition.key, next); } finally { setSaving(false); }
+            }}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+              (isOverriding ? localValue : numericInherited) ? 'bg-accent' : 'bg-bg-tertiary'
+            }`}
+          >
+            <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+              (isOverriding ? localValue : numericInherited) ? 'translate-x-4' : 'translate-x-0.5'
+            }`} />
+          </button>
+        ) : (
+          <>
+            <input
+              type="number"
+              value={isOverriding ? localValue : numericInherited}
+              onChange={(e) => setLocalValue(parseInt(e.target.value, 10) || 0)}
+              onBlur={handleBlur}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleBlur(); }}
+              disabled={scope !== 'global' && !isOverriding}
+              min={definition.min}
+              max={definition.max}
+              className={`w-24 rounded-md border px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-accent ${
+                scope !== 'global' && !isOverriding
+                  ? 'border-border bg-bg-tertiary text-text-muted cursor-not-allowed'
+                  : 'border-border bg-bg-tertiary text-text-primary'
+              }`}
+            />
+            <span className="text-xs text-text-muted w-12">{definition.unit}</span>
+          </>
+        )}
       </div>
 
       {/* Override toggle / reset button (not shown for global scope) */}
