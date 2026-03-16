@@ -73,7 +73,15 @@ class CommandService {
   async processAcks(deviceId: number, tenantId: number, acks: CommandAck[]) {
     if (!acks?.length) return;
 
+    // UUID v4 pattern — synthetic agent IDs (e.g. periodic scan commands) may
+    // not be valid UUIDs and would cause a PostgreSQL "invalid input syntax for
+    // type uuid" error.  Skip non-UUID IDs gracefully; they won't match any
+    // command_queue row anyway.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     for (const ack of acks) {
+      if (!UUID_RE.test(ack.commandId)) continue;
+
       const updates: any = {
         status: ack.status,
         acked_at: new Date(),

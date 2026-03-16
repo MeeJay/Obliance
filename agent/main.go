@@ -346,11 +346,11 @@ func runScanAll(cfg *Config) {
 	}
 	log.Printf("Periodic Scan All triggered")
 	for _, t := range []string{"scan_inventory", "scan_updates", "check_compliance"} {
-		b := make([]byte, 16)
-		_, _ = rand.Read(b)
-		syntheticID := fmt.Sprintf("auto-%08x-%04x-%04x-%04x-%012x",
-			b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
-		dispatcher.HandleCommand(AgentCommand{ID: syntheticID, Type: t})
+		// Use a proper UUID so the server can process the ACKs without a
+		// "invalid input syntax for type uuid" PostgreSQL error. The ID won't
+		// match any row in command_queue (it's synthetic) so the server will
+		// simply do a no-op UPDATE, which is the intended behaviour.
+		dispatcher.HandleCommand(AgentCommand{ID: generateUUID(), Type: t})
 	}
 }
 

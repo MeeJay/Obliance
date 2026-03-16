@@ -31,6 +31,16 @@ router.get('/installer/windows',   agentInstallerWindows);
 // Convenience URL matching Obliview pattern: /api/agent/installer/windows.msi
 router.get('/installer/windows.msi', agentInstallerWindowsMsi);
 
+// GET /api/agent/ws
+// This endpoint is normally upgraded to a WebSocket by the Node.js upgrade
+// handler (index.ts) BEFORE reaching Express.  If it reaches Express it means
+// the reverse proxy (Nginx) did NOT forward the Upgrade header — the upgrade
+// handler never fired.  Return a clear 426 Upgrade Required so the agent log
+// shows a meaningful error instead of falling through to requireAuth (401).
+router.get('/ws', agentAuth, (_req, res) => {
+  res.status(426).json({ error: 'WebSocket upgrade required — proxy not forwarding Upgrade header' });
+});
+
 // POST /api/agent/register
 // Agent registers itself and gets back its device UUID confirmation
 router.post('/register', agentAuth, async (req, res, next) => {
