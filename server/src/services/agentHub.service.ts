@@ -3,6 +3,7 @@ import { db } from '../db';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import { logger } from '../utils/logger';
+import { commandService } from './command.service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface AgentAck {
   id: string;
   commandType: string;
   success: boolean;
+  result?: any;
   sessionToken?: string;
   error?: string;
 }
@@ -70,36 +72,48 @@ class AgentHubService {
 
   /**
    * Handle an ack message received from an agent on the command channel.
-   * Currently handles:
-   *   - open_remote_tunnel failure → mark session failed, notify UI
+   * All command types are now handled:
+   *   - All acks → update command_queue row + emit COMMAND_RESULT to tenant room
+   *   - open_remote_tunnel failure → additionally mark session failed
    */
   private async _handleAck(conn: AgentConn, msg: AgentAck): Promise<void> {
     if (msg.type !== 'ack') return;
 
-    if (msg.commandType === 'open_remote_tunnel') {
-      if (!msg.success && msg.sessionToken) {
-        const [updated] = await db('remote_sessions')
-          .where({ session_token: msg.sessionToken })
-          .whereIn('status', ['waiting', 'connecting'])
-          .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' })
-          .returning('*');
+    // Update command in DB and emit socket event for ALL command types
+    try {
+      const status = msg.success ? 'success' : 'failure';
+      await commandService.processAcks(conn.deviceId, conn.tenantId, [{
+        commandId: msg.id,
+        status,
+        result: msg.result ?? (msg.error ? { error: msg.error } : {}),
+      }]);
+    } catch (e) {
+      logger.error(e, 'Failed to process WS command ack');
+    }
 
-        if (updated) {
-          try {
-            getIO().to(`tenant:${conn.tenantId}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, {
-              id: updated.id, deviceId: updated.device_id, tenantId: updated.tenant_id,
-              protocol: updated.protocol, status: updated.status,
-              sessionToken: updated.session_token, startedBy: updated.started_by,
-              startedAt: updated.started_at, connectedAt: updated.connected_at,
-              endedAt: updated.ended_at, durationSeconds: updated.duration_seconds,
-              endReason: updated.end_reason, createdAt: updated.created_at,
-            });
-          } catch {}
-          logger.error(
-            { sessionToken: msg.sessionToken, error: msg.error, deviceId: conn.deviceId },
-            'open_remote_tunnel failed (command channel)',
-          );
-        }
+    // Special handling: open_remote_tunnel failure → mark session failed
+    if (msg.commandType === 'open_remote_tunnel' && !msg.success && msg.sessionToken) {
+      const [updated] = await db('remote_sessions')
+        .where({ session_token: msg.sessionToken })
+        .whereIn('status', ['waiting', 'connecting'])
+        .update({ status: 'failed', ended_at: new Date(), end_reason: 'command_failure' })
+        .returning('*');
+
+      if (updated) {
+        try {
+          getIO().to(`tenant:${conn.tenantId}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, {
+            id: updated.id, deviceId: updated.device_id, tenantId: updated.tenant_id,
+            protocol: updated.protocol, status: updated.status,
+            sessionToken: updated.session_token, startedBy: updated.started_by,
+            startedAt: updated.started_at, connectedAt: updated.connected_at,
+            endedAt: updated.ended_at, durationSeconds: updated.duration_seconds,
+            endReason: updated.end_reason, createdAt: updated.created_at,
+          });
+        } catch {}
+        logger.error(
+          { sessionToken: msg.sessionToken, error: msg.error, deviceId: conn.deviceId },
+          'open_remote_tunnel failed (command channel)',
+        );
       }
     }
   }

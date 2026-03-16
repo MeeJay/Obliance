@@ -115,12 +115,12 @@ func push(cfg *Config) {
 				_ = saveConfig(cfg)
 				log.Printf("Check interval updated to %ds", cfg.CheckIntervalSeconds)
 			}
-			// Update scan interval if the server provides one.
-			if result.Config.ScanIntervalSeconds != cfg.ScanIntervalSeconds {
-				cfg.ScanIntervalSeconds = result.Config.ScanIntervalSeconds
-				_ = saveConfig(cfg)
-				log.Printf("Scan interval updated to %ds", cfg.ScanIntervalSeconds)
-			}
+		}
+		// Always update scan interval when config is present (independent of poll interval changes).
+		if result.Config != nil && result.Config.ScanIntervalSeconds != cfg.ScanIntervalSeconds {
+			cfg.ScanIntervalSeconds = result.Config.ScanIntervalSeconds
+			_ = saveConfig(cfg)
+			log.Printf("Scan interval updated to %ds", cfg.ScanIntervalSeconds)
 		}
 
 		log.Printf("Push OK (acks sent: %d, commands received: %d)", len(acks), len(result.Commands))

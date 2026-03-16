@@ -338,7 +338,7 @@ class DeviceService {
     return {
       config: {
         pushIntervalSeconds: config.pushIntervalSeconds,
-        ...(config.scanIntervalSeconds > 0 && { scanIntervalSeconds: config.scanIntervalSeconds }),
+        scanIntervalSeconds: config.scanIntervalSeconds,  // always send (0 = disabled)
         displayConfig: config.displayConfig,
         sensorDisplayNames: config.sensorDisplayNames,
         notificationTypes: config.notificationTypes,

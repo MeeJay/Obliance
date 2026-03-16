@@ -518,6 +518,38 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 	return nil
 }
 
+// ── ExecuteSync ───────────────────────────────────────────────────────────────
+
+// ExecuteSync runs a command synchronously and returns (result, error).
+// Used by the WS command channel so results can be sent back immediately
+// without waiting for the next HTTP push cycle.
+func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
+	switch cmd.Type {
+	case "scan_inventory":
+		return d.handleScanInventory(cmd)
+	case "scan_updates":
+		return d.handleScanUpdates(cmd)
+	case "run_script":
+		return d.handleRunScript(cmd)
+	case "install_update":
+		return d.handleInstallUpdate(cmd)
+	case "check_compliance":
+		return d.handleCheckCompliance(cmd)
+	case "list_services":
+		return d.handleListServices(cmd)
+	case "restart_service":
+		return d.handleRestartService(cmd)
+	case "reboot":
+		return nil, d.handleReboot(cmd)
+	case "shutdown":
+		return nil, d.handleShutdown(cmd)
+	case "restart_agent":
+		return nil, d.handleRestartAgent(cmd)
+	default:
+		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
+	}
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // makeConfig returns a minimal Config suitable for making HTTP calls.

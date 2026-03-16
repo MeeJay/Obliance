@@ -34,13 +34,22 @@ router.post('/', async (req, res, next) => {
       createdBy: req.session?.userId,
     });
 
-    // Try immediate delivery via WebSocket command channel
-    agentHub.push(deviceId, {
+    // Try immediate delivery via WebSocket command channel.
+    // If the push succeeds the agent will execute and ack via WS, so mark
+    // the command as 'sent' now to prevent re-delivery on the next HTTP push.
+    const pushed = agentHub.push(deviceId, {
       type: 'command',
       id: cmd.id,
       commandType: type,
       payload,
     });
+    if (pushed) {
+      try {
+        await db('command_queue')
+          .where({ id: cmd.id })
+          .update({ status: 'sent', sent_at: new Date(), updated_at: new Date() });
+      } catch { /* non-fatal — command will be re-delivered via HTTP push */ }
+    }
 
     res.json({ data: cmd });
   } catch (err) { next(err); }

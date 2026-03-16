@@ -35,12 +35,13 @@ type hubCommand struct {
 }
 
 type hubAck struct {
-	Type         string `json:"type"`
-	ID           string `json:"id"`
-	CommandType  string `json:"commandType"`
-	Success      bool   `json:"success"`
-	SessionToken string `json:"sessionToken,omitempty"`
-	Error        string `json:"error,omitempty"`
+	Type         string          `json:"type"`
+	ID           string          `json:"id"`
+	CommandType  string          `json:"commandType"`
+	Success      bool            `json:"success"`
+	Result       json.RawMessage `json:"result,omitempty"`
+	SessionToken string          `json:"sessionToken,omitempty"`
+	Error        string          `json:"error,omitempty"`
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -150,7 +151,10 @@ func dispatchHubCommand(d *CommandDispatcher, msg hubCommand, sendAck func(hubAc
 	case "close_remote_tunnel":
 		result, cmdErr = d.handleCloseRemoteTunnel(cmd)
 	default:
-		cmdErr = fmt.Errorf("unknown command type: %s", msg.CommandType)
+		// All other command types are executed synchronously so the result
+		// can be sent back via the WS channel immediately, without waiting
+		// for the next HTTP push cycle (which can be up to 60 s away).
+		result, cmdErr = d.ExecuteSync(cmd)
 	}
 
 	ack := hubAck{
@@ -162,6 +166,10 @@ func dispatchHubCommand(d *CommandDispatcher, msg hubCommand, sendAck func(hubAc
 	if cmdErr != nil {
 		ack.Error = cmdErr.Error()
 		log.Printf("[cmd-channel] command %s (%s) failed: %v", msg.ID, msg.CommandType, cmdErr)
+	} else if result != nil {
+		if data, err := json.Marshal(result); err == nil {
+			ack.Result = json.RawMessage(data)
+		}
 	}
 
 	// Carry the session token in the ack so the server can route it.
