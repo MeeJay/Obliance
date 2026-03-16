@@ -73,8 +73,11 @@ class RemoteService {
       ? Math.floor((Date.now() - new Date(session.connected_at).getTime()) / 1000)
       : 0;
 
+    // Sessions that never connected (waiting/connecting) are marked 'expired', not 'closed'
+    const finalStatus = session.connected_at ? 'closed' : 'expired';
+
     await db('remote_sessions').where({ id: sessionId }).update({
-      status: 'closed', ended_at: new Date(),
+      status: finalStatus, ended_at: new Date(),
       duration_seconds: duration, end_reason: reason,
     });
 

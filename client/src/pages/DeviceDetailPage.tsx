@@ -1173,11 +1173,12 @@ function ServicesTab({ device }: { device: Device }) {
   const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
   const [restartingService, setRestartingService] = useState<string | null>(null);
-  const [listCmdId, setListCmdId] = useState<string | null>(null);
+  const listCmdIdRef = useRef<string | null>(null);
   const [filter, setFilter] = useState('');
   const isOnline = device.status === 'online';
 
   // Listen for command results from server (via socket)
+  // Use a ref for listCmdId to avoid re-registering the listener on every enqueue
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -1187,7 +1188,8 @@ function ServicesTab({ device }: { device: Device }) {
       const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
       if (!terminal) return;
 
-      if (cmd.type === 'list_services' && cmd.id === listCmdId) {
+      if (cmd.type === 'list_services' && cmd.id === listCmdIdRef.current) {
+        listCmdIdRef.current = null;
         setIsLoadingServices(false);
         if (cmd.status === 'success') {
           const svcs = (cmd.result as any)?.services as ServiceInfo[] | undefined;
@@ -1195,7 +1197,6 @@ function ServicesTab({ device }: { device: Device }) {
         } else {
           toast.error('Failed to load services');
         }
-        setListCmdId(null);
       }
 
       if (cmd.type === 'restart_service') {
@@ -1215,13 +1216,13 @@ function ServicesTab({ device }: { device: Device }) {
     socket.on('COMMAND_RESULT', onCmd);
     socket.on('COMMAND_UPDATED', onCmd);
     return () => { socket.off('COMMAND_RESULT', onCmd); socket.off('COMMAND_UPDATED', onCmd); };
-  }, [device.id, listCmdId]);
+  }, [device.id]);
 
   const handleListServices = async () => {
     setIsLoadingServices(true);
     try {
       const cmd = await commandApi.enqueue(device.id, 'list_services');
-      setListCmdId(cmd.id);
+      listCmdIdRef.current = cmd.id;
     } catch {
       setIsLoadingServices(false);
       toast.error('Failed to dispatch list_services command');

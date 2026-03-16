@@ -62,8 +62,8 @@ export function Header() {
         {/* Tenant switcher — hidden when single-tenant (tenants.length <= 1) */}
         <TenantSwitcher />
 
-        {/* Cross-app switch buttons — always shown when integration URL is configured */}
-        {obliviewUrl && (
+        {/* Cross-app switch buttons — hidden inside the native Obli.tools desktop app */}
+        {obliviewUrl && !isNativeApp && (
           <button
             type="button"
             onClick={() => {
@@ -84,7 +84,7 @@ export function Header() {
             Obliview
           </button>
         )}
-        {obliguardUrl && (
+        {obliguardUrl && !isNativeApp && (
           <button
             type="button"
             onClick={() => {
@@ -105,7 +105,7 @@ export function Header() {
             Obliguard
           </button>
         )}
-        {oblimapUrl && (
+        {oblimapUrl && !isNativeApp && (
           <button
             type="button"
             onClick={() => {
