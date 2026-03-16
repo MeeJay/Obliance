@@ -457,12 +457,12 @@ export function Sidebar() {
   const adminNavItems: NavItem[] = [
     { label: t('nav.groups'),       path: '/groups',              icon: <FolderTree size={18} /> },
     { label: t('nav.notifications'), path: '/notifications',      icon: <Bell size={18} /> },
-    { label: t('nav.settings'),     path: '/settings',            icon: <Settings size={18} /> },
     { label: t('nav.users'),        path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.devices'),      path: '/admin/devices',       icon: <Terminal size={18} /> },
     { label: t('nav.maintenance'),  path: '/admin/maintenance',   icon: <CalendarClock size={18} /> },
     { label: t('tenant.pageTitle'), path: '/admin/tenants',       icon: <Building2 size={18} /> },
     { label: t('nav.importExport'), path: '/admin/import-export', icon: <PackageOpen size={18} /> },
+    { label: t('nav.settings'),     path: '/settings',            icon: <Settings size={18} /> },
   ];
 
   // ── Ungrouped devices ──────────────────────────────────────────────────────

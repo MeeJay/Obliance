@@ -5,6 +5,7 @@ import { SETTINGS_KEYS, HARDCODED_DEFAULTS, SETTINGS_DEFINITIONS } from '@oblian
 
 interface SettingsRow {
   id: number;
+  tenant_id: number;
   scope: string;
   scope_id: number | null;
   key: string;
@@ -30,9 +31,9 @@ export interface SettingOverride {
 export const settingsService = {
   // ── Raw CRUD ──
 
-  async getByScope(scope: SettingScope, scopeId: number | null): Promise<Record<string, number>> {
+  async getByScope(tenantId: number, scope: SettingScope, scopeId: number | null): Promise<Record<string, number>> {
     const rows = await db<SettingsRow>('settings')
-      .where({ scope, scope_id: scopeId })
+      .where({ tenant_id: tenantId, scope, scope_id: scopeId })
       .select('key', 'value');
 
     const result: Record<string, number> = {};
@@ -42,7 +43,7 @@ export const settingsService = {
     return result;
   },
 
-  async set(scope: SettingScope, scopeId: number | null, key: SettingKey, value: number): Promise<void> {
+  async set(tenantId: number, scope: SettingScope, scopeId: number | null, key: SettingKey, value: number): Promise<void> {
     // Validate key
     const def = SETTINGS_DEFINITIONS.find((d: SettingDefinition) => d.key === key);
     if (!def) throw new Error(`Unknown setting key: ${key}`);
@@ -52,26 +53,27 @@ export const settingsService = {
 
     await db('settings')
       .insert({
+        tenant_id: tenantId,
         scope,
         scope_id: scopeId,
         key,
         value: JSON.stringify(value),
         updated_at: new Date(),
       })
-      .onConflict(['scope', 'scope_id', 'key'])
+      .onConflict(['tenant_id', 'scope', 'scope_id', 'key'])
       .merge({ value: JSON.stringify(value), updated_at: new Date() });
   },
 
-  async remove(scope: SettingScope, scopeId: number | null, key: SettingKey): Promise<boolean> {
+  async remove(tenantId: number, scope: SettingScope, scopeId: number | null, key: SettingKey): Promise<boolean> {
     const count = await db('settings')
-      .where({ scope, scope_id: scopeId, key })
+      .where({ tenant_id: tenantId, scope, scope_id: scopeId, key })
       .del();
     return count > 0;
   },
 
-  async setBulk(scope: SettingScope, scopeId: number | null, overrides: SettingOverride[]): Promise<void> {
+  async setBulk(tenantId: number, scope: SettingScope, scopeId: number | null, overrides: SettingOverride[]): Promise<void> {
     for (const { key, value } of overrides) {
-      await this.set(scope, scopeId, key, value);
+      await this.set(tenantId, scope, scopeId, key, value);
     }
   },
 
@@ -83,7 +85,7 @@ export const settingsService = {
    *
    * Each resolved value tracks its source for UI display.
    */
-  async resolveForDevice(deviceId: number, groupId: number | null): Promise<ResolvedSettings> {
+  async resolveForDevice(tenantId: number, deviceId: number, groupId: number | null): Promise<ResolvedSettings> {
     // 1. Start with hardcoded defaults
     const resolved: ResolvedSettings = {} as ResolvedSettings;
     const allKeys = Object.values(SETTINGS_KEYS);
@@ -98,7 +100,7 @@ export const settingsService = {
     }
 
     // 2. Apply global overrides
-    const globalOverrides = await this.getByScope('global', null);
+    const globalOverrides = await this.getByScope(tenantId, 'global', null);
     for (const key of allKeys) {
       if (globalOverrides[key] !== undefined) {
         resolved[key as SettingKey] = {
@@ -120,7 +122,7 @@ export const settingsService = {
         .select('device_groups.id', 'device_groups.name', 'device_group_closure.depth');
 
       for (const ancestor of ancestorRows) {
-        const groupOverrides = await this.getByScope('group', ancestor.id);
+        const groupOverrides = await this.getByScope(tenantId, 'group', ancestor.id);
         for (const key of allKeys) {
           if (groupOverrides[key] !== undefined) {
             resolved[key as SettingKey] = {
@@ -135,7 +137,7 @@ export const settingsService = {
     }
 
     // 4. Apply device-level overrides
-    const deviceOverrides = await this.getByScope('device', deviceId);
+    const deviceOverrides = await this.getByScope(tenantId, 'device', deviceId);
     for (const key of allKeys) {
       if (deviceOverrides[key] !== undefined) {
         resolved[key as SettingKey] = {
@@ -155,7 +157,7 @@ export const settingsService = {
    * Chain: Hardcoded → Global → Ancestor groups (root→parent)
    * Does NOT include the group's own overrides as resolved — returns them separately.
    */
-  async resolveForGroup(groupId: number): Promise<{ resolved: ResolvedSettings; overrides: Record<string, number> }> {
+  async resolveForGroup(tenantId: number, groupId: number): Promise<{ resolved: ResolvedSettings; overrides: Record<string, number> }> {
     const allKeys = Object.values(SETTINGS_KEYS);
 
     // 1. Start with hardcoded defaults
@@ -170,7 +172,7 @@ export const settingsService = {
     }
 
     // 2. Global
-    const globalOverrides = await this.getByScope('global', null);
+    const globalOverrides = await this.getByScope(tenantId, 'global', null);
     for (const key of allKeys) {
       if (globalOverrides[key] !== undefined) {
         resolved[key as SettingKey] = {
@@ -191,7 +193,7 @@ export const settingsService = {
       .select('device_groups.id', 'device_groups.name', 'device_group_closure.depth');
 
     for (const ancestor of ancestorRows) {
-      const groupOvr = await this.getByScope('group', ancestor.id);
+      const groupOvr = await this.getByScope(tenantId, 'group', ancestor.id);
       for (const key of allKeys) {
         if (groupOvr[key] !== undefined) {
           resolved[key as SettingKey] = {
@@ -205,7 +207,7 @@ export const settingsService = {
     }
 
     // 4. Get this group's own overrides (separate, not merged into resolved)
-    const overrides = await this.getByScope('group', groupId);
+    const overrides = await this.getByScope(tenantId, 'group', groupId);
 
     return { resolved, overrides };
   },
@@ -213,7 +215,7 @@ export const settingsService = {
   /**
    * Resolve for global scope (just hardcoded defaults + global overrides)
    */
-  async resolveGlobal(): Promise<{ resolved: ResolvedSettings; overrides: Record<string, number> }> {
+  async resolveGlobal(tenantId: number): Promise<{ resolved: ResolvedSettings; overrides: Record<string, number> }> {
     const allKeys = Object.values(SETTINGS_KEYS);
     const resolved: ResolvedSettings = {} as ResolvedSettings;
 
@@ -226,7 +228,7 @@ export const settingsService = {
       };
     }
 
-    const overrides = await this.getByScope('global', null);
+    const overrides = await this.getByScope(tenantId, 'global', null);
 
     return { resolved, overrides };
   },

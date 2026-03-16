@@ -41,20 +41,20 @@
   --c-primary:               167 139 250;
 }
 
-/* ── Neon UI — lilas électrique (fonds neutres, accent lilas) ───────────────── */
+/* ── Neon UI — fonds neutres (Obliguard-style) + accent lilas ───────────────── */
 [data-theme="neon"] {
-  --c-bg-primary:            8 7 14;
-  --c-bg-secondary:          14 12 22;
-  --c-bg-tertiary:           19 17 30;
-  --c-bg-hover:              26 23 38;
-  --c-bg-active:             32 28 46;
+  --c-bg-primary:            7 8 10;
+  --c-bg-secondary:          13 14 17;
+  --c-bg-tertiary:           19 20 24;
+  --c-bg-hover:              27 27 32;
+  --c-bg-active:             36 36 42;
 
-  --c-border:                38 32 58;
-  --c-border-light:          50 42 74;
+  --c-border:                50 51 57;
+  --c-border-light:          65 66 73;
 
-  --c-text-primary:          232 228 248;
-  --c-text-secondary:        130 122 162;
-  --c-text-muted:            84 76 108;
+  --c-text-primary:          240 234 226;
+  --c-text-secondary:        152 138 118;
+  --c-text-muted:            106 94 78;
 
   --c-status-up:             0 220 110;
   --c-status-up-bg:          0 24 14;
@@ -64,8 +64,8 @@
   --c-status-pending-bg:     30 20 0;
   --c-status-maintenance:    148 163 184;
   --c-status-maintenance-bg: 16 20 38;
-  --c-status-paused:         84 76 108;
-  --c-status-paused-bg:      19 17 30;
+  --c-status-paused:         114 88 52;
+  --c-status-paused-bg:      20 13 6;
 
   --c-accent:                168 128 255;
   --c-accent-hover:          192 160 255;

@@ -3,7 +3,7 @@ import { settingsService } from '../services/settings.service';
 import type { SettingScope } from '@obliance/shared';
 import type { SettingKey } from '@obliance/shared';
 import { AppError } from '../middleware/errorHandler';
-import type { SetSettingInput, SetSettingsBulkInput, DeleteSettingInput } from '../validators/settings.schema';
+import type { SetSettingInput, SetSettingsBulkInput } from '../validators/settings.schema';
 
 function parseScope(req: Request): { scope: SettingScope; scopeId: number | null } {
   const { scope, scopeId } = req.params;
@@ -19,9 +19,9 @@ function parseScope(req: Request): { scope: SettingScope; scopeId: number | null
 
 export const settingsController = {
   // GET /api/settings/global/resolved
-  async getGlobalResolved(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getGlobalResolved(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await settingsService.resolveGlobal();
+      const result = await settingsService.resolveGlobal(req.tenantId!);
       res.json({ success: true, data: result });
     } catch (err) {
       next(err);
@@ -33,7 +33,7 @@ export const settingsController = {
     try {
       const groupId = parseInt(req.params.scopeId, 10);
       if (isNaN(groupId)) throw new AppError(400, 'Invalid group ID');
-      const result = await settingsService.resolveForGroup(groupId);
+      const result = await settingsService.resolveForGroup(req.tenantId!, groupId);
       res.json({ success: true, data: result });
     } catch (err) {
       next(err);
@@ -48,13 +48,13 @@ export const settingsController = {
 
       // Need the device's group_id
       const { db: database } = await import('../db');
-      const device = await database('devices').where({ id: deviceId }).first();
+      const device = await database('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
       if (!device) throw new AppError(404, 'Device not found');
 
-      const resolved = await settingsService.resolveForDevice(deviceId, device.group_id);
+      const resolved = await settingsService.resolveForDevice(req.tenantId!, deviceId, device.group_id);
 
       // Also get device-level overrides specifically
-      const overrides = await settingsService.getByScope('device', deviceId);
+      const overrides = await settingsService.getByScope(req.tenantId!, 'device', deviceId);
 
       res.json({ success: true, data: { resolved, overrides } });
     } catch (err) {
@@ -68,7 +68,7 @@ export const settingsController = {
       const { scope, scopeId } = parseScope(req);
       const { key, value } = req.body as SetSettingInput;
 
-      await settingsService.set(scope, scopeId, key as SettingKey, value);
+      await settingsService.set(req.tenantId!, scope, scopeId, key as SettingKey, value);
 
       // Broadcast settings update
       const io = req.app.get('io');
@@ -93,6 +93,7 @@ export const settingsController = {
       const { overrides } = req.body as SetSettingsBulkInput;
 
       await settingsService.setBulk(
+        req.tenantId!,
         scope,
         scopeId,
         overrides.map((o) => ({ key: o.key as SettingKey, value: o.value })),
@@ -115,7 +116,7 @@ export const settingsController = {
       const { scope, scopeId } = parseScope(req);
       const { key } = req.params;
 
-      const deleted = await settingsService.remove(scope, scopeId, key as SettingKey);
+      const deleted = await settingsService.remove(req.tenantId!, scope, scopeId, key as SettingKey);
 
       if (deleted) {
         const io = req.app.get('io');
