@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle } from 'lucide-react';
-// Static import — Vite bundles @novnc/novnc via its "main" field (core/rfb.js)
-import RFB from '@novnc/novnc';
 import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
 
@@ -14,7 +12,7 @@ type ConnStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rfbRef = useRef<RFB | null>(null);
+  const rfbRef = useRef<any>(null);
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -35,8 +33,9 @@ export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
 
     let active = true;
 
+    import('@novnc/novnc').then(({ default: RFB }) => {
     try {
-      const rfb = new RFB(containerRef.current, wsUrl, {
+      const rfb = new RFB(containerRef.current!, wsUrl, {
         scaleViewport: true,
         showDotCursor: true,
       });
@@ -67,9 +66,12 @@ export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
       rfbRef.current = rfb;
     } catch (err) {
       console.error('[VncViewerModal] init error:', err);
-      setStatus('error');
-      setErrorMsg('Failed to initialise VNC viewer');
+      if (active) { setStatus('error'); setErrorMsg('Failed to initialise VNC viewer'); }
     }
+    }).catch((err) => {
+      console.error('[VncViewerModal] failed to load noVNC:', err);
+      if (active) { setStatus('error'); setErrorMsg('Failed to load VNC library'); }
+    });
 
     return () => {
       active = false;
