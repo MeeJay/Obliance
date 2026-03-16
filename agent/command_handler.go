@@ -508,12 +508,26 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 
 func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 	log.Printf("Command %s: restarting agent service...", cmd.ID)
-	// Exit cleanly after a short delay so the ack can be sent first.
-	// The service manager (Windows SCM / systemd / launchd) restarts the
-	// process automatically, which triggers checkForUpdate() at startup.
+	// Restart after a short delay so the WS ack can be sent first.
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		os.Exit(0)
+		switch runtime.GOOS {
+		case "windows":
+			// On Windows, os.Exit(0) is treated as a clean/intentional service stop:
+			// the SCM does NOT trigger recovery/restart actions.
+			// Use PowerShell Restart-Service to properly stop then restart via SCM.
+			log.Printf("Restarting OblianceAgent service via PowerShell...")
+			_ = exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+				"Restart-Service -Name OblianceAgent -Force").Start()
+			// The SCM stop signal will eventually terminate this process.
+			// Sleep as a safety fallback in case Restart-Service doesn't kill us.
+			time.Sleep(10 * time.Second)
+			os.Exit(0)
+		default:
+			// Linux/macOS: os.Exit(0) causes systemd/launchd to restart the process
+			// when configured with Restart=always or KeepAlive=true.
+			os.Exit(0)
+		}
 	}()
 	return nil
 }
