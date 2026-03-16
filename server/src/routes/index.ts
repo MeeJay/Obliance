@@ -34,6 +34,7 @@ import oblianceRoutes from './obliance.routes';
 import obliviewRoutes from './obliview.routes';
 import obliguardRoutes from './obliguard.routes';
 import oblimapRoutes from './oblimap.routes';
+import systemRoutes from './system.routes';
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.use('/sso', ssoRoutes);           // cross-app SSO (generate-token, valid
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/obliview', obliviewRoutes);   // proxy to Obliview
+router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
 router.use('/obliguard', obliguardRoutes); // proxy to Obliguard
 router.use('/oblimap', oblimapRoutes);     // proxy to Oblimap
 

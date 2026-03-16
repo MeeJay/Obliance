@@ -77,9 +77,11 @@ RUN mkdir -p ./obli.tools && printf '%s' "${OBLITOOLS_VERSION}" > ./obli.tools/V
 
 # Obli.tools release binaries (build on Windows: obli.tools/build-windows.ps1 → dist/ObliTools.exe)
 #                              (build on macOS:   obli.tools/build-mac.sh      → dist/ObliTools-*.dmg/zip)
-# obli.tools/ is a symlink outside the build context; the dist dir is pre-created so the
-# /downloads/:filename endpoint returns 404 for absent files (no hard failure).
+# obli.tools/ is a junction — Docker cannot follow it. The bat file stages the files into
+# _oblitools_dist_stage/ (a real directory) before building so COPY works.
+# If no binaries were built yet only a .keep placeholder is present → /downloads returns 404.
 RUN mkdir -p ./obli.tools/dist
+COPY _oblitools_dist_stage/ ./obli.tools/dist/
 
 COPY server/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

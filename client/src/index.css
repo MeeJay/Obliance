@@ -41,20 +41,20 @@
   --c-primary:               167 139 250;
 }
 
-/* ── Neon UI — violet électrique ────────────────────────────────────────────── */
+/* ── Neon UI — lilas électrique (fonds neutres, accent lilas) ───────────────── */
 [data-theme="neon"] {
-  --c-bg-primary:            7 5 12;
-  --c-bg-secondary:          12 9 20;
-  --c-bg-tertiary:           17 13 28;
-  --c-bg-hover:              24 18 38;
-  --c-bg-active:             32 24 50;
+  --c-bg-primary:            8 7 14;
+  --c-bg-secondary:          14 12 22;
+  --c-bg-tertiary:           19 17 30;
+  --c-bg-hover:              26 23 38;
+  --c-bg-active:             32 28 46;
 
-  --c-border:                52 35 85;
-  --c-border-light:          68 46 110;
+  --c-border:                38 32 58;
+  --c-border-light:          50 42 74;
 
-  --c-text-primary:          238 228 255;
-  --c-text-secondary:        155 128 200;
-  --c-text-muted:            108 85 148;
+  --c-text-primary:          232 228 248;
+  --c-text-secondary:        130 122 162;
+  --c-text-muted:            84 76 108;
 
   --c-status-up:             0 220 110;
   --c-status-up-bg:          0 24 14;
@@ -64,13 +64,13 @@
   --c-status-pending-bg:     30 20 0;
   --c-status-maintenance:    148 163 184;
   --c-status-maintenance-bg: 16 20 38;
-  --c-status-paused:         108 85 148;
-  --c-status-paused-bg:      17 13 28;
+  --c-status-paused:         84 76 108;
+  --c-status-paused-bg:      19 17 30;
 
-  --c-accent:                192 132 252;
-  --c-accent-hover:          216 180 254;
-  --c-accent-dark:           147 51 234;
-  --c-primary:               192 132 252;
+  --c-accent:                168 128 255;
+  --c-accent-hover:          192 160 255;
+  --c-accent-dark:           120 64 220;
+  --c-primary:               168 128 255;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -92,25 +92,25 @@
   height: 1px;
   background: radial-gradient(
     ellipse 70% 100% at 50% 100%,
-    rgb(192 132 252 / 0.9) 0%,
-    rgb(192 132 252 / 0.4) 40%,
+    rgb(168 128 255 / 0.9) 0%,
+    rgb(168 128 255 / 0.4) 40%,
     transparent 70%
   );
   pointer-events: none;
 }
 
-/* ── Active nav item — barre violette + fond teinté + glow icône ─────────────── */
+/* ── Active nav item — barre lilas + fond teinté + glow icône ───────────────── */
 [data-theme="neon"] .bg-bg-active {
-  background-color: rgb(192 132 252 / 0.12) !important;
-  box-shadow: inset 3px 0 0 rgb(192 132 252 / 1), inset 0 0 12px rgb(192 132 252 / 0.08);
+  background-color: rgb(168 128 255 / 0.12) !important;
+  box-shadow: inset 3px 0 0 rgb(168 128 255 / 1), inset 0 0 12px rgb(168 128 255 / 0.08);
 }
 [data-theme="neon"] .bg-bg-active .text-text-primary {
-  color: rgb(192 132 252 / 1) !important;
-  text-shadow: 0 0 10px rgb(192 132 252 / 0.65);
+  color: rgb(168 128 255 / 1) !important;
+  text-shadow: 0 0 10px rgb(168 128 255 / 0.65);
 }
 [data-theme="neon"] .bg-bg-active svg {
-  color: rgb(192 132 252 / 1) !important;
-  filter: drop-shadow(0 0 5px rgb(192 132 252 / 0.8));
+  color: rgb(168 128 255 / 1) !important;
+  filter: drop-shadow(0 0 5px rgb(168 128 255 / 0.8));
 }
 
 /* ── Accent & primary text glow ─────────────────────────────────────────────── */

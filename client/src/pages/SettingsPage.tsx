@@ -1,10 +1,11 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Copy, RefreshCw } from 'lucide-react';
+import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Copy, RefreshCw, Info, Cpu, HardDrive, Database, Clock } from 'lucide-react';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { NotificationTypesPanel } from '@/components/agent/NotificationTypesPanel';
 import { useAuthStore } from '@/store/authStore';
 import { smtpServerApi, type CreateSmtpServerRequest } from '@/api/smtpServer.api';
 import { appConfigApi } from '@/api/appConfig.api';
+import { systemApi, type SystemInfo } from '@/api/system.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { SmtpServer, AppConfigData, DeviceNotificationTypes, SsoIntegrationConfig } from '@obliance/shared';
@@ -18,6 +19,15 @@ const DEFAULT_AGENT_GLOBAL_CONFIG = {
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
+
+function AboutRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-xs text-text-muted">{label}</span>
+      <span className="font-mono text-xs text-text-primary">{value}</span>
+    </div>
+  );
+}
 
 type SmtpFormMode = 'create' | 'edit' | null;
 
@@ -66,6 +76,10 @@ export function SettingsPage() {
   const [agentScanInterval, setAgentScanInterval] = useState('');
   const [agentMaxMissed, setAgentMaxMissed] = useState('');
 
+  // ── System info (About section) ──
+  const [systemInfo, setSystemInfo]               = useState<SystemInfo | null>(null);
+  const [systemInfoLoading, setSystemInfoLoading] = useState(false);
+
   // ── SSO Integration Configs ──
   const [obliviewCfg, setObliviewCfg] = useState<SsoIntegrationConfig | null>(null);
   const [obliviewUrl, setObliviewUrl] = useState('');
@@ -84,6 +98,8 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (!admin) return;
+    setSystemInfoLoading(true);
+    systemApi.getInfo().then(setSystemInfo).catch(() => {}).finally(() => setSystemInfoLoading(false));
     smtpServerApi.list().then(setServers).catch(() => {});
     appConfigApi.getConfig().then(setAppConfig).catch(() => {});
     appConfigApi.getAgentGlobal().then((cfg) => {
@@ -252,6 +268,17 @@ export function SettingsPage() {
     }
   }
 
+  function formatUptime(seconds: number): string {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0) parts.push(`${h}h`);
+    parts.push(`${m}m`);
+    return parts.join(' ');
+  }
+
   return (
     <div className="p-6 max-w-5xl min-w-0 mx-auto space-y-8">
       <div>
@@ -260,6 +287,77 @@ export function SettingsPage() {
           {t('settings.globalDesc')}
         </p>
       </div>
+
+      {/* ── About ── */}
+      {admin && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Info size={18} className="text-accent" />
+            <h2 className="text-lg font-semibold text-text-primary">About</h2>
+          </div>
+          <div className="rounded-lg border border-border bg-bg-secondary p-5">
+            {systemInfoLoading ? (
+              <p className="text-sm text-text-muted animate-pulse">Loading system information…</p>
+            ) : systemInfo ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                <div className="space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+                    <Server size={12} /> Versions
+                  </p>
+                  <AboutRow label="Server"  value={`v${systemInfo.appVersion}`} />
+                  <AboutRow label="Agent"   value={`v${systemInfo.agentVersion}`} />
+                  <AboutRow label="Node.js" value={systemInfo.nodeVersion} />
+                </div>
+                <div className="space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+                    <Clock size={12} /> Instance
+                  </p>
+                  <AboutRow label="Uptime"      value={formatUptime(systemInfo.uptimeSeconds)} />
+                  <AboutRow label="Environment" value={systemInfo.environment.isDocker ? 'Docker' : 'Native'} />
+                  <AboutRow label="Platform"    value={systemInfo.environment.platform} />
+                  <AboutRow label="CPU cores"   value={String(systemInfo.cpu.cores)} />
+                </div>
+                <div className="space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+                    <HardDrive size={12} /> Memory
+                  </p>
+                  <AboutRow label="Process (RSS)" value={`${systemInfo.memory.processRssMb} MB`} />
+                  <AboutRow label="Heap used"     value={`${systemInfo.memory.processHeapMb} MB`} />
+                  <AboutRow label="System free"   value={`${systemInfo.memory.systemFreeMb} / ${systemInfo.memory.systemTotalMb} MB`} />
+                </div>
+                <div className="space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+                    <Cpu size={12} /> CPU load avg
+                  </p>
+                  <AboutRow label="1 min"  value={String(systemInfo.cpu.loadAvg1)} />
+                  <AboutRow label="5 min"  value={String(systemInfo.cpu.loadAvg5)} />
+                  <AboutRow label="15 min" value={String(systemInfo.cpu.loadAvg15)} />
+                </div>
+                <div className="space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+                    <Database size={12} /> Database
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-muted">PostgreSQL</span>
+                    <span className={cn(
+                      'flex items-center gap-1.5 text-xs font-medium',
+                      systemInfo.environment.dbStatus === 'ok' ? 'text-status-up' : 'text-status-down',
+                    )}>
+                      <span className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        systemInfo.environment.dbStatus === 'ok' ? 'bg-status-up' : 'bg-status-down',
+                      )} />
+                      {systemInfo.environment.dbStatus === 'ok' ? 'Connected' : 'Error'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted">Could not load system information.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Default Monitor Settings ── */}
       <SettingsPanel scope="global" scopeId={null} title={t('settings.defaultMonitorSettings')} />
