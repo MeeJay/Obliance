@@ -1174,6 +1174,7 @@ function ServicesTab({ device }: { device: Device }) {
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
   const [restartingService, setRestartingService] = useState<string | null>(null);
   const listCmdIdRef = useRef<string | null>(null);
+  const listTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState('');
   const isOnline = device.status === 'online';
 
@@ -1190,6 +1191,7 @@ function ServicesTab({ device }: { device: Device }) {
 
       if (cmd.type === 'list_services' && cmd.id === listCmdIdRef.current) {
         listCmdIdRef.current = null;
+        if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
         setIsLoadingServices(false);
         if (cmd.status === 'success') {
           const svcs = (cmd.result as any)?.services as ServiceInfo[] | undefined;
@@ -1220,9 +1222,16 @@ function ServicesTab({ device }: { device: Device }) {
 
   const handleListServices = async () => {
     setIsLoadingServices(true);
+    if (listTimeoutRef.current) clearTimeout(listTimeoutRef.current);
     try {
       const cmd = await commandApi.enqueue(device.id, 'list_services');
       listCmdIdRef.current = cmd.id;
+      listTimeoutRef.current = setTimeout(() => {
+        listCmdIdRef.current = null;
+        listTimeoutRef.current = null;
+        setIsLoadingServices(false);
+        toast.error('Services request timed out — agent did not respond');
+      }, 30000);
     } catch {
       setIsLoadingServices(false);
       toast.error('Failed to dispatch list_services command');

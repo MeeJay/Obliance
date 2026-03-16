@@ -52,7 +52,7 @@ router.get('/', async (req, res, next) => {
     const commands = await commandService.getCommands(req.tenantId!, {
       deviceId: deviceId ? parseInt(deviceId) : undefined, status,
     });
-    res.json(commands);
+    res.json({ data: { items: commands, total: commands.length } });
   } catch (err) { next(err); }
 });
 
