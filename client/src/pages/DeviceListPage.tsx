@@ -227,7 +227,8 @@ export function DeviceListPage() {
                 )}
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Device</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden md:table-cell">OS</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden lg:table-cell">Metrics</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden lg:table-cell">Agent</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden xl:table-cell">Metrics</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden md:table-cell">Last seen</th>
                 <th className="w-10" />
@@ -262,11 +263,11 @@ export function DeviceListPage() {
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span className="text-xs text-text-muted">{device.osName ?? device.osType}</span>
-                    <p className="text-xs text-text-muted/50 mt-0.5">
-                      {device.agentVersion ? `v${device.agentVersion}` : '—'}
-                    </p>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
+                    <span className="text-xs text-text-muted">{device.agentVersion ? `v${device.agentVersion}` : '—'}</span>
+                  </td>
+                  <td className="px-4 py-3 hidden xl:table-cell">
                     <DeviceMetricsBar metrics={device.latestMetrics} compact />
                   </td>
                   <td className="px-4 py-3">

@@ -18,13 +18,13 @@ function getAgentVersion(): string {
   }
   // 1. agent/VERSION plain-text file (source of truth, present in dev + prod)
   try {
-    const vp = path.resolve(__dirname, '../../../agent/VERSION');
+    const vp = path.resolve(__dirname, '../../../../agent/VERSION');
     const v = fs.readFileSync(vp, 'utf-8').trim();
     if (v) { _cachedVersion = v; _cachedVersionAt = now; return v; }
   } catch { /* fall through */ }
   // 2. Compiled dist artefact — version-agent.json
   try {
-    const jp = path.resolve(__dirname, '../../../agent/dist/version-agent.json');
+    const jp = path.resolve(__dirname, '../../../../agent/dist/version-agent.json');
     const raw = JSON.parse(fs.readFileSync(jp, 'utf-8')) as { version: string };
     if (raw.version) { _cachedVersion = raw.version; _cachedVersionAt = now; return raw.version; }
   } catch { /* fall through */ }
