@@ -793,15 +793,12 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                               </span>
                             )}
                           </div>
-                          {ruleInfo?.description && (
-                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{ruleInfo.description}</p>
-                          )}
                           <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
                             {rr.actualValue !== null && rr.actualValue !== undefined && (
                               <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
                             )}
-                            {ruleInfo?.expectedValue !== undefined && ruleInfo.expectedValue !== null && (
-                              <span>expected: <span className="text-text-secondary">{String(ruleInfo.expectedValue)}</span></span>
+                            {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
+                              <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
                             )}
                           </div>
                         </div>

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, Edit, Trash2,
   ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, Activity,
-  BookOpen, GripVertical, X, PlayCircle,
+  BookOpen, GripVertical, X,
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
 import type {
@@ -72,9 +72,9 @@ function makeEmptyRule(): RuleFormData {
 }
 
 function RuleEditorRow({
-  rule, index, onChange, onDelete,
+  rule, onChange, onDelete,
 }: {
-  rule: RuleFormData; index: number;
+  rule: RuleFormData;
   onChange: (r: RuleFormData) => void; onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -713,7 +713,6 @@ export function CompliancePage() {
                       <RuleEditorRow
                         key={rule.id}
                         rule={rule}
-                        index={i}
                         onChange={r => updateRule(i, r)}
                         onDelete={() => deleteRule(i)}
                       />
