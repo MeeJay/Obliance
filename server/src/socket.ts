@@ -12,17 +12,23 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       origin: config.clientOrigin,
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
   });
 
   // Authentication middleware
   io.use(async (socket, next) => {
-    const { userId, tenantId } = socket.handshake.auth;
-    if (!userId) return next(new Error('Unauthorized'));
-    const user = await db('users').where({ id: userId, is_active: true }).first();
-    if (!user) return next(new Error('Unauthorized'));
-    (socket as any).user = user;
-    (socket as any).tenantId = tenantId;
-    next();
+    try {
+      const { userId, tenantId } = socket.handshake.auth;
+      if (!userId) return next(new Error('Unauthorized'));
+      const user = await db('users').where({ id: userId, is_active: true }).first();
+      if (!user) return next(new Error('Unauthorized'));
+      (socket as any).user = user;
+      (socket as any).tenantId = tenantId;
+      next();
+    } catch (err) {
+      logger.error(err, 'Socket auth error');
+      next(new Error('Authentication failed'));
+    }
   });
 
   io.on('connection', (socket) => {

@@ -25,8 +25,17 @@ export function getSocket(): Socket | null {
 }
 
 export function connectSocket(userId: number, tenantId?: number): Socket {
-  if (socket?.connected) {
+  // Guard against double-creation during the connecting phase:
+  // socket?.connected is false while the handshake is in progress, so a
+  // naive check would create a second socket if called before the first one
+  // has finished connecting.  Check readyState instead.
+  if (socket && (socket.connected || socket.io.engine?.readyState === 'opening')) {
     return socket;
+  }
+  if (socket && !socket.connected) {
+    // Stale disconnected socket — clean it up before creating a new one.
+    socket.removeAllListeners();
+    socket.disconnect();
   }
 
   socket = io(window.location.origin, {
