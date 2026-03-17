@@ -3,6 +3,7 @@ module github.com/obliance/agent
 go 1.22
 
 require (
+	github.com/creack/pty v1.1.21
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.20.0
 )

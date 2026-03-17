@@ -1,0 +1,48 @@
+//go:build !windows
+
+package main
+
+import (
+	"os"
+	"os/exec"
+
+	"github.com/creack/pty"
+)
+
+type unixShell struct {
+	ptmx *os.File
+	cmd  *exec.Cmd
+}
+
+// newShellSession spawns a login shell attached to a pseudo-terminal.
+// cols/rows set the initial terminal dimensions so the first paint is correct.
+func newShellSession(cols, rows uint16) (shellSession, error) {
+	sh := "/bin/bash"
+	if _, err := exec.LookPath(sh); err != nil {
+		sh = "/bin/sh"
+	}
+	cmd := exec.Command(sh, "--login")
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+
+	ws := &pty.Winsize{Cols: cols, Rows: rows}
+	ptmx, err := pty.StartWithSize(cmd, ws)
+	if err != nil {
+		return nil, err
+	}
+	return &unixShell{ptmx: ptmx, cmd: cmd}, nil
+}
+
+func (s *unixShell) Read(p []byte) (int, error)  { return s.ptmx.Read(p) }
+func (s *unixShell) Write(p []byte) (int, error) { return s.ptmx.Write(p) }
+
+func (s *unixShell) Resize(cols, rows uint16) error {
+	return pty.Setsize(s.ptmx, &pty.Winsize{Cols: cols, Rows: rows})
+}
+
+func (s *unixShell) Close() error {
+	s.ptmx.Close()
+	if s.cmd.Process != nil {
+		_ = s.cmd.Process.Kill()
+	}
+	return nil
+}

@@ -51,17 +51,34 @@ export const settingsService = {
       throw new Error(`Value for ${key} must be between ${def.min} and ${def.max}`);
     }
 
-    await db('settings')
-      .insert({
-        tenant_id: tenantId,
-        scope,
-        scope_id: scopeId,
-        key,
-        value: JSON.stringify(value),
-        updated_at: new Date(),
-      })
-      .onConflict(['tenant_id', 'scope', 'scope_id', 'key'])
-      .merge({ value: JSON.stringify(value), updated_at: new Date() });
+    const serialized = JSON.stringify(value);
+
+    if (scopeId === null) {
+      // Global scope: scope_id IS NULL — PostgreSQL's standard UNIQUE constraint
+      // treats NULL != NULL so ON CONFLICT never fires.  We use the dedicated
+      // partial index (WHERE scope_id IS NULL) via a raw upsert instead.
+      await db.raw(
+        `INSERT INTO settings (tenant_id, scope, scope_id, key, value, created_at, updated_at)
+         VALUES (?, ?, NULL, ?, ?, NOW(), NOW())
+         ON CONFLICT (tenant_id, scope, key) WHERE scope_id IS NULL
+         DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [tenantId, scope, key, serialized],
+      );
+    } else {
+      // Scoped (group / device): scope_id IS NOT NULL — standard knex upsert works.
+      await db('settings')
+        .insert({
+          tenant_id: tenantId,
+          scope,
+          scope_id: scopeId,
+          key,
+          value: serialized,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .onConflict(['tenant_id', 'scope', 'scope_id', 'key'])
+        .merge({ value: serialized, updated_at: new Date() });
+    }
   },
 
   async remove(tenantId: number, scope: SettingScope, scopeId: number | null, key: SettingKey): Promise<boolean> {

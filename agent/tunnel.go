@@ -25,13 +25,12 @@ package main
 // VNC auto-start logic lives in vnc.go.
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"strings"
 	"sync"
 )
@@ -220,44 +219,25 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	return map[string]string{"sessionToken": sessionToken, "status": "tunnel_open"}, nil
 }
 
-// handleShellTunnel spawns a local shell and relays its I/O over WebSocket.
+// handleShellTunnel spawns a local shell inside a PTY (Unix) or ConPTY
+// (Windows) and relays its I/O over WebSocket.
 // This backs the "ssh" protocol which gives a remote shell inside the browser.
 func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string) (interface{}, error) {
-	// Pick the shell for the current OS
-	var shellArgs []string
-	switch runtime.GOOS {
-	case "windows":
-		shellArgs = []string{"powershell.exe", "-NoLogo", "-NoExit"}
-	default:
-		sh := "/bin/bash"
-		if _, err := exec.LookPath(sh); err != nil {
-			sh = "/bin/sh"
-		}
-		shellArgs = []string{sh, "--login"}
-	}
-
-	shell := exec.Command(shellArgs[0], shellArgs[1:]...)
-	stdin, err := shell.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("open_remote_tunnel(ssh): stdin pipe: %w", err)
-	}
-	stdout, err := shell.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("open_remote_tunnel(ssh): stdout pipe: %w", err)
-	}
-	shell.Stderr = shell.Stdout // merge stderr
-
-	if err := shell.Start(); err != nil {
-		return nil, fmt.Errorf("open_remote_tunnel(ssh): shell start: %w", err)
-	}
-
-	// Connect WebSocket to Obliance server
+	// Connect WebSocket to Obliance server first so we can reject early if down.
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
 	})
 	if err != nil {
-		shell.Process.Kill()
 		return nil, fmt.Errorf("open_remote_tunnel(ssh): server WS connect failed: %w", err)
+	}
+
+	// Start a platform-specific PTY / ConPTY shell with a sensible default size.
+	// The browser sends an initial resize message immediately after connecting
+	// so the actual size is corrected within milliseconds.
+	shell, err := newShellSession(220, 50)
+	if err != nil {
+		ws.Close()
+		return nil, fmt.Errorf("open_remote_tunnel(ssh): start shell: %w", err)
 	}
 
 	closeCh := make(chan struct{})
@@ -266,13 +246,12 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 		once.Do(func() {
 			close(closeCh)
 			ws.Close()
-			stdin.Close()
-			shell.Process.Kill()
+			shell.Close()
 		})
 	}
 	activeTunnels.add(sessionToken, &tunnelState{ws: ws, closeCh: closeCh})
 
-	// Shell stdout → WebSocket (binary frames)
+	// Shell PTY output → WebSocket (binary frames)
 	go func() {
 		defer func() {
 			activeTunnels.remove(sessionToken)
@@ -281,7 +260,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 		}()
 		buf := make([]byte, 4096)
 		for {
-			n, err := stdout.Read(buf)
+			n, err := shell.Read(buf)
 			if n > 0 {
 				_ = ws.WriteFrame(0x2, buf[:n])
 			}
@@ -291,7 +270,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 		}
 	}()
 
-	// WebSocket → shell stdin
+	// WebSocket → shell PTY input (with resize message handling)
 	go func() {
 		defer func() {
 			closeAll()
@@ -307,10 +286,24 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 				return
 			case 0x9: // ping
 				_ = ws.SendPong(payload)
-			case 0x1, 0x2: // terminal input → stdin
-				if len(payload) > 0 {
-					_, _ = stdin.Write(payload)
+			case 0x1, 0x2:
+				if len(payload) == 0 {
+					continue
 				}
+				// Resize message: 0xFF prefix + JSON {"type":"resize","cols":N,"rows":N}
+				// Sent by SshTerminalModal.tsx via sendResize().
+				if payload[0] == 0xFF && len(payload) > 1 {
+					var msg struct {
+						Type string `json:"type"`
+						Cols uint16 `json:"cols"`
+						Rows uint16 `json:"rows"`
+					}
+					if json.Unmarshal(payload[1:], &msg) == nil && msg.Type == "resize" {
+						_ = shell.Resize(msg.Cols, msg.Rows)
+					}
+					continue // do not write the control message to the shell stdin
+				}
+				_, _ = shell.Write(payload)
 			}
 		}
 	}()
