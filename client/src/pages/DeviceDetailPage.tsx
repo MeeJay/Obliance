@@ -1533,16 +1533,6 @@ export function DeviceDetailPage() {
     }
   };
 
-  const handleCancelVnc = async () => {
-    const socket = getSocket();
-    if (socket && vncReadyListenerRef.current) {
-      socket.off('REMOTE_TUNNEL_READY', vncReadyListenerRef.current);
-      vncReadyListenerRef.current = null;
-    }
-    setHeaderVncOpen(false);
-    setHeaderVncSession(null);
-  };
-
   const [isScanningAll, setIsScanningAll] = useState(false);
   const handleScanAll = async () => {
     setIsScanningAll(true);
