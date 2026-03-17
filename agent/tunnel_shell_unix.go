@@ -22,7 +22,18 @@ func newShellSession(cols, rows uint16) (shellSession, error) {
 		sh = "/bin/sh"
 	}
 	cmd := exec.Command(sh, "--login")
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	// Build env: inherit parent, strip any TMOUT (bash idle-logout) that would
+	// silently kill the session after N seconds of inactivity, then append ours.
+	baseEnv := os.Environ()
+	env := make([]string, 0, len(baseEnv)+2)
+	for _, e := range baseEnv {
+		if len(e) >= 6 && e[:6] == "TMOUT=" {
+			continue
+		}
+		env = append(env, e)
+	}
+	env = append(env, "TERM=xterm-256color", "TMOUT=0")
+	cmd.Env = env
 
 	ws := &pty.Winsize{Cols: cols, Rows: rows}
 	ptmx, err := pty.StartWithSize(cmd, ws)

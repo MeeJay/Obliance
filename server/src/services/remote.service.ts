@@ -140,11 +140,13 @@ class RemoteService {
       }
     });
 
-    // Keepalive ping every 25 s — prevents intermediate proxies (Nginx/NPM)
-    // from dropping idle tunnel WS connections on their default 60 s timeout.
+    // Keepalive ping every 15 s — prevents intermediate proxies (Nginx/NPM)
+    // from dropping idle tunnel WS connections. 15 s covers proxies with
+    // timeouts as low as ~20 s and ensures the first ping fires well before
+    // a typical 40–60 s idle cutoff.
     const agentKeepAlive = setInterval(() => {
       try { (agentWs as any).ping(); } catch { clearInterval(agentKeepAlive); }
-    }, 25_000);
+    }, 15_000);
     agentWs.on('close', () => {
       clearInterval(agentKeepAlive);
       this.handleTunnelClose(sessionToken, 'agent_disconnect');
@@ -194,7 +196,7 @@ class RemoteService {
     // Keepalive ping every 25 s on the browser WS — same reason as agent side.
     const browserKeepAlive = setInterval(() => {
       try { (browserWs as any).ping(); } catch { clearInterval(browserKeepAlive); }
-    }, 25_000);
+    }, 15_000);
 
     // Browser → agent relay (agent→browser is already wired in registerAgentTunnel)
     browserWs.on('message', (data: any) => { try { agentWs.send(data); } catch {} });

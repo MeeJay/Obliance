@@ -161,7 +161,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	// 4. Keepalive — send a WS ping every 25 s so intermediate proxies
 	// (cPanel/WHM Nginx, NPM…) never drop the tunnel on their idle timeout.
 	go func() {
-		ticker := time.NewTicker(25 * time.Second)
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -278,7 +278,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 
 	// Keepalive — same as VNC/RDP: prevent proxy idle-timeout from killing the tunnel.
 	go func() {
-		ticker := time.NewTicker(25 * time.Second)
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
