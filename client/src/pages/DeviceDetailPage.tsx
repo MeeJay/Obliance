@@ -791,8 +791,6 @@ function RemoteTab({ device }: { device: Device }) {
         setVncSession(session);
       } else if (session.protocol === 'ssh') {
         setSshSession(session);
-      } else {
-        toast.success(`${session.protocol.toUpperCase()} tunnel ready`);
       }
     };
 
