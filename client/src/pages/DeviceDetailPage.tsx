@@ -953,20 +953,42 @@ function RemoteTab({ device }: { device: Device }) {
                   </p>
                 </div>
                 {session.status === 'active' && (session.protocol === 'vnc' || session.protocol === 'rdp') && (
-                  <button
-                    onClick={() => setVncSession(session)}
-                    className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
-                  >
-                    Open
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setVncSession(session); setVncModalOpen(true); }}
+                      className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+                    >
+                      Open
+                    </button>
+                    <button
+                      onClick={() => handleEndSession(session)}
+                      disabled={endingSession.has(session.id)}
+                      title="End session"
+                      className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                      End
+                    </button>
+                  </div>
                 )}
                 {session.status === 'active' && session.protocol === 'ssh' && (
-                  <button
-                    onClick={() => setSshSession(session)}
-                    className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
-                  >
-                    Open
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setSshSession(session); setSshModalOpen(true); }}
+                      className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
+                    >
+                      Open
+                    </button>
+                    <button
+                      onClick={() => handleEndSession(session)}
+                      disabled={endingSession.has(session.id)}
+                      title="End session"
+                      className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                      End
+                    </button>
+                  </div>
                 )}
                 {(session.status === 'waiting' || session.status === 'connecting') && (
                   <button
