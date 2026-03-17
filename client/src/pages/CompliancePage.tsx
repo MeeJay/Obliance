@@ -173,7 +173,7 @@ export function CompliancePage() {
   const failingCount = results.filter(r => r.complianceScore < 50).length;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Compliance</h1>

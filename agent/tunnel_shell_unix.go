@@ -16,12 +16,23 @@ type unixShell struct {
 
 // newShellSession spawns a login shell attached to a pseudo-terminal.
 // cols/rows set the initial terminal dimensions so the first paint is correct.
-func newShellSession(cols, rows uint16) (shellSession, error) {
-	sh := "/bin/bash"
-	if _, err := exec.LookPath(sh); err != nil {
-		sh = "/bin/sh"
+func newShellSession(cols, rows uint16, shellCmd string) (shellSession, error) {
+	var sh string
+	var shArgs []string
+	if shellCmd == "powershell" {
+		if _, err := exec.LookPath("pwsh"); err == nil {
+			sh = "pwsh"
+			shArgs = []string{"-NoLogo", "-NoExit"}
+		}
 	}
-	cmd := exec.Command(sh, "--login")
+	if sh == "" {
+		sh = "/bin/bash"
+		if _, err := exec.LookPath(sh); err != nil {
+			sh = "/bin/sh"
+		}
+		shArgs = []string{"--login"}
+	}
+	cmd := exec.Command(sh, shArgs...)
 	// Build env: inherit parent, strip any TMOUT (bash idle-logout) that would
 	// silently kill the session after N seconds of inactivity, then append ours.
 	baseEnv := os.Environ()

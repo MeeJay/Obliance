@@ -168,7 +168,7 @@ export function GroupEditPage() {
   const admin = isAdmin();
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6">
       <Link
         to={`/group/${groupId}`}
         className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary mb-4"

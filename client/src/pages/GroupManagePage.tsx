@@ -252,7 +252,7 @@ export function GroupManagePage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl min-w-0 mx-auto">
+    <div className="p-6 min-w-0">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-text-primary">{t('nav.groups')}</h1>
         <Button size="sm" onClick={() => openCreate()}>

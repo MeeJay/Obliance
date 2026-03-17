@@ -144,7 +144,7 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl min-w-0 mx-auto">
+    <div className="p-6 min-w-0">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">{t('profile.title')}</h1>
 
       {/* Profile section */}

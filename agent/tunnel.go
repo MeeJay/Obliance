@@ -123,8 +123,8 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	log.Printf("Command %s: opening %s tunnel → %s", cmd.ID, protocol, wsURL)
 
 	// Route by protocol
-	if protocol == "ssh" {
-		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken)
+	if protocol == "ssh" || protocol == "cmd" || protocol == "powershell" {
+		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken, protocol)
 	}
 
 	// ── VNC / RDP : TCP relay ─────────────────────────────────────────────────
@@ -247,7 +247,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 // handleShellTunnel spawns a local shell inside a PTY (Unix) or ConPTY
 // (Windows) and relays its I/O over WebSocket.
 // This backs the "ssh" protocol which gives a remote shell inside the browser.
-func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string) (interface{}, error) {
+func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellCmd string) (interface{}, error) {
 	// Connect WebSocket to Obliance server first so we can reject early if down.
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
@@ -259,7 +259,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 	// Start a platform-specific PTY / ConPTY shell with a sensible default size.
 	// The browser sends an initial resize message immediately after connecting
 	// so the actual size is corrected within milliseconds.
-	shell, err := newShellSession(220, 50)
+	shell, err := newShellSession(220, 50, shellCmd)
 	if err != nil {
 		ws.Close()
 		return nil, fmt.Errorf("open_remote_tunnel(ssh): start shell: %w", err)

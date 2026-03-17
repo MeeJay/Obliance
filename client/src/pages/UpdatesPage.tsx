@@ -204,7 +204,7 @@ export function UpdatesPage() {
   const allChecked = visibleUpdates.length > 0 && visibleUpdates.every(u => selectedIds.has(u.id));
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Updates</h1>

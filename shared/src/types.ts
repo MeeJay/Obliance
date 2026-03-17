@@ -593,7 +593,7 @@ export interface ComplianceResult {
 
 // ─── REMOTE SESSIONS ─────────────────────────────────────────────────────────
 
-export type RemoteProtocol = 'vnc' | 'rdp' | 'ssh';
+export type RemoteProtocol = 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell';
 export type RemoteSessionStatus = 'waiting' | 'connecting' | 'active' | 'closed' | 'failed' | 'timeout' | 'expired';
 
 export interface RemoteSession {

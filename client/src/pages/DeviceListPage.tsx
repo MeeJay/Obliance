@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, RefreshCw, Monitor, Check, Trash2, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Monitor, Check, Trash2, ChevronRight, RotateCcw, Power } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
 import { useAuthStore } from '@/store/authStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import { deviceApi } from '@/api/device.api';
+import { commandApi } from '@/api/command.api';
 import toast from 'react-hot-toast';
 
 const STATUS_FILTERS: Array<{ value: string; label: string }> = [
@@ -91,8 +92,39 @@ export function DeviceListPage() {
     }
   };
 
+  const handleBulkRestartAgent = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkActioning(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await Promise.allSettled(ids.map((id) => commandApi.enqueue(id, 'restart_agent', {}, 'high')));
+      setSelectedIds(new Set());
+      toast.success(`Restart agent command sent to ${ids.length} device(s)`);
+    } catch {
+      toast.error('Failed to send restart commands');
+    } finally {
+      setIsBulkActioning(false);
+    }
+  };
+
+  const handleBulkReboot = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Reboot ${selectedIds.size} device(s)?`)) return;
+    setIsBulkActioning(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await Promise.allSettled(ids.map((id) => commandApi.enqueue(id, 'reboot', {}, 'high')));
+      setSelectedIds(new Set());
+      toast.success(`Reboot command sent to ${ids.length} device(s)`);
+    } catch {
+      toast.error('Failed to send reboot commands');
+    } finally {
+      setIsBulkActioning(false);
+    }
+  };
+
   return (
-    <div className="p-6 space-y-4 max-w-7xl mx-auto">
+    <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-text-primary">Devices</h1>
         <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
@@ -134,6 +166,22 @@ export function DeviceListPage() {
           >
             <Check className="w-3.5 h-3.5" />
             Approve
+          </button>
+          <button
+            onClick={handleBulkRestartAgent}
+            disabled={isBulkActioning}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-sm hover:bg-blue-500/20 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Restart Agent
+          </button>
+          <button
+            onClick={handleBulkReboot}
+            disabled={isBulkActioning}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded text-sm hover:bg-orange-500/20 transition-colors"
+          >
+            <Power className="w-3.5 h-3.5" />
+            Reboot
           </button>
           <button
             onClick={handleBulkDelete}
@@ -214,6 +262,9 @@ export function DeviceListPage() {
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span className="text-xs text-text-muted">{device.osName ?? device.osType}</span>
+                    {device.agentVersion && (
+                      <p className="text-xs text-text-muted/60 mt-0.5">v{device.agentVersion}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <DeviceMetricsBar metrics={device.latestMetrics} compact />

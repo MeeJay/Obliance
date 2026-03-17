@@ -279,7 +279,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl min-w-0 mx-auto space-y-8">
+    <div className="p-6 min-w-0 space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-text-primary mb-2">{t('settings.title')}</h1>
         <p className="text-sm text-text-muted">

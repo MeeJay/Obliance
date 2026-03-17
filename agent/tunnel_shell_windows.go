@@ -51,7 +51,7 @@ type winShell struct {
 
 // newShellSession creates a Windows ConPTY and spawns PowerShell inside it.
 // Requires Windows 10 Build 1809 (RS5) or later.
-func newShellSession(cols, rows uint16) (shellSession, error) {
+func newShellSession(cols, rows uint16, shellCmd string) (shellSession, error) {
 	// --- 1. Create two anonymous pipe pairs -----------------------------------
 	//   • ptyInRead  / ptyInWrite  → ConPTY reads from ptyInRead  (= shell stdin)
 	//   • ptyOutRead / ptyOutWrite → ConPTY writes to ptyOutWrite (= shell stdout)
@@ -128,7 +128,14 @@ func newShellSession(cols, rows uint16) (shellSession, error) {
 	siEx.Cb = uint32(unsafe.Sizeof(siEx))
 	siEx.lpAttributeList = uintptr(unsafe.Pointer(&attrList[0]))
 
-	cmdLine, err := syscall.UTF16PtrFromString(`powershell.exe -NoLogo -NoExit`)
+	var shellExe string
+	switch shellCmd {
+	case "cmd":
+		shellExe = "cmd.exe /k"
+	default:
+		shellExe = "powershell.exe -NoLogo -NoExit"
+	}
+	cmdLine, err := syscall.UTF16PtrFromString(shellExe)
 	if err != nil {
 		procDeleteProcThreadAttributeList.Call(uintptr(unsafe.Pointer(&attrList[0])))
 		procClosePseudoConsole.Call(uintptr(hPC))

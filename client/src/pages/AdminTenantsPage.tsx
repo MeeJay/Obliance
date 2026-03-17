@@ -280,7 +280,7 @@ export function AdminTenantsPage() {
   };
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">

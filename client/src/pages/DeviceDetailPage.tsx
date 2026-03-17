@@ -4,7 +4,7 @@ import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
-  Server, Power, RotateCcw, Loader2, ScanLine,
+  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -819,7 +819,7 @@ function RemoteTab({ device }: { device: Device }) {
       if ((session.protocol === 'vnc' || session.protocol === 'rdp') && session.id === pendingVncId.current) {
         setVncSession(session);
         pendingVncId.current = null;
-      } else if (session.protocol === 'ssh' && session.id === pendingSshId.current) {
+      } else if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
         setSshSession(session);
         pendingSshId.current = null;
       }
@@ -834,10 +834,12 @@ function RemoteTab({ device }: { device: Device }) {
     };
   }, [device.id]);
 
-  const handleStartSession = async (protocol: 'vnc' | 'rdp' | 'ssh') => {
+  const isShellProtocol = (p: string) => p === 'ssh' || p === 'cmd' || p === 'powershell';
+
+  const handleStartSession = async (protocol: 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
     // Open the modal immediately so the user sees a connecting overlay
     // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
-    if (protocol === 'ssh') {
+    if (isShellProtocol(protocol)) {
       setSshSession(null);
       setSshModalOpen(true);
     } else {
@@ -849,13 +851,13 @@ function RemoteTab({ device }: { device: Device }) {
       const session = await remoteApi.startSession(device.id, protocol);
       // Record which session ID we're waiting for so REMOTE_TUNNEL_READY
       // can ignore events from concurrent sessions opened by other users.
-      if (protocol === 'ssh') pendingSshId.current = session.id;
+      if (isShellProtocol(protocol)) pendingSshId.current = session.id;
       else pendingVncId.current = session.id;
       setSessions((prev) => [session, ...prev]);
     } catch {
       toast.error('Failed to start remote session');
       // Roll back modal if the API call failed
-      if (protocol === 'ssh') setSshModalOpen(false);
+      if (isShellProtocol(protocol)) setSshModalOpen(false);
       else setVncModalOpen(false);
     } finally {
       setIsStarting(false);
@@ -905,7 +907,11 @@ function RemoteTab({ device }: { device: Device }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          {(['vnc', 'rdp', 'ssh'] as const).map((proto) => (
+          {(
+            device.osType === 'windows' ? (['vnc', 'cmd', 'powershell'] as const) :
+            device.osType === 'macos'   ? (['vnc', 'ssh'] as const) :
+                                          (['ssh'] as const)
+          ).map((proto) => (
             <button
               key={proto}
               onClick={() => handleStartSession(proto)}
@@ -913,7 +919,7 @@ function RemoteTab({ device }: { device: Device }) {
               className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               <MonitorPlay className="w-4 h-4" />
-              {proto.toUpperCase()}
+              {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
             </button>
           ))}
         </div>
@@ -971,7 +977,7 @@ function RemoteTab({ device }: { device: Device }) {
                     </button>
                   </div>
                 )}
-                {session.status === 'active' && session.protocol === 'ssh' && (
+                {session.status === 'active' && isShellProtocol(session.protocol) && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => { setSshSession(session); setSshModalOpen(true); }}
@@ -1523,10 +1529,13 @@ export function DeviceDetailPage() {
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
-  const [headerVncOpen, setHeaderVncOpen] = useState(false);
-  const [headerVncSession, setHeaderVncSession] = useState<RemoteSession | null>(null);
-  const [isStartingVnc, setIsStartingVnc] = useState(false);
-  const vncReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
+  const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
+  const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
+  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell'>('vnc');
+  const [isStartingRemote, setIsStartingRemote] = useState(false);
+  const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
+  const remoteDropdownRef = useRef<HTMLDivElement>(null);
+  const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
 
   const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown') => {
     setHeaderPending((p) => new Set(p).add(type));
@@ -1540,31 +1549,43 @@ export function DeviceDetailPage() {
     }
   };
 
-  const handleHeaderVnc = async () => {
-    // Open modal immediately — shows connecting overlay while tunnel is being established
-    setHeaderVncSession(null);
-    setHeaderVncOpen(true);
-    setIsStartingVnc(true);
+  const handleHeaderRemote = async (protocol: 'vnc' | 'ssh' | 'cmd' | 'powershell') => {
+    setRemoteDropdownOpen(false);
+    setHeaderRemoteProtocol(protocol);
+    setHeaderRemoteSession(null);
+    setHeaderRemoteOpen(true);
+    setIsStartingRemote(true);
     try {
-      const session = await remoteApi.startSession(deviceId, 'vnc');
+      const session = await remoteApi.startSession(deviceId, protocol);
       const socket = getSocket();
       if (socket) {
         const onReady = (s: RemoteSession) => {
           if (s.deviceId !== deviceId || s.id !== session.id) return;
-          if (s.protocol === 'vnc') setHeaderVncSession(s);
+          setHeaderRemoteSession(s);
           socket.off('REMOTE_TUNNEL_READY', onReady);
-          vncReadyListenerRef.current = null;
+          remoteReadyListenerRef.current = null;
         };
-        vncReadyListenerRef.current = onReady;
+        remoteReadyListenerRef.current = onReady;
         socket.on('REMOTE_TUNNEL_READY', onReady);
       }
     } catch {
-      toast.error('Failed to start VNC session');
-      setHeaderVncOpen(false);
+      toast.error(`Failed to start ${protocol.toUpperCase()} session`);
+      setHeaderRemoteOpen(false);
     } finally {
-      setIsStartingVnc(false);
+      setIsStartingRemote(false);
     }
   };
+
+  useEffect(() => {
+    if (!remoteDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (remoteDropdownRef.current && !remoteDropdownRef.current.contains(e.target as Node)) {
+        setRemoteDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [remoteDropdownOpen]);
 
   const [isScanningAll, setIsScanningAll] = useState(false);
   const handleScanAll = async () => {
@@ -1634,14 +1655,22 @@ export function DeviceDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* VNC overlay launched from header */}
-      {headerVncOpen && (
-        <VncViewer
-          session={headerVncSession}
-          title={`VNC — ${device.displayName || device.hostname}`}
-          onClose={() => { setHeaderVncOpen(false); setHeaderVncSession(null); }}
-        />
+    <div className="p-6 space-y-6">
+      {/* Remote session launched from header */}
+      {headerRemoteOpen && (
+        headerRemoteProtocol === 'vnc' ? (
+          <VncViewer
+            session={headerRemoteSession}
+            title={`VNC — ${device.displayName || device.hostname}`}
+            onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
+          />
+        ) : (
+          <SshTerminalModal
+            session={headerRemoteSession}
+            deviceName={device.displayName || device.hostname}
+            onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
+          />
+        )
       )}
 
       {/* Header */}
@@ -1709,15 +1738,54 @@ export function DeviceDetailPage() {
 
           {/* ── Quick actions ── */}
           <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
-            <button
-              onClick={handleHeaderVnc}
-              disabled={isStartingVnc || headerVncOpen || device.status !== 'online'}
-              title="VNC Remote Control"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {isStartingVnc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-              VNC
-            </button>
+            {/* OS-aware remote dropdown */}
+            {(() => {
+              const opts: Array<'vnc' | 'ssh' | 'cmd' | 'powershell'> =
+                device.osType === 'windows' ? ['vnc', 'cmd', 'powershell'] :
+                device.osType === 'macos'   ? ['vnc', 'ssh'] :
+                                              ['ssh'];
+              const label = (p: string) => p === 'powershell' ? 'PS' : p.toUpperCase();
+              return (
+                <div className="relative" ref={remoteDropdownRef}>
+                  {opts.length === 1 ? (
+                    <button
+                      onClick={() => handleHeaderRemote(opts[0])}
+                      disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                      title={`${label(opts[0])} Remote`}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+                      {label(opts[0])}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setRemoteDropdownOpen((o) => !o)}
+                      disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                      title="Remote Control"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+                      Remote
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  )}
+                  {remoteDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
+                      {opts.map((proto) => (
+                        <button
+                          key={proto}
+                          onClick={() => handleHeaderRemote(proto)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+                        >
+                          <MonitorPlay className="w-3.5 h-3.5 text-green-400" />
+                          {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div className="w-px h-5 bg-border" />
             <button
               onClick={() => handleHeaderAction('restart_agent')}

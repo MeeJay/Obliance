@@ -336,7 +336,7 @@ export function ImportExportPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto max-w-5xl min-w-0 px-4 py-8">
+    <div className="min-w-0 px-4 py-8">
 
       {/* Page header */}
       <div className="mb-8">

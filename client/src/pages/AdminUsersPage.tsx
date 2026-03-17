@@ -457,7 +457,7 @@ export function AdminUsersPage() {
 
   return (
     <>
-      <div className="flex gap-6 p-6 h-full justify-center max-w-5xl min-w-0 mx-auto w-full">
+      <div className="flex gap-6 p-6 h-full min-w-0 w-full">
         {/* Left panel */}
         <div className="flex-1 min-w-0 max-w-xl">
           {/* Tab switcher */}
