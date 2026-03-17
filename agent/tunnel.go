@@ -1,14 +1,24 @@
 package main
 
-// tunnel.go — VNC remote-access relay for the Obliance agent.
+// tunnel.go — Remote-access relay for the Obliance agent.
 //
-// Flow:
+// Supported protocols:
+//   vnc  — TCP relay to localhost:5900 (TightVNC / TigerVNC)
+//   rdp  — TCP relay to localhost:3389 (Windows RDP)
+//   ssh  — PTY shell session (PowerShell on Windows, bash/sh on Unix)
+//
+// Flow (vnc/rdp):
 //   Server sends open_remote_tunnel → agent:
-//     1. Ensures a VNC server is listening on localhost:5900 (starts it if not)
+//     1. Ensures the local service is reachable
 //     2. Connects to the Obliance server via WebSocket
-//        (ws(s)://<serverURL>/api/remote/agent-tunnel/<sessionToken>)
-//     3. Connects to the local VNC service (localhost:5900 TCP)
+//     3. Connects to the local service via TCP
 //     4. Relays bytes bidirectionally until one side closes
+//
+// Flow (ssh):
+//   1. Spawns a local shell process (PowerShell / bash)
+//   2. Connects to the Obliance server via WebSocket
+//   3. Relays shell stdout/stderr → WS (binary frames)
+//        and WS frames → shell stdin
 //
 // The relay runs entirely in background goroutines; the command ack is sent
 // immediately after the connections are established (not when they close).
@@ -20,6 +30,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -28,7 +40,7 @@ import (
 
 type tunnelState struct {
 	ws      *wsConn
-	vnc     net.Conn
+	vnc     net.Conn // nil for ssh/shell tunnels
 	closeCh chan struct{}
 	once    sync.Once // ensures closeCh is closed exactly once
 }
@@ -36,7 +48,9 @@ type tunnelState struct {
 func (ts *tunnelState) close() {
 	ts.once.Do(func() { close(ts.closeCh) })
 	ts.ws.Close()
-	ts.vnc.Close()
+	if ts.vnc != nil {
+		ts.vnc.Close()
+	}
 }
 
 // tunnelRegistry holds all active VNC tunnels keyed by session token.
@@ -82,6 +96,10 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	if sessionToken == "" {
 		return nil, fmt.Errorf("open_remote_tunnel: missing sessionToken in payload")
 	}
+	protocol := payloadString(cmd.Payload, "protocol")
+	if protocol == "" {
+		protocol = "vnc"
+	}
 
 	// Build the WebSocket URL for the agent-side tunnel endpoint
 	base := strings.TrimRight(d.serverURL, "/")
@@ -92,18 +110,27 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	case strings.HasPrefix(base, "http://"):
 		wsBase = "ws://" + base[7:]
 	default:
-		wsBase = base // already ws:// or wss://
+		wsBase = base
 	}
 	wsURL := wsBase + "/api/remote/agent-tunnel/" + sessionToken
 
-	log.Printf("Command %s: opening VNC tunnel → %s", cmd.ID, wsURL)
+	log.Printf("Command %s: opening %s tunnel → %s", cmd.ID, protocol, wsURL)
 
-	// 1. Make sure VNC is running on this machine (start it if needed).
-	//    We do this BEFORE connecting to the server so the session stays in
-	//    'waiting' state while VNC spins up — the UI sees a clean transition
-	//    directly to 'active' once both connections are established.
-	if err := ensureVNCRunning(); err != nil {
-		return nil, fmt.Errorf("open_remote_tunnel: %w", err)
+	// Route by protocol
+	if protocol == "ssh" {
+		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken)
+	}
+
+	// ── VNC / RDP : TCP relay ─────────────────────────────────────────────────
+	tcpAddr := "localhost:5900"
+	switch protocol {
+	case "rdp":
+		tcpAddr = "localhost:3389"
+	case "vnc":
+		// 1. Make sure VNC is running on this machine (start it if needed).
+		if err := ensureVNCRunning(); err != nil {
+			return nil, fmt.Errorf("open_remote_tunnel: %w", err)
+		}
 	}
 
 	// 2. Connect WebSocket to Obliance server
@@ -114,25 +141,24 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 		return nil, fmt.Errorf("open_remote_tunnel: server WS connect failed: %w", err)
 	}
 
-	// 3. Connect TCP to local VNC service (guaranteed to be up by ensureVNCRunning)
-	vnc, err := net.Dial("tcp", "localhost:5900")
+	// 3. Connect TCP to local service
+	svc, err := net.Dial("tcp", tcpAddr)
 	if err != nil {
 		ws.Close()
-		return nil, fmt.Errorf("open_remote_tunnel: VNC connect failed: %w", err)
+		return nil, fmt.Errorf("open_remote_tunnel: %s connect failed: %w", protocol, err)
 	}
 
 	closeCh := make(chan struct{})
-	ts := &tunnelState{ws: ws, vnc: vnc, closeCh: closeCh}
+	ts := &tunnelState{ws: ws, vnc: svc, closeCh: closeCh}
 	activeTunnels.add(sessionToken, ts)
 
-	// 4. VNC → WebSocket relay (reads TCP bytes, sends WS binary frames)
+	// 4. Service → WebSocket relay
 	go func() {
 		defer func() {
 			activeTunnels.remove(sessionToken)
 			ts.close()
-			log.Printf("VNC tunnel %s: VNC→WS relay finished", sessionToken)
+			log.Printf("%s tunnel %s: svc→WS relay finished", protocol, sessionToken)
 		}()
-
 		buf := make([]byte, 32768)
 		for {
 			select {
@@ -140,27 +166,26 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 				return
 			default:
 			}
-			n, err := vnc.Read(buf)
+			n, err := svc.Read(buf)
 			if err != nil {
 				if err != io.EOF {
-					log.Printf("VNC tunnel %s: VNC read error: %v", sessionToken, err)
+					log.Printf("%s tunnel %s: svc read error: %v", protocol, sessionToken, err)
 				}
 				return
 			}
-			if err := ws.WriteFrame(0x2, buf[:n]); err != nil { // 0x2 = binary
-				log.Printf("VNC tunnel %s: WS write error: %v", sessionToken, err)
+			if err := ws.WriteFrame(0x2, buf[:n]); err != nil {
+				log.Printf("%s tunnel %s: WS write error: %v", protocol, sessionToken, err)
 				return
 			}
 		}
 	}()
 
-	// 5. WebSocket → VNC relay (reads WS frames, writes TCP bytes)
+	// 5. WebSocket → Service relay
 	go func() {
 		defer func() {
 			ts.close()
-			log.Printf("VNC tunnel %s: WS→VNC relay finished", sessionToken)
+			log.Printf("%s tunnel %s: WS→svc relay finished", protocol, sessionToken)
 		}()
-
 		for {
 			select {
 			case <-closeCh:
@@ -170,32 +195,128 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 			opcode, payload, err := ws.ReadFrame()
 			if err != nil {
 				if err != io.EOF {
-					log.Printf("VNC tunnel %s: WS read error: %v", sessionToken, err)
+					log.Printf("%s tunnel %s: WS read error: %v", protocol, sessionToken, err)
 				}
 				return
 			}
 			switch opcode {
-			case 0x8: // close frame
+			case 0x8:
 				return
-			case 0x9: // ping → respond with pong
+			case 0x9:
 				_ = ws.SendPong(payload)
-			case 0x1, 0x2: // text or binary → forward to VNC
+			case 0x1, 0x2:
 				if len(payload) == 0 {
 					continue
 				}
-				if _, err := vnc.Write(payload); err != nil {
-					log.Printf("VNC tunnel %s: VNC write error: %v", sessionToken, err)
+				if _, err := svc.Write(payload); err != nil {
+					log.Printf("%s tunnel %s: svc write error: %v", protocol, sessionToken, err)
 					return
 				}
 			}
 		}
 	}()
 
-	log.Printf("Command %s: VNC tunnel established (token=%s)", cmd.ID, sessionToken)
-	return map[string]string{
-		"sessionToken": sessionToken,
-		"status":       "tunnel_open",
-	}, nil
+	log.Printf("Command %s: %s tunnel established (token=%s)", cmd.ID, protocol, sessionToken)
+	return map[string]string{"sessionToken": sessionToken, "status": "tunnel_open"}, nil
+}
+
+// handleShellTunnel spawns a local shell and relays its I/O over WebSocket.
+// This backs the "ssh" protocol which gives a remote shell inside the browser.
+func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string) (interface{}, error) {
+	// Pick the shell for the current OS
+	var shellArgs []string
+	switch runtime.GOOS {
+	case "windows":
+		shellArgs = []string{"powershell.exe", "-NoLogo", "-NoExit"}
+	default:
+		sh := "/bin/bash"
+		if _, err := exec.LookPath(sh); err != nil {
+			sh = "/bin/sh"
+		}
+		shellArgs = []string{sh, "--login"}
+	}
+
+	shell := exec.Command(shellArgs[0], shellArgs[1:]...)
+	stdin, err := shell.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open_remote_tunnel(ssh): stdin pipe: %w", err)
+	}
+	stdout, err := shell.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open_remote_tunnel(ssh): stdout pipe: %w", err)
+	}
+	shell.Stderr = shell.Stdout // merge stderr
+
+	if err := shell.Start(); err != nil {
+		return nil, fmt.Errorf("open_remote_tunnel(ssh): shell start: %w", err)
+	}
+
+	// Connect WebSocket to Obliance server
+	ws, err := wsConnect(wsURL, http.Header{
+		"X-Api-Key": []string{d.apiKey},
+	})
+	if err != nil {
+		shell.Process.Kill()
+		return nil, fmt.Errorf("open_remote_tunnel(ssh): server WS connect failed: %w", err)
+	}
+
+	closeCh := make(chan struct{})
+	var once sync.Once
+	closeAll := func() {
+		once.Do(func() {
+			close(closeCh)
+			ws.Close()
+			stdin.Close()
+			shell.Process.Kill()
+		})
+	}
+	activeTunnels.add(sessionToken, &tunnelState{ws: ws, closeCh: closeCh})
+
+	// Shell stdout → WebSocket (binary frames)
+	go func() {
+		defer func() {
+			activeTunnels.remove(sessionToken)
+			closeAll()
+			log.Printf("ssh tunnel %s: shell→WS relay finished", sessionToken)
+		}()
+		buf := make([]byte, 4096)
+		for {
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				_ = ws.WriteFrame(0x2, buf[:n])
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// WebSocket → shell stdin
+	go func() {
+		defer func() {
+			closeAll()
+			log.Printf("ssh tunnel %s: WS→shell relay finished", sessionToken)
+		}()
+		for {
+			opcode, payload, err := ws.ReadFrame()
+			if err != nil {
+				return
+			}
+			switch opcode {
+			case 0x8: // close
+				return
+			case 0x9: // ping
+				_ = ws.SendPong(payload)
+			case 0x1, 0x2: // terminal input → stdin
+				if len(payload) > 0 {
+					_, _ = stdin.Write(payload)
+				}
+			}
+		}
+	}()
+
+	log.Printf("Command %s: ssh shell tunnel established (token=%s)", cmdID, sessionToken)
+	return map[string]string{"sessionToken": sessionToken, "status": "tunnel_open"}, nil
 }
 
 // handleCloseRemoteTunnel implements the "close_remote_tunnel" command.

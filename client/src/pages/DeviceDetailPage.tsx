@@ -15,6 +15,7 @@ import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
 import { remoteApi } from '@/api/remote.api';
+import { SshTerminalModal } from '@/components/SshTerminalModal';
 import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -754,6 +755,7 @@ function RemoteTab({ device }: { device: Device }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
+  const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -784,9 +786,11 @@ function RemoteTab({ device }: { device: Device }) {
     const onTunnelReady = (session: RemoteSession) => {
       if (session.deviceId !== device.id) return;
       setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
-      // Auto-open the VNC viewer as soon as the tunnel is established
-      if (session.protocol === 'vnc') {
+      // Auto-open the appropriate viewer as soon as the tunnel is established
+      if (session.protocol === 'vnc' || session.protocol === 'rdp') {
         setVncSession(session);
+      } else if (session.protocol === 'ssh') {
+        setSshSession(session);
       } else {
         toast.success(`${session.protocol.toUpperCase()} tunnel ready`);
       }
@@ -837,6 +841,12 @@ function RemoteTab({ device }: { device: Device }) {
           session={vncSession}
           title={`VNC — ${device.displayName || device.hostname}`}
           onClose={() => setVncSession(null)}
+        />
+      )}
+      {sshSession && (
+        <SshTerminalModal
+          session={sshSession}
+          onClose={() => setSshSession(null)}
         />
       )}
       <div className="space-y-4">
@@ -897,10 +907,18 @@ function RemoteTab({ device }: { device: Device }) {
                     {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
                   </p>
                 </div>
-                {session.status === 'active' && session.protocol === 'vnc' && (
+                {session.status === 'active' && (session.protocol === 'vnc' || session.protocol === 'rdp') && (
                   <button
                     onClick={() => setVncSession(session)}
                     className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+                  >
+                    Open
+                  </button>
+                )}
+                {session.status === 'active' && session.protocol === 'ssh' && (
+                  <button
+                    onClick={() => setSshSession(session)}
+                    className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
                   >
                     Open
                   </button>
@@ -1217,13 +1235,18 @@ function ServicesTab({ device }: { device: Device }) {
       const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
       if (!terminal) return;
 
-      if (cmd.type === 'list_services' && cmd.id === listCmdIdRef.current) {
+      // Match by type only — matching by ID caused a race condition when the
+      // command channel delivers the result before listCmdIdRef is set.
+      // Only one list_services can be in flight at a time (button is disabled).
+      if (cmd.type === 'list_services') {
         listCmdIdRef.current = null;
         if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
         setIsLoadingServices(false);
         if (cmd.status === 'success') {
-          const svcs = (cmd.result as any)?.services as ServiceInfo[] | undefined;
-          setServices(svcs ?? []);
+          // Agent returns a raw ServiceInfo[]; legacy shape was { services: [] }
+          const raw = cmd.result as any;
+          const svcs: ServiceInfo[] = Array.isArray(raw) ? raw : (raw?.services ?? []);
+          setServices(svcs);
         } else {
           toast.error('Failed to load services');
         }
