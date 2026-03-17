@@ -10,9 +10,11 @@ import { clsx } from 'clsx';
 type Tab = 'active' | 'history';
 
 const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; description: string }> = {
-  vnc: { label: 'VNC', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', description: 'Visual desktop control' },
-  rdp: { label: 'RDP', color: 'text-purple-400 bg-purple-400/10 border-purple-400/30', description: 'Remote Desktop Protocol' },
-  ssh: { label: 'SSH', color: 'text-green-400 bg-green-400/10 border-green-400/30', description: 'Secure Shell terminal' },
+  vnc:        { label: 'VNC',        color: 'text-blue-400 bg-blue-400/10 border-blue-400/30',       description: 'Visual desktop control' },
+  rdp:        { label: 'RDP',        color: 'text-purple-400 bg-purple-400/10 border-purple-400/30', description: 'Remote Desktop Protocol' },
+  ssh:        { label: 'SSH',        color: 'text-green-400 bg-green-400/10 border-green-400/30',    description: 'Secure Shell terminal' },
+  cmd:        { label: 'CMD',        color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', description: 'Windows Command Prompt' },
+  powershell: { label: 'PowerShell', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',       description: 'Windows PowerShell terminal' },
 };
 
 const STATUS_CONFIG: Record<RemoteSessionStatus, { label: string; color: string; pulse?: boolean }> = {
