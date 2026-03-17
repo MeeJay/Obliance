@@ -328,22 +328,19 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 				return
 			case 0x9: // ping
 				_ = ws.SendPong(payload)
-			case 0x1, 0x2:
+			case 0x1: // text frame = JSON control message (resize, ...)
+				var msg struct {
+					Type string `json:"type"`
+					Cols uint16 `json:"cols"`
+					Rows uint16 `json:"rows"`
+				}
+				if json.Unmarshal(payload, &msg) == nil && msg.Type == "resize" {
+					_ = shell.Resize(msg.Cols, msg.Rows)
+				}
+				// Never write control messages to the shell stdin.
+			case 0x2: // binary frame = raw shell stdin
 				if len(payload) == 0 {
 					continue
-				}
-				// Resize message: 0xFF prefix + JSON {"type":"resize","cols":N,"rows":N}
-				// Sent by SshTerminalModal.tsx via sendResize().
-				if payload[0] == 0xFF && len(payload) > 1 {
-					var msg struct {
-						Type string `json:"type"`
-						Cols uint16 `json:"cols"`
-						Rows uint16 `json:"rows"`
-					}
-					if json.Unmarshal(payload[1:], &msg) == nil && msg.Type == "resize" {
-						_ = shell.Resize(msg.Cols, msg.Rows)
-					}
-					continue // do not write the control message to the shell stdin
 				}
 				_, _ = shell.Write(payload)
 			}
