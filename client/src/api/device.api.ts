@@ -17,7 +17,7 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);
     return res.data.data!;
   },
-  async update(id: number, data: Partial<Pick<Device, 'displayName' | 'description' | 'groupId' | 'tags' | 'customFields' | 'displayConfig' | 'pushIntervalSeconds' | 'overrideGroupSettings' | 'maxMissedPushes' | 'notificationTypes' | 'sensorDisplayNames'>>): Promise<Device> {
+  async update(id: number, data: Partial<Pick<Device, 'displayName' | 'description' | 'groupId' | 'tags' | 'customFields' | 'displayConfig' | 'pushIntervalSeconds' | 'overrideGroupSettings' | 'maxMissedPushes' | 'notificationTypes' | 'sensorDisplayNames' | 'complianceRemediationEnabled'>>): Promise<Device> {
     const res = await apiClient.patch<ApiResponse<Device>>(`/devices/${id}`, data);
     return res.data.data!;
   },

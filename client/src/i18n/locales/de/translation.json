@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "Aufgaben-Abfrageintervall",
       "taskRetrieveDelayDesc": "Wie oft Agents ausstehende Aufgaben abfragen, wenn der Befehlskanal nicht verfügbar ist (Sekunden, min 1)."
     }
+  },
+  "compliance": {
+    "title": "Konformität",
+    "newPolicy": "Neue Richtlinie",
+    "noResults": "Noch keine Konformitätsprüfungen",
+    "configurePolicies": "Richtlinien konfigurieren →",
+    "score": "Bewertung",
+    "passed": "Bestanden",
+    "failed": "Fehlgeschlagen",
+    "warnings": "Warnungen",
+    "runCheck": "Prüfung starten",
+    "refresh": "Aktualisieren",
+    "triggerSuccess": "Konformitätsprüfung gestartet",
+    "triggerFail": "Fehler beim Starten der Prüfung",
+    "policyCard": {
+      "rules": "Regeln",
+      "lastChecked": "Letzte Prüfung",
+      "neverChecked": "Nie geprüft",
+      "checkNow": "Jetzt prüfen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "deleteConfirm": "Diese Richtlinie löschen?"
+    },
+    "form": {
+      "titleNew": "Neue Richtlinie",
+      "titleEdit": "Richtlinie bearbeiten",
+      "name": "Richtlinienname",
+      "description": "Beschreibung",
+      "framework": "Framework",
+      "targetPlatform": "Zielplattform",
+      "rules": "Regeln",
+      "addRule": "Regel hinzufügen",
+      "loadPreset": "Vorlage laden",
+      "noRules": "Keine Regeln. Hinzufügen oder Vorlage laden.",
+      "save": "Richtlinie speichern",
+      "cancel": "Abbrechen"
+    },
+    "ruleEditor": {
+      "ruleName": "Regelname",
+      "category": "Kategorie",
+      "checkType": "Prüftyp",
+      "targetPlatform": "Plattform",
+      "target": "Ziel",
+      "operator": "Operator",
+      "expected": "Erwarteter Wert",
+      "severity": "Schweregrad",
+      "autoRemediate": "Behebungsskript",
+      "remove": "Entfernen"
+    },
+    "checkTypes": {
+      "registry": "Registrierung",
+      "file": "Datei",
+      "command": "Befehl",
+      "service": "Dienst",
+      "process": "Prozess",
+      "event_log": "Ereignisprotokoll",
+      "policy": "Richtlinie"
+    },
+    "operators": {
+      "eq": "Gleich",
+      "neq": "Ungleich",
+      "gt": "Größer als",
+      "lt": "Kleiner als",
+      "contains": "Enthält",
+      "not_contains": "Enthält nicht",
+      "exists": "Vorhanden",
+      "not_exists": "Nicht vorhanden",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Kritisch",
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig",
+      "info": "Info"
+    },
+    "frameworks": {
+      "custom": "Benutzerdefiniert",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "DSGVO"
+    },
+    "platforms": {
+      "all": "Alle Plattformen",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Vorlage laden",
+      "windowsBaseline": "Windows-Sicherheitsbasis",
+      "linuxBaseline": "Linux-Sicherheitsbasis",
+      "cisWindows": "CIS Windows Stufe 1",
+      "rules": "Regeln"
+    },
+    "results": {
+      "actual": "aktuell",
+      "expected": "erwartet",
+      "remediated": "behoben",
+      "status": {
+        "pass": "bestanden",
+        "fail": "fehlgeschlagen",
+        "warning": "warnung",
+        "error": "fehler",
+        "skipped": "übersprungen"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "Richtlinienergebnis",
+      "policyResultsPlural": "Richtlinienergebnisse",
+      "noResults": "Noch keine Prüfungen",
+      "configurePolicies": "Richtlinien konfigurieren →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "System",
+    "typeUser": "Benutzer",
+    "systemBadge": "System",
+    "userBadge": "Benutzerdefiniert"
+  },
+  "deviceDetail": {
+    "tabSettings": "Einstellungen",
+    "settings": {
+      "identity": "Identität",
+      "displayName": "Anzeigename",
+      "description": "Beschreibung",
+      "monitoring": "Überwachung",
+      "overrideGroupSettings": "Gruppeneinstellungen überschreiben",
+      "overrideGroupSettingsDesc": "Gerätespezifische Werte statt Gruppen-/Standardwerte verwenden",
+      "pushInterval": "Push-Intervall (Sekunden)",
+      "maxMissedPushes": "Max. fehlende Pushes vor Offline",
+      "compliance": "Konformität",
+      "autoRemediation": "Automatische Behebung",
+      "autoRemediationDesc": "Konformitätsrichtlinien erlauben, Korrekturskripte auf diesem Gerät auszuführen. Deaktivieren Sie dies, wenn das Gerät in einem bestimmten Zustand bleiben muss.",
+      "autoRemediationDisabledWarning": "Automatische Behebung ist deaktiviert. Fehlgeschlagene Regeln werden gemeldet, aber keine Skripte ausgeführt.",
+      "saveSettings": "Einstellungen speichern"
+    }
   }
 }

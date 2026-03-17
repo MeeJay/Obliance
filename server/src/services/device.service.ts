@@ -68,6 +68,7 @@ class DeviceService {
       pushIntervalSeconds: row.push_interval_seconds,
       overrideGroupSettings: row.override_group_settings,
       maxMissedPushes: row.max_missed_pushes,
+      complianceRemediationEnabled: row.compliance_remediation_enabled ?? true,
       tags: row.tags || [],
       customFields: row.custom_fields || {},
       displayConfig: row.display_config || {},
@@ -120,6 +121,7 @@ class DeviceService {
     pushIntervalSeconds: number | null;
     overrideGroupSettings: boolean;
     maxMissedPushes: number;
+    complianceRemediationEnabled: boolean;
   }>) {
     const updates: any = { updated_at: new Date() };
     if (data.displayName !== undefined) updates.display_name = data.displayName;
@@ -133,6 +135,7 @@ class DeviceService {
     if (data.pushIntervalSeconds !== undefined) updates.push_interval_seconds = data.pushIntervalSeconds;
     if (data.overrideGroupSettings !== undefined) updates.override_group_settings = data.overrideGroupSettings;
     if (data.maxMissedPushes !== undefined) updates.max_missed_pushes = data.maxMissedPushes;
+    if (data.complianceRemediationEnabled !== undefined) updates.compliance_remediation_enabled = data.complianceRemediationEnabled;
 
     await db('devices').where({ id, tenant_id: tenantId }).update(updates);
     const updated = await this.getDeviceById(id, tenantId);
@@ -343,6 +346,7 @@ class DeviceService {
         displayConfig: config.displayConfig,
         sensorDisplayNames: config.sensorDisplayNames,
         notificationTypes: config.notificationTypes,
+        remediationEnabled: config.remediationEnabled,
       },
       commands: pendingCommands.map(c => ({
         id: c.id,
@@ -387,6 +391,7 @@ class DeviceService {
       displayConfig: device.display_config || {},
       sensorDisplayNames: device.sensor_display_names || {},
       notificationTypes: device.notification_types || {},
+      remediationEnabled: device.compliance_remediation_enabled ?? true,
     };
   }
 

@@ -1033,5 +1033,146 @@
     "suspendSuccess": "Device suspended",
     "unsuspendSuccess": "Device unsuspended",
     "deleteSuccess": "Device deleted"
+  },
+  "compliance": {
+    "title": "Compliance",
+    "newPolicy": "New Policy",
+    "noResults": "No compliance checks run yet",
+    "configurePolicies": "Configure policies →",
+    "score": "Score",
+    "passed": "Passed",
+    "failed": "Failed",
+    "warnings": "Warnings",
+    "runCheck": "Run Check",
+    "refresh": "Refresh",
+    "triggerSuccess": "Compliance check triggered",
+    "triggerFail": "Failed to trigger compliance check",
+    "policyCard": {
+      "rules": "rules",
+      "lastChecked": "Last checked",
+      "neverChecked": "Never checked",
+      "checkNow": "Check now",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this policy?"
+    },
+    "form": {
+      "titleNew": "New Policy",
+      "titleEdit": "Edit Policy",
+      "name": "Policy name",
+      "description": "Description",
+      "framework": "Framework",
+      "targetPlatform": "Target platform",
+      "rules": "Rules",
+      "addRule": "Add Rule",
+      "loadPreset": "Load preset",
+      "noRules": "No rules yet. Add a rule or load a preset.",
+      "save": "Save policy",
+      "cancel": "Cancel"
+    },
+    "ruleEditor": {
+      "ruleName": "Rule name",
+      "category": "Category",
+      "checkType": "Check type",
+      "targetPlatform": "Platform",
+      "target": "Target",
+      "operator": "Operator",
+      "expected": "Expected value",
+      "severity": "Severity",
+      "autoRemediate": "Auto-remediate script",
+      "remove": "Remove"
+    },
+    "checkTypes": {
+      "registry": "Registry",
+      "file": "File",
+      "command": "Command",
+      "service": "Service",
+      "process": "Process",
+      "event_log": "Event Log",
+      "policy": "Policy"
+    },
+    "operators": {
+      "eq": "Equals",
+      "neq": "Not equals",
+      "gt": "Greater than",
+      "lt": "Less than",
+      "contains": "Contains",
+      "not_contains": "Does not contain",
+      "exists": "Exists",
+      "not_exists": "Does not exist",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info"
+    },
+    "frameworks": {
+      "custom": "Custom",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "GDPR"
+    },
+    "platforms": {
+      "all": "All platforms",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Load preset",
+      "windowsBaseline": "Windows Security Baseline",
+      "linuxBaseline": "Linux Security Baseline",
+      "cisWindows": "CIS Windows Level 1",
+      "rules": "rules"
+    },
+    "results": {
+      "actual": "actual",
+      "expected": "expected",
+      "remediated": "remediated",
+      "status": {
+        "pass": "pass",
+        "fail": "fail",
+        "warning": "warning",
+        "error": "error",
+        "skipped": "skipped"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "policy result",
+      "policyResultsPlural": "policy results",
+      "noResults": "No compliance checks run yet",
+      "configurePolicies": "Configure policies →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "System",
+    "typeUser": "User",
+    "systemBadge": "System",
+    "userBadge": "Custom"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

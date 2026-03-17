@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { CompliancePolicy, ComplianceResult } from '@obliance/shared';
+import type { CompliancePolicy, CompliancePreset, ComplianceResult } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -25,5 +25,9 @@ export const complianceApi = {
   },
   async triggerCheck(deviceId: number, policyId?: number): Promise<void> {
     await apiClient.post('/compliance/check', { deviceId, policyId });
+  },
+  async listPresets(): Promise<CompliancePreset[]> {
+    const res = await apiClient.get<ApiResponse<CompliancePreset[]>>('/compliance/presets');
+    return res.data.data ?? [];
   },
 };

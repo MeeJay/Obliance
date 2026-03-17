@@ -17,6 +17,7 @@ class ScriptService {
       timeoutSeconds: row.timeout_seconds,
       expectedExitCode: row.expected_exit_code ?? 0,
       runAs: row.run_as,
+      scriptType: (row.script_type ?? 'user') as 'system' | 'user',
       isBuiltin: row.is_builtin,
       createdBy: row.created_by,
       updatedBy: row.updated_by,
@@ -37,14 +38,15 @@ class ScriptService {
     };
   }
 
-  async getScripts(tenantId: number, filters?: { platform?: string; categoryId?: number; search?: string }) {
+  async getScripts(tenantId: number, filters?: { platform?: string; categoryId?: number; search?: string; scriptType?: string }) {
     let q = db('scripts').where(function() {
-      this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); // include built-ins
+      this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); // include built-ins / system
     });
     if (filters?.platform && filters.platform !== 'all') q = q.where({ platform: filters.platform });
     if (filters?.categoryId) q = q.where({ category_id: filters.categoryId });
     if (filters?.search) q = q.whereILike('name', `%${filters.search}%`);
-    const rows = await q.orderBy([{ column: 'is_builtin', order: 'asc' }, { column: 'name' }]);
+    if (filters?.scriptType) q = q.where({ script_type: filters.scriptType });
+    const rows = await q.orderBy([{ column: 'script_type', order: 'desc' }, { column: 'is_builtin', order: 'asc' }, { column: 'name' }]);
     return rows.map((r: any) => this.rowToScript(r));
   }
 
@@ -119,7 +121,35 @@ class ScriptService {
   }
 
   async deleteScript(id: number, tenantId: number) {
+    // Only delete user scripts (not system/builtin)
     await db('scripts').where({ id, tenant_id: tenantId, is_builtin: false }).delete();
+  }
+
+  // Allow admins to edit system (is_builtin) scripts without tenant_id constraint
+  async updateSystemScript(id: number, data: Partial<{
+    name: string; description: string; categoryId: number; platform: string;
+    runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
+    tags: string[]; updatedBy: number;
+  }>): Promise<Script | null> {
+    const updates: any = { updated_at: new Date() };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.description !== undefined) updates.description = data.description;
+    if (data.categoryId !== undefined) updates.category_id = data.categoryId;
+    if (data.platform !== undefined) updates.platform = data.platform;
+    if (data.runtime !== undefined) updates.runtime = data.runtime;
+    if (data.content !== undefined) updates.content = data.content;
+    if (data.timeoutSeconds !== undefined) updates.timeout_seconds = data.timeoutSeconds;
+    if (data.expectedExitCode !== undefined) updates.expected_exit_code = data.expectedExitCode;
+    if (data.runAs !== undefined) updates.run_as = data.runAs;
+    if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
+    if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
+
+    await db('scripts').where({ id, is_builtin: true }).update(updates);
+    // Return with a null tenantId since it's a global script
+    const row = await db('scripts').where({ id }).first();
+    if (!row) return null;
+    const params = await db('script_parameters').where({ script_id: id }).orderBy('sort_order');
+    return this.rowToScript(row, params);
   }
 
   async getCategories(tenantId: number): Promise<ScriptCategory[]> {

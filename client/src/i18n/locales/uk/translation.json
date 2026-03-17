@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "Затримка отримання завдань",
       "taskRetrieveDelayDesc": "Як часто агенти перевіряють очікуючі завдання коли командний канал недоступний (секунди, мін 1)."
     }
+  },
+  "compliance": {
+    "title": "Відповідність",
+    "newPolicy": "Нова політика",
+    "noResults": "Перевірок відповідності ще не виконувалося",
+    "configurePolicies": "Налаштувати політики →",
+    "score": "Оцінка",
+    "passed": "Пройдено",
+    "failed": "Не пройдено",
+    "warnings": "Попередження",
+    "runCheck": "Запустити перевірку",
+    "refresh": "Оновити",
+    "triggerSuccess": "Перевірку відповідності запущено",
+    "triggerFail": "Помилка запуску перевірки",
+    "policyCard": {
+      "rules": "правила",
+      "lastChecked": "Остання перевірка",
+      "neverChecked": "Ніколи не перевірялось",
+      "checkNow": "Перевірити зараз",
+      "edit": "Редагувати",
+      "delete": "Видалити",
+      "deleteConfirm": "Видалити цю політику?"
+    },
+    "form": {
+      "titleNew": "Нова політика",
+      "titleEdit": "Редагувати політику",
+      "name": "Назва політики",
+      "description": "Опис",
+      "framework": "Фреймворк",
+      "targetPlatform": "Цільова платформа",
+      "rules": "Правила",
+      "addRule": "Додати правило",
+      "loadPreset": "Завантажити шаблон",
+      "noRules": "Немає правил. Додайте або завантажте шаблон.",
+      "save": "Зберегти політику",
+      "cancel": "Скасувати"
+    },
+    "ruleEditor": {
+      "ruleName": "Назва правила",
+      "category": "Категорія",
+      "checkType": "Тип перевірки",
+      "targetPlatform": "Платформа",
+      "target": "Ціль",
+      "operator": "Оператор",
+      "expected": "Очікуване значення",
+      "severity": "Серйозність",
+      "autoRemediate": "Скрипт виправлення",
+      "remove": "Видалити"
+    },
+    "checkTypes": {
+      "registry": "Реєстр",
+      "file": "Файл",
+      "command": "Команда",
+      "service": "Служба",
+      "process": "Процес",
+      "event_log": "Журнал подій",
+      "policy": "Політика"
+    },
+    "operators": {
+      "eq": "Дорівнює",
+      "neq": "Не дорівнює",
+      "gt": "Більше",
+      "lt": "Менше",
+      "contains": "Містить",
+      "not_contains": "Не містить",
+      "exists": "Існує",
+      "not_exists": "Не існує",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Критичний",
+      "high": "Високий",
+      "medium": "Середній",
+      "low": "Низький",
+      "info": "Інфо"
+    },
+    "frameworks": {
+      "custom": "Власний",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "GDPR"
+    },
+    "platforms": {
+      "all": "Всі платформи",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Завантажити шаблон",
+      "windowsBaseline": "Базова безпека Windows",
+      "linuxBaseline": "Базова безпека Linux",
+      "cisWindows": "CIS Windows Рівень 1",
+      "rules": "правила"
+    },
+    "results": {
+      "actual": "фактичний",
+      "expected": "очікуваний",
+      "remediated": "виправлено",
+      "status": {
+        "pass": "пройдено",
+        "fail": "не пройдено",
+        "warning": "попередження",
+        "error": "помилка",
+        "skipped": "пропущено"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "результат політики",
+      "policyResultsPlural": "результати політик",
+      "noResults": "Немає перевірок",
+      "configurePolicies": "Налаштувати політики →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "Системний",
+    "typeUser": "Користувацький",
+    "systemBadge": "Системний",
+    "userBadge": "Власний"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

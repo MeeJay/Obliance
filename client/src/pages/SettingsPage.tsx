@@ -1,21 +1,13 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Copy, RefreshCw, Info, Cpu, HardDrive, Database, Clock } from 'lucide-react';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
-import { NotificationTypesPanel } from '@/components/agent/NotificationTypesPanel';
 import { useAuthStore } from '@/store/authStore';
 import { smtpServerApi, type CreateSmtpServerRequest } from '@/api/smtpServer.api';
 import { appConfigApi } from '@/api/appConfig.api';
 import { systemApi, type SystemInfo } from '@/api/system.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { SmtpServer, AppConfigData, DeviceNotificationTypes, SsoIntegrationConfig } from '@obliance/shared';
-import type { AgentGlobalConfig } from '@/api/appConfig.api';
-
-const DEFAULT_AGENT_GLOBAL_CONFIG = {
-  checkIntervalSeconds: 30,
-  heartbeatMonitoring: true,
-  maxMissedPushes: 3,
-} as const;
+import type { SmtpServer, AppConfigData, SsoIntegrationConfig } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
@@ -69,12 +61,6 @@ export function SettingsPage() {
   const [appConfig, setAppConfig] = useState<AppConfigData | null>(null);
   const [configSaving, setConfigSaving] = useState(false);
 
-  // ── Agent Global Config ──
-  const [agentGlobal, setAgentGlobal] = useState<AgentGlobalConfig | null>(null);
-  const [agentInterval, setAgentInterval] = useState('');
-  const [agentScanInterval, setAgentScanInterval] = useState('');
-  const [agentMaxMissed, setAgentMaxMissed] = useState('');
-
   // ── System info (About section) ──
   const [systemInfo, setSystemInfo]               = useState<SystemInfo | null>(null);
   const [systemInfoLoading, setSystemInfoLoading] = useState(false);
@@ -101,12 +87,6 @@ export function SettingsPage() {
     systemApi.getInfo().then(setSystemInfo).catch(() => {}).finally(() => setSystemInfoLoading(false));
     smtpServerApi.list().then(setServers).catch(() => {});
     appConfigApi.getConfig().then(setAppConfig).catch(() => {});
-    appConfigApi.getAgentGlobal().then((cfg) => {
-      setAgentGlobal(cfg);
-      setAgentInterval(cfg.checkIntervalSeconds !== null ? String(cfg.checkIntervalSeconds) : '');
-      setAgentScanInterval(cfg.scanIntervalSeconds !== null ? String(cfg.scanIntervalSeconds) : '');
-      setAgentMaxMissed(cfg.maxMissedPushes !== null ? String(cfg.maxMissedPushes) : '');
-    }).catch(() => {});
     appConfigApi.getObliviewConfig().then((cfg) => { setObliviewCfg(cfg); setObliviewUrl(cfg.url ?? ''); }).catch(() => {});
     appConfigApi.getObliguardConfig().then((cfg) => { setObliguardCfg(cfg); setObliguardUrl(cfg.url ?? ''); }).catch(() => {});
     appConfigApi.getOblimapConfig().then((cfg) => { setOblimapCfg(cfg); setOblimapUrl(cfg.url ?? ''); }).catch(() => {});
@@ -205,30 +185,6 @@ export function SettingsPage() {
     } finally {
       setConfigSaving(false);
     }
-  }
-
-  async function saveAgentMainConfig(overrides?: { interval?: string; scan?: string; missed?: string }) {
-    if (!agentGlobal) return;
-    const interval  = overrides?.interval ?? agentInterval;
-    const scan      = overrides?.scan     ?? agentScanInterval;
-    const missed    = overrides?.missed   ?? agentMaxMissed;
-    try {
-      const updated = await appConfigApi.patchAgentGlobal({
-        checkIntervalSeconds: interval.trim() ? Number(interval) : null,
-        scanIntervalSeconds:  scan.trim()     ? Number(scan)     : null,
-        heartbeatMonitoring:  agentGlobal.heartbeatMonitoring,
-        maxMissedPushes:      missed.trim()   ? Number(missed)   : null,
-      });
-      setAgentGlobal(updated);
-      toast.success(t('common.saved'));
-    } catch {
-      toast.error(t('settings.failedUpdate'));
-    }
-  }
-
-  async function saveAgentNotifTypes(notifTypes: DeviceNotificationTypes | null) {
-    const updated = await appConfigApi.patchAgentGlobal({ notificationTypes: notifTypes });
-    setAgentGlobal(updated);
   }
 
   async function saveObliviewConfig() {
@@ -364,126 +320,6 @@ export function SettingsPage() {
 
       {admin && (
         <>
-          {/* ── Default Agent Settings ── */}
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary mb-4">{t('settings.defaultAgentSettings')}</h2>
-            <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-6">
-              <p className="text-xs text-text-muted">{t('settings.agentDefaultsDesc')}</p>
-
-              {/* Check Interval */}
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.checkInterval')}</div>
-                  <div className="text-xs text-text-muted">{t('settings.agent.checkIntervalDesc')}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number" value={agentInterval} min={5} max={86400}
-                    onChange={e => setAgentInterval(e.target.value)}
-                    onBlur={e => saveAgentMainConfig({ interval: e.target.value })}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    placeholder={String(DEFAULT_AGENT_GLOBAL_CONFIG.checkIntervalSeconds)}
-                    className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
-                  />
-                  <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>
-                </div>
-              </div>
-
-              {/* Task Retrieve Delay */}
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.taskRetrieveDelay')}</div>
-                  <div className="text-xs text-text-muted">{t('settings.agent.taskRetrieveDelayDesc')}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={appConfig?.task_retrieve_delay_seconds ?? '10'}
-                    min={1} max={300}
-                    onChange={e => setConfigKey('task_retrieve_delay_seconds', parseInt(e.target.value) || 10)}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    placeholder="10"
-                    className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
-                  />
-                  <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>
-                </div>
-              </div>
-
-              {/* Scan Interval */}
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.scanInterval')}</div>
-                  <div className="text-xs text-text-muted">{t('settings.agent.scanIntervalDesc')}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number" value={agentScanInterval} min={0} max={86400}
-                    onChange={e => setAgentScanInterval(e.target.value)}
-                    onBlur={e => saveAgentMainConfig({ scan: e.target.value })}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    placeholder="0"
-                    className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
-                  />
-                  <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>
-                </div>
-              </div>
-
-              {/* Heartbeat Monitoring */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.heartbeatMonitoring')}</div>
-                  <div className="text-xs text-text-muted">{t('settings.agent.heartbeatMonitoringDesc')}</div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={agentGlobal?.heartbeatMonitoring ?? DEFAULT_AGENT_GLOBAL_CONFIG.heartbeatMonitoring}
-                  disabled={!agentGlobal}
-                  onClick={async () => {
-                    if (!agentGlobal) return;
-                    const updated = await appConfigApi.patchAgentGlobal({
-                      heartbeatMonitoring: !(agentGlobal.heartbeatMonitoring ?? DEFAULT_AGENT_GLOBAL_CONFIG.heartbeatMonitoring),
-                    });
-                    setAgentGlobal(updated);
-                  }}
-                  className={cn(
-                    'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
-                    (agentGlobal?.heartbeatMonitoring ?? DEFAULT_AGENT_GLOBAL_CONFIG.heartbeatMonitoring) ? 'bg-accent' : 'bg-bg-tertiary',
-                  )}
-                >
-                  <span className={cn('pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
-                    (agentGlobal?.heartbeatMonitoring ?? DEFAULT_AGENT_GLOBAL_CONFIG.heartbeatMonitoring) ? 'translate-x-4' : 'translate-x-0.5')} />
-                </button>
-              </div>
-
-              {/* Max Missed Pushes */}
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.maxMissedPushes')}</div>
-                  <div className="text-xs text-text-muted">{t('settings.agent.maxMissedPushesDesc')}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number" value={agentMaxMissed} min={1} max={20}
-                    onChange={e => setAgentMaxMissed(e.target.value)}
-                    onBlur={e => saveAgentMainConfig({ missed: e.target.value })}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    placeholder={String(DEFAULT_AGENT_GLOBAL_CONFIG.maxMissedPushes)}
-                    className="w-20 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Notification Types — global scope, always editable */}
-            <div className="mt-4">
-              <NotificationTypesPanel
-                config={agentGlobal?.notificationTypes ?? {}}
-                scope="global"
-                onSave={saveAgentNotifTypes}
-              />
-            </div>
-          </div>
-
           {/* ── SMTP Servers ── */}
           <div>
             <div className="flex items-center justify-between mb-4">

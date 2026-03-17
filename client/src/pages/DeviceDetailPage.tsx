@@ -4,7 +4,8 @@ import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
-  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, Play, Square,
+  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -21,12 +22,12 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
-import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, RemoteSession, Command, ServiceInfo } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'commands';
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'commands' | 'settings';
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'overview', label: 'Overview', icon: Monitor },
@@ -37,6 +38,7 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'remote', label: 'Remote', icon: MonitorPlay },
   { id: 'services', label: 'Services', icon: Server },
   { id: 'commands', label: 'Tasks', icon: History },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
@@ -607,58 +609,381 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
 
 // ─── Compliance Tab ──────────────────────────────────────────────────────────────
 
+const RULE_STATUS_ICON: Record<string, React.ReactNode> = {
+  pass:    <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />,
+  fail:    <XCircle      className="w-4 h-4 text-red-400 shrink-0" />,
+  warning: <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />,
+  error:   <MinusCircle  className="w-4 h-4 text-text-muted shrink-0" />,
+};
+
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: 'text-red-400',
+  high:     'text-orange-400',
+  medium:   'text-yellow-400',
+  low:      'text-blue-400',
+  info:     'text-text-muted',
+};
+
 function ComplianceTab({ deviceId }: { deviceId: number }) {
-  const [results, setResults] = useState<ComplianceResult[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [results, setResults]   = useState<ComplianceResult[]>([]);
+  const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const result = await complianceApi.listResults({ deviceId });
-        setResults(result.items);
-      } catch {
-        toast.error('Failed to load compliance');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [deviceId]);
+  const load = async () => {
+    setIsLoading(true);
+    try {
+      const [resultData, policyList] = await Promise.all([
+        complianceApi.listResults({ deviceId }),
+        complianceApi.listPolicies(),
+      ]);
+      setResults(resultData.items);
+      setPolicies(policyList);
+    } catch {
+      toast.error('Failed to load compliance');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+  useEffect(() => { load(); }, [deviceId]);
+
+  const handleTriggerCheck = async () => {
+    setTriggering(true);
+    try {
+      await complianceApi.triggerCheck(deviceId);
+      toast.success('Compliance check triggered');
+    } catch {
+      toast.error('Failed to trigger compliance check');
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const getRuleInfo = (policyId: number, ruleId: string) => {
+    const policy = policies.find(p => p.id === policyId);
+    return policy?.rules.find(r => r.id === ruleId);
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-48">
+      <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-text-muted">{results.length} policy result{results.length !== 1 ? 's' : ''}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={load}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Refresh
+          </button>
+          <button
+            onClick={handleTriggerCheck}
+            disabled={triggering}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+          >
+            {triggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+            Run Check
+          </button>
+        </div>
+      </div>
+
       {results.length === 0 ? (
         <div className="p-12 text-center text-text-muted">
           <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No compliance checks run yet</p>
+          <p className="text-sm">No compliance checks run yet</p>
           <Link to="/compliance" className="mt-2 inline-block text-sm text-accent">Configure policies →</Link>
         </div>
       ) : (
-        results.map((result) => (
-          <div key={result.id} className="p-4 bg-bg-secondary border border-border rounded-xl">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm font-medium text-text-primary">{result.policy?.name ?? `Policy ${result.policyId}`}</p>
-                <p className="text-xs text-text-muted">{result.policy?.framework} · Checked {new Date(result.checkedAt).toLocaleString()}</p>
+        results.map((result) => {
+          const isExpanded = expandedIds.has(result.id);
+          const passCount    = result.results.filter(r => r.status === 'pass').length;
+          const failCount    = result.results.filter(r => r.status === 'fail').length;
+          const warnCount    = result.results.filter(r => r.status === 'warning').length;
+
+          return (
+            <div key={result.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+              {/* Policy header */}
+              <button
+                onClick={() => toggleExpand(result.id)}
+                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  {isExpanded
+                    ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+                  }
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">
+                      {result.policy?.name ?? `Policy #${result.policyId}`}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {result.policy?.framework && <span className="uppercase mr-2">{result.policy.framework}</span>}
+                      {new Date(result.checkedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex gap-3 text-xs">
+                    {passCount > 0 && <span className="text-green-400">✓ {passCount}</span>}
+                    {failCount > 0 && <span className="text-red-400">✗ {failCount}</span>}
+                    {warnCount > 0 && <span className="text-yellow-400">⚠ {warnCount}</span>}
+                  </div>
+                  <div className={clsx(
+                    'text-lg font-bold tabular-nums',
+                    result.complianceScore >= 80 ? 'text-green-400'
+                    : result.complianceScore >= 50 ? 'text-yellow-400'
+                    : 'text-red-400'
+                  )}>
+                    {result.complianceScore.toFixed(0)}%
+                  </div>
+                </div>
+              </button>
+
+              {/* Score bar */}
+              <div className="h-1 bg-bg-primary">
+                <div
+                  className={clsx(
+                    'h-full transition-all',
+                    result.complianceScore >= 80 ? 'bg-green-400'
+                    : result.complianceScore >= 50 ? 'bg-yellow-400'
+                    : 'bg-red-400'
+                  )}
+                  style={{ width: `${result.complianceScore}%` }}
+                />
               </div>
-              <div className={clsx(
-                'text-lg font-bold',
-                result.complianceScore >= 80 ? 'text-green-400' : result.complianceScore >= 50 ? 'text-yellow-400' : 'text-red-400'
-              )}>
-                {result.complianceScore.toFixed(0)}%
-              </div>
+
+              {/* Expanded: per-rule breakdown */}
+              {isExpanded && (
+                <div className="divide-y divide-border">
+                  {result.results.map((rr) => {
+                    const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
+                    return (
+                      <div key={rr.ruleId} className="flex items-start gap-3 px-4 py-3">
+                        <div className="mt-0.5">{RULE_STATUS_ICON[rr.status] ?? RULE_STATUS_ICON.error}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-text-primary">
+                              {ruleInfo?.name ?? rr.ruleId}
+                            </span>
+                            {ruleInfo?.severity && (
+                              <span className={clsx('text-xs font-medium capitalize', SEVERITY_COLOR[ruleInfo.severity])}>
+                                {ruleInfo.severity}
+                              </span>
+                            )}
+                            {rr.remediationTriggered && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                remediated
+                              </span>
+                            )}
+                          </div>
+                          {ruleInfo?.description && (
+                            <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{ruleInfo.description}</p>
+                          )}
+                          <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
+                            {rr.actualValue !== null && rr.actualValue !== undefined && (
+                              <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
+                            )}
+                            {ruleInfo?.expectedValue !== undefined && ruleInfo.expectedValue !== null && (
+                              <span>expected: <span className="text-text-secondary">{String(ruleInfo.expectedValue)}</span></span>
+                            )}
+                          </div>
+                        </div>
+                        <span className={clsx(
+                          'text-xs font-medium shrink-0 capitalize mt-0.5',
+                          rr.status === 'pass' ? 'text-green-400'
+                          : rr.status === 'fail' ? 'text-red-400'
+                          : rr.status === 'warning' ? 'text-yellow-400'
+                          : 'text-text-muted'
+                        )}>
+                          {rr.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="flex gap-3 text-xs">
-              <span className="text-green-400">{result.results.filter((r) => r.status === 'pass').length} pass</span>
-              <span className="text-red-400">{result.results.filter((r) => r.status === 'fail').length} fail</span>
-              <span className="text-yellow-400">{result.results.filter((r) => r.status === 'warning').length} warning</span>
-            </div>
-          </div>
-        ))
+          );
+        })
       )}
+    </div>
+  );
+}
+
+// ─── Device Settings Tab ─────────────────────────────────────────────────────
+
+function DeviceSettingsTab({ device, onSaved }: { device: Device; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    displayName:                  device.displayName ?? '',
+    description:                  device.description ?? '',
+    pushIntervalSeconds:          device.pushIntervalSeconds ?? null as number | null,
+    maxMissedPushes:              device.maxMissedPushes ?? 3,
+    overrideGroupSettings:        device.overrideGroupSettings ?? false,
+    complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await deviceApi.update(device.id, {
+        displayName:                  form.displayName || undefined,
+        description:                  form.description || undefined,
+        pushIntervalSeconds:          form.overrideGroupSettings ? (form.pushIntervalSeconds ?? null) : null,
+        maxMissedPushes:              form.maxMissedPushes,
+        overrideGroupSettings:        form.overrideGroupSettings,
+        complianceRemediationEnabled: form.complianceRemediationEnabled,
+      });
+      toast.success('Settings saved');
+      onSaved();
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Identity */}
+      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
+        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Identity</h3>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Display name</span>
+            <input
+              type="text"
+              value={form.displayName}
+              onChange={e => handleChange('displayName', e.target.value)}
+              placeholder={device.hostname}
+              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Description</span>
+            <textarea
+              value={form.description}
+              onChange={e => handleChange('description', e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Monitoring */}
+      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
+        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Monitoring</h3>
+
+        {/* Override toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-text-primary">Override group settings</p>
+            <p className="text-xs text-text-muted mt-0.5">Apply per-device values instead of group/global defaults</p>
+          </div>
+          <button
+            onClick={() => handleChange('overrideGroupSettings', !form.overrideGroupSettings)}
+            className="shrink-0"
+          >
+            {form.overrideGroupSettings
+              ? <ToggleRight className="w-9 h-9 text-accent" />
+              : <ToggleLeft  className="w-9 h-9 text-text-muted" />
+            }
+          </button>
+        </div>
+
+        {form.overrideGroupSettings && (
+          <div className="space-y-3 pt-2 border-t border-border">
+            <label className="block">
+              <span className="text-xs text-text-muted mb-1 block">Push interval (seconds)</span>
+              <input
+                type="number"
+                min={1}
+                max={3600}
+                value={form.pushIntervalSeconds ?? ''}
+                onChange={e => handleChange('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="60"
+                className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={form.maxMissedPushes}
+                onChange={e => handleChange('maxMissedPushes', parseInt(e.target.value) || 3)}
+                className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Compliance */}
+      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
+        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Compliance</h3>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-text-primary">Auto-remediation</p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Allow compliance policies to automatically run fix scripts on this device.
+              Disable if this device must remain in a specific state (e.g. firewall intentionally off).
+            </p>
+          </div>
+          <button
+            onClick={() => handleChange('complianceRemediationEnabled', !form.complianceRemediationEnabled)}
+            className="shrink-0"
+          >
+            {form.complianceRemediationEnabled
+              ? <ToggleRight className="w-9 h-9 text-accent" />
+              : <ToggleLeft  className="w-9 h-9 text-text-muted" />
+            }
+          </button>
+        </div>
+
+        {!form.complianceRemediationEnabled && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.</span>
+          </div>
+        )}
+      </div>
+
+      {/* Save button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save settings
+        </button>
+      </div>
     </div>
   );
 }
@@ -1890,6 +2215,7 @@ export function DeviceDetailPage() {
         {activeTab === 'remote' && <RemoteTab device={device} />}
         {activeTab === 'services' && <ServicesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
+        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} />}
       </div>
     </div>
   );

@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "Görev Alma Gecikmesi",
       "taskRetrieveDelayDesc": "Komut kanalı kullanılamadığında ajanların bekleyen görevleri ne sıklıkla kontrol ettiği (saniye, min 1)."
     }
+  },
+  "compliance": {
+    "title": "Uyumluluk",
+    "newPolicy": "Yeni politika",
+    "noResults": "Henüz uyumluluk kontrolü yapılmadı",
+    "configurePolicies": "Politikaları yapılandır →",
+    "score": "Puan",
+    "passed": "Geçti",
+    "failed": "Başarısız",
+    "warnings": "Uyarılar",
+    "runCheck": "Kontrol başlat",
+    "refresh": "Yenile",
+    "triggerSuccess": "Uyumluluk kontrolü başlatıldı",
+    "triggerFail": "Kontrol başlatılamadı",
+    "policyCard": {
+      "rules": "kurallar",
+      "lastChecked": "Son kontrol",
+      "neverChecked": "Hiç kontrol edilmedi",
+      "checkNow": "Şimdi kontrol et",
+      "edit": "Düzenle",
+      "delete": "Sil",
+      "deleteConfirm": "Bu politika silinsin mi?"
+    },
+    "form": {
+      "titleNew": "Yeni politika",
+      "titleEdit": "Politika düzenle",
+      "name": "Politika adı",
+      "description": "Açıklama",
+      "framework": "Çerçeve",
+      "targetPlatform": "Hedef platform",
+      "rules": "Kurallar",
+      "addRule": "Kural ekle",
+      "loadPreset": "Şablon yükle",
+      "noRules": "Kural yok. Ekleyin veya şablon yükleyin.",
+      "save": "Politikayı kaydet",
+      "cancel": "İptal"
+    },
+    "ruleEditor": {
+      "ruleName": "Kural adı",
+      "category": "Kategori",
+      "checkType": "Kontrol türü",
+      "targetPlatform": "Platform",
+      "target": "Hedef",
+      "operator": "Operatör",
+      "expected": "Beklenen değer",
+      "severity": "Önem",
+      "autoRemediate": "Düzeltme scripti",
+      "remove": "Kaldır"
+    },
+    "checkTypes": {
+      "registry": "Kayıt defteri",
+      "file": "Dosya",
+      "command": "Komut",
+      "service": "Servis",
+      "process": "İşlem",
+      "event_log": "Olay günlüğü",
+      "policy": "Politika"
+    },
+    "operators": {
+      "eq": "Eşit",
+      "neq": "Eşit değil",
+      "gt": "Büyük",
+      "lt": "Küçük",
+      "contains": "İçeriyor",
+      "not_contains": "İçermiyor",
+      "exists": "Var",
+      "not_exists": "Yok",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Kritik",
+      "high": "Yüksek",
+      "medium": "Orta",
+      "low": "Düşük",
+      "info": "Bilgi"
+    },
+    "frameworks": {
+      "custom": "Özel",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "KVKK"
+    },
+    "platforms": {
+      "all": "Tüm platformlar",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Şablon yükle",
+      "windowsBaseline": "Windows Güvenlik Temeli",
+      "linuxBaseline": "Linux Güvenlik Temeli",
+      "cisWindows": "CIS Windows Seviye 1",
+      "rules": "kurallar"
+    },
+    "results": {
+      "actual": "mevcut",
+      "expected": "beklenen",
+      "remediated": "düzeltildi",
+      "status": {
+        "pass": "geçti",
+        "fail": "başarısız",
+        "warning": "uyarı",
+        "error": "hata",
+        "skipped": "atlandı"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "politika sonucu",
+      "policyResultsPlural": "politika sonuçları",
+      "noResults": "Henüz kontrol yok",
+      "configurePolicies": "Politikaları yapılandır →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "Sistem",
+    "typeUser": "Kullanıcı",
+    "systemBadge": "Sistem",
+    "userBadge": "Özel"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

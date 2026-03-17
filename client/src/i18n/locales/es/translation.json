@@ -598,5 +598,146 @@
     "suspendSuccess": "Dispositivo suspendido",
     "unsuspendSuccess": "Dispositivo reactivado",
     "deleteSuccess": "Dispositivo eliminado"
+  },
+  "compliance": {
+    "title": "Cumplimiento",
+    "newPolicy": "Nueva política",
+    "noResults": "Sin verificaciones de cumplimiento todavía",
+    "configurePolicies": "Configurar políticas →",
+    "score": "Puntuación",
+    "passed": "Aprobados",
+    "failed": "Fallidos",
+    "warnings": "Advertencias",
+    "runCheck": "Ejecutar verificación",
+    "refresh": "Actualizar",
+    "triggerSuccess": "Verificación de cumplimiento iniciada",
+    "triggerFail": "Error al iniciar la verificación",
+    "policyCard": {
+      "rules": "reglas",
+      "lastChecked": "Última verificación",
+      "neverChecked": "Nunca verificado",
+      "checkNow": "Verificar ahora",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "deleteConfirm": "¿Eliminar esta política?"
+    },
+    "form": {
+      "titleNew": "Nueva política",
+      "titleEdit": "Editar política",
+      "name": "Nombre de política",
+      "description": "Descripción",
+      "framework": "Marco",
+      "targetPlatform": "Plataforma objetivo",
+      "rules": "Reglas",
+      "addRule": "Agregar regla",
+      "loadPreset": "Cargar plantilla",
+      "noRules": "Sin reglas. Agrega una o carga una plantilla.",
+      "save": "Guardar política",
+      "cancel": "Cancelar"
+    },
+    "ruleEditor": {
+      "ruleName": "Nombre de regla",
+      "category": "Categoría",
+      "checkType": "Tipo de verificación",
+      "targetPlatform": "Plataforma",
+      "target": "Destino",
+      "operator": "Operador",
+      "expected": "Valor esperado",
+      "severity": "Gravedad",
+      "autoRemediate": "Script de corrección",
+      "remove": "Eliminar"
+    },
+    "checkTypes": {
+      "registry": "Registro",
+      "file": "Archivo",
+      "command": "Comando",
+      "service": "Servicio",
+      "process": "Proceso",
+      "event_log": "Registro de eventos",
+      "policy": "Política"
+    },
+    "operators": {
+      "eq": "Igual a",
+      "neq": "Distinto de",
+      "gt": "Mayor que",
+      "lt": "Menor que",
+      "contains": "Contiene",
+      "not_contains": "No contiene",
+      "exists": "Existe",
+      "not_exists": "No existe",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Crítico",
+      "high": "Alto",
+      "medium": "Medio",
+      "low": "Bajo",
+      "info": "Info"
+    },
+    "frameworks": {
+      "custom": "Personalizado",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "RGPD"
+    },
+    "platforms": {
+      "all": "Todas las plataformas",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Cargar plantilla",
+      "windowsBaseline": "Línea base de seguridad Windows",
+      "linuxBaseline": "Línea base de seguridad Linux",
+      "cisWindows": "CIS Windows Nivel 1",
+      "rules": "reglas"
+    },
+    "results": {
+      "actual": "actual",
+      "expected": "esperado",
+      "remediated": "remediado",
+      "status": {
+        "pass": "aprobado",
+        "fail": "fallido",
+        "warning": "advertencia",
+        "error": "error",
+        "skipped": "omitido"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "resultado de política",
+      "policyResultsPlural": "resultados de políticas",
+      "noResults": "Sin verificaciones todavía",
+      "configurePolicies": "Configurar políticas →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "Sistema",
+    "typeUser": "Usuario",
+    "systemBadge": "Sistema",
+    "userBadge": "Personalizado"
+  },
+  "deviceDetail": {
+    "tabSettings": "Configuración",
+    "settings": {
+      "identity": "Identidad",
+      "displayName": "Nombre para mostrar",
+      "description": "Descripción",
+      "monitoring": "Monitoreo",
+      "overrideGroupSettings": "Anular configuración de grupo",
+      "overrideGroupSettingsDesc": "Aplicar valores por dispositivo en lugar de los valores del grupo/global",
+      "pushInterval": "Intervalo de push (segundos)",
+      "maxMissedPushes": "Máx. pushes perdidos antes de offline",
+      "compliance": "Cumplimiento",
+      "autoRemediation": "Remediación automática",
+      "autoRemediationDesc": "Permitir que las políticas de cumplimiento ejecuten scripts de corrección automáticamente. Deshabilite si este dispositivo debe permanecer en un estado específico.",
+      "autoRemediationDisabledWarning": "La remediación automática está deshabilitada.",
+      "saveSettings": "Guardar configuración"
+    }
   }
 }

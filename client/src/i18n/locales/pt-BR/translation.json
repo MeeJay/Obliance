@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "Atraso de recuperação de tarefas",
       "taskRetrieveDelayDesc": "Com que frequência os agentes verificam tarefas pendentes quando o canal de comandos não está disponível (segundos, mín. 1)."
     }
+  },
+  "compliance": {
+    "title": "Conformidade",
+    "newPolicy": "Nova política",
+    "noResults": "Nenhuma verificação de conformidade ainda",
+    "configurePolicies": "Configurar políticas →",
+    "score": "Pontuação",
+    "passed": "Aprovados",
+    "failed": "Reprovados",
+    "warnings": "Avisos",
+    "runCheck": "Executar verificação",
+    "refresh": "Atualizar",
+    "triggerSuccess": "Verificação de conformidade iniciada",
+    "triggerFail": "Falha ao iniciar verificação",
+    "policyCard": {
+      "rules": "regras",
+      "lastChecked": "Última verificação",
+      "neverChecked": "Nunca verificado",
+      "checkNow": "Verificar agora",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "deleteConfirm": "Excluir esta política?"
+    },
+    "form": {
+      "titleNew": "Nova política",
+      "titleEdit": "Editar política",
+      "name": "Nome da política",
+      "description": "Descrição",
+      "framework": "Framework",
+      "targetPlatform": "Plataforma alvo",
+      "rules": "Regras",
+      "addRule": "Adicionar regra",
+      "loadPreset": "Carregar modelo",
+      "noRules": "Sem regras. Adicione uma ou carregue um modelo.",
+      "save": "Salvar política",
+      "cancel": "Cancelar"
+    },
+    "ruleEditor": {
+      "ruleName": "Nome da regra",
+      "category": "Categoria",
+      "checkType": "Tipo de verificação",
+      "targetPlatform": "Plataforma",
+      "target": "Destino",
+      "operator": "Operador",
+      "expected": "Valor esperado",
+      "severity": "Gravidade",
+      "autoRemediate": "Script de correção",
+      "remove": "Remover"
+    },
+    "checkTypes": {
+      "registry": "Registro",
+      "file": "Arquivo",
+      "command": "Comando",
+      "service": "Serviço",
+      "process": "Processo",
+      "event_log": "Log de eventos",
+      "policy": "Política"
+    },
+    "operators": {
+      "eq": "Igual a",
+      "neq": "Diferente de",
+      "gt": "Maior que",
+      "lt": "Menor que",
+      "contains": "Contém",
+      "not_contains": "Não contém",
+      "exists": "Existe",
+      "not_exists": "Não existe",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Crítico",
+      "high": "Alto",
+      "medium": "Médio",
+      "low": "Baixo",
+      "info": "Info"
+    },
+    "frameworks": {
+      "custom": "Personalizado",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "LGPD"
+    },
+    "platforms": {
+      "all": "Todas as plataformas",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Carregar modelo",
+      "windowsBaseline": "Linha de base de segurança Windows",
+      "linuxBaseline": "Linha de base de segurança Linux",
+      "cisWindows": "CIS Windows Nível 1",
+      "rules": "regras"
+    },
+    "results": {
+      "actual": "atual",
+      "expected": "esperado",
+      "remediated": "remediado",
+      "status": {
+        "pass": "aprovado",
+        "fail": "reprovado",
+        "warning": "aviso",
+        "error": "erro",
+        "skipped": "ignorado"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "resultado de política",
+      "policyResultsPlural": "resultados de políticas",
+      "noResults": "Nenhuma verificação ainda",
+      "configurePolicies": "Configurar políticas →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "Sistema",
+    "typeUser": "Usuário",
+    "systemBadge": "Sistema",
+    "userBadge": "Personalizado"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

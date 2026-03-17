@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "تأخير استرداد المهام",
       "taskRetrieveDelayDesc": "عدد المرات التي يفحص فيها العملاء المهام المعلقة عندما تكون قناة الأوامر غير متاحة (ثانية، الحد الأدنى 1)."
     }
+  },
+  "compliance": {
+    "title": "الامتثال",
+    "newPolicy": "سياسة جديدة",
+    "noResults": "لم يتم تشغيل فحوصات الامتثال بعد",
+    "configurePolicies": "تكوين السياسات ←",
+    "score": "النتيجة",
+    "passed": "ناجح",
+    "failed": "فاشل",
+    "warnings": "تحذيرات",
+    "runCheck": "تشغيل الفحص",
+    "refresh": "تحديث",
+    "triggerSuccess": "تم بدء فحص الامتثال",
+    "triggerFail": "فشل بدء الفحص",
+    "policyCard": {
+      "rules": "قواعد",
+      "lastChecked": "آخر فحص",
+      "neverChecked": "لم يتم الفحص",
+      "checkNow": "افحص الآن",
+      "edit": "تعديل",
+      "delete": "حذف",
+      "deleteConfirm": "حذف هذه السياسة؟"
+    },
+    "form": {
+      "titleNew": "سياسة جديدة",
+      "titleEdit": "تعديل السياسة",
+      "name": "اسم السياسة",
+      "description": "وصف",
+      "framework": "إطار العمل",
+      "targetPlatform": "المنصة المستهدفة",
+      "rules": "القواعد",
+      "addRule": "إضافة قاعدة",
+      "loadPreset": "تحميل قالب",
+      "noRules": "لا توجد قواعد. أضف واحدة أو قم بتحميل قالب.",
+      "save": "حفظ السياسة",
+      "cancel": "إلغاء"
+    },
+    "ruleEditor": {
+      "ruleName": "اسم القاعدة",
+      "category": "الفئة",
+      "checkType": "نوع الفحص",
+      "targetPlatform": "المنصة",
+      "target": "الهدف",
+      "operator": "المشغّل",
+      "expected": "القيمة المتوقعة",
+      "severity": "الخطورة",
+      "autoRemediate": "سكريبت الإصلاح",
+      "remove": "إزالة"
+    },
+    "checkTypes": {
+      "registry": "السجل",
+      "file": "ملف",
+      "command": "أمر",
+      "service": "خدمة",
+      "process": "عملية",
+      "event_log": "سجل الأحداث",
+      "policy": "سياسة"
+    },
+    "operators": {
+      "eq": "يساوي",
+      "neq": "لا يساوي",
+      "gt": "أكبر من",
+      "lt": "أصغر من",
+      "contains": "يحتوي",
+      "not_contains": "لا يحتوي",
+      "exists": "موجود",
+      "not_exists": "غير موجود",
+      "regex": "تعبير نمطي"
+    },
+    "severities": {
+      "critical": "حرج",
+      "high": "عالي",
+      "medium": "متوسط",
+      "low": "منخفض",
+      "info": "معلومات"
+    },
+    "frameworks": {
+      "custom": "مخصص",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "GDPR"
+    },
+    "platforms": {
+      "all": "جميع المنصات",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "تحميل قالب",
+      "windowsBaseline": "خط أساس أمان Windows",
+      "linuxBaseline": "خط أساس أمان Linux",
+      "cisWindows": "CIS Windows المستوى 1",
+      "rules": "قواعد"
+    },
+    "results": {
+      "actual": "الفعلي",
+      "expected": "المتوقع",
+      "remediated": "تم الإصلاح",
+      "status": {
+        "pass": "ناجح",
+        "fail": "فاشل",
+        "warning": "تحذير",
+        "error": "خطأ",
+        "skipped": "تخطي"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "نتيجة السياسة",
+      "policyResultsPlural": "نتائج السياسات",
+      "noResults": "لا توجد فحوصات",
+      "configurePolicies": "تكوين السياسات ←"
+    }
+  },
+  "scripts": {
+    "typeSystem": "النظام",
+    "typeUser": "المستخدم",
+    "systemBadge": "النظام",
+    "userBadge": "مخصص"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

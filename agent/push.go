@@ -34,10 +34,11 @@ type pushResponse struct {
 	Status        string `json:"status"`
 	LatestVersion string `json:"latestVersion,omitempty"` // piggybacked version info
 	Config        *struct {
-		CheckIntervalSeconds    int `json:"checkIntervalSeconds"`
-		PushIntervalSeconds     int `json:"pushIntervalSeconds"`
-		ScanIntervalSeconds     int `json:"scanIntervalSeconds"`
-		TaskRetrieveDelaySeconds int `json:"taskRetrieveDelaySeconds"`
+		CheckIntervalSeconds     int  `json:"checkIntervalSeconds"`
+		PushIntervalSeconds      int  `json:"pushIntervalSeconds"`
+		ScanIntervalSeconds      int  `json:"scanIntervalSeconds"`
+		TaskRetrieveDelaySeconds int  `json:"taskRetrieveDelaySeconds"`
+		RemediationEnabled       *bool `json:"remediationEnabled,omitempty"`
 	} `json:"config,omitempty"`
 	Commands    []AgentCommand `json:"commands,omitempty"`
 	NextPollIn  int            `json:"nextPollIn,omitempty"` // seconds
@@ -129,6 +130,19 @@ func push(cfg *Config) {
 			cfg.TaskRetrieveDelaySec = result.Config.TaskRetrieveDelaySeconds
 			_ = saveConfig(cfg)
 			log.Printf("Task retrieve delay updated to %ds", cfg.TaskRetrieveDelaySec)
+		}
+		// Update remediation flag when admin toggles it per device.
+		if result.Config != nil && result.Config.RemediationEnabled != nil {
+			enabled := *result.Config.RemediationEnabled
+			if enabled != cfg.RemediationEnabled {
+				cfg.RemediationEnabled = enabled
+				_ = saveConfig(cfg)
+				log.Printf("Compliance remediation enabled: %v", enabled)
+			}
+			// Sync live dispatcher so in-flight compliance checks use the new flag immediately.
+			if dispatcher != nil {
+				dispatcher.SetRemediationEnabled(enabled)
+			}
 		}
 
 		log.Printf("Push OK (acks sent: %d, commands received: %d)", len(acks), len(result.Commands))

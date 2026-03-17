@@ -409,5 +409,146 @@
       "taskRetrieveDelay": "タスク取得遅延",
       "taskRetrieveDelayDesc": "コマンドチャンネルが利用できない場合、エージェントが保留中のタスクをポーリングする頻度（秒、最小1）。"
     }
+  },
+  "compliance": {
+    "title": "コンプライアンス",
+    "newPolicy": "新しいポリシー",
+    "noResults": "コンプライアンスチェックはまだ実行されていません",
+    "configurePolicies": "ポリシーを設定 →",
+    "score": "スコア",
+    "passed": "合格",
+    "failed": "不合格",
+    "warnings": "警告",
+    "runCheck": "チェック実行",
+    "refresh": "更新",
+    "triggerSuccess": "コンプライアンスチェックを開始しました",
+    "triggerFail": "チェックの開始に失敗しました",
+    "policyCard": {
+      "rules": "ルール",
+      "lastChecked": "最終チェック",
+      "neverChecked": "未チェック",
+      "checkNow": "今すぐチェック",
+      "edit": "編集",
+      "delete": "削除",
+      "deleteConfirm": "このポリシーを削除しますか？"
+    },
+    "form": {
+      "titleNew": "新しいポリシー",
+      "titleEdit": "ポリシーを編集",
+      "name": "ポリシー名",
+      "description": "説明",
+      "framework": "フレームワーク",
+      "targetPlatform": "対象プラットフォーム",
+      "rules": "ルール",
+      "addRule": "ルールを追加",
+      "loadPreset": "プリセットを読み込む",
+      "noRules": "ルールなし。追加またはプリセットを読み込んでください。",
+      "save": "ポリシーを保存",
+      "cancel": "キャンセル"
+    },
+    "ruleEditor": {
+      "ruleName": "ルール名",
+      "category": "カテゴリ",
+      "checkType": "チェックタイプ",
+      "targetPlatform": "プラットフォーム",
+      "target": "ターゲット",
+      "operator": "演算子",
+      "expected": "期待値",
+      "severity": "重大度",
+      "autoRemediate": "修正スクリプト",
+      "remove": "削除"
+    },
+    "checkTypes": {
+      "registry": "レジストリ",
+      "file": "ファイル",
+      "command": "コマンド",
+      "service": "サービス",
+      "process": "プロセス",
+      "event_log": "イベントログ",
+      "policy": "ポリシー"
+    },
+    "operators": {
+      "eq": "等しい",
+      "neq": "等しくない",
+      "gt": "より大きい",
+      "lt": "より小さい",
+      "contains": "含む",
+      "not_contains": "含まない",
+      "exists": "存在する",
+      "not_exists": "存在しない",
+      "regex": "正規表現"
+    },
+    "severities": {
+      "critical": "致命的",
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+      "info": "情報"
+    },
+    "frameworks": {
+      "custom": "カスタム",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "GDPR"
+    },
+    "platforms": {
+      "all": "すべてのプラットフォーム",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "プリセットを読み込む",
+      "windowsBaseline": "Windowsセキュリティベースライン",
+      "linuxBaseline": "Linuxセキュリティベースライン",
+      "cisWindows": "CIS Windows レベル1",
+      "rules": "ルール"
+    },
+    "results": {
+      "actual": "実際の値",
+      "expected": "期待値",
+      "remediated": "修正済み",
+      "status": {
+        "pass": "合格",
+        "fail": "不合格",
+        "warning": "警告",
+        "error": "エラー",
+        "skipped": "スキップ"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "ポリシー結果",
+      "policyResultsPlural": "ポリシー結果",
+      "noResults": "チェックなし",
+      "configurePolicies": "ポリシーを設定 →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "システム",
+    "typeUser": "ユーザー",
+    "systemBadge": "システム",
+    "userBadge": "カスタム"
+  },
+  "deviceDetail": {
+    "tabSettings": "Settings",
+    "settings": {
+      "identity": "Identity",
+      "displayName": "Display name",
+      "description": "Description",
+      "monitoring": "Monitoring",
+      "overrideGroupSettings": "Override group settings",
+      "overrideGroupSettingsDesc": "Apply per-device values instead of group/global defaults",
+      "pushInterval": "Push interval (seconds)",
+      "maxMissedPushes": "Max missed pushes before offline",
+      "compliance": "Compliance",
+      "autoRemediation": "Auto-remediation",
+      "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
+      "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
+      "saveSettings": "Save settings"
+    }
   }
 }

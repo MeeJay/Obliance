@@ -921,5 +921,146 @@
     "suspendSuccess": "Appareil suspendu",
     "unsuspendSuccess": "Appareil réactivé",
     "deleteSuccess": "Appareil supprimé"
+  },
+  "compliance": {
+    "title": "Conformité",
+    "newPolicy": "Nouvelle politique",
+    "noResults": "Aucune vérification de conformité effectuée",
+    "configurePolicies": "Configurer les politiques →",
+    "score": "Score",
+    "passed": "Réussis",
+    "failed": "Échoués",
+    "warnings": "Avertissements",
+    "runCheck": "Lancer la vérification",
+    "refresh": "Actualiser",
+    "triggerSuccess": "Vérification de conformité déclenchée",
+    "triggerFail": "Échec du déclenchement de la vérification",
+    "policyCard": {
+      "rules": "règles",
+      "lastChecked": "Dernière vérification",
+      "neverChecked": "Jamais vérifié",
+      "checkNow": "Vérifier maintenant",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer cette politique ?"
+    },
+    "form": {
+      "titleNew": "Nouvelle politique",
+      "titleEdit": "Modifier la politique",
+      "name": "Nom de la politique",
+      "description": "Description",
+      "framework": "Référentiel",
+      "targetPlatform": "Plateforme cible",
+      "rules": "Règles",
+      "addRule": "Ajouter une règle",
+      "loadPreset": "Charger un modèle",
+      "noRules": "Aucune règle. Ajoutez-en une ou chargez un modèle.",
+      "save": "Enregistrer la politique",
+      "cancel": "Annuler"
+    },
+    "ruleEditor": {
+      "ruleName": "Nom de la règle",
+      "category": "Catégorie",
+      "checkType": "Type de contrôle",
+      "targetPlatform": "Plateforme",
+      "target": "Cible",
+      "operator": "Opérateur",
+      "expected": "Valeur attendue",
+      "severity": "Sévérité",
+      "autoRemediate": "Script de remédiation",
+      "remove": "Supprimer"
+    },
+    "checkTypes": {
+      "registry": "Registre",
+      "file": "Fichier",
+      "command": "Commande",
+      "service": "Service",
+      "process": "Processus",
+      "event_log": "Journal d'événements",
+      "policy": "Stratégie"
+    },
+    "operators": {
+      "eq": "Égal à",
+      "neq": "Différent de",
+      "gt": "Supérieur à",
+      "lt": "Inférieur à",
+      "contains": "Contient",
+      "not_contains": "Ne contient pas",
+      "exists": "Existe",
+      "not_exists": "N'existe pas",
+      "regex": "Regex"
+    },
+    "severities": {
+      "critical": "Critique",
+      "high": "Élevé",
+      "medium": "Moyen",
+      "low": "Faible",
+      "info": "Info"
+    },
+    "frameworks": {
+      "custom": "Personnalisé",
+      "cis": "CIS",
+      "soc2": "SOC 2",
+      "pci_dss": "PCI DSS",
+      "hipaa": "HIPAA",
+      "iso27001": "ISO 27001",
+      "nist": "NIST",
+      "gdpr": "RGPD"
+    },
+    "platforms": {
+      "all": "Toutes les plateformes",
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "presets": {
+      "load": "Charger un modèle",
+      "windowsBaseline": "Référence de sécurité Windows",
+      "linuxBaseline": "Référence de sécurité Linux",
+      "cisWindows": "CIS Windows Niveau 1",
+      "rules": "règles"
+    },
+    "results": {
+      "actual": "actuel",
+      "expected": "attendu",
+      "remediated": "remédié",
+      "status": {
+        "pass": "réussi",
+        "fail": "échoué",
+        "warning": "avertissement",
+        "error": "erreur",
+        "skipped": "ignoré"
+      }
+    },
+    "deviceTab": {
+      "policyResults": "résultat de politique",
+      "policyResultsPlural": "résultats de politiques",
+      "noResults": "Aucune vérification effectuée",
+      "configurePolicies": "Configurer les politiques →"
+    }
+  },
+  "scripts": {
+    "typeSystem": "Système",
+    "typeUser": "Utilisateur",
+    "systemBadge": "Système",
+    "userBadge": "Personnalisé"
+  },
+  "deviceDetail": {
+    "tabSettings": "Paramètres",
+    "settings": {
+      "identity": "Identité",
+      "displayName": "Nom d'affichage",
+      "description": "Description",
+      "monitoring": "Surveillance",
+      "overrideGroupSettings": "Remplacer les paramètres du groupe",
+      "overrideGroupSettingsDesc": "Appliquer des valeurs par appareil au lieu des valeurs du groupe/global",
+      "pushInterval": "Intervalle de push (secondes)",
+      "maxMissedPushes": "Pushs manqués avant hors ligne",
+      "compliance": "Conformité",
+      "autoRemediation": "Remédiation automatique",
+      "autoRemediationDesc": "Permettre aux politiques de conformité d'exécuter automatiquement des scripts de correction sur cet appareil. Désactivez si cet appareil doit rester dans un état spécifique.",
+      "autoRemediationDisabledWarning": "La remédiation automatique est désactivée. Les règles en échec seront signalées mais aucun script de correction ne sera exécuté.",
+      "saveSettings": "Enregistrer les paramètres"
+    }
   }
 }

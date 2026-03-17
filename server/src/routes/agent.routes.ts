@@ -16,6 +16,7 @@ import {
 } from '../controllers/agent.controller';
 import { inventoryService } from '../services/inventory.service';
 import { updateService } from '../services/update.service';
+import { complianceService } from '../services/compliance.service';
 import { SocketEvents } from '@obliance/shared';
 import { getIO } from '../socket';
 
@@ -292,6 +293,50 @@ router.post('/services', agentAuth, async (req, res, next) => {
     });
 
     res.json({ ok: true, count: services.length });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/compliance
+// Called by the agent after evaluating compliance rules for a policy.
+// Stores rule-level results in compliance_results and emits a socket event.
+router.post('/compliance', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { policyId, results, score } = req.body as {
+      policyId?: number;
+      results: any[];
+      score: number;
+    };
+
+    // Ignore periodic scans without a real policy
+    if (!policyId) {
+      return res.json({ ok: true, stored: false, reason: 'no_policy_id' });
+    }
+    if (!Array.isArray(results)) {
+      return res.status(400).json({ error: 'results must be an array' });
+    }
+
+    const stored = await complianceService.storeResults(
+      device.id, tenantId, Number(policyId), results, score,
+    );
+
+    // Emit real-time update
+    try {
+      getIO().to(`tenant:${tenantId}`).emit(SocketEvents.COMPLIANCE_RESULT, stored);
+    } catch {}
+
+    res.json({ ok: true, stored: true, id: stored.id });
   } catch (err) { next(err); }
 });
 

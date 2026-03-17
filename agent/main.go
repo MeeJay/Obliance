@@ -47,8 +47,9 @@ type Config struct {
 	APIKey                  string `json:"apiKey"`
 	DeviceUUID              string `json:"deviceUuid"`
 	CheckIntervalSeconds    int    `json:"checkIntervalSeconds"`
-	ScanIntervalSeconds     int    `json:"scanIntervalSeconds,omitempty"`     // 0 = disabled
+	ScanIntervalSeconds     int    `json:"scanIntervalSeconds,omitempty"`      // 0 = disabled
 	TaskRetrieveDelaySec    int    `json:"taskRetrieveDelaySeconds,omitempty"` // command-poll interval (default 10)
+	RemediationEnabled      bool   `json:"remediationEnabled"`                // false = skip auto-remediation
 	AgentVersion            string `json:"agentVersion"`
 	BackoffUntil            int64  `json:"_backoffUntil,omitempty"`
 }
@@ -365,7 +366,7 @@ func mainLoop(cfg *Config) {
 
 	// Initialise the command dispatcher used by push() to dispatch commands
 	// received in push responses and to accumulate acks for the next push.
-	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL)
+	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL, cfg.RemediationEnabled)
 
 	// Start the persistent command channel — keeps a long-lived WebSocket open
 	// so the server can push commands instantly (e.g. open_remote_tunnel for VNC)

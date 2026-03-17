@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,20 +31,29 @@ type CommandAck struct {
 // CommandDispatcher receives AgentCommands, executes them in background
 // goroutines, and accumulates CommandAcks for the next push cycle.
 type CommandDispatcher struct {
-	deviceUUID  string
-	apiKey      string
-	serverURL   string
-	pendingAcks []CommandAck
-	mu          sync.Mutex
+	deviceUUID           string
+	apiKey               string
+	serverURL            string
+	remediationEnabled   bool
+	pendingAcks          []CommandAck
+	mu                   sync.Mutex
 }
 
 // NewCommandDispatcher creates a CommandDispatcher bound to the given device.
-func NewCommandDispatcher(deviceUUID, apiKey, serverURL string) *CommandDispatcher {
+func NewCommandDispatcher(deviceUUID, apiKey, serverURL string, remediationEnabled bool) *CommandDispatcher {
 	return &CommandDispatcher{
-		deviceUUID: deviceUUID,
-		apiKey:     apiKey,
-		serverURL:  serverURL,
+		deviceUUID:         deviceUUID,
+		apiKey:             apiKey,
+		serverURL:          serverURL,
+		remediationEnabled: remediationEnabled,
 	}
+}
+
+// SetRemediationEnabled updates the remediation flag (called on each push response).
+func (d *CommandDispatcher) SetRemediationEnabled(enabled bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.remediationEnabled = enabled
 }
 
 // GetAndClearAcks returns all pending acks and resets the internal list.
@@ -268,17 +279,491 @@ func (d *CommandDispatcher) handleInstallUpdate(cmd AgentCommand) (interface{}, 
 	return map[string]string{"updateUid": uid, "message": "installed successfully"}, nil
 }
 
-func (d *CommandDispatcher) handleCheckCompliance(_ AgentCommand) (interface{}, error) {
-	// Collect basic compliance indicators available without additional tooling.
-	results := map[string]interface{}{
-		"platform": runtime.GOOS,
+// ── Compliance Rule Evaluation Engine ────────────────────────────────────────
+
+// ComplianceRule mirrors the shared ComplianceRule TypeScript type.
+type ComplianceRule struct {
+	ID                    string      `json:"id"`
+	Name                  string      `json:"name"`
+	Category              string      `json:"category"`
+	CheckType             string      `json:"checkType"` // registry|file|command|service|event_log|process|policy
+	TargetPlatform        string      `json:"targetPlatform"` // windows|macos|linux|all
+	Target                string      `json:"target"`
+	Expected              interface{} `json:"expected"`
+	Operator              string      `json:"operator"` // eq|neq|gt|lt|contains|not_contains|exists|not_exists|regex
+	Severity              string      `json:"severity"`
+	AutoRemediateScriptId interface{} `json:"autoRemediateScriptId"`
+}
+
+// ComplianceRuleResult mirrors the shared ComplianceRuleResult TypeScript type.
+type ComplianceRuleResult struct {
+	RuleID               string      `json:"ruleId"`
+	Status               string      `json:"status"` // pass|fail|warning|error|skipped|unknown
+	ActualValue          interface{} `json:"actualValue,omitempty"`
+	CheckedAt            string      `json:"checkedAt"`
+	RemediationTriggered bool        `json:"remediationTriggered"`
+}
+
+// handleCheckCompliance evaluates each rule in the policy payload and posts
+// results to the server via POST /api/agent/compliance.
+func (d *CommandDispatcher) handleCheckCompliance(cmd AgentCommand) (interface{}, error) {
+	// Parse rules from payload
+	var rules []ComplianceRule
+	if cmd.Payload != nil {
+		if rulesRaw, ok := cmd.Payload["rules"]; ok {
+			rawBytes, err := json.Marshal(rulesRaw)
+			if err == nil {
+				_ = json.Unmarshal(rawBytes, &rules)
+			}
+		}
 	}
 
-	// Firewall status (best-effort, platform-specific).
-	results["firewall"] = checkFirewallStatus()
+	policyId := interface{}(nil)
+	if cmd.Payload != nil {
+		policyId = cmd.Payload["policyId"]
+	}
 
-	return results, nil
+	// Read remediation flag from dispatcher (set from last push response).
+	d.mu.Lock()
+	remediationEnabled := d.remediationEnabled
+	d.mu.Unlock()
+
+	// Evaluate each rule
+	results := make([]ComplianceRuleResult, 0, len(rules))
+	for _, rule := range rules {
+		r := evaluateComplianceRule(rule)
+		// Auto-remediate failing rules when enabled and a script is configured.
+		if remediationEnabled && r.Status == "fail" && rule.AutoRemediateScriptId != nil {
+			scriptId := fmt.Sprintf("%v", rule.AutoRemediateScriptId)
+			if scriptId != "" && scriptId != "<nil>" && scriptId != "0" {
+				log.Printf("Compliance: auto-remediating rule %s with script %s", rule.ID, scriptId)
+				if err := d.runRemediationScript(scriptId); err != nil {
+					log.Printf("Compliance: remediation script %s failed: %v", scriptId, err)
+				} else {
+					r.RemediationTriggered = true
+				}
+			}
+		}
+		results = append(results, r)
+	}
+
+	// If no rules, fall back to legacy firewall check
+	if len(rules) == 0 {
+		fw := checkFirewallStatus()
+		fwStatus := "unknown"
+		if strings.Contains(fw, "active") || strings.Contains(fw, "profiles_enabled:3") || strings.Contains(fw, "State is enabled") {
+			fwStatus = "pass"
+		} else if fw != "unknown" {
+			fwStatus = "fail"
+		}
+		results = append(results, ComplianceRuleResult{
+			RuleID:      "firewall",
+			Status:      fwStatus,
+			ActualValue: fw,
+			CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+
+	// Compute score
+	passed := 0
+	evaluated := 0
+	for _, r := range results {
+		if r.Status == "skipped" || r.Status == "unknown" {
+			continue
+		}
+		evaluated++
+		if r.Status == "pass" {
+			passed++
+		}
+	}
+	score := 0.0
+	if evaluated > 0 {
+		score = float64(passed) / float64(evaluated) * 100.0
+	}
+
+	// Post results to server asynchronously
+	go d.postComplianceResults(policyId, results, score)
+
+	return map[string]interface{}{
+		"policyId": policyId,
+		"score":    score,
+		"passed":   passed,
+		"failed":   evaluated - passed,
+		"total":    len(results),
+		"platform": runtime.GOOS,
+	}, nil
 }
+
+// evaluateComplianceRule evaluates a single rule and returns its result.
+func evaluateComplianceRule(rule ComplianceRule) ComplianceRuleResult {
+	now := time.Now().UTC().Format(time.RFC3339)
+	r := ComplianceRuleResult{RuleID: rule.ID, CheckedAt: now}
+
+	// Skip rules for other platforms
+	if rule.TargetPlatform != "all" && rule.TargetPlatform != runtime.GOOS &&
+		!(rule.TargetPlatform == "macos" && runtime.GOOS == "darwin") {
+		r.Status = "skipped"
+		return r
+	}
+	// darwin is reported as "macos" externally, normalise
+	gos := runtime.GOOS
+	if gos == "darwin" {
+		gos = "macos"
+	}
+	if rule.TargetPlatform == "macos" && gos != "macos" {
+		r.Status = "skipped"
+		return r
+	}
+
+	switch rule.CheckType {
+	case "registry":
+		r = evalRegistry(rule, r)
+	case "file":
+		r = evalFile(rule, r)
+	case "command":
+		r = evalCommand(rule, r)
+	case "service":
+		r = evalService(rule, r)
+	case "process":
+		r = evalProcess(rule, r)
+	case "event_log":
+		r = evalEventLog(rule, r)
+	default:
+		r.Status = "unknown"
+	}
+	return r
+}
+
+// ── Registry (Windows only) ───────────────────────────────────────────────────
+
+func evalRegistry(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	if runtime.GOOS != "windows" {
+		r.Status = "skipped"
+		return r
+	}
+	// target format: "HKLM\KEY\PATH|ValueName"
+	parts := strings.SplitN(rule.Target, "|", 2)
+	if len(parts) != 2 {
+		r.Status = "error"
+		r.ActualValue = "invalid target format — expected HKLM\\KEY\\PATH|ValueName"
+		return r
+	}
+	keyPath, valueName := parts[0], parts[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "reg", "query", keyPath, "/v", valueName).Output()
+	if err != nil {
+		if rule.Operator == "not_exists" {
+			r.Status = "pass"
+			r.ActualValue = nil
+		} else if rule.Operator == "exists" {
+			r.Status = "fail"
+			r.ActualValue = nil
+		} else {
+			r.Status = "fail"
+			r.ActualValue = nil
+		}
+		return r
+	}
+
+	actual := parseRegValue(string(out))
+	r.ActualValue = actual
+	if rule.Operator == "exists" {
+		r.Status = "pass"
+		return r
+	}
+	if rule.Operator == "not_exists" {
+		r.Status = "fail"
+		return r
+	}
+	r.Status = evalOperator(actual, fmt.Sprintf("%v", rule.Expected), rule.Operator)
+	return r
+}
+
+// parseRegValue extracts the data value from `reg query` output.
+// Example line: "    SMB1    REG_DWORD    0x0"
+func parseRegValue(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "HKEY") || strings.HasPrefix(line, "Error") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 3 {
+			val := fields[len(fields)-1]
+			// Convert hex (REG_DWORD) to decimal
+			if strings.HasPrefix(strings.ToLower(val), "0x") {
+				if n, err := strconv.ParseInt(val[2:], 16, 64); err == nil {
+					return strconv.FormatInt(n, 10)
+				}
+			}
+			return val
+		}
+	}
+	return ""
+}
+
+// ── File ─────────────────────────────────────────────────────────────────────
+
+func evalFile(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	_, statErr := os.Stat(rule.Target)
+	exists := statErr == nil
+
+	if rule.Operator == "exists" {
+		r.Status = boolStatus(exists)
+		return r
+	}
+	if rule.Operator == "not_exists" {
+		r.Status = boolStatus(!exists)
+		return r
+	}
+
+	if !exists {
+		r.Status = "fail"
+		r.ActualValue = "file not found"
+		return r
+	}
+
+	content, err := os.ReadFile(rule.Target)
+	if err != nil {
+		r.Status = "error"
+		r.ActualValue = err.Error()
+		return r
+	}
+
+	actual := string(content)
+	expected := fmt.Sprintf("%v", rule.Expected)
+	r.Status = evalOperator(actual, expected, rule.Operator)
+	// Don't expose full file content — just show relevant snippet
+	if rule.Operator == "contains" || rule.Operator == "not_contains" {
+		if r.Status == "fail" {
+			r.ActualValue = "pattern not found"
+		} else {
+			r.ActualValue = "pattern found"
+		}
+	}
+	return r
+}
+
+// ── Command ──────────────────────────────────────────────────────────────────
+
+func evalCommand(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", rule.Target)
+	} else {
+		cmd = exec.CommandContext(ctx, "sh", "-c", rule.Target)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		// Exit code != 0 is not necessarily an error for our purposes
+		// If we still got output, try to evaluate it
+		if len(out) == 0 {
+			r.Status = "error"
+			r.ActualValue = err.Error()
+			return r
+		}
+	}
+
+	actual := strings.TrimSpace(string(out))
+	expected := fmt.Sprintf("%v", rule.Expected)
+	r.ActualValue = actual
+	r.Status = evalOperator(actual, expected, rule.Operator)
+	return r
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
+func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	var actualStatus string
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
+			"-Command",
+			fmt.Sprintf(`(Get-Service -Name '%s' -ErrorAction SilentlyContinue).Status`, rule.Target),
+		).Output()
+		if err != nil || strings.TrimSpace(string(out)) == "" {
+			actualStatus = "not_found"
+		} else {
+			actualStatus = strings.TrimSpace(string(out))
+		}
+	case "linux":
+		out, _ := exec.CommandContext(ctx, "systemctl", "is-active", rule.Target).Output()
+		actualStatus = strings.TrimSpace(string(out))
+	default: // macos / darwin
+		out, err := exec.CommandContext(ctx, "launchctl", "print", rule.Target).Output()
+		if err != nil {
+			actualStatus = "not_found"
+		} else if strings.Contains(string(out), "state = running") {
+			actualStatus = "running"
+		} else {
+			actualStatus = "stopped"
+		}
+	}
+
+	r.ActualValue = actualStatus
+	expected := strings.ToLower(fmt.Sprintf("%v", rule.Expected))
+	actual := strings.ToLower(actualStatus)
+	// Normalise Windows service status
+	if actual == "running" || actual == "4" {
+		actual = "running"
+	} else if actual == "stopped" || actual == "1" {
+		actual = "stopped"
+	}
+	r.Status = evalOperator(actual, expected, rule.Operator)
+	return r
+}
+
+// ── Process ───────────────────────────────────────────────────────────────────
+
+func evalProcess(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var running bool
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
+			"-Command",
+			fmt.Sprintf(`(Get-Process -Name '%s' -ErrorAction SilentlyContinue | Measure-Object).Count`, rule.Target),
+		).Output()
+		if err == nil {
+			count := strings.TrimSpace(string(out))
+			n, _ := strconv.Atoi(count)
+			running = n > 0
+		}
+	default:
+		out, err := exec.CommandContext(ctx, "pgrep", "-x", rule.Target).Output()
+		running = err == nil && len(strings.TrimSpace(string(out))) > 0
+	}
+
+	r.ActualValue = running
+	expected := strings.ToLower(fmt.Sprintf("%v", rule.Expected))
+	// expected can be "true"/"running" for expecting the process to be running
+	expectRunning := expected == "true" || expected == "running"
+	if (running && expectRunning) || (!running && !expectRunning) {
+		r.Status = "pass"
+	} else {
+		r.Status = "fail"
+	}
+	return r
+}
+
+// ── Event Log (Windows only) ──────────────────────────────────────────────────
+
+func evalEventLog(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResult {
+	if runtime.GOOS != "windows" {
+		r.Status = "skipped"
+		return r
+	}
+	// target format: "LogName|EventID" or "LogName|EventID|hours"
+	parts := strings.SplitN(rule.Target, "|", 3)
+	if len(parts) < 2 {
+		r.Status = "error"
+		r.ActualValue = "invalid target — expected LogName|EventID[|hours]"
+		return r
+	}
+	logName, eventID := parts[0], parts[1]
+	hours := "24"
+	if len(parts) == 3 {
+		hours = parts[2]
+	}
+
+	ps := fmt.Sprintf(
+		`(Get-WinEvent -FilterHashtable @{LogName='%s'; Id=%s; StartTime=(Get-Date).AddHours(-%s)} -ErrorAction SilentlyContinue | Measure-Object).Count`,
+		logName, eventID, hours,
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps).Output()
+	if err != nil {
+		r.Status = "error"
+		r.ActualValue = err.Error()
+		return r
+	}
+	actual := strings.TrimSpace(string(out))
+	r.ActualValue = actual
+	r.Status = evalOperator(actual, fmt.Sprintf("%v", rule.Expected), rule.Operator)
+	return r
+}
+
+// ── Operator evaluation ───────────────────────────────────────────────────────
+
+func evalOperator(actual, expected, operator string) string {
+	switch operator {
+	case "eq":
+		if strings.EqualFold(strings.TrimSpace(actual), strings.TrimSpace(expected)) {
+			return "pass"
+		}
+		return "fail"
+	case "neq":
+		if !strings.EqualFold(strings.TrimSpace(actual), strings.TrimSpace(expected)) {
+			return "pass"
+		}
+		return "fail"
+	case "contains":
+		if strings.Contains(strings.ToLower(actual), strings.ToLower(expected)) {
+			return "pass"
+		}
+		return "fail"
+	case "not_contains":
+		if !strings.Contains(strings.ToLower(actual), strings.ToLower(expected)) {
+			return "pass"
+		}
+		return "fail"
+	case "exists":
+		return "pass"
+	case "not_exists":
+		return "fail"
+	case "gt":
+		a, err1 := strconv.ParseFloat(strings.TrimSpace(actual), 64)
+		e, err2 := strconv.ParseFloat(strings.TrimSpace(expected), 64)
+		if err1 != nil || err2 != nil {
+			return "error"
+		}
+		if a > e {
+			return "pass"
+		}
+		return "fail"
+	case "lt":
+		a, err1 := strconv.ParseFloat(strings.TrimSpace(actual), 64)
+		e, err2 := strconv.ParseFloat(strings.TrimSpace(expected), 64)
+		if err1 != nil || err2 != nil {
+			return "error"
+		}
+		if a < e {
+			return "pass"
+		}
+		return "fail"
+	case "regex":
+		re, err := regexp.Compile(expected)
+		if err != nil {
+			return "error"
+		}
+		if re.MatchString(actual) {
+			return "pass"
+		}
+		return "fail"
+	}
+	return "unknown"
+}
+
+func boolStatus(b bool) string {
+	if b {
+		return "pass"
+	}
+	return "fail"
+}
+
+// ── checkFirewallStatus ───────────────────────────────────────────────────────
 
 // checkFirewallStatus returns a simple status string without failing.
 func checkFirewallStatus() string {
@@ -313,6 +798,77 @@ func checkFirewallStatus() string {
 	default:
 		return "unknown"
 	}
+}
+
+// postComplianceResults sends evaluated rule results to the server.
+func (d *CommandDispatcher) postComplianceResults(policyId interface{}, results []ComplianceRuleResult, score float64) {
+	payload := map[string]interface{}{
+		"policyId": policyId,
+		"results":  results,
+		"score":    score,
+		"platform": runtime.GOOS,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("postComplianceResults: marshal error: %v", err)
+		return
+	}
+	req, err := http.NewRequest("POST", d.serverURL+"/api/agent/compliance", bytes.NewReader(data))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", d.apiKey)
+	req.Header.Set("X-Device-UUID", d.deviceUUID)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("postComplianceResults: HTTP error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		log.Printf("postComplianceResults: server returned %d", resp.StatusCode)
+	}
+}
+
+// runRemediationScript fetches the script by ID from the server and executes it.
+func (d *CommandDispatcher) runRemediationScript(scriptId string) error {
+	url := fmt.Sprintf("%s/api/scripts/%s", d.serverURL, scriptId)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("X-API-Key", d.apiKey)
+	req.Header.Set("X-Device-UUID", d.deviceUUID)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("fetch script: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("fetch script: server returned %d", resp.StatusCode)
+	}
+
+	var scriptData struct {
+		Runtime        string `json:"runtime"`
+		Content        string `json:"content"`
+		TimeoutSeconds int    `json:"timeoutSeconds"`
+		RunAs          string `json:"runAs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&scriptData); err != nil {
+		return fmt.Errorf("decode script: %w", err)
+	}
+
+	_, err = ExecuteScript(ScriptCommand{
+		ID:             "remediation-" + scriptId,
+		Runtime:        scriptData.Runtime,
+		Content:        scriptData.Content,
+		TimeoutSeconds: scriptData.TimeoutSeconds,
+		RunAs:          scriptData.RunAs,
+	})
+	return err
 }
 
 func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {

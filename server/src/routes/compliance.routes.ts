@@ -95,6 +95,13 @@ router.get('/overview', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /compliance/presets — built-in preset policies (static, no DB)
+router.get('/presets', async (_req, res, next) => {
+  try {
+    res.json({ data: complianceService.getPresets() });
+  } catch (err) { next(err); }
+});
+
 router.get('/templates', async (req, res, next) => {
   try {
     const templates = await complianceService.getTemplates(req.tenantId!);

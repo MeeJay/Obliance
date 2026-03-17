@@ -7,9 +7,9 @@ const router = Router();
 // GET /api/scripts
 router.get('/', async (req, res, next) => {
   try {
-    const { platform, categoryId, search } = req.query as any;
+    const { platform, categoryId, search, scriptType } = req.query as any;
     const scripts = await scriptService.getScripts(req.tenantId!, {
-      platform, categoryId: categoryId ? parseInt(categoryId) : undefined, search,
+      platform, categoryId: categoryId ? parseInt(categoryId) : undefined, search, scriptType,
     });
     res.json(scripts);
   } catch (err) { next(err); }
@@ -45,7 +45,24 @@ router.post('/', async (req, res, next) => {
 // PUT /api/scripts/:id
 router.put('/:id', async (req, res, next) => {
   try {
-    const script = await scriptService.updateScript(parseInt(req.params.id), req.tenantId!, {
+    const scriptId = parseInt(req.params.id);
+    // Peek at the script to check type
+    const existing = await scriptService.getScriptById(scriptId, req.tenantId!);
+    if (!existing) return res.status(404).json({ error: 'Script not found' });
+
+    if (existing.scriptType === 'system') {
+      // Only admins can edit system scripts
+      if (req.session.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can edit system scripts' });
+      }
+      const script = await scriptService.updateSystemScript(scriptId, {
+        ...req.body, updatedBy: req.session.userId,
+      });
+      if (!script) return res.status(404).json({ error: 'Script not found' });
+      return res.json(script);
+    }
+
+    const script = await scriptService.updateScript(scriptId, req.tenantId!, {
       ...req.body, updatedBy: req.session.userId,
     });
     if (!script) return res.status(404).json({ error: 'Script not found' });

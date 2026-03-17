@@ -139,6 +139,7 @@ export interface Device {
   pushIntervalSeconds: number | null;
   overrideGroupSettings: boolean;
   maxMissedPushes: number;
+  complianceRemediationEnabled: boolean;
   // Metadata
   tags: string[];
   customFields: Record<string, string>;
@@ -314,6 +315,7 @@ export interface AgentConfig {
   displayConfig: DeviceDisplayConfig;
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
+  remediationEnabled?: boolean; // false = skip auto-remediation scripts on this device
 }
 
 export interface AgentCommand {
@@ -367,6 +369,7 @@ export interface Script {
   timeoutSeconds: number;
   expectedExitCode: number;
   runAs: 'system' | 'user';
+  scriptType: 'system' | 'user'; // 'system' = Obliance built-in, 'user' = tenant-created
   isBuiltin: boolean;
   createdBy: number | null;
   updatedBy: number | null;
@@ -553,17 +556,28 @@ export type ComplianceFramework = 'CIS' | 'NIST' | 'ISO27001' | 'PCI_DSS' | 'HIP
 export type ComplianceStatus = 'pass' | 'fail' | 'warning' | 'unknown' | 'skipped' | 'error';
 export type ComplianceCheckType = 'registry' | 'file' | 'command' | 'service' | 'event_log' | 'process' | 'policy';
 
+export type ComplianceOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'not_contains' | 'exists' | 'not_exists' | 'regex';
+
 export interface ComplianceRule {
   id: string;
   name: string;
   category?: string;
   checkType: ComplianceCheckType;
   targetPlatform: ScriptPlatform;
-  target: string;
-  expected: any;
-  operator: string;
+  target: string;            // e.g. reg key path, file path, command, service name…
+  expected: any;             // expected value for comparison
+  operator: ComplianceOperator;
   severity: CheckSeverity;
   autoRemediateScriptId: number | null;
+}
+
+export interface CompliancePreset {
+  id: string;
+  name: string;
+  description: string;
+  framework: ComplianceFramework;
+  targetPlatform: ScriptPlatform;
+  rules: ComplianceRule[];
 }
 
 export interface CompliancePolicy {
