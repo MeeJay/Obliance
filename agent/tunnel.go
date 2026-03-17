@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ── Tunnel state ──────────────────────────────────────────────────────────────
@@ -82,6 +83,12 @@ func (r *tunnelRegistry) take(token string) (*tunnelState, bool) {
 		delete(r.tunnels, token)
 	}
 	return ts, ok
+}
+
+func (r *tunnelRegistry) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.tunnels)
 }
 
 // ── Command handlers ──────────────────────────────────────────────────────────
@@ -151,7 +158,25 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	ts := &tunnelState{ws: ws, vnc: svc, closeCh: closeCh}
 	activeTunnels.add(sessionToken, ts)
 
-	// 4. Service → WebSocket relay
+	// 4. Keepalive — send a WS ping every 25 s so intermediate proxies
+	// (cPanel/WHM Nginx, NPM…) never drop the tunnel on their idle timeout.
+	go func() {
+		ticker := time.NewTicker(25 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-closeCh:
+				return
+			case <-ticker.C:
+				if err := ws.WriteFrame(0x9, nil); err != nil {
+					ts.close()
+					return
+				}
+			}
+		}
+	}()
+
+	// 5. Service → WebSocket relay
 	go func() {
 		defer func() {
 			activeTunnels.remove(sessionToken)
@@ -250,6 +275,23 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken string)
 		})
 	}
 	activeTunnels.add(sessionToken, &tunnelState{ws: ws, closeCh: closeCh})
+
+	// Keepalive — same as VNC/RDP: prevent proxy idle-timeout from killing the tunnel.
+	go func() {
+		ticker := time.NewTicker(25 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-closeCh:
+				return
+			case <-ticker.C:
+				if err := ws.WriteFrame(0x9, nil); err != nil {
+					closeAll()
+					return
+				}
+			}
+		}
+	}()
 
 	// Shell PTY output → WebSocket (binary frames)
 	go func() {

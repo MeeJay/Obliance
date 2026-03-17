@@ -1,3 +1,4 @@
+import 'xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import { Terminal, X, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { RemoteSession } from '@obliance/shared';

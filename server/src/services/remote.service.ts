@@ -140,7 +140,15 @@ class RemoteService {
       }
     });
 
-    agentWs.on('close', () => { this.handleTunnelClose(sessionToken, 'agent_disconnect'); });
+    // Keepalive ping every 25 s — prevents intermediate proxies (Nginx/NPM)
+    // from dropping idle tunnel WS connections on their default 60 s timeout.
+    const agentKeepAlive = setInterval(() => {
+      try { (agentWs as any).ping(); } catch { clearInterval(agentKeepAlive); }
+    }, 25_000);
+    agentWs.on('close', () => {
+      clearInterval(agentKeepAlive);
+      this.handleTunnelClose(sessionToken, 'agent_disconnect');
+    });
 
     // If browser arrived first (unusual but possible), flush immediately
     if (tunnel.browser) {
@@ -183,15 +191,28 @@ class RemoteService {
     }
     tunnel.agentBuffer = [];
 
+    // Keepalive ping every 25 s on the browser WS — same reason as agent side.
+    const browserKeepAlive = setInterval(() => {
+      try { (browserWs as any).ping(); } catch { clearInterval(browserKeepAlive); }
+    }, 25_000);
+
     // Browser → agent relay (agent→browser is already wired in registerAgentTunnel)
     browserWs.on('message', (data: any) => { try { agentWs.send(data); } catch {} });
-    browserWs.on('close', () => { this.handleTunnelClose(sessionToken, 'browser_disconnect'); });
+    browserWs.on('close', () => {
+      clearInterval(browserKeepAlive);
+      this.handleTunnelClose(sessionToken, 'browser_disconnect');
+    });
   }
 
   private async handleTunnelClose(sessionToken: string, reason: string) {
     const tunnel = this.tunnels.get(sessionToken);
     if (!tunnel) return;
     this.tunnels.delete(sessionToken);
+
+    // Propagate close to the other side so neither end hangs as an orphan.
+    // The guard above ensures this is called only once per tunnel.
+    try { tunnel.browser?.close(); } catch {}
+    try { tunnel.agent?.close(); } catch {}
 
     const session = await db('remote_sessions').where({ session_token: sessionToken }).first();
     if (session && session.tenant_id) {

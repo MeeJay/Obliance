@@ -150,8 +150,9 @@ func push(cfg *Config) {
 			}
 		}
 
-		// Version piggybacked on push response — update without an extra round-trip.
-		if result.LatestVersion != "" {
+		// Version piggybacked on push response — skip update while a tunnel is
+		// active so we never restart the agent mid-session.
+		if result.LatestVersion != "" && activeTunnels.count() == 0 {
 			applyUpdateIfNewer(cfg, result.LatestVersion)
 		}
 
@@ -183,7 +184,7 @@ func push(cfg *Config) {
 				return
 			}
 		}
-		if result.LatestVersion != "" {
+		if result.LatestVersion != "" && activeTunnels.count() == 0 {
 			applyUpdateIfNewer(cfg, result.LatestVersion)
 		}
 

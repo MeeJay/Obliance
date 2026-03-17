@@ -86,9 +86,10 @@ func pollCommandsOnce(cfg *Config) int {
 		}
 	}
 
-	// Check for a newer agent version — allows auto-update without waiting for
-	// the next full push cycle (up to CheckIntervalSeconds, default 60 s).
-	if result.LatestVersion != "" {
+	// Check for a newer agent version, but only when no tunnel is active.
+	// Applying an update restarts the agent process, which would kill any
+	// in-flight SSH/VNC session — a jarring experience for the operator.
+	if result.LatestVersion != "" && activeTunnels.count() == 0 {
 		applyUpdateIfNewer(cfg, result.LatestVersion)
 	}
 
