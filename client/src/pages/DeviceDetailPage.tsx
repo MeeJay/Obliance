@@ -780,6 +780,10 @@ function RemoteTab({ device }: { device: Device }) {
   // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
   const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
+  // Track the session ID we are personally waiting for so a concurrent
+  // session started by another user doesn't overwrite our modal state.
+  const pendingSshId = useRef<string | null>(null);
+  const pendingVncId = useRef<string | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -810,11 +814,14 @@ function RemoteTab({ device }: { device: Device }) {
     const onTunnelReady = (session: RemoteSession) => {
       if (session.deviceId !== device.id) return;
       setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
-      // Populate the session in the already-open modal (modal opened immediately on click).
-      if (session.protocol === 'vnc' || session.protocol === 'rdp') {
+      // Only update the modal if this is the session WE started — not a
+      // concurrent session opened by another user on the same device.
+      if ((session.protocol === 'vnc' || session.protocol === 'rdp') && session.id === pendingVncId.current) {
         setVncSession(session);
-      } else if (session.protocol === 'ssh') {
+        pendingVncId.current = null;
+      } else if (session.protocol === 'ssh' && session.id === pendingSshId.current) {
         setSshSession(session);
+        pendingSshId.current = null;
       }
     };
 
@@ -840,6 +847,10 @@ function RemoteTab({ device }: { device: Device }) {
     setIsStarting(true);
     try {
       const session = await remoteApi.startSession(device.id, protocol);
+      // Record which session ID we're waiting for so REMOTE_TUNNEL_READY
+      // can ignore events from concurrent sessions opened by other users.
+      if (protocol === 'ssh') pendingSshId.current = session.id;
+      else pendingVncId.current = session.id;
       setSessions((prev) => [session, ...prev]);
     } catch {
       toast.error('Failed to start remote session');

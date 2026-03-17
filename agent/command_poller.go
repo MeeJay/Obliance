@@ -31,6 +31,10 @@ type commandPollResponse struct {
 // runCommandPoller loops forever, sleeping cfg.TaskRetrieveDelaySec between
 // polls.  It should be started in a goroutine at agent startup.
 func runCommandPoller(cfg *Config) {
+	// Poll immediately on start so queued commands are picked up without
+	// waiting up to TaskRetrieveDelaySec on agent restart.
+	pollCommandsOnce(cfg)
+
 	for {
 		delay := cfg.TaskRetrieveDelaySec
 		if delay <= 0 {

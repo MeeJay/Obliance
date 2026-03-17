@@ -39,15 +39,16 @@ class AgentHubService {
   private byDevice = new Map<number, AgentConn>();
 
   constructor() {
-    // Ping all connected agents every 30 s so the WebSocket stays alive through
-    // reverse proxies that close idle connections (Nginx default idle timeout = 60 s).
+    // Ping all connected agents every 15 s so the WebSocket stays alive through
+    // reverse proxies that close idle connections. 15 s covers proxies with
+    // timeouts as low as ~20 s (e.g. cPanel/WHM Nginx custom configuration).
     setInterval(() => {
       for (const [deviceId, conn] of this.byDevice) {
         if (conn.ws.readyState === 1 /* OPEN */) {
           try { (conn.ws as any).ping(); } catch { this._unregister(deviceId, conn.ws); }
         }
       }
-    }, 30_000);
+    }, 15_000);
   }
 
   /**

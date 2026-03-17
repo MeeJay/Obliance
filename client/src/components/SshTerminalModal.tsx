@@ -224,11 +224,17 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   );
 }
 
-// Send a terminal resize event as a special JSON message the agent can handle.
-// Format: 0xFF prefix byte + JSON → agent reads this to resize the PTY.
+// Send a terminal resize event as a special binary message the agent handles.
+// Format: literal byte 0xFF + UTF-8 JSON — the agent checks payload[0] == 0xFF.
+// IMPORTANT: '\xff' in a JS string is U+00FF which TextEncoder encodes as two
+// UTF-8 bytes [0xC3, 0xBF], NOT a single 0xFF byte.  Build the Uint8Array
+// manually to guarantee the first byte is exactly 0xFF.
 function sendResize(ws: WebSocket, cols: number, rows: number) {
   try {
-    const msg = JSON.stringify({ type: 'resize', cols, rows });
-    ws.send(new TextEncoder().encode('\xff' + msg));
+    const jsonBytes = new TextEncoder().encode(JSON.stringify({ type: 'resize', cols, rows }));
+    const buf = new Uint8Array(1 + jsonBytes.length);
+    buf[0] = 0xFF;
+    buf.set(jsonBytes, 1);
+    ws.send(buf);
   } catch {}
 }
