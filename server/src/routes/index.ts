@@ -5,6 +5,7 @@ import { requireTenant } from '../middleware/tenant';
 // Route imports
 import authRoutes from './auth.routes';
 import ssoRoutes from './sso.routes';
+import oblitoolsRoutes from './oblitools.routes';
 import profileRoutes from './profile.routes';
 import tenantRoutes from './tenant.routes';
 import usersRoutes from './users.routes';
@@ -41,6 +42,7 @@ const router = Router();
 // ── Public / auth ────────────────────────────────────────────────────────────
 router.use('/auth', authRoutes);
 router.use('/sso', ssoRoutes);           // cross-app SSO (generate-token, validate-token, exchange, users)
+router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth required)
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/obliview', obliviewRoutes);   // proxy to Obliview
