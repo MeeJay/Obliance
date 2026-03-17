@@ -131,10 +131,14 @@ class RemoteService {
     const tunnel = this.tunnels.get(sessionToken)!;
     tunnel.agent = agentWs;
 
-    // Buffer agent→browser frames until browser is ready
-    agentWs.on('message', (data: any) => {
+    // Buffer agent→browser frames until browser is ready.
+    // The second parameter `isBinary` is provided by the `ws` library (v8+):
+    // text frames arrive as isBinary=false, binary frames as isBinary=true.
+    // We MUST forward the same frame type so the browser (xterm) interprets
+    // binary frames as raw terminal bytes and not UTF-8 text.
+    agentWs.on('message', (data: Buffer, isBinary: boolean) => {
       if (tunnel.browser) {
-        try { tunnel.browser.send(data); } catch {}
+        try { tunnel.browser.send(data, { binary: isBinary }); } catch {}
       } else {
         tunnel.agentBuffer.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
       }
@@ -198,8 +202,12 @@ class RemoteService {
       try { (browserWs as any).ping(); } catch { clearInterval(browserKeepAlive); }
     }, 15_000);
 
-    // Browser → agent relay (agent→browser is already wired in registerAgentTunnel)
-    browserWs.on('message', (data: any) => { try { agentWs.send(data); } catch {} });
+    // Browser → agent relay (agent→browser is already wired in registerAgentTunnel).
+    // Preserve the WS frame type (text vs binary) so the agent can distinguish
+    // JSON control messages (text, e.g. resize) from raw shell stdin (binary).
+    browserWs.on('message', (data: Buffer, isBinary: boolean) => {
+      try { agentWs.send(data, { binary: isBinary }); } catch {}
+    });
     browserWs.on('close', () => {
       clearInterval(browserKeepAlive);
       this.handleTunnelClose(sessionToken, 'browser_disconnect');

@@ -18,6 +18,9 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   const termRef = useRef<any>(null);
   const fitRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  // Set to true when the user explicitly clicks Disconnect so that the
+  // subsequent ws.onclose event does not trigger a second onClose() call.
+  const userClosedRef = useRef(false);
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -96,9 +99,16 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
       };
 
       ws.onclose = (ev) => {
-        if (active) {
-          setStatus(ev.wasClean ? 'disconnected' : 'error');
-          if (!ev.wasClean) setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
+        if (!active) return;
+        if (userClosedRef.current) return; // user already clicked Disconnect — modal is closing
+        if (ev.wasClean) {
+          // Shell process exited cleanly (user typed `exit`, `logout`, etc.).
+          // Treat it the same as clicking the Disconnect button.
+          termRef.current?.dispose();
+          onClose();
+        } else {
+          setStatus('error');
+          setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
         }
       };
 
@@ -134,6 +144,7 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   }, [wsUrl]);
 
   const handleClose = () => {
+    userClosedRef.current = true; // prevent ws.onclose from calling onClose() a second time
     wsRef.current?.close();
     termRef.current?.dispose();
     onClose();
