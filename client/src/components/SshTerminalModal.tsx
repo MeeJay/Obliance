@@ -35,7 +35,7 @@ export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
 
     Promise.all([
       import('xterm').then(m => m.Terminal),
-      import('@xterm/addon-fit').then(m => m.FitAddon),
+      import('xterm-addon-fit').then(m => m.FitAddon),
     ]).then(([Terminal, FitAddon]) => {
       if (!active || !containerRef.current) return;
 
