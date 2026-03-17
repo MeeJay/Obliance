@@ -81,6 +81,15 @@ class UpdateService {
             : db.raw('device_updates.severity'),
           scanned_at: now,
           updated_at: now,
+          // If the update re-appears in a scan while it is stuck in pending_install
+          // for more than 6 hours, it means the install ACK was lost (agent crash,
+          // network failure, etc.). Reset to 'available' so the admin can retry.
+          // Updates that are 'installed', 'failed', 'approved' or recently
+          // pending_install are left untouched.
+          status: db.raw(
+            `CASE WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status ELSE device_updates.status END`,
+            [new Date(Date.now() - 6 * 60 * 60 * 1000)],
+          ),
         });
     }
   }
