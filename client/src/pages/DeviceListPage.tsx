@@ -262,9 +262,9 @@ export function DeviceListPage() {
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span className="text-xs text-text-muted">{device.osName ?? device.osType}</span>
-                    {device.agentVersion && (
-                      <p className="text-xs text-text-muted/60 mt-0.5">v{device.agentVersion}</p>
-                    )}
+                    <p className="text-xs text-text-muted/50 mt-0.5">
+                      {device.agentVersion ? `v${device.agentVersion}` : '—'}
+                    </p>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <DeviceMetricsBar metrics={device.latestMetrics} compact />
