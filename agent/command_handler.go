@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -120,6 +121,12 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "restart_service":
 		result, execErr = d.handleRestartService(cmd)
+
+	case "start_service":
+		result, execErr = d.handleStartService(cmd)
+
+	case "stop_service":
+		result, execErr = d.handleStopService(cmd)
 
 	default:
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
@@ -364,7 +371,9 @@ type ServiceInfo struct {
 func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, error) {
 	switch runtime.GOOS {
 	case "windows":
-		out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		ctx60, cancel60 := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel60()
+		out, err := exec.CommandContext(ctx60, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 			`Get-Service | Select-Object Name,DisplayName,Status,StartType | ConvertTo-Json -Compress`).Output()
 		if err != nil {
 			return nil, fmt.Errorf("list_services: powershell failed: %w", err)
@@ -508,6 +517,79 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 	}
 }
 
+
+func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, error) {
+	name := payloadString(cmd.Payload, "name")
+	if name == "" {
+		return nil, fmt.Errorf("start_service: name not specified")
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		ctxW, cancelW := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancelW()
+		out, err := exec.CommandContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			fmt.Sprintf(`Start-Service -Name '%s' -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
+		if err != nil {
+			return nil, fmt.Errorf("start_service: %w", err)
+		}
+		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
+
+	case "linux":
+		out, err := exec.Command("systemctl", "start", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("start_service: systemctl start %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "started"}, nil
+
+	case "darwin":
+		out, err := exec.Command("launchctl", "start", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("start_service: launchctl start %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "started"}, nil
+
+	default:
+		return nil, fmt.Errorf("start_service: unsupported platform %s", runtime.GOOS)
+	}
+}
+
+func (d *CommandDispatcher) handleStopService(cmd AgentCommand) (interface{}, error) {
+	name := payloadString(cmd.Payload, "name")
+	if name == "" {
+		return nil, fmt.Errorf("stop_service: name not specified")
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		ctxW, cancelW := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancelW()
+		out, err := exec.CommandContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			fmt.Sprintf(`Stop-Service -Name '%s' -Force -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
+		if err != nil {
+			return nil, fmt.Errorf("stop_service: %w", err)
+		}
+		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
+
+	case "linux":
+		out, err := exec.Command("systemctl", "stop", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("stop_service: systemctl stop %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "stopped"}, nil
+
+	case "darwin":
+		out, err := exec.Command("launchctl", "stop", name).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("stop_service: launchctl stop %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "stopped"}, nil
+
+	default:
+		return nil, fmt.Errorf("stop_service: unsupported platform %s", runtime.GOOS)
+	}
+}
+
 func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 	log.Printf("Command %s: restarting agent service...", cmd.ID)
 	// Restart after a short delay so the WS ack can be sent first.
@@ -555,6 +637,10 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleListServices(cmd)
 	case "restart_service":
 		return d.handleRestartService(cmd)
+	case "start_service":
+		return d.handleStartService(cmd)
+	case "stop_service":
+		return d.handleStopService(cmd)
 	case "reboot":
 		return nil, d.handleReboot(cmd)
 	case "shutdown":

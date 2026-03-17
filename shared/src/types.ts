@@ -237,6 +237,8 @@ export type CommandType =
   | 'restart_agent'
   | 'list_services'
   | 'restart_service'
+  | 'start_service'
+  | 'stop_service'
   | 'install_software'
   | 'uninstall_software';
 
