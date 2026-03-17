@@ -7,9 +7,16 @@ import { SocketEvents } from '@obliance/shared';
 import type { RemoteSession, RemoteProtocol } from '@obliance/shared';
 import { logger } from '../utils/logger';
 
+interface TunnelEntry {
+  browser?: any;
+  agent?: any;
+  /** Messages received from agent before browser connected — flushed on bridge. */
+  agentBuffer: Buffer[];
+}
+
 class RemoteService {
-  // WebSocket relay store: sessionToken → { browserSocket, agentSocket }
-  private tunnels = new Map<string, { browser?: any; agent?: any }>();
+  // WebSocket relay store: sessionToken → TunnelEntry
+  private tunnels = new Map<string, TunnelEntry>();
 
   rowToSession(row: any): RemoteSession {
     return {
@@ -116,14 +123,29 @@ class RemoteService {
     return rows.map(this.rowToSession.bind(this));
   }
 
-  // Called when agent WebSocket connects for a session
+  // Called when agent WebSocket connects for a session.
+  // Agent data may arrive before the browser has connected, so we buffer it
+  // until registerBrowserTunnel() flushes the buffer and sets up full relay.
   registerAgentTunnel(sessionToken: string, agentWs: any) {
-    if (!this.tunnels.has(sessionToken)) this.tunnels.set(sessionToken, {});
+    if (!this.tunnels.has(sessionToken)) this.tunnels.set(sessionToken, { agentBuffer: [] });
     const tunnel = this.tunnels.get(sessionToken)!;
     tunnel.agent = agentWs;
 
-    // If browser is already waiting, bridge them
-    if (tunnel.browser) this.bridge(sessionToken, tunnel.browser, agentWs);
+    // Buffer agent→browser frames until browser is ready
+    agentWs.on('message', (data: any) => {
+      if (tunnel.browser) {
+        try { tunnel.browser.send(data); } catch {}
+      } else {
+        tunnel.agentBuffer.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+      }
+    });
+
+    agentWs.on('close', () => { this.handleTunnelClose(sessionToken, 'agent_disconnect'); });
+
+    // If browser arrived first (unusual but possible), flush immediately
+    if (tunnel.browser) {
+      this._flushAndBridgeBrowser(sessionToken, tunnel.browser, agentWs);
+    }
 
     // Update session status
     db('remote_sessions').where({ session_token: sessionToken }).update({
@@ -137,21 +159,33 @@ class RemoteService {
     });
   }
 
-  // Called when browser WebSocket connects for a session
+  // Called when browser WebSocket connects for a session.
   registerBrowserTunnel(sessionToken: string, browserWs: any) {
-    if (!this.tunnels.has(sessionToken)) this.tunnels.set(sessionToken, {});
+    if (!this.tunnels.has(sessionToken)) this.tunnels.set(sessionToken, { agentBuffer: [] });
     const tunnel = this.tunnels.get(sessionToken)!;
     tunnel.browser = browserWs;
 
-    if (tunnel.agent) this.bridge(sessionToken, browserWs, tunnel.agent);
+    if (tunnel.agent) {
+      this._flushAndBridgeBrowser(sessionToken, browserWs, tunnel.agent);
+    }
+    // If agent hasn't connected yet, browser→agent relay will be set up
+    // in registerAgentTunnel when the agent eventually arrives.
   }
 
-  private bridge(sessionToken: string, ws1: any, ws2: any) {
-    // Bidirectional relay
-    ws1.on('message', (data: any) => { try { ws2.send(data); } catch {} });
-    ws2.on('message', (data: any) => { try { ws1.send(data); } catch {} });
-    ws1.on('close', () => { this.handleTunnelClose(sessionToken, 'browser_disconnect'); });
-    ws2.on('close', () => { this.handleTunnelClose(sessionToken, 'agent_disconnect'); });
+  /** Flush buffered agent frames to the browser, then wire up browser→agent relay. */
+  private _flushAndBridgeBrowser(sessionToken: string, browserWs: any, agentWs: any) {
+    const tunnel = this.tunnels.get(sessionToken);
+    if (!tunnel) return;
+
+    // Drain buffer: send accumulated agent frames to browser
+    for (const chunk of tunnel.agentBuffer) {
+      try { browserWs.send(chunk); } catch {}
+    }
+    tunnel.agentBuffer = [];
+
+    // Browser → agent relay (agent→browser is already wired in registerAgentTunnel)
+    browserWs.on('message', (data: any) => { try { agentWs.send(data); } catch {} });
+    browserWs.on('close', () => { this.handleTunnelClose(sessionToken, 'browser_disconnect'); });
   }
 
   private async handleTunnelClose(sessionToken: string, reason: string) {

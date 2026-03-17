@@ -74,7 +74,12 @@ class UpdateService {
         .onConflict(['device_id', 'update_uid'])
         .merge({
           title: u.title, description: u.description,
-          severity: u.severity || 'unknown', scanned_at: now,
+          // Never downgrade a known severity to 'unknown' on re-scan:
+          // keep the existing value when the new scan can't determine severity.
+          severity: (u.severity && u.severity !== 'unknown')
+            ? u.severity
+            : db.raw('device_updates.severity'),
+          scanned_at: now,
           updated_at: now,
         });
     }
@@ -104,13 +109,16 @@ class UpdateService {
       .whereIn('id', approved.map((u: any) => u.id))
       .update({ status: 'pending_install', updated_at: new Date() });
 
-    // Enqueue install command
-    const cmd = await commandService.enqueue({
-      deviceId, tenantId, type: 'install_update',
-      payload: { updateIds: approved.map((u: any) => u.update_uid) },
-      priority: 'normal',
-      createdBy,
-    });
+    // Enqueue ONE install_update command per update.
+    // The agent handler reads payload.updateUid (singular) — one command per KB.
+    for (const u of approved) {
+      await commandService.enqueue({
+        deviceId, tenantId, type: 'install_update',
+        payload: { updateUid: u.update_uid },
+        priority: 'normal',
+        createdBy,
+      });
+    }
 
     return approved;
   }

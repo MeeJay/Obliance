@@ -165,6 +165,28 @@ class CommandService {
         } catch {}
       }
 
+      // When install_update finishes, reflect the outcome in device_updates
+      if (isTerminal && row && row.type === 'install_update') {
+        try {
+          const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
+          const updateUid = payload.updateUid as string | undefined;
+          if (updateUid) {
+            await db('device_updates')
+              .where({ update_uid: updateUid, device_id: deviceId })
+              .update({
+                status: ack.status === 'success' ? 'installed' : 'failed',
+                installed_at: ack.status === 'success' ? new Date() : null,
+                install_error: ack.status !== 'success'
+                  ? ((ack.result as any)?.error ?? 'Installation failed')
+                  : null,
+                updated_at: new Date(),
+              });
+          }
+        } catch (updateErr) {
+          logger.error(updateErr, 'Failed to update device_updates status from install_update ack');
+        }
+      }
+
       // Update linked script execution when the command is terminal
       if (isTerminal && row && row.source_type === 'script_execution' && row.source_id) {
         try {
