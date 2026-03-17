@@ -663,13 +663,24 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 
 // ─── VNC Viewer ──────────────────────────────────────────────────────────────
 
-function VncViewer({ session, title, onClose }: { session: RemoteSession; title: string; onClose: () => void }) {
+function VncViewer({ session, title, onClose }: { session: RemoteSession | null; title: string; onClose: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const [vncStatus, setVncStatus] = useState<'connecting' | 'connected' | 'failed'>('connecting');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Timeout — show error if tunnel is not established within 60 s
   useEffect(() => {
+    if (session) return;
+    const t = setTimeout(() => {
+      setVncStatus('failed');
+      setErrorMsg('Tunnel timed out — the agent did not respond within 60 s');
+    }, 60_000);
+    return () => clearTimeout(t);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session?.sessionToken) return;
     let rfb: any;
     const origin = window.location.origin;
     const wsUrl = origin.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://')
@@ -701,7 +712,7 @@ function VncViewer({ session, title, onClose }: { session: RemoteSession; title:
     return () => {
       try { rfb?.disconnect(); } catch {}
     };
-  }, [session.sessionToken]);
+  }, [session?.sessionToken]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
@@ -726,6 +737,14 @@ function VncViewer({ session, title, onClose }: { session: RemoteSession; title:
           <X className="w-4 h-4" />
         </button>
       </div>
+      {/* Connecting overlay — shown while tunnel is being established */}
+      {!session && vncStatus !== 'failed' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0d0f14]" style={{ top: '42px' }}>
+          <Loader2 className="w-10 h-10 text-accent animate-spin" />
+          <p className="text-text-primary font-medium">Establishing tunnel…</p>
+          <p className="text-sm text-text-muted">Waiting for agent to connect back to the server</p>
+        </div>
+      )}
       {/* Canvas */}
       <div ref={containerRef} className="flex-1 overflow-hidden" />
       {/* Error overlay */}
@@ -754,6 +773,11 @@ function RemoteTab({ device }: { device: Device }) {
   const [sessions, setSessions] = useState<RemoteSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  // Modal open flags — set immediately on button click so the modal shows a
+  // connecting overlay before REMOTE_TUNNEL_READY arrives.
+  const [vncModalOpen, setVncModalOpen] = useState(false);
+  const [sshModalOpen, setSshModalOpen] = useState(false);
+  // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
   const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
@@ -786,7 +810,7 @@ function RemoteTab({ device }: { device: Device }) {
     const onTunnelReady = (session: RemoteSession) => {
       if (session.deviceId !== device.id) return;
       setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
-      // Auto-open the appropriate viewer as soon as the tunnel is established
+      // Populate the session in the already-open modal (modal opened immediately on click).
       if (session.protocol === 'vnc' || session.protocol === 'rdp') {
         setVncSession(session);
       } else if (session.protocol === 'ssh') {
@@ -804,13 +828,24 @@ function RemoteTab({ device }: { device: Device }) {
   }, [device.id]);
 
   const handleStartSession = async (protocol: 'vnc' | 'rdp' | 'ssh') => {
+    // Open the modal immediately so the user sees a connecting overlay
+    // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
+    if (protocol === 'ssh') {
+      setSshSession(null);
+      setSshModalOpen(true);
+    } else {
+      setVncSession(null);
+      setVncModalOpen(true);
+    }
     setIsStarting(true);
     try {
       const session = await remoteApi.startSession(device.id, protocol);
       setSessions((prev) => [session, ...prev]);
-      toast.success(`${protocol.toUpperCase()} session created — waiting for agent…`);
     } catch {
       toast.error('Failed to start remote session');
+      // Roll back modal if the API call failed
+      if (protocol === 'ssh') setSshModalOpen(false);
+      else setVncModalOpen(false);
     } finally {
       setIsStarting(false);
     }
@@ -834,17 +869,18 @@ function RemoteTab({ device }: { device: Device }) {
 
   return (
     <>
-      {vncSession && (
+      {vncModalOpen && (
         <VncViewer
           session={vncSession}
           title={`VNC — ${device.displayName || device.hostname}`}
-          onClose={() => setVncSession(null)}
+          onClose={() => { setVncModalOpen(false); setVncSession(null); }}
         />
       )}
-      {sshSession && (
+      {sshModalOpen && (
         <SshTerminalModal
           session={sshSession}
-          onClose={() => setSshSession(null)}
+          deviceName={device.displayName || device.hostname}
+          onClose={() => { setSshModalOpen(false); setSshSession(null); }}
         />
       )}
       <div className="space-y-4">
@@ -1454,8 +1490,8 @@ export function DeviceDetailPage() {
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
+  const [headerVncOpen, setHeaderVncOpen] = useState(false);
   const [headerVncSession, setHeaderVncSession] = useState<RemoteSession | null>(null);
-  const [waitingVncSession, setWaitingVncSession] = useState<RemoteSession | null>(null);
   const [isStartingVnc, setIsStartingVnc] = useState(false);
   const vncReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
 
@@ -1472,19 +1508,17 @@ export function DeviceDetailPage() {
   };
 
   const handleHeaderVnc = async () => {
+    // Open modal immediately — shows connecting overlay while tunnel is being established
+    setHeaderVncSession(null);
+    setHeaderVncOpen(true);
     setIsStartingVnc(true);
     try {
       const session = await remoteApi.startSession(deviceId, 'vnc');
-      setWaitingVncSession(session);
-      toast.success('VNC session created — waiting for agent…');
       const socket = getSocket();
       if (socket) {
         const onReady = (s: RemoteSession) => {
           if (s.deviceId !== deviceId || s.id !== session.id) return;
-          if (s.protocol === 'vnc') {
-            setWaitingVncSession(null);
-            setHeaderVncSession(s);
-          }
+          if (s.protocol === 'vnc') setHeaderVncSession(s);
           socket.off('REMOTE_TUNNEL_READY', onReady);
           vncReadyListenerRef.current = null;
         };
@@ -1493,6 +1527,7 @@ export function DeviceDetailPage() {
       }
     } catch {
       toast.error('Failed to start VNC session');
+      setHeaderVncOpen(false);
     } finally {
       setIsStartingVnc(false);
     }
@@ -1504,11 +1539,8 @@ export function DeviceDetailPage() {
       socket.off('REMOTE_TUNNEL_READY', vncReadyListenerRef.current);
       vncReadyListenerRef.current = null;
     }
-    const session = waitingVncSession;
-    setWaitingVncSession(null);
-    if (session) {
-      try { await remoteApi.endSession(session.id); } catch {}
-    }
+    setHeaderVncOpen(false);
+    setHeaderVncSession(null);
   };
 
   const [isScanningAll, setIsScanningAll] = useState(false);
@@ -1581,11 +1613,11 @@ export function DeviceDetailPage() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* VNC overlay launched from header */}
-      {headerVncSession && (
+      {headerVncOpen && (
         <VncViewer
           session={headerVncSession}
           title={`VNC — ${device.displayName || device.hostname}`}
-          onClose={() => setHeaderVncSession(null)}
+          onClose={() => { setHeaderVncOpen(false); setHeaderVncSession(null); }}
         />
       )}
 
@@ -1656,26 +1688,13 @@ export function DeviceDetailPage() {
           <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
             <button
               onClick={handleHeaderVnc}
-              disabled={isStartingVnc || !!waitingVncSession || device.status !== 'online'}
+              disabled={isStartingVnc || headerVncOpen || device.status !== 'online'}
               title="VNC Remote Control"
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {isStartingVnc
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : waitingVncSession
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <MonitorPlay className="w-3.5 h-3.5" />}
-              {waitingVncSession ? 'Waiting…' : 'VNC'}
+              {isStartingVnc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+              VNC
             </button>
-            {waitingVncSession && (
-              <button
-                onClick={handleCancelVnc}
-                title="Cancel VNC"
-                className="p-1 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
             <div className="w-px h-5 bg-border" />
             <button
               onClick={() => handleHeaderAction('restart_agent')}

@@ -965,6 +965,7 @@ export interface AppConfigData {
   default_push_interval: string;
   fast_poll_interval: string;
   remote_fast_poll_interval: string;
+  task_retrieve_delay_seconds: string;
   remote_session_timeout_minutes: string;
   catchup_window_days: string;
   inventory_retention_days: string;

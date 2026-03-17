@@ -403,5 +403,11 @@
     "suspendSuccess": "기기가 일시 중단되었습니다",
     "unsuspendSuccess": "기기가 재개되었습니다",
     "deleteSuccess": "기기가 삭제되었습니다"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "작업 검색 지연",
+      "taskRetrieveDelayDesc": "명령 채널을 사용할 수 없을 때 에이전트가 대기 중인 작업을 확인하는 빈도(초, 최소 1)."
+    }
   }
 }

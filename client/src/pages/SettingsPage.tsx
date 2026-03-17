@@ -389,6 +389,26 @@ export function SettingsPage() {
                 </div>
               </div>
 
+              {/* Task Retrieve Delay */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-text-primary">{t('settings.agent.taskRetrieveDelay')}</div>
+                  <div className="text-xs text-text-muted">{t('settings.agent.taskRetrieveDelayDesc')}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={appConfig?.task_retrieve_delay_seconds ?? '10'}
+                    min={1} max={300}
+                    onChange={e => setConfigKey('task_retrieve_delay_seconds', parseInt(e.target.value) || 10)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    placeholder="10"
+                    className="w-24 rounded-lg border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent text-right placeholder:text-text-muted"
+                  />
+                  <span className="text-xs text-text-muted">{t('groups.detail.seconds')}</span>
+                </div>
+              </div>
+
               {/* Scan Interval */}
               <div className="flex items-center justify-between gap-4">
                 <div>

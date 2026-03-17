@@ -403,5 +403,11 @@
     "suspendSuccess": "Enhet suspenderad",
     "unsuspendSuccess": "Enhet återaktiverad",
     "deleteSuccess": "Enhet raderad"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Fördröjning för uppgiftshämtning",
+      "taskRetrieveDelayDesc": "Hur ofta agenter hämtar väntande uppgifter när kommandokanalen inte är tillgänglig (sekunder, min 1)."
+    }
   }
 }

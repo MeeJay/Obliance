@@ -403,5 +403,11 @@
     "suspendSuccess": "Urządzenie zawieszone",
     "unsuspendSuccess": "Urządzenie odwieszone",
     "deleteSuccess": "Urządzenie usunięte"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Opóźnienie pobierania zadań",
+      "taskRetrieveDelayDesc": "Jak często agenty sprawdzają oczekujące zadania gdy kanał poleceń jest niedostępny (sekundy, min 1)."
+    }
   }
 }

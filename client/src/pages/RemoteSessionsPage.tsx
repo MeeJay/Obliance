@@ -412,6 +412,7 @@ export function RemoteSessionsPage() {
       {vncSession && (
         <VncViewerModal
           session={vncSession}
+          deviceName={`Device #${vncSession.deviceId}`}
           onClose={() => setVncSession(null)}
         />
       )}

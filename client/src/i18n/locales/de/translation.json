@@ -403,5 +403,11 @@
     "suspendSuccess": "Gerät gesperrt",
     "unsuspendSuccess": "Gerät entsperrt",
     "deleteSuccess": "Gerät gelöscht"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Aufgaben-Abfrageintervall",
+      "taskRetrieveDelayDesc": "Wie oft Agents ausstehende Aufgaben abfragen, wenn der Befehlskanal nicht verfügbar ist (Sekunden, min 1)."
+    }
   }
 }

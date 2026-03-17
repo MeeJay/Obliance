@@ -373,7 +373,9 @@
     "failedUpdate": "Error al actualizar la configuración",
     "agent": {
       "scanInterval": "Intervalo de escaneo predeterminado",
-      "scanIntervalDesc": "Con qué frecuencia los agentes escanean automáticamente inventario, actualizaciones y cumplimiento (segundos). 0 = desactivado."
+      "scanIntervalDesc": "Con qué frecuencia los agentes escanean automáticamente inventario, actualizaciones y cumplimiento (segundos). 0 = desactivado.",
+      "taskRetrieveDelay": "Retraso de recuperación de tareas",
+      "taskRetrieveDelayDesc": "Con qué frecuencia los agentes comprueban tareas pendientes cuando el canal de comandos no está disponible (segundos, mín. 1)."
     }
   },
   "profile": {

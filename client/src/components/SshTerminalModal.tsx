@@ -4,13 +4,15 @@ import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
 
 interface SshTerminalModalProps {
-  session: RemoteSession;
+  /** Null while the tunnel is being established — modal shows a connecting overlay. */
+  session: RemoteSession | null;
+  deviceName: string;
   onClose: () => void;
 }
 
 type ConnStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
+export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<any>(null);
   const fitRef = useRef<any>(null);
@@ -19,18 +21,29 @@ export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const wsUrl = (() => {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.host}/api/remote/tunnel/${session.sessionToken}`;
-  })();
+  // Derive the WS URL only when we have a session token.
+  const wsUrl = session?.sessionToken
+    ? (() => {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${proto}//${window.location.host}/api/remote/tunnel/${session.sessionToken}`;
+      })()
+    : null;
 
-  const deviceName =
-    (session as any).device?.displayName ||
-    (session as any).device?.hostname ||
-    `Device #${session.deviceId}`;
-
+  // ── 60-second tunnel-establishment timeout ──────────────────────────────────
+  // If the server never emits REMOTE_TUNNEL_READY we show an error so the user
+  // isn't left staring at a spinner indefinitely.
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (session) return; // tunnel already ready — no need for timeout
+    const timer = setTimeout(() => {
+      setStatus('error');
+      setErrorMsg('Tunnel establishment timed out — the agent did not respond within 60 s');
+    }, 60_000);
+    return () => clearTimeout(timer);
+  }, [session]);
+
+  // ── xterm + WebSocket — fires only when wsUrl is known ──────────────────────
+  useEffect(() => {
+    if (!wsUrl || !containerRef.current) return;
     let active = true;
 
     Promise.all([
@@ -67,7 +80,6 @@ export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
 
       ws.onopen = () => {
         if (active) setStatus('connected');
-        // Send initial resize
         sendResize(ws, term.cols, term.rows);
       };
 
@@ -180,7 +192,7 @@ export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
         </div>
       </div>
 
-      {/* ── Terminal canvas ── */}
+      {/* ── Content ── */}
       {status === 'error' ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
           <AlertTriangle className="w-12 h-12 text-red-400" />
@@ -192,6 +204,13 @@ export function SshTerminalModal({ session, onClose }: SshTerminalModalProps) {
           >
             Close
           </button>
+        </div>
+      ) : !wsUrl ? (
+        /* Tunnel establishing overlay — shown before REMOTE_TUNNEL_READY */
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+          <RefreshCw className="w-10 h-10 text-accent animate-spin" />
+          <p className="text-text-primary font-medium">Establishing tunnel…</p>
+          <p className="text-sm text-text-muted">Waiting for agent to connect back to the server</p>
         </div>
       ) : (
         <div

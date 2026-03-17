@@ -403,5 +403,11 @@
     "suspendSuccess": "デバイスを一時停止しました",
     "unsuspendSuccess": "デバイスを再開しました",
     "deleteSuccess": "デバイスを削除しました"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "タスク取得遅延",
+      "taskRetrieveDelayDesc": "コマンドチャンネルが利用できない場合、エージェントが保留中のタスクをポーリングする頻度（秒、最小1）。"
+    }
   }
 }

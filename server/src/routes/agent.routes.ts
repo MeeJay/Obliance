@@ -161,6 +161,47 @@ router.post('/push', agentAuth, async (req, res, next) => {
   }
 });
 
+// GET /api/agent/commands
+// Lightweight command poll — agent checks for pending tasks at its own
+// task_retrieve_delay_seconds rate, without sending metrics.
+router.get('/commands', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+    if (device.approval_status === 'pending') {
+      return res.json({ commands: [], nextDelaySeconds: 30 });
+    }
+
+    const pending = await db('command_queue')
+      .where({ device_id: device.id, status: 'pending' })
+      .orderBy([{ column: 'priority', order: 'desc' }, { column: 'created_at', order: 'asc' }])
+      .limit(5);
+
+    if (pending.length > 0) {
+      await db('command_queue')
+        .whereIn('id', pending.map((c: any) => c.id))
+        .update({ status: 'sent', sent_at: new Date(), updated_at: new Date() });
+    }
+
+    const delayCfg = await db('app_config').where({ key: 'task_retrieve_delay_seconds' }).first();
+    const nextDelaySeconds = delayCfg?.value ? parseInt(delayCfg.value) : 10;
+
+    res.json({
+      commands: pending.map((c: any) => ({ id: c.id, type: c.type, payload: c.payload, priority: c.priority })),
+      nextDelaySeconds,
+    });
+  } catch (err) { next(err); }
+});
+
 // POST /api/agent/inventory
 // Called by the agent after a scan_inventory command completes.
 // Saves hardware + software inventory for the device.

@@ -403,5 +403,11 @@
     "suspendSuccess": "Apparaat opgeschort",
     "unsuspendSuccess": "Apparaat geheractiveerd",
     "deleteSuccess": "Apparaat verwijderd"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Taak-ophaalvertraging",
+      "taskRetrieveDelayDesc": "Hoe vaak agents wachtende taken ophalen als het commando-kanaal niet beschikbaar is (seconden, min 1)."
+    }
   }
 }

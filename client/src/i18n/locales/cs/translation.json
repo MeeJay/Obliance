@@ -403,5 +403,11 @@
     "suspendSuccess": "Zařízení pozastaveno",
     "unsuspendSuccess": "Zařízení obnoveno",
     "deleteSuccess": "Zařízení smazáno"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Zpoždění načítání úloh",
+      "taskRetrieveDelayDesc": "Jak často agenti kontrolují čekající úlohy, když není dostupný příkazový kanál (sekundy, min 1)."
+    }
   }
 }

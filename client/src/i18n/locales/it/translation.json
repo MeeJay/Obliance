@@ -403,5 +403,11 @@
     "suspendSuccess": "Dispositivo sospeso",
     "unsuspendSuccess": "Dispositivo riattivato",
     "deleteSuccess": "Dispositivo eliminato"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Ritardo recupero attività",
+      "taskRetrieveDelayDesc": "Con quale frequenza gli agenti verificano attività in sospeso quando il canale comandi non è disponibile (secondi, min 1)."
+    }
   }
 }

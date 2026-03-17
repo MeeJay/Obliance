@@ -339,6 +339,7 @@ class DeviceService {
       config: {
         pushIntervalSeconds: config.pushIntervalSeconds,
         scanIntervalSeconds: config.scanIntervalSeconds,  // always send (0 = disabled)
+        taskRetrieveDelaySeconds: config.taskRetrieveDelaySeconds,
         displayConfig: config.displayConfig,
         sensorDisplayNames: config.sensorDisplayNames,
         notificationTypes: config.notificationTypes,
@@ -367,9 +368,13 @@ class DeviceService {
       pushIntervalSeconds = device.push_interval_seconds || groupConfig.pushIntervalSeconds || 60;
     }
 
-    // Get fast poll and scan interval from app_config
-    const fastPollConfig = await db('app_config').where({ key: 'fast_poll_interval' }).first();
+    // Get fast poll, task retrieve delay and scan interval from app_config
+    const [fastPollConfig, taskDelayConfig] = await Promise.all([
+      db('app_config').where({ key: 'fast_poll_interval' }).first(),
+      db('app_config').where({ key: 'task_retrieve_delay_seconds' }).first(),
+    ]);
     if (fastPollConfig?.value) fastPollInterval = parseInt(fastPollConfig.value);
+    const taskRetrieveDelaySeconds = taskDelayConfig?.value ? parseInt(taskDelayConfig.value) : 10;
 
     const globalCfg = await appConfigService.getAgentGlobal();
     const scanIntervalSeconds = globalCfg.scanIntervalSeconds ?? 0;
@@ -377,6 +382,7 @@ class DeviceService {
     return {
       pushIntervalSeconds,
       fastPollInterval,
+      taskRetrieveDelaySeconds,
       scanIntervalSeconds,
       displayConfig: device.display_config || {},
       sensorDisplayNames: device.sensor_display_names || {},

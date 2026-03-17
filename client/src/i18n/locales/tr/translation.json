@@ -403,5 +403,11 @@
     "suspendSuccess": "Cihaz askıya alındı",
     "unsuspendSuccess": "Cihaz askıdan çıkarıldı",
     "deleteSuccess": "Cihaz silindi"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Görev Alma Gecikmesi",
+      "taskRetrieveDelayDesc": "Komut kanalı kullanılamadığında ajanların bekleyen görevleri ne sıklıkla kontrol ettiği (saniye, min 1)."
+    }
   }
 }

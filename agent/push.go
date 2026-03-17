@@ -34,9 +34,10 @@ type pushResponse struct {
 	Status        string `json:"status"`
 	LatestVersion string `json:"latestVersion,omitempty"` // piggybacked version info
 	Config        *struct {
-		CheckIntervalSeconds int `json:"checkIntervalSeconds"`
-		PushIntervalSeconds  int `json:"pushIntervalSeconds"`
-		ScanIntervalSeconds  int `json:"scanIntervalSeconds"`
+		CheckIntervalSeconds    int `json:"checkIntervalSeconds"`
+		PushIntervalSeconds     int `json:"pushIntervalSeconds"`
+		ScanIntervalSeconds     int `json:"scanIntervalSeconds"`
+		TaskRetrieveDelaySeconds int `json:"taskRetrieveDelaySeconds"`
 	} `json:"config,omitempty"`
 	Commands    []AgentCommand `json:"commands,omitempty"`
 	NextPollIn  int            `json:"nextPollIn,omitempty"` // seconds
@@ -121,6 +122,13 @@ func push(cfg *Config) {
 			cfg.ScanIntervalSeconds = result.Config.ScanIntervalSeconds
 			_ = saveConfig(cfg)
 			log.Printf("Scan interval updated to %ds", cfg.ScanIntervalSeconds)
+		}
+		// Update task retrieve delay when admin changes it.
+		if result.Config != nil && result.Config.TaskRetrieveDelaySeconds > 0 &&
+			result.Config.TaskRetrieveDelaySeconds != cfg.TaskRetrieveDelaySec {
+			cfg.TaskRetrieveDelaySec = result.Config.TaskRetrieveDelaySeconds
+			_ = saveConfig(cfg)
+			log.Printf("Task retrieve delay updated to %ds", cfg.TaskRetrieveDelaySec)
 		}
 
 		log.Printf("Push OK (acks sent: %d, commands received: %d)", len(acks), len(result.Commands))

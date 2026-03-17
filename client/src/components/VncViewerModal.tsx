@@ -4,32 +4,42 @@ import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
 
 interface VncViewerModalProps {
-  session: RemoteSession;
+  /** Null while the tunnel is being established — modal shows a connecting overlay. */
+  session: RemoteSession | null;
+  deviceName: string;
   onClose: () => void;
 }
 
 type ConnStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
+export function VncViewerModal({ session, deviceName, onClose }: VncViewerModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Browser-side WebSocket URL for this session tunnel
-  const wsUrl = (() => {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.host}/api/remote/tunnel/${session.sessionToken}`;
-  })();
+  // Derive the WS URL only when we have a session token.
+  const wsUrl = session?.sessionToken
+    ? (() => {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${proto}//${window.location.host}/api/remote/tunnel/${session.sessionToken}`;
+      })()
+    : null;
 
-  const deviceName =
-    (session as any).device?.displayName ||
-    (session as any).device?.hostname ||
-    `Device #${session.deviceId}`;
-
+  // ── 60-second tunnel-establishment timeout ──────────────────────────────────
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (session) return;
+    const timer = setTimeout(() => {
+      setStatus('error');
+      setErrorMsg('Tunnel establishment timed out — the agent did not respond within 60 s');
+    }, 60_000);
+    return () => clearTimeout(timer);
+  }, [session]);
+
+  // ── noVNC — fires only when wsUrl is known ───────────────────────────────────
+  useEffect(() => {
+    if (!wsUrl || !containerRef.current) return;
 
     let active = true;
 
@@ -160,7 +170,7 @@ export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
         </div>
       </div>
 
-      {/* ── VNC canvas ── */}
+      {/* ── Content ── */}
       {status === 'error' ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
           <AlertTriangle className="w-12 h-12 text-red-400" />
@@ -172,6 +182,13 @@ export function VncViewerModal({ session, onClose }: VncViewerModalProps) {
           >
             Close
           </button>
+        </div>
+      ) : !wsUrl ? (
+        /* Tunnel establishing overlay — shown before REMOTE_TUNNEL_READY */
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8 bg-[#0d0f14]">
+          <RefreshCw className="w-10 h-10 text-accent animate-spin" />
+          <p className="text-text-primary font-medium">Establishing tunnel…</p>
+          <p className="text-sm text-text-muted">Waiting for agent to connect back to the server</p>
         </div>
       ) : (
         <div

@@ -59,6 +59,7 @@ export const appConfigService = {
       default_push_interval: map['default_push_interval'] ?? '60',
       fast_poll_interval: map['fast_poll_interval'] ?? '5',
       remote_fast_poll_interval: map['remote_fast_poll_interval'] ?? '3',
+      task_retrieve_delay_seconds: map['task_retrieve_delay_seconds'] ?? '10',
       remote_session_timeout_minutes: map['remote_session_timeout_minutes'] ?? '30',
       catchup_window_days: map['catchup_window_days'] ?? '7',
       inventory_retention_days: map['inventory_retention_days'] ?? '90',

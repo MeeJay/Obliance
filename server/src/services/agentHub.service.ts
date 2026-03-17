@@ -38,6 +38,18 @@ class AgentHubService {
   /** deviceId → active connection */
   private byDevice = new Map<number, AgentConn>();
 
+  constructor() {
+    // Ping all connected agents every 30 s so the WebSocket stays alive through
+    // reverse proxies that close idle connections (Nginx default idle timeout = 60 s).
+    setInterval(() => {
+      for (const [deviceId, conn] of this.byDevice) {
+        if (conn.ws.readyState === 1 /* OPEN */) {
+          try { (conn.ws as any).ping(); } catch { this._unregister(deviceId, conn.ws); }
+        }
+      }
+    }, 30_000);
+  }
+
   /**
    * Register an agent command-channel WebSocket.
    * If a previous connection for the same device exists it is cleanly replaced.

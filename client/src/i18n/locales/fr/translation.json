@@ -538,7 +538,9 @@
     "failedUpdate": "Échec de la mise à jour du paramètre",
     "agent": {
       "scanInterval": "Intervalle de scan par défaut",
-      "scanIntervalDesc": "Fréquence à laquelle les agents scannent automatiquement l'inventaire, les mises à jour et la conformité (secondes). 0 = désactivé."
+      "scanIntervalDesc": "Fréquence à laquelle les agents scannent automatiquement l'inventaire, les mises à jour et la conformité (secondes). 0 = désactivé.",
+      "taskRetrieveDelay": "Délai de récupération des tâches",
+      "taskRetrieveDelayDesc": "Fréquence à laquelle les agents vérifient les tâches en attente si le canal de commande est indisponible (secondes, min 1). Plus bas = livraison plus rapide."
     }
   },
   "profile": {

@@ -43,13 +43,14 @@ func init() {
 // ── Config ────────────────────────────────────────────────────────────────────
 
 type Config struct {
-	ServerURL            string `json:"serverUrl"`
-	APIKey               string `json:"apiKey"`
-	DeviceUUID           string `json:"deviceUuid"`
-	CheckIntervalSeconds int    `json:"checkIntervalSeconds"`
-	ScanIntervalSeconds  int    `json:"scanIntervalSeconds,omitempty"` // 0 = disabled
-	AgentVersion         string `json:"agentVersion"`
-	BackoffUntil         int64  `json:"_backoffUntil,omitempty"`
+	ServerURL               string `json:"serverUrl"`
+	APIKey                  string `json:"apiKey"`
+	DeviceUUID              string `json:"deviceUuid"`
+	CheckIntervalSeconds    int    `json:"checkIntervalSeconds"`
+	ScanIntervalSeconds     int    `json:"scanIntervalSeconds,omitempty"`     // 0 = disabled
+	TaskRetrieveDelaySec    int    `json:"taskRetrieveDelaySeconds,omitempty"` // command-poll interval (default 10)
+	AgentVersion            string `json:"agentVersion"`
+	BackoffUntil            int64  `json:"_backoffUntil,omitempty"`
 }
 
 func loadConfig() (*Config, error) {
@@ -121,6 +122,9 @@ func setupConfig(urlArg, keyArg string) *Config {
 	}
 	if cfg.CheckIntervalSeconds == 0 {
 		cfg.CheckIntervalSeconds = 60
+	}
+	if cfg.TaskRetrieveDelaySec == 0 {
+		cfg.TaskRetrieveDelaySec = 10
 	}
 	// Always use the binary's built-in version (overrides stale config.json value).
 	// Save back to disk so config.json stays accurate after an update.
@@ -367,6 +371,11 @@ func mainLoop(cfg *Config) {
 	// so the server can push commands instantly (e.g. open_remote_tunnel for VNC)
 	// instead of waiting for the next poll cycle (up to 60 s).
 	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
+
+	// Start the dedicated command-poll goroutine — fallback for when the
+	// command channel is temporarily down.  Polls GET /api/agent/commands
+	// at cfg.TaskRetrieveDelaySec rate (default 10 s, admin-configurable).
+	go runCommandPoller(cfg)
 
 	// Periodic scan goroutine — wakes up every minute and triggers a full scan
 	// when cfg.ScanIntervalSeconds seconds have elapsed since the last scan.

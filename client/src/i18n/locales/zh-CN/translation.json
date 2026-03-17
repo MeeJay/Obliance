@@ -403,5 +403,11 @@
     "suspendSuccess": "设备已暂停",
     "unsuspendSuccess": "设备已恢复",
     "deleteSuccess": "设备已删除"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "任务检索延迟",
+      "taskRetrieveDelayDesc": "命令通道不可用时，代理检查待处理任务的频率（秒，最小1）。"
+    }
   }
 }

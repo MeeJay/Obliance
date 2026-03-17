@@ -403,5 +403,11 @@
     "suspendSuccess": "Enhed suspenderet",
     "unsuspendSuccess": "Enhed genaktiveret",
     "deleteSuccess": "Enhed slettet"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Forsinkelse ved opgavehentning",
+      "taskRetrieveDelayDesc": "Hvor ofte agenter tjekker ventende opgaver, når kommandokanalen ikke er tilgængelig (sekunder, min 1)."
+    }
   }
 }

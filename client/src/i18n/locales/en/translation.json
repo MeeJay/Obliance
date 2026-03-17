@@ -520,7 +520,9 @@
       "maxMissedPushes": "Max Missed Pushes",
       "maxMissedPushesDesc": "Consecutive missed pushes before marking an agent as offline. Overridable per group.",
       "scanInterval": "Default Scan Interval",
-      "scanIntervalDesc": "How often agents automatically scan inventory, updates and compliance (seconds). 0 = disabled."
+      "scanIntervalDesc": "How often agents automatically scan inventory, updates and compliance (seconds). 0 = disabled.",
+      "taskRetrieveDelay": "Task Retrieve Delay",
+      "taskRetrieveDelayDesc": "How often agents poll for pending tasks when the command channel is unavailable (seconds, min 1). Lower = faster command delivery."
     },
     "smtp": {
       "title": "SMTP Servers",

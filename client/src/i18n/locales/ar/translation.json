@@ -403,5 +403,11 @@
     "suspendSuccess": "تم تعليق الجهاز",
     "unsuspendSuccess": "تم استئناف الجهاز",
     "deleteSuccess": "تم حذف الجهاز"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "تأخير استرداد المهام",
+      "taskRetrieveDelayDesc": "عدد المرات التي يفحص فيها العملاء المهام المعلقة عندما تكون قناة الأوامر غير متاحة (ثانية، الحد الأدنى 1)."
+    }
   }
 }

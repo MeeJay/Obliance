@@ -403,5 +403,11 @@
     "suspendSuccess": "Dispositivo suspenso",
     "unsuspendSuccess": "Dispositivo reativado",
     "deleteSuccess": "Dispositivo excluído"
+  },
+  "settings": {
+    "agent": {
+      "taskRetrieveDelay": "Atraso de recuperação de tarefas",
+      "taskRetrieveDelayDesc": "Com que frequência os agentes verificam tarefas pendentes quando o canal de comandos não está disponível (segundos, mín. 1)."
+    }
   }
 }
