@@ -17,9 +17,10 @@ import (
 // CommandAck reports the outcome of an AgentCommand back to the server.
 // It is included in the next push request's acks[] field.
 type CommandAck struct {
-	CommandID string      `json:"commandId"`
-	Status    string      `json:"status"` // ack_running, success, failure, timeout
-	Result    interface{} `json:"result,omitempty"`
+	CommandID   string      `json:"commandId"`
+	CommandType string      `json:"commandType,omitempty"`
+	Status      string      `json:"status"` // ack_running, success, failure, timeout
+	Result      interface{} `json:"result,omitempty"`
 }
 
 // CommandDispatcher receives AgentCommands, executes them in background
@@ -71,8 +72,9 @@ func (d *CommandDispatcher) HandleCommand(cmd AgentCommand) {
 
 	// Immediately acknowledge that we are starting the work.
 	d.addAck(CommandAck{
-		CommandID: cmd.ID,
-		Status:    "ack_running",
+		CommandID:   cmd.ID,
+		CommandType: cmd.Type,
+		Status:      "ack_running",
 	})
 
 	go d.executeCommand(cmd)
@@ -123,7 +125,7 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
 	}
 
-	ack := CommandAck{CommandID: cmd.ID}
+	ack := CommandAck{CommandID: cmd.ID, CommandType: cmd.Type}
 	if execErr != nil {
 		log.Printf("Command %s (%s) failed: %v", cmd.ID, cmd.Type, execErr)
 		ack.Status = "failure"

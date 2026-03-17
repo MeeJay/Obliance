@@ -283,6 +283,7 @@ export interface AgentPushRequest {
 
 export interface CommandAck {
   commandId: string;
+  commandType?: string;
   status: 'ack_running' | 'success' | 'failure' | 'timeout';
   result?: CommandResult;
 }

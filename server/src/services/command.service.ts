@@ -92,9 +92,36 @@ class CommandService {
       const isTerminal = ['success', 'failure', 'timeout'].includes(ack.status);
       if (isTerminal) updates.finished_at = new Date();
 
-      await db('command_queue')
+      const affected = await db('command_queue')
         .where({ id: ack.commandId, device_id: deviceId })
         .update(updates);
+
+      // Periodic scan commands are generated internally by the agent (not enqueued
+      // by the server), so their UUIDs don't exist in command_queue.  When we
+      // receive a terminal ack for a known scan type and the update touched 0 rows,
+      // insert an auto-completed record so the command appears in the UI history.
+      const PERIODIC_SCAN_TYPES = ['scan_inventory', 'scan_updates', 'check_compliance'];
+      if (affected === 0 && isTerminal && ack.commandType && PERIODIC_SCAN_TYPES.includes(ack.commandType)) {
+        try {
+          await db('command_queue').insert({
+            id: ack.commandId,
+            device_id: deviceId,
+            tenant_id: tenantId,
+            type: ack.commandType,
+            payload: JSON.stringify({}),
+            status: ack.status,
+            priority: 'normal',
+            source_type: 'periodic_scan',
+            result: JSON.stringify(ack.result || {}),
+            acked_at: new Date(),
+            finished_at: new Date(),
+            sent_at: new Date(),
+          });
+        } catch (insertErr) {
+          // Duplicate key or concurrent insert — ignore
+          logger.debug({ commandId: ack.commandId, commandType: ack.commandType }, 'Periodic scan ack insert skipped (duplicate)');
+        }
+      }
 
       // Emit update and keep row for script_execution linkage below
       let row: any;

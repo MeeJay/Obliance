@@ -754,6 +754,7 @@ function RemoteTab({ device }: { device: Device }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
+  const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -810,6 +811,20 @@ function RemoteTab({ device }: { device: Device }) {
       toast.error('Failed to start remote session');
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleEndSession = async (session: RemoteSession) => {
+    setEndingSession((prev) => new Set(prev).add(session.id));
+    try {
+      await remoteApi.endSession(session.id);
+      setSessions((prev) => prev.map((s) =>
+        s.id === session.id ? { ...s, status: 'expired' as const } : s,
+      ));
+    } catch {
+      toast.error('Failed to end session');
+    } finally {
+      setEndingSession((prev) => { const next = new Set(prev); next.delete(session.id); return next; });
     }
   };
 
@@ -888,6 +903,19 @@ function RemoteTab({ device }: { device: Device }) {
                     className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
                   >
                     Open
+                  </button>
+                )}
+                {(session.status === 'waiting' || session.status === 'connecting') && (
+                  <button
+                    onClick={() => handleEndSession(session)}
+                    disabled={endingSession.has(session.id)}
+                    title="Cancel session"
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {endingSession.has(session.id)
+                      ? <RefreshCw className="w-3 h-3 animate-spin" />
+                      : <X className="w-3 h-3" />}
+                    Cancel
                   </button>
                 )}
               </div>
