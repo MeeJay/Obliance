@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -121,12 +123,15 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "restart_service":
 		result, execErr = d.handleRestartService(cmd)
+		if execErr == nil { go d.collectAndPostServices() }
 
 	case "start_service":
 		result, execErr = d.handleStartService(cmd)
+		if execErr == nil { go d.collectAndPostServices() }
 
 	case "stop_service":
 		result, execErr = d.handleStopService(cmd)
+		if execErr == nil { go d.collectAndPostServices() }
 
 	default:
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
@@ -366,6 +371,7 @@ type ServiceInfo struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Status      string `json:"status"` // running, stopped, unknown
 	StartType   string `json:"startType,omitempty"` // auto, manual, disabled, unknown
+	RunAsUser  string `json:"runAsUser,omitempty"`  // account the service runs as
 }
 
 func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, error) {
@@ -373,12 +379,12 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 	case "windows":
 		ctx60, cancel60 := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel60()
+		// Win32_Service via CIM: returns string State/StartMode + StartName (run-as account).
 		out, err := exec.CommandContext(ctx60, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-			`Get-Service | Select-Object Name,DisplayName,Status,StartType | ConvertTo-Json -Compress`).Output()
+			`Get-CimInstance -ClassName Win32_Service | Select-Object Name,DisplayName,State,StartMode,StartName | ConvertTo-Json -Compress`).Output()
 		if err != nil {
 			return nil, fmt.Errorf("list_services: powershell failed: %w", err)
 		}
-		// PowerShell returns either an array or a single object — normalise to array.
 		trimmed := strings.TrimSpace(string(out))
 		if len(trimmed) == 0 {
 			return []ServiceInfo{}, nil
@@ -391,39 +397,25 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		} else {
 			raw = []json.RawMessage{json.RawMessage(trimmed)}
 		}
-		type psService struct {
-			Name        string      `json:"Name"`
-			DisplayName string      `json:"DisplayName"`
-			Status      interface{} `json:"Status"` // can be int or string
-			StartType   interface{} `json:"StartType"`
-		}
-		psStatusMap := map[string]string{
-			"1": "stopped", "4": "running", "2": "starting", "3": "stopping",
-		}
-		psStartMap := map[string]string{
-			"0": "boot", "1": "system", "2": "auto", "3": "manual", "4": "disabled",
+		type ciService struct {
+			Name        string `json:"Name"`
+			DisplayName string `json:"DisplayName"`
+			State       string `json:"State"`     // "Running", "Stopped", "Paused", ...
+			StartMode   string `json:"StartMode"` // "Auto", "Manual", "Disabled", ...
+			StartName   string `json:"StartName"` // run-as account ("LocalSystem", etc.)
 		}
 		services := make([]ServiceInfo, 0, len(raw))
 		for _, r := range raw {
-			var ps psService
-			if err := json.Unmarshal(r, &ps); err != nil {
+			var ci ciService
+			if err := json.Unmarshal(r, &ci); err != nil {
 				continue
 			}
-			statusStr := fmt.Sprintf("%v", ps.Status)
-			if v, ok := psStatusMap[statusStr]; ok {
-				statusStr = v
-			} else {
-				statusStr = strings.ToLower(statusStr)
-			}
-			startStr := fmt.Sprintf("%v", ps.StartType)
-			if v, ok := psStartMap[startStr]; ok {
-				startStr = v
-			} else {
-				startStr = strings.ToLower(startStr)
-			}
 			services = append(services, ServiceInfo{
-				Name: ps.Name, DisplayName: ps.DisplayName,
-				Status: statusStr, StartType: startStr,
+				Name:        ci.Name,
+				DisplayName: ci.DisplayName,
+				Status:      strings.ToLower(ci.State),
+				StartType:   strings.ToLower(ci.StartMode),
+				RunAsUser:   ci.StartName,
 			})
 		}
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
@@ -432,17 +424,12 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		out, err := exec.Command("systemctl", "list-units", "--type=service",
 			"--all", "--no-pager", "--output=json").Output()
 		if err != nil {
-			// fallback: plain text
-			out2, _ := exec.Command("systemctl", "list-units", "--type=service",
-				"--all", "--no-pager").Output()
-			return map[string]interface{}{
-				"services": strings.TrimSpace(string(out2)),
-				"format":   "text",
-			}, nil
+			// Fallback for older systemd without JSON support — return empty list.
+			return map[string]interface{}{"services": []ServiceInfo{}, "count": 0}, nil
 		}
 		var units []map[string]interface{}
 		if err := json.Unmarshal(out, &units); err != nil {
-			return map[string]interface{}{"raw": strings.TrimSpace(string(out))}, nil
+			return map[string]interface{}{"services": []ServiceInfo{}, "count": 0}, nil
 		}
 		services := make([]ServiceInfo, 0, len(units))
 		for _, u := range units {
@@ -455,6 +442,40 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 			}
 			services = append(services, ServiceInfo{Name: name, DisplayName: desc, Status: status})
 		}
+		// Bulk-fetch User= property for all units in one systemctl show call.
+		if len(services) > 0 {
+			unitNames := make([]string, len(services))
+			for i, s := range services {
+				unitNames[i] = s.Name
+			}
+			args := append([]string{"show", "--property=Id,User"}, unitNames...)
+			showOut, showErr := exec.Command("systemctl", args...).Output()
+			if showErr == nil {
+				// Output: "Id=unit.service\nUser=username\n\nId=...\nUser=...\n"
+				userMap := make(map[string]string)
+				for _, block := range strings.Split(strings.TrimSpace(string(showOut)), "\n\n") {
+					var id, user string
+					for _, line := range strings.Split(block, "\n") {
+						if strings.HasPrefix(line, "Id=") {
+							id = strings.TrimPrefix(line, "Id=")
+						} else if strings.HasPrefix(line, "User=") {
+							user = strings.TrimPrefix(line, "User=")
+						}
+					}
+					if id != "" {
+						if user == "" {
+							user = "root"
+						}
+						userMap[id] = user
+					}
+				}
+				for i := range services {
+					if u, ok := userMap[services[i].Name]; ok {
+						services[i].RunAsUser = u
+					}
+				}
+			}
+		}
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
 	case "darwin":
@@ -464,16 +485,23 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		}
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		services := make([]ServiceInfo, 0, len(lines))
-		for _, line := range lines[1:] { // skip header
+		for _, line := range lines[1:] { // skip header: PID Status Label
 			fields := strings.Fields(line)
 			if len(fields) < 3 {
 				continue
 			}
+			pidStr := fields[0]
 			status := "stopped"
-			if fields[0] != "-" {
+			runAsUser := ""
+			if pidStr != "-" {
 				status = "running"
+				// Resolve the user from the running PID.
+				psOut, psErr := exec.Command("ps", "-p", pidStr, "-o", "user=").Output()
+				if psErr == nil {
+					runAsUser = strings.TrimSpace(string(psOut))
+				}
 			}
-			services = append(services, ServiceInfo{Name: fields[2], Status: status})
+			services = append(services, ServiceInfo{Name: fields[2], Status: status, RunAsUser: runAsUser})
 		}
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
@@ -664,6 +692,61 @@ func (d *CommandDispatcher) makeConfig() *Config {
 		ServerURL:  d.serverURL,
 	}
 }
+
+// collectAndPostServices runs list_services and immediately POSTs the result.
+// Called by the service watcher goroutine and after start/stop/restart actions.
+func (d *CommandDispatcher) collectAndPostServices() {
+	cfg := d.makeConfig()
+	result, err := d.handleListServices(AgentCommand{ID: generateUUID(), Type: "list_services"})
+	if err != nil {
+		log.Printf("collectAndPostServices: %v", err)
+		return
+	}
+	raw, ok := result.(map[string]interface{})
+	if !ok {
+		return
+	}
+	svcs, ok := raw["services"]
+	if !ok {
+		return
+	}
+	b, _ := json.Marshal(svcs)
+	var services []ServiceInfo
+	if err := json.Unmarshal(b, &services); err == nil {
+		postServices(services, cfg)
+	}
+}
+
+
+// postServices pushes the current service list to the server so it can be
+// stored as latest_services and broadcast to connected clients via socket.
+func postServices(services []ServiceInfo, cfg *Config) {
+	if cfg == nil || len(services) == 0 {
+		return
+	}
+	body := map[string]interface{}{"services": services}
+	b, err := json.Marshal(body)
+	if err != nil {
+		log.Printf("postServices: marshal error: %v", err)
+		return
+	}
+	req, err := http.NewRequest("POST", cfg.ServerURL+"/api/agent/services", bytes.NewReader(b))
+	if err != nil {
+		log.Printf("postServices: build request error: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", cfg.APIKey)
+	req.Header.Set("X-Device-UUID", cfg.DeviceUUID)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("postServices: request error: %v", err)
+		return
+	}
+	resp.Body.Close()
+}
+
 
 // payloadString is a helper to extract a string value from a command payload.
 func payloadString(payload map[string]interface{}, key string) string {

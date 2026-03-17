@@ -16,6 +16,8 @@ import {
 } from '../controllers/agent.controller';
 import { inventoryService } from '../services/inventory.service';
 import { updateService } from '../services/update.service';
+import { SocketEvents } from '@obliance/shared';
+import { getIO } from '../socket';
 
 const router = Router();
 
@@ -254,6 +256,42 @@ router.post('/updates', agentAuth, async (req, res, next) => {
     }
 
     res.json({ ok: true, count: updates?.length ?? 0 });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/services
+// Called by the agent whenever it collects a fresh service list (on scan, after
+// a start/stop/restart action, or when the background watcher detects a change).
+// Stores the list as `latest_services` JSONB on the device and emits a socket
+// event so connected clients update in real time.
+router.post('/services', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { services } = req.body as { services: unknown[] };
+    if (!Array.isArray(services)) return res.status(400).json({ error: 'services must be an array' });
+
+    await db('devices')
+      .where({ id: device.id })
+      .update({ latest_services: JSON.stringify(services) });
+
+    // Emit real-time update to all clients in this tenant room
+    getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_SERVICES_UPDATED, {
+      deviceId: device.id,
+      services,
+    });
+
+    res.json({ ok: true, count: services.length });
   } catch (err) { next(err); }
 });
 

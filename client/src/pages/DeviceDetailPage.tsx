@@ -11,6 +11,7 @@ import { appConfigApi } from '@/api/appConfig.api';
 import { ssoApi } from '@/api/sso.api';
 import { inventoryApi } from '@/api/inventory.api';
 import { commandApi } from '@/api/command.api';
+import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
@@ -20,7 +21,8 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
-import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, RemoteSession, Command } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, RemoteSession, Command, ServiceInfo } from '@obliance/shared';
+import { SocketEvents } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -1282,13 +1284,6 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
 
 // ─── Services Tab ──────────────────────────────────────────────────────────────
 
-interface ServiceInfo {
-  name: string;
-  displayName?: string;
-  status: string;
-  startType?: string;
-}
-
 function ServicesTab({ device }: { device: Device }) {
   const [services, setServices] = useState<ServiceInfo[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(false);
@@ -1297,10 +1292,28 @@ function ServicesTab({ device }: { device: Device }) {
   const listTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState('');
 
-  // Listen for command results from server (via socket)
+  // Auto-load stored services from server on mount
+  useEffect(() => {
+    let cancelled = false;
+    deviceApi.getServices(device.id).then((svcs) => {
+      if (!cancelled && svcs.length > 0) setServices(svcs);
+    }).catch(() => {/* silent — no stored data yet */});
+    return () => { cancelled = true; };
+  }, [device.id]);
+
+  // Listen for real-time updates (watcher goroutine + post-action re-collect)
+  // and for command results (manual refresh, start/stop/restart ACKs)
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
+
+    // Agent pushed a fresh service list → replace the whole state
+    const onServicesUpdated = (payload: { deviceId: number; services: ServiceInfo[] }) => {
+      if (payload.deviceId !== device.id) return;
+      setServices(payload.services);
+      setIsLoadingServices(false);
+      if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
+    };
 
     const onCmd = (cmd: Command) => {
       if (cmd.deviceId !== device.id) return;
@@ -1308,16 +1321,11 @@ function ServicesTab({ device }: { device: Device }) {
       if (!terminal) return;
 
       if (cmd.type === 'list_services') {
+        // Manual refresh result — the watcher POST will arrive shortly and
+        // update the list; clear the spinner now.
         if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
         setIsLoadingServices(false);
-        if (cmd.status === 'success') {
-          const raw = cmd.result as any;
-          // Agent may return { services: [...], count: N } or a plain array
-          const arr: ServiceInfo[] = Array.isArray(raw) ? raw : (Array.isArray(raw?.services) ? raw.services : []);
-          setServices(arr);
-        } else {
-          toast.error('Failed to load services');
-        }
+        if (cmd.status !== 'success') toast.error('Failed to load services');
       }
 
       if (cmd.type === 'restart_service' || cmd.type === 'start_service' || cmd.type === 'stop_service') {
@@ -1325,7 +1333,7 @@ function ServicesTab({ device }: { device: Device }) {
         if (name) {
           setPendingService((prev) => { const m = new Map(prev); m.delete(name); return m; });
           if (cmd.status === 'success') {
-            // Optimistically update the status in the list
+            // Optimistic update — the watcher POST will confirm shortly
             const newStatus = cmd.type === 'start_service' ? 'running'
               : cmd.type === 'stop_service' ? 'stopped' : null;
             if (newStatus) {
@@ -1343,9 +1351,14 @@ function ServicesTab({ device }: { device: Device }) {
       }
     };
 
+    socket.on(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
     socket.on('COMMAND_RESULT', onCmd);
     socket.on('COMMAND_UPDATED', onCmd);
-    return () => { socket.off('COMMAND_RESULT', onCmd); socket.off('COMMAND_UPDATED', onCmd); };
+    return () => {
+      socket.off(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
+      socket.off('COMMAND_RESULT', onCmd);
+      socket.off('COMMAND_UPDATED', onCmd);
+    };
   }, [device.id]);
 
   const handleListServices = async () => {
@@ -1419,7 +1432,8 @@ function ServicesTab({ device }: { device: Device }) {
       {services.length === 0 && !isLoadingServices ? (
         <div className="p-10 text-center text-text-muted text-sm">
           <Server className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p>Click <strong>Load Services</strong> to retrieve the service list from the agent</p>
+          <p>No service data yet — the agent will push the list automatically on its next scan.</p>
+          <p className="mt-1 text-xs opacity-70">You can also click <strong>Load Services</strong> to force an immediate fetch.</p>
         </div>
       ) : isLoadingServices && services.length === 0 ? (
         <div className="flex items-center justify-center gap-2 h-24 text-text-muted text-sm">
@@ -1436,6 +1450,7 @@ function ServicesTab({ device }: { device: Device }) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden md:table-cell">Description</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Status</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden lg:table-cell">Startup</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden xl:table-cell">Run As</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
@@ -1470,6 +1485,8 @@ function ServicesTab({ device }: { device: Device }) {
                     </td>
                     {/* Start type */}
                     <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">{svc.startType || '—'}</td>
+                    {/* Run As */}
+                    <td className="px-4 py-2 text-xs text-text-muted hidden xl:table-cell font-mono">{svc.runAsUser || '—'}</td>
                     {/* Action buttons */}
                     <td className="px-4 py-2">
                       <div className="flex items-center justify-end gap-1">

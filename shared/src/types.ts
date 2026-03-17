@@ -275,6 +275,15 @@ export interface CommandResult {
   duration?: number;
 }
 
+// Service info returned by the agent for list_services / stored as latest_services
+export interface ServiceInfo {
+  name: string;
+  displayName?: string;
+  status: string;        // 'running' | 'stopped' | 'starting' | 'stopping' | ...
+  startType?: string;    // 'auto' | 'manual' | 'disabled' | ...
+  runAsUser?: string;    // account the service runs as (Windows: StartName, Linux: User=, macOS: ps user)
+}
+
 // Agent push protocol
 export interface AgentPushRequest {
   deviceUuid: string;

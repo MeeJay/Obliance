@@ -7,6 +7,7 @@ export const SocketEvents = {
   // Device events
   DEVICE_UPDATED:         'DEVICE_UPDATED',         // device status or metadata changed
   DEVICE_METRICS_PUSHED:  'DEVICE_METRICS_PUSHED',  // agent pushed new metrics
+  DEVICE_SERVICES_UPDATED: 'DEVICE_SERVICES_UPDATED', // agent pushed updated service list
   DEVICE_APPROVED:        'DEVICE_APPROVED',         // device was approved
   DEVICE_DELETED:         'DEVICE_DELETED',          // device was removed
   DEVICE_ONLINE:          'DEVICE_ONLINE',            // device came online

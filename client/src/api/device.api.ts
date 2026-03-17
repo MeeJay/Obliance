@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Device, FleetSummary, AgentApiKey } from '@obliance/shared';
+import type { Device, FleetSummary, AgentApiKey, ServiceInfo } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -58,6 +58,12 @@ export const deviceApi = {
   },
   async deleteKey(id: number): Promise<void> {
     await apiClient.delete(`/agent/keys/${id}`);
+  },
+
+  // Services
+  async getServices(deviceId: number): Promise<ServiceInfo[]> {
+    const res = await apiClient.get<ApiResponse<ServiceInfo[]>>(`/devices/${deviceId}/services`);
+    return res.data.data ?? [];
   },
 
   // Installer URLs

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { deviceService } from '../services/device.service';
 import { requireRole } from '../middleware/rbac';
+import { db } from '../db';
 
 const router = Router();
 
@@ -103,6 +104,21 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
     const list = ids ?? deviceIds ?? [];
     await deviceService.bulkDelete(list, req.tenantId!);
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/services
+// Returns the last service list pushed by the agent (stored as latest_services JSONB).
+router.get('/:id/services', async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const device = await db('devices')
+      .where({ id: deviceId, tenant_id: req.tenantId! })
+      .select('latest_services')
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const services = device.latest_services ?? [];
+    res.json({ data: services });
   } catch (err) { next(err); }
 });
 

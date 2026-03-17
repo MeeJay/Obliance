@@ -349,7 +349,7 @@ func runScanAll(cfg *Config) {
 		return
 	}
 	log.Printf("Periodic Scan All triggered")
-	for _, t := range []string{"scan_inventory", "scan_updates", "check_compliance"} {
+	for _, t := range []string{"scan_inventory", "scan_updates", "check_compliance", "list_services"} {
 		// Use a proper UUID so the server can process the ACKs without a
 		// "invalid input syntax for type uuid" PostgreSQL error. The ID won't
 		// match any row in command_queue (it's synthetic) so the server will
@@ -391,6 +391,26 @@ func mainLoop(cfg *Config) {
 				runScanAll(cfg)
 				lastScan = time.Now()
 			}
+		}
+	}()
+
+	// Service watcher goroutine — periodically collects the service list and
+	// POSTs it to the server so the UI stays live without any user action.
+	// It also detects external changes (user restarting a service via services.msc,
+	// systemctl, launchctl, etc.) because it compares states between rounds.
+	// Interval: 30s on Linux/macOS (fast), 90s on Windows (PowerShell overhead).
+	go func() {
+		// Initial delay — let the agent fully register before the first collect.
+		time.Sleep(20 * time.Second)
+		watchInterval := 30 * time.Second
+		if runtime.GOOS == "windows" {
+			watchInterval = 90 * time.Second
+		}
+		for {
+			if dispatcher != nil {
+				dispatcher.collectAndPostServices()
+			}
+			time.Sleep(watchInterval)
 		}
 	}()
 
