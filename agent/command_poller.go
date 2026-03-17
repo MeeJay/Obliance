@@ -25,6 +25,7 @@ import (
 type commandPollResponse struct {
 	Commands         []AgentCommand `json:"commands"`
 	NextDelaySeconds int            `json:"nextDelaySeconds"`
+	LatestVersion    string         `json:"latestVersion,omitempty"`
 }
 
 // runCommandPoller loops forever, sleeping cfg.TaskRetrieveDelaySec between
@@ -83,6 +84,12 @@ func pollCommandsOnce(cfg *Config) int {
 				dispatcher.HandleCommand(cmd)
 			}
 		}
+	}
+
+	// Check for a newer agent version — allows auto-update without waiting for
+	// the next full push cycle (up to CheckIntervalSeconds, default 60 s).
+	if result.LatestVersion != "" {
+		applyUpdateIfNewer(cfg, result.LatestVersion)
 	}
 
 	return result.NextDelaySeconds

@@ -891,8 +891,8 @@
     "statSkipped": "{{count}} skipped"
   },
   "download": {
-    "title": "Obliance Desktop",
-    "description": "A lightweight native wrapper for your Obliance instance.\nGet system-level sound notifications and a distraction-free monitoring experience.",
+    "title": "Obli.tools",
+    "description": "A lightweight native interface that groups all your Obli apps into one window.\nGet sound notifications and a distraction-free monitoring experience.",
     "downloadFolder": "Download folder: ",
     "downloadFolderPlaceholder": "Will ask on first download",
     "changeFolder": "Change",
@@ -909,8 +909,8 @@
     "buildFromSource": "Build from source",
     "buildFromSourceDesc": "The desktop app lives in the desktop-app/ directory of the Obliance repository.",
     "howItWorks": "How it works",
-    "step1": "On first launch, enter your Obliance server URL. It is saved locally.",
-    "step2": "The app opens your Obliance in a native window — no browser tabs, no address bar.",
+    "step1": "On first launch, enter your Obliview server URL. Linked apps (Obliguard, Oblimap, Obliance) are discovered automatically.",
+    "step2": "Each app opens in its own native tab — no browser overhead, no address bar, sessions are preserved when switching tabs.",
     "step3": "Sound notifications play when a probe goes down/up or an agent threshold is breached/cleared.",
     "step4": "Click the ⚙ gear icon (bottom-right corner) to change the server URL at any time.",
     "step5": "No rebuild is needed after Obliance updates — the app always loads the latest web UI.",

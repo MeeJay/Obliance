@@ -10,11 +10,11 @@ import { appConfigService } from '../services/appConfig.service';
 
 const router = Router();
 
-const SELF = { name: 'Obliance', color: '#f59e0b' };
+const SELF = { name: 'Obliance', color: '#8b5cf6' };
 
 const LINKED: Record<string, { name: string; color: string }> = {
   obliview:  { name: 'Obliview',  color: '#6366f1' },
-  obliguard: { name: 'Obliguard', color: '#8b5cf6' },
+  obliguard: { name: 'Obliguard', color: '#f97316' },
   oblimap:   { name: 'Oblimap',   color: '#10b981' },
 };
 

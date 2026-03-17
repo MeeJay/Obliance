@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
-import { deviceService } from '../services/device.service';
+import { deviceService, getAgentVersion } from '../services/device.service';
 import { commandService } from '../services/command.service';
 import { logger } from '../utils/logger';
 import type { AgentPushRequest } from '@obliance/shared';
@@ -198,6 +198,7 @@ router.get('/commands', agentAuth, async (req, res, next) => {
     res.json({
       commands: pending.map((c: any) => ({ id: c.id, type: c.type, payload: c.payload, priority: c.priority })),
       nextDelaySeconds,
+      latestVersion: getAgentVersion() || undefined,
     });
   } catch (err) { next(err); }
 });

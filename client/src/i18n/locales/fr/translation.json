@@ -782,8 +782,8 @@
     "statSkipped": "{{count}} ignoré(s)"
   },
   "download": {
-    "title": "Obliance Desktop",
-    "description": "Une interface native légère pour votre instance Obliance.\nObtenez des notifications sonores et une expérience de surveillance sans distraction.",
+    "title": "Obli.tools",
+    "description": "Une interface native légère qui regroupe toutes vos apps Obli dans une seule fenêtre.\nObtenez des notifications sonores et une expérience de surveillance sans distraction.",
     "downloadFolder": "Dossier de téléchargement : ",
     "downloadFolderPlaceholder": "Demandé au premier téléchargement",
     "changeFolder": "Modifier",
@@ -800,9 +800,9 @@
     "buildFromSource": "Compiler depuis les sources",
     "buildFromSourceDesc": "L'application de bureau se trouve dans le répertoire desktop-app/ du dépôt Obliance.",
     "howItWorks": "Fonctionnement",
-    "step1": "Au premier lancement, saisissez l'URL de votre serveur Obliance. Elle est sauvegardée localement.",
-    "step2": "L'application ouvre votre Obliance dans une fenêtre native — sans onglets de navigateur.",
-    "step3": "Des notifications sonores jouent quand un moniteur tombe ou reprend, ou qu'un seuil d'agent est dépassé.",
+    "step1": "Au premier lancement, saisissez l’URL de votre serveur Obliview. Les apps liées (Obliguard, Oblimap, Obliance) sont découvertes automatiquement.",
+    "step2": "Chaque app s’ouvre dans son propre onglet natif — pas de navigateur, pas de barre d’adresse, les sessions sont préservées.",
+    "step3": "Des notifications sonores jouent quand un moniteur tombe ou reprend, ou qu’un seuil d’agent est franchi.",
     "step4": "Cliquez sur l'icône ⚙ (coin inférieur droit) pour changer l'URL du serveur à tout moment.",
     "step5": "Aucune recompilation n'est nécessaire après les mises à jour d'Obliance.",
     "features": {
