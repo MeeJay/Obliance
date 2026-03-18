@@ -1927,6 +1927,25 @@ function ServicesTab({ device }: { device: Device }) {
         if (cmd.status !== 'success') toast.error('Failed to load services');
       }
 
+      if (cmd.type === 'install_update') {
+        const updateUid = (cmd.payload as any)?.updateUid as string | undefined;
+        if (cmd.status === 'success') {
+          if (updateUid) setUpdates((prev) => prev.map((u) =>
+            u.updateUid === updateUid ? { ...u, status: 'installed', installedAt: new Date().toISOString() } : u
+          ));
+          toast.success(updateUid ? `Update ${updateUid} installed` : 'Update installed');
+        } else {
+          if (updateUid) setUpdates((prev) => prev.map((u) =>
+            u.updateUid === updateUid ? { ...u, status: 'failed' } : u
+          ));
+          toast.error(updateUid ? `Failed to install ${updateUid}` : 'Update installation failed');
+        }
+      }
+
+      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
+        updateApi.listUpdates({ deviceId: device.id }).then((res) => setUpdates(res.items)).catch(() => {});
+      }
+
       if (cmd.type === 'restart_service' || cmd.type === 'start_service' || cmd.type === 'stop_service') {
         const name = (cmd.payload as any)?.name as string;
         if (name) {
