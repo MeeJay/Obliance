@@ -454,6 +454,39 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
 
   useEffect(() => { load(); }, [deviceId]);
 
+  // Real-time: reflect install results & re-fetch after scan
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onCmd = (cmd: Command) => {
+      if (cmd.deviceId !== deviceId) return;
+      if (!['success', 'failure', 'timeout'].includes(cmd.status)) return;
+      if (cmd.type === 'install_update') {
+        const uid = (cmd.payload as any)?.updateUid as string | undefined;
+        if (cmd.status === 'success') {
+          if (uid) setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'installed' as const, installedAt: new Date().toISOString() } : u
+          ));
+          toast.success(uid ? `Update ${uid} installed` : 'Update installed');
+        } else {
+          if (uid) setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'failed' as const } : u
+          ));
+          toast.error(uid ? `Failed to install ${uid}` : 'Update installation failed');
+        }
+      }
+      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
+        load();
+      }
+    };
+    socket.on(SocketEvents.COMMAND_RESULT, onCmd);
+    socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
+    return () => {
+      socket.off(SocketEvents.COMMAND_RESULT, onCmd);
+      socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
+    };
+  }, [deviceId]);
+
   const handleScan = async () => {
     try {
       await updateApi.triggerScan(deviceId);
@@ -1925,25 +1958,6 @@ function ServicesTab({ device }: { device: Device }) {
         if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
         setIsLoadingServices(false);
         if (cmd.status !== 'success') toast.error('Failed to load services');
-      }
-
-      if (cmd.type === 'install_update') {
-        const updateUid = (cmd.payload as any)?.updateUid as string | undefined;
-        if (cmd.status === 'success') {
-          if (updateUid) setUpdates((prev) => prev.map((u) =>
-            u.updateUid === updateUid ? { ...u, status: 'installed', installedAt: new Date().toISOString() } : u
-          ));
-          toast.success(updateUid ? `Update ${updateUid} installed` : 'Update installed');
-        } else {
-          if (updateUid) setUpdates((prev) => prev.map((u) =>
-            u.updateUid === updateUid ? { ...u, status: 'failed' } : u
-          ));
-          toast.error(updateUid ? `Failed to install ${updateUid}` : 'Update installation failed');
-        }
-      }
-
-      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
-        updateApi.listUpdates({ deviceId: device.id }).then((res) => setUpdates(res.items)).catch(() => {});
       }
 
       if (cmd.type === 'restart_service' || cmd.type === 'start_service' || cmd.type === 'stop_service') {
