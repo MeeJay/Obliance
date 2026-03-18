@@ -19,6 +19,7 @@ import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
 import { remoteApi } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
+import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -1437,13 +1438,16 @@ function RemoteTab({ device }: { device: Device }) {
   // connecting overlay before REMOTE_TUNNEL_READY arrives.
   const [vncModalOpen, setVncModalOpen] = useState(false);
   const [sshModalOpen, setSshModalOpen] = useState(false);
+  const [orModalOpen, setOrModalOpen]   = useState(false);
   // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
   const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
+  const [orSession,  setOrSession]  = useState<RemoteSession | null>(null);
   // Track the session ID we are personally waiting for so a concurrent
   // session started by another user doesn't overwrite our modal state.
   const pendingSshId = useRef<string | null>(null);
   const pendingVncId = useRef<string | null>(null);
+  const pendingOrId  = useRef<string | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -1482,6 +1486,9 @@ function RemoteTab({ device }: { device: Device }) {
       } else if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
         setSshSession(session);
         pendingSshId.current = null;
+      } else if (session.protocol === 'oblireach' && session.id === pendingOrId.current) {
+        setOrSession(session);
+        pendingOrId.current = null;
       }
     };
 
@@ -1496,10 +1503,13 @@ function RemoteTab({ device }: { device: Device }) {
 
   const isShellProtocol = (p: string) => p === 'ssh' || p === 'cmd' || p === 'powershell';
 
-  const handleStartSession = async (protocol: 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
+  const handleStartSession = async (protocol: 'oblireach' | 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
     // Open the modal immediately so the user sees a connecting overlay
     // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
-    if (isShellProtocol(protocol)) {
+    if (protocol === 'oblireach') {
+      setOrSession(null);
+      setOrModalOpen(true);
+    } else if (isShellProtocol(protocol)) {
       setSshSession(null);
       setSshModalOpen(true);
     } else {
@@ -1511,13 +1521,14 @@ function RemoteTab({ device }: { device: Device }) {
       const session = await remoteApi.startSession(device.id, protocol);
       // Record which session ID we're waiting for so REMOTE_TUNNEL_READY
       // can ignore events from concurrent sessions opened by other users.
-      if (isShellProtocol(protocol)) pendingSshId.current = session.id;
+      if (protocol === 'oblireach') pendingOrId.current = session.id;
+      else if (isShellProtocol(protocol)) pendingSshId.current = session.id;
       else pendingVncId.current = session.id;
       setSessions((prev) => [session, ...prev]);
     } catch {
       toast.error('Failed to start remote session');
-      // Roll back modal if the API call failed
-      if (isShellProtocol(protocol)) setSshModalOpen(false);
+      if (protocol === 'oblireach') setOrModalOpen(false);
+      else if (isShellProtocol(protocol)) setSshModalOpen(false);
       else setVncModalOpen(false);
     } finally {
       setIsStarting(false);
@@ -1542,6 +1553,17 @@ function RemoteTab({ device }: { device: Device }) {
 
   return (
     <>
+      {orModalOpen && (
+        <ObliReachViewer
+          sessionToken={orSession?.sessionToken ?? null}
+          deviceName={device.displayName || device.hostname}
+          onClose={async () => {
+            if (orSession) try { await remoteApi.endSession(orSession.id); } catch {}
+            setOrModalOpen(false);
+            setOrSession(null);
+          }}
+        />
+      )}
       {vncModalOpen && (
         <VncViewer
           session={vncSession}
@@ -1568,9 +1590,9 @@ function RemoteTab({ device }: { device: Device }) {
         )}
         <div className="flex flex-wrap gap-2">
           {(
-            device.osType === 'windows' ? (['vnc', 'cmd', 'powershell'] as const) :
-            device.osType === 'macos'   ? (['vnc', 'ssh'] as const) :
-                                          (['ssh'] as const)
+            device.osType === 'windows' ? (['oblireach', 'vnc', 'cmd', 'powershell'] as const) :
+            device.osType === 'macos'   ? (['oblireach', 'vnc', 'ssh'] as const) :
+                                          (['oblireach', 'ssh'] as const)
           ).map((proto) => (
             <button
               key={proto}
@@ -1618,6 +1640,16 @@ function RemoteTab({ device }: { device: Device }) {
                     {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
                   </p>
                 </div>
+                {session.status === 'active' && session.protocol === 'oblireach' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setOrSession(session); setOrModalOpen(true); }}
+                      className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
+                    >
+                      View
+                    </button>
+                  </div>
+                )}
                 {session.status === 'active' && (session.protocol === 'vnc' || session.protocol === 'rdp') && (
                   <div className="flex items-center gap-2">
                     <button
@@ -2243,7 +2275,7 @@ export function DeviceDetailPage() {
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
   const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
   const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
-  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell'>('vnc');
+  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
   const [isStartingRemote, setIsStartingRemote] = useState(false);
   const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
   const remoteDropdownRef = useRef<HTMLDivElement>(null);
@@ -2261,7 +2293,7 @@ export function DeviceDetailPage() {
     }
   };
 
-  const handleHeaderRemote = async (protocol: 'vnc' | 'ssh' | 'cmd' | 'powershell') => {
+  const handleHeaderRemote = async (protocol: 'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
     setRemoteDropdownOpen(false);
     setHeaderRemoteProtocol(protocol);
     setHeaderRemoteSession(null);
@@ -2400,20 +2432,30 @@ export function DeviceDetailPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Remote session launched from header */}
-      {headerRemoteOpen && (
-        headerRemoteProtocol === 'vnc' ? (
-          <VncViewer
-            session={headerRemoteSession}
-            title={`VNC — ${device.displayName || device.hostname}`}
-            onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
-          />
-        ) : (
-          <SshTerminalModal
-            session={headerRemoteSession}
-            deviceName={device.displayName || device.hostname}
-            onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
-          />
-        )
+      {headerRemoteOpen && headerRemoteProtocol === 'oblireach' && (
+        <ObliReachViewer
+          sessionToken={headerRemoteSession?.sessionToken ?? null}
+          deviceName={device.displayName || device.hostname}
+          onClose={async () => {
+            if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
+            setHeaderRemoteOpen(false);
+            setHeaderRemoteSession(null);
+          }}
+        />
+      )}
+      {headerRemoteOpen && headerRemoteProtocol === 'vnc' && (
+        <VncViewer
+          session={headerRemoteSession}
+          title={`VNC — ${device.displayName || device.hostname}`}
+          onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
+        />
+      )}
+      {headerRemoteOpen && (headerRemoteProtocol === 'ssh' || headerRemoteProtocol === 'cmd' || headerRemoteProtocol === 'powershell') && (
+        <SshTerminalModal
+          session={headerRemoteSession}
+          deviceName={device.displayName || device.hostname}
+          onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
+        />
       )}
 
       {/* Header */}
@@ -2507,11 +2549,11 @@ export function DeviceDetailPage() {
               {/* ── Quick actions ── */}
               <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
                 {(() => {
-                  const opts: Array<'vnc' | 'ssh' | 'cmd' | 'powershell'> =
-                    device.osType === 'windows' ? ['vnc', 'cmd', 'powershell'] :
-                    device.osType === 'macos'   ? ['vnc', 'ssh'] :
-                                                  ['ssh'];
-                  const label = (p: string) => p === 'powershell' ? 'PS' : p.toUpperCase();
+                  const opts: Array<'oblireach' | 'vnc' | 'ssh' | 'cmd' | 'powershell'> =
+                    device.osType === 'windows' ? ['oblireach', 'vnc', 'cmd', 'powershell'] :
+                    device.osType === 'macos'   ? ['oblireach', 'vnc', 'ssh'] :
+                                                  ['oblireach', 'ssh'];
+                  const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
                   return (
                     <div className="relative" ref={remoteDropdownRef}>
                       {opts.length === 1 ? (

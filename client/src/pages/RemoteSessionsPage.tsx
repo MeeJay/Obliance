@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Search, ExternalLink } from 'lucide-react';
 import { remoteApi } from '@/api/remote.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { VncViewerModal } from '@/components/VncViewerModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
+import { getSocket } from '@/socket';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -59,6 +60,7 @@ export function RemoteSessionsPage() {
   // Viewer modal state (VNC or Oblireach)
   const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
   const [orSession, setOrSession]   = useState<RemoteSession | null>(null);
+  const pendingOrId = useRef<string | null>(null);
 
   const { getDeviceList, fetchDevices } = useDeviceStore();
 
@@ -82,22 +84,60 @@ export function RemoteSessionsPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
+  // Real-time updates — refresh session list and update orSession if agent connected
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onUpdated = (s: RemoteSession) => {
+      setActiveSessions((prev) => {
+        const exists = prev.find((x) => x.id === s.id);
+        if (exists) return prev.map((x) => x.id === s.id ? s : x);
+        return prev;
+      });
+      if (orSession?.id === s.id) setOrSession(s);
+    };
+    const onReady = (s: RemoteSession) => {
+      setActiveSessions((prev) => prev.map((x) => x.id === s.id ? s : x));
+      if (s.id === pendingOrId.current) {
+        setOrSession(s);
+        pendingOrId.current = null;
+      }
+    };
+    socket.on('REMOTE_SESSION_UPDATED', onUpdated);
+    socket.on('REMOTE_TUNNEL_READY', onReady);
+    return () => {
+      socket.off('REMOTE_SESSION_UPDATED', onUpdated);
+      socket.off('REMOTE_TUNNEL_READY', onReady);
+    };
+  }, [orSession]);
+
   const handleStartSession = async () => {
     if (!selectedDeviceId) {
       toast.error('Please select a device');
       return;
     }
     setIsStarting(true);
+    // Open Oblireach viewer immediately so it's ready when the agent connects
+    if (selectedProtocol === 'oblireach') {
+      setOrSession({ sessionToken: '' } as any); // placeholder — viewer shows "waiting"
+    }
     try {
-      await remoteApi.startSession(selectedDeviceId, selectedProtocol, sessionNotes || undefined);
-      toast.success(`${PROTOCOL_CONFIG[selectedProtocol].label} session initiated — waiting for agent…`);
+      const session = await remoteApi.startSession(selectedDeviceId, selectedProtocol, sessionNotes || undefined);
+      if (selectedProtocol === 'oblireach') {
+        pendingOrId.current = session.id;
+        setOrSession(session); // replace placeholder with real session
+        setActiveTab('active');
+      } else {
+        toast.success(`${PROTOCOL_CONFIG[selectedProtocol].label} session initiated — waiting for agent…`);
+        setActiveTab('active');
+      }
       setSelectedDeviceId(null);
       setSessionNotes('');
       setDeviceSearch('');
       await load();
-      setActiveTab('active');
     } catch {
       toast.error('Failed to start session');
+      if (selectedProtocol === 'oblireach') setOrSession(null);
     } finally {
       setIsStarting(false);
     }

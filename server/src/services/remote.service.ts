@@ -11,7 +11,7 @@ interface TunnelEntry {
   browser?: any;
   agent?: any;
   /** Messages received from agent before browser connected — flushed on bridge. */
-  agentBuffer: Buffer[];
+  agentBuffer: Array<{ data: Buffer; isBinary: boolean }>;
 }
 
 class RemoteService {
@@ -140,7 +140,7 @@ class RemoteService {
       if (tunnel.browser) {
         try { tunnel.browser.send(data, { binary: isBinary }); } catch {}
       } else {
-        tunnel.agentBuffer.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
+        tunnel.agentBuffer.push({ data: Buffer.isBuffer(data) ? data : Buffer.from(data), isBinary });
       }
     });
 
@@ -191,9 +191,15 @@ class RemoteService {
     const tunnel = this.tunnels.get(sessionToken);
     if (!tunnel) return;
 
-    // Drain buffer: send accumulated agent frames to browser
-    for (const chunk of tunnel.agentBuffer) {
-      try { browserWs.send(chunk); } catch {}
+    // Signal the browser that the agent is paired and streaming is starting.
+    // This triggers the viewer transition from 'waiting' → 'streaming' even
+    // if the agent's init frame was already buffered (and would be lost as
+    // binary when text/binary metadata is not preserved in the buffer).
+    try { browserWs.send(JSON.stringify({ type: 'paired' })); } catch {}
+
+    // Drain buffer: send accumulated agent frames to browser, preserving frame type
+    for (const { data, isBinary } of tunnel.agentBuffer) {
+      try { browserWs.send(data, { binary: isBinary }); } catch {}
     }
     tunnel.agentBuffer = [];
 
