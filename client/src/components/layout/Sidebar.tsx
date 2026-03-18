@@ -77,8 +77,9 @@ const STATUS_DOT: Record<DeviceStatus, string> = {
   warning:     'bg-yellow-500 animate-pulse',
   critical:    'bg-red-500 animate-pulse',
   pending:     'bg-blue-400',
-  maintenance: 'bg-purple-400',
-  suspended:   'bg-gray-500',
+  maintenance:       'bg-purple-400',
+  suspended:         'bg-gray-500',
+  pending_uninstall: 'bg-orange-400 animate-pulse',
 };
 
 function DeviceStatusDot({ status }: { status: DeviceStatus }) {
