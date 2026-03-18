@@ -129,6 +129,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "restart_agent":
 		execErr = d.handleRestartAgent(cmd)
 
+	case "uninstall_agent":
+		execErr = d.handleUninstallAgent()
+
 	case "list_services":
 		result, execErr = d.handleListServices(cmd)
 
@@ -1231,6 +1234,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleShutdown(cmd)
 	case "restart_agent":
 		return nil, d.handleRestartAgent(cmd)
+	case "uninstall_agent":
+		return nil, d.handleUninstallAgent()
 	default:
 		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
 	}

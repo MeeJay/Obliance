@@ -340,4 +340,15 @@ router.post('/compliance', agentAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── DELETE /api/agent/self — agent-initiated self-removal (uninstall flow) ────
+router.delete('/self', agentAuth, async (req, res, next) => {
+  try {
+    const { device, tenantId } = req as any;
+    await deviceService.deleteDevice(device.id, tenantId);
+    logger.info(`Device ${device.uuid} self-deleted via uninstall command`);
+    getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_DELETED, { id: device.id });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 export default router;

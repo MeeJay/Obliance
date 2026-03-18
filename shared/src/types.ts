@@ -241,7 +241,8 @@ export type CommandType =
   | 'start_service'
   | 'stop_service'
   | 'install_software'
-  | 'uninstall_software';
+  | 'uninstall_software'
+  | 'uninstall_agent';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

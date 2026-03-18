@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/authStore';
 import {
-  Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive,
+  Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -826,30 +827,153 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 
 // ─── Device Settings Tab ─────────────────────────────────────────────────────
 
-function DeviceSettingsTab({ device, onSaved }: { device: Device; onSaved: () => void }) {
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function ToggleRow({ label, description, value, onChange }: {
+  label: string; description?: string; value: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-sm text-text-primary">{label}</p>
+        {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
+      </div>
+      <button onClick={() => onChange(!value)} className="shrink-0">
+        {value ? <ToggleRight className="w-9 h-9 text-accent" /> : <ToggleLeft className="w-9 h-9 text-text-muted" />}
+      </button>
+    </div>
+  );
+}
+
+// ─── DeviceSettingsTab ────────────────────────────────────────────────────────
+
+function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
+  device: Device; onSaved: () => void; adminMode: boolean; onDeleted: () => void;
+}) {
+  const emptyDisplayConfig = (): NonNullable<Device['displayConfig']> => ({
+    hideCpu: false, hideMemory: false, hideDisk: false,
+    hideNetwork: false, hideTemps: false, hideGpu: false,
+    cpu: { hiddenCores: [], hiddenCharts: [], groupCoreThreads: false, tempSensor: null },
+    ram: { hideUsed: false, hideFree: false, hideSwap: false, hiddenCharts: [] },
+    gpu: { hiddenRows: [], hiddenCharts: [] },
+    drives: { hiddenMounts: [], renames: {}, combineReadWrite: false },
+    network: { hiddenInterfaces: [], renames: {}, combineInOut: false },
+    temps: { hiddenLabels: [] },
+  });
+
   const [form, setForm] = useState({
-    displayName:                  device.displayName ?? '',
-    description:                  device.description ?? '',
-    pushIntervalSeconds:          device.pushIntervalSeconds ?? null as number | null,
-    maxMissedPushes:              device.maxMissedPushes ?? 3,
-    overrideGroupSettings:        device.overrideGroupSettings ?? false,
+    // Identity
+    displayName:   device.displayName ?? '',
+    description:   device.description ?? '',
+    // Tags
+    tags:          [...(device.tags ?? [])],
+    tagInput:      '',
+    // Custom fields
+    customFields:  { ...(device.customFields ?? {}) } as Record<string, string>,
+    cfKey:         '',
+    cfValue:       '',
+    // Monitoring
+    overrideGroupSettings: device.overrideGroupSettings ?? false,
+    pushIntervalSeconds:   device.pushIntervalSeconds ?? null as number | null,
+    maxMissedPushes:       device.maxMissedPushes ?? 3,
+    // Notifications
+    notifOnline:   device.notificationTypes?.online   ?? true,
+    notifOffline:  device.notificationTypes?.offline  ?? true,
+    notifWarning:  device.notificationTypes?.warning  ?? true,
+    notifCritical: device.notificationTypes?.critical ?? true,
+    notifUpdate:   device.notificationTypes?.update   ?? false,
+    // Display — section visibility
+    hideCpu:     device.displayConfig?.hideCpu     ?? false,
+    hideMemory:  device.displayConfig?.hideMemory  ?? false,
+    hideDisk:    device.displayConfig?.hideDisk    ?? false,
+    hideNetwork: device.displayConfig?.hideNetwork ?? false,
+    hideTemps:   device.displayConfig?.hideTemps   ?? false,
+    hideGpu:     device.displayConfig?.hideGpu     ?? false,
+    // Display — CPU
+    cpuGroupCoreThreads: device.displayConfig?.cpu?.groupCoreThreads ?? false,
+    // Display — RAM
+    ramHideSwap: device.displayConfig?.ram?.hideSwap ?? false,
+    // Display — Drives
+    driveCombineReadWrite: device.displayConfig?.drives?.combineReadWrite ?? false,
+    // Display — Network
+    networkCombineInOut: device.displayConfig?.network?.combineInOut ?? false,
+    // Sensor renames
+    sensorDisplayNames: { ...(device.sensorDisplayNames ?? {}) } as Record<string, string>,
+    sensorKey:   '',
+    sensorValue: '',
+    // Compliance
     complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
   });
   const [saving, setSaving] = useState(false);
 
-  const handleChange = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
+
+  // Tags
+  const addTag = () => {
+    const t = form.tagInput.trim();
+    if (!t || form.tags.includes(t)) return;
+    set('tags', [...form.tags, t]);
+    set('tagInput', '');
+  };
+  const removeTag = (t: string) => set('tags', form.tags.filter(x => x !== t));
+
+  // Custom fields
+  const addCf = () => {
+    const k = form.cfKey.trim(), v = form.cfValue.trim();
+    if (!k) return;
+    set('customFields', { ...form.customFields, [k]: v });
+    set('cfKey', ''); set('cfValue', '');
+  };
+  const removeCf = (k: string) => {
+    const next = { ...form.customFields }; delete next[k]; set('customFields', next);
+  };
+
+  // Sensor renames
+  const addSensor = () => {
+    const k = form.sensorKey.trim(), v = form.sensorValue.trim();
+    if (!k) return;
+    set('sensorDisplayNames', { ...form.sensorDisplayNames, [k]: v });
+    set('sensorKey', ''); set('sensorValue', '');
+  };
+  const removeSensor = (k: string) => {
+    const next = { ...form.sensorDisplayNames }; delete next[k]; set('sensorDisplayNames', next);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const base = device.displayConfig ?? emptyDisplayConfig();
+      const displayConfig: Device['displayConfig'] = {
+        ...base,
+        hideCpu:     form.hideCpu,
+        hideMemory:  form.hideMemory,
+        hideDisk:    form.hideDisk,
+        hideNetwork: form.hideNetwork,
+        hideTemps:   form.hideTemps,
+        hideGpu:     form.hideGpu,
+        cpu:    { ...(base.cpu    ?? { hiddenCores: [], hiddenCharts: [], tempSensor: null }), groupCoreThreads: form.cpuGroupCoreThreads },
+        ram:    { ...(base.ram    ?? { hideUsed: false, hideFree: false, hiddenCharts: [] }), hideSwap: form.ramHideSwap },
+        drives: { ...(base.drives ?? { hiddenMounts: [], renames: {} }), combineReadWrite: form.driveCombineReadWrite },
+        network:{ ...(base.network?? { hiddenInterfaces: [], renames: {} }), combineInOut: form.networkCombineInOut },
+      };
       await deviceApi.update(device.id, {
-        displayName:                  form.displayName || undefined,
-        description:                  form.description || undefined,
-        pushIntervalSeconds:          form.overrideGroupSettings ? (form.pushIntervalSeconds ?? null) : null,
-        maxMissedPushes:              form.maxMissedPushes,
-        overrideGroupSettings:        form.overrideGroupSettings,
+        displayName:   form.displayName || undefined,
+        description:   form.description || undefined,
+        tags:          form.tags,
+        customFields:  form.customFields,
+        overrideGroupSettings: form.overrideGroupSettings,
+        pushIntervalSeconds:   form.overrideGroupSettings ? (form.pushIntervalSeconds ?? null) : null,
+        maxMissedPushes:       form.maxMissedPushes,
+        notificationTypes: {
+          online:   form.notifOnline,
+          offline:  form.notifOffline,
+          warning:  form.notifWarning,
+          critical: form.notifCritical,
+          update:   form.notifUpdate,
+        },
+        displayConfig,
+        sensorDisplayNames: form.sensorDisplayNames,
         complianceRemediationEnabled: form.complianceRemediationEnabled,
       });
       toast.success('Settings saved');
@@ -861,107 +985,198 @@ function DeviceSettingsTab({ device, onSaved }: { device: Device; onSaved: () =>
     }
   };
 
+  const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
+  const cardCls  = 'p-5 bg-bg-secondary border border-border rounded-xl space-y-4';
+  const headCls  = 'text-sm font-semibold text-text-muted uppercase tracking-wide';
+
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Identity */}
-      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
-        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Identity</h3>
+
+      {/* ── Identity ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Identity</h3>
         <div className="space-y-3">
           <label className="block">
             <span className="text-xs text-text-muted mb-1 block">Display name</span>
-            <input
-              type="text"
-              value={form.displayName}
-              onChange={e => handleChange('displayName', e.target.value)}
-              placeholder={device.hostname}
-              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-            />
+            <input type="text" value={form.displayName} onChange={e => set('displayName', e.target.value)}
+              placeholder={device.hostname} className={inputCls} />
           </label>
           <label className="block">
             <span className="text-xs text-text-muted mb-1 block">Description</span>
-            <textarea
-              value={form.description}
-              onChange={e => handleChange('description', e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent resize-none"
-            />
+            <textarea value={form.description} onChange={e => set('description', e.target.value)}
+              rows={2} className={`${inputCls} resize-none`} />
           </label>
         </div>
       </div>
 
-      {/* Monitoring */}
-      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
-        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Monitoring</h3>
-
-        {/* Override toggle */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-text-primary">Override group settings</p>
-            <p className="text-xs text-text-muted mt-0.5">Apply per-device values instead of group/global defaults</p>
-          </div>
-          <button
-            onClick={() => handleChange('overrideGroupSettings', !form.overrideGroupSettings)}
-            className="shrink-0"
-          >
-            {form.overrideGroupSettings
-              ? <ToggleRight className="w-9 h-9 text-accent" />
-              : <ToggleLeft  className="w-9 h-9 text-text-muted" />
-            }
+      {/* ── Tags ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Tags</h3>
+        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+          {form.tags.map(t => (
+            <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent border border-accent/30">
+              {t}
+              <button onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          {form.tags.length === 0 && <span className="text-xs text-text-muted italic">No tags</span>}
+        </div>
+        <div className="flex gap-2">
+          <input type="text" value={form.tagInput} onChange={e => set('tagInput', e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
+            placeholder="Add tag…" className={`${inputCls} flex-1`} />
+          <button onClick={addTag}
+            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+            <Plus className="w-4 h-4" />
           </button>
         </div>
+      </div>
 
+      {/* ── Custom fields ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Custom fields</h3>
+        {Object.keys(form.customFields).length > 0 && (
+          <div className="space-y-1">
+            {Object.entries(form.customFields).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-border text-sm">
+                <span className="font-mono text-accent shrink-0">{k}</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-text-secondary flex-1 truncate">{v}</span>
+                <button onClick={() => removeCf(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input type="text" value={form.cfKey} onChange={e => set('cfKey', e.target.value)}
+            placeholder="Key" className={`${inputCls} flex-1`} />
+          <input type="text" value={form.cfValue} onChange={e => set('cfValue', e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCf())}
+            placeholder="Value" className={`${inputCls} flex-1`} />
+          <button onClick={addCf}
+            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Monitoring ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Monitoring</h3>
+        <ToggleRow label="Override group settings"
+          description="Apply per-device values instead of group / global defaults"
+          value={form.overrideGroupSettings} onChange={v => set('overrideGroupSettings', v)} />
         {form.overrideGroupSettings && (
-          <div className="space-y-3 pt-2 border-t border-border">
+          <div className="space-y-3 pt-3 border-t border-border">
             <label className="block">
               <span className="text-xs text-text-muted mb-1 block">Push interval (seconds)</span>
-              <input
-                type="number"
-                min={1}
-                max={3600}
+              <input type="number" min={1} max={3600}
                 value={form.pushIntervalSeconds ?? ''}
-                onChange={e => handleChange('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
-                placeholder="60"
-                className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-              />
+                onChange={e => set('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="60" className={inputCls} />
             </label>
             <label className="block">
               <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
-              <input
-                type="number"
-                min={1}
-                max={30}
+              <input type="number" min={1} max={30}
                 value={form.maxMissedPushes}
-                onChange={e => handleChange('maxMissedPushes', parseInt(e.target.value) || 3)}
-                className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-              />
+                onChange={e => set('maxMissedPushes', parseInt(e.target.value) || 3)}
+                className={inputCls} />
             </label>
           </div>
         )}
       </div>
 
-      {/* Compliance */}
-      <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
-        <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Compliance</h3>
+      {/* ── Notifications ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Notifications</h3>
+        <div className="space-y-3">
+          <ToggleRow label="Device comes online"  value={form.notifOnline}   onChange={v => set('notifOnline', v)} />
+          <ToggleRow label="Device goes offline"  value={form.notifOffline}  onChange={v => set('notifOffline', v)} />
+          <ToggleRow label="Warning state"        value={form.notifWarning}  onChange={v => set('notifWarning', v)} />
+          <ToggleRow label="Critical state"       value={form.notifCritical} onChange={v => set('notifCritical', v)} />
+          <ToggleRow label="Updates available"    value={form.notifUpdate}   onChange={v => set('notifUpdate', v)} />
+        </div>
+      </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-text-primary">Auto-remediation</p>
-            <p className="text-xs text-text-muted mt-0.5">
-              Allow compliance policies to automatically run fix scripts on this device.
-              Disable if this device must remain in a specific state (e.g. firewall intentionally off).
-            </p>
+      {/* ── Display ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Display</h3>
+        <p className="text-xs text-text-muted -mt-1">Hide or adjust sensors shown on the device monitoring page.</p>
+
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide pt-1">Section visibility</p>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+            <ToggleRow label="Hide CPU"     value={form.hideCpu}     onChange={v => set('hideCpu', v)} />
+            <ToggleRow label="Hide Memory"  value={form.hideMemory}  onChange={v => set('hideMemory', v)} />
+            <ToggleRow label="Hide Disk"    value={form.hideDisk}    onChange={v => set('hideDisk', v)} />
+            <ToggleRow label="Hide Network" value={form.hideNetwork} onChange={v => set('hideNetwork', v)} />
+            <ToggleRow label="Hide Temps"   value={form.hideTemps}   onChange={v => set('hideTemps', v)} />
+            <ToggleRow label="Hide GPU"     value={form.hideGpu}     onChange={v => set('hideGpu', v)} />
           </div>
-          <button
-            onClick={() => handleChange('complianceRemediationEnabled', !form.complianceRemediationEnabled)}
-            className="shrink-0"
-          >
-            {form.complianceRemediationEnabled
-              ? <ToggleRight className="w-9 h-9 text-accent" />
-              : <ToggleLeft  className="w-9 h-9 text-text-muted" />
-            }
+
+          <div className="pt-2 border-t border-border space-y-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">CPU</p>
+            <ToggleRow label="Group core threads" description="Pair hyper-threaded cores together in charts"
+              value={form.cpuGroupCoreThreads} onChange={v => set('cpuGroupCoreThreads', v)} />
+          </div>
+
+          <div className="pt-2 border-t border-border space-y-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">RAM</p>
+            <ToggleRow label="Hide swap" value={form.ramHideSwap} onChange={v => set('ramHideSwap', v)} />
+          </div>
+
+          <div className="pt-2 border-t border-border space-y-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Drives</p>
+            <ToggleRow label="Combine read/write chart"
+              description="Show a single combined I/O chart instead of separate read and write"
+              value={form.driveCombineReadWrite} onChange={v => set('driveCombineReadWrite', v)} />
+          </div>
+
+          <div className="pt-2 border-t border-border space-y-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Network</p>
+            <ToggleRow label="Combine in/out chart"
+              description="Show a single combined bandwidth chart instead of separate upload and download"
+              value={form.networkCombineInOut} onChange={v => set('networkCombineInOut', v)} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Sensor renames ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Sensor display names</h3>
+        <p className="text-xs text-text-muted -mt-1">Override sensor labels shown in the UI (key = raw sensor name, value = display name).</p>
+        {Object.keys(form.sensorDisplayNames).length > 0 && (
+          <div className="space-y-1">
+            {Object.entries(form.sensorDisplayNames).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-border text-sm">
+                <span className="font-mono text-text-muted shrink-0 truncate max-w-[40%]">{k}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                <span className="text-text-primary flex-1 truncate">{v}</span>
+                <button onClick={() => removeSensor(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <input type="text" value={form.sensorKey} onChange={e => set('sensorKey', e.target.value)}
+            placeholder="Raw sensor name" className={`${inputCls} flex-1`} />
+          <input type="text" value={form.sensorValue} onChange={e => set('sensorValue', e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSensor())}
+            placeholder="Display name" className={`${inputCls} flex-1`} />
+          <button onClick={addSensor}
+            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+            <Plus className="w-4 h-4" />
           </button>
         </div>
+      </div>
 
+      {/* ── Compliance ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Compliance</h3>
+        <ToggleRow label="Auto-remediation"
+          description="Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off)."
+          value={form.complianceRemediationEnabled}
+          onChange={v => set('complianceRemediationEnabled', v)} />
         {!form.complianceRemediationEnabled && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -970,17 +1185,79 @@ function DeviceSettingsTab({ device, onSaved }: { device: Device; onSaved: () =>
         )}
       </div>
 
-      {/* Save button */}
+      {/* ── Save ── */}
       <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
-        >
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Save settings
         </button>
       </div>
+
+      {/* ── Danger Zone ── */}
+      {adminMode && (
+        <div className="p-5 bg-bg-secondary border border-red-500/30 rounded-xl space-y-4">
+          <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
+
+          {/* Delete */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-text-primary">Delete device</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Removes this device from Obliance. The agent is <span className="text-text-primary">not</span> uninstalled
+                — it will re-register on the next push.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                const name = device.displayName || device.hostname;
+                if (!confirm(`Delete "${name}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.`)) return;
+                try {
+                  await deviceApi.delete(device.id);
+                  toast.success(`Device "${name}" deleted`);
+                  onDeleted();
+                } catch {
+                  toast.error('Failed to delete device');
+                }
+              }}
+              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {/* Uninstall */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-text-primary">Uninstall agent</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Sends an uninstall command to the agent. The agent will completely
+                remove itself from the machine in <span className="text-text-primary">10 minutes</span>.
+                The device record is deleted automatically once the agent stops.
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                const name = device.displayName || device.hostname;
+                if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be completely removed from the machine in 10 minutes.\nThe device record will be deleted automatically once the agent stops.`)) return;
+                try {
+                  await commandApi.enqueue(device.id, 'uninstall_agent', {});
+                  toast.success('Uninstall scheduled — agent will remove itself in 10 min');
+                } catch {
+                  toast.error('Failed to send uninstall command');
+                }
+              }}
+              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
+            >
+              <Power className="w-3.5 h-3.5" />
+              Uninstall
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1873,6 +2150,8 @@ function ServicesTab({ device }: { device: Device }) {
 export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = parseInt(id ?? '0', 10);
+  const navigate = useNavigate();
+  const { isAdmin } = useAuthStore();
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
@@ -1939,6 +2218,7 @@ export function DeviceDetailPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [remoteDropdownOpen]);
+
 
   const [isScanningAll, setIsScanningAll] = useState(false);
   const handleScanAll = async () => {
@@ -2212,7 +2492,7 @@ export function DeviceDetailPage() {
         {activeTab === 'remote' && <RemoteTab device={device} />}
         {activeTab === 'services' && <ServicesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
-        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} />}
+        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} />}
       </div>
     </div>
   );

@@ -12,50 +12,81 @@ import (
 	"time"
 )
 
-// handleUninstallCommand is called when the server delivers an 'uninstall' command
-// in a push response. It writes a detached OS-appropriate uninstall script and
-// exits immediately, allowing the script to outlive the agent process.
-//
-// The script approach is used on all platforms so the cleanup commands run after
-// the agent process (and its service supervisor) have fully stopped.
-func handleUninstallCommand(cfg *Config) {
-	log.Printf("Uninstall command received — initiating self-removal...")
+// handleUninstallAgent is called when the server delivers an 'uninstall_agent'
+// command via WebSocket. It schedules a 10-minute countdown in a goroutine,
+// then notifies the server (DELETE /api/agent/self) and runs the platform
+// uninstall script. The goroutine exits the agent process after the script is
+// launched, so cleanup commands outlive the agent process.
+func (d *CommandDispatcher) handleUninstallAgent() error {
+	log.Printf("Uninstall command received — agent will self-remove in 10 minutes...")
+	go func() {
+		const countdownSec = 600
+		ticker := time.NewTicker(60 * time.Second)
+		remaining := countdownSec
+		for remaining > 0 {
+			<-ticker.C
+			remaining -= 60
+			if remaining > 0 {
+				log.Printf("Uninstall countdown: %d minutes remaining...", remaining/60)
+			}
+		}
+		ticker.Stop()
 
-	var err error
-	switch runtime.GOOS {
-	case "windows":
-		err = handleWindowsUninstall(cfg)
-	case "linux":
-		err = handleLinuxUninstall()
-	case "darwin":
-		err = handleDarwinUninstall()
-	default:
-		log.Printf("Uninstall: unsupported platform %q — ignoring command", runtime.GOOS)
-		return
-	}
+		log.Printf("Uninstall: notifying server to delete device record...")
+		d.notifyServerSelfDelete()
 
+		log.Printf("Uninstall: launching platform uninstall...")
+		var err error
+		switch runtime.GOOS {
+		case "windows":
+			err = handleWindowsUninstall(d.serverURL, d.apiKey)
+		case "linux":
+			err = handleLinuxUninstall()
+		case "darwin":
+			err = handleDarwinUninstall()
+		default:
+			log.Printf("Uninstall: unsupported platform %q", runtime.GOOS)
+			return
+		}
+		if err != nil {
+			log.Printf("Uninstall: failed to launch uninstall script: %v", err)
+			return
+		}
+		log.Printf("Uninstall: script launched — shutting down agent...")
+		os.Exit(0)
+	}()
+	return nil
+}
+
+// notifyServerSelfDelete calls DELETE /api/agent/self so the server removes
+// this device from the database before the agent disappears.
+func (d *CommandDispatcher) notifyServerSelfDelete() {
+	req, err := http.NewRequest("DELETE", d.serverURL+"/api/agent/self", nil)
 	if err != nil {
-		log.Printf("Uninstall: failed to launch uninstall script: %v", err)
+		log.Printf("Uninstall: failed to build self-delete request: %v", err)
 		return
 	}
-
-	log.Printf("Uninstall: script launched, shutting down agent...")
-	os.Exit(0)
+	req.Header.Set("X-API-Key", d.apiKey)
+	req.Header.Set("X-Device-UUID", d.deviceUUID)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Uninstall: self-delete request failed: %v", err)
+		return
+	}
+	resp.Body.Close()
+	log.Printf("Uninstall: server responded %d to self-delete", resp.StatusCode)
 }
 
 // ── Windows ───────────────────────────────────────────────────────────────────
 
-// handleWindowsUninstall downloads the MSI and runs msiexec /x via a detached
-// batch script. The MSI uninstall stops the service, removes all files and the
-// PawnIO kernel driver (via WiX ServiceControl + CA.UninstallPawnIO).
-func handleWindowsUninstall(cfg *Config) error {
-	// Download the MSI to a temp path
+func handleWindowsUninstall(serverURL, apiKey string) error {
 	msiPath := filepath.Join(os.TempDir(), "obliance-uninstall.msi")
-	if err := downloadFile(cfg.ServerURL+"/api/agent/download/obliance-agent.msi", msiPath); err != nil {
+	if err := downloadMSI(serverURL+"/api/agent/download/obliance-agent.msi", apiKey, msiPath); err != nil {
 		return fmt.Errorf("download MSI: %w", err)
 	}
 
-	logPath := filepath.Join(os.TempDir(), "obliance-uninstall.log")
+	logPath    := filepath.Join(os.TempDir(), "obliance-uninstall.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-uninstall.bat")
 
 	script := fmt.Sprintf(
@@ -69,71 +100,60 @@ func handleWindowsUninstall(cfg *Config) error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write uninstall batch: %w", err)
 	}
-
 	return exec.Command("cmd", "/c", scriptPath).Start()
 }
 
 // ── Linux ─────────────────────────────────────────────────────────────────────
 
-// handleLinuxUninstall writes a shell script that stops and removes the
-// obliance-agent systemd (or init.d) service and its binary, then runs it
-// detached so it survives the agent process exit.
 func handleLinuxUninstall() error {
 	scriptPath := "/tmp/obliance-uninstall.sh"
 	script := "#!/bin/sh\n" +
 		"sleep 2\n" +
-		// Stop and disable — works for both systemd and SysV init
 		"systemctl stop obliance-agent 2>/dev/null || service obliance-agent stop 2>/dev/null || true\n" +
 		"systemctl disable obliance-agent 2>/dev/null || true\n" +
-		// Remove service unit / init script
 		"rm -f /etc/systemd/system/obliance-agent.service /etc/init.d/obliance-agent\n" +
 		"systemctl daemon-reload 2>/dev/null || true\n" +
-		// Remove binary and install directory (config at /etc/obliance-agent/ is kept)
 		"rm -rf /opt/obliance-agent/\n" +
-		// Self-delete
 		"rm -f \"$0\"\n"
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("write uninstall script: %w", err)
 	}
-
 	return exec.Command("sh", scriptPath).Start()
 }
 
 // ── macOS ─────────────────────────────────────────────────────────────────────
 
-// handleDarwinUninstall writes a shell script that unloads the launchd daemon,
-// removes the plist and the installed binary, then runs it detached.
-// Config and logs at /etc/obliance-agent/ and /var/log/obliance-agent.log are
-// preserved (same behaviour as `obliance-agent uninstall`).
 func handleDarwinUninstall() error {
-	const plist = "/Library/LaunchDaemons/com.obliance.agent.plist"
+	const plist  = "/Library/LaunchDaemons/com.obliance.agent.plist"
 	const binary = "/usr/local/bin/obliance-agent"
 
 	scriptPath := "/tmp/obliance-uninstall.sh"
 	script := "#!/bin/sh\n" +
 		"sleep 2\n" +
-		// Unload the launchd daemon (prevents auto-restart)
 		"launchctl unload " + plist + " 2>/dev/null || true\n" +
 		"rm -f " + plist + "\n" +
 		"rm -f " + binary + "\n" +
-		// Self-delete
 		"rm -f \"$0\"\n"
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("write uninstall script: %w", err)
 	}
-
 	return exec.Command("sh", scriptPath).Start()
 }
 
-// ── Shared helper ─────────────────────────────────────────────────────────────
+// ── Helper ────────────────────────────────────────────────────────────────────
 
-// downloadFile downloads url and writes it to destPath, creating the file if
-// needed. Uses a 120-second timeout (same as the auto-update download).
-func downloadFile(url, destPath string) error {
+func downloadMSI(url, apiKey, destPath string) error {
 	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if apiKey != "" {
+		req.Header.Set("X-API-Key", apiKey)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -141,13 +161,11 @@ func downloadFile(url, destPath string) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-
 	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
 	_, err = io.Copy(f, resp.Body)
 	return err
 }
