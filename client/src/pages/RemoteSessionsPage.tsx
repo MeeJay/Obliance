@@ -5,7 +5,7 @@ import { useDeviceStore } from '@/store/deviceStore';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { VncViewerModal } from '@/components/VncViewerModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
-import { getSocket } from '@/socket';
+import { getSocket } from '@/socket/socketClient';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
