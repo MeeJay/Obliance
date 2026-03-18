@@ -49,7 +49,7 @@ class UpdateService {
 
   async getTenantUpdates(tenantId: number, filters?: { status?: string; severity?: string; deviceId?: number }) {
     let q = db('device_updates as du')
-      .leftJoin('devices as d', 'd.id', 'du.device_id')
+      .join('devices as d', 'd.id', 'du.device_id')
       .where({ 'du.tenant_id': tenantId })
       .select(
         'du.*',

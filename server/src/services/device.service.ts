@@ -237,7 +237,33 @@ class DeviceService {
     }
   }
 
+  /**
+   * Immediately purge all data tied to a specific device id.
+   * Called before hard-deleting the device so no orphaned rows remain,
+   * even if the DB-level CASCADE constraint is missing on old instances.
+   */
+  private async purgeDeviceData(id: number) {
+    const tables = [
+      'device_updates',
+      'command_queue',
+      'script_executions',
+      'remote_sessions',
+      'compliance_results',
+      'config_snapshots',
+    ];
+    for (const table of tables) {
+      try {
+        await db(table).where({ device_id: id }).delete();
+      } catch { /* table may not exist on old schema versions */ }
+    }
+    // Polymorphic references
+    try { await db('script_schedules').where({ target_type: 'device', target_id: id }).delete(); } catch { /* ignore */ }
+    try { await db('update_policies').where({ target_type: 'device', target_id: id }).delete(); } catch { /* ignore */ }
+    try { await db('reports').where({ scope_type: 'device', scope_id: id }).delete(); } catch { /* ignore */ }
+  }
+
   async deleteDevice(id: number, tenantId: number) {
+    await this.purgeDeviceData(id);
     await db('devices').where({ id, tenant_id: tenantId }).delete();
     if (this.io) {
       this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_DELETED, { id });
@@ -326,6 +352,7 @@ class DeviceService {
   }
 
   async bulkDelete(ids: number[], tenantId: number) {
+    await Promise.all(ids.map(id => this.purgeDeviceData(id)));
     await db('devices').whereIn('id', ids).where({ tenant_id: tenantId }).delete();
   }
 
