@@ -78,6 +78,44 @@ func (d *CommandDispatcher) notifyServerSelfDelete() {
 	log.Printf("Uninstall: server responded %d to self-delete", resp.StatusCode)
 }
 
+// handleUninstallCommand is the legacy entry point for the string-based "uninstall"
+// command received via push response. It immediately notifies the server to delete
+// the device record, then launches the platform-specific uninstall script and exits.
+func handleUninstallCommand(cfg *Config) {
+	log.Printf("Legacy uninstall command received — self-removing now...")
+
+	// Best-effort server notification.
+	req, err := http.NewRequest("DELETE", cfg.ServerURL+"/api/agent/self", nil)
+	if err == nil {
+		req.Header.Set("X-API-Key", cfg.APIKey)
+		req.Header.Set("X-Device-UUID", cfg.DeviceUUID)
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
+
+	var uninstallErr error
+	switch runtime.GOOS {
+	case "windows":
+		uninstallErr = handleWindowsUninstall(cfg.ServerURL, cfg.APIKey)
+	case "linux":
+		uninstallErr = handleLinuxUninstall()
+	case "darwin":
+		uninstallErr = handleDarwinUninstall()
+	default:
+		log.Printf("Uninstall not supported on %s", runtime.GOOS)
+		return
+	}
+	if uninstallErr != nil {
+		log.Printf("Uninstall script error: %v", uninstallErr)
+		return
+	}
+	log.Printf("Uninstall script launched — exiting agent")
+	os.Exit(0)
+}
+
 // ── Windows ───────────────────────────────────────────────────────────────────
 
 func handleWindowsUninstall(serverURL, apiKey string) error {
