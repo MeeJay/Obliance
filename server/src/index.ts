@@ -152,6 +152,10 @@ async function main() {
   // Start inventory retention job (every 6h)
   setInterval(() => deviceService.pruneInventory(), 6 * 60 * 60 * 1000);
 
+  // Self-healing: purge orphaned records from tables whose device no longer exists (every 4h)
+  deviceService.cleanOrphans().catch(() => {}); // run once at startup
+  setInterval(() => deviceService.cleanOrphans(), 4 * 60 * 60 * 1000);
+
   // Clean up stale remote sessions (waiting/connecting with no activity) every 2 min
   remoteService.cleanupStaleSessions();                                    // run once at startup
   setInterval(() => remoteService.cleanupStaleSessions(), 2 * 60 * 1000); // then every 2 min

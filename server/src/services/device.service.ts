@@ -244,6 +244,77 @@ class DeviceService {
     }
   }
 
+  /**
+   * Self-healing: delete orphaned records that reference devices no longer
+   * in the platform. Runs periodically so the DB stays consistent even if
+   * a CASCADE constraint was missing or a polymorphic reference (target_id /
+   * scope_id) has no FK at the DB level.
+   */
+  async cleanOrphans() {
+    // FK tables (should cascade, but purge any stragglers)
+    const fkTables = [
+      'device_updates',
+      'command_queue',
+      'script_executions',
+      'remote_sessions',
+      'compliance_results',
+      'config_snapshots',
+    ];
+
+    let total = 0;
+    for (const table of fkTables) {
+      try {
+        const n = await db.raw(`
+          DELETE FROM "${table}"
+          WHERE device_id IS NOT NULL
+            AND device_id NOT IN (SELECT id FROM devices)
+        `);
+        const count = n?.rowCount ?? 0;
+        if (count > 0) {
+          total += count;
+          logger.warn({ table, count }, 'cleanOrphans: deleted orphaned rows');
+        }
+      } catch {
+        // table might not exist yet (fresh install before migration)
+      }
+    }
+
+    // Polymorphic references (no DB FK — must be cleaned in code)
+    try {
+      const a = await db.raw(`
+        DELETE FROM script_schedules
+        WHERE target_type = 'device'
+          AND target_id IS NOT NULL
+          AND target_id NOT IN (SELECT id FROM devices)
+      `);
+      total += a?.rowCount ?? 0;
+    } catch { /* ignore */ }
+
+    try {
+      const b = await db.raw(`
+        DELETE FROM update_policies
+        WHERE target_type = 'device'
+          AND target_id IS NOT NULL
+          AND target_id NOT IN (SELECT id FROM devices)
+      `);
+      total += b?.rowCount ?? 0;
+    } catch { /* ignore */ }
+
+    try {
+      const c = await db.raw(`
+        DELETE FROM reports
+        WHERE scope_type = 'device'
+          AND scope_id IS NOT NULL
+          AND scope_id NOT IN (SELECT id FROM devices)
+      `);
+      total += c?.rowCount ?? 0;
+    } catch { /* ignore */ }
+
+    if (total > 0) {
+      logger.warn({ total }, 'cleanOrphans: self-healing complete');
+    }
+  }
+
   async bulkApprove(ids: number[], tenantId: number, approvedBy: number) {
     await db('devices').whereIn('id', ids).where({ tenant_id: tenantId }).update({
       approval_status: 'approved',
