@@ -570,7 +570,10 @@
       "addRule": "Kural ekle",
       "deleteRule": "Kaldır",
       "noRules": "Kural yok. Bir tane ekleyin veya ön ayar yükleyin."
-    }
+    },
+    "presetsSuggest": "Şablondan başla",
+    "presetsNote": "Bir ön ayar seçmek kuralları önceden doldurur — kaydetmeden önce özgürce özelleştirebilirsiniz.",
+    "startWithPreset": "Şablon ile başla"
   },
   "scripts": {
     "typeSystem": "Sistem",

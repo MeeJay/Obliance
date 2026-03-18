@@ -570,7 +570,10 @@
       "addRule": "Regel hinzufügen",
       "deleteRule": "Entfernen",
       "noRules": "Keine Regeln. Fügen Sie eine hinzu oder laden Sie eine Vorlage."
-    }
+    },
+    "presetsSuggest": "Von einer Vorlage starten",
+    "presetsNote": "Durch Auswahl eines Presets werden die Regeln vorgefüllt — Sie können diese vor dem Speichern frei anpassen.",
+    "startWithPreset": "Mit einer Vorlage beginnen"
   },
   "scripts": {
     "typeSystem": "System",

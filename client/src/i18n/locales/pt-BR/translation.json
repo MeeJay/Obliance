@@ -570,7 +570,10 @@
       "addRule": "Adicionar regra",
       "deleteRule": "Remover",
       "noRules": "Sem regras. Adicione uma ou carregue uma predefinição."
-    }
+    },
+    "presetsSuggest": "Começar por um modelo",
+    "presetsNote": "Selecionar um preset preenche as regras — você pode personalizá-las antes de salvar.",
+    "startWithPreset": "Começar com um modelo"
   },
   "scripts": {
     "typeSystem": "Sistema",

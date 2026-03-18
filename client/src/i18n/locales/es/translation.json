@@ -759,7 +759,10 @@
       "addRule": "Añadir regla",
       "deleteRule": "Eliminar",
       "noRules": "Sin reglas. Añada una o cargue un preajuste."
-    }
+    },
+    "presetsSuggest": "Empezar desde una plantilla",
+    "presetsNote": "Seleccionar un preset rellena las reglas — puede personalizarlas antes de guardar.",
+    "startWithPreset": "Comenzar con una plantilla"
   },
   "scripts": {
     "typeSystem": "Sistema",

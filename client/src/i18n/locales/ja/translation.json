@@ -570,7 +570,10 @@
       "addRule": "ルールを追加",
       "deleteRule": "削除",
       "noRules": "ルールがありません。追加するかプリセットを読み込んでください。"
-    }
+    },
+    "presetsSuggest": "テンプレートから始める",
+    "presetsNote": "プリセットを選ぶとルールが自動入力されます — 保存前に自由に編集できます。",
+    "startWithPreset": "プリセットテンプレートから始める"
   },
   "scripts": {
     "typeSystem": "システム",

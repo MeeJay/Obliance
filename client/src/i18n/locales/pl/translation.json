@@ -570,7 +570,10 @@
       "addRule": "Dodaj regułę",
       "deleteRule": "Usuń",
       "noRules": "Brak reguł. Dodaj jedną lub wczytaj szablon."
-    }
+    },
+    "presetsSuggest": "Zacznij od szablonu",
+    "presetsNote": "Wybór szablonu wypełnia reguły — możesz je dostosować przed zapisaniem.",
+    "startWithPreset": "Zacznij od szablonu"
   },
   "scripts": {
     "typeSystem": "Systemowy",

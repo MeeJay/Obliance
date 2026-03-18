@@ -12,6 +12,7 @@ class UpdateService {
       status: row.status, approvedBy: row.approved_by, approvedAt: row.approved_at,
       installedAt: row.installed_at, installError: row.install_error,
       scannedAt: row.scanned_at, createdAt: row.created_at, updatedAt: row.updated_at,
+      deviceName: row.device_name ?? null,
     };
   }
 
@@ -47,11 +48,17 @@ class UpdateService {
   }
 
   async getTenantUpdates(tenantId: number, filters?: { status?: string; severity?: string; deviceId?: number }) {
-    let q = db('device_updates').where({ tenant_id: tenantId });
-    if (filters?.status) q = q.where({ status: filters.status });
-    if (filters?.severity) q = q.where({ severity: filters.severity });
-    if (filters?.deviceId) q = q.where({ device_id: filters.deviceId });
-    const rows = await q.orderBy('scanned_at', 'desc').limit(500);
+    let q = db('device_updates as du')
+      .leftJoin('devices as d', 'd.id', 'du.device_id')
+      .where({ 'du.tenant_id': tenantId })
+      .select(
+        'du.*',
+        db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
+      );
+    if (filters?.status) q = q.where({ 'du.status': filters.status });
+    if (filters?.severity) q = q.where({ 'du.severity': filters.severity });
+    if (filters?.deviceId) q = q.where({ 'du.device_id': filters.deviceId });
+    const rows = await q.orderBy('du.scanned_at', 'desc').limit(500);
     return rows.map(this.rowToUpdate.bind(this));
   }
 

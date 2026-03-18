@@ -1082,7 +1082,10 @@
       "addRule": "Ajouter une règle",
       "deleteRule": "Supprimer",
       "noRules": "Aucune règle. Ajoutez-en une ou chargez un préréglage."
-    }
+    },
+    "presetsSuggest": "Partir d'un template",
+    "presetsNote": "Sélectionner un template pré-remplit les règles — vous pouvez les personnaliser librement avant de sauvegarder.",
+    "startWithPreset": "Démarrer avec un template"
   },
   "scripts": {
     "typeSystem": "Système",

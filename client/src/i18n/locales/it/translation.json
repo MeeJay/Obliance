@@ -570,7 +570,10 @@
       "addRule": "Aggiungi regola",
       "deleteRule": "Rimuovi",
       "noRules": "Nessuna regola. Aggiungine una o carica una preimpostazione."
-    }
+    },
+    "presetsSuggest": "Inizia da un modello",
+    "presetsNote": "Selezionando un preset le regole vengono precompilate — personalizzabile prima del salvataggio.",
+    "startWithPreset": "Inizia con un modello"
   },
   "scripts": {
     "typeSystem": "Sistema",

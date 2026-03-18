@@ -1194,7 +1194,10 @@
       "addRule": "Add Rule",
       "deleteRule": "Remove",
       "noRules": "No rules yet. Add a rule or load a preset."
-    }
+    },
+    "presetsSuggest": "Start from a template",
+    "presetsNote": "Selecting a preset pre-fills the rules — you can customize them freely before saving.",
+    "startWithPreset": "Start with a preset template"
   },
   "scripts": {
     "typeSystem": "System",

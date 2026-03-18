@@ -570,7 +570,10 @@
       "addRule": "Tilføj regel",
       "deleteRule": "Fjern",
       "noRules": "Ingen regler. Tilføj en eller indlæs en forudindstilling."
-    }
+    },
+    "presetsSuggest": "Start fra en skabelon",
+    "presetsNote": "Valg af en forudindstilling udfylder reglerne — de kan tilpasses inden lagring.",
+    "startWithPreset": "Start med en skabelon"
   },
   "scripts": {
     "typeSystem": "System",

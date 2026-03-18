@@ -326,6 +326,324 @@ class ComplianceService {
           },
         ],
       },
+      // ── macOS Security Baseline ──────────────────────────────────────────────
+      {
+        id: 'macos-security-baseline',
+        name: 'macOS Security Baseline',
+        description: 'Core security checks for macOS 12+ (Monterey, Ventura, Sonoma).',
+        framework: 'custom',
+        targetPlatform: 'macos',
+        rules: [
+          {
+            id: uid('mac', 1), name: 'Firewall enabled',
+            category: 'Firewall', checkType: 'command', targetPlatform: 'macos',
+            target: `defaults read /Library/Preferences/com.apple.alf globalstate`,
+            expected: '0', operator: 'neq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 2), name: 'FileVault enabled',
+            category: 'Encryption', checkType: 'command', targetPlatform: 'macos',
+            target: `fdesetup status | head -1`,
+            expected: 'FileVault is On', operator: 'contains', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 3), name: 'Gatekeeper enabled',
+            category: 'System', checkType: 'command', targetPlatform: 'macos',
+            target: `spctl --status`,
+            expected: 'assessments enabled', operator: 'contains', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 4), name: 'SSH root login disabled',
+            category: 'SSH', checkType: 'file', targetPlatform: 'macos',
+            target: '/etc/ssh/sshd_config',
+            expected: 'PermitRootLogin no', operator: 'contains', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 5), name: 'Screen lock after idle enabled',
+            category: 'Accounts', checkType: 'command', targetPlatform: 'macos',
+            target: `osascript -e 'tell application "System Events" to get screen saver delay of current desktop' 2>/dev/null || defaults read com.apple.screensaver idleTime`,
+            expected: '0', operator: 'neq', severity: 'medium', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 6), name: 'Guest account disabled',
+            category: 'Accounts', checkType: 'command', targetPlatform: 'macos',
+            target: `defaults read /Library/Preferences/com.apple.loginwindow GuestEnabled 2>/dev/null || echo 0`,
+            expected: '1', operator: 'neq', severity: 'medium', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('mac', 7), name: 'Automatic updates enabled',
+            category: 'Updates', checkType: 'command', targetPlatform: 'macos',
+            target: `defaults read /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled 2>/dev/null || echo 0`,
+            expected: '1', operator: 'eq', severity: 'medium', autoRemediateScriptId: null,
+          },
+        ],
+      },
+      // ── NIST SP 800-171 ──────────────────────────────────────────────────────
+      {
+        id: 'nist-sp800-171-windows',
+        name: 'NIST SP 800-171 (Subset)',
+        description: 'NIST SP 800-171 Rev.2 key controls for Windows — protecting Controlled Unclassified Information (CUI).',
+        framework: 'NIST',
+        targetPlatform: 'windows',
+        rules: [
+          {
+            id: uid('nist', 1), name: 'AC-2: Guest account disabled (Account Management)',
+            category: 'Access Control', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled`,
+            expected: 'False', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 2), name: 'AC-17: RDP requires NLA (Remote Access)',
+            category: 'Access Control', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp|UserAuthentication`,
+            expected: '1', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 3), name: 'SI-3: Windows Defender real-time protection (Malicious Code Protection)',
+            category: 'System Integrity', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled`,
+            expected: 'True', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 4), name: 'SC-28: BitLocker enabled on C: (Data at Rest)',
+            category: 'Encryption', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus`,
+            expected: 'On', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 5), name: 'AU-2: Security event auditing enabled (Audit Logging)',
+            category: 'Audit', checkType: 'command', targetPlatform: 'windows',
+            target: `(AuditPol /get /category:"Logon/Logoff" | Select-String "Logon" | Select-String -NotMatch "No Auditing")`,
+            expected: '', operator: 'exists', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 6), name: 'SI-2: Windows Update service running (Flaw Remediation)',
+            category: 'Updates', checkType: 'service', targetPlatform: 'windows',
+            target: 'wuauserv',
+            expected: 'running', operator: 'eq', severity: 'medium', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('nist', 7), name: 'SC-7: Windows Firewall — all profiles on (Boundary Protection)',
+            category: 'Firewall', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+        ],
+      },
+      // ── ISO 27001 ─────────────────────────────────────────────────────────────
+      {
+        id: 'iso27001-windows',
+        name: 'ISO 27001 Baseline (Subset)',
+        description: 'ISO/IEC 27001:2022 Annex A key controls for Windows endpoints. Suitable for ISMS implementation.',
+        framework: 'ISO27001',
+        targetPlatform: 'windows',
+        rules: [
+          {
+            id: uid('iso', 1), name: 'A.8.3 — Information access restriction: Guest disabled',
+            category: 'Access Control', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled`,
+            expected: 'False', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 2), name: 'A.8.20 — Network firewall: all profiles active',
+            category: 'Network Security', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 3), name: 'A.8.24 — Cryptography: BitLocker on C:',
+            category: 'Cryptography', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus`,
+            expected: 'On', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 4), name: 'A.8.8 — Vulnerability management: Windows Update running',
+            category: 'Vulnerability Management', checkType: 'service', targetPlatform: 'windows',
+            target: 'wuauserv',
+            expected: 'running', operator: 'eq', severity: 'medium', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 5), name: 'A.8.15 — Logging: Security audit events enabled',
+            category: 'Logging', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-WinEvent -LogName Security -MaxEvents 1 -ErrorAction SilentlyContinue) | Measure-Object | Select-Object -ExpandProperty Count`,
+            expected: '0', operator: 'neq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 6), name: 'A.8.7 — Malware protection: Defender real-time on',
+            category: 'Malware Protection', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled`,
+            expected: 'True', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('iso', 7), name: 'A.8.9 — Configuration management: SMBv1 disabled',
+            category: 'Configuration', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|SMB1`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+        ],
+      },
+      // ── PCI DSS v4 ───────────────────────────────────────────────────────────
+      {
+        id: 'pci-dss-v4-windows',
+        name: 'PCI DSS v4 (Subset)',
+        description: 'PCI DSS v4.0 key requirements for Windows systems handling cardholder data. Not a complete audit.',
+        framework: 'PCI_DSS',
+        targetPlatform: 'windows',
+        rules: [
+          {
+            id: uid('pci', 1), name: 'Req 1.3 — Network access controls: Firewall all profiles',
+            category: 'Network Security', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 2), name: 'Req 2.2.1 — Vendor default accounts: Guest disabled',
+            category: 'Configuration', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled`,
+            expected: 'False', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 3), name: 'Req 3.5 — Data encryption: BitLocker on C:',
+            category: 'Encryption', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus`,
+            expected: 'On', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 4), name: 'Req 5.2 — Malware protection: Defender real-time on',
+            category: 'Malware Protection', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled`,
+            expected: 'True', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 5), name: 'Req 6.3.3 — Security patches: Windows Update running',
+            category: 'Patch Management', checkType: 'service', targetPlatform: 'windows',
+            target: 'wuauserv',
+            expected: 'running', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 6), name: 'Req 8.2 — User identification: RDP requires NLA',
+            category: 'Authentication', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp|UserAuthentication`,
+            expected: '1', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 7), name: 'Req 10.2 — Audit log: Security event log active',
+            category: 'Audit', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-WinEvent -LogName Security -MaxEvents 1 -ErrorAction SilentlyContinue | Measure-Object).Count`,
+            expected: '0', operator: 'neq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('pci', 8), name: 'Req 2.2.7 — Insecure protocols: SMBv1 disabled',
+            category: 'Network Security', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|SMB1`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+        ],
+      },
+      // ── HIPAA Security Rule ───────────────────────────────────────────────────
+      {
+        id: 'hipaa-security-rule-windows',
+        name: 'HIPAA Security Rule (Subset)',
+        description: 'HIPAA 45 CFR Part 164 Security Rule key safeguards for Windows systems handling ePHI.',
+        framework: 'HIPAA',
+        targetPlatform: 'windows',
+        rules: [
+          {
+            id: uid('hipaa', 1), name: '§164.312(a)(1) — Access control: Guest account disabled',
+            category: 'Access Control', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled`,
+            expected: 'False', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('hipaa', 2), name: '§164.312(a)(2)(iii) — Automatic logoff: screen saver active',
+            category: 'Session Management', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKCU\\Control Panel\\Desktop|ScreenSaveActive`,
+            expected: '1', operator: 'eq', severity: 'medium', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('hipaa', 3), name: '§164.312(b) — Audit controls: Security log enabled',
+            category: 'Audit', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-WinEvent -LogName Security -MaxEvents 1 -ErrorAction SilentlyContinue | Measure-Object).Count`,
+            expected: '0', operator: 'neq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('hipaa', 4), name: '§164.312(c)(1) — Integrity: Defender real-time enabled',
+            category: 'Integrity', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled`,
+            expected: 'True', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('hipaa', 5), name: '§164.312(a)(2)(iv) — Encryption at rest: BitLocker on C:',
+            category: 'Encryption', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus`,
+            expected: 'On', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('hipaa', 6), name: '§164.312(e)(1) — Transmission security: Firewall all profiles',
+            category: 'Network Security', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+        ],
+      },
+      // ── SOC 2 Type II ─────────────────────────────────────────────────────────
+      {
+        id: 'soc2-typeii-windows',
+        name: 'SOC 2 Type II (Subset)',
+        description: 'AICPA SOC 2 Trust Service Criteria (TSC) key controls for Windows. Covers CC6, CC7, CC9.',
+        framework: 'SOC2',
+        targetPlatform: 'windows',
+        rules: [
+          {
+            id: uid('soc', 1), name: 'CC6.1 — Logical access: RDP requires NLA',
+            category: 'Logical Access', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp|UserAuthentication`,
+            expected: '1', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 2), name: 'CC6.2 — Remove unnecessary access: Guest account disabled',
+            category: 'Logical Access', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled`,
+            expected: 'False', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 3), name: 'CC6.7 — Data in transit: Firewall all profiles on',
+            category: 'Network Security', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count`,
+            expected: '0', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 4), name: 'CC7.1 — Threat detection: Defender real-time on',
+            category: 'Threat Detection', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled`,
+            expected: 'True', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 5), name: 'CC7.2 — Monitor for anomalies: Security audit log active',
+            category: 'Monitoring', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-WinEvent -LogName Security -MaxEvents 1 -ErrorAction SilentlyContinue | Measure-Object).Count`,
+            expected: '0', operator: 'neq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 6), name: 'CC7.2 — Encryption at rest: BitLocker on C:',
+            category: 'Encryption', checkType: 'command', targetPlatform: 'windows',
+            target: `(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus`,
+            expected: 'On', operator: 'eq', severity: 'critical', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 7), name: 'CC9.1 — System hardening: SMBv1 disabled',
+            category: 'Configuration', checkType: 'registry', targetPlatform: 'windows',
+            target: `HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|SMB1`,
+            expected: '0', operator: 'eq', severity: 'high', autoRemediateScriptId: null,
+          },
+          {
+            id: uid('soc', 8), name: 'CC9.1 — Patch management: Windows Update running',
+            category: 'Patch Management', checkType: 'service', targetPlatform: 'windows',
+            target: 'wuauserv',
+            expected: 'running', operator: 'eq', severity: 'medium', autoRemediateScriptId: null,
+          },
+        ],
+      },
     ];
   }
 

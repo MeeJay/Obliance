@@ -570,7 +570,10 @@
       "addRule": "Lägg till regel",
       "deleteRule": "Ta bort",
       "noRules": "Inga regler. Lägg till en eller ladda en förinställning."
-    }
+    },
+    "presetsSuggest": "Starta från en mall",
+    "presetsNote": "Att välja en förinställning fyller i reglerna — de kan anpassas fritt innan du sparar.",
+    "startWithPreset": "Starta med en mall"
   },
   "scripts": {
     "typeSystem": "System",

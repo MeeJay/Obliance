@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Package, AlertCircle, AlertTriangle, Info, Check, RefreshCw, Plus, Edit, Trash2, Shield, X } from 'lucide-react';
+import { Package, AlertCircle, AlertTriangle, Info, Check, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
+import { deviceApi } from '@/api/device.api';
 import type { DeviceUpdate, UpdatePolicy, UpdateSeverity, RebootBehavior } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -68,17 +69,32 @@ export function UpdatesPage() {
   const [policies, setPolicies] = useState<UpdatePolicy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState('');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<number | ''>('');
+  const [deviceOptions, setDeviceOptions] = useState<{ id: number; label: string }[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showPolicyForm, setShowPolicyForm] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<UpdatePolicy | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormData>(defaultPolicyForm);
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
 
+  // Load device list once for the filter dropdown
+  useEffect(() => {
+    deviceApi.list().then((devices) => {
+      setDeviceOptions(
+        devices.map((d) => ({ id: d.id, label: d.displayName || d.hostname }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      );
+    }).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const [updatesData, policiesData] = await Promise.all([
-        updateApi.listUpdates({ severity: selectedSeverity || undefined }),
+        updateApi.listUpdates({
+          severity: selectedSeverity || undefined,
+          deviceId: selectedDeviceId || undefined,
+        }),
         updateApi.listPolicies(),
       ]);
       setUpdates(updatesData.items);
@@ -88,7 +104,7 @@ export function UpdatesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSeverity]);
+  }, [selectedSeverity, selectedDeviceId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -197,6 +213,7 @@ export function UpdatesPage() {
 
   const countBySeverity = (sev: UpdateSeverity) => updates.filter(u => u.severity === sev && u.status === 'available').length;
 
+  // Severity filter is client-side (cards); device filter is server-side (reload)
   const visibleUpdates = selectedSeverity
     ? updates.filter(u => u.severity === selectedSeverity)
     : updates;
@@ -245,6 +262,35 @@ export function UpdatesPage() {
           );
         })}
       </div>
+
+      {/* Device filter */}
+      {activeTab === 'updates' && deviceOptions.length > 0 && (
+        <div className="flex items-center gap-3">
+          <Monitor className="w-4 h-4 text-text-muted shrink-0" />
+          <select
+            value={selectedDeviceId}
+            onChange={(e) => {
+              setSelectedDeviceId(e.target.value === '' ? '' : Number(e.target.value));
+              setSelectedIds(new Set());
+            }}
+            className="px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+          >
+            <option value="">All devices</option>
+            {deviceOptions.map((d) => (
+              <option key={d.id} value={d.id}>{d.label}</option>
+            ))}
+          </select>
+          {selectedDeviceId !== '' && (
+            <button
+              onClick={() => { setSelectedDeviceId(''); setSelectedIds(new Set()); }}
+              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-border">
@@ -311,6 +357,7 @@ export function UpdatesPage() {
                       />
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Update</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden sm:table-cell">Device</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Severity</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Source</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Size</th>
@@ -345,6 +392,16 @@ export function UpdatesPage() {
                           )}
                           {update.category && (
                             <p className="text-xs text-text-muted mt-0.5">{update.category}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          {update.deviceName ? (
+                            <span className="flex items-center gap-1.5 text-xs text-text-primary">
+                              <Monitor className="w-3 h-3 text-text-muted shrink-0" />
+                              {update.deviceName}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-muted">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3">

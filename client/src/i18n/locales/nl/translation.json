@@ -570,7 +570,10 @@
       "addRule": "Regel toevoegen",
       "deleteRule": "Verwijderen",
       "noRules": "Geen regels. Voeg er een toe of laad een voorinstelling."
-    }
+    },
+    "presetsSuggest": "Begin vanuit een sjabloon",
+    "presetsNote": "Een preset selecteren vult de regels vooraf in — aanpasbaar voor opslaan.",
+    "startWithPreset": "Begin met een sjabloon"
   },
   "scripts": {
     "typeSystem": "Systeem",

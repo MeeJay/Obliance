@@ -570,7 +570,10 @@
       "addRule": "Přidat pravidlo",
       "deleteRule": "Odstranit",
       "noRules": "Žádná pravidla. Přidejte jedno nebo načtěte předvolbu."
-    }
+    },
+    "presetsSuggest": "Začít od šablony",
+    "presetsNote": "Výběr šablony předvyplní pravidla — před uložením je lze libovolně upravit.",
+    "startWithPreset": "Začít se šablonou"
   },
   "scripts": {
     "typeSystem": "Systémový",

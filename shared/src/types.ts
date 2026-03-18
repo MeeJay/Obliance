@@ -500,6 +500,8 @@ export interface DeviceUpdate {
   scannedAt: string;
   createdAt: string;
   updatedAt: string;
+  /** Populated on tenant-wide listings (hostname or displayName) */
+  deviceName?: string | null;
 }
 
 // ─── CONFIG TEMPLATES ────────────────────────────────────────────────────────
