@@ -75,6 +75,7 @@ class DeviceService {
       sensorDisplayNames: row.sensor_display_names || {},
       notificationTypes: row.notification_types || {},
       latestMetrics: row.latest_metrics || {},
+      uninstallAt: row.uninstall_at ? new Date(row.uninstall_at).toISOString() : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -83,6 +84,8 @@ class DeviceService {
   // ─── CRUD ─────────────────────────────────────────────────────────────────
   async getDevices(tenantId: number, filters?: { groupId?: number; status?: string; approvalStatus?: string; search?: string }) {
     let q = db('devices').where({ tenant_id: tenantId });
+    // Never show pending_uninstall devices in normal listings
+    q = q.whereNot({ status: 'pending_uninstall' });
     if (filters?.groupId) q = q.where({ group_id: filters.groupId });
     if (filters?.status) q = q.where({ status: filters.status });
     if (filters?.approvalStatus === 'suspended') {
@@ -185,6 +188,55 @@ class DeviceService {
     return this.getDeviceById(id, tenantId);
   }
 
+  // ─── Uninstall flow ────────────────────────────────────────────────────────
+  async initiateUninstall(id: number, tenantId: number) {
+    const uninstallAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db('devices').where({ id, tenant_id: tenantId }).update({
+      status: 'pending_uninstall',
+      uninstall_at: uninstallAt,
+      updated_at: new Date(),
+    });
+    const device = await this.getDeviceById(id, tenantId);
+    if (device && this.io) {
+      // Emit to admin rooms — regular tenant room won't display it anyway (it's hidden)
+      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, device);
+    }
+    return device;
+  }
+
+  async cancelUninstall(id: number, tenantId: number) {
+    await db('devices').where({ id, tenant_id: tenantId, status: 'pending_uninstall' }).update({
+      status: 'offline',
+      uninstall_at: null,
+      updated_at: new Date(),
+    });
+    const device = await this.getDeviceById(id, tenantId);
+    if (device && this.io) {
+      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, device);
+    }
+    return device;
+  }
+
+  // Called every 30s — revert expired pending_uninstall devices back to offline
+  async expireUninstalls() {
+    const rows = await db('devices')
+      .where({ status: 'pending_uninstall' })
+      .where('uninstall_at', '<=', new Date())
+      .returning(['id', 'tenant_id'])
+      .update({
+        status: 'offline',
+        uninstall_at: null,
+        updated_at: new Date(),
+      });
+    for (const row of (Array.isArray(rows) ? rows : [])) {
+      const device = await this.getDeviceById(row.id, row.tenant_id);
+      if (device && this.io) {
+        this.io.to(`tenant:${row.tenant_id}`).emit(SocketEvents.DEVICE_UPDATED, device);
+        logger.info({ deviceId: row.id }, 'Uninstall expired — device restored to offline');
+      }
+    }
+  }
+
   async deleteDevice(id: number, tenantId: number) {
     await db('devices').where({ id, tenant_id: tenantId }).delete();
     if (this.io) {
@@ -285,15 +337,18 @@ class DeviceService {
   async handlePush(deviceId: number, tenantId: number, push: AgentPushRequest): Promise<AgentPushResponse> {
     const now = new Date();
 
-    // Update last seen, metrics, agent version
+    // Update last seen, metrics, agent version — but never override pending_uninstall status
     await db('devices').where({ id: deviceId }).update({
       last_seen_at: now,
       last_push_at: now,
-      status: 'online',
       latest_metrics: JSON.stringify(push.metrics),
       agent_version: push.agentVersion || db.raw('agent_version'),
       updated_at: now,
     });
+    await db('devices')
+      .where({ id: deviceId })
+      .whereNot({ status: 'pending_uninstall' })
+      .update({ status: 'online' });
 
     // Emit real-time metrics update
     if (this.io) {

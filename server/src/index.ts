@@ -146,6 +146,9 @@ async function main() {
   // Start device offline detection job (every 30s)
   setInterval(() => deviceService.checkOfflineDevices(), 30_000);
 
+  // Expire pending_uninstall devices whose 10-min timer has elapsed (every 30s)
+  setInterval(() => deviceService.expireUninstalls(), 30_000);
+
   // Start inventory retention job (every 6h)
   setInterval(() => deviceService.pruneInventory(), 6 * 60 * 60 * 1000);
 

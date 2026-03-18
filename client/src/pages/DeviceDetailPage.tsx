@@ -1266,28 +1266,54 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm text-text-primary">Uninstall agent</p>
-              <p className="text-xs text-text-muted mt-0.5">
-                Sends an uninstall command to the agent. The agent will completely
-                remove itself from the machine in <span className="text-text-primary">10 minutes</span>.
-                The device record is deleted automatically once the agent stops.
-              </p>
+              {device.status === 'pending_uninstall' ? (
+                <p className="text-xs text-orange-400 mt-0.5 animate-pulse">
+                  Uninstall in progress — agent is being removed from the machine.
+                  Device disappears from all lists and will reappear automatically if the agent doesn't confirm.
+                </p>
+              ) : (
+                <p className="text-xs text-text-muted mt-0.5">
+                  Immediately uninstalls the agent on the machine. The device disappears
+                  from all lists at once and is permanently deleted when the agent confirms.
+                  If the agent doesn't respond within <span className="text-text-primary">10 min</span>, the device comes back.
+                </p>
+              )}
             </div>
-            <button
-              onClick={async () => {
-                const name = device.displayName || device.hostname;
-                if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be completely removed from the machine in 10 minutes.\nThe device record will be deleted automatically once the agent stops.`)) return;
-                try {
-                  await commandApi.enqueue(device.id, 'uninstall_agent', {});
-                  toast.success('Uninstall scheduled — agent will remove itself in 10 min');
-                } catch {
-                  toast.error('Failed to send uninstall command');
-                }
-              }}
-              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
-            >
-              <Power className="w-3.5 h-3.5" />
-              Uninstall
-            </button>
+            {device.status === 'pending_uninstall' ? (
+              <button
+                onClick={async () => {
+                  try {
+                    await deviceApi.cancelUninstall(device.id);
+                    toast.success('Uninstall cancelled — device restored');
+                    onSaved();
+                  } catch {
+                    toast.error('Failed to cancel uninstall');
+                  }
+                }}
+                className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
+              >
+                <Power className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  const name = device.displayName || device.hostname;
+                  if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.`)) return;
+                  try {
+                    await deviceApi.initiateUninstall(device.id);
+                    toast.success('Uninstall command sent — device hidden from all lists');
+                    onSaved();
+                  } catch {
+                    toast.error('Failed to send uninstall command');
+                  }
+                }}
+                className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
+              >
+                <Power className="w-3.5 h-3.5" />
+                Uninstall
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -2192,6 +2218,27 @@ export function DeviceDetailPage() {
   const [obliguardUrl, setObliguardUrl] = useState<string | null>(null);
   const [oblimapUrl, setOblimapUrl] = useState<string | null>(null);
 
+  // Uninstall countdown (ticks every second while device is pending_uninstall)
+  const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
+  const _device = getDevice(deviceId);
+  const _uninstallAt = _device?.uninstallAt ?? null;
+  const _isPendingUninstall = _device?.status === 'pending_uninstall';
+  useEffect(() => {
+    if (!_isPendingUninstall || !_uninstallAt) {
+      setUninstallCountdown('');
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, new Date(_uninstallAt).getTime() - Date.now());
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setUninstallCountdown(remaining <= 0 ? '0:00' : `${m}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [_uninstallAt, _isPendingUninstall]);
+
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
   const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
@@ -2546,6 +2593,40 @@ export function DeviceDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Pending uninstall banner ── */}
+      {device.status === 'pending_uninstall' && (
+        <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-orange-500/40 bg-orange-500/10">
+          <div className="flex items-center gap-3">
+            <Power className="w-4 h-4 text-orange-400 shrink-0 animate-pulse" />
+            <div>
+              <p className="text-sm font-medium text-orange-300">Uninstall in progress</p>
+              <p className="text-xs text-orange-400/80">
+                Agent uninstall command sent.
+                {uninstallCountdown
+                  ? ` If unconfirmed, device will reappear in ${uninstallCountdown}.`
+                  : ' Device will reappear if the agent does not confirm.'}
+              </p>
+            </div>
+          </div>
+          {isAdmin() && (
+            <button
+              onClick={async () => {
+                try {
+                  await deviceApi.cancelUninstall(device.id);
+                  toast.success('Uninstall cancelled — device restored');
+                  fetchDevice(deviceId);
+                } catch {
+                  toast.error('Failed to cancel uninstall');
+                }
+              }}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/50 text-orange-400 hover:bg-orange-500/20 transition-colors"
+            >
+              Cancel uninstall
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-border">

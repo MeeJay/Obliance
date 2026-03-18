@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { deviceService } from '../services/device.service';
+import { commandService } from '../services/command.service';
 import { requireRole } from '../middleware/rbac';
 import { db } from '../db';
 
@@ -112,6 +113,32 @@ router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
 router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
   try {
     const device = await deviceService.unsuspendDevice(parseInt(req.params.id), req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/uninstall — mark as pending_uninstall + send uninstall command to agent
+router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    const device = await deviceService.initiateUninstall(id, req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    // Fire-and-forget — best effort; if agent is offline it'll receive it when it reconnects
+    commandService.enqueue({
+      deviceId: id, tenantId: req.tenantId!,
+      type: 'uninstall_agent', payload: {},
+      priority: 'urgent', expiresInSeconds: 600,
+      createdBy: req.session.userId,
+    }).catch(() => { /* ignore enqueue errors */ });
+    res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/cancel-uninstall — abort a pending uninstall, restore to offline
+router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next) => {
+  try {
+    const device = await deviceService.cancelUninstall(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
     res.json({ data: device });
   } catch (err) { next(err); }

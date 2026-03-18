@@ -99,7 +99,7 @@ export interface DeviceGroupTreeNode extends DeviceGroup {
 
 // ─── DEVICES ─────────────────────────────────────────────────────────────────
 
-export type DeviceStatus = 'pending' | 'online' | 'offline' | 'maintenance' | 'warning' | 'critical' | 'suspended';
+export type DeviceStatus = 'pending' | 'online' | 'offline' | 'maintenance' | 'warning' | 'critical' | 'suspended' | 'pending_uninstall';
 export type OsType = 'windows' | 'macos' | 'linux' | 'other';
 export type ApprovalStatus = 'pending' | 'approved' | 'refused';
 
@@ -147,6 +147,7 @@ export interface Device {
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
   latestMetrics: DeviceMetrics;
+  uninstallAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
