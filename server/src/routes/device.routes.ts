@@ -5,6 +5,8 @@ import { db } from '../db';
 
 const router = Router();
 
+// ── Static / collection routes (must come before /:id routes) ─────────────────
+
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
@@ -25,6 +27,28 @@ router.get('/summary', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/bulk/approve
+router.post('/bulk/approve', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { ids, deviceIds } = req.body;
+    const list = ids ?? deviceIds ?? [];
+    await deviceService.bulkApprove(list, req.tenantId!, req.session.userId!);
+    res.json({ success: true, count: list.length });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/devices/bulk/delete
+router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { ids, deviceIds } = req.body;
+    const list = ids ?? deviceIds ?? [];
+    await deviceService.bulkDelete(list, req.tenantId!);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ── Single-device routes (:id) ────────────────────────────────────────────────
+
 // GET /api/devices/:id
 router.get('/:id', async (req, res, next) => {
   try {
@@ -40,6 +64,20 @@ router.patch('/:id', async (req, res, next) => {
     const device = await deviceService.updateDevice(parseInt(req.params.id), req.tenantId!, req.body);
     if (!device) return res.status(404).json({ error: 'Device not found' });
     res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/services
+router.get('/:id/services', async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const device = await db('devices')
+      .where({ id: deviceId, tenant_id: req.tenantId! })
+      .select('latest_services')
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const services = device.latest_services ?? [];
+    res.json({ data: services });
   } catch (err) { next(err); }
 });
 
@@ -84,41 +122,6 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await deviceService.deleteDevice(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
-  } catch (err) { next(err); }
-});
-
-// POST /api/devices/bulk/approve
-router.post('/bulk/approve', requireRole('admin'), async (req, res, next) => {
-  try {
-    const { ids, deviceIds } = req.body;
-    const list = ids ?? deviceIds ?? [];
-    await deviceService.bulkApprove(list, req.tenantId!, req.session.userId!);
-    res.json({ success: true, count: list.length });
-  } catch (err) { next(err); }
-});
-
-// POST /api/devices/bulk/delete
-router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
-  try {
-    const { ids, deviceIds } = req.body;
-    const list = ids ?? deviceIds ?? [];
-    await deviceService.bulkDelete(list, req.tenantId!);
-    res.json({ success: true });
-  } catch (err) { next(err); }
-});
-
-// GET /api/devices/:id/services
-// Returns the last service list pushed by the agent (stored as latest_services JSONB).
-router.get('/:id/services', async (req, res, next) => {
-  try {
-    const deviceId = parseInt(req.params.id);
-    const device = await db('devices')
-      .where({ id: deviceId, tenant_id: req.tenantId! })
-      .select('latest_services')
-      .first();
-    if (!device) return res.status(404).json({ error: 'Device not found' });
-    const services = device.latest_services ?? [];
-    res.json({ data: services });
   } catch (err) { next(err); }
 });
 
