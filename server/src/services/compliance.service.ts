@@ -82,6 +82,28 @@ class ComplianceService {
     });
   }
 
+  async getAllResults(tenantId: number, page = 1, limit = 100) {
+    const offset = (page - 1) * limit;
+    const rows = await db('compliance_results as cr')
+      .leftJoin('compliance_policies as cp', 'cp.id', 'cr.policy_id')
+      .where({ 'cr.tenant_id': tenantId })
+      .orderBy('cr.checked_at', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .select(
+        'cr.*',
+        'cp.name as policy_name',
+        'cp.framework as policy_framework',
+      );
+    return rows.map((row: any) => {
+      const result = this.rowToResult(row);
+      if (row.policy_name) {
+        result.policy = { id: row.policy_id, name: row.policy_name, framework: row.policy_framework };
+      }
+      return result;
+    });
+  }
+
   async getTenantCompliance(tenantId: number) {
     const rows = await db('compliance_results')
       .where({ tenant_id: tenantId })

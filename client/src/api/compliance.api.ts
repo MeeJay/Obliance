@@ -13,7 +13,7 @@ export const complianceApi = {
     return res.data.data!;
   },
   async updatePolicy(id: number, data: Partial<CompliancePolicy>): Promise<CompliancePolicy> {
-    const res = await apiClient.patch<ApiResponse<CompliancePolicy>>(`/compliance/policies/${id}`, data);
+    const res = await apiClient.put<ApiResponse<CompliancePolicy>>(`/compliance/policies/${id}`, data);
     return res.data.data!;
   },
   async deletePolicy(id: number): Promise<void> {

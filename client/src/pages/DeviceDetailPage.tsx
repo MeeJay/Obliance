@@ -2253,6 +2253,36 @@ export function DeviceDetailPage() {
   }, [remoteDropdownOpen]);
 
 
+  const [isApprovingDevice, setIsApprovingDevice] = useState(false);
+  const [isRefusingDevice, setIsRefusingDevice] = useState(false);
+
+  const handleApproveDevice = async () => {
+    setIsApprovingDevice(true);
+    try {
+      await deviceApi.approve(deviceId);
+      toast.success('Device approved');
+      await fetchDevice(deviceId);
+    } catch {
+      toast.error('Failed to approve device');
+    } finally {
+      setIsApprovingDevice(false);
+    }
+  };
+
+  const handleRefuseDevice = async () => {
+    if (!confirm('Refuse this device?')) return;
+    setIsRefusingDevice(true);
+    try {
+      await deviceApi.refuse(deviceId);
+      toast.success('Device refused');
+      navigate('/devices');
+    } catch {
+      toast.error('Failed to refuse device');
+    } finally {
+      setIsRefusingDevice(false);
+    }
+  };
+
   const [isScanningAll, setIsScanningAll] = useState(false);
   const handleScanAll = async () => {
     setIsScanningAll(true);
@@ -2355,132 +2385,158 @@ export function DeviceDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {obliviewUrl && (
-            <button
-              type="button"
-              onClick={() => handleSwitch(obliviewUrl)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                text-[#6366f1] bg-[#1e1b4b]/40 border-[#4338ca]/50
-                hover:text-white hover:bg-[#1e1b4b]/60 hover:border-[#6366f1]"
-            >
-              <ArrowLeftRight size={13} />
-              Obliview
-            </button>
-          )}
-          {obliguardUrl && (
-            <button
-              type="button"
-              onClick={() => handleSwitch(obliguardUrl)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                text-[#fb923c] bg-[#431407]/40 border-[#c2410c]/50
-                hover:text-white hover:bg-[#431407]/60 hover:border-[#ea580c]"
-            >
-              <ArrowLeftRight size={13} />
-              Obliguard
-            </button>
-          )}
-          {oblimapUrl && (
-            <button
-              type="button"
-              onClick={() => handleSwitch(oblimapUrl)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                text-[#10b981] bg-[#022c22]/40 border-[#047857]/50
-                hover:text-white hover:bg-[#022c22]/60 hover:border-[#059669]"
-            >
-              <ArrowLeftRight size={13} />
-              Oblimap
-            </button>
-          )}
-          {/* ── Scan All ── */}
-          <button
-            onClick={handleScanAll}
-            disabled={isScanningAll || device.status !== 'online'}
-            title="Scan All — triggers inventory, updates and compliance scans"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
-            Scan All
-          </button>
+          {device.approvalStatus === 'pending' ? (
+            /* ── Pending device: only show approve / refuse ── */
+            isAdmin() && (
+              <>
+                <button
+                  onClick={handleApproveDevice}
+                  disabled={isApprovingDevice}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isApprovingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Approve
+                </button>
+                <button
+                  onClick={handleRefuseDevice}
+                  disabled={isRefusingDevice}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isRefusingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                  Refuse
+                </button>
+              </>
+            )
+          ) : (
+            /* ── Approved/suspended device: show all actions ── */
+            <>
+              {obliviewUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleSwitch(obliviewUrl)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                    text-[#6366f1] bg-[#1e1b4b]/40 border-[#4338ca]/50
+                    hover:text-white hover:bg-[#1e1b4b]/60 hover:border-[#6366f1]"
+                >
+                  <ArrowLeftRight size={13} />
+                  Obliview
+                </button>
+              )}
+              {obliguardUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleSwitch(obliguardUrl)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                    text-[#fb923c] bg-[#431407]/40 border-[#c2410c]/50
+                    hover:text-white hover:bg-[#431407]/60 hover:border-[#ea580c]"
+                >
+                  <ArrowLeftRight size={13} />
+                  Obliguard
+                </button>
+              )}
+              {oblimapUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleSwitch(oblimapUrl)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                    text-[#10b981] bg-[#022c22]/40 border-[#047857]/50
+                    hover:text-white hover:bg-[#022c22]/60 hover:border-[#059669]"
+                >
+                  <ArrowLeftRight size={13} />
+                  Oblimap
+                </button>
+              )}
+              {/* ── Scan All ── */}
+              <button
+                onClick={handleScanAll}
+                disabled={isScanningAll || device.status !== 'online'}
+                title="Scan All — triggers inventory, updates and compliance scans"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+                Scan All
+              </button>
 
-          {/* ── Quick actions ── */}
-          <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
-            {/* OS-aware remote dropdown */}
-            {(() => {
-              const opts: Array<'vnc' | 'ssh' | 'cmd' | 'powershell'> =
-                device.osType === 'windows' ? ['vnc', 'cmd', 'powershell'] :
-                device.osType === 'macos'   ? ['vnc', 'ssh'] :
-                                              ['ssh'];
-              const label = (p: string) => p === 'powershell' ? 'PS' : p.toUpperCase();
-              return (
-                <div className="relative" ref={remoteDropdownRef}>
-                  {opts.length === 1 ? (
-                    <button
-                      onClick={() => handleHeaderRemote(opts[0])}
-                      disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
-                      title={`${label(opts[0])} Remote`}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-                      {label(opts[0])}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setRemoteDropdownOpen((o) => !o)}
-                      disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
-                      title="Remote Control"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-                      Remote
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                  )}
-                  {remoteDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
-                      {opts.map((proto) => (
+              {/* ── Quick actions ── */}
+              <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
+                {(() => {
+                  const opts: Array<'vnc' | 'ssh' | 'cmd' | 'powershell'> =
+                    device.osType === 'windows' ? ['vnc', 'cmd', 'powershell'] :
+                    device.osType === 'macos'   ? ['vnc', 'ssh'] :
+                                                  ['ssh'];
+                  const label = (p: string) => p === 'powershell' ? 'PS' : p.toUpperCase();
+                  return (
+                    <div className="relative" ref={remoteDropdownRef}>
+                      {opts.length === 1 ? (
                         <button
-                          key={proto}
-                          onClick={() => handleHeaderRemote(proto)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+                          onClick={() => handleHeaderRemote(opts[0])}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                          title={`${label(opts[0])} Remote`}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
-                          <MonitorPlay className="w-3.5 h-3.5 text-green-400" />
-                          {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
+                          {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+                          {label(opts[0])}
                         </button>
-                      ))}
+                      ) : (
+                        <button
+                          onClick={() => setRemoteDropdownOpen((o) => !o)}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                          title="Remote Control"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+                          Remote
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      )}
+                      {remoteDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
+                          {opts.map((proto) => (
+                            <button
+                              key={proto}
+                              onClick={() => handleHeaderRemote(proto)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+                            >
+                              <MonitorPlay className="w-3.5 h-3.5 text-green-400" />
+                              {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
-            <div className="w-px h-5 bg-border" />
-            <button
-              onClick={() => handleHeaderAction('restart_agent')}
-              disabled={headerPending.has('restart_agent')}
-              title="Restart Agent"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-              Agent
-            </button>
-            <button
-              onClick={() => handleHeaderAction('reboot')}
-              disabled={headerPending.has('reboot')}
-              title="Reboot device"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-              Reboot
-            </button>
-            <button
-              onClick={() => handleHeaderAction('shutdown')}
-              disabled={headerPending.has('shutdown')}
-              title="Shutdown device"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
-              Off
-            </button>
-          </div>
+                  );
+                })()}
+                <div className="w-px h-5 bg-border" />
+                <button
+                  onClick={() => handleHeaderAction('restart_agent')}
+                  disabled={headerPending.has('restart_agent')}
+                  title="Restart Agent"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                  Agent
+                </button>
+                <button
+                  onClick={() => handleHeaderAction('reboot')}
+                  disabled={headerPending.has('reboot')}
+                  title="Reboot device"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                  Reboot
+                </button>
+                <button
+                  onClick={() => handleHeaderAction('shutdown')}
+                  disabled={headerPending.has('shutdown')}
+                  title="Shutdown device"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
+                  Off
+                </button>
+              </div>
+            </>
+          )}
 
           <button
             onClick={() => fetchDevice(deviceId)}

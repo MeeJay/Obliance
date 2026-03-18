@@ -70,13 +70,17 @@ router.post('/check', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /compliance/results?deviceId=&policyId= — matches client call
+// GET /compliance/results?deviceId=&page= — deviceId optional; omit for tenant-wide results
 router.get('/results', async (req, res, next) => {
   try {
-    const { deviceId } = req.query as any;
-    if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
-    const items = await complianceService.getLatestResults(parseInt(deviceId), req.tenantId!);
-    res.json({ data: { items, total: items.length } });
+    const { deviceId, page } = req.query as any;
+    if (deviceId) {
+      const items = await complianceService.getLatestResults(parseInt(deviceId), req.tenantId!);
+      res.json({ data: { items, total: items.length } });
+    } else {
+      const items = await complianceService.getAllResults(req.tenantId!, page ? parseInt(page) : 1);
+      res.json({ data: { items, total: items.length } });
+    }
   } catch (err) { next(err); }
 });
 
