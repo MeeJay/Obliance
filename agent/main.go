@@ -51,7 +51,7 @@ type Config struct {
 	TaskRetrieveDelaySec    int    `json:"taskRetrieveDelaySeconds,omitempty"` // command-poll interval (default 10)
 	RemediationEnabled      bool   `json:"remediationEnabled"`                // false = skip auto-remediation
 	AgentVersion            string `json:"agentVersion"`
-	BackoffUntil            int64  `json:"_backoffUntil,omitempty"`
+	BackoffUntil            int64  `json:"-"` // never persisted — in-memory only
 }
 
 func loadConfig() (*Config, error) {
@@ -97,7 +97,7 @@ func setupConfig(urlArg, keyArg string) *Config {
 		cfg = &Config{
 			ServerURL:            strings.TrimRight(urlArg, "/"),
 			APIKey:               keyArg,
-			DeviceUUID:           generateUUID(),
+			DeviceUUID:           resolveDeviceUUID(""),
 			CheckIntervalSeconds: 60,
 			AgentVersion:         agentVersion,
 		}
@@ -116,10 +116,9 @@ func setupConfig(urlArg, keyArg string) *Config {
 		cfg.APIKey = keyArg
 	}
 
-	if cfg.DeviceUUID == "" {
-		cfg.DeviceUUID = generateUUID()
+	cfg.DeviceUUID = resolveDeviceUUID(cfg.DeviceUUID)
+	if cfg.DeviceUUID != "" {
 		_ = saveConfig(cfg)
-		log.Printf("Generated device UUID: %s", cfg.DeviceUUID)
 	}
 	if cfg.CheckIntervalSeconds == 0 {
 		cfg.CheckIntervalSeconds = 60
