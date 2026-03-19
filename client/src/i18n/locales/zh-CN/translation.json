@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "设置失败，请重试。"
+    },
+    "stepAppearance": "外观",
+    "stepPassword": "密码",
+    "appearance": {
+      "title": "选择您的主题",
+      "subtitle": "选择适合您的界面风格。您可以随时在个人资料中更改。"
+    },
+    "password": {
+      "title": "设置密码",
+      "subtitleRequired": "您的账户是通过SSO创建的，尚无密码。请设置密码以便直接登录。",
+      "subtitleOptional": "您已有密码。留空字段以保留当前密码。",
+      "label": "密码",
+      "newLabel": "新密码",
+      "confirmLabel": "确认密码",
+      "placeholder": "至少8个字符",
+      "optionalPlaceholder": "留空以保留当前密码",
+      "confirmPlaceholder": "重复您的密码",
+      "tooShort": "密码必须至少8个字符。",
+      "mismatch": "两次输入的密码不一致。",
+      "required": "您的账户需要密码。",
+      "failed": "设置密码失败。请重试。"
     }
   },
   "dashboard": {

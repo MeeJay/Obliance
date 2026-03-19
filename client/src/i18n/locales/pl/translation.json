@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Konfiguracja nie powiodła się. Spróbuj ponownie."
+    },
+    "stepAppearance": "Wygląd",
+    "stepPassword": "Hasło",
+    "appearance": {
+      "title": "Wybierz swój motyw",
+      "subtitle": "Wybierz styl interfejsu, który Ci odpowiada. Możesz to zmienić w dowolnym momencie w swoim profilu."
+    },
+    "password": {
+      "title": "Ustaw hasło",
+      "subtitleRequired": "Twoje konto zostało utworzone przez SSO i nie ma jeszcze hasła. Ustaw je, aby móc logować się bezpośrednio.",
+      "subtitleOptional": "Masz już hasło. Zostaw pola puste, aby zachować obecne.",
+      "label": "Hasło",
+      "newLabel": "Nowe hasło",
+      "confirmLabel": "Potwierdź hasło",
+      "placeholder": "Co najmniej 8 znaków",
+      "optionalPlaceholder": "Zostaw puste, aby zachować obecne",
+      "confirmPlaceholder": "Powtórz hasło",
+      "tooShort": "Hasło musi mieć co najmniej 8 znaków.",
+      "mismatch": "Hasła nie są zgodne.",
+      "required": "Hasło jest wymagane dla Twojego konta.",
+      "failed": "Nie udało się ustawić hasła. Spróbuj ponownie."
     }
   },
   "dashboard": {

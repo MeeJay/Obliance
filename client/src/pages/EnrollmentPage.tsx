@@ -1,16 +1,20 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, KeyRound } from 'lucide-react';
 import apiClient from '@/api/client';
 import { twoFactorApi, type TotpSetupData } from '@/api/twoFactor.api';
+import { ssoApi } from '@/api/sso.api';
+import { profileApi } from '@/api/profile.api';
 import { useAuthStore } from '@/store/authStore';
 import { SUPPORTED_LANGUAGES, setLanguage } from '@/i18n';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { ThemePicker } from '@/components/ThemePicker';
+import { applyTheme, type AppTheme } from '@/utils/theme';
 
-type Step = 'language' | 'profile' | 'alerts' | 'security';
-const STEPS: Step[] = ['language', 'profile', 'alerts', 'security'];
+type Step = 'language' | 'profile' | 'alerts' | 'appearance' | 'password' | 'security';
+const STEPS: Step[] = ['language', 'profile', 'alerts', 'appearance', 'password', 'security'];
 
 interface EnrollData {
   preferredLanguage: string;
@@ -18,6 +22,7 @@ interface EnrollData {
   email: string;
   toastEnabled: boolean;
   toastPosition: 'bottom-right' | 'top-center';
+  preferredTheme: AppTheme;
 }
 
 // ── Language flags (emoji) ──────────────────────────────────────────────────
@@ -32,10 +37,12 @@ const LANG_FLAGS: Record<string, string> = {
 function Stepper({ currentStep }: { currentStep: Step }) {
   const { t } = useTranslation();
   const labels: Record<Step, string> = {
-    language: t('enrollment.stepLanguage'),
-    profile:  t('enrollment.stepProfile'),
-    alerts:   t('enrollment.stepAlerts'),
-    security: t('enrollment.stepSecurity'),
+    language:   t('enrollment.stepLanguage'),
+    profile:    t('enrollment.stepProfile'),
+    alerts:     t('enrollment.stepAlerts'),
+    appearance: t('enrollment.stepAppearance'),
+    password:   t('enrollment.stepPassword'),
+    security:   t('enrollment.stepSecurity'),
   };
   const currentIdx = STEPS.indexOf(currentStep);
 
@@ -60,7 +67,7 @@ function Stepper({ currentStep }: { currentStep: Step }) {
             </span>
           </div>
           {idx < STEPS.length - 1 && (
-            <div className={`w-12 sm:w-20 h-0.5 mx-1 mb-5 transition-colors ${idx < currentIdx ? 'bg-primary' : 'bg-border'}`} />
+            <div className={`w-10 sm:w-16 h-0.5 mx-1 mb-5 transition-colors ${idx < currentIdx ? 'bg-primary' : 'bg-border'}`} />
           )}
         </div>
       ))}
@@ -241,7 +248,71 @@ function AlertsStep({
   );
 }
 
-// ── Step 4: Security (TOTP) ──────────────────────────────────────────────────
+// ── Step 4: Appearance (theme picker) ────────────────────────────────────────
+function AppearanceStep({ theme, onTheme }: { theme: AppTheme; onTheme: (v: AppTheme) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-text-primary mb-1">{t('enrollment.appearance.title')}</h2>
+      <p className="text-sm text-text-muted mb-5">{t('enrollment.appearance.subtitle')}</p>
+      <ThemePicker
+        value={theme}
+        onChange={(v) => {
+          onTheme(v);
+          applyTheme(v); // live preview while choosing
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Step 5: Password ─────────────────────────────────────────────────────────
+function PasswordStep({
+  hasPassword, password, confirmPassword, error,
+  onPassword, onConfirm,
+}: {
+  hasPassword: boolean;
+  password: string;
+  confirmPassword: string;
+  error: string;
+  onPassword: (v: string) => void;
+  onConfirm: (v: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <KeyRound size={20} className="text-accent" />
+        <h2 className="text-xl font-semibold text-text-primary">{t('enrollment.password.title')}</h2>
+      </div>
+      <p className="text-sm text-text-muted mb-5">
+        {hasPassword
+          ? t('enrollment.password.subtitleOptional')
+          : t('enrollment.password.subtitleRequired')}
+      </p>
+      <div className="space-y-4">
+        <Input
+          label={hasPassword ? t('enrollment.password.newLabel') : t('enrollment.password.label')}
+          type="password"
+          value={password}
+          onChange={(e) => onPassword(e.target.value)}
+          placeholder={hasPassword ? t('enrollment.password.optionalPlaceholder') : t('enrollment.password.placeholder')}
+          autoFocus
+        />
+        <Input
+          label={t('enrollment.password.confirmLabel')}
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => onConfirm(e.target.value)}
+          placeholder={t('enrollment.password.confirmPlaceholder')}
+        />
+        {error && <p className="text-xs text-status-down">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Step 6: Security (TOTP) ──────────────────────────────────────────────────
 function SecurityStep({
   totpAlreadyEnabled, totpSetup, totpCode, totpLoading,
   onSetupTotp, onTotpCode, onSkip,
@@ -332,7 +403,19 @@ export function EnrollmentPage() {
     email: user?.email ?? '',
     toastEnabled: true,
     toastPosition: 'bottom-right',
+    preferredTheme: (user?.preferences as { preferredTheme?: AppTheme } | null)?.preferredTheme ?? 'modern',
   });
+
+  const [hasPassword, setHasPassword] = useState(true); // optimistic: assume true until fetched
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  useEffect(() => {
+    profileApi.get()
+      .then((p) => setHasPassword(!!(p as unknown as { hasPassword: boolean }).hasPassword))
+      .catch(() => {}); // keep true on error (safest fallback)
+  }, []);
 
   const [emailError, setEmailError] = useState('');
   const [totpAlreadyEnabled, setTotpAlreadyEnabled] = useState(false);
@@ -372,28 +455,38 @@ export function EnrollmentPage() {
     e?.preventDefault();
     setError('');
 
-    if (step === 'language') {
-      setStep('profile');
-      return;
-    }
+    if (step === 'language') { setStep('profile'); return; }
 
     if (step === 'profile') {
-      // Validate email
-      if (!data.email) {
-        setEmailError(t('enrollment.profile.emailRequired'));
-        return;
-      }
+      if (!data.email) { setEmailError(t('enrollment.profile.emailRequired')); return; }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(data.email)) {
-        setEmailError(t('enrollment.profile.emailInvalid'));
-        return;
-      }
+      if (!emailRegex.test(data.email)) { setEmailError(t('enrollment.profile.emailInvalid')); return; }
       setEmailError('');
       setStep('alerts');
       return;
     }
 
-    if (step === 'alerts') {
+    if (step === 'alerts') { setStep('appearance'); return; }
+    if (step === 'appearance') { setStep('password'); return; }
+
+    if (step === 'password') {
+      // If user entered something, validate and set the password
+      if (password) {
+        if (password.length < 8) { setPasswordError(t('enrollment.password.tooShort')); return; }
+        if (password !== confirmPassword) { setPasswordError(t('enrollment.password.mismatch')); return; }
+        setPasswordError('');
+        try {
+          await ssoApi.setLocalPassword(password);
+          setHasPassword(true);
+        } catch {
+          setPasswordError(t('enrollment.password.failed'));
+          return;
+        }
+      } else if (!hasPassword) {
+        // No password entered and account has none — mandatory
+        setPasswordError(t('enrollment.password.required'));
+        return;
+      }
       await handleAdvanceToSecurity();
       return;
     }
@@ -417,6 +510,7 @@ export function EnrollmentPage() {
         preferredLanguage: data.preferredLanguage,
         toastEnabled: data.toastEnabled,
         toastPosition: data.toastPosition,
+        preferredTheme: data.preferredTheme,
       });
 
       await checkSession();
@@ -479,6 +573,19 @@ export function EnrollmentPage() {
               position={data.toastPosition}
               onEnabled={(v) => setData((d) => ({ ...d, toastEnabled: v }))}
               onPosition={(v) => setData((d) => ({ ...d, toastPosition: v }))}
+            />
+          )}
+          {step === 'appearance' && (
+            <AppearanceStep theme={data.preferredTheme} onTheme={(v) => setData((d) => ({ ...d, preferredTheme: v }))} />
+          )}
+          {step === 'password' && (
+            <PasswordStep
+              hasPassword={hasPassword}
+              password={password}
+              confirmPassword={confirmPassword}
+              error={passwordError}
+              onPassword={(v) => { setPassword(v); setPasswordError(''); }}
+              onConfirm={(v) => { setConfirmPassword(v); setPasswordError(''); }}
             />
           )}
           {step === 'security' && (

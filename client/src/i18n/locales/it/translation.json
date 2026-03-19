@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Configurazione fallita. Riprova."
+    },
+    "stepAppearance": "Aspetto",
+    "stepPassword": "Password",
+    "appearance": {
+      "title": "Scegli il tuo tema",
+      "subtitle": "Scegli lo stile dell'interfaccia che preferisci. Puoi modificarlo in qualsiasi momento dal tuo profilo."
+    },
+    "password": {
+      "title": "Imposta una password",
+      "subtitleRequired": "Il tuo account è stato creato via SSO e non ha ancora una password. Impostane una per poter accedere direttamente.",
+      "subtitleOptional": "Hai già una password. Lascia i campi vuoti per mantenerla.",
+      "label": "Password",
+      "newLabel": "Nuova password",
+      "confirmLabel": "Conferma password",
+      "placeholder": "Almeno 8 caratteri",
+      "optionalPlaceholder": "Lascia vuoto per mantenere quella attuale",
+      "confirmPlaceholder": "Ripeti la tua password",
+      "tooShort": "La password deve contenere almeno 8 caratteri.",
+      "mismatch": "Le password non corrispondono.",
+      "required": "È necessaria una password per il tuo account.",
+      "failed": "Impossibile impostare la password. Riprova."
     }
   },
   "dashboard": {

@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Einrichtung fehlgeschlagen. Bitte versuchen Sie es erneut."
+    },
+    "stepAppearance": "Erscheinungsbild",
+    "stepPassword": "Passwort",
+    "appearance": {
+      "title": "Wählen Sie Ihr Theme",
+      "subtitle": "Wählen Sie den Interfacestil, der zu Ihnen passt. Sie können dies jederzeit in Ihrem Profil ändern."
+    },
+    "password": {
+      "title": "Passwort festlegen",
+      "subtitleRequired": "Ihr Konto wurde per SSO erstellt und hat noch kein Passwort. Legen Sie eines fest, um sich direkt anmelden zu können.",
+      "subtitleOptional": "Sie haben bereits ein Passwort. Lassen Sie die Felder leer, um es beizubehalten.",
+      "label": "Passwort",
+      "newLabel": "Neues Passwort",
+      "confirmLabel": "Passwort bestätigen",
+      "placeholder": "Mindestens 8 Zeichen",
+      "optionalPlaceholder": "Leer lassen, um aktuelles beizubehalten",
+      "confirmPlaceholder": "Passwort wiederholen",
+      "tooShort": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+      "mismatch": "Die Passwörter stimmen nicht überein.",
+      "required": "Für Ihr Konto ist ein Passwort erforderlich.",
+      "failed": "Passwort konnte nicht festgelegt werden. Bitte versuchen Sie es erneut."
     }
   },
   "dashboard": {

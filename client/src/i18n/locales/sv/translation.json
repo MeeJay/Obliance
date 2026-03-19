@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Det gick inte att slutföra konfigurationen. Försök igen."
+    },
+    "stepAppearance": "Utseende",
+    "stepPassword": "Lösenord",
+    "appearance": {
+      "title": "Välj ditt tema",
+      "subtitle": "Välj det gränssnittsstil som passar dig. Du kan ändra detta när som helst från din profil."
+    },
+    "password": {
+      "title": "Ange ett lösenord",
+      "subtitleRequired": "Ditt konto skapades via SSO och har inget lösenord ännu. Ange ett för att kunna logga in direkt.",
+      "subtitleOptional": "Du har redan ett lösenord. Lämna fälten tomma för att behålla det nuvarande.",
+      "label": "Lösenord",
+      "newLabel": "Nytt lösenord",
+      "confirmLabel": "Bekräfta lösenord",
+      "placeholder": "Minst 8 tecken",
+      "optionalPlaceholder": "Lämna tomt för att behålla det nuvarande",
+      "confirmPlaceholder": "Upprepa ditt lösenord",
+      "tooShort": "Lösenordet måste vara minst 8 tecken.",
+      "mismatch": "Lösenorden matchar inte.",
+      "required": "Ett lösenord krävs för ditt konto.",
+      "failed": "Det gick inte att ange lösenord. Försök igen."
     }
   },
   "dashboard": {

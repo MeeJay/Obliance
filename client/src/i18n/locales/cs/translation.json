@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Nastavení se nezdařilo. Zkuste to znovu."
+    },
+    "stepAppearance": "Vzhled",
+    "stepPassword": "Heslo",
+    "appearance": {
+      "title": "Vyberte své téma",
+      "subtitle": "Vyberte styl rozhraní, který vám vyhovuje. Změnit to můžete kdykoli ze svého profilu."
+    },
+    "password": {
+      "title": "Nastavit heslo",
+      "subtitleRequired": "Váš účet byl vytvořen přes SSO a zatím nemá heslo. Nastavte jej, abyste se mohli přihlásit přímo.",
+      "subtitleOptional": "Již máte heslo. Chcete-li zachovat stávající, ponechte pole prázdná.",
+      "label": "Heslo",
+      "newLabel": "Nové heslo",
+      "confirmLabel": "Potvrdit heslo",
+      "placeholder": "Alespoň 8 znaků",
+      "optionalPlaceholder": "Ponechte prázdné pro zachování stávajícího",
+      "confirmPlaceholder": "Zopakujte své heslo",
+      "tooShort": "Heslo musí mít alespoň 8 znaků.",
+      "mismatch": "Hesla se neshodují.",
+      "required": "Pro váš účet je vyžadováno heslo.",
+      "failed": "Nastavení hesla se nezdařilo. Zkuste to prosím znovu."
     }
   },
   "dashboard": {

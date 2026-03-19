@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Falha ao concluir a configuração. Tente novamente."
+    },
+    "stepAppearance": "Aparência",
+    "stepPassword": "Senha",
+    "appearance": {
+      "title": "Escolha seu tema",
+      "subtitle": "Escolha o estilo de interface que mais combina com você. Você pode alterar isso a qualquer momento no seu perfil."
+    },
+    "password": {
+      "title": "Definir uma senha",
+      "subtitleRequired": "Sua conta foi criada via SSO e ainda não tem senha. Defina uma para poder fazer login diretamente.",
+      "subtitleOptional": "Você já tem uma senha. Deixe os campos em branco para mantê-la.",
+      "label": "Senha",
+      "newLabel": "Nova senha",
+      "confirmLabel": "Confirmar senha",
+      "placeholder": "Pelo menos 8 caracteres",
+      "optionalPlaceholder": "Deixe em branco para manter a atual",
+      "confirmPlaceholder": "Repita sua senha",
+      "tooShort": "A senha deve ter pelo menos 8 caracteres.",
+      "mismatch": "As senhas não coincidem.",
+      "required": "Uma senha é necessária para sua conta.",
+      "failed": "Falha ao definir senha. Tente novamente."
     }
   },
   "dashboard": {

@@ -207,6 +207,27 @@
     },
     "errors": {
       "failed": "Échec de la configuration. Veuillez réessayer."
+    },
+    "stepAppearance": "Apparence",
+    "stepPassword": "Mot de passe",
+    "appearance": {
+      "title": "Choisissez votre thème",
+      "subtitle": "Choisissez le style d'interface qui vous convient. Vous pouvez le modifier à tout moment depuis votre profil."
+    },
+    "password": {
+      "title": "Définir un mot de passe",
+      "subtitleRequired": "Votre compte a été créé via SSO et n'a pas encore de mot de passe. Définissez-en un pour pouvoir vous connecter directement.",
+      "subtitleOptional": "Vous avez déjà un mot de passe. Laissez les champs vides pour le conserver.",
+      "label": "Mot de passe",
+      "newLabel": "Nouveau mot de passe",
+      "confirmLabel": "Confirmer le mot de passe",
+      "placeholder": "Au moins 8 caractères",
+      "optionalPlaceholder": "Laisser vide pour conserver",
+      "confirmPlaceholder": "Répétez votre mot de passe",
+      "tooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+      "mismatch": "Les mots de passe ne correspondent pas.",
+      "required": "Un mot de passe est requis pour votre compte.",
+      "failed": "Échec de la définition du mot de passe. Veuillez réessayer."
     }
   },
   "dashboard": {

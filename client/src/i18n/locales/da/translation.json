@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Opsætning mislykkedes. Prøv igen."
+    },
+    "stepAppearance": "Udseende",
+    "stepPassword": "Adgangskode",
+    "appearance": {
+      "title": "Vælg dit tema",
+      "subtitle": "Vælg den interfacestil, der passer dig. Du kan ændre dette til enhver tid fra din profil."
+    },
+    "password": {
+      "title": "Angiv en adgangskode",
+      "subtitleRequired": "Din konto er oprettet via SSO og har endnu ingen adgangskode. Angiv en for at kunne logge ind direkte.",
+      "subtitleOptional": "Du har allerede en adgangskode. Lad felterne stå tomme for at beholde den nuværende.",
+      "label": "Adgangskode",
+      "newLabel": "Ny adgangskode",
+      "confirmLabel": "Bekræft adgangskode",
+      "placeholder": "Mindst 8 tegn",
+      "optionalPlaceholder": "Lad stå tomt for at beholde den nuværende",
+      "confirmPlaceholder": "Gentag din adgangskode",
+      "tooShort": "Adgangskoden skal være mindst 8 tegn.",
+      "mismatch": "Adgangskoderne stemmer ikke overens.",
+      "required": "Din konto kræver en adgangskode.",
+      "failed": "Kunne ikke angive adgangskode. Prøv venligst igen."
     }
   },
   "dashboard": {

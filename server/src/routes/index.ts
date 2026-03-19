@@ -4,6 +4,7 @@ import { requireTenant } from '../middleware/tenant';
 
 // Route imports
 import authRoutes from './auth.routes';
+import twoFactorRoutes from './twoFactor.routes';
 import ssoRoutes from './sso.routes';
 import oblitoolsRoutes from './oblitools.routes';
 import profileRoutes from './profile.routes';
@@ -54,6 +55,7 @@ router.use('/obliguard', obliguardRoutes); // proxy to Obliguard
 router.use('/oblimap', oblimapRoutes);     // proxy to Oblimap
 
 // ── Authenticated, no tenant required ───────────────────────────────────────
+router.use('/profile/2fa', twoFactorRoutes); // must be before /profile (auth handled inside twoFactorRoutes)
 router.use('/profile', requireAuth, profileRoutes);
 router.use('/tenants', requireAuth, tenantRoutes);
 router.use('/tenant', requireAuth, tenantRoutes);

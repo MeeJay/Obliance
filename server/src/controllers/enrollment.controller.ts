@@ -3,7 +3,7 @@ import { db } from '../db';
 import { AppError } from '../middleware/errorHandler';
 import { z } from 'zod';
 
-export const REQUIRED_ENROLLMENT_VERSION = 1;
+export const REQUIRED_ENROLLMENT_VERSION = 2;
 
 const enrollmentSchema = z.object({
   displayName: z.string().max(100).nullable().optional(),
@@ -11,6 +11,7 @@ const enrollmentSchema = z.object({
   preferredLanguage: z.string().max(10).default('en'),
   toastEnabled: z.boolean().default(true),
   toastPosition: z.enum(['top-center', 'bottom-right']).default('bottom-right'),
+  preferredTheme: z.enum(['modern', 'neon']).default('modern'),
 });
 
 export const enrollmentController = {
@@ -21,7 +22,7 @@ export const enrollmentController = {
         throw new AppError(400, parsed.error.errors[0]?.message ?? 'Invalid input');
       }
 
-      const { displayName, email, preferredLanguage, toastEnabled, toastPosition } = parsed.data;
+      const { displayName, email, preferredLanguage, toastEnabled, toastPosition, preferredTheme } = parsed.data;
 
       // Check if email is already used by another user
       const existing = await db('users')
@@ -32,7 +33,7 @@ export const enrollmentController = {
         throw new AppError(409, 'This email address is already in use');
       }
 
-      const preferences = { toastEnabled, toastPosition };
+      const preferences = { toastEnabled, toastPosition, preferredTheme };
 
       const [row] = await db('users')
         .where({ id: req.session.userId })

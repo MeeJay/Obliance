@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Error al completar la configuración. Inténtelo de nuevo."
+    },
+    "stepAppearance": "Apariencia",
+    "stepPassword": "Contraseña",
+    "appearance": {
+      "title": "Elige tu tema",
+      "subtitle": "Elige el estilo de interfaz que más te guste. Puedes cambiarlo en cualquier momento desde tu perfil."
+    },
+    "password": {
+      "title": "Establecer una contraseña",
+      "subtitleRequired": "Tu cuenta fue creada via SSO y aún no tiene contraseña. Establece una para poder iniciar sesión directamente.",
+      "subtitleOptional": "Ya tienes una contraseña. Deja los campos en blanco para mantener la actual.",
+      "label": "Contraseña",
+      "newLabel": "Nueva contraseña",
+      "confirmLabel": "Confirmar contraseña",
+      "placeholder": "Al menos 8 caracteres",
+      "optionalPlaceholder": "Dejar en blanco para mantener la actual",
+      "confirmPlaceholder": "Repite tu contraseña",
+      "tooShort": "La contraseña debe tener al menos 8 caracteres.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "required": "Se requiere una contraseña para tu cuenta.",
+      "failed": "Error al establecer la contraseña. Inténtalo de nuevo."
     }
   },
   "dashboard": {

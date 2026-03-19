@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Instelling mislukt. Probeer het opnieuw."
+    },
+    "stepAppearance": "Uiterlijk",
+    "stepPassword": "Wachtwoord",
+    "appearance": {
+      "title": "Kies uw thema",
+      "subtitle": "Kies de interfacestijl die bij u past. U kunt dit op elk moment wijzigen via uw profiel."
+    },
+    "password": {
+      "title": "Stel een wachtwoord in",
+      "subtitleRequired": "Uw account is aangemaakt via SSO en heeft nog geen wachtwoord. Stel er een in om direct in te kunnen loggen.",
+      "subtitleOptional": "U hebt al een wachtwoord. Laat de velden leeg om het huidige te bewaren.",
+      "label": "Wachtwoord",
+      "newLabel": "Nieuw wachtwoord",
+      "confirmLabel": "Bevestig wachtwoord",
+      "placeholder": "Minimaal 8 tekens",
+      "optionalPlaceholder": "Leeg laten om huidig te bewaren",
+      "confirmPlaceholder": "Herhaal uw wachtwoord",
+      "tooShort": "Het wachtwoord moet minimaal 8 tekens bevatten.",
+      "mismatch": "De wachtwoorden komen niet overeen.",
+      "required": "Een wachtwoord is vereist voor uw account.",
+      "failed": "Wachtwoord instellen mislukt. Probeer het opnieuw."
     }
   },
   "dashboard": {

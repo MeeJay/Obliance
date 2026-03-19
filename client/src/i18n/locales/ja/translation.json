@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "設定に失敗しました。もう一度お試しください。"
+    },
+    "stepAppearance": "外観",
+    "stepPassword": "パスワード",
+    "appearance": {
+      "title": "テーマを選択",
+      "subtitle": "お好みのインターフェーススタイルをお選びください。プロフィールからいつでも変更できます。"
+    },
+    "password": {
+      "title": "パスワードを設定",
+      "subtitleRequired": "アカウントはSSOで作成されており、パスワードがまだありません。直接ログインできるよう設定してください。",
+      "subtitleOptional": "すでにパスワードがあります。現在のものを維持するにはフィールドを空白のままにしてください。",
+      "label": "パスワード",
+      "newLabel": "新しいパスワード",
+      "confirmLabel": "パスワードを確認",
+      "placeholder": "8文字以上",
+      "optionalPlaceholder": "現在のものを維持するには空白のままにする",
+      "confirmPlaceholder": "パスワードを繰り返す",
+      "tooShort": "パスワードは8文字以上必要です。",
+      "mismatch": "パスワードが一致しません。",
+      "required": "アカウントにはパスワードが必要です。",
+      "failed": "パスワードの設定に失敗しました。もう一度お試しください。"
     }
   },
   "dashboard": {

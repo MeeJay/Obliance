@@ -204,6 +204,27 @@
     },
     "errors": {
       "failed": "Kurulum tamamlanamadı. Tekrar deneyin."
+    },
+    "stepAppearance": "Görünüm",
+    "stepPassword": "Şifre",
+    "appearance": {
+      "title": "Temanızı seçin",
+      "subtitle": "Size uygun arayüz stilini seçin. Bunu profil sayfanızdan istediğiniz zaman değiştirebilirsiniz."
+    },
+    "password": {
+      "title": "Şifre belirleyin",
+      "subtitleRequired": "Hesabınız SSO aracılığıyla oluşturuldu ve henüz şifresi yok. Doğrudan giriş yapabilmek için bir tane belirleyin.",
+      "subtitleOptional": "Zaten bir şifreniz var. Mevcut şifreyi korumak için alanları boş bırakın.",
+      "label": "Şifre",
+      "newLabel": "Yeni şifre",
+      "confirmLabel": "Şifreyi onayla",
+      "placeholder": "En az 8 karakter",
+      "optionalPlaceholder": "Mevcut şifreyi korumak için boş bırakın",
+      "confirmPlaceholder": "Şifrenizi tekrarlayın",
+      "tooShort": "Şifre en az 8 karakter olmalıdır.",
+      "mismatch": "Şifreler eşleşmiyor.",
+      "required": "Hesabınız için şifre gereklidir.",
+      "failed": "Şifre belirlenemedi. Lütfen tekrar deneyin."
     }
   },
   "dashboard": {

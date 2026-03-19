@@ -208,6 +208,27 @@
     },
     "errors": {
       "failed": "Failed to complete setup. Please try again."
+    },
+    "stepAppearance": "Appearance",
+    "stepPassword": "Password",
+    "appearance": {
+      "title": "Choose your theme",
+      "subtitle": "Pick the interface style that suits you. You can change this anytime from your profile."
+    },
+    "password": {
+      "title": "Set a password",
+      "subtitleRequired": "Your account was created via SSO and has no password yet. Set one to be able to log in directly.",
+      "subtitleOptional": "You already have a password. Leave the fields blank to keep your current one.",
+      "label": "Password",
+      "newLabel": "New password",
+      "confirmLabel": "Confirm password",
+      "placeholder": "At least 8 characters",
+      "optionalPlaceholder": "Leave blank to keep current",
+      "confirmPlaceholder": "Repeat your password",
+      "tooShort": "Password must be at least 8 characters.",
+      "mismatch": "Passwords do not match.",
+      "required": "A password is required for your account.",
+      "failed": "Failed to set password. Please try again."
     }
   },
   "dashboard": {
