@@ -128,6 +128,10 @@ export const twoFactorController = {
 
       if (method === 'totp' && row.totp_enabled && row.totp_secret) {
         valid = twoFactorService.verifyTotp(row.totp_secret, String(code));
+        logger.info(
+          { userId, secretLen: row.totp_secret.length, codeLen: String(code).length, valid },
+          'TOTP login verify result',
+        );
       } else if (method === 'totp') {
         logger.warn({ userId, totpEnabled: row.totp_enabled, hasSecret: !!row.totp_secret },
           'TOTP verify: totp_enabled or totp_secret missing in DB');

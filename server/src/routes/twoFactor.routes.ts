@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { twoFactorController } from '../controllers/twoFactor.controller';
 import { requireAuth } from '../middleware/auth';
-import { authLimiter } from '../middleware/rateLimiter';
+import { mfaLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -15,7 +15,7 @@ router.post('/email/enable', requireAuth, twoFactorController.emailEnable);
 router.delete('/email', requireAuth, twoFactorController.emailDisable);
 
 // Auth 2FA routes (rate-limited, no requireAuth — session has pendingMfaUserId)
-router.post('/verify', authLimiter, twoFactorController.verify);
-router.post('/resend-email', authLimiter, twoFactorController.resendEmail);
+router.post('/verify', mfaLimiter, twoFactorController.verify);
+router.post('/resend-email', mfaLimiter, twoFactorController.resendEmail);
 
 export default router;

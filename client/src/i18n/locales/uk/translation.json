@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "Скинути MFA",
+    "confirmResetMfa": "Вимкнути всі методи 2FA для \"{{username}}\"? Користувач зможе увійти без другого фактора.",
+    "mfaReset": "MFA вимкнено для {{username}}",
+    "failedResetMfa": "Не вдалося скинути MFA"
   }
 }

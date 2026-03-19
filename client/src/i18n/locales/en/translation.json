@@ -710,7 +710,11 @@
       "failedAddPermission": "Failed to add permission",
       "failedUpdatePermission": "Failed to update permission",
       "failedRemovePermission": "Failed to remove permission"
-    }
+    },
+    "resetMfa": "Reset MFA",
+    "confirmResetMfa": "Disable all 2FA methods for \"{{username}}\"? They will be able to log in without a second factor.",
+    "mfaReset": "MFA disabled for {{username}}",
+    "failedResetMfa": "Failed to reset MFA"
   },
   "agents": {
     "tabKeys": "API Keys",

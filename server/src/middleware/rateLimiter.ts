@@ -29,16 +29,15 @@ export const apiLimiter = rateLimit({
     // Auth state probe — returns 401 for unauthenticated callers, no info leak.
     req.path === '/api/auth/me' ||
     // ── Machine-to-machine endpoints ───────────────────────────────────────
-    // Agent pushes (X-API-Key authenticated, high-frequency — up to 1 req/2s per agent).
-    req.path.startsWith('/api/agent/push') ||
+    // All /api/agent/* paths are API-key authenticated (X-API-Key header).
+    // Rate-limiting them would cause false positives when agents post inventory,
+    // compliance results, scan data, and metrics at their natural cadence.
+    // Security is provided by the API key itself; rate-limiting adds no value here.
+    req.path.startsWith('/api/agent/') ||
     // Oblireach agent pushes (same auth, same frequency).
-    req.path.startsWith('/api/oblireach/push') ||
+    req.path.startsWith('/api/oblireach/') ||
     // Passive heartbeats (token authenticated, triggered by external systems).
     req.path.startsWith('/api/heartbeat/') ||
-    // Agent auto-update checks and installer downloads (API-key authenticated).
-    req.path.startsWith('/api/agent/version') ||
-    req.path.startsWith('/api/agent/download/') ||
-    req.path.startsWith('/api/agent/installer/') ||
     // Login is already protected by the dedicated authLimiter (IP+username keyed,
     // brute-force focused). Skipping it here avoids false positives when many
     // unauthenticated requests arrive from the same apparent IP (shared proxy).
@@ -47,6 +46,23 @@ export const apiLimiter = rateLimit({
   message: {
     success: false,
     error: 'Too many requests, please try again later',
+  },
+});
+
+// MFA verify limiter — applied to /profile/2fa/verify and /profile/2fa/resend-email.
+// Keyed by IP only (no username in the body at that point).
+// More generous than the login limiter: the attacker must first have a valid
+// username+password AND a live pendingMfaUserId session to even reach this endpoint.
+// 50 attempts / 15 minutes is enough to survive testing while still blocking automation.
+export const mfaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15-minute window
+  max: 50,                   // 50 failed attempts per 15 minutes per IP
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many verification attempts, please try again later',
   },
 });
 

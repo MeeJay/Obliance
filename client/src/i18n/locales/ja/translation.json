@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "MFA をリセット",
+    "confirmResetMfa": "\"{{username}}\" の全ての2FA方法を無効にしますか？第二要素なしでログインできるようになります。",
+    "mfaReset": "{{username}} の MFA を無効化しました",
+    "failedResetMfa": "MFA のリセットに失敗しました"
   }
 }

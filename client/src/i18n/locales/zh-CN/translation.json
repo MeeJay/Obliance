@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "重置 MFA",
+    "confirmResetMfa": "禁用\"{{username}}\"的所有双因素认证方式？该用户将可以不使用第二因素登录。",
+    "mfaReset": "已为 {{username}} 禁用 MFA",
+    "failedResetMfa": "重置 MFA 失败"
   }
 }

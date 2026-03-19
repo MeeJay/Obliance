@@ -4,6 +4,7 @@ import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import { logger } from '../utils/logger';
 import { commandService } from './command.service';
+import { deviceService } from './device.service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,12 @@ interface AgentConn {
   ws: WebSocket;
   deviceId: number;
   tenantId: number;
+  /** API key row ID — forwarded to agentService.handlePush */
+  apiKeyId: number;
+  /** Hardware device UUID — forwarded to agentService.handlePush */
+  deviceUuid: string;
+  /** Client IP extracted at WS upgrade time */
+  clientIp: string;
 }
 
 // Message sent FROM server TO agent on the command channel
@@ -30,6 +37,15 @@ interface AgentAck {
   result?: any;
   sessionToken?: string;
   error?: string;
+}
+
+// Heartbeat sent FROM agent TO server on the command channel
+interface AgentHeartbeat {
+  type: 'heartbeat';
+  hostname?: string;
+  agentVersion?: string;
+  osInfo?: Record<string, unknown>;
+  metrics?: Record<string, unknown>;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -54,25 +70,40 @@ class AgentHubService {
   /**
    * Register an agent command-channel WebSocket.
    * If a previous connection for the same device exists it is cleanly replaced.
+   * Drains any pending_command stored in the DB immediately on connect.
    */
-  register(deviceId: number, tenantId: number, ws: WebSocket): void {
+  async register(
+    deviceId: number,
+    tenantId: number,
+    ws: WebSocket,
+    apiKeyId: number,
+    deviceUuid: string,
+    clientIp: string,
+  ): Promise<void> {
     const existing = this.byDevice.get(deviceId);
     if (existing && existing.ws.readyState === 1 /* OPEN */) {
       try { existing.ws.close(1000, 'replaced'); } catch {}
     }
-    const conn: AgentConn = { ws, deviceId, tenantId };
+    const conn: AgentConn = { ws, deviceId, tenantId, apiKeyId, deviceUuid, clientIp };
     this.byDevice.set(deviceId, conn);
 
     ws.on('close', () => this._unregister(deviceId, ws));
     ws.on('error', () => this._unregister(deviceId, ws));
     ws.on('message', async (data: Buffer) => {
       try {
-        const msg = JSON.parse(data.toString()) as AgentAck;
-        await this._handleAck(conn, msg);
+        const msg = JSON.parse(data.toString()) as AgentHeartbeat | AgentAck;
+        if (msg.type === 'heartbeat') {
+          await this._handleHeartbeat(conn, msg as AgentHeartbeat);
+        } else if (msg.type === 'ack') {
+          await this._handleAck(conn, msg as AgentAck);
+        }
       } catch { /* malformed JSON — ignore */ }
     });
 
-    logger.info({ deviceId }, 'Agent command channel connected');
+    // Drain any command queued in the DB while the agent was offline.
+    await this._drainPendingCommand(conn);
+
+    logger.info({ deviceId, deviceUuid }, 'Agent command channel connected');
   }
 
   private _unregister(deviceId: number, ws: WebSocket): void {
@@ -80,6 +111,88 @@ class AgentHubService {
     if (existing?.ws === ws) {
       this.byDevice.delete(deviceId);
       logger.info({ deviceId }, 'Agent command channel disconnected');
+    }
+  }
+
+  /**
+   * Deliver any command that was queued in agent_devices.pending_command
+   * while the agent was offline. Clears the DB field before delivering so
+   * a crash between clear and send at worst skips one command (safe).
+   */
+  private async _drainPendingCommand(conn: AgentConn): Promise<void> {
+    try {
+      // Fetch up to 5 pending commands queued while the agent was offline.
+      const pending = await db('command_queue')
+        .where({ device_id: conn.deviceId, status: 'pending' })
+        .orderBy([{ column: 'priority', order: 'desc' }, { column: 'created_at', order: 'asc' }])
+        .limit(5);
+
+      if (!pending.length) return;
+
+      // Mark as sent before delivering — avoids re-delivery on reconnect races.
+      await db('command_queue')
+        .whereIn('id', pending.map((c: any) => c.id))
+        .update({ status: 'sent', sent_at: new Date(), updated_at: new Date() });
+
+      if (conn.ws.readyState !== 1 /* OPEN */) return;
+
+      for (const row of pending) {
+        const cmd: HubCommand = {
+          type: 'command',
+          id: row.id,
+          commandType: row.type,
+          payload: row.payload || {},
+        };
+        try { conn.ws.send(JSON.stringify(cmd)); } catch { /* socket closed mid-drain */ }
+      }
+    } catch (e) {
+      logger.error(e, 'agentHub: failed to drain pending commands');
+    }
+  }
+
+  /**
+   * Handle a heartbeat from an agent on the command channel.
+   * Delegates to agentService.handlePush (same path as the old HTTP push endpoint)
+   * and sends a `{ type: "config", ... }` response with the resolved interval,
+   * latest version, and any one-shot command.
+   */
+  private async _handleHeartbeat(conn: AgentConn, msg: AgentHeartbeat): Promise<void> {
+    try {
+      const response = await deviceService.handlePush(
+        conn.deviceId,
+        conn.tenantId,
+        {
+          deviceUuid: conn.deviceUuid,
+          agentVersion: msg.agentVersion ?? '',
+          metrics: (msg.metrics ?? {}) as any,
+          acks: [],
+        },
+      );
+
+      // Deliver any commands returned by handlePush (it already marked them 'sent').
+      if (conn.ws.readyState === 1 /* OPEN */) {
+        for (const cmd of response.commands ?? []) {
+          const hubCmd: HubCommand = {
+            type: 'command',
+            id: cmd.id,
+            commandType: cmd.type as string,
+            payload: cmd.payload,
+          };
+          try { conn.ws.send(JSON.stringify(hubCmd)); } catch { break; }
+        }
+
+        // Config reply so the agent can update its poll interval.
+        const configMsg: Record<string, unknown> = { type: 'config' };
+        if (response.config?.pushIntervalSeconds) {
+          configMsg.checkIntervalSeconds = response.config.pushIntervalSeconds;
+        }
+        if (response.latestVersion) {
+          configMsg.latestVersion = response.latestVersion;
+        }
+        conn.ws.send(JSON.stringify(configMsg));
+      }
+    } catch (e) {
+      logger.error(e, 'agentHub: failed to handle heartbeat');
     }
   }
 

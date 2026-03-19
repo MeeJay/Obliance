@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "Zresetuj MFA",
+    "confirmResetMfa": "Wyłączyć wszystkie metody 2FA dla \"{{username}}\"? Będzie mógł zalogować się bez drugiego czynnika.",
+    "mfaReset": "MFA wyłączone dla {{username}}",
+    "failedResetMfa": "Nie udało się zresetować MFA"
   }
 }

@@ -5,6 +5,7 @@ import {
   Trash2,
   Key,
   Shield,
+  ShieldOff,
   UserIcon,
   UserX,
   Users,
@@ -211,6 +212,17 @@ export function AdminUsersPage() {
       load();
     } catch {
       toast.error(t('users.failedDelete'));
+    }
+  };
+
+  const handleResetMfa = async (user: User) => {
+    if (!confirm(t('users.confirmResetMfa', { username: user.username }))) return;
+    try {
+      await usersApi.resetMfa(user.id);
+      toast.success(t('users.mfaReset', { username: user.username }));
+      load();
+    } catch {
+      toast.error(t('users.failedResetMfa'));
     }
   };
 
@@ -555,8 +567,22 @@ export function AdminUsersPage() {
                         {!user.isActive && (
                           <span className="rounded-full bg-status-down/10 px-1.5 py-0.5 text-[10px] font-medium text-status-down">Off</span>
                         )}
+                        {(user.totpEnabled || user.emailOtpEnabled) && (
+                          <span className="rounded-full bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-400">
+                            <Shield size={10} className="inline mr-0.5" />MFA
+                          </span>
+                        )}
                       </div>
                     </div>
+                    {(user.totpEnabled || user.emailOtpEnabled) && (
+                      <button
+                        onClick={() => handleResetMfa(user)}
+                        className="shrink-0 p-1 text-status-down hover:text-status-down/80 opacity-0 group-hover:opacity-100"
+                        title={t('users.resetMfa')}
+                      >
+                        <ShieldOff size={13} />
+                      </button>
+                    )}
                     {user.id !== currentUser?.id && (
                       <>
                         <button onClick={() => { setEditingUser(user); setFormPassword(''); setUserFormMode('password'); }}

@@ -115,6 +115,7 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'obliance-agent-darwin-amd64':    'obliance-agent-darwin-amd64',
   'obliance-agent-darwin-arm64':    'obliance-agent-darwin-arm64',
   // Oblireach agent (remote desktop streaming)
+  'oblireach-agent.msi':            'oblireach-agent.msi',
   'oblireach-agent.exe':            'oblireach-agent.exe',
   'oblireach-agent-linux-amd64':    'oblireach-agent-linux-amd64',
   'oblireach-agent-darwin-amd64':   'oblireach-agent-darwin-amd64',

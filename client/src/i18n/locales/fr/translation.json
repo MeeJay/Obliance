@@ -685,7 +685,11 @@
       "failedAddPermission": "Échec de l'ajout de la permission",
       "failedUpdatePermission": "Échec de la mise à jour de la permission",
       "failedRemovePermission": "Échec de la suppression de la permission"
-    }
+    },
+    "resetMfa": "Réinitialiser le MFA",
+    "confirmResetMfa": "Désactiver tous les facteurs 2FA de \"{{username}}\" ? L'utilisateur pourra se connecter sans second facteur.",
+    "mfaReset": "MFA désactivé pour {{username}}",
+    "failedResetMfa": "Échec de la réinitialisation du MFA"
   },
   "agents": {
     "tabKeys": "Clés API",

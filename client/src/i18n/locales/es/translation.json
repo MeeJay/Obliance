@@ -491,7 +491,11 @@
       "roLabel": "LEC",
       "rwLabel": "LEC/ESC",
       "inherited": "heredado"
-    }
+    },
+    "resetMfa": "Restablecer MFA",
+    "confirmResetMfa": "¿Deshabilitar todos los métodos 2FA de \"{{username}}\"? Podrá iniciar sesión sin segundo factor.",
+    "mfaReset": "MFA deshabilitado para {{username}}",
+    "failedResetMfa": "Error al restablecer el MFA"
   },
   "agents": {
     "tabKeys": "Claves API",

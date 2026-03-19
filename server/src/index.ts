@@ -121,7 +121,11 @@ async function main() {
           if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
           const device = await db('devices').where({ api_key_id: keyRow.id }).first();
           if (!device) { ws.close(4004, 'Device not found'); return; }
-          agentHub.register(device.id, device.tenant_id, ws);
+          const clientIp =
+            (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ??
+            request.socket.remoteAddress ??
+            '';
+          await agentHub.register(device.id, device.tenant_id, ws, keyRow.id, device.uuid, clientIp);
         } catch (err) {
           logger.error(err, 'Agent command channel setup error');
           ws.close(4000, 'Internal error');

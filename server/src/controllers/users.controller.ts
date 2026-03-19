@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { db } from '../db';
 import { userService } from '../services/user.service';
 import { teamService } from '../services/team.service';
 import { AppError } from '../middleware/errorHandler';
@@ -132,6 +133,23 @@ export const usersController = {
       const id = parseInt(req.params.id, 10);
       const assignments = await userService.getUserTenantAssignments(id);
       res.json({ success: true, data: assignments });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // DELETE /api/users/:id/2fa  — admin resets all MFA for a locked-out user
+  async resetMfa(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const count = await db('users').where({ id }).update({
+        totp_secret: null,
+        totp_enabled: false,
+        email_otp_enabled: false,
+        updated_at: new Date(),
+      });
+      if (!count) throw new AppError(404, 'User not found');
+      res.json({ success: true, message: 'MFA reset successfully' });
     } catch (err) {
       next(err);
     }

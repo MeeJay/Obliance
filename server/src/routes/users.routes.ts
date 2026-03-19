@@ -19,6 +19,7 @@ router.get('/:id', usersController.getById);
 router.post('/', validate(createUserSchema), usersController.create);
 router.put('/:id', validate(updateUserSchema), usersController.update);
 router.put('/:id/password', validate(changePasswordSchema), usersController.changePassword);
+router.delete('/:id/2fa', usersController.resetMfa);
 router.delete('/:id', usersController.delete);
 
 // Team membership listing

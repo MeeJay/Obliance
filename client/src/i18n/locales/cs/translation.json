@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "Resetovat MFA",
+    "confirmResetMfa": "Zakázat všechny metody 2FA pro \"{{username}}\"? Bude se moci přihlásit bez druhého faktoru.",
+    "mfaReset": "MFA bylo deaktivováno pro {{username}}",
+    "failedResetMfa": "Resetování MFA se nezdařilo"
   }
 }

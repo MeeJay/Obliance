@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "users": {
+    "resetMfa": "MFA 초기화",
+    "confirmResetMfa": "\"{{username}}\"의 모든 2FA 방법을 비활성화하시겠습니까? 두 번째 인증 요소 없이 로그인할 수 있게 됩니다.",
+    "mfaReset": "{{username}}의 MFA가 비활성화되었습니다",
+    "failedResetMfa": "MFA 초기화에 실패했습니다"
   }
 }

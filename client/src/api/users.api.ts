@@ -53,4 +53,8 @@ export const usersApi = {
   ): Promise<void> {
     await apiClient.put(`/users/${id}/tenants`, { assignments });
   },
+
+  async resetMfa(id: number): Promise<void> {
+    await apiClient.delete(`/users/${id}/2fa`);
+  },
 };

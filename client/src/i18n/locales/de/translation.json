@@ -621,5 +621,11 @@
       "autoRemediationDisabledWarning": "Automatische Behebung ist deaktiviert. Fehlgeschlagene Regeln werden gemeldet, aber keine Skripte ausgeführt.",
       "saveSettings": "Einstellungen speichern"
     }
+  },
+  "users": {
+    "resetMfa": "MFA zurücksetzen",
+    "confirmResetMfa": "Alle 2FA-Methoden für \"{{username}}\" deaktivieren? Der Benutzer kann sich ohne zweiten Faktor anmelden.",
+    "mfaReset": "MFA für {{username}} deaktiviert",
+    "failedResetMfa": "MFA-Zurücksetzung fehlgeschlagen"
   }
 }
