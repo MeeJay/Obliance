@@ -1576,14 +1576,12 @@ function RemoteTab({ device }: { device: Device }) {
       const session = await remoteApi.startSession(device.id, protocol);
       // Record which session ID we're waiting for so REMOTE_TUNNEL_READY
       // can ignore events from concurrent sessions opened by other users.
-      if (protocol === 'oblireach') pendingOrId.current = session.id;
-      else if (isShellProtocol(protocol)) pendingSshId.current = session.id;
+      if (isShellProtocol(protocol)) pendingSshId.current = session.id;
       else pendingVncId.current = session.id;
       setSessions((prev) => [session, ...prev]);
     } catch {
       toast.error('Failed to start remote session');
-      if (protocol === 'oblireach') setOrModalOpen(false);
-      else if (isShellProtocol(protocol)) setSshModalOpen(false);
+      if (isShellProtocol(protocol)) setSshModalOpen(false);
       else setVncModalOpen(false);
     } finally {
       setIsStarting(false);
