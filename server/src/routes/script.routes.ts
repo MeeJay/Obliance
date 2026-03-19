@@ -7,9 +7,10 @@ const router = Router();
 // GET /api/scripts
 router.get('/', async (req, res, next) => {
   try {
-    const { platform, categoryId, search, scriptType } = req.query as any;
+    const { platform, categoryId, search, scriptType, availableInReach } = req.query as any;
     const scripts = await scriptService.getScripts(req.tenantId!, {
       platform, categoryId: categoryId ? parseInt(categoryId) : undefined, search, scriptType,
+      availableInReach: availableInReach === 'true',
     });
     res.json(scripts);
   } catch (err) { next(err); }

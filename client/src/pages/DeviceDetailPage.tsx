@@ -2393,6 +2393,8 @@ export function DeviceDetailPage() {
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
+  // null = loading, false = not installed, true = installed+online
+  const [headerOrInstalled, setHeaderOrInstalled] = useState<boolean | null>(null);
   const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
   const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
   const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
@@ -2415,6 +2417,47 @@ export function DeviceDetailPage() {
 
   const handleHeaderRemote = async (protocol: 'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
     setRemoteDropdownOpen(false);
+
+    // Oblireach: if not installed redirect to install command; if installed check sessions.
+    if (protocol === 'oblireach') {
+      if (headerOrInstalled === false) {
+        if (device?.status !== 'online') { toast.error('Device is offline'); return; }
+        try {
+          await commandApi.enqueue(deviceId, 'install_oblireach', {}, 'high');
+          toast.success('Install command sent — Oblireach will deploy shortly.');
+        } catch { toast.error('Failed to send install command'); }
+        return;
+      }
+      if (headerOrInstalled === null) { toast('Checking Oblireach status…'); return; }
+      // Installed — check sessions and start.
+      try {
+        const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
+        const wtsId = sessions.length === 1 ? sessions[0].id : undefined;
+        setHeaderRemoteProtocol('oblireach');
+        setHeaderRemoteSession(null);
+        setHeaderRemoteOpen(true);
+        setIsStartingRemote(true);
+        const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsId);
+        const socket = getSocket();
+        if (socket) {
+          const onReady = (s: RemoteSession) => {
+            if (s.deviceId !== deviceId || s.id !== session.id) return;
+            setHeaderRemoteSession(s);
+            socket.off('REMOTE_TUNNEL_READY', onReady);
+            remoteReadyListenerRef.current = null;
+          };
+          remoteReadyListenerRef.current = onReady;
+          socket.on('REMOTE_TUNNEL_READY', onReady);
+        }
+      } catch {
+        toast.error('Failed to start Oblireach session');
+        setHeaderRemoteOpen(false);
+      } finally {
+        setIsStartingRemote(false);
+      }
+      return;
+    }
+
     setHeaderRemoteProtocol(protocol);
     setHeaderRemoteSession(null);
     setHeaderRemoteOpen(true);
@@ -2509,6 +2552,13 @@ export function DeviceDetailPage() {
   }, [deviceId, fetchDevice]);
 
   const device = getDevice(deviceId);
+
+  useEffect(() => {
+    if (!device?.uuid) { setHeaderOrInstalled(false); return; }
+    remoteApi.listObliReachDeviceUuids().then((uuids) => {
+      setHeaderOrInstalled(uuids.has(device.uuid!));
+    }).catch(() => setHeaderOrInstalled(false));
+  }, [device?.uuid]);
 
   useEffect(() => {
     if (!device?.uuid) return;
@@ -2700,16 +2750,23 @@ export function DeviceDetailPage() {
                       )}
                       {remoteDropdownOpen && (
                         <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
-                          {opts.map((proto) => (
-                            <button
-                              key={proto}
-                              onClick={() => handleHeaderRemote(proto)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
-                            >
-                              <MonitorPlay className="w-3.5 h-3.5 text-green-400" />
-                              {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
-                            </button>
-                          ))}
+                          {opts.map((proto) => {
+                            const isOr = proto === 'oblireach';
+                            const orNotInstalled = isOr && headerOrInstalled === false;
+                            return (
+                              <button
+                                key={proto}
+                                onClick={() => handleHeaderRemote(proto)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+                              >
+                                <MonitorPlay className={`w-3.5 h-3.5 ${orNotInstalled ? 'text-orange-400' : 'text-green-400'}`} />
+                                <span>{proto === 'powershell' ? 'PowerShell' : proto === 'oblireach' ? 'Oblireach' : proto.toUpperCase()}</span>
+                                {orNotInstalled && (
+                                  <span className="ml-auto text-[10px] text-orange-400 font-medium">Install</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

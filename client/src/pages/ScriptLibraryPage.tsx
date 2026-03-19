@@ -37,6 +37,7 @@ interface ScriptFormData {
   runAs: 'system' | 'user';
   tags: string;
   categoryId: number | null;
+  availableInReach: boolean;
 }
 
 const defaultForm: ScriptFormData = {
@@ -50,6 +51,7 @@ const defaultForm: ScriptFormData = {
   runAs: 'system',
   tags: '',
   categoryId: null,
+  availableInReach: false,
 };
 
 export function ScriptLibraryPage() {
@@ -105,6 +107,7 @@ export function ScriptLibraryPage() {
         runAs: form.runAs,
         tags,
         categoryId: form.categoryId,
+        availableInReach: form.availableInReach,
         tenantId: null,
       };
       if (isCreating) {
@@ -157,6 +160,7 @@ export function ScriptLibraryPage() {
       runAs: script.runAs,
       tags: script.tags.join(', '),
       categoryId: script.categoryId,
+      availableInReach: script.availableInReach ?? false,
     });
     setSelectedScript(script);
     setIsEditing(true);
@@ -350,6 +354,18 @@ export function ScriptLibraryPage() {
                   className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.availableInReach}
+                    onChange={(e) => setForm({ ...form, availableInReach: e.target.checked })}
+                    className="w-4 h-4 rounded border-border accent-accent"
+                  />
+                  <span className="text-sm text-text-primary">Available in Reach</span>
+                  <span className="text-xs text-text-muted">— show this script in the Oblireach desktop client</span>
+                </label>
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -426,9 +442,10 @@ export function ScriptLibraryPage() {
               <pre className="p-4 text-sm font-mono text-text-primary overflow-x-auto whitespace-pre-wrap max-h-[32rem]">{selectedScript.content}</pre>
             </div>
 
-            <div className="text-xs text-text-muted">
-              Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}
-              {selectedScript.isBuiltin && <span className="ml-2 px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-text-muted">Built-in</span>}
+            <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
+              <span>Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}</span>
+              {selectedScript.isBuiltin && <span className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-text-muted">Built-in</span>}
+              {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/30 rounded text-purple-400">Available in Reach</span>}
             </div>
           </div>
         ) : (

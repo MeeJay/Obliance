@@ -18,6 +18,7 @@ class ScriptService {
       expectedExitCode: row.expected_exit_code ?? 0,
       runAs: row.run_as,
       scriptType: (row.script_type ?? 'user') as 'system' | 'user',
+      availableInReach: !!row.available_in_reach,
       isBuiltin: row.is_builtin,
       createdBy: row.created_by,
       updatedBy: row.updated_by,
@@ -38,7 +39,7 @@ class ScriptService {
     };
   }
 
-  async getScripts(tenantId: number, filters?: { platform?: string; categoryId?: number; search?: string; scriptType?: string }) {
+  async getScripts(tenantId: number, filters?: { platform?: string; categoryId?: number; search?: string; scriptType?: string; availableInReach?: boolean }) {
     let q = db('scripts').where(function() {
       this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); // include built-ins / system
     });
@@ -46,6 +47,7 @@ class ScriptService {
     if (filters?.categoryId) q = q.where({ category_id: filters.categoryId });
     if (filters?.search) q = q.whereILike('name', `%${filters.search}%`);
     if (filters?.scriptType) q = q.where({ script_type: filters.scriptType });
+    if (filters?.availableInReach) q = q.where({ available_in_reach: true });
     const rows = await q.orderBy([{ column: 'script_type', order: 'desc' }, { column: 'is_builtin', order: 'asc' }, { column: 'name' }]);
     return rows.map((r: any) => this.rowToScript(r));
   }
@@ -63,6 +65,7 @@ class ScriptService {
     name: string; description?: string; categoryId?: number; platform: string;
     runtime: string; content: string; timeoutSeconds?: number; expectedExitCode?: number; runAs?: string;
     tags?: string[]; parameters?: Omit<ScriptParameter, 'id' | 'scriptId'>[];
+    availableInReach?: boolean;
     createdBy?: number;
   }): Promise<Script> {
     const [row] = await db('scripts').insert({
@@ -77,6 +80,7 @@ class ScriptService {
       timeout_seconds: data.timeoutSeconds || 300,
       expected_exit_code: data.expectedExitCode ?? 0,
       run_as: data.runAs || 'system',
+      available_in_reach: data.availableInReach ?? false,
       is_builtin: false,
       created_by: data.createdBy,
       updated_by: data.createdBy,
@@ -101,7 +105,7 @@ class ScriptService {
   async updateScript(id: number, tenantId: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; updatedBy: number;
+    tags: string[]; availableInReach: boolean; updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -114,6 +118,7 @@ class ScriptService {
     if (data.expectedExitCode !== undefined) updates.expected_exit_code = data.expectedExitCode;
     if (data.runAs !== undefined) updates.run_as = data.runAs;
     if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
+    if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
 
     await db('scripts').where({ id, tenant_id: tenantId }).update(updates);
@@ -129,7 +134,7 @@ class ScriptService {
   async updateSystemScript(id: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; updatedBy: number;
+    tags: string[]; availableInReach: boolean; updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -142,6 +147,7 @@ class ScriptService {
     if (data.expectedExitCode !== undefined) updates.expected_exit_code = data.expectedExitCode;
     if (data.runAs !== undefined) updates.run_as = data.runAs;
     if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
+    if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
 
     await db('scripts').where({ id, is_builtin: true }).update(updates);

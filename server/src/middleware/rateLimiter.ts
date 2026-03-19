@@ -31,6 +31,8 @@ export const apiLimiter = rateLimit({
     // ── Machine-to-machine endpoints ───────────────────────────────────────
     // Agent pushes (X-API-Key authenticated, high-frequency — up to 1 req/2s per agent).
     req.path.startsWith('/api/agent/push') ||
+    // Oblireach agent pushes (same auth, same frequency).
+    req.path.startsWith('/api/oblireach/push') ||
     // Passive heartbeats (token authenticated, triggered by external systems).
     req.path.startsWith('/api/heartbeat/') ||
     // Agent auto-update checks and installer downloads (API-key authenticated).

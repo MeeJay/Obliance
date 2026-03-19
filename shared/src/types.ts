@@ -373,6 +373,7 @@ export interface Script {
   expectedExitCode: number;
   runAs: 'system' | 'user';
   scriptType: 'system' | 'user'; // 'system' = Obliance built-in, 'user' = tenant-created
+  availableInReach: boolean;
   isBuiltin: boolean;
   createdBy: number | null;
   updatedBy: number | null;
