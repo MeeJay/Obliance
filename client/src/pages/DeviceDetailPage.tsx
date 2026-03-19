@@ -2455,6 +2455,8 @@ export function DeviceDetailPage() {
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
   // null = loading, false = not installed, true = installed+online
   const [headerOrInstalled, setHeaderOrInstalled] = useState<boolean | null>(null);
+  const [headerOrVersion, setHeaderOrVersion] = useState<string | null>(null);
+  const [headerOrLatestVersion, setHeaderOrLatestVersion] = useState<string | null>(null);
   const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
   const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
   const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
@@ -2616,7 +2618,17 @@ export function DeviceDetailPage() {
   useEffect(() => {
     if (!device?.uuid) { setHeaderOrInstalled(false); return; }
     remoteApi.listObliReachDeviceUuids().then((uuids) => {
-      setHeaderOrInstalled(uuids.has(device.uuid!));
+      const installed = uuids.has(device.uuid!);
+      setHeaderOrInstalled(installed);
+      if (installed) {
+        Promise.all([
+          remoteApi.getObliReachDevice(device.uuid!),
+          remoteApi.getObliReachLatestVersion(),
+        ]).then(([dev, latest]) => {
+          setHeaderOrVersion(dev?.version ?? null);
+          setHeaderOrLatestVersion(latest);
+        });
+      }
     }).catch(() => setHeaderOrInstalled(false));
   }, [device?.uuid]);
 
@@ -2701,11 +2713,11 @@ export function DeviceDetailPage() {
           </div>
           <p className="text-sm text-text-muted mt-1">
             {device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown IP'} · Agent v{device.agentVersion ?? '?'}
-            {device.osType !== 'linux' && orInstalled === true && orVersion && (
+            {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
               <span>
-                {' '}· Reach v{orVersion}
-                {orUpdateAvailable && (
-                  <span className="ml-1 text-yellow-400">↑ v{orLatestVersion}</span>
+                {' '}· Reach v{headerOrVersion}
+                {headerOrLatestVersion && headerOrVersion !== headerOrLatestVersion && (
+                  <span className="ml-1 text-yellow-400">↑ v{headerOrLatestVersion}</span>
                 )}
               </span>
             )}
