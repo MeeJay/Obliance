@@ -73,7 +73,8 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error
 	wsURL := wsBase + "/api/agent/ws"
 
 	ws, err := wsConnect(wsURL, http.Header{
-		"X-Api-Key": []string{apiKey},
+		"X-Api-Key":     []string{apiKey},
+		"X-Device-UUID": []string{d.deviceUUID},
 	})
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)

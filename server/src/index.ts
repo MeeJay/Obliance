@@ -122,7 +122,10 @@ async function main() {
           // HTTP push (which uses agentAuth) succeeds — causing the agent to reconnect every 10s.
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
           if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
-          const device = await db('devices').where({ api_key_id: keyRow.id }).first();
+          const deviceUuid = request.headers['x-device-uuid'] as string | undefined;
+          const device = deviceUuid
+            ? await db('devices').where({ uuid: deviceUuid, tenant_id: keyRow.tenant_id }).first()
+            : await db('devices').where({ api_key_id: keyRow.id }).first();
           if (!device) { ws.close(4004, 'Device not found'); return; }
           const clientIp =
             (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ??
