@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { commandService } from './command.service';
 import { agentHub } from './agentHub.service';
+import { oblireachHub } from './oblireachHub.service';
+import type { OrCommand } from './oblireachHub.service';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import type { RemoteSession, RemoteProtocol } from '@obliance/shared';
@@ -58,19 +60,22 @@ class RemoteService {
     }
 
     if (protocol === 'oblireach') {
-      // Oblireach uses a separate pull-based agent — write command to oblireach_devices.
-      // The Oblireach agent picks it up on its next push heartbeat (max 30s).
+      // Oblireach: try instant WS delivery first; fall back to DB queue so the
+      // command is picked up the moment the agent reconnects (even if offline now).
       const device = await db('devices').where({ id: deviceId }).first();
       if (device?.uuid) {
-        await db('oblireach_devices')
-          .where({ device_uuid: device.uuid, tenant_id: tenantId })
-          .update({
-            pending_command: JSON.stringify({
-              type: 'open_remote_tunnel',
-              id: `or_${sessionToken.slice(0, 8)}`,
-              payload: commandPayload,
-            }),
-          });
+        const orCmd: OrCommand = {
+          type: 'open_remote_tunnel',
+          id: `or_${sessionToken.slice(0, 8)}`,
+          payload: commandPayload,
+        };
+        const delivered = oblireachHub.push(device.uuid, orCmd);
+        if (!delivered) {
+          // Agent offline — queue in DB; drained immediately on next WS connect.
+          await db('oblireach_devices')
+            .where({ device_uuid: device.uuid, tenant_id: tenantId })
+            .update({ pending_command: JSON.stringify(orCmd) });
+        }
       }
     } else {
       // VNC / RDP / SSH: prefer instant command channel, fall back to DB queue.
@@ -119,18 +124,15 @@ class RemoteService {
     // Tell agent to close tunnel
     const closePayload = { sessionToken: session.session_token };
     if (session.protocol === 'oblireach') {
-      // Deliver close via Oblireach agent's pull channel
+      // Deliver close via WS if connected; no DB fallback needed (close is best-effort —
+      // the session is ending regardless, and the agent will detect the tunnel close).
       const device = await db('devices').where({ id: session.device_id }).first();
       if (device?.uuid) {
-        await db('oblireach_devices')
-          .where({ device_uuid: device.uuid, tenant_id: tenantId })
-          .update({
-            pending_command: JSON.stringify({
-              type: 'close_remote_tunnel',
-              id: `close_${session.session_token.slice(0, 8)}`,
-              payload: closePayload,
-            }),
-          });
+        oblireachHub.push(device.uuid, {
+          type: 'close_remote_tunnel',
+          id: `close_${session.session_token.slice(0, 8)}`,
+          payload: closePayload,
+        });
       }
     } else {
       const closePushed = agentHub.push(session.device_id, {

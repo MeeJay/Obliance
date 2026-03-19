@@ -15,6 +15,7 @@ import { scheduleService } from './services/schedule.service';
 import { commandService } from './services/command.service';
 import { remoteService } from './services/remote.service';
 import { agentHub } from './services/agentHub.service';
+import { oblireachHub } from './services/oblireachHub.service';
 
 async function main() {
   // Run database migrations
@@ -48,7 +49,8 @@ async function main() {
   // Session-token pattern: 64 hex chars produced by crypto.randomBytes(32)
   const BROWSER_RE    = /^\/api\/remote\/tunnel\/([0-9a-f]{64})$/;
   const AGENT_RE      = /^\/api\/remote\/agent-tunnel\/([0-9a-f]{64})$/;
-  const AGENT_CMD_RE  = /^\/api\/agent\/ws$/;
+  const AGENT_CMD_RE       = /^\/api\/agent\/ws$/;
+  const OBLIREACH_CMD_RE   = /^\/api\/oblireach\/ws$/;
 
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
@@ -122,6 +124,27 @@ async function main() {
           agentHub.register(device.id, device.tenant_id, ws);
         } catch (err) {
           logger.error(err, 'Agent command channel setup error');
+          ws.close(4000, 'Internal error');
+        }
+      });
+      return; // handled — do NOT forward to socket.io
+    }
+
+    // ── Oblireach agent command channel ────────────────────────────────────
+    if (OBLIREACH_CMD_RE.test(pathname)) {
+      const apiKey  = request.headers['x-api-key'] as string | undefined;
+      const reqUrl  = new URL(request.url ?? '/', 'http://localhost');
+      const devUuid = reqUrl.searchParams.get('uuid');
+      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+        try {
+          if (!apiKey)  { ws.close(4003, 'Missing X-Api-Key'); return; }
+          if (!devUuid) { ws.close(4000, 'Missing uuid query param'); return; }
+          const keyRow = await db('agent_api_keys')
+            .where({ key: apiKey, is_active: true }).first();
+          if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
+          await oblireachHub.register(devUuid, keyRow.tenant_id, ws);
+        } catch (err) {
+          logger.error(err, 'ObliReach command channel setup error');
           ws.close(4000, 'Internal error');
         }
       });

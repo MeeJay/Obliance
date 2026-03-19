@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
 import { logger } from '../utils/logger';
+import { oblireachHub } from '../services/oblireachHub.service';
 
 // ── Auto-update version check ─────────────────────────────────────────────────
 
@@ -169,7 +170,8 @@ devicesRouter.get('/latest-version', (_req, res) => {
  * GET /  (mounted at /oblireach/devices in the tenant router)
  * List all Oblireach devices for a tenant.
  */
-// Oblireach agent pushes every 30 s — consider it online if seen within 2 minutes.
+// Fallback threshold for legacy push-only agents (no persistent WS).
+// WS-connected agents always show as online via oblireachHub.isConnected().
 const OR_ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
 
 devicesRouter.get('/', async (req, res, next) => {
@@ -182,9 +184,10 @@ devicesRouter.get('/', async (req, res, next) => {
     const items = rows.map((r: any) => ({
       ...r,
       sessions: r.sessions ? JSON.parse(r.sessions) : [],
-      is_online: r.last_seen_at
+      // WS-connected agents are always online; fall back to last_seen_at for legacy push agents.
+      is_online: oblireachHub.isConnected(r.device_uuid) || (r.last_seen_at
         ? now - new Date(r.last_seen_at).getTime() < OR_ONLINE_THRESHOLD_MS
-        : false,
+        : false),
     }));
     return res.json({ data: { items } });
   } catch (err) {
@@ -231,9 +234,9 @@ devicesRouter.get('/:deviceUuid', async (req, res, next) => {
         device: {
           ...row,
           sessions: row.sessions ? JSON.parse(row.sessions) : [],
-          is_online: row.last_seen_at
+          is_online: oblireachHub.isConnected(row.device_uuid) || (row.last_seen_at
             ? now - new Date(row.last_seen_at).getTime() < OR_ONLINE_THRESHOLD_MS
-            : false,
+            : false),
         },
       },
     });
