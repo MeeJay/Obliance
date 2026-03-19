@@ -132,6 +132,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "uninstall_agent":
 		execErr = d.handleUninstallAgent()
 
+	case "install_oblireach":
+		result, execErr = d.handleInstallOblireach(cmd)
+
 	case "list_services":
 		result, execErr = d.handleListServices(cmd)
 

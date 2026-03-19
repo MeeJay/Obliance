@@ -36,6 +36,7 @@ import obliviewRoutes from './obliview.routes';
 import obliguardRoutes from './obliguard.routes';
 import oblimapRoutes from './oblimap.routes';
 import systemRoutes from './system.routes';
+import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
 
 const router = Router();
 
@@ -44,6 +45,7 @@ router.use('/auth', authRoutes);
 router.use('/sso', ssoRoutes);           // cross-app SSO (generate-token, validate-token, exchange, users)
 router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth required)
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
+router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/obliview', obliviewRoutes);   // proxy to Obliview
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
@@ -79,6 +81,7 @@ tenantRouter.use('/maintenance', maintenanceRoutes);
 tenantRouter.use('/admin/config', adminRoutes);
 tenantRouter.use('/admin/smtp-servers', smtpRoutes);
 tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key management
+tenantRouter.use('/oblireach/devices', obliReachDevicesRouter);
 
 router.use('/', tenantRouter);
 

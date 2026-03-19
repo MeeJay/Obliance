@@ -15,7 +15,9 @@ class ComplianceService {
 
   rowToResult(row: any): ComplianceResult {
     return {
-      id: row.id, deviceId: row.device_id, policyId: row.policy_id, tenantId: row.tenant_id,
+      id: row.id, deviceId: row.device_id,
+      deviceName: row.device_name ?? null,
+      policyId: row.policy_id, tenantId: row.tenant_id,
       results: row.results || [], complianceScore: parseFloat(row.compliance_score),
       checkedAt: row.checked_at, createdAt: row.created_at,
     };
@@ -61,9 +63,9 @@ class ComplianceService {
 
   // ─── Results ──────────────────────────────────────────────────────────────
   async getLatestResults(deviceId: number, tenantId: number) {
-    // Get latest result per policy, hydrated with policy name+framework
     const rows = await db('compliance_results as cr')
       .leftJoin('compliance_policies as cp', 'cp.id', 'cr.policy_id')
+      .leftJoin('devices as d', 'd.id', 'cr.device_id')
       .where({ 'cr.device_id': deviceId, 'cr.tenant_id': tenantId })
       .orderBy('cr.checked_at', 'desc')
       .limit(50)
@@ -71,7 +73,7 @@ class ComplianceService {
         'cr.*',
         'cp.name as policy_name',
         'cp.framework as policy_framework',
-        db.raw('cr.policy_id as policy_id_raw'),
+        db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
       );
     return rows.map((row: any) => {
       const result = this.rowToResult(row);
@@ -82,10 +84,11 @@ class ComplianceService {
     });
   }
 
-  async getAllResults(tenantId: number, page = 1, limit = 100) {
+  async getAllResults(tenantId: number, page = 1, limit = 100, deviceId?: number) {
     const offset = (page - 1) * limit;
-    const rows = await db('compliance_results as cr')
+    let q = db('compliance_results as cr')
       .leftJoin('compliance_policies as cp', 'cp.id', 'cr.policy_id')
+      .leftJoin('devices as d', 'd.id', 'cr.device_id')
       .where({ 'cr.tenant_id': tenantId })
       .orderBy('cr.checked_at', 'desc')
       .limit(limit)
@@ -94,7 +97,10 @@ class ComplianceService {
         'cr.*',
         'cp.name as policy_name',
         'cp.framework as policy_framework',
+        db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
       );
+    if (deviceId) q = q.where({ 'cr.device_id': deviceId });
+    const rows = await q;
     return rows.map((row: any) => {
       const result = this.rowToResult(row);
       if (row.policy_name) {

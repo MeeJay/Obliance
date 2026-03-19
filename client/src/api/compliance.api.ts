@@ -20,7 +20,10 @@ export const complianceApi = {
     await apiClient.delete(`/compliance/policies/${id}`);
   },
   async listResults(params?: { deviceId?: number; policyId?: number; page?: number }): Promise<{ items: ComplianceResult[]; total: number }> {
-    const res = await apiClient.get<ApiResponse<{ items: ComplianceResult[]; total: number }>>('/compliance/results', { params });
+    const res = await apiClient.get<ApiResponse<{ items: ComplianceResult[]; total: number }>>(
+      '/compliance/results/filter',
+      { params },
+    );
     return res.data.data ?? { items: [], total: 0 };
   },
   async triggerCheck(deviceId: number, policyId?: number): Promise<void> {

@@ -1,22 +1,17 @@
 /**
  * ObliReachViewer — native screen-streaming viewer for the Oblireach protocol.
  *
- * Copy this file into D:\Obliance\client\src\components\ to integrate it.
- *
  * Architecture
  * ────────────
- * The component opens a single WebSocket to the relay endpoint
- * (either the built-in Obliance relay or the standalone Oblireach relay server).
+ * Opens a single WebSocket to the built-in Obliance relay (or standalone relay).
  *
- * ● Binary frames from agent → decode as JPEG → render on <canvas>
- *   Frame format: [1 byte type][N bytes payload]
- *   Type 0x01 = JPEG (v1)
- *   Type 0x02 = reserved H.264 NAL unit (future)
+ * ● Binary frames → [1 byte type][payload]
+ *   Type 0x02 = H.264 NAL units (Annex B) → WebCodecs VideoDecoder → canvas
  *
  * ● Text frames = JSON control messages (bidirectional).
  *
- * Input events (pointer + keyboard) are serialised as JSON text frames
- * and sent directly over the same WebSocket connection.
+ * Codec: H.264 via the WebCodecs API (VideoDecoder).
+ *   Chrome 94+, Edge 94+, Firefox 130+ (hardware-accelerated decode).
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -24,37 +19,68 @@ import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi } from 
 import { clsx } from 'clsx';
 
 // ── Frame type constants ──────────────────────────────────────────────────────
-const FRAME_JPEG  = 0x01;
-// const FRAME_H264 = 0x02; // future
-// const FRAME_OPUS = 0x03; // future
+const FRAME_H264 = 0x02;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ConnStatus = 'connecting' | 'waiting' | 'streaming' | 'disconnected' | 'error';
 
-interface ObliReachViewerProps {
+export interface ObliReachViewerProps {
   /** Obliance session token (hex, 64 chars). Used to build the WS URL. */
   sessionToken: string | null;
   /** Human-readable device name shown in the toolbar. */
   deviceName: string;
-  /** Short-lived HMAC viewer token issued by /api/remote/relay/issue-viewer-token.
-   *  Only required when using the standalone Oblireach relay server.
-   *  Leave empty to use the built-in Obliance WebSocket relay. */
+  /** Short-lived HMAC viewer token — only required for standalone relay. */
   viewerToken?: string;
   /** Base URL of the standalone Oblireach relay server (e.g. "wss://relay.example.com").
-   *  If absent, falls back to the built-in Obliance relay. */
+   *  If absent, falls back to the built-in Obliance WebSocket relay. */
   relayHost?: string;
   /** Called when the user clicks Disconnect. */
   onClose: () => void;
 }
 
-// ── Control message JSON shapes ────────────────────────────────────────────────
+// ── Control message shapes ────────────────────────────────────────────────────
 
-interface InitMsg   { type: 'init';   width: number; height: number; fps: number }
+interface InitMsg {
+  type: 'init';
+  width: number;
+  height: number;
+  fps: number;
+  codec?: string;
+  extradata?: string; // base64-encoded AVCC SPS+PPS
+}
 interface ResizeMsg { type: 'resize'; width: number; height: number }
 type AgentMsg = InitMsg | ResizeMsg | { type: string };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── H.264 helper: detect IDR keyframe in Annex B stream ─────────────────────
+
+function isH264Keyframe(data: Uint8Array): boolean {
+  let i = 0;
+  while (i < data.length - 4) {
+    if (data[i] === 0 && data[i + 1] === 0) {
+      let nalStart = -1;
+      if (data[i + 2] === 1) {
+        nalStart = i + 3;
+        i += 4;
+      } else if (data[i + 2] === 0 && data[i + 3] === 1) {
+        nalStart = i + 4;
+        i += 5;
+      } else {
+        i++;
+        continue;
+      }
+      if (nalStart < data.length) {
+        const nalType = data[nalStart] & 0x1f;
+        if (nalType === 5 || nalType === 7 || nalType === 8) return true;
+      }
+    } else {
+      i++;
+    }
+  }
+  return false;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function ObliReachViewer({
   sessionToken,
@@ -66,53 +92,113 @@ export function ObliReachViewer({
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef        = useRef<WebSocket | null>(null);
-  const bitmapQueue  = useRef<ImageBitmap[]>([]);
+  const decoderRef   = useRef<VideoDecoder | null>(null);
   const rafRef       = useRef<number>(0);
 
-  const [status, setStatus]     = useState<ConnStatus>('connecting');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [status, setStatus]       = useState<ConnStatus>('connecting');
+  const [errorMsg, setErrorMsg]   = useState('');
   const [agentDims, setAgentDims] = useState({ w: 1920, h: 1080 });
-  const [fps, setFps]           = useState(0);
+  const [fps, setFps]             = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // FPS counter
-  const fpsCountRef  = useRef(0);
-  const fpsTimerRef  = useRef<ReturnType<typeof setInterval>>(null as any);
+  const fpsCountRef = useRef(0);
+  const fpsTimerRef = useRef<ReturnType<typeof setInterval>>(null as any);
 
   // ── Build WS URL ─────────────────────────────────────────────────────────────
   const wsUrl = (() => {
     if (!sessionToken) return null;
-
     if (relayHost && viewerToken) {
-      // Standalone Oblireach relay
-      const base = relayHost.replace(/\/$/, '');
-      return `${base}/relay/ws?role=viewer&token=${encodeURIComponent(viewerToken)}`;
+      return `${relayHost.replace(/\/$/, '')}/relay/ws?role=viewer&token=${encodeURIComponent(viewerToken)}`;
     }
-
-    // Built-in Obliance relay (existing infrastructure, no viewerToken needed)
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${window.location.host}/api/remote/tunnel/${sessionToken}`;
   })();
+
+  // ── VideoDecoder initialisation ───────────────────────────────────────────
+  const initDecoder = useCallback((
+    width: number,
+    height: number,
+    extradata?: string,
+  ) => {
+    // Close previous decoder
+    try { decoderRef.current?.close(); } catch {}
+    decoderRef.current = null;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Size the canvas to the agent resolution so drawImage is 1:1
+    canvas.width  = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (typeof VideoDecoder === 'undefined') {
+      setStatus('error');
+      setErrorMsg('WebCodecs not supported in this browser (Chrome/Edge 94+, Firefox 130+).');
+      return;
+    }
+
+    const decoder = new VideoDecoder({
+      output: (frame: VideoFrame) => {
+        fpsCountRef.current++;
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        frame.close();
+        // Transition to streaming on first decoded frame
+        setStatus((prev) => (prev !== 'streaming' ? 'streaming' : prev));
+      },
+      error: (err) => {
+        console.error('[ObliReach] VideoDecoder error:', err);
+        setStatus('error');
+        setErrorMsg(`Decoder error: ${(err as Error).message ?? err}`);
+      },
+    });
+
+    // Build codec config
+    let codecStr = 'avc1.42001f'; // H.264 Baseline Level 3.1 (safe default)
+    let description: BufferSource | undefined;
+
+    if (extradata) {
+      const raw = atob(extradata);
+      const buf = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+      description = buf;
+
+      // AVCC: [1 configVersion][1 profile][1 constraints][1 level]…
+      // Use these bytes to build the precise codec string
+      if (buf.length >= 4) {
+        const p = buf[1].toString(16).padStart(2, '0');
+        const c = buf[2].toString(16).padStart(2, '0');
+        const l = buf[3].toString(16).padStart(2, '0');
+        codecStr = `avc1.${p}${c}${l}`;
+      }
+    }
+
+    const config: VideoDecoderConfig = {
+      codec: codecStr,
+      codedWidth:  width,
+      codedHeight: height,
+      optimizeForLatency: true,
+      ...(description ? { description } : {}),
+    };
+
+    decoder.configure(config);
+    decoderRef.current = decoder;
+  }, []);
 
   // ── Connect / disconnect ──────────────────────────────────────────────────
   useEffect(() => {
     if (!wsUrl) return;
 
     let active = true;
+    let tsMicros = 0;
+
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
 
-    ws.onopen = () => {
-      if (!active) return;
-      setStatus('waiting');
-    };
-
-    ws.onclose = () => {
-      if (!active) return;
-      setStatus('disconnected');
-    };
-
+    ws.onopen  = () => { if (active) setStatus('waiting'); };
+    ws.onclose = () => { if (active) setStatus('disconnected'); };
     ws.onerror = () => {
       if (!active) return;
       setStatus('error');
@@ -123,23 +209,37 @@ export function ObliReachViewer({
       if (!active) return;
 
       if (typeof ev.data === 'string') {
-        // JSON control frame
-        try {
-          const msg = JSON.parse(ev.data) as AgentMsg;
-          handleControlMsg(msg);
-        } catch {}
+        try { handleControlMsg(JSON.parse(ev.data) as AgentMsg, (w, h, ed) => {
+          initDecoder(w, h, ed);
+          setAgentDims({ w, h });
+        }); } catch {}
         return;
       }
 
-      // Binary frame: [1 byte type][N bytes payload]
       const buf = ev.data as ArrayBuffer;
       if (buf.byteLength < 2) return;
       const view = new Uint8Array(buf);
       const frameType = view[0];
 
-      if (frameType === FRAME_JPEG) {
-        const jpegBytes = buf.slice(1);
-        decodeAndQueue(jpegBytes);
+      if (frameType === FRAME_H264) {
+        const nalData = buf.slice(1);
+        const decoder = decoderRef.current;
+        if (!decoder || decoder.state !== 'configured') return;
+
+        const u8 = new Uint8Array(nalData);
+        const keyframe = isH264Keyframe(u8);
+
+        try {
+          decoder.decode(new EncodedVideoChunk({
+            type: keyframe ? 'key' : 'delta',
+            data: nalData,
+            timestamp: tsMicros,
+          }));
+          tsMicros += Math.round(1_000_000 / 15); // assume 15fps
+        } catch (e) {
+          // Decoder may reject delta frames before the first keyframe
+          // — silently ignore until the next key frame
+        }
       }
     };
 
@@ -155,30 +255,41 @@ export function ObliReachViewer({
       wsRef.current = null;
       cancelAnimationFrame(rafRef.current);
       clearInterval(fpsTimerRef.current);
-      bitmapQueue.current.forEach(b => b.close());
-      bitmapQueue.current = [];
+      try { decoderRef.current?.close(); } catch {}
+      decoderRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsUrl]);
 
-  const handleControlMsg = useCallback((msg: AgentMsg) => {
+  const handleControlMsg = useCallback((
+    msg: AgentMsg,
+    onInit: (w: number, h: number, extradata?: string) => void,
+  ) => {
     switch (msg.type) {
       case 'waiting':
         setStatus('waiting');
         break;
       case 'paired':
-        setStatus('streaming');
-        startRenderLoop();
+        // Agent connected — decoder is initialised when 'init' arrives
+        setStatus('waiting');
         break;
       case 'init': {
         const m = msg as InitMsg;
-        setAgentDims({ w: m.width, h: m.height });
-        setStatus('streaming');
-        startRenderLoop();
+        if (m.codec === 'h264') {
+          onInit(m.width, m.height, m.extradata);
+        } else {
+          setStatus('error');
+          setErrorMsg(`Unsupported codec: ${m.codec ?? 'unknown'}`);
+        }
         break;
       }
       case 'resize': {
         const m = msg as ResizeMsg;
         setAgentDims({ w: m.width, h: m.height });
+        // Reinitialise decoder at new resolution
+        if (decoderRef.current) {
+          initDecoder(m.width, m.height);
+        }
         break;
       }
       case 'peer_disconnected':
@@ -189,60 +300,19 @@ export function ObliReachViewer({
         setErrorMsg((msg as any).message || 'Relay error');
         break;
     }
-  }, []);
-
-  // ── Decode JPEG and push to render queue ──────────────────────────────────
-  const decodeAndQueue = useCallback((jpegBuf: ArrayBuffer) => {
-    const blob = new Blob([jpegBuf], { type: 'image/jpeg' });
-    createImageBitmap(blob).then((bitmap) => {
-      fpsCountRef.current++;
-      // Keep max 2 decoded frames in the queue to avoid memory buildup
-      if (bitmapQueue.current.length >= 2) {
-        const old = bitmapQueue.current.shift();
-        old?.close();
-      }
-      bitmapQueue.current.push(bitmap);
-    }).catch(() => {});
-  }, []);
-
-  // ── Render loop ───────────────────────────────────────────────────────────
-  const startRenderLoop = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const draw = () => {
-      rafRef.current = requestAnimationFrame(draw);
-      const bitmap = bitmapQueue.current.shift();
-      if (!bitmap) return;
-      // Scale canvas to fit container while preserving aspect ratio
-      canvas.width  = bitmap.width;
-      canvas.height = bitmap.height;
-      ctx.drawImage(bitmap, 0, 0);
-      bitmap.close();
-    };
-
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(draw);
-  }, []);
+  }, [initDecoder]);
 
   // ── Input forwarding ──────────────────────────────────────────────────────
   const sendJson = useCallback((obj: object) => {
     const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(obj));
-    }
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
   }, []);
 
-  // Convert pointer coords from canvas space → agent screen space
   const toAgentCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const sx = agentDims.w / rect.width;
-    const sy = agentDims.h / rect.height;
     return {
-      x: Math.round((e.clientX - rect.left) * sx),
-      y: Math.round((e.clientY - rect.top)  * sy),
+      x: Math.round((e.clientX - rect.left) * agentDims.w / rect.width),
+      y: Math.round((e.clientY - rect.top)  * agentDims.h / rect.height),
     };
   }, [agentDims]);
 
@@ -254,43 +324,32 @@ export function ObliReachViewer({
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     const { x, y } = toAgentCoords(e);
-    const button = e.button === 0 ? 1 : e.button === 1 ? 2 : 3;
-    sendJson({ type: 'mouse', action: 'down', button, x, y });
+    sendJson({ type: 'mouse', action: 'down', button: e.button, x, y });
   }, [toAgentCoords, sendJson]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const { x, y } = toAgentCoords(e);
-    const button = e.button === 0 ? 1 : e.button === 1 ? 2 : 3;
-    sendJson({ type: 'mouse', action: 'up', button, x, y });
+    sendJson({ type: 'mouse', action: 'up', button: e.button, x, y });
   }, [toAgentCoords, sendJson]);
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    const { x, y } = (() => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      return {
-        x: Math.round((e.clientX - rect.left) * agentDims.w / rect.width),
-        y: Math.round((e.clientY - rect.top)  * agentDims.h / rect.height),
-      };
-    })();
-    const delta = e.deltaY > 0 ? -1 : 1;
-    sendJson({ type: 'mouse', action: 'scroll', delta, x, y });
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round((e.clientX - rect.left) * agentDims.w / rect.width);
+    const y = Math.round((e.clientY - rect.top)  * agentDims.h / rect.height);
+    sendJson({ type: 'mouse', action: 'scroll', delta: e.deltaY > 0 ? -1 : 1, x, y });
   }, [agentDims, sendJson]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     e.preventDefault();
-    sendJson({
-      type: 'key', action: 'down', code: e.code,
-      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey,
-    });
+    sendJson({ type: 'key', action: 'down', code: e.code,
+      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey });
   }, [sendJson]);
 
   const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
     e.preventDefault();
-    sendJson({
-      type: 'key', action: 'up', code: e.code,
-      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey,
-    });
+    sendJson({ type: 'key', action: 'up', code: e.code,
+      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey });
   }, [sendJson]);
 
   const handleCtrlAltDel = useCallback(() => {
@@ -321,11 +380,11 @@ export function ObliReachViewer({
 
   // ── Status config ─────────────────────────────────────────────────────────
   const statusCfg: Record<ConnStatus, { label: string; color: string; spin?: boolean }> = {
-    connecting:   { label: 'Connecting…',   color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', spin: true },
-    waiting:      { label: 'Waiting…',      color: 'text-blue-400   bg-blue-400/10   border-blue-400/30',   spin: true },
-    streaming:    { label: 'Streaming',      color: 'text-green-400  bg-green-400/10  border-green-400/30'  },
-    disconnected: { label: 'Disconnected',   color: 'text-gray-400   bg-gray-400/10   border-gray-400/30'   },
-    error:        { label: 'Error',          color: 'text-red-400    bg-red-400/10    border-red-400/30'    },
+    connecting:   { label: 'Connecting…',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', spin: true },
+    waiting:      { label: 'Waiting…',     color: 'text-blue-400   bg-blue-400/10   border-blue-400/30',   spin: true },
+    streaming:    { label: 'Streaming',    color: 'text-green-400  bg-green-400/10  border-green-400/30'  },
+    disconnected: { label: 'Disconnected', color: 'text-gray-400   bg-gray-400/10   border-gray-400/30'   },
+    error:        { label: 'Error',        color: 'text-red-400    bg-red-400/10    border-red-400/30'    },
   };
   const sc = statusCfg[status];
 
@@ -339,7 +398,6 @@ export function ObliReachViewer({
     >
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary border-b border-border shrink-0 gap-3">
-        {/* Left */}
         <div className="flex items-center gap-2 min-w-0">
           <Monitor className="w-4 h-4 text-text-muted shrink-0" />
           <span className="text-sm font-medium text-text-primary truncate">{deviceName}</span>
@@ -353,7 +411,7 @@ export function ObliReachViewer({
 
           {status === 'streaming' && (
             <span className="text-xs text-text-muted hidden sm:block">
-              {agentDims.w}×{agentDims.h} · {fps} fps
+              {agentDims.w}×{agentDims.h} · {fps} fps · H.264
             </span>
           )}
 
@@ -362,7 +420,6 @@ export function ObliReachViewer({
           )}
         </div>
 
-        {/* Right */}
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={handleCtrlAltDel}
@@ -414,7 +471,7 @@ export function ObliReachViewer({
           </p>
           <p className="text-sm text-text-muted">
             {status === 'waiting'
-              ? 'The wake-up command has been sent to the device.'
+              ? 'The wake-up command has been sent. The Oblireach agent will connect within 30 s.'
               : 'Establishing encrypted tunnel…'}
           </p>
         </div>

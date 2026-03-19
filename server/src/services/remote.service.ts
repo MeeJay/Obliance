@@ -42,25 +42,41 @@ class RemoteService {
 
     const session = this.rowToSession(row);
 
-    // Deliver the open_remote_tunnel command to the agent.
-    // Prefer the persistent command channel (instant delivery, <1 s).
-    // Fall back to the DB command queue when the agent is not connected on
-    // the command channel (older agent version or temporary disconnect).
+    // Deliver the open_remote_tunnel command to the appropriate agent.
     const commandPayload = { sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}` };
-    const delivered = agentHub.push(deviceId, {
-      type: 'command',
-      id: `vnc_${sessionToken.slice(0, 8)}`,
-      commandType: 'open_remote_tunnel',
-      payload: commandPayload,
-    });
-    if (!delivered) {
-      await commandService.enqueue({
-        deviceId, tenantId, type: 'open_remote_tunnel',
+
+    if (protocol === 'oblireach') {
+      // Oblireach uses a separate pull-based agent — write command to oblireach_devices.
+      // The Oblireach agent picks it up on its next push heartbeat (max 30s).
+      const device = await db('devices').where({ id: deviceId }).first();
+      if (device?.uuid) {
+        await db('oblireach_devices')
+          .where({ device_uuid: device.uuid, tenant_id: tenantId })
+          .update({
+            pending_command: JSON.stringify({
+              type: 'open_remote_tunnel',
+              id: `or_${sessionToken.slice(0, 8)}`,
+              payload: commandPayload,
+            }),
+          });
+      }
+    } else {
+      // VNC / RDP / SSH: prefer instant command channel, fall back to DB queue.
+      const delivered = agentHub.push(deviceId, {
+        type: 'command',
+        id: `vnc_${sessionToken.slice(0, 8)}`,
+        commandType: 'open_remote_tunnel',
         payload: commandPayload,
-        priority: 'urgent',
-        expiresInSeconds: 300,
-        createdBy: userId,
       });
+      if (!delivered) {
+        await commandService.enqueue({
+          deviceId, tenantId, type: 'open_remote_tunnel',
+          payload: commandPayload,
+          priority: 'urgent',
+          expiresInSeconds: 300,
+          createdBy: userId,
+        });
+      }
     }
 
     // Notify UI
@@ -88,21 +104,37 @@ class RemoteService {
       duration_seconds: duration, end_reason: reason,
     });
 
-    // Tell agent to close tunnel (command channel first, DB queue as fallback)
+    // Tell agent to close tunnel
     const closePayload = { sessionToken: session.session_token };
-    const closePushed = agentHub.push(session.device_id, {
-      type: 'command',
-      id: `close_${session.session_token.slice(0, 8)}`,
-      commandType: 'close_remote_tunnel',
-      payload: closePayload,
-    });
-    if (!closePushed) {
-      await commandService.enqueue({
-        deviceId: session.device_id, tenantId,
-        type: 'close_remote_tunnel',
+    if (session.protocol === 'oblireach') {
+      // Deliver close via Oblireach agent's pull channel
+      const device = await db('devices').where({ id: session.device_id }).first();
+      if (device?.uuid) {
+        await db('oblireach_devices')
+          .where({ device_uuid: device.uuid, tenant_id: tenantId })
+          .update({
+            pending_command: JSON.stringify({
+              type: 'close_remote_tunnel',
+              id: `close_${session.session_token.slice(0, 8)}`,
+              payload: closePayload,
+            }),
+          });
+      }
+    } else {
+      const closePushed = agentHub.push(session.device_id, {
+        type: 'command',
+        id: `close_${session.session_token.slice(0, 8)}`,
+        commandType: 'close_remote_tunnel',
         payload: closePayload,
-        priority: 'urgent',
       });
+      if (!closePushed) {
+        await commandService.enqueue({
+          deviceId: session.device_id, tenantId,
+          type: 'close_remote_tunnel',
+          payload: closePayload,
+          priority: 'urgent',
+        });
+      }
     }
 
     // Clean up in-memory tunnel

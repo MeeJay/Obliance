@@ -126,10 +126,6 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	if protocol == "ssh" || protocol == "cmd" || protocol == "powershell" {
 		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken, protocol)
 	}
-	if protocol == "oblireach" {
-		return d.handleOblireach(cmd)
-	}
-
 	// ── VNC / RDP : TCP relay ─────────────────────────────────────────────────
 	tcpAddr := "localhost:5900"
 	switch protocol {

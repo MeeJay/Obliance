@@ -1449,6 +1449,14 @@ function RemoteTab({ device }: { device: Device }) {
   const pendingVncId = useRef<string | null>(null);
   const pendingOrId  = useRef<string | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
+  // null = unknown (loading), false = not installed, true = installed
+  const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    remoteApi.listObliReachDeviceUuids().then((uuids) => {
+      setOrInstalled(device.uuid ? uuids.has(device.uuid) : false);
+    }).catch(() => setOrInstalled(false));
+  }, [device.uuid]);
 
   useEffect(() => {
     const load = async () => {
@@ -1503,9 +1511,24 @@ function RemoteTab({ device }: { device: Device }) {
 
   const isShellProtocol = (p: string) => p === 'ssh' || p === 'cmd' || p === 'powershell';
 
+  const handleInstallOblireach = async () => {
+    if (!isOnline) { toast.error('Device is offline'); return; }
+    try {
+      await commandApi.enqueue(device.id, 'install_oblireach', {}, 'high');
+      toast.success('Install command sent — the Oblireach agent will be deployed shortly.');
+    } catch {
+      toast.error('Failed to send install command');
+    }
+  };
+
   const handleStartSession = async (protocol: 'oblireach' | 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
     // Open the modal immediately so the user sees a connecting overlay
     // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
+    // If Oblireach agent not installed, redirect to install flow
+    if (protocol === 'oblireach' && orInstalled === false) {
+      handleInstallOblireach();
+      return;
+    }
     if (protocol === 'oblireach') {
       setOrSession(null);
       setOrModalOpen(true);
@@ -1589,10 +1612,35 @@ function RemoteTab({ device }: { device: Device }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
+          {/* Oblireach button — grayed with install prompt if agent not installed */}
+          {orInstalled === false ? (
+            <button
+              key="oblireach"
+              onClick={() => handleInstallOblireach()}
+              disabled={!isOnline || isStarting}
+              title="Oblireach agent not installed — click to deploy"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <MonitorPlay className="w-4 h-4" />
+              Reach
+              <span className="text-xs opacity-70">(install)</span>
+            </button>
+          ) : (
+            <button
+              key="oblireach"
+              onClick={() => handleStartSession('oblireach')}
+              disabled={!isOnline || isStarting || orInstalled === null}
+              className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <MonitorPlay className="w-4 h-4" />
+              Reach
+            </button>
+          )}
+          {/* Other protocols */}
           {(
-            device.osType === 'windows' ? (['oblireach', 'vnc', 'cmd', 'powershell'] as const) :
-            device.osType === 'macos'   ? (['oblireach', 'vnc', 'ssh'] as const) :
-                                          (['oblireach', 'ssh'] as const)
+            device.osType === 'windows' ? (['vnc', 'cmd', 'powershell'] as const) :
+            device.osType === 'macos'   ? (['vnc', 'ssh'] as const) :
+                                          (['ssh'] as const)
           ).map((proto) => (
             <button
               key={proto}

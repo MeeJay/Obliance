@@ -243,7 +243,8 @@ export type CommandType =
   | 'stop_service'
   | 'install_software'
   | 'uninstall_software'
-  | 'uninstall_agent';
+  | 'uninstall_agent'
+  | 'install_oblireach';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -611,6 +612,7 @@ export interface ComplianceRuleResult {
 export interface ComplianceResult {
   id: number;
   deviceId: number;
+  deviceName: string | null;
   policyId: number;
   tenantId: number;
   results: ComplianceRuleResult[];

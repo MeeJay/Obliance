@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, Edit, Trash2,
   ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, Activity,
-  BookOpen, GripVertical, X, Sparkles, ArrowRight,
+  BookOpen, GripVertical, X, Sparkles, ArrowRight, Monitor,
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
+import { useDeviceStore } from '@/store/deviceStore';
 import type {
   CompliancePolicy, CompliancePreset, ComplianceResult,
   ComplianceFramework, ComplianceRule, ComplianceCheckType,
@@ -255,12 +256,15 @@ const defaultPolicyForm: PolicyFormData = {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function CompliancePage() {
   const { t } = useTranslation();
+  const deviceMap = useDeviceStore(s => s.devices);
+  const devices = Array.from(deviceMap.values());
   const [activeTab, setActiveTab] = useState<Tab>('results');
   const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
   const [results, setResults] = useState<ComplianceResult[]>([]);
   const [presets, setPresets] = useState<CompliancePreset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterFramework, setFilterFramework] = useState<string>('');
+  const [filterDeviceId, setFilterDeviceId] = useState<number | ''>('');
   const [showForm, setShowForm] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<CompliancePolicy | null>(null);
   const [form, setForm] = useState<PolicyFormData>(defaultPolicyForm);
@@ -286,7 +290,25 @@ export function CompliancePage() {
     }
   }, [t]);
 
+  // Reload results when device filter changes
+  const loadResults = useCallback(async (deviceId?: number) => {
+    setIsLoading(true);
+    try {
+      const resultsData = await complianceApi.listResults({ page: 1, deviceId });
+      setResults(resultsData.items);
+    } catch {
+      toast.error(t('compliance.failedLoad'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    loadResults(filterDeviceId !== '' ? filterDeviceId : undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterDeviceId]);
 
   const handleOpenCreate = () => {
     setForm(defaultPolicyForm);
@@ -465,7 +487,25 @@ export function CompliancePage() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Device filter — results tab only */}
+          {activeTab === 'results' && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border rounded-lg">
+              <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              <select
+                value={filterDeviceId}
+                onChange={(e) => setFilterDeviceId(e.target.value === '' ? '' : parseInt(e.target.value))}
+                className="text-sm bg-transparent text-text-primary focus:outline-none min-w-[120px]"
+              >
+                <option value="">{t('compliance.allDevices')}</option>
+                {devices.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.displayName || d.hostname}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <select
             value={filterFramework}
             onChange={(e) => setFilterFramework(e.target.value)}
@@ -509,9 +549,12 @@ export function CompliancePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-text-primary">
-                        {t('compliance.deviceId', { id: result.deviceId })}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                        <span className="text-sm font-medium text-text-primary">
+                          {result.deviceName ?? t('compliance.deviceId', { id: result.deviceId })}
+                        </span>
+                      </div>
                       {result.policy && (
                         <span className="text-xs px-2 py-0.5 bg-bg-tertiary border border-border rounded-full text-text-muted">
                           {FRAMEWORK_LABELS[result.policy.framework]} · {result.policy.name}

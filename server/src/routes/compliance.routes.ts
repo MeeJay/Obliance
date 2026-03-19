@@ -84,6 +84,19 @@ router.get('/results', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /compliance/results/filter?deviceId=&page= — tenant-wide with optional device filter
+router.get('/results/filter', async (req, res, next) => {
+  try {
+    const { deviceId, page } = req.query as any;
+    const items = await complianceService.getAllResults(
+      req.tenantId!,
+      page ? parseInt(page) : 1,
+      deviceId ? parseInt(deviceId) : undefined,
+    );
+    res.json({ data: { items, total: items.length } });
+  } catch (err) { next(err); }
+});
+
 // Legacy path kept for backward compat
 router.get('/results/device/:deviceId', async (req, res, next) => {
   try {

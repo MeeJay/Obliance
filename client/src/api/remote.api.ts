@@ -20,4 +20,14 @@ export const remoteApi = {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${window.location.host}/api/remote/tunnel/${sessionToken}`;
   },
+  /** Return the set of device UUIDs that have the Oblireach agent installed. */
+  async listObliReachDeviceUuids(): Promise<Set<string>> {
+    try {
+      const res = await apiClient.get<ApiResponse<{ items: Array<{ device_uuid: string }> }>>('/oblireach/devices');
+      const items = res.data.data?.items ?? [];
+      return new Set(items.map((d) => d.device_uuid));
+    } catch {
+      return new Set();
+    }
+  },
 };
