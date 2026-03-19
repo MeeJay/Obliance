@@ -1737,9 +1737,6 @@ function RemoteTab({ device }: { device: Device }) {
                 >
                   <MonitorPlay className="w-4 h-4" />
                   Reach
-                  {orVersion && (
-                    <span className="text-xs opacity-60">v{orVersion}</span>
-                  )}
                 </button>
               ) : (
                 <button
@@ -2704,6 +2701,14 @@ export function DeviceDetailPage() {
           </div>
           <p className="text-sm text-text-muted mt-1">
             {device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown IP'} · Agent v{device.agentVersion ?? '?'}
+            {device.osType !== 'linux' && orInstalled === true && orVersion && (
+              <span>
+                {' '}· Reach v{orVersion}
+                {orUpdateAvailable && (
+                  <span className="ml-1 text-yellow-400">↑ v{orLatestVersion}</span>
+                )}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
