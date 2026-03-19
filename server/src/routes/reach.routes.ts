@@ -39,8 +39,8 @@ router.get('/overview', async (req, res, next) => {
   try {
     const tenantId = req.tenantId!;
 
-    // Fetch all agent devices for this tenant
-    const devices = await db('agent_devices')
+    // Fetch all devices for this tenant
+    const devices = await db('devices')
       .where({ tenant_id: tenantId })
       .orderBy('hostname');
 
@@ -61,7 +61,7 @@ router.get('/overview', async (req, res, next) => {
     }
 
     // Fetch groups for the tenant
-    const groups = await db('groups')
+    const groups = await db('device_groups')
       .where({ tenant_id: tenantId })
       .orderBy('name');
 
@@ -82,7 +82,7 @@ router.get('/overview', async (req, res, next) => {
       const enriched = {
         id: dev.id,
         uuid: dev.uuid,
-        hostname: dev.hostname ?? dev.uuid,
+        hostname: dev.display_name || dev.hostname,
         status: dev.status ?? 'unknown',
         osType: dev.os_type ?? 'unknown',
         oblireach: {

@@ -43,16 +43,20 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/scripts/:id
+// PUT/PATCH /api/scripts/:id
 router.put('/:id', async (req, res, next) => {
+  return handleScriptUpdate(req, res, next);
+});
+router.patch('/:id', async (req, res, next) => {
+  return handleScriptUpdate(req, res, next);
+});
+async function handleScriptUpdate(req: any, res: any, next: any) {
   try {
     const scriptId = parseInt(req.params.id);
-    // Peek at the script to check type
     const existing = await scriptService.getScriptById(scriptId, req.tenantId!);
     if (!existing) return res.status(404).json({ error: 'Script not found' });
 
     if (existing.scriptType === 'system') {
-      // Only admins can edit system scripts
       if (req.session.role !== 'admin') {
         return res.status(403).json({ error: 'Only admins can edit system scripts' });
       }
@@ -69,7 +73,7 @@ router.put('/:id', async (req, res, next) => {
     if (!script) return res.status(404).json({ error: 'Script not found' });
     res.json(script);
   } catch (err) { next(err); }
-});
+}
 
 // DELETE /api/scripts/:id
 router.delete('/:id', async (req, res, next) => {
