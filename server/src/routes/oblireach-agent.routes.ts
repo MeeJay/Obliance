@@ -98,16 +98,22 @@ const devicesRouter = Router();
  * GET /  (mounted at /oblireach/devices in the tenant router)
  * List all Oblireach devices for a tenant.
  */
+// Oblireach agent pushes every 30 s — consider it online if seen within 2 minutes.
+const OR_ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
 devicesRouter.get('/', async (req, res, next) => {
   try {
     const tenantId = (req as any).tenantId as number;
     const rows = await db('oblireach_devices')
       .where({ tenant_id: tenantId })
       .orderBy('last_seen_at', 'desc');
-    // Parse sessions JSON for each row
+    const now = Date.now();
     const items = rows.map((r: any) => ({
       ...r,
       sessions: r.sessions ? JSON.parse(r.sessions) : [],
+      is_online: r.last_seen_at
+        ? now - new Date(r.last_seen_at).getTime() < OR_ONLINE_THRESHOLD_MS
+        : false,
     }));
     return res.json({ data: { items } });
   } catch (err) {
