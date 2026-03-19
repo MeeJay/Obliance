@@ -7,18 +7,22 @@ import { logger } from '../utils/logger';
 
 // ── Auto-update version check ─────────────────────────────────────────────────
 
-// Cached latest version read from agent/dist/oblireach-version.txt
-// Written by 000-Build-Agent.bat each time a new MSI is built.
-let _cachedOrVersion: string | null | undefined;
+// Version cache: re-read at most once per 60 s so that a new MSI deployed via
+// 000-Build-Agent.bat is picked up without restarting the server.
+let _cachedOrVersion: string | null = null;
+let _cachedOrVersionAt = 0;
+const OR_VERSION_TTL_MS = 60_000;
 
 function getLatestObliReachVersion(): string | null {
-  if (_cachedOrVersion !== undefined) return _cachedOrVersion;
+  const now = Date.now();
+  if (now - _cachedOrVersionAt < OR_VERSION_TTL_MS) return _cachedOrVersion;
   try {
     const fp = path.join(process.cwd(), 'agent', 'dist', 'oblireach-version.txt');
     _cachedOrVersion = fs.readFileSync(fp, 'utf-8').trim() || null;
   } catch {
     _cachedOrVersion = null;
   }
+  _cachedOrVersionAt = now;
   return _cachedOrVersion;
 }
 

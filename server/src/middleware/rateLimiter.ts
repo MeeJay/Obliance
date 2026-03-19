@@ -38,7 +38,12 @@ export const apiLimiter = rateLimit({
     // Agent auto-update checks and installer downloads (API-key authenticated).
     req.path.startsWith('/api/agent/version') ||
     req.path.startsWith('/api/agent/download/') ||
-    req.path.startsWith('/api/agent/installer/'),
+    req.path.startsWith('/api/agent/installer/') ||
+    // Login is already protected by the dedicated authLimiter (IP+username keyed,
+    // brute-force focused). Skipping it here avoids false positives when many
+    // unauthenticated requests arrive from the same apparent IP (shared proxy).
+    req.path === '/api/auth/login' ||
+    req.path === '/api/auth/logout',
   message: {
     success: false,
     error: 'Too many requests, please try again later',
