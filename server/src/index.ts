@@ -117,7 +117,10 @@ async function main() {
       vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
         try {
           if (!apiKey) { ws.close(4003, 'Missing X-Api-Key'); return; }
-          const keyRow = await db('agent_api_keys').where({ key: apiKey, is_active: true }).first();
+          // Note: no is_active check here — matches agentAuth middleware which also omits it.
+          // is_active may be NULL on older keys; requiring true would silently block WS while
+          // HTTP push (which uses agentAuth) succeeds — causing the agent to reconnect every 10s.
+          const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
           if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
           const device = await db('devices').where({ api_key_id: keyRow.id }).first();
           if (!device) { ws.close(4004, 'Device not found'); return; }
@@ -143,8 +146,8 @@ async function main() {
         try {
           if (!apiKey)  { ws.close(4003, 'Missing X-Api-Key'); return; }
           if (!devUuid) { ws.close(4000, 'Missing uuid query param'); return; }
-          const keyRow = await db('agent_api_keys')
-            .where({ key: apiKey, is_active: true }).first();
+          // No is_active check — matches agentAuth middleware (is_active may be NULL on older keys).
+          const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
           if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
           await oblireachHub.register(devUuid, keyRow.tenant_id, ws);
         } catch (err) {

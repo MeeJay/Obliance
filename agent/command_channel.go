@@ -102,6 +102,16 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error
 
 		switch opcode {
 		case 0x8: // close frame — server asked us to disconnect
+			if len(payload) >= 2 {
+				code := uint16(payload[0])<<8 | uint16(payload[1])
+				reason := ""
+				if len(payload) > 2 {
+					reason = string(payload[2:])
+				}
+				log.Printf("[cmd-channel] server closed: code=%d reason=%q", code, reason)
+			} else {
+				log.Printf("[cmd-channel] server closed (no close code)")
+			}
 			return nil
 
 		case 0x9: // ping — respond with pong
