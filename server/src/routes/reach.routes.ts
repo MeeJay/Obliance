@@ -79,6 +79,9 @@ router.get('/overview', async (req, res, next) => {
 
     for (const dev of devices) {
       const or = orMap.get(dev.uuid);
+      // Only include devices where the Oblireach agent has been installed
+      if (!or) continue;
+
       const enriched = {
         id: dev.id,
         uuid: dev.uuid,
@@ -86,9 +89,9 @@ router.get('/overview', async (req, res, next) => {
         status: dev.status ?? 'unknown',
         osType: dev.os_type ?? 'unknown',
         oblireach: {
-          installed: !!or,
-          online: or?.online ?? false,
-          sessions: or?.sessions ?? [],
+          installed: true,
+          online: or.online,
+          sessions: or.sessions,
         },
       };
 

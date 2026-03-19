@@ -46,6 +46,35 @@ export const remoteApi = {
       return [];
     }
   },
+
+  /** Return the device record for a specific Oblireach device (includes version, os, arch). */
+  async getObliReachDevice(deviceUuid: string): Promise<ObliReachDevice | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<{ device: ObliReachDevice }>>(
+        `/oblireach/devices/${deviceUuid}`,
+      );
+      return res.data.data?.device ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  /** Return the latest available Oblireach agent version from the server build artefact. */
+  async getObliReachLatestVersion(): Promise<string | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<{ version: string | null }>>(
+        '/oblireach/devices/latest-version',
+      );
+      return res.data.data?.version ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  /** Queue an update command for a specific Oblireach device. */
+  async queueObliReachUpdate(deviceUuid: string): Promise<void> {
+    await apiClient.post(`/oblireach/devices/${deviceUuid}/command`, { type: 'update' });
+  },
 };
 
 export interface ObliReachSession {
@@ -54,4 +83,16 @@ export interface ObliReachSession {
   state: string;
   stationName?: string;
   isConsole: boolean;
+}
+
+export interface ObliReachDevice {
+  id: number;
+  device_uuid: string;
+  hostname: string;
+  os: string;
+  arch: string;
+  version?: string;
+  is_online: boolean;
+  last_seen_at?: string;
+  sessions: ObliReachSession[];
 }

@@ -1453,10 +1453,24 @@ function RemoteTab({ device }: { device: Device }) {
   const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
   const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
   const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
+  const [orVersion, setOrVersion] = useState<string | null>(null);
+  const [orLatestVersion, setOrLatestVersion] = useState<string | null>(null);
+  const [isUpdatingOr, setIsUpdatingOr] = useState(false);
 
   useEffect(() => {
     remoteApi.listObliReachDeviceUuids().then((uuids) => {
-      setOrInstalled(device.uuid ? uuids.has(device.uuid) : false);
+      const installed = device.uuid ? uuids.has(device.uuid) : false;
+      setOrInstalled(installed);
+      if (installed && device.uuid) {
+        // Fetch current agent version and latest available version in parallel
+        Promise.all([
+          remoteApi.getObliReachDevice(device.uuid),
+          remoteApi.getObliReachLatestVersion(),
+        ]).then(([dev, latest]) => {
+          setOrVersion(dev?.version ?? null);
+          setOrLatestVersion(latest);
+        });
+      }
     }).catch(() => setOrInstalled(false));
   }, [device.uuid]);
 
@@ -1522,6 +1536,34 @@ function RemoteTab({ device }: { device: Device }) {
       toast.error('Failed to send install command');
     }
   };
+
+  const handleUpdateOblireach = async () => {
+    if (!device.uuid) return;
+    setIsUpdatingOr(true);
+    try {
+      await remoteApi.queueObliReachUpdate(device.uuid);
+      toast.success('Update command queued — Oblireach will update on its next heartbeat.');
+    } catch {
+      toast.error('Failed to queue update command');
+    } finally {
+      setIsUpdatingOr(false);
+    }
+  };
+
+  /** Returns true when the Oblireach agent version is strictly older than the latest available. */
+  const orUpdateAvailable =
+    orInstalled === true &&
+    orVersion != null &&
+    orLatestVersion != null &&
+    orVersion !== orLatestVersion &&
+    (() => {
+      const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+      const [cm, cmi, cp] = parse(orVersion);
+      const [lm, lmi, lp] = parse(orLatestVersion);
+      if (cm !== lm) return cm < lm;
+      if (cmi !== lmi) return cmi < lmi;
+      return cp < lp;
+    })();
 
   const handleStartObliReachSession = async (wtsSessionId?: number) => {
     setOrSessionPickerOpen(false);
@@ -1684,29 +1726,50 @@ function RemoteTab({ device }: { device: Device }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          {/* Oblireach button — gray until agent is confirmed installed */}
-          {orInstalled === true ? (
-            <button
-              onClick={() => handleStartSession('oblireach')}
-              disabled={!isOnline || isStarting}
-              className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              <MonitorPlay className="w-4 h-4" />
-              Reach
-            </button>
-          ) : (
-            <button
-              onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
-              disabled={!isOnline || isStarting || orInstalled === null}
-              title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              <MonitorPlay className="w-4 h-4" />
-              Reach
-              <span className="text-xs opacity-70">
-                {orInstalled === null ? '…' : '(install)'}
-              </span>
-            </button>
+          {/* Oblireach — Windows and macOS only */}
+          {device.osType !== 'linux' && (
+            <>
+              {orInstalled === true ? (
+                <button
+                  onClick={() => handleStartSession('oblireach')}
+                  disabled={!isOnline || isStarting}
+                  className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                >
+                  <MonitorPlay className="w-4 h-4" />
+                  Reach
+                  {orVersion && (
+                    <span className="text-xs opacity-60">v{orVersion}</span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
+                  disabled={!isOnline || isStarting || orInstalled === null}
+                  title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                >
+                  <MonitorPlay className="w-4 h-4" />
+                  Reach
+                  <span className="text-xs opacity-70">
+                    {orInstalled === null ? '…' : '(install)'}
+                  </span>
+                </button>
+              )}
+              {/* Update available badge */}
+              {orUpdateAvailable && (
+                <button
+                  onClick={handleUpdateOblireach}
+                  disabled={isUpdatingOr}
+                  title={`Update Oblireach: v${orVersion} → v${orLatestVersion}`}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  {isUpdatingOr ? 'Queuing…' : `Update Reach → v${orLatestVersion}`}
+                </button>
+              )}
+            </>
           )}
           {/* Other protocols */}
           {(
@@ -2722,7 +2785,7 @@ export function DeviceDetailPage() {
                   const opts: Array<'oblireach' | 'vnc' | 'ssh' | 'cmd' | 'powershell'> =
                     device.osType === 'windows' ? ['oblireach', 'vnc', 'cmd', 'powershell'] :
                     device.osType === 'macos'   ? ['oblireach', 'vnc', 'ssh'] :
-                                                  ['oblireach', 'ssh'];
+                                                  ['ssh'];
                   const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
                   return (
                     <div className="relative" ref={remoteDropdownRef}>

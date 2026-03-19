@@ -241,7 +241,10 @@ export function RemoteSessionsPage() {
             <div className="space-y-2">
               <label className="text-xs font-medium text-text-muted uppercase">Protocol</label>
               <div className="space-y-2">
-                {(Object.entries(PROTOCOL_CONFIG) as [RemoteProtocol, typeof PROTOCOL_CONFIG[RemoteProtocol]][]).map(([proto, cfg]) => (
+                {(Object.entries(PROTOCOL_CONFIG) as [RemoteProtocol, typeof PROTOCOL_CONFIG[RemoteProtocol]][]).filter(([proto]) =>
+                  // Oblireach only on Windows and macOS — not Linux
+                  proto !== 'oblireach' || selectedDevice?.osType !== 'linux'
+                ).map(([proto, cfg]) => (
                   <button
                     key={proto}
                     onClick={() => setSelectedProtocol(proto)}

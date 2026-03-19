@@ -21,7 +21,12 @@ import (
 func (d *CommandDispatcher) handleInstallOblireach(cmd AgentCommand) (interface{}, error) {
 	log.Printf("Command %s: installing Oblireach agent", cmd.ID)
 
-	// ── 1. Determine binary filename and install paths ─────────────────────
+	// ── Windows: use MSI for proper Programs registration + service install ─
+	if runtime.GOOS == "windows" {
+		return d.installObliReachMSI(cmd)
+	}
+
+	// ── Non-Windows: download binary and launch directly ───────────────────
 	filename := obliReachBinaryName()
 	installDir := obliReachInstallDir()
 
@@ -31,7 +36,6 @@ func (d *CommandDispatcher) handleInstallOblireach(cmd AgentCommand) (interface{
 
 	binaryPath := filepath.Join(installDir, obliReachBinaryFileName())
 
-	// ── 2. Download the binary from the Obliance server ────────────────────
 	dlURL := d.serverURL + "/api/agent/download/" + filename
 	log.Printf("Command %s: downloading Oblireach agent from %s", cmd.ID, dlURL)
 
@@ -52,7 +56,6 @@ func (d *CommandDispatcher) handleInstallOblireach(cmd AgentCommand) (interface{
 		return nil, fmt.Errorf("download Oblireach agent: server returned %d", resp.StatusCode)
 	}
 
-	// ── 3. Write binary to disk ────────────────────────────────────────────
 	f, err := os.OpenFile(binaryPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("create binary file: %w", err)
@@ -64,15 +67,64 @@ func (d *CommandDispatcher) handleInstallOblireach(cmd AgentCommand) (interface{
 	f.Close()
 	log.Printf("Command %s: Oblireach agent written to %s", cmd.ID, binaryPath)
 
-	// ── 4. Launch the Oblireach agent ──────────────────────────────────────
-	// Pass --url and --key so it can configure itself on first run.
-	// The agent will write its own config.json and self-start.
 	if err := obliReachLaunch(binaryPath, d.serverURL, d.apiKey); err != nil {
 		return nil, fmt.Errorf("launch Oblireach agent: %w", err)
 	}
 
 	log.Printf("Command %s: Oblireach agent launched successfully", cmd.ID)
 	return map[string]string{"status": "launched", "path": binaryPath}, nil
+}
+
+// installObliReachMSI downloads the Oblireach MSI and installs it silently.
+// The MSI registers the service and appears in "Programs and Features".
+func (d *CommandDispatcher) installObliReachMSI(cmd AgentCommand) (interface{}, error) {
+	msiURL := d.serverURL + "/api/agent/download/oblireach-agent.msi"
+	log.Printf("Command %s: downloading Oblireach MSI from %s", cmd.ID, msiURL)
+
+	req, err := http.NewRequest("GET", msiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build MSI request: %w", err)
+	}
+	req.Header.Set("X-Api-Key", d.apiKey)
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download MSI: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download MSI: server returned %d", resp.StatusCode)
+	}
+
+	tmpPath := filepath.Join(os.TempDir(), "oblireach-install.msi")
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("create temp file: %w", err)
+	}
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("write MSI: %w", err)
+	}
+	f.Close()
+	log.Printf("Command %s: MSI downloaded to %s, running msiexec", cmd.ID, tmpPath)
+
+	// /quiet = silent, /norestart = no reboot, log to temp file for debug
+	msiCmd := exec.Command("msiexec.exe",
+		"/i", tmpPath,
+		"SERVERURL="+d.serverURL,
+		"APIKEY="+d.apiKey,
+		"/quiet", "/norestart",
+		"/l*v", filepath.Join(os.TempDir(), "oblireach-install.log"),
+	)
+	if err := msiCmd.Run(); err != nil {
+		return nil, fmt.Errorf("msiexec failed: %w (log: %s)",
+			err, filepath.Join(os.TempDir(), "oblireach-install.log"))
+	}
+
+	log.Printf("Command %s: Oblireach agent installed via MSI", cmd.ID)
+	return map[string]string{"status": "installed", "method": "msi"}, nil
 }
 
 // obliReachBinaryName returns the download filename for the current platform.
