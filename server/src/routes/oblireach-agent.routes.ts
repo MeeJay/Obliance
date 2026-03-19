@@ -3,6 +3,7 @@ import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 
+// ── Agent push router (public, agentAuth) ────────────────────────────────────
 const router = Router();
 
 /**
@@ -11,18 +12,25 @@ const router = Router();
  * Heartbeat endpoint for the Oblireach agent binary.
  * Authenticated with the same agent_api_keys as the Obliance agent.
  *
- * Body: { deviceUuid, hostname, os, arch, version }
+ * Body: { deviceUuid, hostname, os, arch, version, sessions? }
  * Response: { status: "ok", command: { type, id, payload } | null }
  */
 router.post('/push', agentAuth, async (req, res, next) => {
   try {
     const tenantId = req.agentTenantId!;
-    const { deviceUuid, hostname, os, arch, version } = req.body as {
+    const { deviceUuid, hostname, os, arch, version, sessions } = req.body as {
       deviceUuid?: string;
       hostname?: string;
       os?: string;
       arch?: string;
       version?: string;
+      sessions?: Array<{
+        id: number;
+        username: string;
+        state: string;
+        stationName?: string;
+        isConsole: boolean;
+      }>;
     };
 
     if (!deviceUuid) {
@@ -41,10 +49,10 @@ router.post('/push', agentAuth, async (req, res, next) => {
       .first();
 
     let pendingCommand = null;
+    const sessionsJson = sessions ? JSON.stringify(sessions) : null;
 
     if (existing) {
       pendingCommand = existing.pending_command;
-
       await db('oblireach_devices')
         .where({ id: existing.id })
         .update({
@@ -52,9 +60,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
           os,
           arch,
           version,
+          sessions: sessionsJson,
           last_seen_at: new Date(),
-          // Clear pending command after we read it
-          pending_command: null,
+          pending_command: null, // clear after reading
         });
     } else {
       await db('oblireach_devices').insert({
@@ -64,6 +72,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         os,
         arch,
         version,
+        sessions: sessionsJson,
         last_seen_at: new Date(),
       });
     }
@@ -81,21 +90,50 @@ router.post('/push', agentAuth, async (req, res, next) => {
 
 export default router;
 
+// ── Devices listing router (tenant-scoped, mounted in index.ts) ──────────────
+
+const devicesRouter = Router();
+
 /**
- * GET /oblireach/devices  (tenant-scoped — mounted separately in index.ts)
+ * GET /  (mounted at /oblireach/devices in the tenant router)
  * List all Oblireach devices for a tenant.
  */
-import { Router as _Router } from 'express';
-const devicesRouter = _Router();
 devicesRouter.get('/', async (req, res, next) => {
   try {
     const tenantId = (req as any).tenantId as number;
     const rows = await db('oblireach_devices')
       .where({ tenant_id: tenantId })
       .orderBy('last_seen_at', 'desc');
-    return res.json({ data: { items: rows } });
+    // Parse sessions JSON for each row
+    const items = rows.map((r: any) => ({
+      ...r,
+      sessions: r.sessions ? JSON.parse(r.sessions) : [],
+    }));
+    return res.json({ data: { items } });
   } catch (err) {
     next(err);
   }
 });
+
+/**
+ * GET /:deviceUuid/sessions  (mounted at /oblireach/devices in the tenant router)
+ * Returns the last-known session list for a specific Oblireach device.
+ */
+devicesRouter.get('/:deviceUuid/sessions', async (req, res, next) => {
+  try {
+    const tenantId = (req as any).tenantId as number;
+    const { deviceUuid } = req.params;
+    const row = await db('oblireach_devices')
+      .where({ tenant_id: tenantId, device_uuid: deviceUuid })
+      .first();
+    if (!row) {
+      return res.status(404).json({ error: 'device not found' });
+    }
+    const sessions = row.sessions ? JSON.parse(row.sessions) : [];
+    return res.json({ data: { sessions } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export { devicesRouter as obliReachDevicesRouter };

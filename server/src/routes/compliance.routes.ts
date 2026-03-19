@@ -91,6 +91,7 @@ router.get('/results/filter', async (req, res, next) => {
     const items = await complianceService.getAllResults(
       req.tenantId!,
       page ? parseInt(page) : 1,
+      100, // limit (default page size)
       deviceId ? parseInt(deviceId) : undefined,
     );
     res.json({ data: { items, total: items.length } });

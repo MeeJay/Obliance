@@ -569,7 +569,9 @@
       "expected": "Förväntat värde",
       "addRule": "Lägg till regel",
       "deleteRule": "Ta bort",
-      "noRules": "Inga regler. Lägg till en eller ladda en förinställning."
+      "noRules": "Inga regler. Lägg till en eller ladda en förinställning.",
+      "minOsVersion": "Min. OS-version",
+      "minOsVersionPlaceholder": "t.ex. Windows 10, macOS 12"
     },
     "presetsSuggest": "Starta från en mall",
     "presetsNote": "Att välja en förinställning fyller i reglerna — de kan anpassas fritt innan du sparar.",

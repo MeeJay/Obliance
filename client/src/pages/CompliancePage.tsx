@@ -214,6 +214,18 @@ function RuleEditorRow({
               />
             </div>
           )}
+          {/* Min OS Version */}
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              {t('compliance.ruleBuilder.minOsVersion')}
+            </label>
+            <input
+              value={rule.minOsVersion ?? ''}
+              onChange={e => set({ minOsVersion: e.target.value || undefined })}
+              placeholder={t('compliance.ruleBuilder.minOsVersionPlaceholder')}
+              className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
         </div>
         <button
           onClick={onDelete}
@@ -402,6 +414,11 @@ export function CompliancePage() {
     setForm(f => ({ ...f, rules: f.rules.map((r, i) => i === index ? rule : r) }));
   const deleteRule = (index: number) =>
     setForm(f => ({ ...f, rules: f.rules.filter((_, i) => i !== index) }));
+
+  // Build a map policyId:ruleId → rule name for display in expanded results
+  const policyRuleNames = new Map<string, string>(
+    policies.flatMap(p => (p.rules ?? []).map(rule => [`${p.id}:${rule.id}`, rule.name] as [string, string])),
+  );
 
   const filteredPolicies = filterFramework
     ? policies.filter(p => p.framework === filterFramework)
@@ -605,7 +622,10 @@ export function CompliancePage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-text-primary">{ruleResult.ruleId}</p>
+                            <p className="text-xs font-medium text-text-primary">
+                              {ruleResult.ruleName ?? policyRuleNames.get(`${result.policyId}:${ruleResult.ruleId}`) ?? ruleResult.ruleId}
+                            </p>
+                            <p className="text-[10px] text-text-muted/60 font-mono">{ruleResult.ruleId}</p>
                             {ruleResult.actualValue !== undefined && ruleResult.actualValue !== null && (
                               <p className="text-xs text-text-muted mt-0.5">
                                 {t('compliance.actualValue')}: <span className="font-mono">{String(ruleResult.actualValue)}</span>

@@ -128,30 +128,32 @@ func obliReachLaunch(binaryPath, serverURL, apiKey string) error {
 }
 
 func obliReachLaunchWindows(binaryPath string, args []string) error {
-	// Install a scheduled task so the agent restarts after reboots.
-	taskArgs := append([]string{binaryPath}, args...)
-	taskCmd := `"` + binaryPath + `" ` + joinArgs(args)
-	schtasksCreate := exec.Command(
-		"schtasks", "/Create",
-		"/TN", "ObliReachAgent",
-		"/TR", taskCmd,
-		"/SC", "ONLOGON",
-		"/RL", "HIGHEST",
-		"/F", // overwrite existing
+	// Build the service binPath (quoted exe + args).
+	binPath := `"` + binaryPath + `" ` + joinArgs(args)
+
+	// Stop + delete any existing instance first (ignore errors).
+	_ = exec.Command("sc", "stop", "ObliReachAgent").Run()
+	_ = exec.Command("sc", "delete", "ObliReachAgent").Run()
+
+	// Create the service running as LocalSystem (= SYSTEM account).
+	// This grants WTSQueryUserToken privilege needed for cross-session capture.
+	createCmd := exec.Command(
+		"sc", "create", "ObliReachAgent",
+		"binPath=", binPath,
+		"DisplayName=", "Oblireach Remote Agent",
+		"start=", "auto",
+		"obj=", "LocalSystem",
 	)
-	if err := schtasksCreate.Run(); err != nil {
-		log.Printf("install_oblireach: schtasks create failed (non-fatal): %v", err)
+	if err := createCmd.Run(); err != nil {
+		log.Printf("install_oblireach: sc create failed: %v", err)
+		return fmt.Errorf("sc create ObliReachAgent: %w", err)
 	}
 
-	// Launch immediately (don't wait for next logon).
-	cmd := exec.Command(binaryPath, append(args, "--service")...)
-	_ = taskArgs // suppress unused
-	cmd.SysProcAttr = detachedProc()
-	if err := cmd.Start(); err != nil {
-		// Try /Run via schtasks as fallback
-		_ = exec.Command("schtasks", "/Run", "/TN", "ObliReachAgent").Run()
-		return nil // non-fatal if direct launch failed but schtasks worked
+	// Start the service immediately.
+	if err := exec.Command("sc", "start", "ObliReachAgent").Run(); err != nil {
+		log.Printf("install_oblireach: sc start failed (non-fatal): %v", err)
 	}
+
 	return nil
 }
 

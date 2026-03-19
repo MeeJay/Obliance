@@ -30,7 +30,14 @@ class RemoteService {
     };
   }
 
-  async createSession(deviceId: number, tenantId: number, userId: number, protocol: RemoteProtocol = 'vnc'): Promise<RemoteSession> {
+  async createSession(
+    deviceId: number,
+    tenantId: number,
+    userId: number,
+    protocol: RemoteProtocol = 'vnc',
+    /** WTS session ID to capture (Windows only). Omit to capture the console session. */
+    wtsSessionId?: number,
+  ): Promise<RemoteSession> {
     const sessionToken = crypto.randomBytes(32).toString('hex');
 
     const [row] = await db('remote_sessions').insert({
@@ -43,7 +50,12 @@ class RemoteService {
     const session = this.rowToSession(row);
 
     // Deliver the open_remote_tunnel command to the appropriate agent.
-    const commandPayload = { sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}` };
+    const commandPayload: Record<string, unknown> = {
+      sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}`,
+    };
+    if (wtsSessionId !== undefined) {
+      commandPayload.sessionId = wtsSessionId;
+    }
 
     if (protocol === 'oblireach') {
       // Oblireach uses a separate pull-based agent — write command to oblireach_devices.

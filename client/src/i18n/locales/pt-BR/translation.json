@@ -569,7 +569,9 @@
       "expected": "Valor esperado",
       "addRule": "Adicionar regra",
       "deleteRule": "Remover",
-      "noRules": "Sem regras. Adicione uma ou carregue uma predefinição."
+      "noRules": "Sem regras. Adicione uma ou carregue uma predefinição.",
+      "minOsVersion": "Versão mín. do SO",
+      "minOsVersionPlaceholder": "ex. Windows 10, macOS 12"
     },
     "presetsSuggest": "Começar por um modelo",
     "presetsNote": "Selecionar um preset preenche as regras — você pode personalizá-las antes de salvar.",

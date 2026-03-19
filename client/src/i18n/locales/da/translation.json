@@ -569,7 +569,9 @@
       "expected": "Forventet værdi",
       "addRule": "Tilføj regel",
       "deleteRule": "Fjern",
-      "noRules": "Ingen regler. Tilføj en eller indlæs en forudindstilling."
+      "noRules": "Ingen regler. Tilføj en eller indlæs en forudindstilling.",
+      "minOsVersion": "Min. OS-version",
+      "minOsVersionPlaceholder": "f.eks. Windows 10, macOS 12"
     },
     "presetsSuggest": "Start fra en skabelon",
     "presetsNote": "Valg af en forudindstilling udfylder reglerne — de kan tilpasses inden lagring.",

@@ -569,7 +569,9 @@
       "expected": "Očekávaná hodnota",
       "addRule": "Přidat pravidlo",
       "deleteRule": "Odstranit",
-      "noRules": "Žádná pravidla. Přidejte jedno nebo načtěte předvolbu."
+      "noRules": "Žádná pravidla. Přidejte jedno nebo načtěte předvolbu.",
+      "minOsVersion": "Min. verze OS",
+      "minOsVersionPlaceholder": "např. Windows 10, macOS 12"
     },
     "presetsSuggest": "Začít od šablony",
     "presetsNote": "Výběr šablony předvyplní pravidla — před uložením je lze libovolně upravit.",

@@ -569,7 +569,9 @@
       "expected": "预期值",
       "addRule": "添加规则",
       "deleteRule": "删除",
-      "noRules": "暂无规则。添加一个或加载预设。"
+      "noRules": "暂无规则。添加一个或加载预设。",
+      "minOsVersion": "最低系统版本",
+      "minOsVersionPlaceholder": "例如 Windows 10, macOS 12"
     },
     "presetsSuggest": "从模板开始",
     "presetsNote": "选择预设将预填充规则 — 保存前可自由修改。",

@@ -8,8 +8,11 @@ export const remoteApi = {
     const res = await apiClient.get<ApiResponse<{ items: RemoteSession[]; total: number }>>('/remote/sessions', { params });
     return res.data.data ?? { items: [], total: 0 };
   },
-  async startSession(deviceId: number, protocol: RemoteProtocol, notes?: string): Promise<RemoteSession> {
-    const res = await apiClient.post<ApiResponse<RemoteSession>>('/remote/sessions', { deviceId, protocol, notes });
+  async startSession(deviceId: number, protocol: RemoteProtocol, notes?: string, sessionId?: number): Promise<RemoteSession> {
+    const res = await apiClient.post<ApiResponse<RemoteSession>>('/remote/sessions', {
+      deviceId, protocol, notes,
+      ...(sessionId !== undefined ? { sessionId } : {}),
+    });
     return res.data.data!;
   },
   async endSession(sessionId: string): Promise<void> {
@@ -30,4 +33,24 @@ export const remoteApi = {
       return new Set();
     }
   },
+
+  /** Return the last-known WTS session list for an Oblireach device. */
+  async getObliReachSessions(deviceUuid: string): Promise<ObliReachSession[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<{ sessions: ObliReachSession[] }>>(
+        `/oblireach/devices/${deviceUuid}/sessions`,
+      );
+      return res.data.data?.sessions ?? [];
+    } catch {
+      return [];
+    }
+  },
 };
+
+export interface ObliReachSession {
+  id: number;
+  username: string;
+  state: string;
+  stationName?: string;
+  isConsole: boolean;
+}

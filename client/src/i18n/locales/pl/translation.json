@@ -569,7 +569,9 @@
       "expected": "Oczekiwana wartość",
       "addRule": "Dodaj regułę",
       "deleteRule": "Usuń",
-      "noRules": "Brak reguł. Dodaj jedną lub wczytaj szablon."
+      "noRules": "Brak reguł. Dodaj jedną lub wczytaj szablon.",
+      "minOsVersion": "Min. wersja OS",
+      "minOsVersionPlaceholder": "np. Windows 10, macOS 12"
     },
     "presetsSuggest": "Zacznij od szablonu",
     "presetsNote": "Wybór szablonu wypełnia reguły — możesz je dostosować przed zapisaniem.",

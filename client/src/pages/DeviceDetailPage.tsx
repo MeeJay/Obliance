@@ -17,7 +17,7 @@ import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
-import { remoteApi } from '@/api/remote.api';
+import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -1451,6 +1451,8 @@ function RemoteTab({ device }: { device: Device }) {
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
   // null = unknown (loading), false = not installed, true = installed
   const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
+  const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
+  const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
 
   useEffect(() => {
     remoteApi.listObliReachDeviceUuids().then((uuids) => {
@@ -1521,6 +1523,23 @@ function RemoteTab({ device }: { device: Device }) {
     }
   };
 
+  const handleStartObliReachSession = async (wtsSessionId?: number) => {
+    setOrSessionPickerOpen(false);
+    setOrSession(null);
+    setOrModalOpen(true);
+    setIsStarting(true);
+    try {
+      const session = await remoteApi.startSession(device.id, 'oblireach', undefined, wtsSessionId);
+      pendingOrId.current = session.id;
+      setSessions((prev) => [session, ...prev]);
+    } catch {
+      toast.error('Failed to start remote session');
+      setOrModalOpen(false);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
   const handleStartSession = async (protocol: 'oblireach' | 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
     // Open the modal immediately so the user sees a connecting overlay
     // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
@@ -1530,9 +1549,22 @@ function RemoteTab({ device }: { device: Device }) {
       return;
     }
     if (protocol === 'oblireach') {
-      setOrSession(null);
-      setOrModalOpen(true);
-    } else if (isShellProtocol(protocol)) {
+      // Fetch session list — show picker if multiple sessions available.
+      try {
+        const sessions = await remoteApi.getObliReachSessions(device.uuid ?? '');
+        if (sessions.length > 1) {
+          setOrSessions(sessions);
+          setOrSessionPickerOpen(true);
+          return;
+        }
+        // Single session (or none) — launch directly with that session ID.
+        await handleStartObliReachSession(sessions[0]?.id);
+      } catch {
+        await handleStartObliReachSession(undefined);
+      }
+      return;
+    }
+    if (isShellProtocol(protocol)) {
       setSshSession(null);
       setSshModalOpen(true);
     } else {
@@ -1587,6 +1619,48 @@ function RemoteTab({ device }: { device: Device }) {
           }}
         />
       )}
+      {/* WTS Session picker — shown on RDS when multiple sessions are available */}
+      {orSessionPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <MonitorPlay className="w-4 h-4 text-accent" />
+                Choose Session
+              </h2>
+              <button
+                onClick={() => setOrSessionPickerOpen(false)}
+                className="text-text-muted hover:text-text-primary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+              {orSessions.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleStartObliReachSession(s.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+                >
+                  <div className={clsx(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    s.state === 'Active' ? 'bg-green-400' :
+                    s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+                  )} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-text-primary truncate">
+                      {s.username || '(no user)'}
+                    </div>
+                    <div className="text-xs text-text-muted">
+                      {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {vncModalOpen && (
         <VncViewer
           session={vncSession}
@@ -1612,28 +1686,28 @@ function RemoteTab({ device }: { device: Device }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          {/* Oblireach button — grayed with install prompt if agent not installed */}
-          {orInstalled === false ? (
+          {/* Oblireach button — gray until agent is confirmed installed */}
+          {orInstalled === true ? (
             <button
-              key="oblireach"
-              onClick={() => handleInstallOblireach()}
-              disabled={!isOnline || isStarting}
-              title="Oblireach agent not installed — click to deploy"
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              <MonitorPlay className="w-4 h-4" />
-              Reach
-              <span className="text-xs opacity-70">(install)</span>
-            </button>
-          ) : (
-            <button
-              key="oblireach"
               onClick={() => handleStartSession('oblireach')}
-              disabled={!isOnline || isStarting || orInstalled === null}
+              disabled={!isOnline || isStarting}
               className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               <MonitorPlay className="w-4 h-4" />
               Reach
+            </button>
+          ) : (
+            <button
+              onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
+              disabled={!isOnline || isStarting || orInstalled === null}
+              title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              <MonitorPlay className="w-4 h-4" />
+              Reach
+              <span className="text-xs opacity-70">
+                {orInstalled === null ? '…' : '(install)'}
+              </span>
             </button>
           )}
           {/* Other protocols */}

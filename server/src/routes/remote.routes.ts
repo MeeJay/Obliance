@@ -6,9 +6,10 @@ const router = Router();
 
 router.post('/sessions', async (req, res, next) => {
   try {
-    const { deviceId, protocol } = req.body;
+    const { deviceId, protocol, sessionId } = req.body;
     const session = await remoteService.createSession(
-      deviceId, req.tenantId!, req.session.userId!, protocol
+      deviceId, req.tenantId!, req.session.userId!, protocol,
+      typeof sessionId === 'number' ? sessionId : undefined,
     );
     res.status(201).json({ data: session });
   } catch (err) { next(err); }

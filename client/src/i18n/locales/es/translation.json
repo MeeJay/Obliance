@@ -758,7 +758,9 @@
       "expected": "Valor esperado",
       "addRule": "Añadir regla",
       "deleteRule": "Eliminar",
-      "noRules": "Sin reglas. Añada una o cargue un preajuste."
+      "noRules": "Sin reglas. Añada una o cargue un preajuste.",
+      "minOsVersion": "Versión mín. de OS",
+      "minOsVersionPlaceholder": "ej. Windows 10, macOS 12"
     },
     "presetsSuggest": "Empezar desde una plantilla",
     "presetsNote": "Seleccionar un preset rellena las reglas — puede personalizarlas antes de guardar.",

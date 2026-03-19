@@ -1193,7 +1193,9 @@
       "expected": "Expected",
       "addRule": "Add Rule",
       "deleteRule": "Remove",
-      "noRules": "No rules yet. Add a rule or load a preset."
+      "noRules": "No rules yet. Add a rule or load a preset.",
+      "minOsVersion": "Min. OS version",
+      "minOsVersionPlaceholder": "e.g. Windows 10, macOS 12"
     },
     "presetsSuggest": "Start from a template",
     "presetsNote": "Selecting a preset pre-fills the rules — you can customize them freely before saving.",

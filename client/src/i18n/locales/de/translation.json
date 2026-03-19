@@ -569,7 +569,9 @@
       "expected": "Erwarteter Wert",
       "addRule": "Regel hinzufügen",
       "deleteRule": "Entfernen",
-      "noRules": "Keine Regeln. Fügen Sie eine hinzu oder laden Sie eine Vorlage."
+      "noRules": "Keine Regeln. Fügen Sie eine hinzu oder laden Sie eine Vorlage.",
+      "minOsVersion": "Mindest-OS-Version",
+      "minOsVersionPlaceholder": "z.B. Windows 10, macOS 12"
     },
     "presetsSuggest": "Von einer Vorlage starten",
     "presetsNote": "Durch Auswahl eines Presets werden die Regeln vorgefüllt — Sie können diese vor dem Speichern frei anpassen.",

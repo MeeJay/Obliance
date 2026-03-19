@@ -574,6 +574,8 @@ export interface ComplianceRule {
   operator: ComplianceOperator;
   severity: CheckSeverity;
   autoRemediateScriptId: number | null;
+  /** Minimum OS version required for this rule to apply (e.g. "Windows 10 1607", "macOS 12", "Ubuntu 20.04"). Agent skips rule if OS is older. */
+  minOsVersion?: string;
 }
 
 export interface CompliancePreset {
@@ -603,6 +605,8 @@ export interface CompliancePolicy {
 
 export interface ComplianceRuleResult {
   ruleId: string;
+  /** Human-readable rule name, optionally sent by the agent for display purposes */
+  ruleName?: string;
   status: ComplianceStatus;
   actualValue: any;
   checkedAt: string;

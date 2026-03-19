@@ -569,7 +569,9 @@
       "expected": "期待値",
       "addRule": "ルールを追加",
       "deleteRule": "削除",
-      "noRules": "ルールがありません。追加するかプリセットを読み込んでください。"
+      "noRules": "ルールがありません。追加するかプリセットを読み込んでください。",
+      "minOsVersion": "最低OSバージョン",
+      "minOsVersionPlaceholder": "例: Windows 10, macOS 12"
     },
     "presetsSuggest": "テンプレートから始める",
     "presetsNote": "プリセットを選ぶとルールが自動入力されます — 保存前に自由に編集できます。",

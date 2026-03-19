@@ -1081,7 +1081,9 @@
       "expected": "Valeur attendue",
       "addRule": "Ajouter une règle",
       "deleteRule": "Supprimer",
-      "noRules": "Aucune règle. Ajoutez-en une ou chargez un préréglage."
+      "noRules": "Aucune règle. Ajoutez-en une ou chargez un préréglage.",
+      "minOsVersion": "Version OS min.",
+      "minOsVersionPlaceholder": "ex. Windows 10, macOS 12"
     },
     "presetsSuggest": "Partir d'un template",
     "presetsNote": "Sélectionner un template pré-remplit les règles — vous pouvez les personnaliser librement avant de sauvegarder.",

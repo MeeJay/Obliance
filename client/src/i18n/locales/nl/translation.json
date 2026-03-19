@@ -569,7 +569,9 @@
       "expected": "Verwachte waarde",
       "addRule": "Regel toevoegen",
       "deleteRule": "Verwijderen",
-      "noRules": "Geen regels. Voeg er een toe of laad een voorinstelling."
+      "noRules": "Geen regels. Voeg er een toe of laad een voorinstelling.",
+      "minOsVersion": "Min. OS-versie",
+      "minOsVersionPlaceholder": "bijv. Windows 10, macOS 12"
     },
     "presetsSuggest": "Begin vanuit een sjabloon",
     "presetsNote": "Een preset selecteren vult de regels vooraf in — aanpasbaar voor opslaan.",
