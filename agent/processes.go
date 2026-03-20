@@ -79,58 +79,6 @@ func collectProcesses() ([]ProcessInfo, error) {
 	}
 }
 
-// ── Windows ──────────────────────────────────────────────────────────────────
-
-func collectProcessesWindows() ([]ProcessInfo, error) {
-	psScript := `$procs = Get-CimInstance Win32_Process | Select-Object ProcessId,Name,WorkingSetSize,CommandLine,@{N='User';E={
-		$o = Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction SilentlyContinue
-		if ($o -and $o.User) { $o.User } else { '' }
-	}}
-$perfs = Get-CimInstance Win32_PerfFormattedData_PerfProc_Process | Where-Object { $_.IDProcess -ne 0 } | Select-Object IDProcess,PercentProcessorTime
-$perfMap = @{}; foreach ($p in $perfs) { $perfMap[$p.IDProcess] = $p.PercentProcessorTime }
-foreach ($p in $procs) {
-	$cpu = 0; if ($perfMap.ContainsKey($p.ProcessId)) { $cpu = $perfMap[$p.ProcessId] }
-	"$($p.ProcessId)|$($p.Name)|$cpu|$($p.WorkingSetSize)|$($p.User)|$($p.CommandLine -replace '\|','')"
-}`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript).Output()
-	if err != nil {
-		// Fallback: tasklist (no CPU% or user, but always works)
-		return collectProcessesTasklist()
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	processes := make([]ProcessInfo, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "|", 6)
-		if len(parts) < 5 {
-			continue
-		}
-		pid, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-		if pid == 0 {
-			continue
-		}
-		cpu, _ := strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
-		mem, _ := strconv.ParseInt(strings.TrimSpace(parts[3]), 10, 64)
-		cmdLine := ""
-		if len(parts) >= 6 {
-			cmdLine = strings.TrimSpace(parts[5])
-		}
-		processes = append(processes, ProcessInfo{
-			PID:        pid,
-			Name:       strings.TrimSpace(parts[1]),
-			CPUPercent: cpu,
-			MemBytes:   mem,
-			User:       strings.TrimSpace(parts[4]),
-			Command:    cmdLine,
-		})
-	}
-	return processes, nil
-}
-
 func collectProcessesTasklist() ([]ProcessInfo, error) {
 	out, err := exec.Command("tasklist", "/V", "/FO", "CSV", "/NH").Output()
 	if err != nil {
