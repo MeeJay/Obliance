@@ -1247,6 +1247,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleRestartAgent(cmd)
 	case "uninstall_agent":
 		return nil, d.handleUninstallAgent()
+	case "install_oblireach":
+		return d.handleInstallOblireach(cmd)
 	default:
 		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
 	}
