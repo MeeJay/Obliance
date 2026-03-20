@@ -1,0 +1,1175 @@
+import type { ComplianceRule } from '@obliance/shared';
+
+const r = (id: string, opts: Omit<ComplianceRule, 'id' | 'autoRemediateScriptId'>): ComplianceRule =>
+  ({ id, autoRemediateScriptId: null, ...opts });
+
+export const iso27001Rules: ComplianceRule[] = [
+
+  // =========================================================================
+  // Thème A.5 - Contrôles Organisationnels (37 contrôles)
+  // =========================================================================
+
+  // A.5.1 - Politiques de sécurité de l'information
+  r('iso-A5-001', {
+    name: 'Politique — Texte de mention légale à la connexion configuré [A.5.1]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeText',
+    expected: '',
+    operator: 'exists',
+    severity: 'medium',
+  }),
+  r('iso-A5-002', {
+    name: 'Politique — Titre de mention légale à la connexion configuré [A.5.1]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeCaption',
+    expected: '',
+    operator: 'exists',
+    severity: 'medium',
+  }),
+
+  // A.5.2 - Rôles et responsabilités en matière de sécurité
+  r('iso-A5-003', {
+    name: 'Rôles — Compte Administrateur intégré désactivé [A.5.2]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalUser -Name Administrator -ErrorAction SilentlyContinue).Enabled',
+    expected: 'False',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-004', {
+    name: 'Rôles — Centre de sécurité Windows en cours d\'exécution [A.5.2]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service -Name wscsvc).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.5.7 - Renseignement sur les menaces
+  r('iso-A5-005', {
+    name: 'Renseignement sur les menaces — Protection cloud Defender (MAPS) activée [A.5.7]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).MAPSReporting',
+    expected: '0',
+    operator: 'neq',
+    severity: 'medium',
+  }),
+  r('iso-A5-006', {
+    name: 'Renseignement sur les menaces — Soumission automatique d\'échantillons Defender activée [A.5.7]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).SubmitSamplesConsent',
+    expected: '0',
+    operator: 'neq',
+    severity: 'medium',
+  }),
+
+  // A.5.8 - Sécurité de l'information dans la gestion de projet
+  r('iso-A5-007', {
+    name: 'Gestion de projet — Invite d\'élévation UAC pour les administrateurs [A.5.8]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|ConsentPromptBehaviorAdmin',
+    expected: '2',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.5.9 - Inventaire des informations et des actifs
+  r('iso-A5-008', {
+    name: 'Inventaire des actifs — Inventaire logiciel disponible [A.5.9]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-WmiObject -Class Win32_Product | Measure-Object).Count',
+    expected: '0',
+    operator: 'gt',
+    severity: 'low',
+  }),
+
+  // A.5.10 - Utilisation acceptable
+  r('iso-A5-009', {
+    name: 'Utilisation acceptable — Stockage USB restreint [A.5.10]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR|Start',
+    expected: '4',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-010', {
+    name: 'Utilisation acceptable — Exécution automatique désactivée [A.5.10]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer|NoDriveTypeAutoRun',
+    expected: '255',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.5.14 - Transfert d'informations
+  r('iso-A5-011', {
+    name: 'Transfert d\'informations — TLS 1.0 serveur désactivé [A.5.14]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-012', {
+    name: 'Transfert d\'informations — TLS 1.1 serveur désactivé [A.5.14]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-013', {
+    name: 'Transfert d\'informations — SSL 2.0 serveur désactivé [A.5.14]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.5.15 - Contrôle d'accès
+  r('iso-A5-014', {
+    name: 'Contrôle d\'accès — Compte Invité désactivé [A.5.15]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled',
+    expected: 'False',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-015', {
+    name: 'Contrôle d\'accès — Compte Administrateur intégré renommé ou désactivé [A.5.15]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalUser -Name Administrator -ErrorAction SilentlyContinue).Enabled',
+    expected: 'False',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.5.16 - Gestion des identités
+  r('iso-A5-016', {
+    name: 'Gestion des identités — Verrouillage de compte configuré (≤ 10 tentatives) [A.5.16]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(([adsi]\'WinNT://localhost\').MaxBadPasswordsAllowed.Value)',
+    expected: '11',
+    operator: 'lt',
+    severity: 'high',
+  }),
+
+  // A.5.17 - Informations d'authentification
+  r('iso-A5-017', {
+    name: 'Authentification — Complexité du mot de passe activée [A.5.17]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(secedit /export /cfg "$env:TEMP\\secpol.cfg" | Out-Null); (Get-Content "$env:TEMP\\secpol.cfg" | Where-Object {$_ -match \'PasswordComplexity\'}).Split(\'=\')[1].Trim()',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A5-018', {
+    name: 'Authentification — Historique des mots de passe ≥ 24 [A.5.17]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(([adsi]\'WinNT://localhost\').PasswordHistoryLength.Value)',
+    expected: '23',
+    operator: 'gt',
+    severity: 'medium',
+  }),
+  r('iso-A5-019', {
+    name: 'Authentification — Âge maximal du mot de passe ≤ 60 jours [A.5.17]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '([math]::Round((([adsi]\'WinNT://localhost\').maxPasswordAge.Value) / 86400))',
+    expected: '61',
+    operator: 'lt',
+    severity: 'medium',
+  }),
+  r('iso-A5-020', {
+    name: 'Authentification — WDigest désactivé (pas de mot de passe en clair en mémoire) [A.5.17]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest|UseLogonCredential',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.5.18 - Droits d'accès
+  r('iso-A5-021', {
+    name: 'Droits d\'accès — Contrôle de compte utilisateur (UAC) activé [A.5.18]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableLUA',
+    expected: '1',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.5.22 - Gestion des services fournisseurs
+  r('iso-A5-022', {
+    name: 'Surveillance des fournisseurs — Service Journal d\'événements Windows actif [A.5.22]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service EventLog).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.5.23 - Sécurité pour l'utilisation des services cloud
+  r('iso-A5-023', {
+    name: 'Services cloud — Synchronisation OneDrive non gérée désactivée [A.5.23]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive|DisableFileSyncNGSC',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.5.24-30 - Gestion des incidents
+  r('iso-A5-024', {
+    name: 'Incidents — Audit des événements de connexion activé (succès) [A.5.24]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"Logon" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'high',
+  }),
+  r('iso-A5-025', {
+    name: 'Incidents — Taille du journal de sécurité ≥ 196 608 Ko [A.5.26]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security|MaxSize',
+    expected: '196607',
+    operator: 'gt',
+    severity: 'high',
+  }),
+  r('iso-A5-026', {
+    name: 'Incidents — Journal de sécurité configuré pour conserver les événements [A.5.26]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security|Retention',
+    expected: '0',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.5.36 - Conformité aux politiques
+  r('iso-A5-027', {
+    name: 'Conformité aux politiques — AppLocker ou WDAC configuré [A.5.36]',
+    category: 'Contrôles Organisationnels',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-AppLockerPolicy -Effective -ErrorAction SilentlyContinue) -ne $null',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // =========================================================================
+  // Thème A.6 - Contrôles Humains (8 contrôles)
+  // =========================================================================
+
+  // A.6.1 - Vérification des antécédents
+  r('iso-A6-001', {
+    name: 'Ressources humaines — Compte Invité désactivé [A.6.1]',
+    category: 'Contrôles Humains',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled',
+    expected: 'False',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.6.3 - Sensibilisation, formation et éducation
+  r('iso-A6-002', {
+    name: 'Formation — Journalisation des blocs de script PowerShell activée [A.6.3]',
+    category: 'Contrôles Humains',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging|EnableScriptBlockLogging',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.6.4 - Processus disciplinaire
+  r('iso-A6-003', {
+    name: 'Processus disciplinaire — Audit de la gestion des comptes utilisateurs activé [A.6.4]',
+    category: 'Contrôles Humains',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"User Account Management" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'medium',
+  }),
+
+  // A.6.5 - Responsabilités après fin ou changement d'emploi
+  r('iso-A6-004', {
+    name: 'Fin d\'emploi — Comptes locaux désactivés vérifiables [A.6.5]',
+    category: 'Contrôles Humains',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalUser | Where-Object {$_.Enabled -eq $false -and $_.Name -notmatch \'Guest|Administrator\'} | Measure-Object).Count',
+    expected: '0',
+    operator: 'gt',
+    severity: 'low',
+  }),
+
+  // A.6.6 - Confidentialité et accords de non-divulgation
+  r('iso-A6-005', {
+    name: 'Confidentialité — Chiffrement BitLocker du lecteur système activé [A.6.6]',
+    category: 'Contrôles Humains',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus',
+    expected: 'On',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.6.7 - Télétravail
+  r('iso-A6-006', {
+    name: 'Télétravail — Authentification au niveau réseau RDP (NLA) requise [A.6.7]',
+    category: 'Contrôles Humains',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services|UserAuthentication',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A6-007', {
+    name: 'Télétravail — Verrouillage de session avec mot de passe activé [A.6.7]',
+    category: 'Contrôles Humains',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaverIsSecure',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.6.8 - Signalement des événements de sécurité
+  r('iso-A6-008', {
+    name: 'Signalement d\'événements — Service Journal d\'événements Windows actif [A.6.8]',
+    category: 'Contrôles Humains',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service -Name EventLog -ErrorAction SilentlyContinue).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // =========================================================================
+  // Thème A.7 - Contrôles Physiques (14 contrôles)
+  // =========================================================================
+
+  // A.7.1 - Périmètres de sécurité physique
+  r('iso-A7-001', {
+    name: 'Sécurité physique — Délai de verrouillage de l\'écran ≤ 900 secondes [A.7.1]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-ItemProperty "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop" -Name ScreenSaveTimeOut -ErrorAction SilentlyContinue).ScreenSaveTimeOut',
+    expected: '901',
+    operator: 'lt',
+    severity: 'medium',
+  }),
+
+  // A.7.2 - Contrôles d'entrée physique
+  r('iso-A7-002', {
+    name: 'Entrée physique — BitLocker sur le lecteur système activé [A.7.2]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus',
+    expected: 'On',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.7.3 - Sécurisation des bureaux, salles et équipements
+  r('iso-A7-003', {
+    name: 'Sécurisation des locaux — TPM présent et activé [A.7.3]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-WmiObject -Class Win32_TPM -Namespace root\\cimv2\\security\\microsofttpm -ErrorAction SilentlyContinue).IsEnabled_InitialValue',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.4 - Surveillance de la sécurité physique
+  r('iso-A7-004', {
+    name: 'Surveillance physique — Audit des événements de connexion activé [A.7.4]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"Logon" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'medium',
+  }),
+
+  // A.7.5 - Protection contre les menaces physiques et environnementales
+  r('iso-A7-005', {
+    name: 'Menaces physiques — Démarrage sécurisé (Secure Boot) activé [A.7.5]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: 'Confirm-SecureBootUEFI -ErrorAction SilentlyContinue',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.7 - Bureau propre et écran vide
+  r('iso-A7-006', {
+    name: 'Bureau propre — Délai de l\'économiseur d\'écran ≤ 300 secondes [A.7.7]',
+    category: 'Contrôles Physiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveTimeOut',
+    expected: '301',
+    operator: 'lt',
+    severity: 'medium',
+  }),
+  r('iso-A7-007', {
+    name: 'Bureau propre — Mot de passe requis à la reprise de l\'économiseur d\'écran [A.7.7]',
+    category: 'Contrôles Physiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaverIsSecure',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.8 - Emplacement et protection des équipements
+  r('iso-A7-008', {
+    name: 'Protection des équipements — TPM présent sur le poste [A.7.8]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Tpm -ErrorAction SilentlyContinue).TpmPresent',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.7.9 - Sécurité des actifs hors site
+  r('iso-A7-009', {
+    name: 'Actifs hors site — BitLocker activé sur le lecteur OS [A.7.9]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus',
+    expected: 'On',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A7-010', {
+    name: 'Actifs hors site — Chiffrement des supports amovibles requis [A.7.9]',
+    category: 'Contrôles Physiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\FVE|RDVRequireEncryption',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.10 - Supports de stockage
+  r('iso-A7-011', {
+    name: 'Supports de stockage — Supports amovibles refusés [A.7.10]',
+    category: 'Contrôles Physiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\RemovableStorageDevices|Deny_All',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.11 - Infrastructures de support
+  r('iso-A7-012', {
+    name: 'Infrastructures — Service Windows Update non désactivé [A.7.11]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service -Name wuauserv -ErrorAction SilentlyContinue).StartType',
+    expected: 'Disabled',
+    operator: 'neq',
+    severity: 'high',
+  }),
+
+  // A.7.12 - Sécurité du câblage
+  r('iso-A7-013', {
+    name: 'Câblage réseau — Signature SMB requise sur le serveur [A.7.12]',
+    category: 'Contrôles Physiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters|RequireSecuritySignature',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.7.13 - Maintenance des équipements
+  r('iso-A7-014', {
+    name: 'Maintenance — Service Registre distant désactivé [A.7.13]',
+    category: 'Contrôles Physiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service -Name RemoteRegistry -ErrorAction SilentlyContinue).StartType',
+    expected: 'Disabled',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // =========================================================================
+  // Thème A.8 - Contrôles Technologiques (34 contrôles)
+  // =========================================================================
+
+  // A.8.1 - Appareils endpoint utilisateurs
+  r('iso-A8-001', {
+    name: 'Endpoint — Mises à jour automatiques Windows configurées [A.8.1]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU|AUOptions',
+    expected: '4',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-002', {
+    name: 'Endpoint — Protection en temps réel de l\'antivirus activée [A.8.1]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpComputerStatus).RealTimeProtectionEnabled',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-003', {
+    name: 'Endpoint — BitLocker activé sur le lecteur système [A.8.1]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-BitLockerVolume -MountPoint C: -ErrorAction SilentlyContinue).ProtectionStatus',
+    expected: 'On',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.8.2 - Droits d'accès privilégiés
+  r('iso-A8-004', {
+    name: 'Accès privilégié — LSA en mode processus protégé (PPL) [A.8.2]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|RunAsPPL',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-005', {
+    name: 'Accès privilégié — LAPS configuré [A.8.2]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-ItemProperty "HKLM:\\SOFTWARE\\Policies\\Microsoft\\LAPS" -ErrorAction SilentlyContinue) -ne $null',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-006', {
+    name: 'Accès privilégié — Mode approbation administrateur UAC activé [A.8.2]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|FilterAdministratorToken',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.8.3 - Restriction d'accès aux informations
+  r('iso-A8-007', {
+    name: 'Restriction d\'accès — Pare-feu Windows activé sur tous les profils [A.8.3]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-NetFirewallProfile | Where-Object {$_.Enabled -ne $true} | Measure-Object).Count',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-008', {
+    name: 'Restriction d\'accès — Service Application Identity (AppLocker) actif [A.8.3]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.5 - Authentification sécurisée
+  r('iso-A8-009', {
+    name: 'Authentification sécurisée — Niveau de compatibilité LM NTLMv2 uniquement [A.8.5]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|LmCompatibilityLevel',
+    expected: '5',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-010', {
+    name: 'Authentification sécurisée — Longueur minimale du mot de passe ≥ 14 [A.8.5]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(([adsi]\'WinNT://localhost\').minPasswordLength.Value)',
+    expected: '13',
+    operator: 'gt',
+    severity: 'high',
+  }),
+  r('iso-A8-011', {
+    name: 'Authentification sécurisée — Credential Guard (VBS) activé [A.8.5]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard|EnableVirtualizationBasedSecurity',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.8.6 - Gestion de la capacité
+  r('iso-A8-012', {
+    name: 'Capacité — Espace disque disponible sur C: [A.8.6]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-PSDrive C | Select-Object -ExpandProperty Free)',
+    expected: '0',
+    operator: 'gt',
+    severity: 'medium',
+  }),
+
+  // A.8.7 - Protection contre les logiciels malveillants
+  r('iso-A8-013', {
+    name: 'Protection malware — Protection en temps réel Defender activée [A.8.7]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpComputerStatus).RealTimeProtectionEnabled',
+    expected: 'True',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-014', {
+    name: 'Protection malware — Protection cloud Defender activée [A.8.7]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).MAPSReporting',
+    expected: '0',
+    operator: 'neq',
+    severity: 'medium',
+  }),
+  r('iso-A8-015', {
+    name: 'Protection malware — Signatures antivirus à jour (≤ 7 jours) [A.8.7]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpComputerStatus).AntivirusSignatureAge',
+    expected: '8',
+    operator: 'lt',
+    severity: 'high',
+  }),
+  r('iso-A8-016', {
+    name: 'Protection malware — Protection contre les applications potentiellement indésirables (PUA) [A.8.7]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).PUAProtection',
+    expected: '0',
+    operator: 'neq',
+    severity: 'medium',
+  }),
+
+  // A.8.8 - Gestion des vulnérabilités techniques
+  r('iso-A8-017', {
+    name: 'Vulnérabilités — Mises à jour automatiques Windows non désactivées [A.8.8]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU|NoAutoUpdate',
+    expected: '0',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.8.9 - Gestion de la configuration
+  r('iso-A8-018', {
+    name: 'Configuration — SMBv1 désactivé [A.8.9]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-SmbServerConfiguration).EnableSMB1Protocol',
+    expected: 'False',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-019', {
+    name: 'Configuration — LLMNR désactivé [A.8.9]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient|EnableMulticast',
+    expected: '0',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+  r('iso-A8-020', {
+    name: 'Configuration — Service Registre distant désactivé [A.8.9]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service RemoteRegistry -ErrorAction SilentlyContinue).StartType',
+    expected: 'Disabled',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-021', {
+    name: 'Configuration — Spouleur d\'impression désactivé [A.8.9]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service Spooler -ErrorAction SilentlyContinue).StartType',
+    expected: 'Disabled',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.10 - Suppression d'informations
+  r('iso-A8-022', {
+    name: 'Suppression d\'informations — Options de récupération BitLocker configurées [A.8.10]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\FVE|OSRecovery',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.11 - Masquage des données
+  r('iso-A8-023', {
+    name: 'Masquage des données — WDigest désactivé [A.8.11]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest|UseLogonCredential',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.8.12 - Prévention des fuites de données
+  r('iso-A8-024', {
+    name: 'Prévention des fuites — Stockage USB bloqué [A.8.12]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR|Start',
+    expected: '4',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-025', {
+    name: 'Prévention des fuites — Accès contrôlé aux dossiers Defender activé [A.8.12]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).EnableControlledFolderAccess',
+    expected: '0',
+    operator: 'neq',
+    severity: 'medium',
+  }),
+
+  // A.8.13 - Sauvegarde des informations
+  r('iso-A8-026', {
+    name: 'Sauvegarde — Service de cliché instantané de volume (VSS) actif [A.8.13]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service VSS -ErrorAction SilentlyContinue).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+  r('iso-A8-027', {
+    name: 'Sauvegarde — Service Sauvegarde Windows actif [A.8.13]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service SDRSVC -ErrorAction SilentlyContinue).Status',
+    expected: 'Running',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.15 - Journalisation
+  r('iso-A8-028', {
+    name: 'Journalisation — Taille maximale du journal de sécurité ≥ 196 608 Ko [A.8.15]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security|MaxSize',
+    expected: '196607',
+    operator: 'gt',
+    severity: 'high',
+  }),
+  r('iso-A8-029', {
+    name: 'Journalisation — Audit des événements de connexion activé [A.8.15]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"Logon" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'high',
+  }),
+  r('iso-A8-030', {
+    name: 'Journalisation — Audit de la gestion des comptes utilisateurs activé [A.8.15]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"User Account Management" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'high',
+  }),
+  r('iso-A8-031', {
+    name: 'Journalisation — Audit des modifications de stratégie d\'audit activé [A.8.15]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(auditpol /get /subcategory:"Audit Policy Change" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    expected: 'Success',
+    operator: 'contains',
+    severity: 'high',
+  }),
+
+  // A.8.16 - Activités de surveillance
+  r('iso-A8-032', {
+    name: 'Surveillance — Journalisation des modules PowerShell activée [A.8.16]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging|EnableModuleLogging',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+  r('iso-A8-033', {
+    name: 'Surveillance — Journalisation des blocs de script PowerShell activée [A.8.16]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging|EnableScriptBlockLogging',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+  r('iso-A8-034', {
+    name: 'Surveillance — Ligne de commande incluse dans les événements de création de processus [A.8.16]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit|ProcessCreationIncludeCmdLine_Enabled',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.17 - Synchronisation des horloges
+  r('iso-A8-035', {
+    name: 'Synchronisation horaire — Source NTP non locale (pas d\'horloge CMOS) [A.8.17]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(w32tm /query /status 2>&1 | Select-String \'Source\').ToString()',
+    expected: 'Local CMOS',
+    operator: 'not_contains',
+    severity: 'medium',
+  }),
+
+  // A.8.18 - Utilisation de programmes utilitaires privilégiés
+  r('iso-A8-036', {
+    name: 'Outils privilégiés — Nombre d\'administrateurs locaux limité (≤ 3) [A.8.18]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-LocalGroupMember Administrators | Measure-Object).Count',
+    expected: '4',
+    operator: 'lt',
+    severity: 'medium',
+  }),
+
+  // A.8.19 - Installation de logiciels sur les systèmes opérationnels
+  r('iso-A8-037', {
+    name: 'Installation de logiciels — Installation MSI restreinte aux administrateurs [A.8.19]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer|DisableMSI',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.20 - Sécurité des réseaux
+  r('iso-A8-038', {
+    name: 'Sécurité réseau — Signature de paquets SMB requise (serveur) [A.8.20]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters|RequireSecuritySignature',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-039', {
+    name: 'Sécurité réseau — Signature de paquets SMB requise (client) [A.8.20]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters|RequireSecuritySignature',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.8.21 - Sécurité des services réseau
+  r('iso-A8-040', {
+    name: 'Services réseau — Pare-feu activé sur tous les profils [A.8.21]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-NetFirewallProfile | Where-Object {$_.Enabled -ne $true} | Measure-Object).Count',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.8.22 - Ségrégation des réseaux
+  r('iso-A8-041', {
+    name: 'Ségrégation réseau — Pont réseau désactivé [A.8.22]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_AllowNetBridge_NLA',
+    expected: '0',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.23 - Filtrage web
+  r('iso-A8-042', {
+    name: 'Filtrage web — SmartScreen Windows activé [A.8.23]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|EnableSmartScreen',
+    expected: '1',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+  r('iso-A8-043', {
+    name: 'Filtrage web — Protection réseau Defender activée [A.8.23]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-MpPreference).EnableNetworkProtection',
+    expected: '0',
+    operator: 'neq',
+    severity: 'high',
+  }),
+
+  // A.8.24 - Utilisation de la cryptographie
+  r('iso-A8-044', {
+    name: 'Cryptographie — TLS 1.0 serveur désactivé [A.8.24]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-045', {
+    name: 'Cryptographie — TLS 1.1 serveur désactivé [A.8.24]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'high',
+  }),
+  r('iso-A8-046', {
+    name: 'Cryptographie — SSL 2.0 serveur désactivé [A.8.24]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-047', {
+    name: 'Cryptographie — SSL 3.0 serveur désactivé [A.8.24]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+  r('iso-A8-048', {
+    name: 'Cryptographie — Chiffrement RC4 128/128 désactivé [A.8.24]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128|Enabled',
+    expected: '0',
+    operator: 'eq',
+    severity: 'critical',
+  }),
+
+  // A.8.25 - Cycle de développement sécurisé
+  r('iso-A8-049', {
+    name: 'Développement sécurisé — Validation de la chaîne d\'exceptions activée [A.8.25]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel|DisableExceptionChainValidation',
+    expected: '0',
+    operator: 'eq',
+    severity: 'medium',
+  }),
+
+  // A.8.26 - Exigences de sécurité des applications
+  r('iso-A8-050', {
+    name: 'Sécurité applicative — Prévention de l\'exécution de données (DEP/NX) activée [A.8.26]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(bcdedit /enum {current} | Select-String \'nx\').ToString()',
+    expected: 'OptOut',
+    operator: 'contains',
+    severity: 'high',
+  }),
+  r('iso-A8-051', {
+    name: 'Sécurité applicative — ASLR (randomisation de l\'espace d\'adressage) activé [A.8.26]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-ItemProperty \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management\' -Name MoveImages -ErrorAction SilentlyContinue).MoveImages',
+    expected: '0',
+    operator: 'neq',
+    severity: 'high',
+  }),
+
+  // A.8.27 - Architecture système sécurisée
+  r('iso-A8-052', {
+    name: 'Architecture système — Virtualisation basée sur la sécurité (VBS) activée [A.8.27]',
+    category: 'Contrôles Technologiques',
+    checkType: 'registry',
+    targetPlatform: 'windows',
+    target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard|EnableVirtualizationBasedSecurity',
+    expected: '1',
+    operator: 'eq',
+    severity: 'high',
+  }),
+
+  // A.8.32 - Gestion des changements
+  r('iso-A8-053', {
+    name: 'Gestion des changements — Historique des correctifs disponible [A.8.32]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn',
+    expected: '',
+    operator: 'exists',
+    severity: 'low',
+  }),
+
+  // A.8.34 - Protection des systèmes pendant les tests d'audit
+  r('iso-A8-054', {
+    name: 'Audit — Service Registre distant désactivé pendant les audits [A.8.34]',
+    category: 'Contrôles Technologiques',
+    checkType: 'command',
+    targetPlatform: 'windows',
+    target: '(Get-Service RemoteRegistry -ErrorAction SilentlyContinue).StartType',
+    expected: 'Disabled',
+    operator: 'eq',
+    severity: 'high',
+  }),
+];
