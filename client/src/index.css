@@ -106,31 +106,14 @@
 }
 [data-theme="neon"] .bg-bg-active .text-text-primary {
   color: rgb(168 128 255 / 1) !important;
-  text-shadow: 0 0 10px rgb(168 128 255 / 0.65);
 }
 [data-theme="neon"] .bg-bg-active svg {
   color: rgb(168 128 255 / 1) !important;
-  filter: drop-shadow(0 0 5px rgb(168 128 255 / 0.8));
 }
 
-/* ── Accent & primary text glow ─────────────────────────────────────────────── */
-[data-theme="neon"] .text-accent {
-  text-shadow: 0 0 12px rgb(var(--c-accent) / 0.55);
-}
-[data-theme="neon"] .text-primary {
-  text-shadow: 0 0 12px rgb(var(--c-accent) / 0.55);
-}
+/* ── Accent & primary text — no glow ───────────────────────────────────────── */
 
-/* ── Status text glows ──────────────────────────────────────────────────────── */
-[data-theme="neon"] .text-status-up {
-  text-shadow: 0 0 10px rgb(var(--c-status-up) / 0.6);
-}
-[data-theme="neon"] .text-status-down {
-  text-shadow: 0 0 10px rgb(var(--c-status-down) / 0.55);
-}
-[data-theme="neon"] .text-status-maintenance {
-  text-shadow: 0 0 10px rgb(148 163 184 / 0.5);
-}
+/* ── Status text — no glow ─────────────────────────────────────────────────── */
 
 /* ── Status dot glows (bg-status-* and raw Tailwind green/red/amber) ─────────── */
 [data-theme="neon"] .bg-status-up {
@@ -151,15 +134,6 @@
 }
 [data-theme="neon"] .bg-amber-400 {
   box-shadow: 0 0 8px rgb(251 191 36 / 0.7), 0 0 3px rgb(251 191 36 / 0.4);
-}
-[data-theme="neon"] .text-green-400 {
-  text-shadow: 0 0 10px rgb(74 222 128 / 0.6);
-}
-[data-theme="neon"] .text-red-400 {
-  text-shadow: 0 0 10px rgb(248 113 113 / 0.55);
-}
-[data-theme="neon"] .text-yellow-400 {
-  text-shadow: 0 0 10px rgb(250 204 21 / 0.5);
 }
 
 /* ── DeviceStatusBadge border glow ──────────────────────────────────────────── */

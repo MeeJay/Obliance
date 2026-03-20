@@ -110,13 +110,13 @@ function DraggableDeviceItem({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      style={{ opacity: isDragging ? 0.4 : 1, paddingLeft: indent ? '24px' : undefined }}
+      style={{ opacity: isDragging ? 0.4 : 1 }}
     >
       <Link
         to={`/devices/${device.id}`}
         className={cn(
           'flex items-center gap-2 rounded-md py-1 text-sm transition-colors',
-          indent ? '' : 'px-2',
+          indent ? 'pl-6 pr-2' : 'px-2',
           isActive
             ? 'bg-bg-active text-text-primary'
             : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
