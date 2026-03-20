@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"time"
 	"unsafe"
 
@@ -78,9 +79,7 @@ func collectProcessesWindows() ([]ProcessInfo, error) {
 	elapsed := now.Sub(prevCPUSnapTime).Seconds()
 	hasPrev := prevCPUSnap != nil && elapsed > 0
 
-	var sysInfo windows.SystemInfo
-	windows.GetSystemInfo(&sysInfo)
-	logicalCPUs := float64(sysInfo.NumberOfProcessors)
+	logicalCPUs := float64(runtime.NumCPU())
 	if logicalCPUs < 1 {
 		logicalCPUs = 1
 	}
