@@ -454,35 +454,16 @@ export function ObliReachViewer({
         </div>
       </div>
 
-      {/* ── Content ── */}
-      {status === 'error' ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
-          <AlertTriangle className="w-12 h-12 text-red-400" />
-          <p className="text-text-primary font-medium">Connection failed</p>
-          <p className="text-sm text-text-muted max-w-md">{errorMsg || 'An unknown error occurred.'}</p>
-          <button
-            onClick={handleClose}
-            className="mt-2 px-4 py-2 bg-bg-secondary text-text-primary border border-border rounded-lg hover:bg-bg-tertiary transition-colors text-sm"
-          >
-            Close
-          </button>
-        </div>
-      ) : (status === 'connecting' || status === 'waiting') ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8 bg-[#0d0f14]">
-          <RefreshCw className="w-10 h-10 text-accent animate-spin" />
-          <p className="text-text-primary font-medium">
-            {status === 'waiting' ? 'Waiting for agent to connect…' : 'Connecting to relay…'}
-          </p>
-          <p className="text-sm text-text-muted">
-            {status === 'waiting'
-              ? 'The wake-up command has been sent. The Oblireach agent will connect within 30 s.'
-              : 'Establishing encrypted tunnel…'}
-          </p>
-        </div>
-      ) : (
+      {/* ── Content area (flex-1, relative so overlays are scoped here) ── */}
+      <div className="relative flex-1 overflow-hidden bg-black">
+
+        {/* Canvas is always mounted so canvasRef is valid when initDecoder() is called
+            during 'waiting' state (before the first frame arrives). Hidden via CSS
+            until the decoder produces its first frame (status → 'streaming'). */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-hidden bg-black flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ display: status === 'streaming' ? 'flex' : 'none' }}
         >
           <canvas
             ref={canvasRef}
@@ -495,7 +476,36 @@ export function ObliReachViewer({
             onContextMenu={e => e.preventDefault()}
           />
         </div>
-      )}
+
+        {status === 'error' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-8">
+            <AlertTriangle className="w-12 h-12 text-red-400" />
+            <p className="text-text-primary font-medium">Connection failed</p>
+            <p className="text-sm text-text-muted max-w-md">{errorMsg || 'An unknown error occurred.'}</p>
+            <button
+              onClick={handleClose}
+              className="mt-2 px-4 py-2 bg-bg-secondary text-text-primary border border-border rounded-lg hover:bg-bg-tertiary transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        )}
+
+        {(status === 'connecting' || status === 'waiting') && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-8 bg-[#0d0f14]">
+            <RefreshCw className="w-10 h-10 text-accent animate-spin" />
+            <p className="text-text-primary font-medium">
+              {status === 'waiting' ? 'Waiting for agent to connect…' : 'Connecting to relay…'}
+            </p>
+            <p className="text-sm text-text-muted">
+              {status === 'waiting'
+                ? 'The wake-up command has been sent. The Oblireach agent will connect within 30 s.'
+                : 'Establishing encrypted tunnel…'}
+            </p>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
