@@ -19,7 +19,6 @@ export default defineConfig({
     },
   },
   build: {
-    // noVNC uses top-level await internally — requires ES2022+ target
     target: 'esnext',
   },
   server: {
@@ -28,7 +27,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        ws: true, // proxy WebSocket upgrades (needed for VNC tunnel)
+        ws: true, // proxy WebSocket upgrades (needed for remote tunnels)
       },
       '/socket.io': {
         target: 'http://localhost:3001',

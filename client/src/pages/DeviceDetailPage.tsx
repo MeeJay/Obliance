@@ -6,7 +6,7 @@ import {
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -1365,112 +1365,6 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
   );
 }
 
-// ─── VNC Viewer ──────────────────────────────────────────────────────────────
-
-function VncViewer({ session, title, onClose }: { session: RemoteSession | null; title: string; onClose: () => void }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rfbRef = useRef<any>(null);
-  const [vncStatus, setVncStatus] = useState<'connecting' | 'connected' | 'failed'>('connecting');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Timeout — show error if tunnel is not established within 60 s
-  useEffect(() => {
-    if (session) return;
-    const t = setTimeout(() => {
-      setVncStatus('failed');
-      setErrorMsg('Tunnel timed out — the agent did not respond within 60 s');
-    }, 60_000);
-    return () => clearTimeout(t);
-  }, [session]);
-
-  useEffect(() => {
-    if (!session?.sessionToken) return;
-    let rfb: any;
-    const origin = window.location.origin;
-    const wsUrl = origin.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://')
-      + `/api/remote/tunnel/${session.sessionToken}`;
-
-    import('@novnc/novnc').then(({ default: RFB }) => {
-      if (!containerRef.current) return;
-      rfb = new RFB(containerRef.current, wsUrl, { scaleViewport: true });
-      rfbRef.current = rfb;
-
-      rfb.addEventListener('connect', () => setVncStatus('connected'));
-      rfb.addEventListener('disconnect', (e: CustomEvent<{ clean: boolean }>) => {
-        if (!e.detail.clean) {
-          setVncStatus('failed');
-          setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
-        } else {
-          onClose();
-        }
-      });
-      rfb.addEventListener('securityfailure', () => {
-        setVncStatus('failed');
-        setErrorMsg('VNC authentication failed');
-      });
-    }).catch(() => {
-      setVncStatus('failed');
-      setErrorMsg('Failed to load VNC client library');
-    });
-
-    return () => {
-      try { rfb?.disconnect(); } catch {}
-    };
-  }, [session?.sessionToken]);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-border shrink-0">
-        <div className="flex items-center gap-3">
-          <MonitorPlay className="w-4 h-4 text-accent" />
-          <span className="text-sm font-medium text-text-primary">{title}</span>
-          <span className={clsx(
-            'text-xs px-2 py-0.5 rounded-full border',
-            vncStatus === 'connected' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-            vncStatus === 'failed'    ? 'text-red-400 bg-red-400/10 border-red-400/30' :
-                                       'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
-          )}>
-            {vncStatus === 'connecting' ? 'Connecting…' : vncStatus}
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      {/* Connecting overlay — shown while tunnel is being established */}
-      {!session && vncStatus !== 'failed' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0d0f14]" style={{ top: '42px' }}>
-          <Loader2 className="w-10 h-10 text-accent animate-spin" />
-          <p className="text-text-primary font-medium">Establishing tunnel…</p>
-          <p className="text-sm text-text-muted">Waiting for agent to connect back to the server</p>
-        </div>
-      )}
-      {/* Canvas */}
-      <div ref={containerRef} className="flex-1 overflow-hidden" />
-      {/* Error overlay */}
-      {vncStatus === 'failed' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80" style={{ top: '42px' }}>
-          <div className="text-center p-8">
-            <WifiOff className="w-10 h-10 text-red-400 mx-auto mb-3" />
-            <p className="text-red-400 font-medium text-lg mb-1">Connection failed</p>
-            <p className="text-text-muted text-sm mb-6">{errorMsg ?? 'VNC tunnel could not be established'}</p>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-muted hover:text-text-primary transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Remote Tab ──────────────────────────────────────────────────────────────
 
 function RemoteTab({ device }: { device: Device }) {
@@ -1479,23 +1373,24 @@ function RemoteTab({ device }: { device: Device }) {
   const [isStarting, setIsStarting] = useState(false);
   // Modal open flags — set immediately on button click so the modal shows a
   // connecting overlay before REMOTE_TUNNEL_READY arrives.
-  const [vncModalOpen, setVncModalOpen] = useState(false);
   const [sshModalOpen, setSshModalOpen] = useState(false);
   const [orModalOpen, setOrModalOpen]   = useState(false);
   // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
-  const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
   const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
   const [orSession,  setOrSession]  = useState<RemoteSession | null>(null);
   // Track the session ID we are personally waiting for so a concurrent
   // session started by another user doesn't overwrite our modal state.
   const pendingSshId = useRef<string | null>(null);
-  const pendingVncId = useRef<string | null>(null);
   const pendingOrId  = useRef<string | null>(null);
   const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
   // null = unknown (loading), false = not installed, true = installed
   const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
   const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
   const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
+  // Shell session picker (cmd/powershell — choose SYSTEM or user session)
+  const [shellSessionPickerOpen, setShellSessionPickerOpen] = useState(false);
+  const [shellWtsSessions, setShellWtsSessions] = useState<{ id: number; username: string; domain: string; state: string; name: string }[]>([]);
+  const pendingShellProtocol = useRef<'cmd' | 'powershell' | 'ssh'>('cmd');
   const [orVersion, setOrVersion] = useState<string | null>(null);
   const [orLatestVersion, setOrLatestVersion] = useState<string | null>(null);
   const [isUpdatingOr, setIsUpdatingOr] = useState(false);
@@ -1547,10 +1442,7 @@ function RemoteTab({ device }: { device: Device }) {
       setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
       // Only update the modal if this is the session WE started — not a
       // concurrent session opened by another user on the same device.
-      if ((session.protocol === 'vnc' || session.protocol === 'rdp') && session.id === pendingVncId.current) {
-        setVncSession(session);
-        pendingVncId.current = null;
-      } else if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
+      if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
         setSshSession(session);
         pendingSshId.current = null;
       } else if (session.protocol === 'oblireach' && session.id === pendingOrId.current) {
@@ -1625,7 +1517,7 @@ function RemoteTab({ device }: { device: Device }) {
     }
   };
 
-  const handleStartSession = async (protocol: 'oblireach' | 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
+  const handleStartSession = async (protocol: 'oblireach' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
     // Open the modal immediately so the user sees a connecting overlay
     // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
     // If Oblireach agent not installed, redirect to install flow
@@ -1649,25 +1541,55 @@ function RemoteTab({ device }: { device: Device }) {
       }
       return;
     }
-    if (isShellProtocol(protocol)) {
-      setSshSession(null);
-      setSshModalOpen(true);
-    } else {
-      setVncSession(null);
-      setVncModalOpen(true);
+    if (isShellProtocol(protocol) && device.osType === 'windows' && (protocol === 'cmd' || protocol === 'powershell')) {
+      // On Windows, fetch WTS sessions to let user choose SYSTEM vs user session
+      pendingShellProtocol.current = protocol;
+      try {
+        const res = await commandApi.enqueue(device.id, 'list_wts_sessions', {}, 'high');
+        // The result will come async via command result — but for simplicity,
+        // we'll wait a bit for the command to complete, or open picker with just SYSTEM option
+        // Actually, use the direct command channel: send and listen for result
+        setShellWtsSessions([]);
+        setShellSessionPickerOpen(true);
+        // Listen for the command result
+        const onResult = (cmd: Command) => {
+          if (cmd.id !== res.id) return;
+          if (cmd.status === 'success' && cmd.result) {
+            const sessions = (cmd.result as any)?.sessions ?? [];
+            setShellWtsSessions(sessions);
+          }
+        };
+        const socket = getSocket();
+        socket?.on('COMMAND_RESULT', onResult);
+        socket?.on('COMMAND_UPDATED', onResult);
+        // Cleanup after 10s
+        setTimeout(() => {
+          socket?.off('COMMAND_RESULT', onResult);
+          socket?.off('COMMAND_UPDATED', onResult);
+        }, 10_000);
+      } catch {
+        // Failed to list sessions — open directly as SYSTEM
+        startShellSession(protocol);
+      }
+      return;
     }
+    if (isShellProtocol(protocol)) {
+      startShellSession(protocol);
+    }
+  };
+
+  const startShellSession = async (protocol: 'ssh' | 'cmd' | 'powershell', wtsSessionId?: number) => {
+    setShellSessionPickerOpen(false);
+    setSshSession(null);
+    setSshModalOpen(true);
     setIsStarting(true);
     try {
-      const session = await remoteApi.startSession(device.id, protocol);
-      // Record which session ID we're waiting for so REMOTE_TUNNEL_READY
-      // can ignore events from concurrent sessions opened by other users.
-      if (isShellProtocol(protocol)) pendingSshId.current = session.id;
-      else pendingVncId.current = session.id;
+      const session = await remoteApi.startSession(device.id, protocol, undefined, wtsSessionId);
+      pendingSshId.current = session.id;
       setSessions((prev) => [session, ...prev]);
     } catch {
       toast.error('Failed to start remote session');
-      if (isShellProtocol(protocol)) setSshModalOpen(false);
-      else setVncModalOpen(false);
+      setSshModalOpen(false);
     } finally {
       setIsStarting(false);
     }
@@ -1744,12 +1666,62 @@ function RemoteTab({ device }: { device: Device }) {
           </div>
         </div>
       )}
-      {vncModalOpen && (
-        <VncViewer
-          session={vncSession}
-          title={`VNC — ${device.displayName || device.hostname}`}
-          onClose={() => { setVncModalOpen(false); setVncSession(null); }}
-        />
+      {shellSessionPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <TerminalSquare className="w-4 h-4 text-accent" />
+                {pendingShellProtocol.current === 'powershell' ? 'PowerShell' : 'CMD'} — Choose Context
+              </h2>
+              <button
+                onClick={() => setShellSessionPickerOpen(false)}
+                className="text-text-muted hover:text-text-primary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+              <button
+                onClick={() => startShellSession(pendingShellProtocol.current)}
+                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+              >
+                <div className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-text-primary">SYSTEM</div>
+                  <div className="text-xs text-text-muted">Run as NT AUTHORITY\SYSTEM</div>
+                </div>
+              </button>
+              {shellWtsSessions.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => startShellSession(pendingShellProtocol.current, s.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+                >
+                  <div className={clsx(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    s.state === 'active' ? 'bg-green-400' :
+                    s.state === 'disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+                  )} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-text-primary truncate">
+                      {s.domain ? `${s.domain}\\${s.username}` : s.username}
+                    </div>
+                    <div className="text-xs text-text-muted">
+                      Session {s.id}{s.name ? ` · ${s.name}` : ''} · {s.state}
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {shellWtsSessions.length === 0 && (
+                <div className="px-3 py-2 text-xs text-text-muted flex items-center gap-2">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Loading user sessions…
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       {sshModalOpen && (
         <SshTerminalModal
@@ -1813,8 +1785,8 @@ function RemoteTab({ device }: { device: Device }) {
           )}
           {/* Other protocols */}
           {(
-            device.osType === 'windows' ? (['vnc', 'cmd', 'powershell'] as const) :
-            device.osType === 'macos'   ? (['vnc', 'ssh'] as const) :
+            device.osType === 'windows' ? (['cmd', 'powershell'] as const) :
+            device.osType === 'macos'   ? (['ssh'] as const) :
                                           (['ssh'] as const)
           ).map((proto) => (
             <button
@@ -1870,25 +1842,6 @@ function RemoteTab({ device }: { device: Device }) {
                       className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
                     >
                       View
-                    </button>
-                  </div>
-                )}
-                {session.status === 'active' && (session.protocol === 'vnc' || session.protocol === 'rdp') && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setVncSession(session); setVncModalOpen(true); }}
-                      className="text-xs px-3 py-1 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
-                    >
-                      Open
-                    </button>
-                    <button
-                      onClick={() => handleEndSession(session)}
-                      disabled={endingSession.has(session.id)}
-                      title="End session"
-                      className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                      End
                     </button>
                   </div>
                 )}
@@ -2753,7 +2706,7 @@ export function DeviceDetailPage() {
   const [headerOrLatestVersion, setHeaderOrLatestVersion] = useState<string | null>(null);
   const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
   const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
-  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
+  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
   const [isStartingRemote, setIsStartingRemote] = useState(false);
   const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
   const [headerOrSessions, setHeaderOrSessions] = useState<ObliReachSession[]>([]);
@@ -2800,7 +2753,7 @@ export function DeviceDetailPage() {
     }
   };
 
-  const handleHeaderRemote = async (protocol: 'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
+  const handleHeaderRemote = async (protocol: 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
     setRemoteDropdownOpen(false);
 
     // Oblireach: if not installed redirect to install command; if installed check sessions.
@@ -2994,13 +2947,6 @@ export function DeviceDetailPage() {
           }}
         />
       )}
-      {headerRemoteOpen && headerRemoteProtocol === 'vnc' && (
-        <VncViewer
-          session={headerRemoteSession}
-          title={`VNC — ${device.displayName || device.hostname}`}
-          onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
-        />
-      )}
       {headerRemoteOpen && (headerRemoteProtocol === 'ssh' || headerRemoteProtocol === 'cmd' || headerRemoteProtocol === 'powershell') && (
         <SshTerminalModal
           session={headerRemoteSession}
@@ -3150,9 +3096,9 @@ export function DeviceDetailPage() {
               {/* ── Quick actions ── */}
               <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
                 {(() => {
-                  const opts: Array<'oblireach' | 'vnc' | 'ssh' | 'cmd' | 'powershell'> =
-                    device.osType === 'windows' ? ['oblireach', 'vnc', 'cmd', 'powershell'] :
-                    device.osType === 'macos'   ? ['oblireach', 'vnc', 'ssh'] :
+                  const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
+                    device.osType === 'windows' ? ['oblireach', 'cmd', 'powershell'] :
+                    device.osType === 'macos'   ? ['oblireach', 'ssh'] :
                                                   ['ssh'];
                   const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
                   return (

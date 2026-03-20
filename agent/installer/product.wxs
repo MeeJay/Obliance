@@ -84,43 +84,12 @@
                          Name="ApiKey"    Type="string" Value="[APIKEY]" />
         </Component>
 
-        <!--
-          OPTIONAL — VNC server binary for remote-access sessions.
-
-          When the Obliance agent receives an "open_remote_tunnel" command it
-          first checks whether a VNC server is already listening on port 5900.
-          If not, it looks for tvnserver.exe next to obliance-agent.exe (here)
-          and launches it automatically.
-
-          HOW TO BUNDLE:
-            1. Download TightVNC for Windows:  https://www.tightvnc.com/download.php
-            2. Extract / install it, copy tvnserver.exe to:
-                 agent\tvnserver.exe
-            3. Re-build the MSI with the preprocessor variable set:
-                 wix build installer\_product_versioned.wxs -b . -arch x64
-                      -d TVN_SERVER_BINARY=tvnserver.exe
-                      -out dist\obliance-agent.msi
-
-          Without this flag the component is silently omitted and the MSI
-          builds normally — TightVNC is then NOT deployed to managed devices.
-          The agent will still attempt to use any VNC server the end-user has
-          installed themselves (service auto-start or known paths).
-        -->
-        <?ifdef TVN_SERVER_BINARY?>
-        <Component Id="TvnServer" Guid="C3D4E5F6-A7B8-9012-CDEF-012345600003">
-          <File Id="TvnServerExe" Source="$(TVN_SERVER_BINARY)" Name="tvnserver.exe" />
-        </Component>
-        <?endif?>
-
       </Directory>
     </StandardDirectory>
 
     <Feature Id="Main">
       <ComponentRef Id="AgentExe" />
       <ComponentRef Id="AgentConfig" />
-      <?ifdef TVN_SERVER_BINARY?>
-      <ComponentRef Id="TvnServer" />
-      <?endif?>
     </Feature>
 
   </Package>

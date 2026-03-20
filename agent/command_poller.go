@@ -92,7 +92,7 @@ func pollCommandsOnce(cfg *Config) int {
 
 	// Check for a newer agent version, but only when no tunnel is active.
 	// Applying an update restarts the agent process, which would kill any
-	// in-flight SSH/VNC session — a jarring experience for the operator.
+	// in-flight SSH/RDP session — a jarring experience for the operator.
 	if result.LatestVersion != "" && activeTunnels.count() == 0 {
 		applyUpdateIfNewer(cfg, result.LatestVersion)
 	}

@@ -1,6 +1,8 @@
 import 'xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
-import { Terminal, X, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Terminal as XTerm } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import { Terminal as TerminalIcon, X, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
@@ -52,94 +54,83 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
     if (!wsUrl || !containerRef.current) return;
     let active = true;
 
-    Promise.all([
-      import('xterm').then(m => m.Terminal),
-      import('xterm-addon-fit').then(m => m.FitAddon),
-    ]).then(([Terminal, FitAddon]) => {
-      if (!active || !containerRef.current) return;
-
-      const term = new Terminal({
-        theme: {
-          background: '#0d0f14',
-          foreground: '#e2e8f0',
-          cursor: '#7c6af7',
-          selectionBackground: '#7c6af730',
-        },
-        fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
-        fontSize: 14,
-        cursorBlink: true,
-        allowTransparency: false,
-        convertEol: true,
-      });
-
-      const fit = new FitAddon();
-      term.loadAddon(fit);
-      term.open(containerRef.current);
-      fit.fit();
-      termRef.current = term;
-      fitRef.current = fit;
-
-      // WebSocket connection
-      const ws = new WebSocket(wsUrl);
-      ws.binaryType = 'arraybuffer';
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (active) setStatus('connected');
-        sendResize(ws, term.cols, term.rows);
-      };
-
-      ws.onmessage = (ev) => {
-        const data = ev.data instanceof ArrayBuffer
-          ? new Uint8Array(ev.data)
-          : ev.data;
-        term.write(data);
-      };
-
-      ws.onerror = () => {
-        if (active) { setStatus('error'); setErrorMsg('WebSocket connection failed'); }
-      };
-
-      ws.onclose = (ev) => {
-        if (!active) return;
-        if (userClosedRef.current) return; // user already clicked Disconnect — modal is closing
-        if (ev.wasClean) {
-          // Shell process exited cleanly (user typed `exit`, `logout`, etc.).
-          // Treat it the same as clicking the Disconnect button.
-          termRef.current?.dispose();
-          onClose();
-        } else {
-          setStatus('error');
-          setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
-        }
-      };
-
-      // Keyboard input → WebSocket
-      term.onData((data: string) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(new TextEncoder().encode(data));
-        }
-      });
-
-      // Terminal resize → send resize message to agent
-      term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          sendResize(ws, cols, rows);
-        }
-      });
-
-      // Resize observer
-      const ro = new ResizeObserver(() => { try { fit.fit(); } catch {} });
-      if (containerRef.current) ro.observe(containerRef.current);
-
-      return () => { ro.disconnect(); };
-    }).catch((err) => {
-      console.error('[SshTerminalModal] failed to load xterm:', err);
-      if (active) { setStatus('error'); setErrorMsg('Failed to load terminal library'); }
+    const term = new XTerm({
+      theme: {
+        background: '#0d0f14',
+        foreground: '#e2e8f0',
+        cursor: '#7c6af7',
+        selectionBackground: '#7c6af730',
+      },
+      fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
+      fontSize: 14,
+      cursorBlink: true,
+      allowTransparency: false,
+      convertEol: true,
     });
+
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(containerRef.current);
+    fit.fit();
+    termRef.current = term;
+    fitRef.current = fit;
+
+    // WebSocket connection
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (active) setStatus('connected');
+      sendResize(ws, term.cols, term.rows);
+    };
+
+    ws.onmessage = (ev) => {
+      const data = ev.data instanceof ArrayBuffer
+        ? new Uint8Array(ev.data)
+        : ev.data;
+      term.write(data);
+    };
+
+    ws.onerror = () => {
+      if (active) { setStatus('error'); setErrorMsg('WebSocket connection failed'); }
+    };
+
+    ws.onclose = (ev) => {
+      if (!active) return;
+      if (userClosedRef.current) return; // user already clicked Disconnect — modal is closing
+      if (ev.wasClean) {
+        // Shell process exited cleanly (user typed `exit`, `logout`, etc.).
+        // Treat it the same as clicking the Disconnect button.
+        termRef.current?.dispose();
+        onClose();
+      } else {
+        setStatus('error');
+        setErrorMsg('Connection lost — the tunnel was closed unexpectedly');
+      }
+    };
+
+    // Keyboard input → WebSocket
+    term.onData((data: string) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(new TextEncoder().encode(data));
+      }
+    });
+
+    // Terminal resize → send resize message to agent
+    term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        sendResize(ws, cols, rows);
+      }
+    });
+
+    // Resize observer
+    const ro = new ResizeObserver(() => { try { fit.fit(); } catch {} });
+    if (containerRef.current) ro.observe(containerRef.current);
 
     return () => {
       active = false;
+      ro.disconnect();
       wsRef.current?.close();
       termRef.current?.dispose();
     };
@@ -174,7 +165,7 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary border-b border-border shrink-0 gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Terminal className="w-4 h-4 text-text-muted shrink-0" />
+          <TerminalIcon className="w-4 h-4 text-text-muted shrink-0" />
           <span className="text-sm font-medium text-text-primary truncate">{deviceName}</span>
           <span className={clsx('text-xs px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1', sc.color)}>
             {status === 'connecting' && <RefreshCw className="w-3 h-3 animate-spin" />}

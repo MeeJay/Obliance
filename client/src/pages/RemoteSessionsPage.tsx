@@ -3,7 +3,6 @@ import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Sear
 import { remoteApi } from '@/api/remote.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
-import { VncViewerModal } from '@/components/VncViewerModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { getSocket } from '@/socket/socketClient';
 import toast from 'react-hot-toast';
@@ -13,7 +12,6 @@ type Tab = 'active' | 'history';
 
 const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; description: string }> = {
   oblireach:  { label: 'Oblireach',  color: 'text-sky-400   bg-sky-400/10   border-sky-400/30',       description: 'Native screen streaming (recommended)' },
-  vnc:        { label: 'VNC',        color: 'text-blue-400  bg-blue-400/10  border-blue-400/30',       description: 'Visual desktop — requires VNC server' },
   rdp:        { label: 'RDP',        color: 'text-purple-400 bg-purple-400/10 border-purple-400/30',   description: 'Remote Desktop Protocol (Windows)' },
   ssh:        { label: 'SSH',        color: 'text-green-400 bg-green-400/10 border-green-400/30',      description: 'Secure Shell terminal' },
   cmd:        { label: 'CMD',        color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',   description: 'Windows Command Prompt' },
@@ -57,8 +55,7 @@ export function RemoteSessionsPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
 
-  // Viewer modal state (VNC or Oblireach)
-  const [vncSession, setVncSession] = useState<RemoteSession | null>(null);
+  // Viewer modal state (Oblireach)
   const [orSession, setOrSession]   = useState<RemoteSession | null>(null);
   const pendingOrId = useRef<string | null>(null);
 
@@ -170,7 +167,7 @@ export function RemoteSessionsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Remote Sessions</h1>
-            <p className="text-sm text-text-muted mt-0.5">Access devices remotely via Oblireach, VNC, RDP, or SSH</p>
+            <p className="text-sm text-text-muted mt-0.5">Access devices remotely via Oblireach, RDP, or SSH</p>
           </div>
           <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
@@ -321,7 +318,7 @@ export function RemoteSessionsPage() {
                 const statusCfg = STATUS_CONFIG[session.status];
                 const protoCfg = PROTOCOL_CONFIG[session.protocol];
                 const device = (session as any).device;
-                const canConnect = session.status === 'active' && (session.protocol === 'vnc' || session.protocol === 'rdp');
+                const canConnect = session.status === 'active' && session.protocol === 'rdp';
                 return (
                   <div key={session.id} className="bg-bg-secondary border border-border rounded-xl p-4">
                     <div className="flex items-start gap-4">
@@ -363,10 +360,9 @@ export function RemoteSessionsPage() {
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {/* Connect button — VNC or Oblireach active sessions */}
+                        {/* Connect button — RDP active sessions */}
                         {canConnect && (
                           <button
-                            onClick={() => setVncSession(session)}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -462,15 +458,6 @@ export function RemoteSessionsPage() {
           </div>
         )}
       </div>
-
-      {/* VNC viewer modal */}
-      {vncSession && (
-        <VncViewerModal
-          session={vncSession}
-          deviceName={`Device #${vncSession.deviceId}`}
-          onClose={() => setVncSession(null)}
-        />
-      )}
 
       {/* Oblireach native viewer */}
       {orSession && (

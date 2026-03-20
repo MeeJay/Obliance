@@ -33,13 +33,13 @@ async function main() {
   // Attach Socket.io — this registers its own 'upgrade' listener on `server`
   const io = createSocketServer(server);
 
-  // ── VNC WebSocket tunnel ──────────────────────────────────────────────────
+  // ── Remote tunnel WebSocket ──────────────────────────────────────────────
   // socket.io/engine.io registers an upgrade handler that destroys sockets whose
-  // path doesn't match "/socket.io/".  To safely handle VNC tunnel upgrades on
+  // path doesn't match "/socket.io/".  To safely handle tunnel upgrades on
   // the same HTTP port we intercept ALL upgrade events, route /api/remote/*
   // paths to our own WS server, and forward everything else to socket.io's
   // original listeners.
-  const vncWss = new WebSocketServer({ noServer: true });
+  const remoteWss = new WebSocketServer({ noServer: true });
 
   // Capture and remove the upgrade listeners socket.io just registered so we
   // can act as the sole dispatcher.
@@ -55,11 +55,11 @@ async function main() {
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
 
-    // ── Browser VNC viewer ──────────────────────────────────────────────────
+    // ── Browser remote tunnel ──────────────────────────────────────────────
     const browserMatch = BROWSER_RE.exec(pathname);
     if (browserMatch) {
       const sessionToken = browserMatch[1];
-      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
         try {
           const session = await db('remote_sessions')
             .where({ session_token: sessionToken })
@@ -69,21 +69,21 @@ async function main() {
             return;
           }
           remoteService.registerBrowserTunnel(sessionToken, ws);
-          logger.info({ sessionToken }, 'Browser VNC tunnel connected');
+          logger.info({ sessionToken }, 'Browser remote tunnel connected');
         } catch (err) {
-          logger.error(err, 'VNC browser tunnel setup error');
+          logger.error(err, 'Browser remote tunnel setup error');
           ws.close(4000, 'Internal error');
         }
       });
       return; // handled — do NOT forward to socket.io
     }
 
-    // ── Agent VNC tunnel ────────────────────────────────────────────────────
+    // ── Agent remote tunnel ────────────────────────────────────────────────
     const agentMatch = AGENT_RE.exec(pathname);
     if (agentMatch) {
       const sessionToken = agentMatch[1];
       const apiKey = request.headers['x-api-key'] as string | undefined;
-      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
         try {
           if (!apiKey) {
             ws.close(4003, 'Missing X-Api-Key header');
@@ -102,9 +102,9 @@ async function main() {
             return;
           }
           remoteService.registerAgentTunnel(sessionToken, ws);
-          logger.info({ sessionToken }, 'Agent VNC tunnel connected');
+          logger.info({ sessionToken }, 'Agent remote tunnel connected');
         } catch (err) {
-          logger.error(err, 'VNC agent tunnel setup error');
+          logger.error(err, 'Agent remote tunnel setup error');
           ws.close(4000, 'Internal error');
         }
       });
@@ -114,7 +114,7 @@ async function main() {
     // ── Agent command channel ───────────────────────────────────────────────
     if (AGENT_CMD_RE.test(pathname)) {
       const apiKey = request.headers['x-api-key'] as string | undefined;
-      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
         try {
           if (!apiKey) { ws.close(4003, 'Missing X-Api-Key'); return; }
           // Note: no is_active check here — matches agentAuth middleware which also omits it.
@@ -145,7 +145,7 @@ async function main() {
       const apiKey  = request.headers['x-api-key'] as string | undefined;
       const reqUrl  = new URL(request.url ?? '/', 'http://localhost');
       const devUuid = reqUrl.searchParams.get('uuid');
-      vncWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+      remoteWss.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
         try {
           if (!apiKey)  { ws.close(4003, 'Missing X-Api-Key'); return; }
           if (!devUuid) { ws.close(4000, 'Missing uuid query param'); return; }
@@ -201,7 +201,7 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     scheduleService.stop();
-    vncWss.close();
+    remoteWss.close();
     server.close(() => {
       db.destroy();
       process.exit(0);

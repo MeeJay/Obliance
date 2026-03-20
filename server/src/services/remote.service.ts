@@ -36,7 +36,7 @@ class RemoteService {
     deviceId: number,
     tenantId: number,
     userId: number,
-    protocol: RemoteProtocol = 'vnc',
+    protocol: RemoteProtocol = 'oblireach',
     /** WTS session ID to capture (Windows only). Omit to capture the console session. */
     wtsSessionId?: number,
   ): Promise<RemoteSession> {
@@ -86,10 +86,10 @@ class RemoteService {
         }
       }
     } else {
-      // VNC / RDP / SSH: prefer instant command channel, fall back to DB queue.
+      // RDP / SSH / Shell: prefer instant command channel, fall back to DB queue.
       const delivered = agentHub.push(deviceId, {
         type: 'command',
-        id: `vnc_${sessionToken.slice(0, 8)}`,
+        id: `remote_${sessionToken.slice(0, 8)}`,
         commandType: 'open_remote_tunnel',
         payload: commandPayload,
       });

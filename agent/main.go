@@ -376,7 +376,7 @@ func mainLoop(cfg *Config) {
 	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL, cfg.RemediationEnabled)
 
 	// Start the persistent command channel — keeps a long-lived WebSocket open
-	// so the server can push commands instantly (e.g. open_remote_tunnel for VNC)
+	// so the server can push commands instantly (e.g. open_remote_tunnel)
 	// instead of waiting for the next poll cycle (up to 60 s).
 	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
 

@@ -3,11 +3,10 @@ package main
 // tunnel.go — Remote-access relay for the Obliance agent.
 //
 // Supported protocols:
-//   vnc  — TCP relay to localhost:5900 (TightVNC / TigerVNC)
 //   rdp  — TCP relay to localhost:3389 (Windows RDP)
 //   ssh  — PTY shell session (PowerShell on Windows, bash/sh on Unix)
 //
-// Flow (vnc/rdp):
+// Flow (rdp):
 //   Server sends open_remote_tunnel → agent:
 //     1. Ensures the local service is reachable
 //     2. Connects to the Obliance server via WebSocket
@@ -22,7 +21,6 @@ package main
 //
 // The relay runs entirely in background goroutines; the command ack is sent
 // immediately after the connections are established (not when they close).
-// VNC auto-start logic lives in vnc.go.
 
 import (
 	"encoding/json"
@@ -40,7 +38,7 @@ import (
 
 type tunnelState struct {
 	ws      *wsConn
-	vnc     net.Conn // nil for ssh/shell tunnels
+	tcp     net.Conn // nil for ssh/shell tunnels
 	closeCh chan struct{}
 	once    sync.Once // ensures closeCh is closed exactly once
 }
@@ -48,12 +46,12 @@ type tunnelState struct {
 func (ts *tunnelState) close() {
 	ts.once.Do(func() { close(ts.closeCh) })
 	ts.ws.Close()
-	if ts.vnc != nil {
-		ts.vnc.Close()
+	if ts.tcp != nil {
+		ts.tcp.Close()
 	}
 }
 
-// tunnelRegistry holds all active VNC tunnels keyed by session token.
+// tunnelRegistry holds all active tunnels keyed by session token.
 type tunnelRegistry struct {
 	mu      sync.Mutex
 	tunnels map[string]*tunnelState
@@ -95,7 +93,7 @@ func (r *tunnelRegistry) count() int {
 
 // handleOpenRemoteTunnel implements the "open_remote_tunnel" command.
 // It establishes a WebSocket connection to the Obliance server and a TCP
-// connection to the local VNC daemon, then relays traffic between them in two
+// connection to the local RDP service, then relays traffic between them in two
 // background goroutines. It returns as soon as both connections are open.
 func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{}, error) {
 	sessionToken := payloadString(cmd.Payload, "sessionToken")
@@ -104,7 +102,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	}
 	protocol := payloadString(cmd.Payload, "protocol")
 	if protocol == "" {
-		protocol = "vnc"
+		protocol = "rdp"
 	}
 
 	// Build the WebSocket URL for the agent-side tunnel endpoint
@@ -122,20 +120,25 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 
 	log.Printf("Command %s: opening %s tunnel → %s", cmd.ID, protocol, wsURL)
 
+	// WTS session ID (Windows): 0 = SYSTEM, >0 = user session
+	wtsSessionId := 0
+	if v, ok := cmd.Payload["sessionId"]; ok {
+		switch sv := v.(type) {
+		case float64:
+			wtsSessionId = int(sv)
+		case int:
+			wtsSessionId = sv
+		}
+	}
+
 	// Route by protocol
 	if protocol == "ssh" || protocol == "cmd" || protocol == "powershell" {
-		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken, protocol)
+		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken, protocol, wtsSessionId)
 	}
-	// ── VNC / RDP : TCP relay ─────────────────────────────────────────────────
-	tcpAddr := "localhost:5900"
-	switch protocol {
-	case "rdp":
-		tcpAddr = "localhost:3389"
-	case "vnc":
-		// 1. Make sure VNC is running on this machine (start it if needed).
-		if err := ensureVNCRunning(); err != nil {
-			return nil, fmt.Errorf("open_remote_tunnel: %w", err)
-		}
+	// ── RDP : TCP relay ──────────────────────────────────────────────────────
+	tcpAddr := "localhost:3389" // RDP only
+	if protocol != "rdp" {
+		return nil, fmt.Errorf("open_remote_tunnel: unsupported TCP protocol %q", protocol)
 	}
 
 	// 2. Connect WebSocket to Obliance server
@@ -154,7 +157,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	}
 
 	closeCh := make(chan struct{})
-	ts := &tunnelState{ws: ws, vnc: svc, closeCh: closeCh}
+	ts := &tunnelState{ws: ws, tcp: svc, closeCh: closeCh}
 	activeTunnels.add(sessionToken, ts)
 
 	// 4. Keepalive — send a WS ping every 25 s so intermediate proxies
@@ -246,7 +249,7 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 // handleShellTunnel spawns a local shell inside a PTY (Unix) or ConPTY
 // (Windows) and relays its I/O over WebSocket.
 // This backs the "ssh" protocol which gives a remote shell inside the browser.
-func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellCmd string) (interface{}, error) {
+func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellCmd string, wtsSessionId int) (interface{}, error) {
 	// Connect WebSocket to Obliance server first so we can reject early if down.
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
@@ -258,7 +261,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellC
 	// Start a platform-specific PTY / ConPTY shell with a sensible default size.
 	// The browser sends an initial resize message immediately after connecting
 	// so the actual size is corrected within milliseconds.
-	shell, err := newShellSession(220, 50, shellCmd)
+	shell, err := newShellSession(220, 50, shellCmd, wtsSessionId)
 	if err != nil {
 		ws.Close()
 		return nil, fmt.Errorf("open_remote_tunnel(ssh): start shell: %w", err)
@@ -275,7 +278,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellC
 	}
 	activeTunnels.add(sessionToken, &tunnelState{ws: ws, closeCh: closeCh})
 
-	// Keepalive — same as VNC/RDP: prevent proxy idle-timeout from killing the tunnel.
+	// Keepalive — same as RDP: prevent proxy idle-timeout from killing the tunnel.
 	go func() {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -368,7 +371,7 @@ func (d *CommandDispatcher) handleCloseRemoteTunnel(cmd AgentCommand) (interface
 	}
 
 	ts.close()
-	log.Printf("Command %s: VNC tunnel closed (token=%s)", cmd.ID, sessionToken)
+	log.Printf("Command %s: tunnel closed (token=%s)", cmd.ID, sessionToken)
 	return map[string]string{
 		"sessionToken": sessionToken,
 		"status":       "tunnel_closed",

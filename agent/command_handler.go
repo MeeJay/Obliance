@@ -135,6 +135,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "install_oblireach":
 		result, execErr = d.handleInstallOblireach(cmd)
 
+	case "list_wts_sessions":
+		result, execErr = d.handleListWtsSessions(cmd)
+
 	case "list_processes":
 		result, execErr = d.handleListProcesses(cmd)
 
@@ -1237,6 +1240,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleInstallUpdate(cmd)
 	case "check_compliance":
 		return d.handleCheckCompliance(cmd)
+	case "list_wts_sessions":
+		return d.handleListWtsSessions(cmd)
 	case "list_processes":
 		return d.handleListProcesses(cmd)
 	case "kill_process":

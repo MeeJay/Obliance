@@ -129,7 +129,7 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error
 				continue
 			}
 			// Dispatch each command in its own goroutine so the read loop is
-			// never blocked by a slow operation (e.g. VNC startup).
+			// never blocked by a slow operation (e.g. remote tunnel setup).
 			go dispatchHubCommand(d, msg, sendAck)
 		}
 	}

@@ -246,7 +246,8 @@ export type CommandType =
   | 'uninstall_agent'
   | 'install_oblireach'
   | 'list_processes'
-  | 'kill_process';
+  | 'kill_process'
+  | 'list_wts_sessions';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -641,7 +642,7 @@ export interface ComplianceResult {
 
 // ─── REMOTE SESSIONS ─────────────────────────────────────────────────────────
 
-export type RemoteProtocol = 'vnc' | 'rdp' | 'ssh' | 'cmd' | 'powershell' | 'oblireach';
+export type RemoteProtocol = 'rdp' | 'ssh' | 'cmd' | 'powershell' | 'oblireach';
 export type RemoteSessionStatus = 'waiting' | 'connecting' | 'active' | 'closed' | 'failed' | 'timeout' | 'expired';
 
 export interface RemoteSession {

@@ -16,7 +16,7 @@ type unixShell struct {
 
 // newShellSession spawns a login shell attached to a pseudo-terminal.
 // cols/rows set the initial terminal dimensions so the first paint is correct.
-func newShellSession(cols, rows uint16, shellCmd string) (shellSession, error) {
+func newShellSession(cols, rows uint16, shellCmd string, _ int) (shellSession, error) {
 	var sh string
 	var shArgs []string
 	if shellCmd == "powershell" {
