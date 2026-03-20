@@ -702,7 +702,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters|MaximumPasswordAge',
     expected: 30,
-    operator: 'lte',
+    operator: 'lt',
     severity: 'medium',
   }),
 
@@ -746,7 +746,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|InactivityTimeoutSecs',
     expected: 900,
-    operator: 'lte',
+    operator: 'lt',
     severity: 'medium',
   }),
 
@@ -779,7 +779,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|CachedLogonsCount',
     expected: 4,
-    operator: 'lte',
+    operator: 'lt',
     severity: 'medium',
   }),
 
@@ -790,7 +790,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|PasswordExpiryWarning',
     expected: 14,
-    operator: 'lte',
+    operator: 'lt',
     severity: 'low',
   }),
 
@@ -812,7 +812,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|ScRemoveOption',
     expected: 1,
-    operator: 'gte',
+    operator: 'gt',
     severity: 'medium',
   }),
 
@@ -856,7 +856,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|AutoDisconnect',
     expected: 15,
-    operator: 'lte',
+    operator: 'lt',
     severity: 'medium',
   }),
 
@@ -900,7 +900,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|SmbServerNameHardeningLevel',
     expected: 1,
-    operator: 'gte',
+    operator: 'gt',
     severity: 'medium',
   }),
 
@@ -1120,7 +1120,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\ldap|LDAPClientIntegrity',
     expected: 1,
-    operator: 'gte',
+    operator: 'gt',
     severity: 'high',
   }),
 
@@ -1197,7 +1197,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     targetPlatform: 'windows',
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|ConsentPromptBehaviorAdmin',
     expected: 2,
-    operator: 'gte',
+    operator: 'gt',
     severity: 'high',
   }),
 
