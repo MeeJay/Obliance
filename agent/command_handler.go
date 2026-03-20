@@ -465,10 +465,10 @@ func evalRegistry(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleRes
 			r.ActualValue = nil
 		} else if rule.Operator == "exists" {
 			r.Status = "fail"
-			r.ActualValue = nil
+			r.ActualValue = "(absent)"
 		} else {
 			r.Status = "fail"
-			r.ActualValue = nil
+			r.ActualValue = "(absent)"
 		}
 		return r
 	}
@@ -619,7 +619,10 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	expected := strings.ToLower(fmt.Sprintf("%v", rule.Expected))
 	actual := strings.ToLower(actualStatus)
 	// Normalise Windows StartType casing
+	// "not_found" = service not installed → at least as secure as Disabled
 	switch actual {
+	case "not_found":
+		actual = "disabled"
 	case "disabled", "0":
 		actual = "disabled"
 	case "manual", "1":
