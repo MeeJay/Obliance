@@ -225,7 +225,24 @@ export function ObliReachViewer({
       const view = new Uint8Array(buf);
       const frameType = view[0];
 
-      if (frameType === FRAME_H264) {
+      if (frameType === 0x01) {
+        // JPEG frame — decode with createImageBitmap (no WebCodecs needed)
+        const blob = new Blob([buf.slice(1)], { type: 'image/jpeg' });
+        createImageBitmap(blob).then((bmp) => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
+            canvas.width = bmp.width;
+            canvas.height = bmp.height;
+            setAgentDims({ w: bmp.width, h: bmp.height });
+          }
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.drawImage(bmp, 0, 0);
+          bmp.close();
+          fpsCountRef.current++;
+          setStatus((prev) => (prev !== 'streaming' ? 'streaming' : prev));
+        }).catch(() => {});
+      } else if (frameType === FRAME_H264) {
         const nalData = buf.slice(1);
         const decoder = decoderRef.current;
         if (!decoder || decoder.state !== 'configured') return;
@@ -239,10 +256,9 @@ export function ObliReachViewer({
             data: nalData,
             timestamp: tsMicros,
           }));
-          tsMicros += Math.round(1_000_000 / 15); // assume 15fps
+          tsMicros += Math.round(1_000_000 / 15);
         } catch (e) {
           // Decoder may reject delta frames before the first keyframe
-          // — silently ignore until the next key frame
         }
       }
     };

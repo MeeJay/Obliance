@@ -6,7 +6,7 @@ import {
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -709,6 +709,40 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
     return policy?.rules.find(r => r.id === ruleId);
   };
 
+  const handleExport = (e: React.MouseEvent, result: ComplianceResult) => {
+    e.stopPropagation();
+    const policyName = result.policy?.name ?? `Policy #${result.policyId}`;
+    const checkedAt  = new Date(result.checkedAt).toLocaleString();
+    const score      = result.complianceScore.toFixed(0);
+
+    const lines: string[] = [
+      `"Politique","${policyName.replace(/"/g, '""')}"`,
+      `"Date","${checkedAt}"`,
+      `"Score","${score}%"`,
+      ``,
+      `"Règle","Statut","Sévérité","Valeur actuelle","Valeur attendue"`,
+    ];
+
+    for (const rr of result.results) {
+      const info     = getRuleInfo(result.policyId, rr.ruleId);
+      const name     = (info?.name ?? rr.ruleId).replace(/"/g, '""');
+      const actual   = rr.actualValue !== null && rr.actualValue !== undefined ? String(rr.actualValue) : '';
+      const expected = info?.expected !== undefined && info.expected !== null ? String(info.expected) : '';
+      lines.push(`"${name}","${rr.status}","${info?.severity ?? ''}","${actual}","${expected}"`);
+    }
+
+    const csv  = lines.join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `compliance-${policyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-48">
       <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
@@ -755,9 +789,9 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
           return (
             <div key={result.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
               {/* Policy header */}
-              <button
+              <div
                 onClick={() => toggleExpand(result.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors text-left"
+                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   {isExpanded
@@ -775,6 +809,14 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
+                  <button
+                    onClick={(e) => handleExport(e, result)}
+                    title="Exporter le rapport CSV"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-border hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    <Download className="w-3 h-3" />
+                    Export
+                  </button>
                   <div className="flex gap-3 text-xs">
                     {passCount > 0 && <span className="text-green-400">✓ {passCount}</span>}
                     {failCount > 0 && <span className="text-red-400">✗ {failCount}</span>}
@@ -789,7 +831,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                     {result.complianceScore.toFixed(0)}%
                   </div>
                 </div>
-              </button>
+              </div>
 
               {/* Score bar */}
               <div className="h-1 bg-bg-primary">
