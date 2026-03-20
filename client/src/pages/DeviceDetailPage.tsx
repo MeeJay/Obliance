@@ -2756,6 +2756,8 @@ export function DeviceDetailPage() {
   const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'vnc' | 'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
   const [isStartingRemote, setIsStartingRemote] = useState(false);
   const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
+  const [headerOrSessions, setHeaderOrSessions] = useState<ObliReachSession[]>([]);
+  const [headerOrSessionPickerOpen, setHeaderOrSessionPickerOpen] = useState(false);
   const remoteDropdownRef = useRef<HTMLDivElement>(null);
   const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
 
@@ -2768,6 +2770,33 @@ export function DeviceDetailPage() {
       toast.error(`Failed to send ${type} command`);
     } finally {
       setHeaderPending((p) => { const n = new Set(p); n.delete(type); return n; });
+    }
+  };
+
+  const handleHeaderStartObliReachSession = async (wtsSessionId?: number) => {
+    setHeaderOrSessionPickerOpen(false);
+    setHeaderRemoteProtocol('oblireach');
+    setHeaderRemoteSession(null);
+    setHeaderRemoteOpen(true);
+    setIsStartingRemote(true);
+    try {
+      const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsSessionId);
+      const socket = getSocket();
+      if (socket) {
+        const onReady = (s: RemoteSession) => {
+          if (s.deviceId !== deviceId || s.id !== session.id) return;
+          setHeaderRemoteSession(s);
+          socket.off('REMOTE_TUNNEL_READY', onReady);
+          remoteReadyListenerRef.current = null;
+        };
+        remoteReadyListenerRef.current = onReady;
+        socket.on('REMOTE_TUNNEL_READY', onReady);
+      }
+    } catch {
+      toast.error('Failed to start Oblireach session');
+      setHeaderRemoteOpen(false);
+    } finally {
+      setIsStartingRemote(false);
     }
   };
 
@@ -2785,31 +2814,17 @@ export function DeviceDetailPage() {
         return;
       }
       if (headerOrInstalled === null) { toast('Checking Oblireach status…'); return; }
-      // Installed — check sessions and start.
+      // Installed — check sessions and show picker if multiple.
       try {
         const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
-        const wtsId = sessions.length === 1 ? sessions[0].id : undefined;
-        setHeaderRemoteProtocol('oblireach');
-        setHeaderRemoteSession(null);
-        setHeaderRemoteOpen(true);
-        setIsStartingRemote(true);
-        const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsId);
-        const socket = getSocket();
-        if (socket) {
-          const onReady = (s: RemoteSession) => {
-            if (s.deviceId !== deviceId || s.id !== session.id) return;
-            setHeaderRemoteSession(s);
-            socket.off('REMOTE_TUNNEL_READY', onReady);
-            remoteReadyListenerRef.current = null;
-          };
-          remoteReadyListenerRef.current = onReady;
-          socket.on('REMOTE_TUNNEL_READY', onReady);
+        if (sessions.length > 1) {
+          setHeaderOrSessions(sessions);
+          setHeaderOrSessionPickerOpen(true);
+          return;
         }
+        await handleHeaderStartObliReachSession(sessions[0]?.id);
       } catch {
-        toast.error('Failed to start Oblireach session');
-        setHeaderRemoteOpen(false);
-      } finally {
-        setIsStartingRemote(false);
+        await handleHeaderStartObliReachSession(undefined);
       }
       return;
     }
@@ -2992,6 +3007,48 @@ export function DeviceDetailPage() {
           deviceName={device.displayName || device.hostname}
           onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
         />
+      )}
+      {/* WTS Session picker — header remote button (RDS with multiple sessions) */}
+      {headerOrSessionPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <MonitorPlay className="w-4 h-4 text-accent" />
+                Choose Session
+              </h2>
+              <button
+                onClick={() => setHeaderOrSessionPickerOpen(false)}
+                className="text-text-muted hover:text-text-primary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+              {headerOrSessions.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => handleHeaderStartObliReachSession(s.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+                >
+                  <div className={clsx(
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    s.state === 'Active' ? 'bg-green-400' :
+                    s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+                  )} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-text-primary truncate">
+                      {s.username || '(no user)'}
+                    </div>
+                    <div className="text-xs text-text-muted">
+                      {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Header */}
