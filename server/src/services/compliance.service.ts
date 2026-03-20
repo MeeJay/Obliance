@@ -9,6 +9,7 @@ import { iso27001Rules } from './compliance-presets/iso-27001';
 import { pciDSSv4Rules } from './compliance-presets/pci-dss-v4';
 import { hipaaRules } from './compliance-presets/hipaa';
 import { soc2Rules } from './compliance-presets/soc2';
+import { cisWindowsL1Rules } from './compliance-presets/cis-windows-l1';
 
 class ComplianceService {
   rowToPolicy(row: any): CompliancePolicy {
@@ -217,63 +218,10 @@ class ComplianceService {
       {
         id: 'cis-windows-level1',
         name: 'CIS Windows Level 1',
-        description: 'CIS Benchmark Level 1 pour Windows 10/11 Enterprise. Contrôles couvrant Account Policies, Local Policies, System Services, Windows Firewall, Advanced Audit Policy et Administrative Templates.',
+        description: `CIS Benchmark Level 1 pour Windows 10/11 Enterprise. ${cisWindowsL1Rules.length} contrôles couvrant Account Policies, User Rights, Security Options, System Services, Windows Firewall, Advanced Audit Policy et Administrative Templates.`,
         framework: 'CIS',
         targetPlatform: 'windows',
-        rules: [
-          // Foundation
-          r('cis-001', { name: 'CIS 9.x — Firewall all profiles enabled', category: 'Firewall', checkType: 'command', targetPlatform: 'windows',
-            target: '(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $false} | Measure-Object).Count',
-            expected: '0', operator: 'eq', severity: 'critical' }),
-          r('cis-002', { name: 'CIS 18.9.77 — Defender real-time protection', category: 'Antivirus', checkType: 'command', targetPlatform: 'windows',
-            target: '(Get-MpComputerStatus -ErrorAction SilentlyContinue).RealTimeProtectionEnabled',
-            expected: 'True', operator: 'eq', severity: 'critical' }),
-          r('cis-003', { name: 'CIS 2.3.1.1 — Guest account disabled', category: 'Accounts', checkType: 'command', targetPlatform: 'windows',
-            target: '(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled',
-            expected: 'False', operator: 'eq', severity: 'high' }),
-          r('cis-004', { name: 'CIS 18.9.x — RDP Network Level Authentication', category: 'Remote Access', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp|UserAuthentication',
-            expected: '1', operator: 'eq', severity: 'high' }),
-          r('cis-005', { name: 'CIS 18.3.3 — SMBv1 server disabled', category: 'Network', checkType: 'command', targetPlatform: 'windows',
-            target: '(Get-SmbServerConfiguration -Property EnableSMB1Protocol).EnableSMB1Protocol',
-            expected: 'False', operator: 'eq', severity: 'critical', minOsVersion: 'Windows Server 2016 / Windows 10' }),
-          r('cis-006', { name: 'CIS 1.1.1 — Minimum password length ≥ 14 (secedit)', category: 'Password Policy', checkType: 'command', targetPlatform: 'windows',
-            target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet 2>$null;$v=[int]((Select-String "MinimumPasswordLength\\s*=\\s*(\\d+)" $f -EA SilentlyContinue).Matches[0].Groups[1].Value);Remove-Item $f -Force -EA SilentlyContinue;if($v -ge 14){"PASS"}else{"FAIL"}',
-            expected: 'PASS', operator: 'eq', severity: 'high' }),
-          r('cis-007', { name: 'CIS 1.1.2 — Password complexity enabled (secedit)', category: 'Password Policy', checkType: 'command', targetPlatform: 'windows',
-            target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet 2>$null;$v=(Select-String "PasswordComplexity\\s*=\\s*(\\d+)" $f -EA SilentlyContinue).Matches[0].Groups[1].Value;Remove-Item $f -Force -EA SilentlyContinue;$v',
-            expected: '1', operator: 'eq', severity: 'high' }),
-          r('cis-008', { name: 'CIS 1.2.1 — Account lockout threshold ≤ 5', category: 'Account Lockout', checkType: 'command', targetPlatform: 'windows',
-            target: '$r=(net accounts 2>$null|Select-String "Lockout threshold").ToString();$v=[int]($r -replace ".*:\\s*","");if($v -le 5 -and $v -gt 0){"PASS"}else{"FAIL"}',
-            expected: 'PASS', operator: 'eq', severity: 'high' }),
-          r('cis-009', { name: "CIS 2.3.7.3 — Don't display last signed-in username", category: 'Authentication', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DontDisplayLastUserName',
-            expected: '1', operator: 'eq', severity: 'medium' }),
-          r('cis-010', { name: 'CIS 17.5.1 — Audit: Logon failure events enabled (AuditPol)', category: 'Audit', checkType: 'command', targetPlatform: 'windows',
-            target: '(AuditPol /get /subcategory:"Logon" 2>$null | Select-String "Failure").ToString() -replace ".*Failure\\s*",""',
-            expected: 'No Auditing', operator: 'neq', severity: 'high' }),
-          r('cis-011', { name: 'CIS 18.3.3 — SMB client packet signing required', category: 'Network', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters|RequireSecuritySignature',
-            expected: '1', operator: 'eq', severity: 'high' }),
-          r('cis-012', { name: 'CIS 18.5.4 — LLMNR disabled', category: 'Network', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient|EnableMulticast',
-            expected: '0', operator: 'eq', severity: 'medium' }),
-          r('cis-013', { name: 'CIS 2.3.11.7 — LAN Manager auth level = 5 (NTLMv2 only)', category: 'Authentication', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|LmCompatibilityLevel',
-            expected: '5', operator: 'eq', severity: 'high' }),
-          r('cis-014', { name: 'CIS 2.3.10.2 — Anonymous SID/Name translation disabled', category: 'Accounts', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|AnonymousNameLookup',
-            expected: '0', operator: 'eq', severity: 'medium' }),
-          r('cis-015', { name: 'CIS 2.3.10.3 — Null session pipes empty', category: 'Network', checkType: 'command', targetPlatform: 'windows',
-            target: '(Get-ItemProperty "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters" -Name NullSessionPipes -EA SilentlyContinue).NullSessionPipes -join ""',
-            expected: '', operator: 'eq', severity: 'medium' }),
-          r('cis-016', { name: 'CIS 2.3.17.6 — UAC admin consent mode enabled (ConsentPromptBehaviorAdmin ≠ 0)', category: 'System', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|ConsentPromptBehaviorAdmin',
-            expected: '0', operator: 'neq', severity: 'high' }),
-          r('cis-017', { name: 'CIS 18.9.65.3 — RDP active session idle timeout configured', category: 'Remote Access', checkType: 'registry', targetPlatform: 'windows',
-            target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services|MaxIdleTime',
-            expected: '0', operator: 'neq', severity: 'medium' }),
-        ],
+        rules: cisWindowsL1Rules,
       },
 
       // ── NIST SP 800-171 ───────────────────────────────────────────────────
