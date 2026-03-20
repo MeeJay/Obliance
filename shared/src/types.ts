@@ -244,7 +244,9 @@ export type CommandType =
   | 'install_software'
   | 'uninstall_software'
   | 'uninstall_agent'
-  | 'install_oblireach';
+  | 'install_oblireach'
+  | 'list_processes'
+  | 'kill_process';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -286,6 +288,16 @@ export interface ServiceInfo {
   status: string;        // 'running' | 'stopped' | 'starting' | 'stopping' | ...
   startType?: string;    // 'auto' | 'manual' | 'disabled' | ...
   runAsUser?: string;    // account the service runs as (Windows: StartName, Linux: User=, macOS: ps user)
+}
+
+// Process info returned by the agent for list_processes
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  cpuPercent: number;
+  memBytes: number;
+  user: string;
+  command?: string;
 }
 
 // Agent push protocol

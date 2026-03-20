@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useLiveAlertsStore } from '@/store/liveAlertsStore';
 import type { LiveAlert, AlertSeverity } from '@/store/liveAlertsStore';
 import { useTenantStore } from '@/store/tenantStore';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 import { cn } from '@/utils/cn';
 
 const TOAST_LIFETIME_MS     = 60_000;  // bottom-right: 1 min from alert.createdAt
@@ -91,6 +92,7 @@ function AlertCard({ alert, opacity = 1, lifetimeMs }: AlertCardProps) {
 export function LiveAlerts() {
   const { alerts, localEnabled, multiTenantEnabled, position } = useLiveAlertsStore();
   const { currentTenantId } = useTenantStore();
+  const nativeTop = useNativeTopOffset();
 
   const lifetimeMs = position === 'top-center' ? TOP_CENTER_LIFETIME_MS : TOAST_LIFETIME_MS;
   const now = Date.now();
@@ -112,7 +114,7 @@ export function LiveAlerts() {
     // Only show the newest alert
     const latest = visibleToasts[0];
     return (
-      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[400px] max-w-[calc(100vw-2rem)] animate-fade-in">
+      <div className="fixed left-1/2 -translate-x-1/2 z-50 w-[400px] max-w-[calc(100vw-2rem)] animate-fade-in" style={{ top: nativeTop + 64 }}>
         <AlertCard key={latest.id} alert={latest} lifetimeMs={TOP_CENTER_LIFETIME_MS} />
       </div>
     );

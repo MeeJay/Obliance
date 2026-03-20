@@ -51,9 +51,17 @@ class RemoteService {
 
     const session = this.rowToSession(row);
 
+    // Look up the connecting user's display name for agent-side notifications.
+    let username = 'Unknown';
+    try {
+      const user = await db('users').where({ id: userId }).first();
+      if (user) username = user.display_name || user.username || user.email || 'Unknown';
+    } catch {}
+
     // Deliver the open_remote_tunnel command to the appropriate agent.
     const commandPayload: Record<string, unknown> = {
       sessionToken, protocol, serverWsUrl: `/api/remote/tunnel/${sessionToken}`,
+      username,
     };
     if (wtsSessionId !== undefined) {
       commandPayload.sessionId = wtsSessionId;
@@ -121,8 +129,13 @@ class RemoteService {
       duration_seconds: duration, end_reason: reason,
     });
 
-    // Tell agent to close tunnel
-    const closePayload = { sessionToken: session.session_token };
+    // Tell agent to close tunnel — include username for agent-side notification.
+    let closingUsername = 'Unknown';
+    try {
+      const user = await db('users').where({ id: session.started_by }).first();
+      if (user) closingUsername = user.display_name || user.username || user.email || 'Unknown';
+    } catch {}
+    const closePayload = { sessionToken: session.session_token, username: closingUsername };
     if (session.protocol === 'oblireach') {
       // Deliver close via WS if connected; no DB fallback needed (close is best-effort —
       // the session is ending regardless, and the agent will detect the tunnel close).

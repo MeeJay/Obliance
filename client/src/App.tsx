@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 import { useAuthStore } from '@/store/authStore';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -36,6 +37,7 @@ import '@/i18n';
 
 export default function App() {
   const { checkSession } = useAuthStore();
+  const nativeTop = useNativeTopOffset();
 
   useEffect(() => {
     checkSession();
@@ -91,6 +93,7 @@ export default function App() {
 
       <Toaster
         position="top-right"
+        containerStyle={nativeTop ? { top: nativeTop + 8 } : undefined}
         toastOptions={{
           className: '!bg-bg-secondary !text-text-primary !border !border-border',
           duration: 4000,

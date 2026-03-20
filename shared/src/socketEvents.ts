@@ -49,9 +49,14 @@ export const SocketEvents = {
   // Maintenance
   MAINTENANCE_CHANGED:    'MAINTENANCE_CHANGED',
 
+  // Process events
+  DEVICE_PROCESSES_UPDATED: 'DEVICE_PROCESSES_UPDATED',
+
   // Client → Server
   DEVICE_SUBSCRIBE:       'DEVICE_SUBSCRIBE',
   DEVICE_UNSUBSCRIBE:     'DEVICE_UNSUBSCRIBE',
+  PROCESS_SUBSCRIBE:      'PROCESS_SUBSCRIBE',
+  PROCESS_UNSUBSCRIBE:    'PROCESS_UNSUBSCRIBE',
 } as const;
 
 export type SocketEvent = typeof SocketEvents[keyof typeof SocketEvents];

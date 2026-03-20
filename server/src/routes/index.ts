@@ -39,6 +39,7 @@ import oblimapRoutes from './oblimap.routes';
 import systemRoutes from './system.routes';
 import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
 import reachRoutes from './reach.routes';
+import processRoutes from './process.routes';
 
 const router = Router();
 
@@ -86,6 +87,7 @@ tenantRouter.use('/admin/smtp-servers', smtpRoutes);
 tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key management
 tenantRouter.use('/oblireach/devices', obliReachDevicesRouter);
 tenantRouter.use('/reach',           reachRoutes);        // Oblireach desktop client API
+tenantRouter.use('/processes',      processRoutes);
 
 router.use('/', tenantRouter);
 

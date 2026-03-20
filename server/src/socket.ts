@@ -3,6 +3,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config';
 import { db } from './db';
 import { logger } from './utils/logger';
+import { SocketEvents } from '@obliance/shared';
+import { processService } from './services/process.service';
 
 let io: SocketIOServer;
 
@@ -56,7 +58,20 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
 
     logger.debug({ userId: user.id, tenantId }, 'Socket connected');
 
+    // Process list subscriptions
+    socket.on(SocketEvents.PROCESS_SUBSCRIBE, (payload: { deviceId: number }) => {
+      if (payload?.deviceId && tenantId) {
+        processService.subscribe(payload.deviceId, tenantId, socket.id);
+      }
+    });
+    socket.on(SocketEvents.PROCESS_UNSUBSCRIBE, (payload: { deviceId: number }) => {
+      if (payload?.deviceId) {
+        processService.unsubscribe(payload.deviceId, socket.id);
+      }
+    });
+
     socket.on('disconnect', () => {
+      processService.removeSocket(socket.id);
       logger.debug({ userId: user.id }, 'Socket disconnected');
     });
   });

@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
 // ── Frame type constants ──────────────────────────────────────────────────────
 const FRAME_H264 = 0x02;
@@ -99,7 +100,9 @@ export function ObliReachViewer({
   const [errorMsg, setErrorMsg]   = useState('');
   const [agentDims, setAgentDims] = useState({ w: 1920, h: 1080 });
   const [fps, setFps]             = useState(0);
+  const [codec, setCodec]         = useState('H.264');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const nativeTop = useNativeTopOffset();
 
   const fpsCountRef = useRef(0);
   const fpsTimerRef = useRef<ReturnType<typeof setInterval>>(null as any);
@@ -293,8 +296,12 @@ export function ObliReachViewer({
         // Agent connected — decoder is initialised when 'init' arrives
         setStatus('waiting');
         break;
+      case 'codec_switch':
+        setCodec((msg as any).codec === 'jpeg' ? 'JPEG' : 'H.264');
+        break;
       case 'init': {
         const m = msg as InitMsg;
+        setCodec('H.264');
         if (m.codec === 'h264') {
           onInit(m.width, m.height, m.extradata);
         } else {
@@ -411,7 +418,8 @@ export function ObliReachViewer({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-black"
+      style={{ top: nativeTop }}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
       tabIndex={-1}
@@ -431,7 +439,7 @@ export function ObliReachViewer({
 
           {status === 'streaming' && (
             <span className="text-xs text-text-muted hidden sm:block">
-              {agentDims.w}×{agentDims.h} · {fps} fps · H.264
+              {agentDims.w}×{agentDims.h} · {fps} fps · {codec}
             </span>
           )}
 

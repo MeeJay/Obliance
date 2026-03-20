@@ -5,6 +5,7 @@ import { SocketEvents } from '@obliance/shared';
 import { logger } from '../utils/logger';
 import { commandService } from './command.service';
 import { deviceService } from './device.service';
+import { processService } from './process.service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -204,6 +205,18 @@ class AgentHubService {
    */
   private async _handleAck(conn: AgentConn, msg: AgentAck): Promise<void> {
     if (msg.type !== 'ack') return;
+
+    // Ephemeral process list — broadcast directly, skip DB
+    if (msg.commandType === 'list_processes' && msg.success && msg.result) {
+      try {
+        const parsed = typeof msg.result === 'string' ? JSON.parse(msg.result) : msg.result;
+        const processes = parsed?.processes ?? parsed;
+        if (Array.isArray(processes)) {
+          processService.broadcast(conn.deviceId, conn.tenantId, processes);
+        }
+      } catch { /* ignore malformed process data */ }
+      return;
+    }
 
     // Update command in DB and emit socket event for ALL command types
     try {

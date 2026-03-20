@@ -5,7 +5,7 @@ import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
   Terminal, Package, ShieldCheck, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
-  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square,
+  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
@@ -24,12 +24,12 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
-import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'commands' | 'settings';
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'processes' | 'commands' | 'settings';
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'overview', label: 'Overview', icon: Monitor },
@@ -39,6 +39,7 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
   { id: 'remote', label: 'Remote', icon: MonitorPlay },
   { id: 'services', label: 'Services', icon: Server },
+  { id: 'processes', label: 'Processes', icon: Activity },
   { id: 'commands', label: 'Tasks', icon: History },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -2458,6 +2459,257 @@ function ServicesTab({ device }: { device: Device }) {
   );
 }
 
+// ─── Processes Tab ────────────────────────────────────────────────────────────
+
+type SortField = 'name' | 'pid' | 'cpuPercent' | 'memBytes' | 'user';
+type SortDir = 'asc' | 'desc';
+
+function ProcessesTab({ device }: { device: Device }) {
+  const [processes, setProcesses] = useState<ProcessInfo[]>([]);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState<SortField>('cpuPercent');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [killingPids, setKillingPids] = useState<Set<number>>(new Set());
+  const [connected, setConnected] = useState(false);
+  const { isAdmin } = useAuthStore();
+
+  // Subscribe to process stream on mount, unsubscribe on unmount
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit(SocketEvents.PROCESS_SUBSCRIBE, { deviceId: device.id });
+    setConnected(true);
+
+    const onProcesses = (payload: { deviceId: number; processes: ProcessInfo[] }) => {
+      if (payload.deviceId !== device.id) return;
+      setProcesses(payload.processes);
+    };
+
+    const onCmd = (cmd: Command) => {
+      if (cmd.deviceId !== device.id) return;
+      if (cmd.type === 'kill_process') {
+        const pid = (cmd.payload as any)?.pid as number;
+        if (!pid) return;
+        const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
+        if (!terminal) return;
+        setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
+        if (cmd.status === 'success') {
+          toast.success(`Process ${pid} killed`);
+          setProcesses((prev) => prev.filter((p) => p.pid !== pid));
+        } else {
+          toast.error(`Failed to kill process ${pid}`);
+        }
+      }
+    };
+
+    socket.on(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
+    socket.on('COMMAND_RESULT', onCmd);
+    socket.on('COMMAND_UPDATED', onCmd);
+
+    return () => {
+      socket.emit(SocketEvents.PROCESS_UNSUBSCRIBE, { deviceId: device.id });
+      socket.off(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
+      socket.off('COMMAND_RESULT', onCmd);
+      socket.off('COMMAND_UPDATED', onCmd);
+      setConnected(false);
+    };
+  }, [device.id]);
+
+  const handleKill = async (pid: number, name: string) => {
+    if (!confirm(`Kill process "${name}" (PID ${pid})?`)) return;
+    setKillingPids((prev) => new Set(prev).add(pid));
+    try {
+      await commandApi.enqueue(device.id, 'kill_process', { pid, name }, 'high');
+    } catch {
+      setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
+      toast.error('Failed to send kill command');
+    }
+  };
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'name' || field === 'user' ? 'asc' : 'desc');
+    }
+  };
+
+  const filtered = filter
+    ? processes.filter((p) =>
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.user.toLowerCase().includes(filter.toLowerCase()) ||
+        String(p.pid).includes(filter)
+      )
+    : processes;
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    switch (sortField) {
+      case 'name': return dir * a.name.localeCompare(b.name);
+      case 'pid': return dir * (a.pid - b.pid);
+      case 'cpuPercent': return dir * (a.cpuPercent - b.cpuPercent);
+      case 'memBytes': return dir * (a.memBytes - b.memBytes);
+      case 'user': return dir * a.user.localeCompare(b.user);
+      default: return 0;
+    }
+  });
+
+  const formatMem = (bytes: number) => {
+    if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
+    if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  };
+
+  const totalCpu = processes.reduce((s, p) => s + p.cpuPercent, 0);
+  const totalMem = processes.reduce((s, p) => s + p.memBytes, 0);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-30" />;
+    return sortDir === 'asc'
+      ? <ChevronRight className="w-3 h-3 rotate-[-90deg]" />
+      : <ChevronDown className="w-3 h-3" />;
+  };
+
+  return (
+    <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+          <Activity className="w-4 h-4 text-text-muted" />
+          Processes
+          {processes.length > 0 && (
+            <span className="text-xs font-normal text-text-muted bg-bg-tertiary border border-border px-1.5 py-0.5 rounded-md">
+              {processes.length}
+            </span>
+          )}
+          {connected && processes.length > 0 && (
+            <span className="text-xs font-normal text-text-muted">
+              — CPU: {totalCpu.toFixed(1)}% · Mem: {formatMem(totalMem)}
+            </span>
+          )}
+        </h3>
+        <div className="flex items-center gap-2">
+          {connected && (
+            <span className="flex items-center gap-1.5 text-xs text-green-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              Live
+            </span>
+          )}
+          {processes.length > 0 && (
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter processes…"
+              className="px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-48"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      {processes.length === 0 ? (
+        <div className="p-10 text-center text-text-muted text-sm">
+          <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
+          {connected ? (
+            <>
+              <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+              <p>Waiting for process data from agent…</p>
+              <p className="mt-1 text-xs opacity-70">The agent will send the process list shortly.</p>
+            </>
+          ) : (
+            <p>Agent not connected.</p>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-auto max-h-[70vh]">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-bg-secondary z-10 border-b border-border">
+              <tr>
+                <th
+                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+                  onClick={() => toggleSort('pid')}
+                >
+                  <span className="inline-flex items-center gap-1">PID <SortIcon field="pid" /></span>
+                </th>
+                <th
+                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+                  onClick={() => toggleSort('name')}
+                >
+                  <span className="inline-flex items-center gap-1">Name <SortIcon field="name" /></span>
+                </th>
+                <th
+                  className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+                  onClick={() => toggleSort('cpuPercent')}
+                >
+                  <span className="inline-flex items-center gap-1 justify-end">CPU % <SortIcon field="cpuPercent" /></span>
+                </th>
+                <th
+                  className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+                  onClick={() => toggleSort('memBytes')}
+                >
+                  <span className="inline-flex items-center gap-1 justify-end">Memory <SortIcon field="memBytes" /></span>
+                </th>
+                <th
+                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group hidden lg:table-cell"
+                  onClick={() => toggleSort('user')}
+                >
+                  <span className="inline-flex items-center gap-1">User <SortIcon field="user" /></span>
+                </th>
+                {isAdmin() && (
+                  <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide w-20">
+                    Actions
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {sorted.map((proc) => {
+                const killing = killingPids.has(proc.pid);
+                return (
+                  <tr key={proc.pid} className="hover:bg-bg-tertiary/60 transition-colors group" title={proc.command || proc.name}>
+                    <td className="px-4 py-1.5 font-mono text-xs text-text-muted">{proc.pid}</td>
+                    <td className="px-4 py-1.5 text-xs text-text-primary font-medium whitespace-nowrap max-w-xs truncate">{proc.name}</td>
+                    <td className="px-4 py-1.5 text-xs text-right font-mono">
+                      <span className={clsx(
+                        proc.cpuPercent > 80 ? 'text-red-400' :
+                        proc.cpuPercent > 30 ? 'text-yellow-400' :
+                        'text-text-muted',
+                      )}>
+                        {proc.cpuPercent.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-1.5 text-xs text-right font-mono text-text-muted">{formatMem(proc.memBytes)}</td>
+                    <td className="px-4 py-1.5 text-xs text-text-muted font-mono hidden lg:table-cell max-w-[10rem] truncate">{proc.user || '—'}</td>
+                    {isAdmin() && (
+                      <td className="px-4 py-1.5 text-right">
+                        <button
+                          onClick={() => handleKill(proc.pid, proc.name)}
+                          disabled={killing}
+                          title={`Kill ${proc.name} (PID ${proc.pid})`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          {killing ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                          Kill
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filter && sorted.length === 0 && (
+            <div className="p-6 text-center text-text-muted text-xs">No processes match "{filter}"</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main DeviceDetailPage ──────────────────────────────────────────────────────
 
 export function DeviceDetailPage() {
@@ -3000,6 +3252,7 @@ export function DeviceDetailPage() {
         {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
         {activeTab === 'remote' && <RemoteTab device={device} />}
         {activeTab === 'services' && <ServicesTab device={device} />}
+        {activeTab === 'processes' && <ProcessesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
         {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} />}
       </div>

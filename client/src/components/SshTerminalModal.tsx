@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal, X, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
 interface SshTerminalModalProps {
   /** Null while the tunnel is being established — modal shows a connecting overlay. */
@@ -24,6 +25,7 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const nativeTop = useNativeTopOffset();
 
   // Derive the WS URL only when we have a session token.
   const wsUrl = session?.sessionToken
@@ -168,7 +170,7 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   const sc = statusConfig[status];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#0d0f14]">
+    <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#0d0f14]" style={{ top: nativeTop }}>
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary border-b border-border shrink-0 gap-3">
         <div className="flex items-center gap-2 min-w-0">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
+import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
 interface VncViewerModalProps {
   /** Null while the tunnel is being established — modal shows a connecting overlay. */
@@ -18,6 +19,7 @@ export function VncViewerModal({ session, deviceName, onClose }: VncViewerModalP
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const nativeTop = useNativeTopOffset();
 
   // Derive the WS URL only when we have a session token.
   const wsUrl = session?.sessionToken
@@ -122,7 +124,7 @@ export function VncViewerModal({ session, deviceName, onClose }: VncViewerModalP
   const sc = statusConfig[status];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-black" style={{ top: nativeTop }}>
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary border-b border-border shrink-0 gap-3">
         {/* Left: device + status */}
