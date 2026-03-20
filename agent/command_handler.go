@@ -594,7 +594,7 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	case "windows":
 		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
 			"-Command",
-			fmt.Sprintf(`(Get-Service -Name '%s' -ErrorAction SilentlyContinue).Status`, rule.Target),
+			fmt.Sprintf(`$s=Get-Service -Name '%s' -ErrorAction SilentlyContinue; if($s){$s.StartType}else{'not_found'}`, rule.Target),
 		).Output()
 		if err != nil || strings.TrimSpace(string(out)) == "" {
 			actualStatus = "not_found"
@@ -618,11 +618,16 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	r.ActualValue = actualStatus
 	expected := strings.ToLower(fmt.Sprintf("%v", rule.Expected))
 	actual := strings.ToLower(actualStatus)
-	// Normalise Windows service status
-	if actual == "running" || actual == "4" {
-		actual = "running"
-	} else if actual == "stopped" || actual == "1" {
-		actual = "stopped"
+	// Normalise Windows StartType casing
+	switch actual {
+	case "disabled", "0":
+		actual = "disabled"
+	case "manual", "1":
+		actual = "manual"
+	case "automatic", "2":
+		actual = "automatic"
+	case "automaticdelayedstart", "boot", "system":
+		actual = actual
 	}
 	r.Status = evalOperator(actual, expected, rule.Operator)
 	return r

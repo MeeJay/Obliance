@@ -328,7 +328,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     category: 'Accounts',
     checkType: 'command',
     targetPlatform: 'windows',
-    target: '(secedit /export /cfg "$env:TEMP\\secpol.cfg" | Out-Null); (Get-Content "$env:TEMP\\secpol.cfg" | Where-Object { $_ -match "PasswordComplexity" }).Split("=").Trim()[-1]',
+    target: '$f="$env:TEMP\\sb$(Get-Random).cfg"; secedit /export /cfg $f /quiet; $v=(Select-String "PasswordComplexity\\s*=\\s*(\\d+)" $f -EA 0).Matches[0].Groups[1].Value; Remove-Item $f -Force -EA 0; $v',
     expected: '1',
     operator: 'eq',
     severity: 'high',
