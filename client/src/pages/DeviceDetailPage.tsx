@@ -2970,27 +2970,25 @@ export function DeviceDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={clsx(
-                  'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
-                  activeTab === tab.id
-                    ? 'border-accent text-accent'
-                    : 'border-transparent text-text-muted hover:text-text-primary hover:border-border',
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+      <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={clsx(
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
+                activeTab === tab.id
+                  ? 'bg-accent text-white'
+                  : 'text-text-muted hover:text-text-primary',
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab content */}

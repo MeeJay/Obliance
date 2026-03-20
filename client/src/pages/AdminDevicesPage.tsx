@@ -179,13 +179,13 @@ export function AdminDevicesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-6">
+      <div className="flex items-center gap-1 mb-6 rounded-lg bg-bg-secondary p-1 border border-border">
         <button
           onClick={() => setTab('devices')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             tab === 'devices'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-muted hover:text-text-primary'
+              ? 'bg-accent text-white'
+              : 'text-text-muted hover:text-text-primary'
           }`}
         >
           <Monitor className="w-4 h-4" />
@@ -193,10 +193,10 @@ export function AdminDevicesPage() {
         </button>
         <button
           onClick={() => setTab('keys')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             tab === 'keys'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-muted hover:text-text-primary'
+              ? 'bg-accent text-white'
+              : 'text-text-muted hover:text-text-primary'
           }`}
         >
           <Key className="w-4 h-4" />

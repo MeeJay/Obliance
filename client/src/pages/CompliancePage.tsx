@@ -488,21 +488,19 @@ export function CompliancePage() {
 
       {/* Tabs + filter */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="border-b border-border flex-1">
-          <nav className="-mb-px flex gap-1">
-            {(['results', 'policies'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={clsx(
-                  'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-text-muted hover:text-text-primary hover:border-border',
-                )}
-              >
-                {tab === 'results' ? t('compliance.tabResults') : t('compliance.tabPolicies')}
-              </button>
-            ))}
-          </nav>
+        <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
+          {(['results', 'policies'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={clsx(
+                'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
+                activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+              )}
+            >
+              {tab === 'results' ? t('compliance.tabResults') : t('compliance.tabPolicies')}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Device filter — results tab only */}

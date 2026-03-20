@@ -15,7 +15,7 @@ function getLatestVersion(): string | null {
   const now = Date.now();
   if (now - _cachedVersionAt < VERSION_TTL_MS) return _cachedVersion;
   try {
-    const fp = path.join(process.cwd(), 'agent', 'dist', 'oblireach-version.txt');
+    const fp = path.resolve(__dirname, '../../../../agent/dist/oblireach-version.txt');
     _cachedVersion = fs.readFileSync(fp, 'utf-8').trim() || null;
   } catch {
     _cachedVersion = null;

@@ -1,6 +1,9 @@
+import fs from 'fs';
+import path from 'path';
 import { Router } from 'express';
 import { db } from '../db';
 import { scriptService } from '../services/script.service';
+import { oblireachHub } from '../services/oblireachHub.service';
 
 const router = Router();
 
@@ -8,6 +11,24 @@ const router = Router();
 // All routes require requireAuth + requireTenant (applied in index.ts).
 
 const OR_ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
+// ── Version cache (shared with oblireach-agent.routes.ts logic) ──────────────
+let _cachedLatestVersion: string | null = null;
+let _cachedLatestVersionAt = 0;
+const VERSION_TTL_MS = 60_000;
+
+function getLatestObliReachVersion(): string | null {
+  const now = Date.now();
+  if (now - _cachedLatestVersionAt < VERSION_TTL_MS) return _cachedLatestVersion;
+  try {
+    const fp = path.resolve(__dirname, '../../../../agent/dist/oblireach-version.txt');
+    _cachedLatestVersion = fs.readFileSync(fp, 'utf-8').trim() || null;
+  } catch {
+    _cachedLatestVersion = null;
+  }
+  _cachedLatestVersionAt = now;
+  return _cachedLatestVersion;
+}
 
 /**
  * GET /reach/overview
@@ -50,12 +71,14 @@ router.get('/overview', async (req, res, next) => {
 
     // Build a map: device_uuid → oblireach record
     const now = Date.now();
-    const orMap = new Map<string, { online: boolean; sessions: any[] }>();
+    const latestVersion = getLatestObliReachVersion();
+    const orMap = new Map<string, { online: boolean; version: string | null; sessions: any[] }>();
     for (const row of orRows) {
       orMap.set(row.device_uuid, {
-        online: row.last_seen_at
+        online: oblireachHub.isConnected(row.device_uuid) || (row.last_seen_at
           ? now - new Date(row.last_seen_at).getTime() < OR_ONLINE_THRESHOLD_MS
-          : false,
+          : false),
+        version: row.version || null,
         sessions: row.sessions ? JSON.parse(row.sessions) : [],
       });
     }
@@ -91,6 +114,8 @@ router.get('/overview', async (req, res, next) => {
         oblireach: {
           installed: true,
           online: or.online,
+          version: or.version,
+          updateAvailable: !!(latestVersion && or.version && latestVersion !== or.version),
           sessions: or.sessions,
         },
       };

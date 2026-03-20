@@ -293,21 +293,19 @@ export function UpdatesPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex gap-1">
-          {(['updates', 'policies'] as Tab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
-                activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-text-muted hover:text-text-primary hover:border-border',
-              )}
-            >
-              {tab === 'updates' ? 'Available Updates' : 'Update Policies'}
-            </button>
-          ))}
-        </nav>
+      <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
+        {(['updates', 'policies'] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={clsx(
+              'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+            )}
+          >
+            {tab === 'updates' ? 'Available Updates' : 'Update Policies'}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'updates' && (

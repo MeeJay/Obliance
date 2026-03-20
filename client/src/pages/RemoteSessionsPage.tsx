@@ -286,24 +286,22 @@ export function RemoteSessionsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-border">
-          <nav className="-mb-px flex gap-1">
-            {(['active', 'history'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={clsx(
-                  'px-4 py-2.5 text-sm font-medium border-b-2 capitalize transition-colors flex items-center gap-2',
-                  activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-text-muted hover:text-text-primary hover:border-border',
-                )}
-              >
-                {tab === 'active' ? 'Active Sessions' : 'History'}
-                {tab === 'active' && activeSessions.length > 0 && (
-                  <span className="text-xs px-1.5 py-0.5 bg-accent/20 text-accent rounded-full">{activeSessions.length}</span>
-                )}
-              </button>
-            ))}
-          </nav>
+        <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
+          {(['active', 'history'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={clsx(
+                'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2',
+                activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+              )}
+            >
+              {tab === 'active' ? 'Active Sessions' : 'History'}
+              {tab === 'active' && activeSessions.length > 0 && (
+                <span className="text-xs px-1.5 py-0.5 bg-white/20 text-white rounded-full">{activeSessions.length}</span>
+              )}
+            </button>
+          ))}
         </div>
 
         {isLoading ? (
