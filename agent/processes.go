@@ -82,17 +82,6 @@ func collectProcesses() ([]ProcessInfo, error) {
 // ── Windows ──────────────────────────────────────────────────────────────────
 
 func collectProcessesWindows() ([]ProcessInfo, error) {
-	// Use PowerShell to get PID, Name, CPU seconds, WorkingSet, UserName in one pass.
-	// This is fast enough (~1-2s) and gives us all fields including the username.
-	script := `Get-Process | ForEach-Object {
-		$u = ''
-		try { $u = $_.StartInfo.EnvironmentVariables['USERNAME'] } catch {}
-		if (-not $u) { try { $o = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)" -Property GetOwnerSid -ErrorAction SilentlyContinue; $u = (Invoke-CimMethod -InputObject $o -MethodName GetOwner -ErrorAction SilentlyContinue).User } catch {} }
-		"$($_.Id)|$($_.ProcessName)|$([math]::Round($_.CPU,1))|$($_.WorkingSet64)|$u"
-	}`
-
-	// Fallback to a simpler, faster approach: tasklist + wmic
-	// Actually, let's use a single optimised PowerShell call
 	psScript := `$procs = Get-CimInstance Win32_Process | Select-Object ProcessId,Name,WorkingSetSize,CommandLine,@{N='User';E={
 		$o = Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction SilentlyContinue
 		if ($o -and $o.User) { $o.User } else { '' }
