@@ -61,8 +61,13 @@
                           Start="auto"
                           Type="ownProcess"
                           Account="LocalSystem"
-                          ErrorControl="normal"
-                          Arguments='--url "[SERVERURL]" --key "[APIKEY]"' />
+                          ErrorControl="normal" />
+          <!--
+            No Arguments here — the agent bootstraps from the registry values
+            written below (HKLM\SOFTWARE\OblianceAgent) on first run, then
+            persists them to config.json.  Storing the URL in service arguments
+            caused http:// to be frozen in SCM across upgrades.
+          -->
           <ServiceControl Id="AgentSvcStart" Name="OblianceAgent" Start="install" />
           <ServiceControl Id="AgentSvcStop"  Name="OblianceAgent" Stop="both" Remove="uninstall" Wait="yes" />
         </Component>

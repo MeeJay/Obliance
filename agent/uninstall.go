@@ -119,21 +119,19 @@ func handleUninstallCommand(cfg *Config) {
 // ── Windows ───────────────────────────────────────────────────────────────────
 
 func handleWindowsUninstall(serverURL, apiKey string) error {
-	msiPath := filepath.Join(os.TempDir(), "obliance-uninstall.msi")
-	if err := downloadMSI(serverURL+"/api/agent/download/obliance-agent.msi", apiKey, msiPath); err != nil {
-		return fmt.Errorf("download MSI: %w", err)
-	}
-
-	logPath    := filepath.Join(os.TempDir(), "obliance-uninstall.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-uninstall.bat")
 
-	script := fmt.Sprintf(
-		"@echo off\r\n"+
-			"timeout /t 2 /nobreak >nul\r\n"+
-			"msiexec /x \"%s\" /quiet /norestart /l*v \"%s\"\r\n"+
-			"del /q \"%s\"\r\n"+
-			"del /q \"%%~f0\"\r\n",
-		msiPath, logPath, msiPath)
+	// Direct cleanup: stop + delete service, remove files and registry.
+	// More reliable than msiexec /x which requires a matching ProductCode.
+	script := "@echo off\r\n" +
+		"timeout /t 3 /nobreak >nul\r\n" +
+		"sc stop OblianceAgent >nul 2>&1\r\n" +
+		"timeout /t 2 /nobreak >nul\r\n" +
+		"sc delete OblianceAgent >nul 2>&1\r\n" +
+		"rd /s /q \"C:\\Program Files\\OblianceAgent\" >nul 2>&1\r\n" +
+		"rd /s /q \"C:\\ProgramData\\OblianceAgent\" >nul 2>&1\r\n" +
+		"reg delete \"HKLM\\SOFTWARE\\OblianceAgent\" /f >nul 2>&1\r\n" +
+		"del /q \"%~f0\"\r\n"
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write uninstall batch: %w", err)
