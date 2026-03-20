@@ -192,9 +192,9 @@ func createProcessInSession(sessionId uint32, cmdLine *uint16, createFlags uint3
 	defer windows.CloseHandle(userToken)
 
 	// Duplicate token as a primary token for CreateProcessAsUser
-	var primaryToken windows.Handle
+	var primaryToken windows.Token
 	err = windows.DuplicateTokenEx(
-		userToken,
+		windows.Token(userToken),
 		windows.MAXIMUM_ALLOWED,
 		nil,
 		windows.SecurityImpersonation,
@@ -204,7 +204,7 @@ func createProcessInSession(sessionId uint32, cmdLine *uint16, createFlags uint3
 	if err != nil {
 		return fmt.Errorf("DuplicateTokenEx: %w", err)
 	}
-	defer windows.CloseHandle(primaryToken)
+	defer primaryToken.Close()
 
 	// Create the user's environment block
 	var envBlock uintptr
@@ -242,7 +242,7 @@ func createProcessInSession(sessionId uint32, cmdLine *uint16, createFlags uint3
 }
 
 // getUserProfileDir returns the user profile directory for a token (e.g. C:\Users\john).
-func getUserProfileDir(token windows.Handle) (*uint16, error) {
+func getUserProfileDir(token windows.Token) (*uint16, error) {
 	procGetUserProfileDirectoryW := userenv.NewProc("GetUserProfileDirectoryW")
 	var size uint32 = 260
 	buf := make([]uint16, size)
