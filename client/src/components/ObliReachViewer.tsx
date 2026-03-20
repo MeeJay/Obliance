@@ -155,23 +155,27 @@ export function ObliReachViewer({
     });
 
     // Build codec config
-    let codecStr = 'avc1.42001f'; // H.264 Baseline Level 3.1 (safe default)
-    let description: BufferSource | undefined;
+    // H.264 High Profile Level 5.2 — covers screens up to 2560×1600+ at 60 fps.
+    // The agent sends Annex B with inline SPS/PPS; no AVCC description needed.
+    let codecStr = 'avc1.640034';
+    const description: BufferSource | undefined = undefined;
 
     if (extradata) {
-      const raw = atob(extradata);
-      const buf = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
-      description = buf;
-
-      // AVCC: [1 configVersion][1 profile][1 constraints][1 level]…
-      // Use these bytes to build the precise codec string
-      if (buf.length >= 4) {
-        const p = buf[1].toString(16).padStart(2, '0');
-        const c = buf[2].toString(16).padStart(2, '0');
-        const l = buf[3].toString(16).padStart(2, '0');
-        codecStr = `avc1.${p}${c}${l}`;
-      }
+      // extradata is legacy/reserved — only use it if it looks like a valid
+      // AVCC DecoderConfigurationRecord (first byte = configurationVersion = 1).
+      try {
+        const raw = atob(extradata);
+        const buf = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+        if (buf.length >= 4 && buf[0] === 0x01) {
+          // Valid AVCC — derive precise codec string from profile/constraints/level.
+          const p = buf[1].toString(16).padStart(2, '0');
+          const c = buf[2].toString(16).padStart(2, '0');
+          const l = buf[3].toString(16).padStart(2, '0');
+          codecStr = `avc1.${p}${c}${l}`;
+          // description intentionally not set: agent sends Annex B, not AVCC packets.
+        }
+      } catch { /* malformed extradata — ignore */ }
     }
 
     const config: VideoDecoderConfig = {
