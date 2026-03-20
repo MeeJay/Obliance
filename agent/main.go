@@ -116,6 +116,14 @@ func setupConfig(urlArg, keyArg string) *Config {
 		cfg.APIKey = keyArg
 	}
 
+	// Auto-upgrade http:// → https:// (MSI upgrades may reinstall with the
+	// original URL scheme; normalising here breaks the cycle permanently).
+	if strings.HasPrefix(cfg.ServerURL, "http://") {
+		cfg.ServerURL = "https://" + cfg.ServerURL[len("http://"):]
+		log.Printf("ServerURL normalised to https://")
+	}
+	cfg.ServerURL = strings.TrimRight(cfg.ServerURL, "/")
+
 	cfg.DeviceUUID = resolveDeviceUUID(cfg.DeviceUUID)
 	if cfg.DeviceUUID != "" {
 		_ = saveConfig(cfg)
