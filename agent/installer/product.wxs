@@ -104,15 +104,12 @@
     </StandardDirectory>
 
     <!-- Kill tray before install so the exe is not locked -->
+    <SetProperty Id="KillTrayProp" Value="[SystemFolder]cmd.exe" Sequence="execute" Before="KillTray" />
     <CustomAction Id="KillTray"
-                  Script="vbscript"
+                  Property="KillTrayProp"
+                  ExeCommand="/C taskkill /F /IM obliance-tray.exe"
                   Execute="immediate"
-                  Return="ignore">
-      <![CDATA[
-        Set shell = CreateObject("WScript.Shell")
-        shell.Run "taskkill /F /IM obliance-tray.exe", 0, True
-      ]]>
-    </CustomAction>
+                  Return="ignore" />
 
     <!-- Launch tray immediately after install (runs as current user, not SYSTEM) -->
     <CustomAction Id="LaunchTray"
