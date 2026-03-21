@@ -49,7 +49,7 @@ type hubAck struct {
 // command channel when it is connected.
 
 var (
-	cmdChanWs   *WSConn
+	cmdChanWs   *wsConn
 	cmdChanMu   sync.Mutex
 )
 
