@@ -175,8 +175,10 @@ func stopObliReachService() {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	if err := exec.Command("sc", "stop", "ObliReachAgent").Run(); err != nil {
-		log.Printf("privacy: failed to stop ObliReachAgent: %v", err)
+	// Stop the service and disable auto-start so it stays down across reboots.
+	_ = exec.Command("sc", "stop", "ObliReachAgent").Run()
+	if err := exec.Command("sc", "config", "ObliReachAgent", "start=", "disabled").Run(); err != nil {
+		log.Printf("privacy: failed to disable ObliReachAgent: %v", err)
 	}
 }
 
@@ -184,10 +186,14 @@ func startObliReachService() {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	// Only start if the service is registered (Oblireach was installed).
+	// Only act if the service is registered (Oblireach was installed).
 	out, err := exec.Command("sc", "query", "ObliReachAgent").Output()
 	if err != nil || len(out) == 0 {
 		return // service not installed
+	}
+	// Re-enable auto-start, then start.
+	if err := exec.Command("sc", "config", "ObliReachAgent", "start=", "auto").Run(); err != nil {
+		log.Printf("privacy: failed to re-enable ObliReachAgent: %v", err)
 	}
 	if err := exec.Command("sc", "start", "ObliReachAgent").Run(); err != nil {
 		log.Printf("privacy: failed to start ObliReachAgent: %v", err)
