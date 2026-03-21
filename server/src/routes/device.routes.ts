@@ -130,7 +130,7 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
       type: 'disable_privacy_mode',
       priority: 'high',
       expiresInSeconds: 300,
-      createdBy: req.userId,
+      createdBy: req.session.userId,
     });
     res.json({ data: cmd });
   } catch (err) { next(err); }
