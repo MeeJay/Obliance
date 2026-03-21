@@ -14,7 +14,8 @@ class InventoryService {
       cpu: row.cpu || {}, memory: row.memory || {},
       disks: row.disks || [], networkInterfaces: row.network_interfaces || [],
       gpu: row.gpu || [], motherboard: row.motherboard || {},
-      bios: row.bios || {}, raw: row.raw || {},
+      bios: row.bios || {}, bitlocker: row.bitlocker || [],
+      raw: row.raw || {},
       scannedAt: row.scanned_at,
     };
   }
@@ -106,6 +107,7 @@ class InventoryService {
       gpu:                JSON.stringify(gpu),
       motherboard:        JSON.stringify(motherboard),
       bios:               JSON.stringify(bios),
+      bitlocker:          JSON.stringify(data.bitlocker ?? []),
       raw:                JSON.stringify(data.raw ?? {}),
       scanned_at:         new Date(),
     });

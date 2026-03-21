@@ -194,23 +194,18 @@ export default function FileExplorerTab({ device }: Props) {
     const socket = getSocket();
     if (!socket) return;
 
-    const handleResult = (cmd: Command) => {
-      const pending = pendingCmdRef.current.get(cmd.id);
+    const handleResult = (msg: { id: string; commandType: string; status: string; result: any }) => {
+      const pending = pendingCmdRef.current.get(msg.id);
       if (!pending) return;
-      const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
-      if (!terminal) return;
       clearTimeout(pending.timer);
-      pendingCmdRef.current.delete(cmd.id);
-      pending.resolve(cmd);
+      pendingCmdRef.current.delete(msg.id);
+      pending.resolve({ id: msg.id, status: msg.status, result: msg.result } as any);
     };
 
-    socket.on('COMMAND_RESULT', handleResult);
-    socket.on('COMMAND_UPDATED', handleResult);
+    socket.on('FILE_EXPLORER_RESULT', handleResult);
 
     return () => {
-      socket.off('COMMAND_RESULT', handleResult);
-      socket.off('COMMAND_UPDATED', handleResult);
-      // Clean up any pending commands
+      socket.off('FILE_EXPLORER_RESULT', handleResult);
       for (const [, pending] of pendingCmdRef.current) {
         clearTimeout(pending.timer);
       }
@@ -220,28 +215,37 @@ export default function FileExplorerTab({ device }: Props) {
 
   // ── Send a command and wait for its result ───────────────────────────────
 
+  // Dangerous ops that get audited server-side
+  const AUDITED_OPS = new Set(['create_directory', 'rename_file', 'delete_file', 'upload_file']);
+
   const sendCommand = useCallback(
-    async (
+    (
       type: 'list_directory' | 'create_directory' | 'rename_file' | 'delete_file' | 'download_file' | 'upload_file',
       payload: Record<string, any>,
       timeoutMs = 30000,
-    ): Promise<Command> => {
-      let cmd: Command;
-      switch (type) {
-        case 'list_directory': cmd = await fileApi.listDirectory(device.id, payload.path ?? ''); break;
-        case 'create_directory': cmd = await fileApi.createDirectory(device.id, payload.path); break;
-        case 'rename_file': cmd = await fileApi.renameFile(device.id, payload.oldPath, payload.newPath); break;
-        case 'delete_file': cmd = await fileApi.deleteFile(device.id, payload.path, payload.recursive ?? false); break;
-        case 'download_file': cmd = await fileApi.downloadFile(device.id, payload.path); break;
-        case 'upload_file': cmd = await fileApi.uploadFile(device.id, payload.path, payload.data, payload.overwrite ?? false); break;
-        default: throw new Error(`Unknown command type: ${type}`);
-      }
-      return new Promise<Command>((resolve, reject) => {
+    ): Promise<any> => {
+      const socket = getSocket();
+      if (!socket) return Promise.reject(new Error('Socket not connected'));
+
+      const cmdId = crypto.randomUUID();
+      const audit = AUDITED_OPS.has(type)
+        ? { action: `file_explorer.${type}`, resourceType: payload.path?.endsWith('/') ? 'directory' : 'file', resourcePath: payload.path || payload.oldPath }
+        : undefined;
+
+      return new Promise<any>((resolve, reject) => {
         const timer = setTimeout(() => {
-          pendingCmdRef.current.delete(cmd.id);
+          pendingCmdRef.current.delete(cmdId);
           reject(new Error('Command timed out'));
         }, timeoutMs);
-        pendingCmdRef.current.set(cmd.id, { resolve, timer });
+        pendingCmdRef.current.set(cmdId, { resolve, timer });
+
+        socket.emit('FILE_EXPLORER_CMD', {
+          requestId: cmdId,
+          deviceId: device.id,
+          commandType: type,
+          payload,
+          audit,
+        });
       });
     },
     [device.id],

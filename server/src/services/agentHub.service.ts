@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { commandService } from './command.service';
 import { deviceService } from './device.service';
 import { processService } from './process.service';
+import { fileExplorerService } from './fileExplorer.service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,14 @@ class AgentHubService {
           processService.broadcast(conn.deviceId, conn.tenantId, processes);
         }
       } catch { /* ignore malformed process data */ }
+      return;
+    }
+
+    // File explorer commands — relay to requesting browser socket, skip DB
+    const fileExplorerCmds = ['list_directory', 'create_directory', 'rename_file', 'delete_file', 'download_file', 'upload_file'];
+    if (msg.commandType && fileExplorerCmds.includes(msg.commandType)) {
+      const result = typeof msg.result === 'string' ? JSON.parse(msg.result) : msg.result;
+      fileExplorerService.handleResult(msg.id, msg.success ? 'success' : 'failure', result ?? { error: msg.error }, msg.commandType);
       return;
     }
 

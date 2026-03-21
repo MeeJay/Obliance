@@ -6,6 +6,13 @@ import type { Command, CommandAck, CommandType, CommandPriority } from '@oblianc
 
 class CommandService {
   rowToCommand(row: any): Command {
+    // Compute duration from timestamps if not in result
+    let durationMs: number | null = null;
+    if (row.result?.duration != null) {
+      durationMs = row.result.duration;
+    } else if (row.sent_at && row.finished_at) {
+      durationMs = new Date(row.finished_at).getTime() - new Date(row.sent_at).getTime();
+    }
     return {
       id: row.id,
       deviceId: row.device_id,
@@ -24,8 +31,10 @@ class CommandService {
       sourceType: row.source_type,
       sourceId: row.source_id,
       createdBy: row.created_by,
+      createdByName: row.created_by_name ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      durationMs,
     };
   }
 
@@ -201,10 +210,13 @@ class CommandService {
   }
 
   async getCommands(tenantId: number, filters?: { deviceId?: number; status?: string }) {
-    let q = db('command_queue').where({ tenant_id: tenantId });
-    if (filters?.deviceId) q = q.where({ device_id: filters.deviceId });
-    if (filters?.status) q = q.where({ status: filters.status });
-    const rows = await q.orderBy('created_at', 'desc').limit(100);
+    let q = db('command_queue')
+      .select('command_queue.*', db.raw("COALESCE(u.display_name, u.username, u.email) as created_by_name"))
+      .leftJoin('users as u', 'command_queue.created_by', 'u.id')
+      .where({ 'command_queue.tenant_id': tenantId });
+    if (filters?.deviceId) q = q.where({ 'command_queue.device_id': filters.deviceId });
+    if (filters?.status) q = q.where({ 'command_queue.status': filters.status });
+    const rows = await q.orderBy('command_queue.created_at', 'desc').limit(100);
     return rows.map(this.rowToCommand.bind(this));
   }
 

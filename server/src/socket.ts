@@ -5,6 +5,7 @@ import { db } from './db';
 import { logger } from './utils/logger';
 import { SocketEvents } from '@obliance/shared';
 import { processService } from './services/process.service';
+import { fileExplorerService } from './services/fileExplorer.service';
 
 let io: SocketIOServer;
 
@@ -70,8 +71,21 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       }
     });
 
+    // File explorer commands via WebSocket
+    socket.on('FILE_EXPLORER_CMD', async (payload: { requestId?: string; deviceId: number; commandType: string; payload: Record<string, any>; audit?: any }) => {
+      if (!payload?.deviceId || !payload?.commandType || !tenantId) return;
+      const audit = payload.audit ? { ...payload.audit, userId: user.id } : undefined;
+      await fileExplorerService.send(
+        payload.deviceId, tenantId, socket.id,
+        payload.commandType, payload.payload,
+        audit,
+        payload.requestId,
+      );
+    });
+
     socket.on('disconnect', () => {
       processService.removeSocket(socket.id);
+      fileExplorerService.removeSocket(socket.id);
       logger.debug({ userId: user.id }, 'Socket disconnected');
     });
   });

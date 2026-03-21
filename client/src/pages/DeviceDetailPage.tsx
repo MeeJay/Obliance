@@ -306,6 +306,36 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
               </dl>
             </div>
           )}
+
+          {/* BitLocker */}
+          {hardware.bitlocker && hardware.bitlocker.length > 0 && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />BitLocker</h4>
+              <div className="space-y-3">
+                {hardware.bitlocker.map((vol) => (
+                  <div key={vol.driveLetter} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
+                      <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium',
+                        vol.status === 'FullyEncrypted' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+                        vol.status === 'FullyDecrypted' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+                        'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+                      )}>{vol.status}</span>
+                    </div>
+                    {vol.recoveryKeys.length > 0 && (
+                      <div className="space-y-0.5">
+                        {vol.recoveryKeys.map((key, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{key}</code>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2073,6 +2103,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
               <tr className="border-b border-border">
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Task</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">User</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Priority</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Created</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
@@ -2084,7 +2115,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
                 const sc = CMD_STATUS_CONFIG[cmd.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: cmd.status };
                 const isRunning = cmd.status === 'ack_running';
                 const canCancel = cmd.status === 'pending';
-                const durationMs = cmd.result?.duration;
+                const durationMs = cmd.durationMs;
                 const payloadKeys = Object.keys(cmd.payload ?? {});
 
                 return (
@@ -2111,6 +2142,13 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
                       <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
                         {isRunning && <Loader2 className="w-3 h-3 animate-spin" />}
                         {sc.label}
+                      </span>
+                    </td>
+
+                    {/* User */}
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-xs text-text-muted truncate">
+                        {cmd.createdByName || '—'}
                       </span>
                     </td>
 

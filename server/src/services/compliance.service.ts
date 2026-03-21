@@ -10,6 +10,7 @@ import { pciDSSv4Rules } from './compliance-presets/pci-dss-v4';
 import { hipaaRules } from './compliance-presets/hipaa';
 import { soc2Rules } from './compliance-presets/soc2';
 import { cisWindowsL1Rules } from './compliance-presets/cis-windows-l1';
+import { windowsPerformanceRules } from './compliance-presets/windows-performance';
 
 class ComplianceService {
   rowToPolicy(row: any): CompliancePolicy {
@@ -272,6 +273,16 @@ class ComplianceService {
         framework: 'SOC2',
         targetPlatform: 'windows',
         rules: soc2Rules,
+      },
+
+      // ── Windows Haute Performance ──────────────────────────────────────────
+      {
+        id: 'windows-high-performance',
+        name: 'Windows Haute Performance',
+        description: `Optimisation Gaming & Performance — ${windowsPerformanceRules.length} contrôles. Désactivation télémétrie, services inutiles, effets visuels, profil alimentation haute performance, optimisations réseau et GPU scheduling.`,
+        framework: 'custom',
+        targetPlatform: 'windows',
+        rules: windowsPerformanceRules,
       },
     ];
   }

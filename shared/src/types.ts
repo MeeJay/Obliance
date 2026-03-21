@@ -280,8 +280,10 @@ export interface Command {
   sourceType: string | null;
   sourceId: string | null;
   createdBy: number | null;
+  createdByName: string | null;
   createdAt: string;
   updatedAt: string;
+  durationMs: number | null;
 }
 
 export interface CommandResult {
@@ -722,6 +724,12 @@ export interface BiosInfo {
   date: string | null;
 }
 
+export interface BitLockerVolume {
+  driveLetter: string;
+  status: string;
+  recoveryKeys: string[];
+}
+
 export interface HardwareInventory {
   id: number;
   deviceId: number;
@@ -732,6 +740,7 @@ export interface HardwareInventory {
   gpu: GpuInfo[];
   motherboard: MotherboardInfo;
   bios: BiosInfo;
+  bitlocker?: BitLockerVolume[];
   raw: Record<string, any>;
   scannedAt: string;
 }

@@ -71,6 +71,12 @@ type BiosInfo struct {
 	Date    string `json:"date,omitempty"`
 }
 
+type BitLockerVolume struct {
+	DriveLetter   string   `json:"driveLetter"`
+	Status        string   `json:"status"`        // Fully Encrypted, Fully Decrypted, etc.
+	RecoveryKeys  []string `json:"recoveryKeys"`
+}
+
 type SoftwareEntry struct {
 	Name            string `json:"name"`
 	Version         string `json:"version,omitempty"`
@@ -90,6 +96,7 @@ type InventoryData struct {
 	Motherboard MotherboardInfo        `json:"motherboard"`
 	BIOS        BiosInfo               `json:"bios"`
 	Software    []SoftwareEntry        `json:"software,omitempty"`
+	BitLocker   []BitLockerVolume      `json:"bitlocker,omitempty"`
 	Raw         map[string]interface{} `json:"raw,omitempty"`
 	ScannedAt   time.Time              `json:"scannedAt"`
 }
@@ -121,6 +128,11 @@ func ScanInventory() (*InventoryData, error) {
 
 	// Scan installed software (platform-aware).
 	inv.Software = scanInstalledSoftware()
+
+	// BitLocker recovery keys (Windows only).
+	if runtime.GOOS == "windows" {
+		inv.BitLocker = scanBitLocker()
+	}
 
 	return inv, nil
 }
@@ -663,6 +675,53 @@ func scanDarwinInventory(inv *InventoryData) error {
 }
 
 // ── Software scanning ─────────────────────────────────────────────────────────
+
+// scanBitLocker retrieves BitLocker status and recovery keys for all volumes.
+// Uses manage-bde which requires admin privileges (agent runs as SYSTEM).
+func scanBitLocker() []BitLockerVolume {
+	// List all BitLocker-capable volumes
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		`[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+$vols = Get-BitLockerVolume -ErrorAction SilentlyContinue
+if (-not $vols) { exit 0 }
+$result = @()
+foreach ($v in $vols) {
+  $keys = @()
+  foreach ($p in $v.KeyProtector) {
+    if ($p.KeyProtectorType -eq 'RecoveryPassword' -and $p.RecoveryPassword) {
+      $keys += $p.RecoveryPassword
+    }
+  }
+  $result += [PSCustomObject]@{
+    driveLetter  = $v.MountPoint
+    status       = $v.VolumeStatus.ToString()
+    recoveryKeys = $keys
+  }
+}
+$result | ConvertTo-Json -Compress`,
+	).Output()
+	if err != nil {
+		return nil
+	}
+
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return nil
+	}
+
+	// PowerShell returns a single object (not array) when there's only one volume
+	var volumes []BitLockerVolume
+	if strings.HasPrefix(raw, "[") {
+		json.Unmarshal([]byte(raw), &volumes)
+	} else {
+		var single BitLockerVolume
+		if json.Unmarshal([]byte(raw), &single) == nil {
+			volumes = []BitLockerVolume{single}
+		}
+	}
+	return volumes
+}
 
 func scanInstalledSoftware() []SoftwareEntry {
 	switch runtime.GOOS {
