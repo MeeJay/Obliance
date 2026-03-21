@@ -26,6 +26,7 @@ import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -436,6 +437,7 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
 // ─── Updates Tab ──────────────────────────────────────────────────────────────
 
 function UpdatesTab({ deviceId }: { deviceId: number }) {
+  const { t } = useTranslation();
   const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<number | null>(null);

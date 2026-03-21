@@ -4,7 +4,7 @@ import { updateApi } from '@/api/update.api';
 import { deviceApi } from '@/api/device.api';
 import type { DeviceUpdate, UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
-import { getSocket } from '@/socket/socket';
+import { getSocket } from '@/socket/socketClient';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
