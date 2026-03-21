@@ -110,9 +110,7 @@
                   Impersonate="yes"
                   Return="asyncNoWait" />
     <InstallExecuteSequence>
-      <Custom Action="LaunchTray" After="InstallFinalize">
-        <![CDATA[NOT Installed OR REINSTALL]]>
-      </Custom>
+      <Custom Action="LaunchTray" After="InstallFinalize" Condition="NOT Installed OR REINSTALL" />
     </InstallExecuteSequence>
 
     <Feature Id="Main">
