@@ -83,6 +83,13 @@ func SetPrivacyMode(enabled bool, changedBy string) error {
 	} else {
 		startObliReachService()
 	}
+
+	// Notify server instantly via WebSocket command channel.
+	SendOnCommandChannel(map[string]interface{}{
+		"type":    "privacy_mode_changed",
+		"enabled": enabled,
+	})
+
 	log.Printf("privacy: mode set to %v (by %s)", enabled, changedBy)
 	return nil
 }
@@ -151,6 +158,11 @@ func watchPrivacyFile(stopCh <-chan struct{}) {
 				} else {
 					startObliReachService()
 				}
+				// Notify server instantly via WS.
+				SendOnCommandChannel(map[string]interface{}{
+					"type":    "privacy_mode_changed",
+					"enabled": state.Enabled,
+				})
 				log.Printf("privacy: file changed — mode now %v (by %s)", state.Enabled, state.ChangedBy)
 			}
 		}

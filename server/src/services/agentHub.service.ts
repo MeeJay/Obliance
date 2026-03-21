@@ -49,6 +49,12 @@ interface AgentHeartbeat {
   metrics?: Record<string, unknown>;
 }
 
+// Privacy mode notification FROM agent TO server
+interface AgentPrivacyNotify {
+  type: 'privacy_mode_changed';
+  enabled: boolean;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class AgentHubService {
@@ -92,11 +98,13 @@ class AgentHubService {
     ws.on('error', () => this._unregister(deviceId, ws));
     ws.on('message', async (data: Buffer) => {
       try {
-        const msg = JSON.parse(data.toString()) as AgentHeartbeat | AgentAck;
+        const msg = JSON.parse(data.toString()) as AgentHeartbeat | AgentAck | AgentPrivacyNotify;
         if (msg.type === 'heartbeat') {
           await this._handleHeartbeat(conn, msg as AgentHeartbeat);
         } else if (msg.type === 'ack') {
           await this._handleAck(conn, msg as AgentAck);
+        } else if (msg.type === 'privacy_mode_changed') {
+          await this._handlePrivacyChange(conn, msg as AgentPrivacyNotify);
         }
       } catch { /* malformed JSON — ignore */ }
     });
@@ -203,6 +211,22 @@ class AgentHubService {
    *   - All acks → update command_queue row + emit COMMAND_RESULT to tenant room
    *   - open_remote_tunnel failure → additionally mark session failed
    */
+  private async _handlePrivacyChange(conn: AgentConn, msg: AgentPrivacyNotify): Promise<void> {
+    try {
+      await db('devices').where({ id: conn.deviceId }).update({
+        privacy_mode_enabled: msg.enabled,
+        updated_at: new Date(),
+      });
+      const device = await deviceService.getDeviceById(conn.deviceId, conn.tenantId);
+      if (device) {
+        getIO().to(`tenant:${conn.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, device);
+      }
+      logger.info({ deviceId: conn.deviceId, privacyMode: msg.enabled }, 'Privacy mode changed via WS');
+    } catch (err) {
+      logger.error(err, 'Failed to handle privacy mode change');
+    }
+  }
+
   private async _handleAck(conn: AgentConn, msg: AgentAck): Promise<void> {
     if (msg.type !== 'ack') return;
 

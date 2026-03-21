@@ -52,6 +52,7 @@ var httpClient = &http.Client{Timeout: 30 * time.Second}
 // dispatcher is the package-level command dispatcher shared by mainLoop and push.
 var dispatcher *CommandDispatcher
 
+
 func push(cfg *Config) {
 	hostname, _ := os.Hostname()
 

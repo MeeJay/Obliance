@@ -44,6 +44,31 @@ type hubAck struct {
 	Error        string          `json:"error,omitempty"`
 }
 
+// ── Global WS writer ─────────────────────────────────────────────────────────
+// Allows other goroutines (e.g. privacy watcher) to send messages on the
+// command channel when it is connected.
+
+var (
+	cmdChanWs   *WSConn
+	cmdChanMu   sync.Mutex
+)
+
+// SendOnCommandChannel sends a JSON text frame on the command channel WS.
+// No-op if the channel is not connected.
+func SendOnCommandChannel(msg interface{}) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+	cmdChanMu.Lock()
+	ws := cmdChanWs
+	cmdChanMu.Unlock()
+	if ws == nil {
+		return
+	}
+	_ = ws.WriteFrame(0x1, data)
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 // runCommandChannel loops forever, reconnecting to the server command channel
@@ -79,7 +104,16 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	defer ws.Close()
+	defer func() {
+		cmdChanMu.Lock()
+		cmdChanWs = nil
+		cmdChanMu.Unlock()
+		ws.Close()
+	}()
+
+	cmdChanMu.Lock()
+	cmdChanWs = ws
+	cmdChanMu.Unlock()
 
 	log.Printf("[cmd-channel] connected to %s", wsURL)
 
