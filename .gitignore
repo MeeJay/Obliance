@@ -16,6 +16,7 @@ coverage/
 .idea/
 *.tsbuildinfo
 *.bat
+000-RegularUpdate.lock
 
 # Claude Code internal files (conversation history, memory, etc.)
 .claude/

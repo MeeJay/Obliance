@@ -15,7 +15,10 @@ import (
 )
 
 var (
-	userenv                     = windows.NewLazySystemDLL("userenv.dll")
+	wtsapi32 = windows.NewLazySystemDLL("wtsapi32.dll")
+	advapi32 = windows.NewLazySystemDLL("advapi32.dll")
+	userenv  = windows.NewLazySystemDLL("userenv.dll")
+
 	procWTSQueryUserToken       = wtsapi32.NewProc("WTSQueryUserToken")
 	procCreateProcessAsUserW    = advapi32.NewProc("CreateProcessAsUserW")
 	procCreateEnvironmentBlock  = userenv.NewProc("CreateEnvironmentBlock")

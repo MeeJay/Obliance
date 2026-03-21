@@ -133,7 +133,7 @@ export function ProfilePage() {
     }
   };
 
-  const [preferredCodec, setPreferredCodec] = useState(sessionUser?.preferences?.preferredCodec || 'h264');
+  const [preferredCodec, setPreferredCodec] = useState<string>(sessionUser?.preferences?.preferredCodec || 'h264');
 
   const handleCodecChange = async (codec: string) => {
     setPreferredCodec(codec);

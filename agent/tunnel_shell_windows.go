@@ -15,9 +15,6 @@ import (
 
 var (
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
-	wtsapi32 = windows.NewLazySystemDLL("wtsapi32.dll")
-	userenv  = windows.NewLazySystemDLL("userenv.dll")
-	advapi32 = windows.NewLazySystemDLL("advapi32.dll")
 
 	procCreatePseudoConsole           = kernel32.NewProc("CreatePseudoConsole")
 	procResizePseudoConsole           = kernel32.NewProc("ResizePseudoConsole")
@@ -25,10 +22,6 @@ var (
 	procInitializeProcThreadAttrList  = kernel32.NewProc("InitializeProcThreadAttributeList")
 	procUpdateProcThreadAttribute     = kernel32.NewProc("UpdateProcThreadAttribute")
 	procDeleteProcThreadAttributeList = kernel32.NewProc("DeleteProcThreadAttributeList")
-	procWTSQueryUserToken             = wtsapi32.NewProc("WTSQueryUserToken")
-	procCreateEnvironmentBlock        = userenv.NewProc("CreateEnvironmentBlock")
-	procDestroyEnvironmentBlock       = userenv.NewProc("DestroyEnvironmentBlock")
-	procCreateProcessAsUserW          = advapi32.NewProc("CreateProcessAsUserW")
 )
 
 // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = ProcThreadAttributeValue(22, FALSE, TRUE, FALSE)
