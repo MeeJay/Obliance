@@ -84,12 +84,29 @@
                          Name="ApiKey"    Type="string" Value="[APIKEY]" />
         </Component>
 
+        <!--
+          Tray icon process — runs in user session at login.
+          Uses -H windowsgui so no console window appears.
+          Communicates with the agent service via shared privacy.json file.
+        -->
+        <Component Id="TrayExe" Guid="C3D4E5F6-A7B8-9012-CDEF-012345670003">
+          <File Id="TrayExeFile" Source="dist\obliance-tray.exe" Name="obliance-tray.exe"
+                DefaultVersion="65535.0.0.0" />
+          <RegistryValue Root="HKLM"
+                         Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+                         Name="OblianceTray"
+                         Type="string"
+                         Value="[INSTALLFOLDER]obliance-tray.exe"
+                         KeyPath="yes" />
+        </Component>
+
       </Directory>
     </StandardDirectory>
 
     <Feature Id="Main">
       <ComponentRef Id="AgentExe" />
       <ComponentRef Id="AgentConfig" />
+      <ComponentRef Id="TrayExe" />
     </Feature>
 
   </Package>
