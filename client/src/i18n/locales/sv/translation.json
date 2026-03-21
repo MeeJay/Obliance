@@ -627,5 +627,94 @@
     "confirmResetMfa": "Inaktivera alla 2FA-metoder för \"{{username}}\"? De kommer att kunna logga in utan en andra faktor.",
     "mfaReset": "MFA inaktiverat för {{username}}",
     "failedResetMfa": "Misslyckades med att återställa MFA"
+  },
+  "updates": {
+    "title": "Uppdateringar",
+    "subtitle": "Hantera programvaruuppdateringar för din enhetsflotta",
+    "tabs": {
+      "updates": "Tillgängliga uppdateringar",
+      "policies": "Uppdateringspolicyer"
+    },
+    "selected": "vald(a)",
+    "noUpdatesFound": "Inga uppdateringar hittades",
+    "noSeverityUpdates": "Inga {{severity}}-uppdateringar tillgängliga.",
+    "allUpToDate": "Alla enheter är uppdaterade.",
+    "noPending": "Inga väntande uppdateringar",
+    "noUpdates": "Inga uppdateringar — kör en skanning",
+    "filters": {
+      "allDevices": "Alla enheter"
+    },
+    "table": {
+      "update": "Uppdatering",
+      "device": "Enhet",
+      "severity": "Allvarlighet",
+      "source": "Källa",
+      "size": "Storlek",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Tillgänglig",
+      "approved": "Godkänd",
+      "pendingInstall": "I kö",
+      "installing": "Installerar…",
+      "installed": "Installerad",
+      "failed": "Misslyckad",
+      "excluded": "Exkluderad",
+      "superseded": "Ersatt"
+    },
+    "actions": {
+      "approve": "Godkänn",
+      "approveAll": "Godkänn alla",
+      "approveSelected": "Godkänn valda",
+      "deploy": "Distribuera",
+      "scan": "Skanna",
+      "clear": "Rensa"
+    },
+    "toast": {
+      "approved": "Uppdatering godkänd",
+      "bulkApproved": "{{count}} uppdateringar godkända",
+      "approveFailed": "Godkännande misslyckades",
+      "installed": "installerad",
+      "failed": "installation misslyckades",
+      "loadFailed": "Kunde inte ladda uppdateringar"
+    },
+    "policy": {
+      "new": "Ny policy",
+      "edit": "Redigera policy",
+      "cancel": "Avbryt",
+      "save": "Spara",
+      "saving": "Sparar…",
+      "name": "Namn",
+      "target": "Mål",
+      "description": "Beskrivning",
+      "allDevices": "Alla enheter",
+      "deviceGroup": "Enhetsgrupp",
+      "specificDevice": "Specifik enhet",
+      "installWindowStart": "Installationsfönster start",
+      "installWindowEnd": "Installationsfönster slut",
+      "rebootBehavior": "Omstartsbeteende",
+      "rebootDelay": "Omstartsfördröjning (minuter)",
+      "reboot": "Omstart",
+      "window": "Fönster",
+      "autoApproveCritical": "Autogodkänn kritiska",
+      "autoApproveSecurity": "Autogodkänn säkerhet",
+      "autoApproveOptional": "Autogodkänn valfria",
+      "approvalRequired": "Godkännande krävs",
+      "enabled": "Aktiverad",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "autoCritical": "Auto: kritisk",
+      "autoSecurity": "Auto: säkerhet",
+      "autoOptional": "Auto: valfri",
+      "noPolicies": "Inga policyer konfigurerade",
+      "noPoliciesDesc": "Skapa policyer för att automatisera godkännande och schemaläggning.",
+      "confirmDelete": "Ta bort denna policy?",
+      "deleted": "Policy borttagen",
+      "deleteFailed": "Borttagning misslyckades",
+      "nameRequired": "Policynamn krävs",
+      "updated": "Policy uppdaterad",
+      "created": "Policy skapad",
+      "saveFailed": "Sparande misslyckades"
+    }
   }
 }

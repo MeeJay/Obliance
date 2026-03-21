@@ -462,21 +462,26 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
     if (!socket) return;
     const onCmd = (cmd: Command) => {
       if (cmd.deviceId !== deviceId) return;
-      if (!['success', 'failure', 'timeout'].includes(cmd.status)) return;
       if (cmd.type === 'install_update') {
         const uid = (cmd.payload as any)?.updateUid as string | undefined;
-        if (cmd.status === 'success') {
+        if (cmd.status === 'ack_running') {
+          if (uid) setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'installing' as const } : u
+          ));
+        } else if (cmd.status === 'success') {
           if (uid) setUpdates((prev) => prev.map((u) =>
             u.updateUid === uid ? { ...u, status: 'installed' as const, installedAt: new Date().toISOString() } : u
           ));
           toast.success(uid ? `Update ${uid} installed` : 'Update installed');
-        } else {
+        } else if (['failure', 'timeout'].includes(cmd.status)) {
           if (uid) setUpdates((prev) => prev.map((u) =>
             u.updateUid === uid ? { ...u, status: 'failed' as const } : u
           ));
           toast.error(uid ? `Failed to install ${uid}` : 'Update installation failed');
         }
+        return;
       }
+      if (!['success', 'failure', 'timeout'].includes(cmd.status)) return;
       if (cmd.type === 'scan_updates' && cmd.status === 'success') {
         load();
       }
@@ -546,11 +551,14 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
   };
 
   const STATUS_LABEL: Record<string, string> = {
-    available: 'Available',
-    approved: 'Approved',
-    pending_install: 'Installing…',
-    installed: 'Installed',
-    failed: 'Failed',
+    available: t('updates.status.available'),
+    approved: t('updates.status.approved'),
+    pending_install: t('updates.status.pendingInstall'),
+    installing: t('updates.status.installing'),
+    installed: t('updates.status.installed'),
+    failed: t('updates.status.failed'),
+    excluded: t('updates.status.excluded'),
+    superseded: t('updates.status.superseded'),
   };
 
   const available = updates.filter((u) => u.status === 'available');
@@ -563,10 +571,10 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-text-muted">
-          {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} available</span>}
+          {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} {t('updates.status.available').toLowerCase()}</span>}
           {available.length > 0 && approved.length > 0 && <span className="text-text-muted"> · </span>}
-          {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} approved</span>}
-          {available.length === 0 && approved.length === 0 && <span>No pending updates</span>}
+          {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} {t('updates.status.approved').toLowerCase()}</span>}
+          {available.length === 0 && approved.length === 0 && <span>{t('updates.noPending')}</span>}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           {available.length > 0 && (
@@ -576,7 +584,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isApprovingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              Approve All
+              {t('updates.actions.approveAll')}
             </button>
           )}
           {approved.length > 0 && (
@@ -586,7 +594,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
-              Deploy ({approved.length})
+              {t('updates.actions.deploy')} ({approved.length})
             </button>
           )}
           <button
@@ -594,7 +602,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
           >
             <Scan className="w-3.5 h-3.5" />
-            Scan
+            {t('updates.actions.scan')}
           </button>
         </div>
       </div>
@@ -603,7 +611,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
       {updates.length === 0 ? (
         <div className="p-12 text-center text-text-muted">
           <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No updates found — run a scan to check for updates</p>
+          <p>{t('updates.noUpdates')}</p>
         </div>
       ) : (
         <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
@@ -617,6 +625,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                   <p className="text-sm text-text-primary font-medium truncate">{update.title ?? update.updateUid}</p>
                   <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
                     update.status === 'approved' ? 'text-green-400' :
+                    update.status === 'installing' || update.status === 'pending_install' ? 'text-yellow-400' :
                     update.status === 'installed' ? 'text-blue-400' :
                     update.status === 'failed' ? 'text-red-400' : '',
                   )}>{STATUS_LABEL[update.status] ?? update.status}</span></p>
@@ -628,11 +637,11 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                     className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors"
                   >
                     {approvingId === update.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
-                    Approve
+                    {t('updates.actions.approve')}
                   </button>
                 )}
                 {update.status === 'approved' && (
-                  <span className="shrink-0 text-xs text-green-400 opacity-60">✓ Approved</span>
+                  <span className="shrink-0 text-xs text-green-400 opacity-60">✓ {t('updates.status.approved')}</span>
                 )}
               </div>
             ))}
@@ -3013,9 +3022,13 @@ export function DeviceDetailPage() {
             {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
               <span>
                 {' '}· Reach v{headerOrVersion}
-                {headerOrLatestVersion && headerOrVersion !== headerOrLatestVersion && (
-                  <span className="ml-1 text-yellow-400">↑ v{headerOrLatestVersion}</span>
-                )}
+                {headerOrLatestVersion && headerOrVersion !== headerOrLatestVersion && (() => {
+                  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+                  const [cm, cmi, cp] = parse(headerOrVersion);
+                  const [lm, lmi, lp] = parse(headerOrLatestVersion);
+                  const isOlder = cm !== lm ? cm < lm : cmi !== lmi ? cmi < lmi : cp < lp;
+                  return isOlder ? <span className="ml-1 text-yellow-400">↑ v{headerOrLatestVersion}</span> : null;
+                })()}
               </span>
             )}
           </p>

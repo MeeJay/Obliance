@@ -627,5 +627,94 @@
     "confirmResetMfa": "Вимкнути всі методи 2FA для \"{{username}}\"? Користувач зможе увійти без другого фактора.",
     "mfaReset": "MFA вимкнено для {{username}}",
     "failedResetMfa": "Не вдалося скинути MFA"
+  },
+  "updates": {
+    "title": "Оновлення",
+    "subtitle": "Керуйте оновленнями програмного забезпечення вашого парку",
+    "tabs": {
+      "updates": "Доступні оновлення",
+      "policies": "Політики оновлень"
+    },
+    "selected": "вибрано",
+    "noUpdatesFound": "Оновлень не знайдено",
+    "noSeverityUpdates": "Немає оновлень рівня {{severity}}.",
+    "allUpToDate": "Усі пристрої оновлені.",
+    "noPending": "Немає очікуваних оновлень",
+    "noUpdates": "Оновлень не знайдено — запустіть сканування",
+    "filters": {
+      "allDevices": "Усі пристрої"
+    },
+    "table": {
+      "update": "Оновлення",
+      "device": "Пристрій",
+      "severity": "Важливість",
+      "source": "Джерело",
+      "size": "Розмір",
+      "status": "Статус"
+    },
+    "status": {
+      "available": "Доступне",
+      "approved": "Затверджене",
+      "pendingInstall": "У черзі",
+      "installing": "Встановлення…",
+      "installed": "Встановлене",
+      "failed": "Помилка",
+      "excluded": "Виключене",
+      "superseded": "Замінене"
+    },
+    "actions": {
+      "approve": "Затвердити",
+      "approveAll": "Затвердити все",
+      "approveSelected": "Затвердити вибране",
+      "deploy": "Розгорнути",
+      "scan": "Сканувати",
+      "clear": "Очистити"
+    },
+    "toast": {
+      "approved": "Оновлення затверджене",
+      "bulkApproved": "Затверджено {{count}} оновлень",
+      "approveFailed": "Помилка затвердження",
+      "installed": "успішно встановлено",
+      "failed": "помилка встановлення",
+      "loadFailed": "Не вдалося завантажити оновлення"
+    },
+    "policy": {
+      "new": "Нова політика",
+      "edit": "Редагувати політику",
+      "cancel": "Скасувати",
+      "save": "Зберегти",
+      "saving": "Збереження…",
+      "name": "Назва",
+      "target": "Ціль",
+      "description": "Опис",
+      "allDevices": "Усі пристрої",
+      "deviceGroup": "Група пристроїв",
+      "specificDevice": "Конкретний пристрій",
+      "installWindowStart": "Початок вікна встановлення",
+      "installWindowEnd": "Кінець вікна встановлення",
+      "rebootBehavior": "Поведінка перезавантаження",
+      "rebootDelay": "Затримка перезавантаження (хв)",
+      "reboot": "Перезавантаження",
+      "window": "Вікно",
+      "autoApproveCritical": "Авто-затвердження критичних",
+      "autoApproveSecurity": "Авто-затвердження безпеки",
+      "autoApproveOptional": "Авто-затвердження необов'язкових",
+      "approvalRequired": "Потрібне затвердження",
+      "enabled": "Увімкнена",
+      "active": "Активна",
+      "inactive": "Неактивна",
+      "autoCritical": "Авто: критич.",
+      "autoSecurity": "Авто: безпека",
+      "autoOptional": "Авто: необов'язк.",
+      "noPolicies": "Політики не налаштовані",
+      "noPoliciesDesc": "Створіть політики для автоматизації затвердження та планування.",
+      "confirmDelete": "Видалити цю політику?",
+      "deleted": "Політику видалено",
+      "deleteFailed": "Помилка видалення",
+      "nameRequired": "Назва обов'язкова",
+      "updated": "Політику оновлено",
+      "created": "Політику створено",
+      "saveFailed": "Помилка збереження"
+    }
   }
 }

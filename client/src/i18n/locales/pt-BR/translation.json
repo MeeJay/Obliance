@@ -627,5 +627,94 @@
     "confirmResetMfa": "Desativar todos os métodos 2FA de \"{{username}}\"? Ele poderá fazer login sem segundo fator.",
     "mfaReset": "MFA desativado para {{username}}",
     "failedResetMfa": "Falha ao redefinir o MFA"
+  },
+  "updates": {
+    "title": "Atualizações",
+    "subtitle": "Gerenciar atualizações de software da sua frota",
+    "tabs": {
+      "updates": "Atualizações disponíveis",
+      "policies": "Políticas de atualização"
+    },
+    "selected": "selecionada(s)",
+    "noUpdatesFound": "Nenhuma atualização encontrada",
+    "noSeverityUpdates": "Nenhuma atualização {{severity}} disponível.",
+    "allUpToDate": "Todos os dispositivos estão atualizados.",
+    "noPending": "Sem atualizações pendentes",
+    "noUpdates": "Nenhuma atualização — execute um scan",
+    "filters": {
+      "allDevices": "Todos os dispositivos"
+    },
+    "table": {
+      "update": "Atualização",
+      "device": "Dispositivo",
+      "severity": "Severidade",
+      "source": "Fonte",
+      "size": "Tamanho",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Disponível",
+      "approved": "Aprovada",
+      "pendingInstall": "Na fila",
+      "installing": "Instalando…",
+      "installed": "Instalada",
+      "failed": "Falhou",
+      "excluded": "Excluída",
+      "superseded": "Substituída"
+    },
+    "actions": {
+      "approve": "Aprovar",
+      "approveAll": "Aprovar tudo",
+      "approveSelected": "Aprovar seleção",
+      "deploy": "Implantar",
+      "scan": "Escanear",
+      "clear": "Limpar"
+    },
+    "toast": {
+      "approved": "Atualização aprovada",
+      "bulkApproved": "{{count}} atualizações aprovadas",
+      "approveFailed": "Falha ao aprovar",
+      "installed": "instalada com sucesso",
+      "failed": "falha na instalação",
+      "loadFailed": "Falha ao carregar atualizações"
+    },
+    "policy": {
+      "new": "Nova política",
+      "edit": "Editar política",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saving": "Salvando…",
+      "name": "Nome",
+      "target": "Alvo",
+      "description": "Descrição",
+      "allDevices": "Todos os dispositivos",
+      "deviceGroup": "Grupo de dispositivos",
+      "specificDevice": "Dispositivo específico",
+      "installWindowStart": "Início da janela",
+      "installWindowEnd": "Fim da janela",
+      "rebootBehavior": "Comportamento de reinício",
+      "rebootDelay": "Atraso de reinício (minutos)",
+      "reboot": "Reinício",
+      "window": "Janela",
+      "autoApproveCritical": "Auto-aprovar críticas",
+      "autoApproveSecurity": "Auto-aprovar segurança",
+      "autoApproveOptional": "Auto-aprovar opcionais",
+      "approvalRequired": "Aprovação necessária",
+      "enabled": "Habilitada",
+      "active": "Ativa",
+      "inactive": "Inativa",
+      "autoCritical": "Auto: crítica",
+      "autoSecurity": "Auto: segurança",
+      "autoOptional": "Auto: opcional",
+      "noPolicies": "Nenhuma política configurada",
+      "noPoliciesDesc": "Crie políticas para automatizar aprovação e agendamento.",
+      "confirmDelete": "Excluir esta política?",
+      "deleted": "Política excluída",
+      "deleteFailed": "Falha ao excluir",
+      "nameRequired": "Nome é obrigatório",
+      "updated": "Política atualizada",
+      "created": "Política criada",
+      "saveFailed": "Falha ao salvar"
+    }
   }
 }

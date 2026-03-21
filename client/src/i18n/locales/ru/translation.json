@@ -627,5 +627,94 @@
     "confirmResetMfa": "Отключить все методы 2FA для \"{{username}}\"? Пользователь сможет войти без второго фактора.",
     "mfaReset": "MFA отключён для {{username}}",
     "failedResetMfa": "Не удалось сбросить MFA"
+  },
+  "updates": {
+    "title": "Обновления",
+    "subtitle": "Управление обновлениями ПО на вашем парке устройств",
+    "tabs": {
+      "updates": "Доступные обновления",
+      "policies": "Политики обновлений"
+    },
+    "selected": "выбрано",
+    "noUpdatesFound": "Обновления не найдены",
+    "noSeverityUpdates": "Нет обновлений уровня {{severity}}.",
+    "allUpToDate": "Все устройства обновлены.",
+    "noPending": "Нет ожидающих обновлений",
+    "noUpdates": "Обновления не найдены — запустите сканирование",
+    "filters": {
+      "allDevices": "Все устройства"
+    },
+    "table": {
+      "update": "Обновление",
+      "device": "Устройство",
+      "severity": "Важность",
+      "source": "Источник",
+      "size": "Размер",
+      "status": "Статус"
+    },
+    "status": {
+      "available": "Доступно",
+      "approved": "Одобрено",
+      "pendingInstall": "В очереди",
+      "installing": "Установка…",
+      "installed": "Установлено",
+      "failed": "Ошибка",
+      "excluded": "Исключено",
+      "superseded": "Заменено"
+    },
+    "actions": {
+      "approve": "Одобрить",
+      "approveAll": "Одобрить все",
+      "approveSelected": "Одобрить выбранное",
+      "deploy": "Развернуть",
+      "scan": "Сканировать",
+      "clear": "Очистить"
+    },
+    "toast": {
+      "approved": "Обновление одобрено",
+      "bulkApproved": "Одобрено {{count}} обновлений",
+      "approveFailed": "Ошибка одобрения",
+      "installed": "успешно установлено",
+      "failed": "ошибка установки",
+      "loadFailed": "Не удалось загрузить обновления"
+    },
+    "policy": {
+      "new": "Новая политика",
+      "edit": "Редактировать политику",
+      "cancel": "Отмена",
+      "save": "Сохранить",
+      "saving": "Сохранение…",
+      "name": "Название",
+      "target": "Цель",
+      "description": "Описание",
+      "allDevices": "Все устройства",
+      "deviceGroup": "Группа устройств",
+      "specificDevice": "Конкретное устройство",
+      "installWindowStart": "Начало окна установки",
+      "installWindowEnd": "Конец окна установки",
+      "rebootBehavior": "Поведение перезагрузки",
+      "rebootDelay": "Задержка перезагрузки (мин)",
+      "reboot": "Перезагрузка",
+      "window": "Окно",
+      "autoApproveCritical": "Авто-одобрение критических",
+      "autoApproveSecurity": "Авто-одобрение безопасности",
+      "autoApproveOptional": "Авто-одобрение необязательных",
+      "approvalRequired": "Требуется одобрение",
+      "enabled": "Включена",
+      "active": "Активна",
+      "inactive": "Неактивна",
+      "autoCritical": "Авто: критич.",
+      "autoSecurity": "Авто: безопасность",
+      "autoOptional": "Авто: необязат.",
+      "noPolicies": "Политики не настроены",
+      "noPoliciesDesc": "Создайте политики для автоматизации одобрения и планирования.",
+      "confirmDelete": "Удалить эту политику?",
+      "deleted": "Политика удалена",
+      "deleteFailed": "Ошибка удаления",
+      "nameRequired": "Название обязательно",
+      "updated": "Политика обновлена",
+      "created": "Политика создана",
+      "saveFailed": "Ошибка сохранения"
+    }
   }
 }

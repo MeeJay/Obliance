@@ -1249,5 +1249,94 @@
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
     }
+  },
+  "updates": {
+    "title": "Updates",
+    "subtitle": "Manage software updates across your fleet",
+    "tabs": {
+      "updates": "Available Updates",
+      "policies": "Update Policies"
+    },
+    "selected": "selected",
+    "noUpdatesFound": "No updates found",
+    "noSeverityUpdates": "No {{severity}} updates available.",
+    "allUpToDate": "All devices are up to date.",
+    "noPending": "No pending updates",
+    "noUpdates": "No updates found — run a scan to check for updates",
+    "filters": {
+      "allDevices": "All devices"
+    },
+    "table": {
+      "update": "Update",
+      "device": "Device",
+      "severity": "Severity",
+      "source": "Source",
+      "size": "Size",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Available",
+      "approved": "Approved",
+      "pendingInstall": "Queued",
+      "installing": "Installing…",
+      "installed": "Installed",
+      "failed": "Failed",
+      "excluded": "Excluded",
+      "superseded": "Superseded"
+    },
+    "actions": {
+      "approve": "Approve",
+      "approveAll": "Approve All",
+      "approveSelected": "Approve selected",
+      "deploy": "Deploy",
+      "scan": "Scan",
+      "clear": "Clear"
+    },
+    "toast": {
+      "approved": "Update approved",
+      "bulkApproved": "{{count}} updates approved",
+      "approveFailed": "Failed to approve update",
+      "installed": "installed successfully",
+      "failed": "installation failed",
+      "loadFailed": "Failed to load updates"
+    },
+    "policy": {
+      "new": "New Policy",
+      "edit": "Edit Policy",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "name": "Name",
+      "target": "Target",
+      "description": "Description",
+      "allDevices": "All devices",
+      "deviceGroup": "Device group",
+      "specificDevice": "Specific device",
+      "installWindowStart": "Install window start",
+      "installWindowEnd": "Install window end",
+      "rebootBehavior": "Reboot behavior",
+      "rebootDelay": "Reboot delay (minutes)",
+      "reboot": "Reboot",
+      "window": "Window",
+      "autoApproveCritical": "Auto-approve critical",
+      "autoApproveSecurity": "Auto-approve security",
+      "autoApproveOptional": "Auto-approve optional",
+      "approvalRequired": "Approval required",
+      "enabled": "Enabled",
+      "active": "Active",
+      "inactive": "Inactive",
+      "autoCritical": "Auto: critical",
+      "autoSecurity": "Auto: security",
+      "autoOptional": "Auto: optional",
+      "noPolicies": "No update policies configured",
+      "noPoliciesDesc": "Create policies to automate update approval and scheduling.",
+      "confirmDelete": "Delete this update policy?",
+      "deleted": "Policy deleted",
+      "deleteFailed": "Failed to delete policy",
+      "nameRequired": "Policy name is required",
+      "updated": "Policy updated",
+      "created": "Policy created",
+      "saveFailed": "Failed to save policy"
+    }
   }
 }

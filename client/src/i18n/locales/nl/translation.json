@@ -627,5 +627,94 @@
     "confirmResetMfa": "Alle 2FA-methoden voor \"{{username}}\" uitschakelen? Ze kunnen inloggen zonder tweede factor.",
     "mfaReset": "MFA uitgeschakeld voor {{username}}",
     "failedResetMfa": "MFA resetten mislukt"
+  },
+  "updates": {
+    "title": "Updates",
+    "subtitle": "Beheer software-updates voor uw apparaten",
+    "tabs": {
+      "updates": "Beschikbare updates",
+      "policies": "Updatebeleid"
+    },
+    "selected": "geselecteerd",
+    "noUpdatesFound": "Geen updates gevonden",
+    "noSeverityUpdates": "Geen {{severity}} updates beschikbaar.",
+    "allUpToDate": "Alle apparaten zijn up-to-date.",
+    "noPending": "Geen openstaande updates",
+    "noUpdates": "Geen updates gevonden — voer een scan uit",
+    "filters": {
+      "allDevices": "Alle apparaten"
+    },
+    "table": {
+      "update": "Update",
+      "device": "Apparaat",
+      "severity": "Ernst",
+      "source": "Bron",
+      "size": "Grootte",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Beschikbaar",
+      "approved": "Goedgekeurd",
+      "pendingInstall": "In wachtrij",
+      "installing": "Installeren…",
+      "installed": "Geïnstalleerd",
+      "failed": "Mislukt",
+      "excluded": "Uitgesloten",
+      "superseded": "Vervangen"
+    },
+    "actions": {
+      "approve": "Goedkeuren",
+      "approveAll": "Alles goedkeuren",
+      "approveSelected": "Selectie goedkeuren",
+      "deploy": "Uitrollen",
+      "scan": "Scannen",
+      "clear": "Wissen"
+    },
+    "toast": {
+      "approved": "Update goedgekeurd",
+      "bulkApproved": "{{count}} updates goedgekeurd",
+      "approveFailed": "Goedkeuring mislukt",
+      "installed": "succesvol geïnstalleerd",
+      "failed": "installatie mislukt",
+      "loadFailed": "Updates laden mislukt"
+    },
+    "policy": {
+      "new": "Nieuw beleid",
+      "edit": "Beleid bewerken",
+      "cancel": "Annuleren",
+      "save": "Opslaan",
+      "saving": "Opslaan…",
+      "name": "Naam",
+      "target": "Doel",
+      "description": "Beschrijving",
+      "allDevices": "Alle apparaten",
+      "deviceGroup": "Apparaatgroep",
+      "specificDevice": "Specifiek apparaat",
+      "installWindowStart": "Installatievenster begin",
+      "installWindowEnd": "Installatievenster einde",
+      "rebootBehavior": "Herstartgedrag",
+      "rebootDelay": "Herstartvertraging (minuten)",
+      "reboot": "Herstart",
+      "window": "Venster",
+      "autoApproveCritical": "Kritieke auto-goedkeuren",
+      "autoApproveSecurity": "Beveiliging auto-goedkeuren",
+      "autoApproveOptional": "Optionele auto-goedkeuren",
+      "approvalRequired": "Goedkeuring vereist",
+      "enabled": "Ingeschakeld",
+      "active": "Actief",
+      "inactive": "Inactief",
+      "autoCritical": "Auto: kritiek",
+      "autoSecurity": "Auto: beveiliging",
+      "autoOptional": "Auto: optioneel",
+      "noPolicies": "Geen updatebeleid geconfigureerd",
+      "noPoliciesDesc": "Maak beleid om goedkeuring en planning te automatiseren.",
+      "confirmDelete": "Dit beleid verwijderen?",
+      "deleted": "Beleid verwijderd",
+      "deleteFailed": "Verwijderen mislukt",
+      "nameRequired": "Beleidsnaam is verplicht",
+      "updated": "Beleid bijgewerkt",
+      "created": "Beleid aangemaakt",
+      "saveFailed": "Opslaan mislukt"
+    }
   }
 }

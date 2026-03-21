@@ -627,5 +627,94 @@
     "confirmResetMfa": "禁用\"{{username}}\"的所有双因素认证方式？该用户将可以不使用第二因素登录。",
     "mfaReset": "已为 {{username}} 禁用 MFA",
     "failedResetMfa": "重置 MFA 失败"
+  },
+  "updates": {
+    "title": "更新",
+    "subtitle": "管理设备群的软件更新",
+    "tabs": {
+      "updates": "可用更新",
+      "policies": "更新策略"
+    },
+    "selected": "已选择",
+    "noUpdatesFound": "未找到更新",
+    "noSeverityUpdates": "没有{{severity}}级别的更新。",
+    "allUpToDate": "所有设备均为最新。",
+    "noPending": "没有待处理的更新",
+    "noUpdates": "未找到更新 — 运行扫描以检查",
+    "filters": {
+      "allDevices": "所有设备"
+    },
+    "table": {
+      "update": "更新",
+      "device": "设备",
+      "severity": "严重性",
+      "source": "来源",
+      "size": "大小",
+      "status": "状态"
+    },
+    "status": {
+      "available": "可用",
+      "approved": "已批准",
+      "pendingInstall": "排队中",
+      "installing": "安装中…",
+      "installed": "已安装",
+      "failed": "失败",
+      "excluded": "已排除",
+      "superseded": "已替代"
+    },
+    "actions": {
+      "approve": "批准",
+      "approveAll": "全部批准",
+      "approveSelected": "批准所选",
+      "deploy": "部署",
+      "scan": "扫描",
+      "clear": "清除"
+    },
+    "toast": {
+      "approved": "更新已批准",
+      "bulkApproved": "{{count}}个更新已批准",
+      "approveFailed": "批准失败",
+      "installed": "安装成功",
+      "failed": "安装失败",
+      "loadFailed": "加载更新失败"
+    },
+    "policy": {
+      "new": "新建策略",
+      "edit": "编辑策略",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中…",
+      "name": "名称",
+      "target": "目标",
+      "description": "描述",
+      "allDevices": "所有设备",
+      "deviceGroup": "设备组",
+      "specificDevice": "指定设备",
+      "installWindowStart": "安装窗口开始",
+      "installWindowEnd": "安装窗口结束",
+      "rebootBehavior": "重启行为",
+      "rebootDelay": "重启延迟（分钟）",
+      "reboot": "重启",
+      "window": "时间窗口",
+      "autoApproveCritical": "自动批准关键",
+      "autoApproveSecurity": "自动批准安全",
+      "autoApproveOptional": "自动批准可选",
+      "approvalRequired": "需要批准",
+      "enabled": "已启用",
+      "active": "活动",
+      "inactive": "非活动",
+      "autoCritical": "自动：关键",
+      "autoSecurity": "自动：安全",
+      "autoOptional": "自动：可选",
+      "noPolicies": "未配置更新策略",
+      "noPoliciesDesc": "创建策略以自动化批准和调度。",
+      "confirmDelete": "删除此策略？",
+      "deleted": "策略已删除",
+      "deleteFailed": "删除失败",
+      "nameRequired": "策略名称必填",
+      "updated": "策略已更新",
+      "created": "策略已创建",
+      "saveFailed": "保存失败"
+    }
   }
 }

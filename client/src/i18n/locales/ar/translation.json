@@ -627,5 +627,94 @@
     "confirmResetMfa": "تعطيل جميع طرق المصادقة الثنائية لـ \"{{username}}\"؟ سيتمكن من تسجيل الدخول بدون عامل ثانٍ.",
     "mfaReset": "تم تعطيل MFA لـ {{username}}",
     "failedResetMfa": "فشل إعادة تعيين MFA"
+  },
+  "updates": {
+    "title": "التحديثات",
+    "subtitle": "إدارة تحديثات البرامج عبر أجهزتك",
+    "tabs": {
+      "updates": "التحديثات المتاحة",
+      "policies": "سياسات التحديث"
+    },
+    "selected": "محدد",
+    "noUpdatesFound": "لم يتم العثور على تحديثات",
+    "noSeverityUpdates": "لا توجد تحديثات {{severity}} متاحة.",
+    "allUpToDate": "جميع الأجهزة محدثة.",
+    "noPending": "لا توجد تحديثات معلقة",
+    "noUpdates": "لم يتم العثور على تحديثات — قم بإجراء فحص",
+    "filters": {
+      "allDevices": "جميع الأجهزة"
+    },
+    "table": {
+      "update": "تحديث",
+      "device": "جهاز",
+      "severity": "الخطورة",
+      "source": "المصدر",
+      "size": "الحجم",
+      "status": "الحالة"
+    },
+    "status": {
+      "available": "متاح",
+      "approved": "معتمد",
+      "pendingInstall": "في الانتظار",
+      "installing": "جارٍ التثبيت…",
+      "installed": "مثبت",
+      "failed": "فشل",
+      "excluded": "مستبعد",
+      "superseded": "مستبدل"
+    },
+    "actions": {
+      "approve": "اعتماد",
+      "approveAll": "اعتماد الكل",
+      "approveSelected": "اعتماد المحدد",
+      "deploy": "نشر",
+      "scan": "فحص",
+      "clear": "مسح"
+    },
+    "toast": {
+      "approved": "تم اعتماد التحديث",
+      "bulkApproved": "تم اعتماد {{count}} تحديثات",
+      "approveFailed": "فشل الاعتماد",
+      "installed": "تم التثبيت بنجاح",
+      "failed": "فشل التثبيت",
+      "loadFailed": "فشل تحميل التحديثات"
+    },
+    "policy": {
+      "new": "سياسة جديدة",
+      "edit": "تعديل السياسة",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "name": "الاسم",
+      "target": "الهدف",
+      "description": "الوصف",
+      "allDevices": "جميع الأجهزة",
+      "deviceGroup": "مجموعة أجهزة",
+      "specificDevice": "جهاز محدد",
+      "installWindowStart": "بداية نافذة التثبيت",
+      "installWindowEnd": "نهاية نافذة التثبيت",
+      "rebootBehavior": "سلوك إعادة التشغيل",
+      "rebootDelay": "تأخير إعادة التشغيل (دقائق)",
+      "reboot": "إعادة تشغيل",
+      "window": "نافذة",
+      "autoApproveCritical": "اعتماد تلقائي للحرجة",
+      "autoApproveSecurity": "اعتماد تلقائي للأمنية",
+      "autoApproveOptional": "اعتماد تلقائي للاختيارية",
+      "approvalRequired": "الاعتماد مطلوب",
+      "enabled": "مفعلة",
+      "active": "نشطة",
+      "inactive": "غير نشطة",
+      "autoCritical": "تلقائي: حرج",
+      "autoSecurity": "تلقائي: أمني",
+      "autoOptional": "تلقائي: اختياري",
+      "noPolicies": "لا توجد سياسات مكونة",
+      "noPoliciesDesc": "أنشئ سياسات لأتمتة الاعتماد والجدولة.",
+      "confirmDelete": "حذف هذه السياسة؟",
+      "deleted": "تم حذف السياسة",
+      "deleteFailed": "فشل الحذف",
+      "nameRequired": "اسم السياسة مطلوب",
+      "updated": "تم تحديث السياسة",
+      "created": "تم إنشاء السياسة",
+      "saveFailed": "فشل الحفظ"
+    }
   }
 }

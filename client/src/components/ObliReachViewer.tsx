@@ -245,23 +245,35 @@ export function ObliReachViewer({
           fpsCountRef.current++;
           setStatus((prev) => (prev !== 'streaming' ? 'streaming' : prev));
         }).catch(() => {});
-      } else if (frameType === FRAME_H264) {
+      } else if (frameType === FRAME_H264 || frameType === 0x03) {
+        // H.264 (0x02) or VP9 (0x03) — both go through WebCodecs VideoDecoder
         const nalData = buf.slice(1);
         const decoder = decoderRef.current;
         if (!decoder || decoder.state !== 'configured') return;
 
-        const u8 = new Uint8Array(nalData);
-        const keyframe = isH264Keyframe(u8);
-
-        try {
-          decoder.decode(new EncodedVideoChunk({
-            type: keyframe ? 'key' : 'delta',
-            data: nalData,
-            timestamp: tsMicros,
-          }));
-          tsMicros += Math.round(1_000_000 / 15);
-        } catch (e) {
-          // Decoder may reject delta frames before the first keyframe
+        if (frameType === FRAME_H264) {
+          const u8 = new Uint8Array(nalData);
+          const keyframe = isH264Keyframe(u8);
+          try {
+            decoder.decode(new EncodedVideoChunk({
+              type: keyframe ? 'key' : 'delta',
+              data: nalData,
+              timestamp: tsMicros,
+            }));
+            tsMicros += Math.round(1_000_000 / 15);
+          } catch (e) {}
+        } else {
+          // VP9: keyframe detection via first byte (bit 0 = 0 means keyframe)
+          const u8 = new Uint8Array(nalData);
+          const isKey = u8.length > 0 && (u8[0] & 0x01) === 0;
+          try {
+            decoder.decode(new EncodedVideoChunk({
+              type: isKey ? 'key' : 'delta',
+              data: nalData,
+              timestamp: tsMicros,
+            }));
+            tsMicros += Math.round(1_000_000 / 15);
+          } catch (e) {}
         }
       }
     };
@@ -296,9 +308,38 @@ export function ObliReachViewer({
         // Agent connected — decoder is initialised when 'init' arrives
         setStatus('waiting');
         break;
-      case 'codec_switch':
-        setCodec((msg as any).codec === 'jpeg' ? 'JPEG' : 'H.264');
+      case 'codec_switch': {
+        const c = (msg as any).codec;
+        setCodec(c === 'jpeg' ? 'JPEG' : c === 'vp9' ? 'VP9' : 'H.264');
+        // Reconfigure VideoDecoder for the new codec
+        if (c === 'vp9' || c === 'h264') {
+          try { decoderRef.current?.close(); } catch {}
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              const decoder = new VideoDecoder({
+                output: (frame: VideoFrame) => {
+                  fpsCountRef.current++;
+                  ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                  frame.close();
+                  setStatus((prev) => (prev !== 'streaming' ? 'streaming' : prev));
+                },
+                error: () => {},
+              });
+              const codecStr = c === 'vp9' ? 'vp09.00.10.08' : 'avc1.640034';
+              decoder.configure({
+                codec: codecStr,
+                codedWidth: agentDims.w,
+                codedHeight: agentDims.h,
+                optimizeForLatency: true,
+              });
+              decoderRef.current = decoder;
+            }
+          }
+        }
         break;
+      }
       case 'init': {
         const m = msg as InitMsg;
         setCodec('H.264');
@@ -405,6 +446,10 @@ export function ObliReachViewer({
     onClose();
   }, [onClose]);
 
+  const handleCodecSwitch = useCallback((newCodec: string) => {
+    sendJson({ type: 'set_codec', codec: newCodec });
+  }, [sendJson]);
+
   // ── Status config ─────────────────────────────────────────────────────────
   const statusCfg: Record<ConnStatus, { label: string; color: string; spin?: boolean }> = {
     connecting:   { label: 'Connecting…',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', spin: true },
@@ -449,6 +494,19 @@ export function ObliReachViewer({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {status === 'streaming' && (
+            <select
+              value={codec.toLowerCase()}
+              onChange={e => handleCodecSwitch(e.target.value)}
+              title="Video codec"
+              className="px-2 py-1 text-xs bg-bg-secondary text-text-muted border border-border rounded hover:text-text-primary transition-colors cursor-pointer"
+            >
+              <option value="h264">H.264</option>
+              <option value="vp9">VP9</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          )}
+
           <button
             onClick={handleCtrlAltDel}
             disabled={status !== 'streaming'}

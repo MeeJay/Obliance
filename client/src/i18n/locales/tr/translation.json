@@ -627,5 +627,94 @@
     "confirmResetMfa": "\"{{username}}\" için tüm 2FA yöntemlerini devre dışı bırakılsın mı? İkinci faktör olmadan oturum açabilecekler.",
     "mfaReset": "{{username}} için MFA devre dışı bırakıldı",
     "failedResetMfa": "MFA sıfırlanamadı"
+  },
+  "updates": {
+    "title": "Güncellemeler",
+    "subtitle": "Cihaz filonuzdaki yazılım güncellemelerini yönetin",
+    "tabs": {
+      "updates": "Mevcut güncellemeler",
+      "policies": "Güncelleme politikaları"
+    },
+    "selected": "seçili",
+    "noUpdatesFound": "Güncelleme bulunamadı",
+    "noSeverityUpdates": "{{severity}} güncelleme mevcut değil.",
+    "allUpToDate": "Tüm cihazlar güncel.",
+    "noPending": "Bekleyen güncelleme yok",
+    "noUpdates": "Güncelleme yok — tarama çalıştırın",
+    "filters": {
+      "allDevices": "Tüm cihazlar"
+    },
+    "table": {
+      "update": "Güncelleme",
+      "device": "Cihaz",
+      "severity": "Önem",
+      "source": "Kaynak",
+      "size": "Boyut",
+      "status": "Durum"
+    },
+    "status": {
+      "available": "Mevcut",
+      "approved": "Onaylandı",
+      "pendingInstall": "Sırada",
+      "installing": "Kuruluyor…",
+      "installed": "Kuruldu",
+      "failed": "Başarısız",
+      "excluded": "Hariç tutuldu",
+      "superseded": "Değiştirildi"
+    },
+    "actions": {
+      "approve": "Onayla",
+      "approveAll": "Tümünü onayla",
+      "approveSelected": "Seçileni onayla",
+      "deploy": "Dağıt",
+      "scan": "Tara",
+      "clear": "Temizle"
+    },
+    "toast": {
+      "approved": "Güncelleme onaylandı",
+      "bulkApproved": "{{count}} güncelleme onaylandı",
+      "approveFailed": "Onay başarısız",
+      "installed": "başarıyla kuruldu",
+      "failed": "kurulum başarısız",
+      "loadFailed": "Güncellemeler yüklenemedi"
+    },
+    "policy": {
+      "new": "Yeni politika",
+      "edit": "Politikayı düzenle",
+      "cancel": "İptal",
+      "save": "Kaydet",
+      "saving": "Kaydediliyor…",
+      "name": "Ad",
+      "target": "Hedef",
+      "description": "Açıklama",
+      "allDevices": "Tüm cihazlar",
+      "deviceGroup": "Cihaz grubu",
+      "specificDevice": "Belirli cihaz",
+      "installWindowStart": "Kurulum penceresi başlangıcı",
+      "installWindowEnd": "Kurulum penceresi sonu",
+      "rebootBehavior": "Yeniden başlatma davranışı",
+      "rebootDelay": "Yeniden başlatma gecikmesi (dakika)",
+      "reboot": "Yeniden başlatma",
+      "window": "Pencere",
+      "autoApproveCritical": "Kritik otomatik onayla",
+      "autoApproveSecurity": "Güvenlik otomatik onayla",
+      "autoApproveOptional": "İsteğe bağlı otomatik onayla",
+      "approvalRequired": "Onay gerekli",
+      "enabled": "Etkin",
+      "active": "Aktif",
+      "inactive": "Pasif",
+      "autoCritical": "Oto: kritik",
+      "autoSecurity": "Oto: güvenlik",
+      "autoOptional": "Oto: isteğe bağlı",
+      "noPolicies": "Yapılandırılmış politika yok",
+      "noPoliciesDesc": "Onay ve zamanlama otomasyonu için politika oluşturun.",
+      "confirmDelete": "Bu politikayı sil?",
+      "deleted": "Politika silindi",
+      "deleteFailed": "Silme başarısız",
+      "nameRequired": "Politika adı gerekli",
+      "updated": "Politika güncellendi",
+      "created": "Politika oluşturuldu",
+      "saveFailed": "Kaydetme başarısız"
+    }
   }
 }

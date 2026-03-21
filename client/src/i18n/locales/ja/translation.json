@@ -627,5 +627,94 @@
     "confirmResetMfa": "\"{{username}}\" の全ての2FA方法を無効にしますか？第二要素なしでログインできるようになります。",
     "mfaReset": "{{username}} の MFA を無効化しました",
     "failedResetMfa": "MFA のリセットに失敗しました"
+  },
+  "updates": {
+    "title": "アップデート",
+    "subtitle": "フリート全体のソフトウェアアップデートを管理",
+    "tabs": {
+      "updates": "利用可能なアップデート",
+      "policies": "アップデートポリシー"
+    },
+    "selected": "件選択中",
+    "noUpdatesFound": "アップデートが見つかりません",
+    "noSeverityUpdates": "{{severity}}アップデートはありません。",
+    "allUpToDate": "すべてのデバイスは最新です。",
+    "noPending": "保留中のアップデートなし",
+    "noUpdates": "アップデートなし — スキャンを実行してください",
+    "filters": {
+      "allDevices": "すべてのデバイス"
+    },
+    "table": {
+      "update": "アップデート",
+      "device": "デバイス",
+      "severity": "重要度",
+      "source": "ソース",
+      "size": "サイズ",
+      "status": "ステータス"
+    },
+    "status": {
+      "available": "利用可能",
+      "approved": "承認済み",
+      "pendingInstall": "キュー待ち",
+      "installing": "インストール中…",
+      "installed": "インストール済み",
+      "failed": "失敗",
+      "excluded": "除外",
+      "superseded": "置換済み"
+    },
+    "actions": {
+      "approve": "承認",
+      "approveAll": "すべて承認",
+      "approveSelected": "選択を承認",
+      "deploy": "デプロイ",
+      "scan": "スキャン",
+      "clear": "クリア"
+    },
+    "toast": {
+      "approved": "アップデートを承認しました",
+      "bulkApproved": "{{count}}件のアップデートを承認",
+      "approveFailed": "承認に失敗",
+      "installed": "インストール成功",
+      "failed": "インストール失敗",
+      "loadFailed": "アップデートの読み込みに失敗"
+    },
+    "policy": {
+      "new": "新規ポリシー",
+      "edit": "ポリシー編集",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "saving": "保存中…",
+      "name": "名前",
+      "target": "対象",
+      "description": "説明",
+      "allDevices": "すべてのデバイス",
+      "deviceGroup": "デバイスグループ",
+      "specificDevice": "特定のデバイス",
+      "installWindowStart": "インストール開始時間",
+      "installWindowEnd": "インストール終了時間",
+      "rebootBehavior": "再起動動作",
+      "rebootDelay": "再起動遅延（分）",
+      "reboot": "再起動",
+      "window": "時間帯",
+      "autoApproveCritical": "重大を自動承認",
+      "autoApproveSecurity": "セキュリティを自動承認",
+      "autoApproveOptional": "オプションを自動承認",
+      "approvalRequired": "承認必須",
+      "enabled": "有効",
+      "active": "有効",
+      "inactive": "無効",
+      "autoCritical": "自動: 重大",
+      "autoSecurity": "自動: セキュリティ",
+      "autoOptional": "自動: オプション",
+      "noPolicies": "ポリシーが設定されていません",
+      "noPoliciesDesc": "ポリシーを作成して承認とスケジューリングを自動化。",
+      "confirmDelete": "このポリシーを削除しますか？",
+      "deleted": "ポリシーを削除しました",
+      "deleteFailed": "削除に失敗",
+      "nameRequired": "ポリシー名は必須です",
+      "updated": "ポリシーを更新しました",
+      "created": "ポリシーを作成しました",
+      "saveFailed": "保存に失敗"
+    }
   }
 }

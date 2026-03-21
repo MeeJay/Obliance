@@ -814,5 +814,94 @@
       "autoRemediationDisabledWarning": "La remediación automática está deshabilitada.",
       "saveSettings": "Guardar configuración"
     }
+  },
+  "updates": {
+    "title": "Actualizaciones",
+    "subtitle": "Gestionar actualizaciones de software en su flota",
+    "tabs": {
+      "updates": "Actualizaciones disponibles",
+      "policies": "Políticas de actualización"
+    },
+    "selected": "seleccionada(s)",
+    "noUpdatesFound": "No se encontraron actualizaciones",
+    "noSeverityUpdates": "No hay actualizaciones {{severity}} disponibles.",
+    "allUpToDate": "Todos los dispositivos están actualizados.",
+    "noPending": "Sin actualizaciones pendientes",
+    "noUpdates": "No se encontraron actualizaciones — ejecute un escaneo",
+    "filters": {
+      "allDevices": "Todos los dispositivos"
+    },
+    "table": {
+      "update": "Actualización",
+      "device": "Dispositivo",
+      "severity": "Severidad",
+      "source": "Fuente",
+      "size": "Tamaño",
+      "status": "Estado"
+    },
+    "status": {
+      "available": "Disponible",
+      "approved": "Aprobada",
+      "pendingInstall": "En cola",
+      "installing": "Instalando…",
+      "installed": "Instalada",
+      "failed": "Fallida",
+      "excluded": "Excluida",
+      "superseded": "Reemplazada"
+    },
+    "actions": {
+      "approve": "Aprobar",
+      "approveAll": "Aprobar todo",
+      "approveSelected": "Aprobar selección",
+      "deploy": "Desplegar",
+      "scan": "Escanear",
+      "clear": "Limpiar"
+    },
+    "toast": {
+      "approved": "Actualización aprobada",
+      "bulkApproved": "{{count}} actualizaciones aprobadas",
+      "approveFailed": "Error al aprobar",
+      "installed": "instalada correctamente",
+      "failed": "error en la instalación",
+      "loadFailed": "Error al cargar actualizaciones"
+    },
+    "policy": {
+      "new": "Nueva política",
+      "edit": "Editar política",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "name": "Nombre",
+      "target": "Objetivo",
+      "description": "Descripción",
+      "allDevices": "Todos los dispositivos",
+      "deviceGroup": "Grupo de dispositivos",
+      "specificDevice": "Dispositivo específico",
+      "installWindowStart": "Inicio ventana de instalación",
+      "installWindowEnd": "Fin ventana de instalación",
+      "rebootBehavior": "Comportamiento de reinicio",
+      "rebootDelay": "Retraso de reinicio (minutos)",
+      "reboot": "Reinicio",
+      "window": "Ventana",
+      "autoApproveCritical": "Auto-aprobar críticas",
+      "autoApproveSecurity": "Auto-aprobar seguridad",
+      "autoApproveOptional": "Auto-aprobar opcionales",
+      "approvalRequired": "Aprobación requerida",
+      "enabled": "Habilitada",
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "autoCritical": "Auto: crítica",
+      "autoSecurity": "Auto: seguridad",
+      "autoOptional": "Auto: opcional",
+      "noPolicies": "No hay políticas configuradas",
+      "noPoliciesDesc": "Cree políticas para automatizar la aprobación y programación de actualizaciones.",
+      "confirmDelete": "¿Eliminar esta política?",
+      "deleted": "Política eliminada",
+      "deleteFailed": "Error al eliminar",
+      "nameRequired": "El nombre es obligatorio",
+      "updated": "Política actualizada",
+      "created": "Política creada",
+      "saveFailed": "Error al guardar"
+    }
   }
 }

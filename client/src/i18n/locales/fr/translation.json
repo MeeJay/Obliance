@@ -1137,5 +1137,94 @@
       "autoRemediationDisabledWarning": "La remédiation automatique est désactivée. Les règles en échec seront signalées mais aucun script de correction ne sera exécuté.",
       "saveSettings": "Enregistrer les paramètres"
     }
+  },
+  "updates": {
+    "title": "Mises à jour",
+    "subtitle": "Gérer les mises à jour logicielles de votre parc",
+    "tabs": {
+      "updates": "Mises à jour disponibles",
+      "policies": "Politiques de mise à jour"
+    },
+    "selected": "sélectionnée(s)",
+    "noUpdatesFound": "Aucune mise à jour trouvée",
+    "noSeverityUpdates": "Aucune mise à jour {{severity}} disponible.",
+    "allUpToDate": "Tous les appareils sont à jour.",
+    "noPending": "Aucune mise à jour en attente",
+    "noUpdates": "Aucune mise à jour — lancez un scan pour vérifier",
+    "filters": {
+      "allDevices": "Tous les appareils"
+    },
+    "table": {
+      "update": "Mise à jour",
+      "device": "Appareil",
+      "severity": "Sévérité",
+      "source": "Source",
+      "size": "Taille",
+      "status": "Statut"
+    },
+    "status": {
+      "available": "Disponible",
+      "approved": "Approuvée",
+      "pendingInstall": "En file",
+      "installing": "Installation…",
+      "installed": "Installée",
+      "failed": "Échouée",
+      "excluded": "Exclue",
+      "superseded": "Remplacée"
+    },
+    "actions": {
+      "approve": "Approuver",
+      "approveAll": "Tout approuver",
+      "approveSelected": "Approuver la sélection",
+      "deploy": "Déployer",
+      "scan": "Scanner",
+      "clear": "Effacer"
+    },
+    "toast": {
+      "approved": "Mise à jour approuvée",
+      "bulkApproved": "{{count}} mises à jour approuvées",
+      "approveFailed": "Échec de l'approbation",
+      "installed": "installée avec succès",
+      "failed": "échec de l'installation",
+      "loadFailed": "Échec du chargement des mises à jour"
+    },
+    "policy": {
+      "new": "Nouvelle politique",
+      "edit": "Modifier la politique",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "name": "Nom",
+      "target": "Cible",
+      "description": "Description",
+      "allDevices": "Tous les appareils",
+      "deviceGroup": "Groupe d'appareils",
+      "specificDevice": "Appareil spécifique",
+      "installWindowStart": "Début de la fenêtre d'installation",
+      "installWindowEnd": "Fin de la fenêtre d'installation",
+      "rebootBehavior": "Comportement de redémarrage",
+      "rebootDelay": "Délai de redémarrage (minutes)",
+      "reboot": "Redémarrage",
+      "window": "Fenêtre",
+      "autoApproveCritical": "Auto-approbation critique",
+      "autoApproveSecurity": "Auto-approbation sécurité",
+      "autoApproveOptional": "Auto-approbation optionnelle",
+      "approvalRequired": "Approbation requise",
+      "enabled": "Activée",
+      "active": "Active",
+      "inactive": "Inactive",
+      "autoCritical": "Auto : critique",
+      "autoSecurity": "Auto : sécurité",
+      "autoOptional": "Auto : optionnel",
+      "noPolicies": "Aucune politique configurée",
+      "noPoliciesDesc": "Créez des politiques pour automatiser l'approbation et la planification des mises à jour.",
+      "confirmDelete": "Supprimer cette politique de mise à jour ?",
+      "deleted": "Politique supprimée",
+      "deleteFailed": "Échec de la suppression",
+      "nameRequired": "Le nom de la politique est requis",
+      "updated": "Politique mise à jour",
+      "created": "Politique créée",
+      "saveFailed": "Échec de l'enregistrement"
+    }
   }
 }

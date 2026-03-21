@@ -138,6 +138,21 @@ class CommandService {
         } catch {}
       }
 
+      // When install_update starts running, mark the update as "installing"
+      if (!isTerminal && ack.status === 'ack_running' && row && row.type === 'install_update') {
+        try {
+          const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
+          const updateUid = payload.updateUid as string | undefined;
+          if (updateUid) {
+            await db('device_updates')
+              .where({ update_uid: updateUid, device_id: deviceId })
+              .update({ status: 'installing', updated_at: new Date() });
+          }
+        } catch (updateErr) {
+          logger.error(updateErr, 'Failed to update device_updates status to installing from ack_running');
+        }
+      }
+
       // When install_update finishes, reflect the outcome in device_updates
       if (isTerminal && row && row.type === 'install_update') {
         try {

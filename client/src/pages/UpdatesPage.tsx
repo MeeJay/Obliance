@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { Package, AlertCircle, AlertTriangle, Info, Check, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
 import { deviceApi } from '@/api/device.api';
-import type { DeviceUpdate, UpdatePolicy, UpdateSeverity, RebootBehavior } from '@obliance/shared';
+import type { DeviceUpdate, UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
+import { SocketEvents } from '@obliance/shared';
+import { getSocket } from '@/socket/socket';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -64,6 +67,7 @@ function formatBytes(bytes: number | null) {
 }
 
 export function UpdatesPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('updates');
   const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
   const [policies, setPolicies] = useState<UpdatePolicy[]>([]);
@@ -100,13 +104,49 @@ export function UpdatesPage() {
       setUpdates(updatesData.items);
       setPolicies(policiesData);
     } catch {
-      toast.error('Failed to load updates');
+      toast.error(t('updates.toast.loadFailed'));
     } finally {
       setIsLoading(false);
     }
   }, [selectedSeverity, selectedDeviceId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Real-time update status via socket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onCmd = (cmd: Command) => {
+      if (cmd.type === 'install_update') {
+        const uid = (cmd.payload as any)?.updateUid as string | undefined;
+        if (!uid) return;
+        if (cmd.status === 'ack_running') {
+          setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'installing' as const } : u
+          ));
+        } else if (cmd.status === 'success') {
+          setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'installed' as const } : u
+          ));
+          toast.success(`${uid} ${t('updates.toast.installed')}`);
+        } else if (['failure', 'timeout'].includes(cmd.status)) {
+          setUpdates((prev) => prev.map((u) =>
+            u.updateUid === uid ? { ...u, status: 'failed' as const } : u
+          ));
+          toast.error(`${uid} ${t('updates.toast.failed')}`);
+        }
+      }
+      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
+        load();
+      }
+    };
+    socket.on(SocketEvents.COMMAND_RESULT, onCmd);
+    socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
+    return () => {
+      socket.off(SocketEvents.COMMAND_RESULT, onCmd);
+      socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
+    };
+  }, [load, t]);
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
@@ -115,31 +155,31 @@ export function UpdatesPage() {
       const selected = updates.filter((u) => selectedIds.has(u.id));
       await Promise.all(selected.map((u) => updateApi.approveUpdate(u.deviceId, u.id)));
       setSelectedIds(new Set());
-      toast.success(`${selected.length} updates approved`);
+      toast.success(t('updates.toast.bulkApproved', { count: selected.length }));
       await load();
     } catch {
-      toast.error('Failed to approve updates');
+      toast.error(t('updates.toast.approveFailed'));
     }
   };
 
   const handleApprove = async (update: DeviceUpdate) => {
     try {
       await updateApi.approveUpdate(update.deviceId, update.id);
-      toast.success('Update approved');
+      toast.success(t('updates.toast.approved'));
       await load();
     } catch {
-      toast.error('Failed to approve update');
+      toast.error(t('updates.toast.approveFailed'));
     }
   };
 
   const handleDeletePolicy = async (id: number) => {
-    if (!confirm('Delete this update policy?')) return;
+    if (!confirm(t('updates.policy.confirmDelete'))) return;
     try {
       await updateApi.deletePolicy(id);
-      toast.success('Policy deleted');
+      toast.success(t('updates.policy.deleted'));
       await load();
     } catch {
-      toast.error('Failed to delete policy');
+      toast.error(t('updates.policy.deleteFailed'));
     }
   };
 
@@ -171,7 +211,7 @@ export function UpdatesPage() {
   };
 
   const handleSavePolicy = async () => {
-    if (!policyForm.name.trim()) { toast.error('Policy name is required'); return; }
+    if (!policyForm.name.trim()) { toast.error(t('updates.policy.nameRequired')); return; }
     setIsSavingPolicy(true);
     try {
       const payload = {
@@ -196,16 +236,16 @@ export function UpdatesPage() {
       };
       if (editingPolicy) {
         await updateApi.updatePolicy(editingPolicy.id, payload);
-        toast.success('Policy updated');
+        toast.success(t('updates.policy.updated'));
       } else {
         await updateApi.createPolicy(payload as any);
-        toast.success('Policy created');
+        toast.success(t('updates.policy.created'));
       }
       setShowPolicyForm(false);
       setEditingPolicy(null);
       await load();
     } catch {
-      toast.error('Failed to save policy');
+      toast.error(t('updates.policy.saveFailed'));
     } finally {
       setIsSavingPolicy(false);
     }
@@ -224,8 +264,8 @@ export function UpdatesPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Updates</h1>
-          <p className="text-sm text-text-muted mt-0.5">Manage software updates across your fleet</p>
+          <h1 className="text-2xl font-bold text-text-primary">{t('updates.title')}</h1>
+          <p className="text-sm text-text-muted mt-0.5">{t('updates.subtitle')}</p>
         </div>
         <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
           <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
@@ -275,7 +315,7 @@ export function UpdatesPage() {
             }}
             className="px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
           >
-            <option value="">All devices</option>
+            <option value="">{t('updates.filters.allDevices')}</option>
             {deviceOptions.map((d) => (
               <option key={d.id} value={d.id}>{d.label}</option>
             ))}
@@ -303,7 +343,7 @@ export function UpdatesPage() {
               activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
             )}
           >
-            {tab === 'updates' ? 'Available Updates' : 'Update Policies'}
+            {tab === 'updates' ? t('updates.tabs.updates') : t('updates.tabs.policies')}
           </button>
         ))}
       </div>
@@ -313,17 +353,17 @@ export function UpdatesPage() {
           {/* Bulk action bar */}
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-3 p-3 bg-accent/10 border border-accent/30 rounded-lg">
-              <span className="text-sm text-text-primary font-medium">{selectedIds.size} selected</span>
+              <span className="text-sm text-text-primary font-medium">{selectedIds.size} {t('updates.selected')}</span>
               <button
                 onClick={handleBulkApprove}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-sm hover:bg-green-500/30 transition-colors"
               >
                 <Check className="w-3.5 h-3.5" />
-                Approve selected
+                {t('updates.actions.approveSelected')}
               </button>
               <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-sm text-text-muted hover:text-text-primary flex items-center gap-1">
                 <X className="w-3.5 h-3.5" />
-                Clear
+                {t('updates.actions.clear')}
               </button>
             </div>
           )}
@@ -335,8 +375,8 @@ export function UpdatesPage() {
           ) : visibleUpdates.length === 0 ? (
             <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
               <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
-              <p className="font-medium text-text-primary mb-1">No updates found</p>
-              <p className="text-sm">{selectedSeverity ? `No ${selectedSeverity} updates available.` : 'All devices are up to date.'}</p>
+              <p className="font-medium text-text-primary mb-1">{t('updates.noUpdatesFound')}</p>
+              <p className="text-sm">{selectedSeverity ? t('updates.noSeverityUpdates', { severity: selectedSeverity }) : t('updates.allUpToDate')}</p>
             </div>
           ) : (
             <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
@@ -354,12 +394,12 @@ export function UpdatesPage() {
                         className="rounded"
                       />
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Update</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden sm:table-cell">Device</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Severity</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Source</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Size</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.update')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden sm:table-cell">{t('updates.table.device')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.severity')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">{t('updates.table.source')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">{t('updates.table.size')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.status')}</th>
                     <th className="w-28 px-4 py-3" />
                   </tr>
                 </thead>
@@ -414,8 +454,14 @@ export function UpdatesPage() {
                           <span className="text-xs text-text-muted">{formatBytes(update.sizeBytes) ?? '—'}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={clsx('text-xs', update.status === 'available' ? 'text-text-muted' : update.status === 'installed' ? 'text-green-400' : update.status === 'failed' ? 'text-red-400' : 'text-text-muted')}>
-                            {update.status.replace('_', ' ')}
+                          <span className={clsx('text-xs font-medium', {
+                            'text-text-muted': update.status === 'available',
+                            'text-green-400': update.status === 'approved',
+                            'text-yellow-400': update.status === 'pending_install' || update.status === 'installing',
+                            'text-blue-400': update.status === 'installed',
+                            'text-red-400': update.status === 'failed',
+                          })}>
+                            {t(`updates.status.${update.status === 'pending_install' ? 'pendingInstall' : update.status}`, update.status)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -424,13 +470,13 @@ export function UpdatesPage() {
                               onClick={() => handleApprove(update)}
                               className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors"
                             >
-                              Approve
+                              {t('updates.actions.approve')}
                             </button>
                           )}
                           {update.status === 'approved' && (
                             <span className="text-xs text-green-400 flex items-center gap-1 justify-end">
                               <Check className="w-3 h-3" />
-                              Approved
+                              {t('updates.status.approved')}
                             </span>
                           )}
                         </td>
@@ -450,27 +496,27 @@ export function UpdatesPage() {
           {showPolicyForm && (
             <div className="bg-bg-secondary border border-border rounded-xl p-6 space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-text-primary">{editingPolicy ? 'Edit Policy' : 'New Update Policy'}</h2>
+                <h2 className="text-lg font-semibold text-text-primary">{editingPolicy ? t('updates.policy.edit') : t('updates.policy.new')}</h2>
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setShowPolicyForm(false); setEditingPolicy(null); }}
                     className="px-4 py-2 text-sm text-text-muted hover:text-text-primary border border-border rounded-lg transition-colors"
                   >
-                    Cancel
+                    {t('updates.policy.cancel')}
                   </button>
                   <button
                     onClick={handleSavePolicy}
                     disabled={isSavingPolicy}
                     className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
                   >
-                    {isSavingPolicy ? 'Saving...' : 'Save'}
+                    {isSavingPolicy ? t('updates.policy.saving') : t('updates.policy.save')}
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Name *</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.name')} *</label>
                   <input
                     value={policyForm.name}
                     onChange={(e) => setPolicyForm({ ...policyForm, name: e.target.value })}
@@ -478,19 +524,19 @@ export function UpdatesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Target</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.target')}</label>
                   <select
                     value={policyForm.targetType}
                     onChange={(e) => setPolicyForm({ ...policyForm, targetType: e.target.value as 'device' | 'group' | 'all' })}
                     className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
                   >
-                    <option value="all">All devices</option>
-                    <option value="group">Device group</option>
-                    <option value="device">Specific device</option>
+                    <option value="all">{t('updates.policy.allDevices')}</option>
+                    <option value="group">{t('updates.policy.deviceGroup')}</option>
+                    <option value="device">{t('updates.policy.specificDevice')}</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Install window start</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.installWindowStart')}</label>
                   <input
                     type="time"
                     value={policyForm.installWindowStart}
@@ -499,7 +545,7 @@ export function UpdatesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Install window end</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.installWindowEnd')}</label>
                   <input
                     type="time"
                     value={policyForm.installWindowEnd}
@@ -508,7 +554,7 @@ export function UpdatesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Reboot behavior</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.rebootBehavior')}</label>
                   <select
                     value={policyForm.rebootBehavior}
                     onChange={(e) => setPolicyForm({ ...policyForm, rebootBehavior: e.target.value as RebootBehavior })}
@@ -518,7 +564,7 @@ export function UpdatesPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-text-muted uppercase">Reboot delay (minutes)</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.rebootDelay')}</label>
                   <input
                     type="number"
                     min={0}
@@ -528,7 +574,7 @@ export function UpdatesPage() {
                   />
                 </div>
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs font-medium text-text-muted uppercase">Description</label>
+                  <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.description')}</label>
                   <input
                     value={policyForm.description}
                     onChange={(e) => setPolicyForm({ ...policyForm, description: e.target.value })}
@@ -539,11 +585,11 @@ export function UpdatesPage() {
 
               <div className="flex flex-wrap gap-5 pt-2 border-t border-border">
                 {([
-                  { key: 'autoApproveCritical', label: 'Auto-approve critical' },
-                  { key: 'autoApproveSecurity', label: 'Auto-approve security' },
-                  { key: 'autoApproveOptional', label: 'Auto-approve optional' },
-                  { key: 'approvalRequired', label: 'Approval required' },
-                  { key: 'enabled', label: 'Enabled' },
+                  { key: 'autoApproveCritical', label: t('updates.policy.autoApproveCritical') },
+                  { key: 'autoApproveSecurity', label: t('updates.policy.autoApproveSecurity') },
+                  { key: 'autoApproveOptional', label: t('updates.policy.autoApproveOptional') },
+                  { key: 'approvalRequired', label: t('updates.policy.approvalRequired') },
+                  { key: 'enabled', label: t('updates.policy.enabled') },
                 ] as { key: keyof PolicyFormData; label: string }[]).map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -565,15 +611,15 @@ export function UpdatesPage() {
               className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
             >
               <Plus className="w-4 h-4" />
-              New Policy
+              {t('updates.policy.new')}
             </button>
           </div>
 
           {policies.length === 0 ? (
             <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
               <Shield className="w-10 h-10 mx-auto mb-3 opacity-50" />
-              <p className="font-medium text-text-primary mb-1">No update policies configured</p>
-              <p className="text-sm">Create policies to automate update approval and scheduling.</p>
+              <p className="font-medium text-text-primary mb-1">{t('updates.policy.noPolicies')}</p>
+              <p className="text-sm">{t('updates.policy.noPoliciesDesc')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -584,22 +630,22 @@ export function UpdatesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium text-text-primary">{policy.name}</p>
                         <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', policy.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
-                          {policy.enabled ? 'Active' : 'Inactive'}
+                          {policy.enabled ? t('updates.policy.active') : t('updates.policy.inactive')}
                         </span>
                       </div>
                       {policy.description && (
                         <p className="text-xs text-text-muted mt-1">{policy.description}</p>
                       )}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-text-muted">
-                        <span>Target: <span className="text-text-primary">{policy.targetType === 'all' ? 'All devices' : `${policy.targetType} #${policy.targetId}`}</span></span>
-                        <span>Reboot: <span className="text-text-primary">{REBOOT_OPTIONS.find(o => o.value === policy.rebootBehavior)?.label ?? policy.rebootBehavior}</span></span>
-                        <span>Window: <span className="text-text-primary">{policy.installWindowStart} – {policy.installWindowEnd}</span></span>
+                        <span>{t('updates.policy.target')}: <span className="text-text-primary">{policy.targetType === 'all' ? t('updates.policy.allDevices') : `${policy.targetType} #${policy.targetId}`}</span></span>
+                        <span>{t('updates.policy.reboot')}: <span className="text-text-primary">{REBOOT_OPTIONS.find(o => o.value === policy.rebootBehavior)?.label ?? policy.rebootBehavior}</span></span>
+                        <span>{t('updates.policy.window')}: <span className="text-text-primary">{policy.installWindowStart} – {policy.installWindowEnd}</span></span>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {policy.autoApproveCritical && <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">Auto: critical</span>}
-                        {policy.autoApproveSecurity && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-400/10 border border-orange-400/30 text-orange-400">Auto: security</span>}
-                        {policy.autoApproveOptional && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400">Auto: optional</span>}
-                        {policy.approvalRequired && <span className="text-xs px-2 py-0.5 rounded-full bg-bg-tertiary border border-border text-text-muted">Approval required</span>}
+                        {policy.autoApproveCritical && <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">{t('updates.policy.autoCritical')}</span>}
+                        {policy.autoApproveSecurity && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-400/10 border border-orange-400/30 text-orange-400">{t('updates.policy.autoSecurity')}</span>}
+                        {policy.autoApproveOptional && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400">{t('updates.policy.autoOptional')}</span>}
+                        {policy.approvalRequired && <span className="text-xs px-2 py-0.5 rounded-full bg-bg-tertiary border border-border text-text-muted">{t('updates.policy.approvalRequired')}</span>}
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">

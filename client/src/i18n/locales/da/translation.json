@@ -627,5 +627,94 @@
     "confirmResetMfa": "Deaktiver alle 2FA-metoder for \"{{username}}\"? De vil kunne logge ind uden en anden faktor.",
     "mfaReset": "MFA deaktiveret for {{username}}",
     "failedResetMfa": "Nulstilling af MFA mislykkedes"
+  },
+  "updates": {
+    "title": "Opdateringer",
+    "subtitle": "Administrer softwareopdateringer på tværs af din flåde",
+    "tabs": {
+      "updates": "Tilgængelige opdateringer",
+      "policies": "Opdateringspolitikker"
+    },
+    "selected": "valgt",
+    "noUpdatesFound": "Ingen opdateringer fundet",
+    "noSeverityUpdates": "Ingen {{severity}} opdateringer tilgængelige.",
+    "allUpToDate": "Alle enheder er opdaterede.",
+    "noPending": "Ingen ventende opdateringer",
+    "noUpdates": "Ingen opdateringer — kør en scanning",
+    "filters": {
+      "allDevices": "Alle enheder"
+    },
+    "table": {
+      "update": "Opdatering",
+      "device": "Enhed",
+      "severity": "Alvorlighed",
+      "source": "Kilde",
+      "size": "Størrelse",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Tilgængelig",
+      "approved": "Godkendt",
+      "pendingInstall": "I kø",
+      "installing": "Installerer…",
+      "installed": "Installeret",
+      "failed": "Fejlet",
+      "excluded": "Udelukket",
+      "superseded": "Erstattet"
+    },
+    "actions": {
+      "approve": "Godkend",
+      "approveAll": "Godkend alle",
+      "approveSelected": "Godkend valgte",
+      "deploy": "Udrull",
+      "scan": "Scan",
+      "clear": "Ryd"
+    },
+    "toast": {
+      "approved": "Opdatering godkendt",
+      "bulkApproved": "{{count}} opdateringer godkendt",
+      "approveFailed": "Godkendelse fejlede",
+      "installed": "installeret",
+      "failed": "installation fejlede",
+      "loadFailed": "Kunne ikke indlæse opdateringer"
+    },
+    "policy": {
+      "new": "Ny politik",
+      "edit": "Rediger politik",
+      "cancel": "Annuller",
+      "save": "Gem",
+      "saving": "Gemmer…",
+      "name": "Navn",
+      "target": "Mål",
+      "description": "Beskrivelse",
+      "allDevices": "Alle enheder",
+      "deviceGroup": "Enhedsgruppe",
+      "specificDevice": "Specifik enhed",
+      "installWindowStart": "Installationsvindue start",
+      "installWindowEnd": "Installationsvindue slut",
+      "rebootBehavior": "Genstartsadfærd",
+      "rebootDelay": "Genstartsforsinkelse (minutter)",
+      "reboot": "Genstart",
+      "window": "Vindue",
+      "autoApproveCritical": "Autogodkend kritiske",
+      "autoApproveSecurity": "Autogodkend sikkerhed",
+      "autoApproveOptional": "Autogodkend valgfrie",
+      "approvalRequired": "Godkendelse påkrævet",
+      "enabled": "Aktiveret",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "autoCritical": "Auto: kritisk",
+      "autoSecurity": "Auto: sikkerhed",
+      "autoOptional": "Auto: valgfri",
+      "noPolicies": "Ingen politikker konfigureret",
+      "noPoliciesDesc": "Opret politikker for at automatisere godkendelse og planlægning.",
+      "confirmDelete": "Slet denne politik?",
+      "deleted": "Politik slettet",
+      "deleteFailed": "Sletning fejlede",
+      "nameRequired": "Politiknavn er påkrævet",
+      "updated": "Politik opdateret",
+      "created": "Politik oprettet",
+      "saveFailed": "Lagring fejlede"
+    }
   }
 }

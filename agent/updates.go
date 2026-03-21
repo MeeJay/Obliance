@@ -95,7 +95,9 @@ func PostUpdates(updates []UpdateInfo, cfg *Config) error {
 func scanWindowsUpdates() ([]UpdateInfo, error) {
 	// Primary: PSWindowsUpdate module (must be pre-installed).
 	// Falls back to COM API below if unavailable.
-	const psScript = `$ErrorActionPreference='SilentlyContinue'
+	const psScript = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+$ErrorActionPreference='SilentlyContinue'
 $mod = Get-Module -ListAvailable PSWindowsUpdate -ErrorAction SilentlyContinue
 if ($mod) {
   Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
@@ -353,7 +355,9 @@ func installWindowsUpdate(updateUID string) error {
 	if !strings.HasPrefix(strings.ToUpper(kbID), "KB") {
 		kbID = "KB" + kbID
 	}
-	script := fmt.Sprintf(`$ErrorActionPreference='Stop'
+	script := fmt.Sprintf(`[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+$ErrorActionPreference='Stop'
 $mod = Get-Module -ListAvailable PSWindowsUpdate -ErrorAction SilentlyContinue
 if ($mod) {
   Import-Module PSWindowsUpdate

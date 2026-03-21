@@ -627,5 +627,94 @@
     "confirmResetMfa": "Wyłączyć wszystkie metody 2FA dla \"{{username}}\"? Będzie mógł zalogować się bez drugiego czynnika.",
     "mfaReset": "MFA wyłączone dla {{username}}",
     "failedResetMfa": "Nie udało się zresetować MFA"
+  },
+  "updates": {
+    "title": "Aktualizacje",
+    "subtitle": "Zarządzaj aktualizacjami oprogramowania w całej flocie",
+    "tabs": {
+      "updates": "Dostępne aktualizacje",
+      "policies": "Polityki aktualizacji"
+    },
+    "selected": "zaznaczono",
+    "noUpdatesFound": "Nie znaleziono aktualizacji",
+    "noSeverityUpdates": "Brak aktualizacji {{severity}}.",
+    "allUpToDate": "Wszystkie urządzenia są aktualne.",
+    "noPending": "Brak oczekujących aktualizacji",
+    "noUpdates": "Brak aktualizacji — uruchom skanowanie",
+    "filters": {
+      "allDevices": "Wszystkie urządzenia"
+    },
+    "table": {
+      "update": "Aktualizacja",
+      "device": "Urządzenie",
+      "severity": "Ważność",
+      "source": "Źródło",
+      "size": "Rozmiar",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Dostępna",
+      "approved": "Zatwierdzona",
+      "pendingInstall": "W kolejce",
+      "installing": "Instalowanie…",
+      "installed": "Zainstalowana",
+      "failed": "Niepowodzenie",
+      "excluded": "Wykluczona",
+      "superseded": "Zastąpiona"
+    },
+    "actions": {
+      "approve": "Zatwierdź",
+      "approveAll": "Zatwierdź wszystkie",
+      "approveSelected": "Zatwierdź zaznaczone",
+      "deploy": "Wdróż",
+      "scan": "Skanuj",
+      "clear": "Wyczyść"
+    },
+    "toast": {
+      "approved": "Aktualizacja zatwierdzona",
+      "bulkApproved": "Zatwierdzono {{count}} aktualizacji",
+      "approveFailed": "Zatwierdzenie nie powiodło się",
+      "installed": "zainstalowano pomyślnie",
+      "failed": "instalacja nie powiodła się",
+      "loadFailed": "Nie udało się załadować aktualizacji"
+    },
+    "policy": {
+      "new": "Nowa polityka",
+      "edit": "Edytuj politykę",
+      "cancel": "Anuluj",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "name": "Nazwa",
+      "target": "Cel",
+      "description": "Opis",
+      "allDevices": "Wszystkie urządzenia",
+      "deviceGroup": "Grupa urządzeń",
+      "specificDevice": "Konkretne urządzenie",
+      "installWindowStart": "Początek okna instalacji",
+      "installWindowEnd": "Koniec okna instalacji",
+      "rebootBehavior": "Zachowanie restartu",
+      "rebootDelay": "Opóźnienie restartu (minuty)",
+      "reboot": "Restart",
+      "window": "Okno",
+      "autoApproveCritical": "Auto-zatwierdzanie krytycznych",
+      "autoApproveSecurity": "Auto-zatwierdzanie bezpieczeństwa",
+      "autoApproveOptional": "Auto-zatwierdzanie opcjonalnych",
+      "approvalRequired": "Zatwierdzenie wymagane",
+      "enabled": "Włączona",
+      "active": "Aktywna",
+      "inactive": "Nieaktywna",
+      "autoCritical": "Auto: krytyczna",
+      "autoSecurity": "Auto: bezpieczeństwo",
+      "autoOptional": "Auto: opcjonalna",
+      "noPolicies": "Brak skonfigurowanych polityk",
+      "noPoliciesDesc": "Utwórz polityki, aby zautomatyzować zatwierdzanie i harmonogramowanie.",
+      "confirmDelete": "Usunąć tę politykę?",
+      "deleted": "Polityka usunięta",
+      "deleteFailed": "Usunięcie nie powiodło się",
+      "nameRequired": "Nazwa polityki jest wymagana",
+      "updated": "Polityka zaktualizowana",
+      "created": "Polityka utworzona",
+      "saveFailed": "Zapisanie nie powiodło się"
+    }
   }
 }

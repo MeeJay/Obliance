@@ -627,5 +627,94 @@
     "confirmResetMfa": "Alle 2FA-Methoden für \"{{username}}\" deaktivieren? Der Benutzer kann sich ohne zweiten Faktor anmelden.",
     "mfaReset": "MFA für {{username}} deaktiviert",
     "failedResetMfa": "MFA-Zurücksetzung fehlgeschlagen"
+  },
+  "updates": {
+    "title": "Updates",
+    "subtitle": "Software-Updates Ihrer Geräteflotte verwalten",
+    "tabs": {
+      "updates": "Verfügbare Updates",
+      "policies": "Update-Richtlinien"
+    },
+    "selected": "ausgewählt",
+    "noUpdatesFound": "Keine Updates gefunden",
+    "noSeverityUpdates": "Keine {{severity}} Updates verfügbar.",
+    "allUpToDate": "Alle Geräte sind aktuell.",
+    "noPending": "Keine ausstehenden Updates",
+    "noUpdates": "Keine Updates gefunden — starten Sie einen Scan",
+    "filters": {
+      "allDevices": "Alle Geräte"
+    },
+    "table": {
+      "update": "Update",
+      "device": "Gerät",
+      "severity": "Schweregrad",
+      "source": "Quelle",
+      "size": "Größe",
+      "status": "Status"
+    },
+    "status": {
+      "available": "Verfügbar",
+      "approved": "Genehmigt",
+      "pendingInstall": "Warteschlange",
+      "installing": "Wird installiert…",
+      "installed": "Installiert",
+      "failed": "Fehlgeschlagen",
+      "excluded": "Ausgeschlossen",
+      "superseded": "Ersetzt"
+    },
+    "actions": {
+      "approve": "Genehmigen",
+      "approveAll": "Alle genehmigen",
+      "approveSelected": "Auswahl genehmigen",
+      "deploy": "Bereitstellen",
+      "scan": "Scannen",
+      "clear": "Löschen"
+    },
+    "toast": {
+      "approved": "Update genehmigt",
+      "bulkApproved": "{{count}} Updates genehmigt",
+      "approveFailed": "Genehmigung fehlgeschlagen",
+      "installed": "erfolgreich installiert",
+      "failed": "Installation fehlgeschlagen",
+      "loadFailed": "Updates konnten nicht geladen werden"
+    },
+    "policy": {
+      "new": "Neue Richtlinie",
+      "edit": "Richtlinie bearbeiten",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Speichern…",
+      "name": "Name",
+      "target": "Ziel",
+      "description": "Beschreibung",
+      "allDevices": "Alle Geräte",
+      "deviceGroup": "Gerätegruppe",
+      "specificDevice": "Bestimmtes Gerät",
+      "installWindowStart": "Installationsfenster Beginn",
+      "installWindowEnd": "Installationsfenster Ende",
+      "rebootBehavior": "Neustartverhalten",
+      "rebootDelay": "Neustartverzögerung (Minuten)",
+      "reboot": "Neustart",
+      "window": "Fenster",
+      "autoApproveCritical": "Kritische auto-genehmigen",
+      "autoApproveSecurity": "Sicherheit auto-genehmigen",
+      "autoApproveOptional": "Optionale auto-genehmigen",
+      "approvalRequired": "Genehmigung erforderlich",
+      "enabled": "Aktiviert",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "autoCritical": "Auto: kritisch",
+      "autoSecurity": "Auto: Sicherheit",
+      "autoOptional": "Auto: optional",
+      "noPolicies": "Keine Update-Richtlinien konfiguriert",
+      "noPoliciesDesc": "Erstellen Sie Richtlinien zur Automatisierung der Update-Genehmigung.",
+      "confirmDelete": "Diese Update-Richtlinie löschen?",
+      "deleted": "Richtlinie gelöscht",
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "nameRequired": "Richtlinienname ist erforderlich",
+      "updated": "Richtlinie aktualisiert",
+      "created": "Richtlinie erstellt",
+      "saveFailed": "Speichern fehlgeschlagen"
+    }
   }
 }

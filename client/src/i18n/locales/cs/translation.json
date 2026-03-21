@@ -627,5 +627,94 @@
     "confirmResetMfa": "Zakázat všechny metody 2FA pro \"{{username}}\"? Bude se moci přihlásit bez druhého faktoru.",
     "mfaReset": "MFA bylo deaktivováno pro {{username}}",
     "failedResetMfa": "Resetování MFA se nezdařilo"
+  },
+  "updates": {
+    "title": "Aktualizace",
+    "subtitle": "Spravujte aktualizace softwaru ve vaší flotile",
+    "tabs": {
+      "updates": "Dostupné aktualizace",
+      "policies": "Zásady aktualizací"
+    },
+    "selected": "vybráno",
+    "noUpdatesFound": "Žádné aktualizace nenalezeny",
+    "noSeverityUpdates": "Žádné {{severity}} aktualizace.",
+    "allUpToDate": "Všechna zařízení jsou aktuální.",
+    "noPending": "Žádné čekající aktualizace",
+    "noUpdates": "Žádné aktualizace — spusťte skenování",
+    "filters": {
+      "allDevices": "Všechna zařízení"
+    },
+    "table": {
+      "update": "Aktualizace",
+      "device": "Zařízení",
+      "severity": "Závažnost",
+      "source": "Zdroj",
+      "size": "Velikost",
+      "status": "Stav"
+    },
+    "status": {
+      "available": "Dostupná",
+      "approved": "Schválená",
+      "pendingInstall": "Ve frontě",
+      "installing": "Instalace…",
+      "installed": "Nainstalována",
+      "failed": "Selhala",
+      "excluded": "Vyloučena",
+      "superseded": "Nahrazena"
+    },
+    "actions": {
+      "approve": "Schválit",
+      "approveAll": "Schválit vše",
+      "approveSelected": "Schválit vybrané",
+      "deploy": "Nasadit",
+      "scan": "Skenovat",
+      "clear": "Vymazat"
+    },
+    "toast": {
+      "approved": "Aktualizace schválena",
+      "bulkApproved": "Schváleno {{count}} aktualizací",
+      "approveFailed": "Schválení selhalo",
+      "installed": "úspěšně nainstalováno",
+      "failed": "instalace selhala",
+      "loadFailed": "Načtení aktualizací selhalo"
+    },
+    "policy": {
+      "new": "Nová zásada",
+      "edit": "Upravit zásadu",
+      "cancel": "Zrušit",
+      "save": "Uložit",
+      "saving": "Ukládání…",
+      "name": "Název",
+      "target": "Cíl",
+      "description": "Popis",
+      "allDevices": "Všechna zařízení",
+      "deviceGroup": "Skupina zařízení",
+      "specificDevice": "Konkrétní zařízení",
+      "installWindowStart": "Začátek okna instalace",
+      "installWindowEnd": "Konec okna instalace",
+      "rebootBehavior": "Chování restartu",
+      "rebootDelay": "Zpoždění restartu (minuty)",
+      "reboot": "Restart",
+      "window": "Okno",
+      "autoApproveCritical": "Auto-schválení kritických",
+      "autoApproveSecurity": "Auto-schválení bezpečnostních",
+      "autoApproveOptional": "Auto-schválení volitelných",
+      "approvalRequired": "Schválení vyžadováno",
+      "enabled": "Povolena",
+      "active": "Aktivní",
+      "inactive": "Neaktivní",
+      "autoCritical": "Auto: kritická",
+      "autoSecurity": "Auto: bezpečnost",
+      "autoOptional": "Auto: volitelná",
+      "noPolicies": "Žádné zásady nakonfigurovány",
+      "noPoliciesDesc": "Vytvořte zásady pro automatizaci schvalování a plánování.",
+      "confirmDelete": "Smazat tuto zásadu?",
+      "deleted": "Zásada smazána",
+      "deleteFailed": "Smazání selhalo",
+      "nameRequired": "Název zásady je povinný",
+      "updated": "Zásada aktualizována",
+      "created": "Zásada vytvořena",
+      "saveFailed": "Uložení selhalo"
+    }
   }
 }
