@@ -18,7 +18,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeText',
     expected: '',
     operator: 'exists',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A5-002', {
     name: 'Politique — Titre de mention légale à la connexion configuré [A.5.1]',
@@ -28,7 +28,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeCaption',
     expected: '',
     operator: 'exists',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.5.2 - Rôles et responsabilités en matière de sécurité
@@ -62,7 +62,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).MAPSReporting',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A5-006', {
     name: 'Renseignement sur les menaces — Soumission automatique d\'échantillons Defender activée [A.5.7]',
@@ -72,7 +72,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).SubmitSamplesConsent',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.5.8 - Sécurité de l'information dans la gestion de projet
@@ -118,7 +118,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer|NoDriveTypeAutoRun',
     expected: '255',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.5.14 - Transfert d'informations
@@ -206,7 +206,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(([adsi]\'WinNT://localhost\').PasswordHistoryLength.Value)',
     expected: '23',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A5-019', {
     name: 'Authentification — Âge maximal du mot de passe ≤ 60 jours [A.5.17]',
@@ -216,7 +216,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '([math]::Round((([adsi]\'WinNT://localhost\').maxPasswordAge.Value) / 86400))',
     expected: '61',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A5-020', {
     name: 'Authentification — WDigest désactivé (pas de mot de passe en clair en mémoire) [A.5.17]',
@@ -262,7 +262,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive|DisableFileSyncNGSC',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.5.24-30 - Gestion des incidents
@@ -294,7 +294,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security|Retention',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.5.36 - Conformité aux politiques
@@ -334,7 +334,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging|EnableScriptBlockLogging',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.6.4 - Processus disciplinaire
@@ -346,7 +346,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"User Account Management" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.6.5 - Responsabilités après fin ou changement d'emploi
@@ -420,7 +420,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-ItemProperty "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop" -Name ScreenSaveTimeOut -ErrorAction SilentlyContinue).ScreenSaveTimeOut',
     expected: '901',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.7.2 - Contrôles d'entrée physique
@@ -456,7 +456,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Logon" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.7.5 - Protection contre les menaces physiques et environnementales
@@ -480,7 +480,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveTimeOut',
     expected: '301',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A7-007', {
     name: 'Bureau propre — Mot de passe requis à la reprise de l\'économiseur d\'écran [A.7.7]',
@@ -502,7 +502,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-Tpm -ErrorAction SilentlyContinue).TpmPresent',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.7.9 - Sécurité des actifs hors site
@@ -662,7 +662,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-Service AppIDSvc -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.5 - Authentification sécurisée
@@ -706,7 +706,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-PSDrive C | Select-Object -ExpandProperty Free)',
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.7 - Protection contre les logiciels malveillants
@@ -728,7 +728,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).MAPSReporting',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-015', {
     name: 'Protection malware — Signatures antivirus à jour (≤ 7 jours) [A.8.7]',
@@ -748,7 +748,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).PUAProtection',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.8 - Gestion des vulnérabilités techniques
@@ -782,7 +782,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient|EnableMulticast',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-020', {
     name: 'Configuration — Service Registre distant désactivé [A.8.9]',
@@ -802,7 +802,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-Service Spooler -ErrorAction SilentlyContinue).StartType',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.10 - Suppression d'informations
@@ -814,7 +814,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\FVE|OSRecovery',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.11 - Masquage des données
@@ -848,7 +848,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).EnableControlledFolderAccess',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.13 - Sauvegarde des informations
@@ -860,7 +860,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-Service VSS -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-027', {
     name: 'Sauvegarde — Service Sauvegarde Windows actif [A.8.13]',
@@ -870,7 +870,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-Service SDRSVC -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.15 - Journalisation
@@ -924,7 +924,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging|EnableModuleLogging',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-033', {
     name: 'Surveillance — Journalisation des blocs de script PowerShell activée [A.8.16]',
@@ -934,7 +934,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging|EnableScriptBlockLogging',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-034', {
     name: 'Surveillance — Ligne de commande incluse dans les événements de création de processus [A.8.16]',
@@ -944,7 +944,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit|ProcessCreationIncludeCmdLine_Enabled',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.17 - Synchronisation des horloges
@@ -956,7 +956,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(w32tm /query /status 2>&1 | Select-String \'Source\').ToString()',
     expected: 'Local CMOS',
     operator: 'not_contains',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.18 - Utilisation de programmes utilitaires privilégiés
@@ -968,7 +968,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: '(Get-LocalGroupMember Administrators | Measure-Object).Count',
     expected: '4',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.19 - Installation de logiciels sur les systèmes opérationnels
@@ -980,7 +980,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer|DisableMSI',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.20 - Sécurité des réseaux
@@ -1026,7 +1026,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_AllowNetBridge_NLA',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.23 - Filtrage web
@@ -1038,7 +1038,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|EnableSmartScreen',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('iso-A8-043', {
     name: 'Filtrage web — Protection réseau Defender activée [A.8.23]',
@@ -1112,7 +1112,7 @@ export const iso27001Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel|DisableExceptionChainValidation',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // A.8.26 - Exigences de sécurité des applications

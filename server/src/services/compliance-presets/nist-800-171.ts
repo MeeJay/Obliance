@@ -50,7 +50,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer|DisableMSI',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.3 - Contrôler les flux d'informations CUI
@@ -106,7 +106,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-LocalGroupMember -Group Administrators).Count',
     expected: '4',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.6 - Utiliser des comptes non privilégiés pour les activités non privilégiées
@@ -154,7 +154,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeText',
     expected: '',
     operator: 'exists',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AC-014', {
     name: 'Contrôle d\'accès — Titre de mention légale à la connexion configuré [3.1.9]',
@@ -164,7 +164,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|LegalNoticeCaption',
     expected: '',
     operator: 'exists',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.10 - Verrouillage de session après inactivité
@@ -176,7 +176,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveActive',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AC-016', {
     name: 'Contrôle d\'accès — Délai d\'inactivité économiseur d\'écran ≤ 900 secondes [3.1.10]',
@@ -186,7 +186,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveTimeOut',
     expected: '901',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AC-017', {
     name: 'Contrôle d\'accès — Mot de passe requis à la reprise de l\'économiseur d\'écran [3.1.10]',
@@ -206,7 +206,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services|MaxIdleTime',
     expected: '900001',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.11 - Terminer les sessions après conditions définies
@@ -218,7 +218,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services|MaxDisconnectionTime',
     expected: '86400001',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.12 - Surveiller les sessions d'accès à distance
@@ -230,7 +230,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription|EnableTranscripting',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 3.1.13 - Mécanismes cryptographiques pour l'accès à distance
@@ -312,7 +312,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-Service -Name W3SVC -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -337,7 +337,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging|EnableScriptBlockLogging',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AT-003', {
     name: 'Sensibilisation — Accès contrôlé aux dossiers (Defender) activé [3.2.3]',
@@ -347,7 +347,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).EnableControlledFolderAccess',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -372,7 +372,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"File System" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AU-003', {
     name: 'Audit — Audit de la gestion des comptes utilisateurs activé [3.3.1]',
@@ -392,7 +392,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit|ProcessCreationIncludeCmdLine_Enabled',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AU-005', {
     name: 'Audit — Taille maximale du journal de sécurité ≥ 196 608 Ko [3.3.3]',
@@ -402,7 +402,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security|MaxSize',
     expected: '196607',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AU-006', {
     name: 'Audit — Transfert d\'événements (SIEM/collecte) configuré [3.3.5]',
@@ -412,7 +412,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListProvider "Microsoft-Windows-EventCollector" -ErrorAction SilentlyContinue) -ne $null',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AU-007', {
     name: 'Audit — Synchronisation horaire NTP (pas d\'horloge CMOS locale) [3.3.7]',
@@ -422,7 +422,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(w32tm /query /status 2>&1 | Select-String \'Source\').ToString()',
     expected: 'Local CMOS Clock',
     operator: 'not_contains',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-AU-008', {
     name: 'Audit — Accès au journal de sécurité restreint aux comptes autorisés [3.3.8]',
@@ -487,7 +487,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-Service -Name AppIDSvc -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-005', {
     name: 'Configuration — SMBv1 désactivé [3.4.6]',
@@ -507,7 +507,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient|EnableMulticast',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-007', {
     name: 'Configuration — NetBIOS désactivé sur toutes les interfaces [3.4.6]',
@@ -517,7 +517,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.TcpipNetbiosOptions -ne 2} | Measure-Object).Count',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-008', {
     name: 'Configuration — Spouleur d\'impression désactivé [3.4.7]',
@@ -527,7 +527,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-Service -Name Spooler -ErrorAction SilentlyContinue).StartType',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-009', {
     name: 'Configuration — Client Telnet désactivé [3.4.7]',
@@ -537,7 +537,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-WindowsOptionalFeature -Online -FeatureName TelnetClient -ErrorAction SilentlyContinue).State',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-010', {
     name: 'Configuration — Protection contre les applications potentiellement indésirables (PUA) activée [3.4.8]',
@@ -547,7 +547,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).PUAProtection',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-CM-011', {
     name: 'Configuration — Service Registre distant désactivé [3.4.9]',
@@ -632,7 +632,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(([adsi]\'WinNT://localhost\').PasswordHistoryLength.Value)',
     expected: '23',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-IA-008', {
     name: 'Identification — Âge maximal du mot de passe ≤ 60 jours [3.5.6]',
@@ -642,7 +642,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '([math]::Round((([adsi]\'WinNT://localhost\').maxPasswordAge.Value) / 86400))',
     expected: '61',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-IA-009', {
     name: 'Identification — Âge minimal du mot de passe ≥ 1 jour [3.5.6]',
@@ -682,7 +682,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\Main|FormSuggest Passwords',
     expected: 'no',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -742,7 +742,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer|NoDriveTypeAutoRun',
     expected: '255',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-MA-003', {
     name: 'Maintenance — Assistance à distance désactivée [3.7.6]',
@@ -752,7 +752,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance|fAllowToGetHelp',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -817,7 +817,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-Service -Name VSS -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -842,7 +842,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-LocalUser | Where-Object {$_.Enabled -and $_.LastLogon -ne $null -and $_.LastLogon -lt (Get-Date).AddDays(-90)} | Measure-Object).Count',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -867,7 +867,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-Tpm -ErrorAction SilentlyContinue).TpmPresent',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -902,7 +902,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-ItemProperty "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired" -ErrorAction SilentlyContinue) -eq $null',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -942,7 +942,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).EnableControlledFolderAccess',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-SC-002', {
     name: 'Communications — Pare-feu bloque les connexions entrantes par défaut [3.13.6]',
@@ -1002,7 +1002,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters|AutoDisconnect',
     expected: '16',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-SC-008', {
     name: 'Communications — Aucun certificat expiré dans le magasin racine [3.13.10]',
@@ -1012,7 +1012,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object {$_.NotAfter -lt (Get-Date)} | Measure-Object).Count',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-SC-009', {
     name: 'Communications — BitLocker configuré avec AES-256 XTS [3.13.11]',
@@ -1032,7 +1032,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Zones\\3|1200',
     expected: '3',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // =========================================================================
@@ -1067,7 +1067,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).MAPSReporting',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-SI-004', {
     name: 'Intégrité — Mise à jour automatique des signatures Defender configurée [3.14.4]',
@@ -1087,7 +1087,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).ScanScheduleDay',
     expected: '8',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('nist-SI-006', {
     name: 'Intégrité — Règles de réduction de la surface d\'attaque (ASR) activées [3.14.6]',
@@ -1117,6 +1117,6 @@ export const nistSP800171Rules: ComplianceRule[] = [
     target: '(Get-EventLog -List | Where-Object {$_.LogDisplayName -eq \'Security\'}).MaximumKilobytes',
     expected: '196607',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 ];

@@ -85,7 +85,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Domain).LogBlocked',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-3-1', {
     name: 'Service pare-feu Windows — actif (Req 1.3.1)',
@@ -105,7 +105,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'PolicyAgent',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-4-4', {
     name: 'Partage réseau — découverte réseau désactivée sur profil public (Req 1.4.4)',
@@ -115,7 +115,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Public).NotifyOnListen',
     expected: 'False',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-5-1', {
     name: 'Accès distant (RDP) — NLA requis pour contrôles dispositifs distants (Req 1.5.1)',
@@ -228,7 +228,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-Service SNMP -ErrorAction SilentlyContinue).StartType',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 3 — Protection des données de compte stockées ──────────────────
@@ -271,7 +271,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'KeyIso',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 4 — Chiffrement des transmissions ───────────────────────────────
@@ -344,7 +344,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HTTP',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 5 — Protection contre les malwares ──────────────────────────────
@@ -483,7 +483,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-LocalGroupMember -Group "Administrators" | Measure-Object).Count',
     expected: '3',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-7-2-3', {
     name: 'UAC — élévation de privilèges requiert consentement (Req 7.2.3)',
@@ -619,7 +619,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableLUA',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-9-4-2', {
     name: 'Journal des accès physiques — audit d\'ouverture de session activé (Req 9.4.2)',
@@ -712,7 +712,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Process Creation" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-3-1', {
     name: 'Journal de sécurité — taille minimale 192 Mo (Req 10.3.1)',
@@ -732,7 +732,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog Security).LogMode',
     expected: 'Circular',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-5-1', {
     name: 'Journal des applications — taille minimale 100 Mo (Req 10.5.1)',
@@ -742,7 +742,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog Application).MaximumSizeInBytes',
     expected: '102400',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-6-1', {
     name: 'Synchronisation NTP — service de temps Windows actif (Req 10.6.1)',
@@ -762,7 +762,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(w32tm /query /source)',
     expected: 'Local CMOS Clock',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-7-1', {
     name: 'Windows Event Log — service actif (Req 10.7.1)',
@@ -792,7 +792,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|AuditBaseObjects',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 11 — Tests de sécurité réguliers ───────────────────────────────
@@ -825,7 +825,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-MpComputerStatus).IoavProtectionEnabled',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-11-6-1', {
     name: 'Détection falsification HTTP — SmartScreen activé (Req 11.6.1)',
@@ -835,7 +835,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|EnableSmartScreen',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 12 — Politiques de sécurité organisationnelles ─────────────────
@@ -878,7 +878,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy|Enabled',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-12-5-1', {
     name: 'Inventaire — service de gestion d\'actifs (WMI) actif (Req 12.5.1)',
@@ -898,7 +898,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'AppIDSvc',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-12-10-1', {
     name: 'Réponse aux incidents — journal d\'événements système conservé (Req 12.10.1)',
@@ -908,7 +908,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog System).MaximumSizeInBytes',
     expected: '102400',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 1 (complément) — Pare-feu et sécurité réseau ───────────────────
@@ -931,7 +931,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Private).LogBlocked',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-net-03', {
     name: 'Pare-feu — journalisation des connexions réussies activée (Req 1.3.2)',
@@ -941,7 +941,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Domain).LogAllowed',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-net-04', {
     name: 'IPv6 — désactivé si non utilisé dans le CDE (Req 1.2.5)',
@@ -981,7 +981,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters" -Name "NodeType" -ErrorAction SilentlyContinue).NodeType',
     expected: '2',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-net-08', {
     name: 'LLMNR — désactivé (Req 1.2.5)',
@@ -991,7 +991,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient|EnableMulticast',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-net-09', {
     name: 'Service Routing and Remote Access — désactivé si inutilisé (Req 1.4.1)',
@@ -1001,7 +1001,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-Service RemoteAccess -ErrorAction SilentlyContinue).StartType',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-1-net-10', {
     name: 'Taille du journal de pare-feu — ≥ 16 Mo (Req 10.2.2)',
@@ -1011,7 +1011,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Domain).LogMaxSizeKilobytes',
     expected: '16384',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── EXIGENCE 2 (complément) — Configurations sécurisées ─────────────────────
@@ -1064,7 +1064,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings|Enabled',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-2-cfg-06', {
     name: 'Recherche dans le registre LSA — protection activée (Req 2.2.6)',
@@ -1124,7 +1124,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-Service Spooler -ErrorAction SilentlyContinue).StartType',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-2-cfg-12', {
     name: 'Remote Registry — service désactivé (Req 2.2.4)',
@@ -1157,7 +1157,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'DPAPI',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-3-data-03', {
     name: 'BitLocker — lecteur de données secondaire chiffré (Req 3.5.1)',
@@ -1303,7 +1303,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-MpPreference).DisableArchiveScanning',
     expected: 'False',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-5-av-07', {
     name: 'Windows Defender — scan des scripts activé (Req 5.2.3)',
@@ -1326,7 +1326,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-WindowsOptionalFeature -Online -FeatureName Windows-Defender-ApplicationGuard -ErrorAction SilentlyContinue).State',
     expected: 'Enabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-6-dev-02', {
     name: 'Stratégie d\'exécution PowerShell — restreinte (Req 6.2.4)',
@@ -1462,7 +1462,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Logoff" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-8-auth-07', {
     name: 'Audit des verrouillages de compte — activé (Req 8.3.4)',
@@ -1495,7 +1495,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Non Sensitive Privilege Use" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-log-02', {
     name: 'Audit de démarrage du système — activé (Req 10.2.1.6)',
@@ -1505,7 +1505,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other System Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-log-03', {
     name: 'Journal des événements d\'application — taille ≥ 100 Mo (Req 10.5.1)',
@@ -1515,7 +1515,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog Application).MaximumSizeInBytes',
     expected: '102400',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-log-04', {
     name: 'PowerShell Module Logging — activé (Req 10.2.2)',
@@ -1545,7 +1545,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Handle Manipulation" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-10-log-07', {
     name: 'NTP — synchronisation avec le serveur de temps configuré (Req 10.6.1)',
@@ -1621,7 +1621,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'AppIDSvc',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-12-pol-02', {
     name: 'Audit de stratégie globale de changement — activé (Req 12.1.2)',
@@ -1631,7 +1631,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Authorization Policy Change" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-12-pol-03', {
     name: 'Inventaire des composants — service WMI actif (Req 12.5.1)',
@@ -1681,7 +1681,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy|Enabled',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('pci-12-pol-08', {
     name: 'Gestion à distance sécurisée — WinRM avec HTTPS seulement (Req 12.3.1)',

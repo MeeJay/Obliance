@@ -38,7 +38,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "mount | grep ' /tmp ' | grep -q nodev && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-004', {
@@ -82,7 +82,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'find / -xdev \\( -nouser -o -nogroup \\) 2>/dev/null | wc -l',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-008', {
@@ -93,7 +93,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "mount | grep -q ' /home ' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-009', {
@@ -104,7 +104,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "mount | grep -q ' /var ' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-010', {
@@ -128,7 +128,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "systemctl is-enabled xinetd 2>/dev/null || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-012', {
@@ -249,7 +249,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "systemctl is-enabled avahi-daemon 2>/dev/null || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-023', {
@@ -271,7 +271,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "systemctl is-enabled dhcpd isc-dhcp-server 2>/dev/null | grep -q enabled && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-025', {
@@ -282,7 +282,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "systemctl is-enabled slapd 2>/dev/null || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── RÉSEAU / SYSCTL ──────────────────────────────────────────────────────────
@@ -372,7 +372,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n net.ipv4.conf.all.log_martians',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-034', {
@@ -383,7 +383,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n net.ipv4.conf.default.log_martians',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-035', {
@@ -394,7 +394,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n net.ipv4.icmp_echo_ignore_broadcasts',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-036', {
@@ -405,7 +405,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n net.ipv4.icmp_ignore_bogus_error_responses',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-037', {
@@ -618,7 +618,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'clientaliveinterval' | awk '{print $2}'",
     expected: '300',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-056', {
@@ -629,7 +629,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'clientalivecountmax' | awk '{print $2}'",
     expected: '3',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-057', {
@@ -640,7 +640,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'logingracetime' | awk '{print $2}'",
     expected: '60',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-058', {
@@ -695,7 +695,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i '^banner' | awk '{print $2}'",
     expected: 'none',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-063', {
@@ -750,7 +750,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'loglevel' | awk '{print $2}'",
     expected: 'QUIET',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-068', {
@@ -761,7 +761,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'strictmodes' | awk '{print $2}'",
     expected: 'yes',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-069', {
@@ -772,7 +772,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "sshd -T 2>/dev/null | grep -i 'usepam' | awk '{print $2}'",
     expected: 'yes',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-070', {
@@ -818,7 +818,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'remember\\s*=' /etc/pam.d/common-password /etc/pam.d/system-auth 2>/dev/null | grep -oP 'remember=\\K\\d+' | head -1",
     expected: '4',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-074', {
@@ -829,7 +829,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'dcredit\\s*=\\s*-' /etc/security/pwquality.conf 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-075', {
@@ -840,7 +840,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'ucredit\\s*=\\s*-' /etc/security/pwquality.conf 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-076', {
@@ -851,7 +851,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'lcredit\\s*=\\s*-' /etc/security/pwquality.conf 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-077', {
@@ -862,7 +862,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'ocredit\\s*=\\s*-' /etc/security/pwquality.conf 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-078', {
@@ -884,7 +884,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'PASS_MIN_DAYS' /etc/login.defs | awk '{print $2}'",
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-080', {
@@ -928,7 +928,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'unlock_time\\s*=' /etc/security/faillock.conf 2>/dev/null | grep -oP 'unlock_time=\\K\\d+'",
     expected: '900',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-084', {
@@ -950,7 +950,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'UMASK\\s+0[012]7' /etc/login.defs && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── AUDITD ───────────────────────────────────────────────────────────────────
@@ -996,7 +996,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'space_left_action\\s*=\\s*email' /etc/audit/auditd.conf && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-090', {
@@ -1007,7 +1007,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'action_mail_acct\\s*=\\s*root' /etc/audit/auditd.conf && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-091', {
@@ -1084,7 +1084,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "auditctl -l 2>/dev/null | grep -q 'unlink\\|rename' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-098', {
@@ -1130,7 +1130,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'test -f /etc/cron.allow && echo true || echo false',
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-102', {
@@ -1141,7 +1141,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "stat -c '%a %U' /etc/cron.d 2>/dev/null | grep -qE '^[67]00 root' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-103', {
@@ -1163,7 +1163,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "command -v sudo &>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-105', {
@@ -1174,7 +1174,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'Defaults.*requiretty' /etc/sudoers /etc/sudoers.d/* 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-106', {
@@ -1185,7 +1185,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'Defaults.*use_pty' /etc/sudoers /etc/sudoers.d/* 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-107', {
@@ -1196,7 +1196,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "systemctl is-active chronyd ntpd 2>/dev/null | grep -q active && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-108', {
@@ -1229,7 +1229,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n kernel.modules_disabled 2>/dev/null',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── PERMISSIONS / FICHIERS SENSIBLES ─────────────────────────────────────────
@@ -1286,7 +1286,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "stat -c '%a' /etc/passwd- 2>/dev/null | grep -qE '^[0-6][0-4][0-4]$' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-116', {
@@ -1330,7 +1330,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'find / -xdev -type f -perm -4000 2>/dev/null | wc -l',
     expected: '20',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-120', {
@@ -1365,7 +1365,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei '^\\s*\\*\\.\\*\\s+@@?' /etc/rsyslog.conf /etc/rsyslog.d/*.conf 2>/dev/null && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-123', {
@@ -1376,7 +1376,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'Storage\\s*=\\s*persistent' /etc/systemd/journald.conf && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-124', {
@@ -1387,7 +1387,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: '/etc/logrotate.conf',
     expected: null,
     operator: 'exists',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-125', {
@@ -1565,7 +1565,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n fs.protected_symlinks 2>/dev/null',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-141', {
@@ -1576,7 +1576,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n fs.protected_hardlinks 2>/dev/null',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-142', {
@@ -1587,7 +1587,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n kernel.dmesg_restrict 2>/dev/null',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-143', {
@@ -1598,7 +1598,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n kernel.kptr_restrict 2>/dev/null',
     expected: '1',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-144', {
@@ -1609,7 +1609,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     target: 'sysctl -n net.ipv4.tcp_max_syn_backlog 2>/dev/null',
     expected: '1024',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('lsb-145', {

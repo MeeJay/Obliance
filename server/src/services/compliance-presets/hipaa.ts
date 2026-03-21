@@ -597,7 +597,7 @@ export const hipaaRules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Process Creation" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('hipaa-win-09', {
     name: 'Audit des modifications de stratégie — activé (traçabilité des changements) [HIPAA Win]',

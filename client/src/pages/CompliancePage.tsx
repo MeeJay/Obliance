@@ -26,10 +26,10 @@ const FRAMEWORK_LABELS: Record<ComplianceFramework, string> = {
 const CHECK_TYPES: ComplianceCheckType[] = ['registry', 'file', 'command', 'service', 'event_log', 'process', 'policy'];
 const OPERATORS: ComplianceOperator[] = ['eq', 'neq', 'contains', 'not_contains', 'exists', 'not_exists', 'gt', 'lt', 'regex'];
 const PLATFORMS: ScriptPlatform[] = ['all', 'windows', 'linux', 'macos'];
-const SEVERITIES: CheckSeverity[] = ['low', 'medium', 'high', 'critical'];
+const SEVERITIES: CheckSeverity[] = ['optional', 'low', 'moderate', 'high', 'critical'];
 
 const SEVERITY_COLOR: Record<CheckSeverity, string> = {
-  low: 'text-blue-400', medium: 'text-yellow-400', high: 'text-orange-400', critical: 'text-red-400',
+  optional: 'text-gray-400', low: 'text-blue-400', moderate: 'text-yellow-400', high: 'text-orange-400', critical: 'text-red-400',
 };
 
 function scoreColor(score: number): string {
@@ -67,7 +67,7 @@ function makeEmptyRule(): RuleFormData {
     target: '',
     expected: '',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
     autoRemediateScriptId: null,
   };
 }
@@ -935,7 +935,7 @@ export function CompliancePage() {
                       {/* Severity breakdown */}
                       {policy.rules.length > 0 && (
                         <div className="flex gap-3 mt-1.5">
-                          {(['critical', 'high', 'medium', 'low'] as CheckSeverity[]).map(s => {
+                          {(['critical', 'high', 'moderate', 'low', 'optional'] as CheckSeverity[]).map(s => {
                             const n = policy.rules.filter(r => r.severity === s).length;
                             return n > 0 ? (
                               <span key={s} className={clsx('text-[10px] font-semibold uppercase', SEVERITY_COLOR[s])}>

@@ -104,7 +104,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "pmset -g | grep -i 'hibernatemode' | awk '{print $2}'",
     expected: '24',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-010', {
@@ -150,7 +150,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.alf loggingenabled 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-014', {
@@ -161,7 +161,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.alf allowsignedenabled 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-015', {
@@ -172,7 +172,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "/sbin/pfctl -s info 2>/dev/null | grep -q 'Enabled' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-016', {
@@ -205,7 +205,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.alf blockall 2>/dev/null",
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── RÉSEAU ───────────────────────────────────────────────────────────────────
@@ -284,7 +284,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "launchctl list com.apple.smbd 2>/dev/null | grep -q 'smbd' && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-026', {
@@ -295,7 +295,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.NetworkBrowser DisableAirDrop 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-027', {
@@ -317,7 +317,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "launchctl list com.apple.AppleFileServer 2>/dev/null | grep -q 'AppleFileServer' && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── COMPTES UTILISATEURS ─────────────────────────────────────────────────────
@@ -363,7 +363,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.loginwindow SHOWFULLNAME 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-033', {
@@ -374,7 +374,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.loginwindow RetriesUntilHint 2>/dev/null",
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-034', {
@@ -475,7 +475,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.commerce AutoUpdate 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-043', {
@@ -521,7 +521,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "security show-keychain-info login.keychain-db 2>&1 | grep -q 'timeout' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-047', {
@@ -532,7 +532,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.security.cloudkeychainproxy 2>/dev/null | grep -q 'SecureObjectSync' && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-048', {
@@ -556,7 +556,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.lookup.shared LookupSuggestionsDisabled 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-050', {
@@ -567,7 +567,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.assistant.support 'Assistant Enabled' 2>/dev/null",
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-051', {
@@ -578,7 +578,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.SubmitDiagInfo AutoSubmit 2>/dev/null",
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-052', {
@@ -589,7 +589,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist' AutoSubmit 2>/dev/null",
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-053', {
@@ -633,7 +633,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.Photos NSUserDefaultsDidMigratePhotoLibraryToiCloud 2>/dev/null && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-057', {
@@ -655,7 +655,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "sqlite3 /Library/Application\\ Support/com.apple.TCC/TCC.db 'SELECT count(*) FROM access WHERE service=\"kTCCServiceMicrophone\" AND auth_value=2' 2>/dev/null",
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── AUDIT / JOURNALISATION ───────────────────────────────────────────────────
@@ -723,7 +723,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'minfree' /etc/security/audit_control | grep -oP '\\d+'",
     expected: '5',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-065', {
@@ -745,7 +745,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.loginwindow DisableConsoleAccess 2>/dev/null",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-067', {
@@ -756,7 +756,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'flags:' /etc/security/audit_control | grep -qE 'fd|fm' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ── SSH (SI ACTIVÉ) ──────────────────────────────────────────────────────────
@@ -802,7 +802,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "sudo sshd -T 2>/dev/null | grep -i 'clientaliveinterval' | awk '{print $2}'",
     expected: '300',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-072', {
@@ -870,7 +870,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.loginwindow LoginwindowText 2>/dev/null | wc -c | tr -d ' '",
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-078', {
@@ -881,7 +881,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "systemsetup -getnetworktimeserver 2>/dev/null | grep -q '\\.' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-079', {
@@ -892,7 +892,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "systemsetup -getusingnetworktime 2>/dev/null | grep -q 'On' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-080', {
@@ -947,7 +947,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.ncprefs content_visibility 2>/dev/null",
     expected: '2',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-085', {
@@ -982,7 +982,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.Safari WebKitPreferences.storageBlockingPolicy 2>/dev/null",
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-088', {
@@ -1026,7 +1026,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read com.apple.Safari AutoOpenSafeDownloads 2>/dev/null",
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-092', {
@@ -1083,7 +1083,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "defaults read /Library/Preferences/com.apple.screensaver loginWindowIdleTime 2>/dev/null",
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-097', {
@@ -1105,7 +1105,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "grep -Ei 'flags:' /etc/security/audit_control | grep -q 'fm' && echo true || echo false",
     expected: 'true',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-099', {
@@ -1116,7 +1116,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "launchctl list com.apple.bluetoothd 2>/dev/null | grep -q 'bluetoothd' && defaults read com.apple.Bluetooth PrefKeyServicesEnabled 2>/dev/null | grep -q '1' && echo enabled || echo disabled",
     expected: 'enabled',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-100', {
@@ -1149,7 +1149,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "dscl . -list /Users | while read u; do dsmemberutil checkmembership -U \"$u\" -G admin 2>/dev/null | grep -q 'is a member' && echo \"$u\"; done | wc -l | tr -d ' '",
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-103', {
@@ -1160,7 +1160,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     target: "sqlite3 /Library/Application\\ Support/com.apple.TCC/TCC.db 'SELECT count(*) FROM access WHERE service=\"kTCCServiceLocation\" AND auth_value=2' 2>/dev/null",
     expected: '0',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('msb-104', {

@@ -535,7 +535,7 @@ export interface DeviceUpdate {
 
 export type ConfigCheckMethod = 'registry' | 'file' | 'command' | 'service' | 'process' | 'policy';
 export type ConfigCheckOperator = 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'exists' | 'not_exists';
-export type CheckSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type CheckSeverity = 'optional' | 'low' | 'moderate' | 'high' | 'critical';
 
 export interface ConfigCheck {
   id: string;

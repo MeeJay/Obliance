@@ -65,7 +65,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Domain).LogBlocked',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-007', {
     name: 'Pare-feu — Journalisation Private activée (paquets rejetés)',
@@ -75,7 +75,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Private).LogBlocked',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-008', {
     name: 'Pare-feu — Journalisation Public activée (paquets rejetés)',
@@ -85,7 +85,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '(Get-NetFirewallProfile -Profile Public).LogBlocked',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-009', {
     name: 'Pare-feu — Taille log Domain ≥ 16384 Ko',
@@ -188,7 +188,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: `$v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender' -Name PUAProtection -EA 0).PUAProtection; if($v -eq 0){'FAIL'}else{'PASS'}`,
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-019', {
     name: 'Defender — Analyse des scripts activée',
@@ -228,7 +228,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: `$v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows Defender\\Spynet' -Name SpynetReporting -EA 0).SpynetReporting; if($v -eq 0){'FAIL'}else{'PASS'}`,
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-023', {
     name: 'Defender — Soumission d\'échantillons automatique',
@@ -248,7 +248,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '(Get-MpPreference).ScanScheduleDay',
     expected: '0',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-025', {
     name: 'Defender — Désactivation par stratégie absente',
@@ -321,7 +321,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sb$(Get-Random).cfg"; secedit /export /cfg $f /quiet; $v=[int]((Select-String "ResetLockoutCount\\s*=\\s*(\\d+)" $f -EA 0).Matches[0].Groups[1].Value); Remove-Item $f -Force -EA 0; if($v -ge 15){"PASS"}else{"FAIL"}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-032', {
     name: 'Comptes — Complexité du mot de passe activée',
@@ -351,7 +351,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sb$(Get-Random).cfg"; secedit /export /cfg $f /quiet; $v=[int]((Select-String "MaximumPasswordAge\\s*=\\s*(\\d+)" $f -EA 0).Matches[0].Groups[1].Value); Remove-Item $f -Force -EA 0; if($v -gt 0 -and $v -le 60){"PASS"}else{"FAIL"}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-035', {
     name: 'Comptes — Durée minimale du mot de passe ≥ 1 jour',
@@ -361,7 +361,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sb$(Get-Random).cfg"; secedit /export /cfg $f /quiet; $v=[int]((Select-String "MinimumPasswordAge\\s*=\\s*(\\d+)" $f -EA 0).Matches[0].Groups[1].Value); Remove-Item $f -Force -EA 0; if($v -ge 1){"PASS"}else{"FAIL"}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── CREDENTIALS (8) ────────────────────────────────────────────────────────
@@ -415,7 +415,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|AuditBaseObjects',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-041', {
     name: 'Identifiants — Connexions en cache ≤ 4',
@@ -488,7 +488,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters|DisableIPSourceRouting',
     expected: '2',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-048', {
     name: 'Réseau — Routage source IPv6 désactivé',
@@ -498,7 +498,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters|DisableIPSourceRouting',
     expected: '2',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-049', {
     name: 'Réseau — Redirections ICMP désactivées',
@@ -508,7 +508,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters|EnableICMPRedirect',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-050', {
     name: 'Réseau — Énumération anonyme SAM désactivée',
@@ -568,7 +568,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Wpad|WpadOverride',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── SERVICES (15) ──────────────────────────────────────────────────────────
@@ -631,7 +631,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'NetTcpPortSharing',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-062', {
     name: 'Services — SSDP Discovery désactivé',
@@ -641,7 +641,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'SSDPSRV',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-063', {
     name: 'Services — Hôte de périphériques UPnP désactivé',
@@ -651,7 +651,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'upnphost',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-064', {
     name: 'Services — AllJoyn Router désactivé',
@@ -681,7 +681,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'seclogon',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-067', {
     name: 'Services — W3SVC (IIS) désactivé',
@@ -711,7 +711,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'bthserv',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-070', {
     name: 'Services — Peer Name Resolution Protocol désactivé',
@@ -774,7 +774,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate|ManagePreviewBuilds',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── REMOTE ACCESS (8) ──────────────────────────────────────────────────────
@@ -910,7 +910,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '$r=(auditpol /get /subcategory:"Security System Extension" /r|ConvertFrom-Csv); ($r.PSObject.Properties)[4].Value',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-089', {
     name: 'Audit — Journalisation ScriptBlock PowerShell activée',
@@ -930,7 +930,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription|EnableTranscripting',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-091', {
     name: 'Audit — Journalisation de modules PowerShell activée',
@@ -940,7 +940,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging|EnableModuleLogging',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-092', {
     name: 'Audit — Taille journal Sécurité ≥ 196608 Ko',
@@ -950,7 +950,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog Security).MaximumSizeInBytes / 1KB',
     expected: '196607',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-093', {
     name: 'Audit — Ligne de commande dans les événements de création de processus',
@@ -960,7 +960,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit|ProcessCreationIncludeCmdLine_Enabled',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── ENCRYPTION (8) ─────────────────────────────────────────────────────────
@@ -1097,7 +1097,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DisableCAD',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-107', {
     name: 'Système — Dernier utilisateur non affiché',
@@ -1107,7 +1107,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DontDisplayLastUserName',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-108', {
     name: 'Système — Message légal à la connexion configuré',
@@ -1127,7 +1127,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaverIsSecure',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-110', {
     name: 'Système — Windows Script Host désactivé',
@@ -1157,7 +1157,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager|ProtectionMode',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-113', {
     name: 'Système — AutoAdminLogon désactivé',
@@ -1262,7 +1262,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|SCENoApplyLegacyAuditPolicy',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-123', {
     name: 'Réseau — Minimum sécurité session NTLM client = 537395200',
@@ -1332,7 +1332,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive|DisableFileSyncNGSC',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-130', {
     name: 'Système — Téléchargement pilotes d\'impression par utilisateurs interdit',
@@ -1342,7 +1342,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers|AddPrinterDrivers',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-131', {
     name: 'Réseau — Canal sécurisé Netlogon chiffré et signé',
@@ -1402,7 +1402,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: '$r=(auditpol /get /subcategory:"Process Creation" /r|ConvertFrom-Csv); ($r.PSObject.Properties)[4].Value',
     expected: 'No Auditing',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-137', {
     name: 'Audit — Verrouillage de compte (échec)',
@@ -1422,7 +1422,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u|AllowOnlineID',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-139', {
     name: 'Système — Accès restreint aux chemins UNC (SYSVOL)',
@@ -1483,7 +1483,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection|AllowTelemetry',
     expected: '1',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-145', {
     name: 'Système — Compte Administrateur intégré en mode approbation Admin',
@@ -1503,7 +1503,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'Spooler',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-147', {
     name: 'Réseau — Passerelle par défaut SSDP Discovery sans service actif',
@@ -1513,7 +1513,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'upnphost',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-148', {
     name: 'Mises à jour — Redémarrage automatique sans utilisateur connecté',
@@ -1533,7 +1533,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_AllowNetBridge_NLA',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('wsb-150', {
     name: 'Système — Partage de connexion Internet via interface interdit',
@@ -1543,6 +1543,6 @@ export const windowsBaselineRules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_ShowSharedAccessUI',
     expected: '0',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 ];

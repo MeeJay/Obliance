@@ -45,7 +45,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(Get-LocalGroupMember -Group "Administrators" | Measure-Object).Count',
     expected: '3',
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-CC1-5', {
     name: 'Responsabilités et sanctions — audit de gestion des comptes activé [CC1.5]',
@@ -88,7 +88,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: 'W32Time',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── CC3 — Évaluation des risques ────────────────────────────────────────────
@@ -403,7 +403,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(Get-Service WecSvc -ErrorAction SilentlyContinue).Status',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-CC7-9-b', {
     name: 'PowerShell Script Block Logging — activé pour audit des scripts [CC7.9]',
@@ -492,7 +492,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: 'Winmgmt',
     expected: 'Running',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-A1-2', {
     name: 'Plan de reprise — service de sauvegarde Windows Engine configuré [A1.2]',
@@ -522,7 +522,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '[math]::Round((Get-PSDrive C | Select-Object -ExpandProperty Free) / ((Get-PSDrive C).Used + (Get-PSDrive C).Free) * 100)',
     expected: '20',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-A1-5', {
     name: 'Service de pare-feu — protection DDoS de base (MpsSvc actif) [A1.5]',
@@ -542,7 +542,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(Get-Service wbengine -ErrorAction SilentlyContinue).StartType',
     expected: 'Automatic',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-A1-7', {
     name: 'Espace disque disponible — ≥ 20% du disque système [A1.7]',
@@ -552,7 +552,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '[math]::Round((Get-PSDrive C | Select-Object -ExpandProperty Free) / ((Get-PSDrive C).Used + (Get-PSDrive C).Free) * 100)',
     expected: '20',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── PI1 — Intégrité du traitement ───────────────────────────────────────────
@@ -585,7 +585,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Process Creation" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── C1 — Confidentialité ─────────────────────────────────────────────────────
@@ -598,7 +598,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|AuditBaseObjects',
     expected: '1',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-C1-2', {
     name: 'Données confidentielles chiffrées au repos — BitLocker actif [C1.2]',
@@ -628,7 +628,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer|NoDriveTypeAutoRun',
     expected: '255',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('soc2-C1-4', {
     name: 'Accès données confidentielles restreint — compte Invité désactivé [C1.4]',
@@ -648,7 +648,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"File Share" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── P1 — Confidentialité des données personnelles ───────────────────────────
@@ -691,7 +691,7 @@ export const soc2Rules: ComplianceRule[] = [
     target: '(Get-WinEvent -ListLog System).MaximumSizeInBytes',
     expected: '102400',
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── Contrôles de sécurité Windows additionnels SOC2 ─────────────────────────

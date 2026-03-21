@@ -26,7 +26,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$v=[int]((Select-String \'MaximumPasswordAge\\s*=\\s*(\\d+)\' $f).Matches[0].Groups[1].Value);Remove-Item $f -Force;if($v -le 365 -and $v -gt 0){\'PASS\'}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-1-1-3', {
@@ -37,7 +37,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$v=[int]((Select-String \'MinimumPasswordAge\\s*=\\s*(\\d+)\' $f).Matches[0].Groups[1].Value);Remove-Item $f -Force;if($v -ge 1){\'PASS\'}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-1-1-4', {
@@ -81,7 +81,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SAM|RelaxMinimumPasswordLengthLimits',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── SECTION 1.2 — Account Lockout Policy ───────────────────────────────────
@@ -94,7 +94,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$out=net accounts;$line=($out | Select-String \'Lockout duration\');$v=[int](($line -split \':\')[1].Trim());if($v -ge 15){\'PASS\'}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-1-2-2', {
@@ -116,7 +116,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SAM|AllowAdministratorLockout',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-1-2-4', {
@@ -127,7 +127,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$out=net accounts;$line=($out | Select-String \'Lockout observation window\');$v=[int](($line -split \':\')[1].Trim());if($v -ge 15){\'PASS\'}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── SECTION 2.2 — User Rights Assignment ───────────────────────────────────
@@ -173,7 +173,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeIncreaseQuotaPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-5', {
@@ -184,7 +184,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeInteractiveLogonRight" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544,*S-1-5-32-545',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-6', {
@@ -206,7 +206,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeBackupPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-8', {
@@ -217,7 +217,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeSystemtimePrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-19,*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-9', {
@@ -239,7 +239,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeCreatePagefilePrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-11', {
@@ -261,7 +261,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeCreateGlobalPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-18,*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-13', {
@@ -283,7 +283,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeCreateSymbolicLinkPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544,*S-1-5-19',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-15', {
@@ -316,7 +316,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeDenyBatchLogonRight" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -match "S-1-5-32-546"){\'PASS\'}else{\'FAIL\'}}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-18', {
@@ -327,7 +327,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeDenyServiceLogonRight" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -match "S-1-5-32-546"){\'PASS\'}else{\'FAIL\'}}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-19', {
@@ -338,7 +338,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeDenyInteractiveLogonRight" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -match "S-1-5-32-546"){\'PASS\'}else{\'FAIL\'}}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-20', {
@@ -371,7 +371,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeRemoteShutdownPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-23', {
@@ -382,7 +382,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeAuditPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-18',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-24', {
@@ -404,7 +404,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeIncreaseBasePriorityPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -match "S-1-5-32-544"){\'PASS\'}else{\'FAIL\'}}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-26', {
@@ -426,7 +426,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeLockMemoryPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -eq ""){\'PASS\'}else{\'FAIL\'}}else{\'PASS\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-28', {
@@ -459,7 +459,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeRelabelPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -eq ""){\'PASS\'}else{\'FAIL\'}}else{\'PASS\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-31', {
@@ -470,7 +470,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeSystemEnvironmentPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-32', {
@@ -481,7 +481,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeManageVolumePrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-33', {
@@ -492,7 +492,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeProfileSingleProcessPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-34', {
@@ -503,7 +503,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeSystemProfilePrivilege" $f -EA 0);Remove-Item $f -Force;if($line){$v=($line.ToString() -split "=")[1].Trim();if($v -match "S-1-5-32-544"){\'PASS\'}else{\'FAIL\'}}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-35', {
@@ -514,7 +514,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeAssignPrimaryTokenPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-19,*S-1-5-20',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-36', {
@@ -525,7 +525,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeRestorePrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-37', {
@@ -536,7 +536,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$f="$env:TEMP\\sc$(Get-Random).cfg";secedit /export /cfg $f /quiet;$line=(Select-String "SeShutdownPrivilege" $f -EA 0);Remove-Item $f -Force;if($line){($line.ToString() -split "=")[1].Trim()}else{""}',
     expected: '*S-1-5-32-544',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-2-38', {
@@ -560,7 +560,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|NoConnectedUser',
     expected: 3,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-1-2', {
@@ -593,7 +593,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(Get-LocalUser | Where-Object {$_.SID -like \'*-500\'}).Name',
     expected: 'Administrator',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-1-5', {
@@ -604,7 +604,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(Get-LocalUser | Where-Object {$_.SID -like \'*-501\'}).Name',
     expected: 'Guest',
     operator: 'neq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-2-1', {
@@ -615,7 +615,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|SCENoApplyLegacyAuditPolicy',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-2-2', {
@@ -626,7 +626,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|CrashOnAuditFail',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-4-1', {
@@ -648,7 +648,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers|AddPrinterDrivers',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-6-1', {
@@ -692,7 +692,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters|DisablePasswordChange',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-6-5', {
@@ -703,7 +703,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters|MaximumPasswordAge',
     expected: 30,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-6-6', {
@@ -725,7 +725,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DisableCAD',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-7-2', {
@@ -736,7 +736,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DontDisplayLastUserName',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-7-3', {
@@ -747,7 +747,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|InactivityTimeoutSecs',
     expected: 900,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-7-4', {
@@ -780,7 +780,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|CachedLogonsCount',
     expected: 4,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-7-7', {
@@ -802,7 +802,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|ForceUnlockLogon',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-7-9', {
@@ -813,7 +813,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|ScRemoveOption',
     expected: 1,
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-8-1', {
@@ -857,7 +857,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|AutoDisconnect',
     expected: 15,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-9-2', {
@@ -890,7 +890,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|EnableForcedLogOff',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-9-5', {
@@ -901,7 +901,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters|SmbServerNameHardeningLevel',
     expected: 1,
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-10-1', {
@@ -978,7 +978,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '[string]((Get-ItemProperty \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurePipeServers\\Winreg\\AllowedExactPaths\' -Name Machine -EA 0).Machine -ne $null)',
     expected: 'True',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-10-8', {
@@ -989,7 +989,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '$v=(Get-ItemProperty \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurePipeServers\\Winreg\\AllowedPaths\' -Name Machine -EA 0).Machine;if($v -and $v.Count -gt 0){\'PASS\'}else{\'FAIL\'}',
     expected: 'PASS',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-10-9', {
@@ -1033,7 +1033,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|ForceGuest',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-11-1', {
@@ -1044,7 +1044,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa|UseMachineId',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-11-2', {
@@ -1055,7 +1055,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0|AllowNullSessionFallback',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-11-3', {
@@ -1066,7 +1066,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u|AllowOnlineID',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-11-4', {
@@ -1099,7 +1099,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters|EnableForcedLogOff',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-11-7', {
@@ -1154,7 +1154,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|ShutdownWithoutLogon',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-15-1', {
@@ -1176,7 +1176,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager|ProtectionMode',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-17-1', {
@@ -1220,7 +1220,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableInstallerDetection',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-17-5', {
@@ -1231,7 +1231,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableSecureUIAPaths',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-2-3-17-6', {
@@ -1264,7 +1264,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableVirtualization',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── SECTION 5 — System Services ────────────────────────────────────────────
@@ -1277,7 +1277,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'bthserv',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-2', {
@@ -1288,7 +1288,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'Browser',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-3', {
@@ -1365,7 +1365,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'LxssManager',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-10', {
@@ -1475,7 +1475,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'RasAuto',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-20', {
@@ -1486,7 +1486,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'SessionEnv',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-21', {
@@ -1519,7 +1519,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'RpcLocator',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-24', {
@@ -1552,7 +1552,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'simptcp',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-27', {
@@ -1574,7 +1574,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'sacsvr',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-29', {
@@ -1596,7 +1596,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'tftpd',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-31', {
@@ -1607,7 +1607,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'WinHttpAutoProxySvc',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-32', {
@@ -1651,7 +1651,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'icssvc',
     expected: 'Disabled',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   r('cis-l1-5-36', {
@@ -1785,7 +1785,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile|DefaultOutboundAction',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-1-4', {
     name: 'Windows Firewall — Domain: Local firewall rules not merged',
@@ -1795,7 +1795,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile|AllowLocalPolicyMerge',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-1-5', {
     name: 'Windows Firewall — Domain: Local connection security rules not merged',
@@ -1805,7 +1805,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile|AllowLocalIPsecPolicyMerge',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-1-6', {
     name: 'Windows Firewall — Domain: Log dropped packets enabled',
@@ -1815,7 +1815,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging|LogDroppedPackets',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-1-7', {
     name: 'Windows Firewall — Domain: Log successful connections enabled',
@@ -1825,7 +1825,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging|LogSuccessfulConnections',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-1-8', {
     name: 'Windows Firewall — Domain: Log file path configured',
@@ -1877,7 +1877,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile|DefaultOutboundAction',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-2-4', {
     name: 'Windows Firewall — Private: Local firewall rules not merged',
@@ -1887,7 +1887,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile|AllowLocalPolicyMerge',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-2-5', {
     name: 'Windows Firewall — Private: Local connection security rules not merged',
@@ -1897,7 +1897,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile|AllowLocalIPsecPolicyMerge',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-2-6', {
     name: 'Windows Firewall — Private: Log dropped packets enabled',
@@ -1907,7 +1907,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging|LogDroppedPackets',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-2-7', {
     name: 'Windows Firewall — Private: Log successful connections enabled',
@@ -1917,7 +1917,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging|LogSuccessfulConnections',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-2-8', {
     name: 'Windows Firewall — Private: Log file size limit >= 16384 KB',
@@ -1959,7 +1959,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile|DefaultOutboundAction',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-3-4', {
     name: 'Windows Firewall — Public: Local firewall rules not merged',
@@ -1989,7 +1989,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging|LogDroppedPackets',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-3-7', {
     name: 'Windows Firewall — Public: Log successful connections enabled',
@@ -1999,7 +1999,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging|LogSuccessfulConnections',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-9-3-8', {
     name: 'Windows Firewall — Public: Display notification disabled',
@@ -2063,7 +2063,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other Account Logon Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 17.2 Account Management
@@ -2075,7 +2075,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Application Group Management" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-2-2', {
     name: 'Audit Computer Account Management: Success',
@@ -2085,7 +2085,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Computer Account Management" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-2-3', {
     name: 'Audit Distribution Group Management: Success',
@@ -2105,7 +2105,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other Account Management Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-2-5', {
     name: 'Audit Security Group Management: Success',
@@ -2137,7 +2137,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Plug and Play Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-3-2', {
     name: 'Audit Process Creation: Success',
@@ -2159,7 +2159,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Directory Service Access" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-4-2', {
     name: 'Audit Directory Service Changes: Success',
@@ -2169,7 +2169,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Directory Service Changes" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 17.5 Logon/Logoff
@@ -2191,7 +2191,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Group Membership" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-5-3', {
     name: 'Audit Logoff: Success',
@@ -2201,7 +2201,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Logoff" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-5-4', {
     name: 'Audit Logon: Success and Failure',
@@ -2221,7 +2221,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other Logon/Logoff Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-5-6', {
     name: 'Audit Special Logon: Success',
@@ -2243,7 +2243,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Detailed File Share" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-6-2', {
     name: 'Audit File Share: Success and Failure',
@@ -2253,7 +2253,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"File Share" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-6-3', {
     name: 'Audit Other Object Access Events: Success and Failure',
@@ -2263,7 +2263,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other Object Access Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-6-4', {
     name: 'Audit Removable Storage: Success and Failure',
@@ -2315,7 +2315,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"MPSSVC Rule-Level Policy Change" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-7-5', {
     name: 'Audit Other Policy Change Events: Failure',
@@ -2325,7 +2325,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other Policy Change Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 17.8 Privilege Use
@@ -2349,7 +2349,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"IPsec Driver" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-9-2', {
     name: 'Audit Other System Events: Success and Failure',
@@ -2359,7 +2359,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: '(auditpol /get /subcategory:"Other System Events" /r | ConvertFrom-Csv | Select-Object -ExpandProperty "Inclusion Setting")',
     expected: 'Success and Failure',
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-17-9-3', {
     name: 'Audit Security State Change: Success',
@@ -2423,7 +2423,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\InputPersonalization|AllowInputPersonalization',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.3 MSS Settings
@@ -2475,7 +2475,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters|NoNameReleaseOnDemand',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-3-6', {
     name: 'MSS: PerformRouterDiscovery disabled',
@@ -2485,7 +2485,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters|PerformRouterDiscovery',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-3-7', {
     name: 'MSS: SafeDllSearchMode enabled',
@@ -2505,7 +2505,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon|ScreenSaverGracePeriod',
     expected: 5,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-3-9', {
     name: 'MSS: Security event log WarningLevel <= 90%',
@@ -2515,7 +2515,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Eventlog\\Security|WarningLevel',
     expected: 90,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.4 Network
@@ -2537,7 +2537,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|EnableFontProviders',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.5 Network Settings
@@ -2569,7 +2569,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_StdDomainUserSetLocation',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-5-4', {
     name: 'Hardened UNC paths: NETLOGON — RequireMutualAuthentication=1',
@@ -2609,7 +2609,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Peernet|Disabled',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.6 Printers
@@ -2643,7 +2643,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}|NoBackgroundPolicy',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-8-3', {
     name: 'Registry policy processing: process even if not changed',
@@ -2653,7 +2653,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}|NoGPOListChanges',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-8-4', {
     name: 'Turn off background refresh of Group Policy: disabled',
@@ -2663,7 +2663,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DisableBkGndGroupPolicy',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-8-5', {
     name: 'Turn off access to all Windows Update features: disabled',
@@ -2799,7 +2799,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|MSAOptional',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-2', {
     name: 'Disallow Autoplay for non-volume devices',
@@ -2809,7 +2809,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer|NoAutoplayfornonVolume',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-3', {
     name: 'Set default behavior for AutoRun: Do not execute autorun commands',
@@ -2839,7 +2839,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredUI|DisablePasswordReveal',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-6', {
     name: 'Enumerate administrator accounts on elevation: disabled',
@@ -2849,7 +2849,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\CredUI|EnumerateAdministrators',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-7', {
     name: 'Allow Diagnostic Data: Send required diagnostic data only (<=1)',
@@ -2859,7 +2859,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection|AllowTelemetry',
     expected: 1,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-8', {
     name: 'Configure Authenticated Proxy for Connected User Experience: disabled',
@@ -2869,7 +2869,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection|DisableEnterpriseAuthProxy',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-9', {
     name: 'Disable OneSettings downloads: enabled',
@@ -2899,7 +2899,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection|AllowBuildPreview',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-12', {
     name: 'Application event log size >= 32768 KB',
@@ -2909,7 +2909,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Application|MaxSize',
     expected: 32768,
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-13', {
     name: 'Security event log size >= 196608 KB',
@@ -2929,7 +2929,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Setup|MaxSize',
     expected: 32768,
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-15', {
     name: 'System event log size >= 32768 KB',
@@ -2939,7 +2939,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\System|MaxSize',
     expected: 32768,
     operator: 'gt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-16', {
     name: 'Turn off Data Execution Prevention for Explorer: disabled',
@@ -3021,7 +3021,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\MpEngine|EnableFileHashComputation',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-24', {
     name: 'Scan all downloaded files and attachments: enabled',
@@ -3081,7 +3081,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive|DisableFileSyncNGSC',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.9 Remote Desktop / Terminal Services
@@ -3153,7 +3153,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services|MaxDisconnectionTime',
     expected: 60000,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.9 Search / Cortana
@@ -3165,7 +3165,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search|AllowCloudSearch',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-38', {
     name: 'Allow Cortana: disabled',
@@ -3175,7 +3175,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search|AllowCortana',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-39', {
     name: 'Allow Cortana above lock screen: disabled',
@@ -3185,7 +3185,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search|AllowCortanaAboveLock',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-40', {
     name: 'Allow search and Cortana to use location: disabled',
@@ -3195,7 +3195,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search|AllowSearchToUseLocation',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-41', {
     name: 'Allow Windows Spotlight: disabled',
@@ -3215,7 +3215,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\WindowsStore|RemoveWindowsStore',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-43', {
     name: 'Prevent users from sharing files within their profile',
@@ -3225,7 +3225,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections|NC_ShowSharedAccessUI',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-44', {
     name: 'Allow user control over installs: disabled',
@@ -3255,7 +3255,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|EnableMPR',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-47', {
     name: 'Sign-in last interactive user after system-initiated restart: disabled',
@@ -3265,7 +3265,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System|DisableAutomaticRestartSignOn',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-48', {
     name: 'Turn on PowerShell Script Block Logging: enabled',
@@ -3389,7 +3389,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU|AUOptions',
     expected: 4,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-60', {
     name: 'Remove access to Pause Updates: enabled',
@@ -3399,7 +3399,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate|SetDisablePauseUXAccess',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // 18.9 Credential Delegation
@@ -3445,7 +3445,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|BlockUserFromShowingAccountDetailsOnSignin',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-66', {
     name: 'Do not display network selection UI: enabled',
@@ -3455,7 +3455,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|DontDisplayNetworkSelectionUI',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-67', {
     name: 'Do not enumerate connected users on domain-joined computers: enabled',
@@ -3465,7 +3465,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|DontEnumerateConnectedUsers',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-68', {
     name: 'Enumerate local users on domain-joined computers: disabled',
@@ -3475,7 +3475,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|EnumerateLocalUsers',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-69', {
     name: 'Turn off app notifications on the lock screen: enabled',
@@ -3485,7 +3485,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|DisableLockScreenAppNotifications',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-70', {
     name: 'Turn off picture password sign-in: enabled',
@@ -3495,7 +3495,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|BlockDomainPicturePassword',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-71', {
     name: 'Turn on convenience PIN sign-in: disabled',
@@ -3505,7 +3505,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System|AllowDomainPINLogon',
     expected: 0,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-72', {
     name: 'Require a password when waking (on battery): enabled',
@@ -3559,7 +3559,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo|DisabledByGroupPolicy',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-18-9-77', {
     name: 'Allow Windows NTP Client: enabled',
@@ -3569,7 +3569,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\W32time\\TimeProviders\\NtpClient|Enabled',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 
   // ─── SECTION 19 — Administrative Templates (User Configuration) ───────────────
@@ -3582,7 +3582,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveActive',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-19-1-2', {
     name: 'Password protect the screen saver: enabled',
@@ -3602,7 +3602,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop|ScreenSaveTimeOut',
     expected: 900,
     operator: 'lt',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-19-5-1', {
     name: 'Turn off Help and Support Center Did You Know content: enabled',
@@ -3622,7 +3622,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer|NoInplaceSharing',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
   r('cis-l1-19-7-1', {
     name: 'Do not preserve zone information in file attachments: disabled (SaveZoneInformation=2)',
@@ -3662,6 +3662,6 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     target: 'HKCU\\SOFTWARE\\Policies\\Microsoft\\WindowsMediaPlayer|PreventCodecDownload',
     expected: 1,
     operator: 'eq',
-    severity: 'medium',
+    severity: 'moderate',
   }),
 ];
