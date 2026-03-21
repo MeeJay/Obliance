@@ -118,6 +118,24 @@ router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/:id/privacy-mode/disable — send disable_privacy_mode command to agent
+router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    const device = await deviceService.getDeviceById(id, req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const cmd = await commandService.enqueue({
+      deviceId: id,
+      tenantId: req.tenantId!,
+      type: 'disable_privacy_mode',
+      priority: 'high',
+      expiresInSeconds: 300,
+      createdBy: req.userId,
+    });
+    res.json({ data: cmd });
+  } catch (err) { next(err); }
+});
+
 // POST /api/devices/:id/uninstall — mark as pending_uninstall + send uninstall command to agent
 router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
   try {

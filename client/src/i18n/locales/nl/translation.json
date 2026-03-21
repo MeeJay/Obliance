@@ -716,5 +716,13 @@
       "created": "Beleid aangemaakt",
       "saveFailed": "Opslaan mislukt"
     }
+  },
+  "privacy": {
+    "badge": "Privacymodus",
+    "disable": "Privacy uitschakelen",
+    "disableTitle": "Privacymodus op dit apparaat uitschakelen",
+    "disableSent": "Uitschakelcommando verzonden",
+    "disableFailed": "Verzenden mislukt",
+    "locked": "Privacymodus is vergrendeld op dit apparaat"
   }
 }

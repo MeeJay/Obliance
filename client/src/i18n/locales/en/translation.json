@@ -1338,5 +1338,13 @@
       "created": "Policy created",
       "saveFailed": "Failed to save policy"
     }
+  },
+  "privacy": {
+    "badge": "Privacy Mode",
+    "disable": "Disable Privacy",
+    "disableTitle": "Disable privacy mode on this device",
+    "disableSent": "Privacy disable command sent",
+    "disableFailed": "Failed to send privacy disable command",
+    "locked": "Privacy mode is locked on this device"
   }
 }

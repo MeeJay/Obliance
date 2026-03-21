@@ -83,8 +83,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
       osInfo?: { platform?: string; distro?: string; release?: string; arch?: string };
       ipLocal?: string;
       macAddress?: string;
+      privacyMode?: boolean;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -137,6 +138,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         ip_public: ipPublic || device.ip_public,
         ip_local: ipLocal || device.ip_local,
         mac_address: macAddress || device.mac_address,
+        privacy_mode_enabled: typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled,
         updated_at: new Date(),
       });
       device = await db('devices').where({ id: device.id }).first();

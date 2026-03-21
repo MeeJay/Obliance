@@ -94,9 +94,32 @@ func (d *CommandDispatcher) HandleCommand(cmd AgentCommand) {
 	go d.executeCommand(cmd)
 }
 
+// isBlockedByPrivacy returns true for command types that must be refused when
+// privacy mode is active.
+func isBlockedByPrivacy(cmdType string) bool {
+	switch cmdType {
+	case "open_remote_tunnel", "run_script", "list_wts_sessions",
+		"list_processes", "kill_process":
+		return true
+	}
+	return false
+}
+
 func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	var result interface{}
 	var execErr error
+
+	// Privacy mode: reject remote-access commands.
+	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
+		log.Printf("Command %s (%s) blocked by privacy mode", cmd.ID, cmd.Type)
+		d.addAck(CommandAck{
+			CommandID:   cmd.ID,
+			CommandType: cmd.Type,
+			Status:      "failure",
+			Result:      map[string]string{"error": "privacy mode is enabled — remote access denied"},
+		})
+		return
+	}
 
 	switch cmd.Type {
 	case "scan_inventory":
@@ -158,6 +181,13 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "stop_service":
 		result, execErr = d.handleStopService(cmd)
 		if execErr == nil { go d.collectAndPostServices() }
+
+	case "disable_privacy_mode":
+		if err := SetPrivacyMode(false, "remote"); err != nil {
+			execErr = err
+		} else {
+			result = map[string]string{"message": "privacy mode disabled"}
+		}
 
 	default:
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
@@ -1229,6 +1259,9 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 // Used by the WS command channel so results can be sent back immediately
 // without waiting for the next HTTP push cycle.
 func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
+	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
+		return nil, fmt.Errorf("privacy mode is enabled — remote access denied")
+	}
 	switch cmd.Type {
 	case "scan_inventory":
 		return d.handleScanInventory(cmd)
@@ -1264,6 +1297,11 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleUninstallAgent()
 	case "install_oblireach":
 		return d.handleInstallOblireach(cmd)
+	case "disable_privacy_mode":
+		if err := SetPrivacyMode(false, "remote"); err != nil {
+			return nil, err
+		}
+		return map[string]string{"message": "privacy mode disabled"}, nil
 	default:
 		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
 	}

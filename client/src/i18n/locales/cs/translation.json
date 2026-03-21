@@ -716,5 +716,13 @@
       "created": "Zásada vytvořena",
       "saveFailed": "Uložení selhalo"
     }
+  },
+  "privacy": {
+    "badge": "Režim soukromí",
+    "disable": "Vypnout soukromí",
+    "disableTitle": "Vypnout režim soukromí na tomto zařízení",
+    "disableSent": "Příkaz k vypnutí odeslán",
+    "disableFailed": "Odeslání příkazu selhalo",
+    "locked": "Režim soukromí je na tomto zařízení uzamčen"
   }
 }

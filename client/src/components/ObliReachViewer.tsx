@@ -101,6 +101,7 @@ export function ObliReachViewer({
   const [agentDims, setAgentDims] = useState({ w: 1920, h: 1080 });
   const [fps, setFps]             = useState(0);
   const [codec, setCodec]         = useState('H.264');
+  const [bitrate, setBitrate]     = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const nativeTop = useNativeTopOffset();
 
@@ -308,6 +309,9 @@ export function ObliReachViewer({
         // Agent connected — decoder is initialised when 'init' arrives
         setStatus('waiting');
         break;
+      case 'bitrate':
+        setBitrate((msg as any).bitrate || 0);
+        break;
       case 'codec_switch': {
         const c = (msg as any).codec;
         setCodec(c === 'jpeg' ? 'JPEG' : c === 'vp9' ? 'VP9' : 'H.264');
@@ -484,7 +488,7 @@ export function ObliReachViewer({
 
           {status === 'streaming' && (
             <span className="text-xs text-text-muted hidden sm:block">
-              {agentDims.w}×{agentDims.h} · {fps} fps · {codec}
+              {agentDims.w}×{agentDims.h} · {fps} fps · {codec}{bitrate > 0 ? ` · ${(bitrate / 1_000_000).toFixed(1)} Mbps` : ''}
             </span>
           )}
 

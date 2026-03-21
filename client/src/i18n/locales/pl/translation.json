@@ -716,5 +716,13 @@
       "created": "Polityka utworzona",
       "saveFailed": "Zapisanie nie powiodło się"
     }
+  },
+  "privacy": {
+    "badge": "Tryb prywatności",
+    "disable": "Wyłącz prywatność",
+    "disableTitle": "Wyłącz tryb prywatności na tym urządzeniu",
+    "disableSent": "Polecenie wyłączenia wysłane",
+    "disableFailed": "Nie udało się wysłać polecenia",
+    "locked": "Tryb prywatności jest zablokowany na tym urządzeniu"
   }
 }

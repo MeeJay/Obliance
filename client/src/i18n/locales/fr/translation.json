@@ -1226,5 +1226,13 @@
       "created": "Politique créée",
       "saveFailed": "Échec de l'enregistrement"
     }
+  },
+  "privacy": {
+    "badge": "Mode confidentialité",
+    "disable": "Désactiver confidentialité",
+    "disableTitle": "Désactiver le mode confidentialité sur cet appareil",
+    "disableSent": "Commande de désactivation envoyée",
+    "disableFailed": "Échec de l'envoi de la commande",
+    "locked": "Le mode confidentialité est verrouillé sur cet appareil"
   }
 }

@@ -371,6 +371,11 @@ func mainLoop(cfg *Config) {
 	log.Printf("Server: %s", cfg.ServerURL)
 	log.Printf("Device UUID: %s", cfg.DeviceUUID)
 
+	// Load privacy mode state from disk and start watching for tray changes.
+	loadPrivacyState()
+	privacyStopCh := make(chan struct{})
+	go watchPrivacyFile(privacyStopCh)
+
 	// Initialise the command dispatcher used by push() to dispatch commands
 	// received in push responses and to accumulate acks for the next push.
 	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL, cfg.RemediationEnabled)

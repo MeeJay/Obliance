@@ -69,6 +69,7 @@ class DeviceService {
       overrideGroupSettings: row.override_group_settings,
       maxMissedPushes: row.max_missed_pushes,
       complianceRemediationEnabled: row.compliance_remediation_enabled ?? true,
+      privacyModeEnabled: row.privacy_mode_enabled ?? false,
       tags: row.tags || [],
       customFields: row.custom_fields || {},
       displayConfig: row.display_config || {},

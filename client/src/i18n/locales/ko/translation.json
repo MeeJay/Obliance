@@ -716,5 +716,13 @@
       "created": "정책 생성됨",
       "saveFailed": "저장 실패"
     }
+  },
+  "privacy": {
+    "badge": "프라이버시 모드",
+    "disable": "프라이버시 해제",
+    "disableTitle": "이 장치의 프라이버시 모드 비활성화",
+    "disableSent": "비활성화 명령 전송됨",
+    "disableFailed": "명령 전송 실패",
+    "locked": "이 장치에서 프라이버시 모드가 잠겨 있습니다"
   }
 }

@@ -716,5 +716,13 @@
       "created": "Politika oluşturuldu",
       "saveFailed": "Kaydetme başarısız"
     }
+  },
+  "privacy": {
+    "badge": "Gizlilik modu",
+    "disable": "Gizliliği kapat",
+    "disableTitle": "Bu cihazda gizlilik modunu devre dışı bırak",
+    "disableSent": "Devre dışı bırakma komutu gönderildi",
+    "disableFailed": "Komut gönderilemedi",
+    "locked": "Gizlilik modu bu cihazda kilitli"
   }
 }

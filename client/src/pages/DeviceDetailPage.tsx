@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
-  Terminal, Package, ShieldCheck, MonitorPlay, History,
+  Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare,
@@ -1917,6 +1917,7 @@ const COMMAND_LABELS: Record<string, string> = {
   stop_service: 'Stop Service',
   install_software: 'Install Software',
   uninstall_software: 'Uninstall Software',
+  disable_privacy_mode: 'Disable Privacy',
 };
 
 const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
@@ -2680,6 +2681,7 @@ export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = parseInt(id ?? '0', 10);
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { isAdmin } = useAuthStore();
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -3018,6 +3020,12 @@ export function DeviceDetailPage() {
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
             <h1 className="text-2xl font-bold text-text-primary truncate">{device.displayName || device.hostname}</h1>
             <DeviceStatusBadge status={device.status} />
+            {device.privacyModeEnabled && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
+                <Shield className="w-3 h-3" />
+                {t('privacy.badge')}
+              </span>
+            )}
           </div>
           <p className="text-sm text-text-muted mt-1">
             {device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown IP'} · Agent v{device.agentVersion ?? '?'}
@@ -3121,7 +3129,7 @@ export function DeviceDetailPage() {
                       {opts.length === 1 ? (
                         <button
                           onClick={() => handleHeaderRemote(opts[0])}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
                           title={`${label(opts[0])} Remote`}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
@@ -3131,7 +3139,7 @@ export function DeviceDetailPage() {
                       ) : (
                         <button
                           onClick={() => setRemoteDropdownOpen((o) => !o)}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online'}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
                           title="Remote Control"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
@@ -3164,6 +3172,27 @@ export function DeviceDetailPage() {
                     </div>
                   );
                 })()}
+                {device.privacyModeEnabled && isAdmin() && (
+                  <>
+                    <div className="w-px h-5 bg-border" />
+                    <button
+                      onClick={async () => {
+                        setHeaderPending((p) => new Set(p).add('privacy'));
+                        try {
+                          await deviceApi.disablePrivacyMode(device.id);
+                          toast.success(t('privacy.disableSent'));
+                        } catch { toast.error(t('privacy.disableFailed')); }
+                        finally { setHeaderPending((p) => { const n = new Set(p); n.delete('privacy'); return n; }); }
+                      }}
+                      disabled={headerPending.has('privacy')}
+                      title={t('privacy.disableTitle')}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                      {t('privacy.disable')}
+                    </button>
+                  </>
+                )}
                 <div className="w-px h-5 bg-border" />
                 <button
                   onClick={() => handleHeaderAction('restart_agent')}
@@ -3243,15 +3272,20 @@ export function DeviceDetailPage() {
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
+          const privacyBlocked = device.privacyModeEnabled && ['scripts', 'remote', 'processes'].includes(tab.id);
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => !privacyBlocked && setActiveTab(tab.id)}
+              disabled={privacyBlocked}
+              title={privacyBlocked ? t('privacy.badge') : undefined}
               className={clsx(
                 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
-                activeTab === tab.id
-                  ? 'bg-accent text-white'
-                  : 'text-text-muted hover:text-text-primary',
+                privacyBlocked
+                  ? 'text-text-muted/40 cursor-not-allowed'
+                  : activeTab === tab.id
+                    ? 'bg-accent text-white'
+                    : 'text-text-muted hover:text-text-primary',
               )}
             >
               <Icon className="w-4 h-4" />

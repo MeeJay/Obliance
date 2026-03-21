@@ -20,6 +20,7 @@ type pushBody struct {
 	Acks         []CommandAck `json:"acks,omitempty"`
 	IPLocal      string       `json:"ipLocal,omitempty"`
 	MACAddress   string       `json:"macAddress,omitempty"`
+	PrivacyMode  bool         `json:"privacyMode"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -70,6 +71,7 @@ func push(cfg *Config) {
 		Acks:         acks,
 		IPLocal:      ipLocal,
 		MACAddress:   macAddress,
+		PrivacyMode:  IsPrivacyMode(),
 	}
 
 	data, err := json.Marshal(body)

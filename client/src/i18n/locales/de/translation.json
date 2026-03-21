@@ -716,5 +716,13 @@
       "created": "Richtlinie erstellt",
       "saveFailed": "Speichern fehlgeschlagen"
     }
+  },
+  "privacy": {
+    "badge": "Datenschutzmodus",
+    "disable": "Datenschutz deaktivieren",
+    "disableTitle": "Datenschutzmodus auf diesem Gerät deaktivieren",
+    "disableSent": "Deaktivierungsbefehl gesendet",
+    "disableFailed": "Senden fehlgeschlagen",
+    "locked": "Datenschutzmodus ist auf diesem Gerät gesperrt"
   }
 }

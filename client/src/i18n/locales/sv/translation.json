@@ -716,5 +716,13 @@
       "created": "Policy skapad",
       "saveFailed": "Sparande misslyckades"
     }
+  },
+  "privacy": {
+    "badge": "Sekretessläge",
+    "disable": "Inaktivera sekretess",
+    "disableTitle": "Inaktivera sekretessläge på denna enhet",
+    "disableSent": "Inaktiveringskommando skickat",
+    "disableFailed": "Misslyckades att skicka kommando",
+    "locked": "Sekretessläge är låst på denna enhet"
   }
 }

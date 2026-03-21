@@ -716,5 +716,13 @@
       "created": "策略已创建",
       "saveFailed": "保存失败"
     }
+  },
+  "privacy": {
+    "badge": "隐私模式",
+    "disable": "关闭隐私",
+    "disableTitle": "关闭此设备的隐私模式",
+    "disableSent": "已发送关闭命令",
+    "disableFailed": "命令发送失败",
+    "locked": "此设备的隐私模式已锁定"
   }
 }

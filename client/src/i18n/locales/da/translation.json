@@ -716,5 +716,13 @@
       "created": "Politik oprettet",
       "saveFailed": "Lagring fejlede"
     }
+  },
+  "privacy": {
+    "badge": "Privatlivstilstand",
+    "disable": "Deaktiver privatliv",
+    "disableTitle": "Deaktiver privatlivstilstand på denne enhed",
+    "disableSent": "Deaktiveringskommando sendt",
+    "disableFailed": "Kunne ikke sende kommando",
+    "locked": "Privatlivstilstand er låst på denne enhed"
   }
 }

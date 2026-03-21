@@ -716,5 +716,13 @@
       "created": "Política criada",
       "saveFailed": "Falha ao salvar"
     }
+  },
+  "privacy": {
+    "badge": "Modo privacidade",
+    "disable": "Desativar privacidade",
+    "disableTitle": "Desativar modo privacidade neste dispositivo",
+    "disableSent": "Comando de desativação enviado",
+    "disableFailed": "Falha ao enviar comando",
+    "locked": "O modo privacidade está bloqueado neste dispositivo"
   }
 }

@@ -140,6 +140,7 @@ export interface Device {
   overrideGroupSettings: boolean;
   maxMissedPushes: number;
   complianceRemediationEnabled: boolean;
+  privacyModeEnabled: boolean;
   // Metadata
   tags: string[];
   customFields: Record<string, string>;
@@ -247,7 +248,8 @@ export type CommandType =
   | 'install_oblireach'
   | 'list_processes'
   | 'kill_process'
-  | 'list_wts_sessions';
+  | 'list_wts_sessions'
+  | 'disable_privacy_mode';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

@@ -716,5 +716,13 @@
       "created": "Politica creata",
       "saveFailed": "Salvataggio fallito"
     }
+  },
+  "privacy": {
+    "badge": "Modalità privacy",
+    "disable": "Disattiva privacy",
+    "disableTitle": "Disattiva la modalità privacy su questo dispositivo",
+    "disableSent": "Comando di disattivazione inviato",
+    "disableFailed": "Invio comando fallito",
+    "locked": "La modalità privacy è bloccata su questo dispositivo"
   }
 }

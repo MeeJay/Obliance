@@ -46,6 +46,9 @@ export const deviceApi = {
     const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/unsuspend`);
     return res.data.data!;
   },
+  async disablePrivacyMode(id: number): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy-mode/disable`);
+  },
   async initiateUninstall(id: number): Promise<Device> {
     const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/uninstall`);
     return res.data.data!;
