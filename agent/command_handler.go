@@ -99,7 +99,9 @@ func (d *CommandDispatcher) HandleCommand(cmd AgentCommand) {
 func isBlockedByPrivacy(cmdType string) bool {
 	switch cmdType {
 	case "open_remote_tunnel", "run_script", "list_wts_sessions",
-		"list_processes", "kill_process":
+		"list_processes", "kill_process",
+		"list_directory", "create_directory", "rename_file",
+		"delete_file", "download_file", "upload_file":
 		return true
 	}
 	return false
@@ -181,6 +183,19 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "stop_service":
 		result, execErr = d.handleStopService(cmd)
 		if execErr == nil { go d.collectAndPostServices() }
+
+	case "list_directory":
+		result, execErr = d.handleListDirectory(cmd)
+	case "create_directory":
+		result, execErr = d.handleCreateDirectory(cmd)
+	case "rename_file":
+		result, execErr = d.handleRenameFile(cmd)
+	case "delete_file":
+		result, execErr = d.handleDeleteFile(cmd)
+	case "download_file":
+		result, execErr = d.handleDownloadFile(cmd)
+	case "upload_file":
+		result, execErr = d.handleUploadFile(cmd)
 
 	case "disable_privacy_mode":
 		if err := SetPrivacyMode(false, "remote"); err != nil {
@@ -1279,6 +1294,18 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleListProcesses(cmd)
 	case "kill_process":
 		return d.handleKillProcess(cmd)
+	case "list_directory":
+		return d.handleListDirectory(cmd)
+	case "create_directory":
+		return d.handleCreateDirectory(cmd)
+	case "rename_file":
+		return d.handleRenameFile(cmd)
+	case "delete_file":
+		return d.handleDeleteFile(cmd)
+	case "download_file":
+		return d.handleDownloadFile(cmd)
+	case "upload_file":
+		return d.handleUploadFile(cmd)
 	case "list_services":
 		return d.handleListServices(cmd)
 	case "restart_service":

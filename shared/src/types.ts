@@ -39,6 +39,8 @@ export interface UserPreferences {
   sidebarFloating?: boolean;
   theme?: 'dark' | 'light';
   preferredTheme?: AppTheme;
+  /** Preferred video codec for Oblireach remote sessions. Falls back to JPEG if unavailable. */
+  preferredCodec?: 'h264' | 'h265' | 'vp9' | 'av1' | 'jpeg';
 }
 
 // ─── TENANTS ─────────────────────────────────────────────────────────────────
@@ -249,7 +251,13 @@ export type CommandType =
   | 'list_processes'
   | 'kill_process'
   | 'list_wts_sessions'
-  | 'disable_privacy_mode';
+  | 'disable_privacy_mode'
+  | 'list_directory'
+  | 'create_directory'
+  | 'rename_file'
+  | 'delete_file'
+  | 'download_file'
+  | 'upload_file';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

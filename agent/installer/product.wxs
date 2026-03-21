@@ -111,17 +111,10 @@
                   Execute="immediate"
                   Return="ignore" />
 
-    <!-- Launch tray immediately after install (runs as current user, not SYSTEM) -->
-    <CustomAction Id="LaunchTray"
-                  FileRef="TrayExeFile"
-                  ExeCommand=""
-                  Impersonate="yes"
-                  Return="asyncNoWait" />
-
     <InstallExecuteSequence>
       <Custom Action="KillTray" Before="InstallFiles" />
-      <Custom Action="LaunchTray" After="InstallFinalize" Condition="NOT Installed OR REINSTALL" />
     </InstallExecuteSequence>
+    <!-- Tray relaunch is handled by the agent service (watchTrayLoop) after it starts -->
 
     <Feature Id="Main">
       <ComponentRef Id="AgentExe" />

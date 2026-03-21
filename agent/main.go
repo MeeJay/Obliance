@@ -329,10 +329,25 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	// Retry loop: error 1618 = another msiexec is running (e.g. Windows Update).
+	// Wait 30s between attempts, up to 5 retries (total ~2.5 min max wait).
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
 			"timeout /t 2 /nobreak >nul\r\n"+
+			"set RETRIES=0\r\n"+
+			":RETRY\r\n"+
 			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
+			"set MSI_EXIT=%%ERRORLEVEL%%\r\n"+
+			"if %%MSI_EXIT%%==1618 (\r\n"+
+			"  set /a RETRIES+=1\r\n"+
+			"  if %%RETRIES%% LSS 5 (\r\n"+
+			"    timeout /t 30 /nobreak >nul\r\n"+
+			"    goto RETRY\r\n"+
+			"  )\r\n"+
+			")\r\n"+
+			"if not %%MSI_EXIT%%==0 (\r\n"+
+			"  net start OblianceAgent >nul 2>&1\r\n"+
+			")\r\n"+
 			"del /q \"%s\"\r\n"+
 			"del /q \"%%~f0\"\r\n",
 		msiPath, serverURL, apiKey, logPath, msiPath)
@@ -375,6 +390,10 @@ func mainLoop(cfg *Config) {
 	loadPrivacyState()
 	privacyStopCh := make(chan struct{})
 	go watchPrivacyFile(privacyStopCh)
+
+	// Ensure the tray icon process is running in each active user session.
+	trayStopCh := make(chan struct{})
+	go watchTrayLoop(trayStopCh)
 
 	// Initialise the command dispatcher used by push() to dispatch commands
 	// received in push responses and to accumulate acks for the next push.

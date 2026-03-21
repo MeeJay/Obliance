@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Save, KeyRound, Bell, CheckCircle2, AlertTriangle, QrCode, Mail, Palette } from 'lucide-react';
+import { User, Save, KeyRound, Bell, CheckCircle2, AlertTriangle, QrCode, Mail, Palette, Monitor } from 'lucide-react';
 import { profileApi } from '@/api/profile.api';
 import { appConfigApi } from '@/api/appConfig.api';
 import { twoFactorApi, type TwoFactorStatus } from '@/api/twoFactor.api';
@@ -131,6 +131,16 @@ export function ProfilePage() {
     } catch {
       toast.error(t('profile.appearance.failed'));
     }
+  };
+
+  const [preferredCodec, setPreferredCodec] = useState(sessionUser?.preferences?.preferredCodec || 'h264');
+
+  const handleCodecChange = async (codec: string) => {
+    setPreferredCodec(codec);
+    try {
+      await profileApi.update({ preferences: { preferredCodec: codec as any } });
+      toast.success('Codec preference saved');
+    } catch {}
   };
 
   const handleLanguageChange = async (code: string) => {
@@ -335,6 +345,33 @@ export function ProfilePage() {
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* Remote Desktop codec preference */}
+      <div>
+        <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Monitor size={18} className="text-accent" />
+          Remote Desktop
+        </h2>
+        <div className="bg-bg-secondary border border-border rounded-xl p-5 space-y-3">
+          <div>
+            <label className="text-sm text-text-muted mb-1 block">Preferred video codec</label>
+            <select
+              value={preferredCodec}
+              onChange={e => handleCodecChange(e.target.value)}
+              className="w-full sm:w-64 px-3 py-2 rounded-lg bg-bg-tertiary border border-border text-text-primary text-sm"
+            >
+              <option value="h264">H.264 (OpenH264) — Best default</option>
+              <option value="h265">H.265 (HEVC) — Better compression</option>
+              <option value="vp9">VP9 — Good compression</option>
+              <option value="av1">AV1 — Best compression, heavy CPU</option>
+              <option value="jpeg">JPEG — Fallback, low quality</option>
+            </select>
+            <p className="text-xs text-text-muted mt-1">
+              If the selected codec is unavailable on the remote agent, it will automatically fall back to JPEG.
+            </p>
+          </div>
         </div>
       </div>
 

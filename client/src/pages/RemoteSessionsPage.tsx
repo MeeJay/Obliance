@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Search, ExternalLink } from 'lucide-react';
 import { remoteApi } from '@/api/remote.api';
 import { useDeviceStore } from '@/store/deviceStore';
+import { useAuthStore } from '@/store/authStore';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { getSocket } from '@/socket/socketClient';
@@ -464,6 +465,7 @@ export function RemoteSessionsPage() {
         <ObliReachViewer
           sessionToken={orSession.sessionToken}
           deviceName={`Device #${orSession.deviceId}`}
+          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onClose={async () => {
             // End the session server-side when the viewer closes
             try { await remoteApi.endSession(orSession.id); } catch {}

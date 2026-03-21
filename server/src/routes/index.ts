@@ -40,6 +40,7 @@ import systemRoutes from './system.routes';
 import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
 import reachRoutes from './reach.routes';
 import processRoutes from './process.routes';
+import fileRoutes from './file.routes';
 
 const router = Router();
 
@@ -88,6 +89,7 @@ tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key managemen
 tenantRouter.use('/oblireach/devices', obliReachDevicesRouter);
 tenantRouter.use('/reach',           reachRoutes);        // Oblireach desktop client API
 tenantRouter.use('/processes',      processRoutes);
+tenantRouter.use('/files',          fileRoutes); // /api/files/:deviceId/files/*
 
 router.use('/', tenantRouter);
 

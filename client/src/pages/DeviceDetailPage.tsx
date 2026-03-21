@@ -6,7 +6,7 @@ import {
   Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -24,13 +24,14 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
+import FileExplorerTab from '@/components/devices/FileExplorerTab';
 import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'services' | 'processes' | 'commands' | 'settings';
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'settings';
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'overview', label: 'Overview', icon: Monitor },
@@ -39,6 +40,7 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'updates', label: 'Updates', icon: Package },
   { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
   { id: 'remote', label: 'Remote', icon: MonitorPlay },
+  { id: 'files', label: 'Explorer', icon: FolderOpen },
   { id: 'services', label: 'Services', icon: Server },
   { id: 'processes', label: 'Processes', icon: Activity },
   { id: 'commands', label: 'Tasks', icon: History },
@@ -1628,6 +1630,7 @@ function RemoteTab({ device }: { device: Device }) {
         <ObliReachViewer
           sessionToken={orSession?.sessionToken ?? null}
           deviceName={device.displayName || device.hostname}
+          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onClose={async () => {
             if (orSession) try { await remoteApi.endSession(orSession.id); } catch {}
             setOrModalOpen(false);
@@ -2953,6 +2956,7 @@ export function DeviceDetailPage() {
         <ObliReachViewer
           sessionToken={headerRemoteSession?.sessionToken ?? null}
           deviceName={device.displayName || device.hostname}
+          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onClose={async () => {
             if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
             setHeaderRemoteOpen(false);
@@ -3272,7 +3276,7 @@ export function DeviceDetailPage() {
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
-          const privacyBlocked = device.privacyModeEnabled && ['scripts', 'remote', 'processes'].includes(tab.id);
+          const privacyBlocked = device.privacyModeEnabled && ['scripts', 'remote', 'processes', 'files'].includes(tab.id);
           return (
             <button
               key={tab.id}
@@ -3303,6 +3307,7 @@ export function DeviceDetailPage() {
         {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
         {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
         {activeTab === 'remote' && <RemoteTab device={device} />}
+        {activeTab === 'files' && <FileExplorerTab device={device} />}
         {activeTab === 'services' && <ServicesTab device={device} />}
         {activeTab === 'processes' && <ProcessesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
