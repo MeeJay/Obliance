@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Monitor, Wifi, WifiOff, AlertTriangle, AlertCircle, Clock, RefreshCw, ArrowRight, Package, ShieldCheck } from 'lucide-react';
+import { Monitor, Wifi, WifiOff, AlertTriangle, AlertCircle, Clock, RefreshCw, ArrowRight, Package, ShieldCheck, CheckCircle2, ArrowUpCircle } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -71,7 +71,7 @@ export function DashboardPage() {
 
       {/* Quick stats row */}
       {s && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
             <div className="p-3 rounded-lg bg-orange-500/20 text-orange-400">
               <Package className="w-5 h-5" />
@@ -82,6 +82,34 @@ export function DashboardPage() {
             </div>
             <Link to="/updates" className="ml-auto text-sm text-accent hover:text-accent/80">Manage →</Link>
           </div>
+
+          {/* Agent version status */}
+          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
+            <div className={`p-3 rounded-lg ${s.agentOutdated === 0 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+              <ArrowUpCircle className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-green-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {s.agentUpToDate}
+                </span>
+                {s.agentOutdated > 0 && (
+                  <span className="text-sm font-medium text-yellow-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {s.agentOutdated}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-text-muted">
+                Agent v{s.latestAgentVersion}
+                {s.agentOutdated > 0
+                  ? ` · ${s.agentOutdated} outdated`
+                  : ' · All up to date'}
+              </p>
+            </div>
+          </div>
+
           {s.complianceScore !== null && (
             <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
               <div className={`p-3 rounded-lg ${s.complianceScore >= 80 ? 'bg-green-500/20 text-green-400' : s.complianceScore >= 50 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>

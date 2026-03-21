@@ -1061,6 +1061,9 @@ export interface FleetSummary {
   suspended: number;
   pendingUpdates: number;
   complianceScore: number | null;
+  agentUpToDate: number;
+  agentOutdated: number;
+  latestAgentVersion: string;
 }
 
 // ─── AUTH & USERS ─────────────────────────────────────────────────────────────

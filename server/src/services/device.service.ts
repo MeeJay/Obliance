@@ -627,6 +627,16 @@ class DeviceService {
       .first()
       .then(r => parseInt(String((r as any)?.count ?? 0)));
 
+    // Agent version stats
+    const latestVersion = getAgentVersion();
+    const versionRows = await db('devices')
+      .where({ tenant_id: tenantId })
+      .whereNotNull('agent_version')
+      .select(db.raw("CASE WHEN agent_version = ? THEN 'uptodate' ELSE 'outdated' END as vstat, count(*) as count", [latestVersion]))
+      .groupBy('vstat');
+    const vCounts: Record<string, number> = {};
+    for (const r of versionRows) vCounts[r.vstat] = parseInt(r.count);
+
     return {
       total: Object.values(counts).reduce((a, b) => a + b, 0),
       online: counts.online || 0,
@@ -637,6 +647,9 @@ class DeviceService {
       suspended: counts.suspended || 0,
       pendingUpdates,
       complianceScore: null,
+      agentUpToDate: vCounts.uptodate || 0,
+      agentOutdated: vCounts.outdated || 0,
+      latestAgentVersion: latestVersion,
     };
   }
 }
