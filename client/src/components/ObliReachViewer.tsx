@@ -246,8 +246,8 @@ export function ObliReachViewer({
           fpsCountRef.current++;
           setStatus((prev) => (prev !== 'streaming' ? 'streaming' : prev));
         }).catch(() => {});
-      } else if (frameType === FRAME_H264 || frameType === 0x03) {
-        // H.264 (0x02) or VP9 (0x03) — both go through WebCodecs VideoDecoder
+      } else if (frameType === FRAME_H264 || frameType === 0x03 || frameType === 0x04) {
+        // H.264 (0x02), VP9 (0x03), H.265 (0x04) — all go through WebCodecs VideoDecoder
         const nalData = buf.slice(1);
         const decoder = decoderRef.current;
         if (!decoder || decoder.state !== 'configured') return;
@@ -258,6 +258,28 @@ export function ObliReachViewer({
           try {
             decoder.decode(new EncodedVideoChunk({
               type: keyframe ? 'key' : 'delta',
+              data: nalData,
+              timestamp: tsMicros,
+            }));
+            tsMicros += Math.round(1_000_000 / 15);
+          } catch (e) {}
+        } else if (frameType === 0x04) {
+          // H.265/HEVC: keyframe = NAL type 19 (IDR_W_RADL) or 20 (IDR_N_LP) or 32 (VPS) or 33 (SPS)
+          const u8 = new Uint8Array(nalData);
+          let isKey = false;
+          // Search for Annex B start codes and check NAL type
+          for (let j = 0; j < u8.length - 5; j++) {
+            if (u8[j] === 0 && u8[j+1] === 0 && ((u8[j+2] === 1) || (u8[j+2] === 0 && u8[j+3] === 1))) {
+              const off = u8[j+2] === 1 ? j+3 : j+4;
+              if (off < u8.length) {
+                const nalType = (u8[off] >> 1) & 0x3f;
+                if (nalType >= 16 && nalType <= 21 || nalType === 32 || nalType === 33 || nalType === 34) { isKey = true; break; }
+              }
+            }
+          }
+          try {
+            decoder.decode(new EncodedVideoChunk({
+              type: isKey ? 'key' : 'delta',
               data: nalData,
               timestamp: tsMicros,
             }));
@@ -314,9 +336,9 @@ export function ObliReachViewer({
         break;
       case 'codec_switch': {
         const c = (msg as any).codec;
-        setCodec(c === 'jpeg' ? 'JPEG' : c === 'vp9' ? 'VP9' : 'H.264');
+        setCodec(c === 'jpeg' ? 'JPEG' : c === 'vp9' ? 'VP9' : c === 'h265' ? 'H.265' : 'H.264');
         // Reconfigure VideoDecoder for the new codec
-        if (c === 'vp9' || c === 'h264') {
+        if (c === 'vp9' || c === 'h264' || c === 'h265') {
           try { decoderRef.current?.close(); } catch {}
           const canvas = canvasRef.current;
           if (canvas) {
@@ -331,7 +353,7 @@ export function ObliReachViewer({
                 },
                 error: () => {},
               });
-              const codecStr = c === 'vp9' ? 'vp09.00.10.08' : 'avc1.640034';
+              const codecStr = c === 'vp9' ? 'vp09.00.10.08' : c === 'h265' ? 'hev1.1.6.L93.B0' : 'avc1.640034';
               decoder.configure({
                 codec: codecStr,
                 codedWidth: agentDims.w,
@@ -506,6 +528,7 @@ export function ObliReachViewer({
               className="px-2 py-1 text-xs bg-bg-secondary text-text-muted border border-border rounded hover:text-text-primary transition-colors cursor-pointer"
             >
               <option value="h264">H.264</option>
+              <option value="h265">H.265</option>
               <option value="vp9">VP9</option>
               <option value="jpeg">JPEG</option>
             </select>
