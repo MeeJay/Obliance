@@ -21,6 +21,7 @@ interface UserRow {
   foreign_source?: string | null;
   foreign_id?: number | null;
   foreign_source_url?: string | null;
+  avatar?: string | null;
 }
 
 function rowToUser(row: UserRow): User {

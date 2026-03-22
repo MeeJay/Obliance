@@ -12,9 +12,7 @@ import {
 import {
   LayoutDashboard,
   Settings,
-  Bell,
   Users,
-  FolderTree,
   UserCircle,
   LogOut,
   Server,
@@ -29,12 +27,7 @@ import {
   Monitor,
   Terminal,
   Laptop,
-  Code2,
-  RefreshCw,
   ShieldCheck,
-  FileBarChart2,
-  Download,
-  History,
   Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
