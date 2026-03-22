@@ -2757,6 +2757,7 @@ export function DeviceDetailPage() {
   const [chatOpen, setChatOpen]         = useState(false);
   const [chatMessages, setChatMessages] = useState<import('@/components/ChatPanel').ChatMessage[]>([]);
   const [chatId, setChatId]             = useState<string | null>(null);
+  const [chatSessionId, setChatSessionId] = useState<number | undefined>(undefined);
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
@@ -3202,7 +3203,15 @@ export function DeviceDetailPage() {
                       ) : (
                         <>
                         <button
-                          onClick={() => setChatOpen(!chatOpen)}
+                          onClick={() => {
+                            if (headerOrSessions.length > 1 && !chatOpen) {
+                              // Multiple WTS sessions — let user pick
+                              setChatSessionId(undefined);
+                              setChatOpen(true);
+                            } else {
+                              setChatOpen(!chatOpen);
+                            }
+                          }}
                           disabled={device.status !== 'online'}
                           title="Chat with user"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

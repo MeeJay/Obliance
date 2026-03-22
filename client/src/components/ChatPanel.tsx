@@ -70,17 +70,39 @@ export function ChatPanel({
     if (!socket || chatId) return; // already connected
 
     // Request chat session
-    socket.emit('chat:open', { deviceUuid, sessionId, operatorName }, (res: { chatId: string }) => {
+    socket.emit('chat:open', { deviceUuid, sessionId, operatorName }, (res: { chatId?: string; error?: string }) => {
       if (res?.chatId) {
         setChatId(res.chatId);
         setIsConnected(true);
+        socket.join?.(`chat:${res.chatId}`);
+        // Also join via emit for Socket.io v4
         socket.emit('join', `chat:${res.chatId}`);
+      } else {
+        setMessages(prev => [...prev, {
+          sender: 'System',
+          text: `Failed to open chat: ${res?.error || 'agent offline or not connected'}`,
+          timestamp: Date.now(),
+          isSystem: true,
+        }]);
       }
     });
 
-    return () => {
-      // Don't close on unmount — the chat persists across viewer transitions
-    };
+    // If the ack doesn't fire within 5s, show an error
+    const timeout = setTimeout(() => {
+      if (!chatId) {
+        setMessages(prev => {
+          if (prev.some(m => m.text.includes('Failed to open'))) return prev;
+          return [...prev, {
+            sender: 'System',
+            text: 'Chat connection timed out. The Oblireach agent may be offline.',
+            timestamp: Date.now(),
+            isSystem: true,
+          }];
+        });
+      }
+    }, 5000);
+
+    return () => { clearTimeout(timeout); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
