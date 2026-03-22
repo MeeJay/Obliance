@@ -8,10 +8,10 @@ const router = Router();
 /**
  * GET /api/obliance/link?uuid={uuid}
  *
- * Called by Obliview/Obliguard/Oblimap (server-side proxy) to look up a device
+ * Called by other Obli* apps (server-side proxy) to look up a device
  * by its machine UUID and return the Obliance page path for that device.
  *
- * Auth: Bearer token — must match any of the configured peer app API keys.
+ * Auth: Bearer token — must match the Obligate API key.
  */
 router.get('/link', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -22,15 +22,9 @@ router.get('/link', async (req: Request, res: Response, next: NextFunction): Pro
       return;
     }
 
-    // Accept API keys from any configured peer app
-    const [obliviewCfg, obliguardCfg, oblimapCfg] = await Promise.all([
-      appConfigService.getObliviewRaw(),
-      appConfigService.getObliguardRaw(),
-      appConfigService.getOblimapRaw(),
-    ]);
-
-    const validKeys = [obliviewCfg.apiKey, obliguardCfg.apiKey, oblimapCfg.apiKey].filter(Boolean);
-    if (!validKeys.includes(token)) {
+    // Accept the Obligate API key
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.apiKey || token !== raw.apiKey) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }

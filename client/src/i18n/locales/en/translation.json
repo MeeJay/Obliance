@@ -1093,6 +1093,13 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone."
+    },
+    "actions": {
+      "view": "View",
+      "refuse": "Refuse",
+      "delete": "Delete",
+      "uninstall": "Uninstall agent",
+      "confirmUninstall": "Uninstall the agent from this device?"
     }
   },
   "compliance": {

@@ -465,6 +465,13 @@
       "deleted": "{{count}} Geräte gelöscht",
       "dispatched": "{{count}} Befehle gesendet",
       "confirmDelete": "Ausgewählte Geräte löschen? Nicht rückgängig."
+    },
+    "actions": {
+      "view": "View",
+      "refuse": "Refuse",
+      "delete": "Delete",
+      "uninstall": "Uninstall agent",
+      "confirmUninstall": "Uninstall the agent from this device?"
     }
   },
   "settings": {

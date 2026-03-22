@@ -100,18 +100,9 @@ export function AdminDevicesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t('agents.title')}</h1>
-          <p className="text-sm text-text-muted mt-0.5">{t('agents.subtitle')}</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          {t('devices.apiKeys.newKey')}
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">{t('agents.title')}</h1>
+        <p className="text-sm text-text-muted mt-0.5">{t('agents.subtitle')}</p>
       </div>
 
       {/* Tabs */}

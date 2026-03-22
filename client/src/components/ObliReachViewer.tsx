@@ -496,7 +496,12 @@ export function ObliReachViewer({
     };
   }, [agentDims]);
 
+  const lastMoveRef = useRef(0);
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Throttle mouse move to max 60 events/s to avoid overwhelming the WS relay
+    const now = performance.now();
+    if (now - lastMoveRef.current < 16) return;
+    lastMoveRef.current = now;
     const { x, y } = toAgentCoords(e);
     sendJson({ type: 'mouse', action: 'move', x, y });
   }, [toAgentCoords, sendJson]);

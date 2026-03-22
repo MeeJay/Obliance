@@ -665,6 +665,13 @@
       "deleted": "{{count}} dispositivos eliminados",
       "dispatched": "{{count}} comandos enviados",
       "confirmDelete": "¿Eliminar dispositivos seleccionados? Irreversible."
+    },
+    "actions": {
+      "view": "View",
+      "refuse": "Refuse",
+      "delete": "Delete",
+      "uninstall": "Uninstall agent",
+      "confirmUninstall": "Uninstall the agent from this device?"
     }
   },
   "compliance": {

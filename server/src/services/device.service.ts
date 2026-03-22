@@ -376,13 +376,10 @@ class DeviceService {
   }
 
   async bulkApprove(ids: number[], tenantId: number, approvedBy: number) {
-    await db('devices').whereIn('id', ids).where({ tenant_id: tenantId }).update({
-      approval_status: 'approved',
-      status: 'offline',
-      approved_by: approvedBy,
-      approved_at: new Date(),
-      updated_at: new Date(),
-    });
+    // Approve each device individually so default group from API key is assigned
+    for (const id of ids) {
+      await this.approveDevice(id, tenantId, approvedBy);
+    }
   }
 
   async bulkDelete(ids: number[], tenantId: number) {

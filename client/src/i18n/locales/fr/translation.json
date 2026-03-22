@@ -988,6 +988,13 @@
       "deleted": "{{count}} appareils supprimés",
       "dispatched": "{{count}} commandes envoyées",
       "confirmDelete": "Supprimer les appareils sélectionnés ? Action irréversible."
+    },
+    "actions": {
+      "view": "Voir",
+      "refuse": "Refuser",
+      "delete": "Supprimer",
+      "uninstall": "Désinstaller l'agent",
+      "confirmUninstall": "Désinstaller l'agent de cet appareil ?"
     }
   },
   "compliance": {

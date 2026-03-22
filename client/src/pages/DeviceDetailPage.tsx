@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
-  Monitor, ArrowLeft, ArrowLeftRight, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
+  Monitor, ArrowLeft, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
   Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
-import { appConfigApi } from '@/api/appConfig.api';
-import { ssoApi } from '@/api/sso.api';
 import { inventoryApi } from '@/api/inventory.api';
 import { commandApi } from '@/api/command.api';
 import { deviceApi } from '@/api/device.api';
@@ -2818,9 +2816,6 @@ export function DeviceDetailPage() {
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
-  const [obliviewUrl, setObliviewUrl] = useState<string | null>(null);
-  const [obliguardUrl, setObliguardUrl] = useState<string | null>(null);
-  const [oblimapUrl, setOblimapUrl] = useState<string | null>(null);
 
   // Uninstall countdown (ticks every second while device is pending_uninstall)
   const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
@@ -2849,6 +2844,7 @@ export function DeviceDetailPage() {
   const [chatId, setChatId]             = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<number | undefined>(undefined);
   const [chatSoundEnabled, setChatSoundEnabled] = useState(true);
+  const [chatSessionPickerOpen, setChatSessionPickerOpen] = useState(false);
   const [quickReplyTemplates, setQuickReplyTemplates] = useState<Array<{ id: number; translations: Record<string, string> }>>([]);
 
   // Fetch admin quick reply templates once
@@ -3054,27 +3050,6 @@ export function DeviceDetailPage() {
     }).catch(() => setHeaderOrInstalled(false));
   }, [device?.uuid]);
 
-  useEffect(() => {
-    if (!device?.uuid) return;
-    setObliviewUrl(null);
-    setObliguardUrl(null);
-    setOblimapUrl(null);
-    appConfigApi.proxyObliviewLink(device.uuid).then((url) => setObliviewUrl(url)).catch(() => {});
-    appConfigApi.proxyObliguardLink(device.uuid).then((url) => setObliguardUrl(url)).catch(() => {});
-    appConfigApi.proxyOblimapLink(device.uuid).then((url) => setOblimapUrl(url)).catch(() => {});
-  }, [device?.uuid]);
-
-  function handleSwitch(targetUrl: string) {
-    ssoApi.generateSwitchToken()
-      .then((token) => {
-        const from = window.location.origin;
-        try {
-          const url = new URL(targetUrl);
-          window.location.href = `${url.origin}/auth/foreign?token=${encodeURIComponent(token)}&from=${encodeURIComponent(from)}&source=obliance&redirect=${encodeURIComponent(url.pathname)}`;
-        } catch { window.location.href = targetUrl; }
-      })
-      .catch(() => { window.location.href = targetUrl; });
-  }
 
   if (isLoading) {
     return (
@@ -3119,6 +3094,42 @@ export function DeviceDetailPage() {
           onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
         />
       )}
+      {/* Chat session picker (RDS) */}
+      {chatSessionPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
+            <div className="px-5 py-4 border-b border-border">
+              <h3 className="text-sm font-semibold text-text-primary">Select session to chat with</h3>
+              <p className="text-xs text-text-muted mt-1">Choose which user session to open the chat in.</p>
+            </div>
+            <div className="p-3 space-y-1 max-h-60 overflow-y-auto">
+              {headerOrSessions.map((s) => (
+                <button key={s.id} onClick={() => {
+                  setChatSessionId(s.id);
+                  setChatSessionPickerOpen(false);
+                  setChatOpen(true);
+                }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left">
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
+                    {s.id}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-text-primary font-medium truncate">{s.username || 'Unknown'}</div>
+                    <div className="text-[10px] text-text-muted">{s.state} · {s.stationName || `Session ${s.id}`}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-border flex justify-end">
+              <button onClick={() => setChatSessionPickerOpen(false)}
+                className="px-4 py-1.5 text-xs bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chat panel — slides in from the right */}
       {chatOpen && (
         <div className="fixed right-0 top-0 bottom-0 z-[60] shadow-2xl">
@@ -3240,42 +3251,6 @@ export function DeviceDetailPage() {
           ) : (
             /* ── Approved/suspended device: show all actions ── */
             <>
-              {obliviewUrl && (
-                <button
-                  type="button"
-                  onClick={() => handleSwitch(obliviewUrl)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                    text-[#6366f1] bg-[#1e1b4b]/40 border-[#4338ca]/50
-                    hover:text-white hover:bg-[#1e1b4b]/60 hover:border-[#6366f1]"
-                >
-                  <ArrowLeftRight size={13} />
-                  Obliview
-                </button>
-              )}
-              {obliguardUrl && (
-                <button
-                  type="button"
-                  onClick={() => handleSwitch(obliguardUrl)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                    text-[#fb923c] bg-[#431407]/40 border-[#c2410c]/50
-                    hover:text-white hover:bg-[#431407]/60 hover:border-[#ea580c]"
-                >
-                  <ArrowLeftRight size={13} />
-                  Obliguard
-                </button>
-              )}
-              {oblimapUrl && (
-                <button
-                  type="button"
-                  onClick={() => handleSwitch(oblimapUrl)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                    text-[#10b981] bg-[#022c22]/40 border-[#047857]/50
-                    hover:text-white hover:bg-[#022c22]/60 hover:border-[#059669]"
-                >
-                  <ArrowLeftRight size={13} />
-                  Oblimap
-                </button>
-              )}
               {/* ── Scan All ── */}
               <button
                 onClick={handleScanAll}
@@ -3292,11 +3267,25 @@ export function DeviceDetailPage() {
                 {/* Chat — always next to Remote */}
                 <button
                   onClick={() => {
-                    if (headerOrSessions && headerOrSessions.length > 1 && !chatOpen) {
-                      setChatSessionId(undefined);
+                    if (chatOpen) {
+                      setChatOpen(false);
+                      return;
+                    }
+                    // If Reach is active, use the same session
+                    if (headerRemoteOpen && headerRemoteSession) {
+                      // The remote session's WTS ID might be in the session picker state
+                      // Just open chat — the remote session's target is already set
+                      setChatOpen(true);
+                      return;
+                    }
+                    // If multiple WTS sessions available, show picker
+                    if (headerOrSessions && headerOrSessions.length > 1) {
+                      setChatSessionPickerOpen(true);
+                    } else if (headerOrSessions && headerOrSessions.length === 1) {
+                      setChatSessionId(headerOrSessions[0].id);
                       setChatOpen(true);
                     } else {
-                      setChatOpen(!chatOpen);
+                      setChatOpen(true);
                     }
                   }}
                   disabled={device.status !== 'online'}

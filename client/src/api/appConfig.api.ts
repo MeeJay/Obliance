@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { AppConfigData, DeviceNotificationTypes, SsoIntegrationConfig } from '@obliance/shared';
+import type { AppConfigData, DeviceNotificationTypes, ObligateConfig } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -31,48 +31,15 @@ export const appConfigApi = {
     return res.data.data!;
   },
 
-  async getObliviewConfig(): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.get<ApiResponse<SsoIntegrationConfig>>('/admin/config/obliview');
+  // ── Obligate SSO gateway ────────────────────────────────────────────────
+
+  async getObligateConfig(): Promise<ObligateConfig> {
+    const res = await apiClient.get<ApiResponse<ObligateConfig>>('/admin/config/obligate');
     return res.data.data!;
   },
 
-  async patchObliviewConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.put<ApiResponse<SsoIntegrationConfig>>('/admin/config/obliview', patch);
+  async patchObligateConfig(patch: { url?: string | null; apiKey?: string | null; enabled?: boolean }): Promise<ObligateConfig> {
+    const res = await apiClient.put<ApiResponse<ObligateConfig>>('/admin/config/obligate', patch);
     return res.data.data!;
-  },
-
-  async getObliguardConfig(): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.get<ApiResponse<SsoIntegrationConfig>>('/admin/config/obliguard');
-    return res.data.data!;
-  },
-
-  async patchObliguardConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.put<ApiResponse<SsoIntegrationConfig>>('/admin/config/obliguard', patch);
-    return res.data.data!;
-  },
-
-  async getOblimapConfig(): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.get<ApiResponse<SsoIntegrationConfig>>('/admin/config/oblimap');
-    return res.data.data!;
-  },
-
-  async patchOblimapConfig(patch: { url?: string | null; apiKey?: string | null }): Promise<SsoIntegrationConfig> {
-    const res = await apiClient.put<ApiResponse<SsoIntegrationConfig>>('/admin/config/oblimap', patch);
-    return res.data.data!;
-  },
-
-  async proxyObliviewLink(uuid: string): Promise<string | null> {
-    const res = await apiClient.get<ApiResponse<{ obliviewUrl: string | null }>>(`/obliview/proxy-link?uuid=${encodeURIComponent(uuid)}`);
-    return res.data.data?.obliviewUrl ?? null;
-  },
-
-  async proxyObliguardLink(uuid: string): Promise<string | null> {
-    const res = await apiClient.get<ApiResponse<{ obliguardUrl: string | null }>>(`/obliguard/proxy-link?uuid=${encodeURIComponent(uuid)}`);
-    return res.data.data?.obliguardUrl ?? null;
-  },
-
-  async proxyOblimapLink(uuid: string): Promise<string | null> {
-    const res = await apiClient.get<ApiResponse<{ oblimapUrl: string | null }>>(`/oblimap/proxy-link?uuid=${encodeURIComponent(uuid)}`);
-    return res.data.data?.oblimapUrl ?? null;
   },
 };

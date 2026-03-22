@@ -5,7 +5,7 @@ import { requireTenant } from '../middleware/tenant';
 // Route imports
 import authRoutes from './auth.routes';
 import twoFactorRoutes from './twoFactor.routes';
-import ssoRoutes from './sso.routes';
+import obligateCallbackRoutes from './obligateCallback.routes';
 import oblitoolsRoutes from './oblitools.routes';
 import profileRoutes from './profile.routes';
 import tenantRoutes from './tenant.routes';
@@ -33,9 +33,6 @@ import reportRoutes from './report.routes';
 import agentRoutes from './agent.routes';
 import agentAdminRoutes from './agentAdmin.routes';
 import oblianceRoutes from './obliance.routes';
-import obliviewRoutes from './obliview.routes';
-import obliguardRoutes from './obliguard.routes';
-import oblimapRoutes from './oblimap.routes';
 import systemRoutes from './system.routes';
 import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
 import quickReplyTemplatesRoutes from './quickReplyTemplates.routes';
@@ -47,15 +44,12 @@ const router = Router();
 
 // ── Public / auth ────────────────────────────────────────────────────────────
 router.use('/auth', authRoutes);
-router.use('/sso', ssoRoutes);           // cross-app SSO (generate-token, validate-token, exchange, users)
+router.use('/auth', obligateCallbackRoutes);  // sso-config, connected-apps, app-info (under /api/auth)
 router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth required)
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
-router.use('/obliview', obliviewRoutes);   // proxy to Obliview
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
-router.use('/obliguard', obliguardRoutes); // proxy to Obliguard
-router.use('/oblimap', oblimapRoutes);     // proxy to Oblimap
 
 // ── Authenticated, no tenant required ───────────────────────────────────────
 router.use('/profile/2fa', twoFactorRoutes); // must be before /profile (auth handled inside twoFactorRoutes)

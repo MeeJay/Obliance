@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RefreshCw, ChevronLeft, ChevronRight, X, Eye, RotateCcw, PowerOff, Trash2, ShieldCheck, Loader2, MoreHorizontal } from 'lucide-react';
+import { Search, RefreshCw, ChevronLeft, ChevronRight, X, Eye, RotateCcw, PowerOff, Trash2, ShieldCheck, ShieldX, Loader2, MoreHorizontal, UserX, Check } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -371,12 +371,53 @@ export function DeviceTable({ mode }: DeviceTableProps) {
                     <DeviceStatusBadge status={device.status} />
                   </td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => navigate(`/devices/${device.id}`)}
-                      className="p-1.5 text-text-muted hover:text-accent rounded transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      {mode === 'admin' && device.approvalStatus === 'pending' && (
+                        <>
+                          <button
+                            onClick={async () => { await deviceApi.approve(device.id); load(); toast.success(t('devices.batch.approve')); }}
+                            className="p-1.5 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                            title={t('devices.batch.approve')}
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={async () => { if (confirm(t('devices.batch.confirmDelete'))) { await deviceApi.refuse(device.id); load(); } }}
+                            className="p-1.5 text-text-muted hover:text-orange-400 hover:bg-orange-400/10 rounded transition-colors"
+                            title={t('devices.actions.refuse')}
+                          >
+                            <ShieldX className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => navigate(`/devices/${device.id}`)}
+                        className="p-1.5 text-text-muted hover:text-accent rounded transition-colors"
+                        title={t('devices.actions.view')}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      {mode === 'admin' && (
+                        <>
+                          <button
+                            onClick={async () => { if (confirm(t('devices.batch.confirmDelete'))) { await deviceApi.delete(device.id); load(); toast.success(t('devices.batch.deleted', { count: 1 })); } }}
+                            className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                            title={t('devices.actions.delete')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          {device.approvalStatus === 'approved' && device.status !== 'pending_uninstall' && (
+                            <button
+                              onClick={async () => { if (confirm(t('devices.actions.confirmUninstall'))) { await deviceApi.initiateUninstall(device.id); load(); } }}
+                              className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                              title={t('devices.actions.uninstall')}
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1080,13 +1080,15 @@ export interface AppConfigData {
   inventory_retention_days: string;
   app_name: string;
   default_language: string;
-  // Cross-app SSO integration
-  obliview_url?: string | null;
-  obliguard_url?: string | null;
-  oblimap_url?: string | null;
-  enable_foreign_sso?: boolean;
-  enable_obliguard_sso?: boolean;
-  enable_oblimap_sso?: boolean;
+  // Obligate SSO gateway
+  obligate_url?: string | null;
+  obligate_enabled?: string;
+}
+
+export interface ObligateConfig {
+  url: string | null;
+  apiKeySet: boolean;
+  enabled: boolean;
 }
 
 // ─── FLEET SUMMARY ───────────────────────────────────────────────────────────
@@ -1187,9 +1189,3 @@ export interface NotificationPluginMeta {
   configFields: NotificationConfigField[];
 }
 
-// ─── SSO CONFIG ──────────────────────────────────────────────────────────────
-
-export interface SsoIntegrationConfig {
-  url: string | null;
-  apiKeySet: boolean;
-}

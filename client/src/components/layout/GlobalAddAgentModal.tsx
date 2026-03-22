@@ -60,7 +60,7 @@ export function GlobalAddAgentModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={closeAddAgentModal}>
-      <div className="w-full max-w-xl rounded-xl border border-border bg-bg-primary shadow-2xl overflow-y-auto max-h-[85vh]" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-xl rounded-xl border border-border bg-bg-primary shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-text-primary">{t('addAgent.title')}</h2>
@@ -98,7 +98,7 @@ export function GlobalAddAgentModal() {
                     <ChevronDown size={14} className="text-text-muted shrink-0" />
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                    <div className="mt-1 bg-bg-secondary border border-border rounded-lg overflow-hidden max-h-60 overflow-y-auto">
                       {keys.map(k => (
                         <button
                           key={k.id}

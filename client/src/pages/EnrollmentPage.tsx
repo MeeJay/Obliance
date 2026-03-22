@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Check, ChevronRight, KeyRound } from 'lucide-react';
 import apiClient from '@/api/client';
 import { twoFactorApi, type TotpSetupData } from '@/api/twoFactor.api';
-import { ssoApi } from '@/api/sso.api';
 import { profileApi } from '@/api/profile.api';
 import { useAuthStore } from '@/store/authStore';
 import { SUPPORTED_LANGUAGES, setLanguage } from '@/i18n';
@@ -476,7 +475,7 @@ export function EnrollmentPage() {
         if (password !== confirmPassword) { setPasswordError(t('enrollment.password.mismatch')); return; }
         setPasswordError('');
         try {
-          await ssoApi.setLocalPassword(password);
+          await apiClient.post('/auth/set-password', { password });
           setHasPassword(true);
         } catch {
           setPasswordError(t('enrollment.password.failed'));

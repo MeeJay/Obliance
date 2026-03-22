@@ -26,6 +26,7 @@ interface HistoryEvent {
   sublabel?: string;
   status: string;
   duration?: number;
+  createdByName?: string | null;
 }
 
 // ─── Converters ──────────────────────────────────────────────────────────────
@@ -55,7 +56,8 @@ function cmdToEvent(c: Command): HistoryEvent {
     deviceId: c.deviceId,
     label: CMD_LABELS[c.type] ?? c.type,
     status: c.status,
-    duration: (c.result as any)?.duration,
+    duration: c.durationMs ?? (c.result as any)?.duration,
+    createdByName: c.createdByName,
   };
 }
 
@@ -68,6 +70,7 @@ function execToEvent(e: ScriptExecution): HistoryEvent {
     label: (e.scriptSnapshot as any)?.name ?? 'Script',
     sublabel: e.triggeredBy,
     status: e.status,
+    createdByName: e.triggeredBy,
   };
 }
 
@@ -320,6 +323,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
                   <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Action</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Device</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">User</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
                 </tr>
               </thead>
@@ -377,6 +381,11 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
                           {isLive && <Loader2 className="w-3 h-3 animate-spin" />}
                           {sc.label}
                         </span>
+                      </td>
+
+                      {/* User */}
+                      <td className="px-4 py-2.5 text-xs text-text-muted hidden md:table-cell whitespace-nowrap">
+                        {ev.createdByName ?? '—'}
                       </td>
 
                       {/* Duration */}

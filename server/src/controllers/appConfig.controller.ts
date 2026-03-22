@@ -4,7 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 
 const ALLOWED_KEYS = [
   'allow_2fa', 'force_2fa', 'otp_smtp_server_id',
-  'enable_foreign_sso', 'enable_obliguard_sso', 'enable_oblimap_sso',
+  'obligate_enabled',
 ] as const;
 
 export const appConfigController = {
@@ -45,6 +45,26 @@ export const appConfigController = {
       if ('maxMissedPushes' in req.body) patch.maxMissedPushes = maxMissedPushes;
       if ('notificationTypes' in req.body) patch.notificationTypes = notificationTypes;
       const updated = await appConfigService.setAgentGlobal(patch);
+      res.json({ success: true, data: updated });
+    } catch (err) { next(err); }
+  },
+
+  // ── Obligate SSO gateway ───────────────────────────────────────────────────
+
+  async getObligateConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cfg = await appConfigService.getObligateConfig();
+      res.json({ success: true, data: cfg });
+    } catch (err) { next(err); }
+  },
+
+  async setObligateConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const patch: { url?: string | null; apiKey?: string | null; enabled?: boolean } = {};
+      if ('url' in req.body) patch.url = (req.body as { url?: string | null }).url?.trim() || null;
+      if ('apiKey' in req.body) patch.apiKey = (req.body as { apiKey?: string | null }).apiKey?.trim() || null;
+      if ('enabled' in req.body) patch.enabled = !!req.body.enabled;
+      const updated = await appConfigService.patchObligateConfig(patch);
       res.json({ success: true, data: updated });
     } catch (err) { next(err); }
   },
