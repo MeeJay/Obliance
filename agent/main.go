@@ -262,13 +262,19 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 			log.Printf("Auto-update: cannot write MSI temp file: %v", err)
 			return
 		}
-		if _, err := io.Copy(f, dlResp.Body); err != nil {
+		written, err := io.Copy(f, dlResp.Body)
+		if err != nil {
 			f.Close()
 			os.Remove(msiPath)
 			log.Printf("Auto-update: MSI download write error: %v", err)
 			return
 		}
 		f.Close()
+		if dlResp.ContentLength > 0 && written != dlResp.ContentLength {
+			os.Remove(msiPath)
+			log.Printf("Auto-update: MSI download truncated (%d/%d bytes) — skipping", written, dlResp.ContentLength)
+			return
+		}
 
 		// Launch msiexec via a detached batch script — the script outlives the
 		// service process. msiexec will stop the service, install the new version,
@@ -291,13 +297,20 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 			log.Printf("Auto-update: cannot write temp file: %v", err)
 			return
 		}
-		if _, err := io.Copy(f, dlResp.Body); err != nil {
+		written, err := io.Copy(f, dlResp.Body)
+		if err != nil {
 			f.Close()
 			os.Remove(tmpPath)
 			log.Printf("Auto-update: download write error: %v", err)
 			return
 		}
 		f.Close()
+		// Verify download is complete — a truncated binary causes SEGV on exec.
+		if dlResp.ContentLength > 0 && written != dlResp.ContentLength {
+			os.Remove(tmpPath)
+			log.Printf("Auto-update: download truncated (%d/%d bytes) — skipping", written, dlResp.ContentLength)
+			return
+		}
 		if err := os.Rename(tmpPath, exePath); err != nil {
 			os.Remove(tmpPath)
 			log.Printf("Auto-update: rename failed: %v", err)
