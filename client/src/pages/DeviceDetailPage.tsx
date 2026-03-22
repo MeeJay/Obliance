@@ -3198,6 +3198,7 @@ export function DeviceDetailPage() {
                           {label(opts[0])}
                         </button>
                       ) : (
+                        <>
                         <button
                           onClick={() => setChatOpen(!chatOpen)}
                           disabled={device.status !== 'online'}
@@ -3217,6 +3218,7 @@ export function DeviceDetailPage() {
                           Remote
                           <ChevronDown className="w-3 h-3" />
                         </button>
+                        </>
                       )}
                       {remoteDropdownOpen && (
                         <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
