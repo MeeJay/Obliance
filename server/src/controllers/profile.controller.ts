@@ -18,6 +18,7 @@ function buildUserResponse(row: Record<string, unknown>) {
     preferredLanguage: row.preferred_language ?? 'en',
     enrollmentVersion: row.enrollment_version ?? 0,
     hasPassword: !!row.password_hash,
+    avatar: row.avatar ?? null,
   };
 }
 
@@ -25,7 +26,7 @@ export const profileController = {
   async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const row = await db('users')
-        .select('id', 'username', 'display_name', 'role', 'is_active', 'created_at', 'updated_at', 'preferences', 'email', 'preferred_language', 'enrollment_version', 'password_hash')
+        .select('id', 'username', 'display_name', 'role', 'is_active', 'created_at', 'updated_at', 'preferences', 'email', 'preferred_language', 'enrollment_version', 'password_hash', 'avatar')
         .where({ id: req.session.userId })
         .first();
 
@@ -94,6 +95,34 @@ export const profileController = {
       await db('users').where({ id: req.session.userId }).update({ password_hash: newHash, updated_at: new Date() });
 
       res.json({ success: true, message: 'Password changed successfully' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async uploadAvatar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { avatar } = req.body as { avatar: string };
+      if (!avatar || !avatar.startsWith('data:image/')) {
+        throw new AppError(400, 'Invalid image data — must be a base64 data URI');
+      }
+      // Limit to ~500KB base64 (~375KB image)
+      if (avatar.length > 500_000) {
+        throw new AppError(400, 'Image too large — max 375KB');
+      }
+
+      await db('users').where({ id: req.session.userId }).update({ avatar, updated_at: new Date() });
+
+      res.json({ success: true, avatar });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteAvatar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await db('users').where({ id: req.session.userId }).update({ avatar: null, updated_at: new Date() });
+      res.json({ success: true });
     } catch (err) {
       next(err);
     }

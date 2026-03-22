@@ -54,7 +54,7 @@ const defaultForm: ScriptFormData = {
   availableInReach: false,
 };
 
-export function ScriptLibraryPage() {
+export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [categories, setCategories] = useState<ScriptCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -168,7 +168,7 @@ export function ScriptLibraryPage() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className={embedded ? 'flex overflow-hidden rounded-xl border border-border' : 'flex h-full overflow-hidden'}>
       {/* Left panel: category filter + list */}
       <div className="w-72 shrink-0 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">

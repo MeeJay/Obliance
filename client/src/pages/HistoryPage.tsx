@@ -114,7 +114,7 @@ const PAGE_SIZE = 50;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function HistoryPage() {
+export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
   const socket = getSocket();
   const { getDevice, fetchDevices } = useDeviceStore();
 
@@ -228,11 +228,11 @@ export function HistoryPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-6 space-y-5">
+    <div className={embedded ? 'flex flex-col min-h-0 space-y-5' : 'flex flex-col h-full min-h-0 p-6 space-y-5'}>
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
+        {!embedded && <div className="flex items-center gap-3">
           <History className="w-5 h-5 text-text-muted" />
           <h1 className="text-xl font-semibold text-text-primary">History</h1>
           {!isLoading && (
@@ -240,7 +240,7 @@ export function HistoryPage() {
               {filtered.length} events
             </span>
           )}
-        </div>
+        </div>}
         <button
           onClick={() => { setShown(PAGE_SIZE); load(); }}
           disabled={isLoading}

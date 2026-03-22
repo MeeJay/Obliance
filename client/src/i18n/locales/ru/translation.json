@@ -95,7 +95,9 @@
     "history": "История",
     "download": "Загрузить",
     "navigation": "Навигация",
-    "addAgent": "Добавить агент"
+    "addAgent": "Добавить агент",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Панель мониторинга",
@@ -305,6 +307,15 @@
       "subtitle": "Выберите визуальную тему для вашего интерфейса.",
       "saved": "Тема сохранена",
       "failed": "Не удалось сохранить тему"
+    },
+    "avatar": {
+      "title": "Фото профиля",
+      "hint": "JPG, PNG или GIF. Макс. 375 КБ.",
+      "updated": "Фото обновлено",
+      "removed": "Фото удалено",
+      "failed": "Ошибка загрузки",
+      "tooLarge": "Изображение слишком большое — макс. 375 КБ",
+      "remove": "Удалить фото"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Сбросить MFA",
     "confirmResetMfa": "Отключить все методы 2FA для \"{{username}}\"? Пользователь сможет войти без второго фактора.",
     "mfaReset": "MFA отключён для {{username}}",
-    "failedResetMfa": "Не удалось сбросить MFA"
+    "failedResetMfa": "Не удалось сбросить MFA",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Обновления",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "О системе",
+    "loading": "Загрузка информации о системе…",
+    "loadFailed": "Не удалось загрузить информацию о системе.",
+    "versions": "Версии",
+    "server": "Сервер",
+    "client": "Клиент",
+    "agent": "Агент",
+    "reach": "Reach",
+    "instance": "Экземпляр",
+    "uptime": "Время работы",
+    "environment": "Среда",
+    "platform": "Платформа",
+    "cpuCores": "Ядра CPU",
+    "memory": "Память",
+    "processRss": "Процесс (RSS)",
+    "heapUsed": "Куча использ.",
+    "systemFree": "Система своб.",
+    "cpuLoad": "Средняя нагрузка CPU",
+    "database": "База данных",
+    "connected": "Подключена",
+    "error": "Ошибка"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

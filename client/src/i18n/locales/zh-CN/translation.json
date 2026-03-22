@@ -95,7 +95,9 @@
     "history": "历史记录",
     "download": "下载",
     "navigation": "导航",
-    "addAgent": "添加代理"
+    "addAgent": "添加代理",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "监控仪表板",
@@ -305,6 +307,15 @@
       "subtitle": "选择界面的视觉主题。",
       "saved": "主题已保存",
       "failed": "保存主题失败"
+    },
+    "avatar": {
+      "title": "头像",
+      "hint": "JPG、PNG 或 GIF。最大 375KB。",
+      "updated": "头像已更新",
+      "removed": "头像已删除",
+      "failed": "上传失败",
+      "tooLarge": "图片太大 — 最大 375KB",
+      "remove": "删除头像"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "重置 MFA",
     "confirmResetMfa": "禁用\"{{username}}\"的所有双因素认证方式？该用户将可以不使用第二因素登录。",
     "mfaReset": "已为 {{username}} 禁用 MFA",
-    "failedResetMfa": "重置 MFA 失败"
+    "failedResetMfa": "重置 MFA 失败",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "更新",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "关于",
+    "loading": "正在加载系统信息…",
+    "loadFailed": "无法加载系统信息。",
+    "versions": "版本",
+    "server": "服务器",
+    "client": "客户端",
+    "agent": "代理",
+    "reach": "Reach",
+    "instance": "实例",
+    "uptime": "运行时间",
+    "environment": "环境",
+    "platform": "平台",
+    "cpuCores": "CPU核心",
+    "memory": "内存",
+    "processRss": "进程 (RSS)",
+    "heapUsed": "堆使用",
+    "systemFree": "系统空闲",
+    "cpuLoad": "CPU平均负载",
+    "database": "数据库",
+    "connected": "已连接",
+    "error": "错误"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

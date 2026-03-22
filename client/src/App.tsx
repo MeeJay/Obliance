@@ -12,24 +12,16 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { DeviceListPage } from '@/pages/DeviceListPage';
 import { DeviceDetailPage } from '@/pages/DeviceDetailPage';
-import { ScriptLibraryPage } from '@/pages/ScriptLibraryPage';
-import { ScriptSchedulesPage } from '@/pages/ScriptSchedulesPage';
-import { UpdatesPage } from '@/pages/UpdatesPage';
-import { CompliancePage } from '@/pages/CompliancePage';
-import { RemoteSessionsPage } from '@/pages/RemoteSessionsPage';
-import { ReportsPage } from '@/pages/ReportsPage';
-import { HistoryPage } from '@/pages/HistoryPage';
-import { GroupManagePage } from '@/pages/GroupManagePage';
+import { SchedulesPage } from '@/pages/SchedulesPage';
+import { PoliciesPage } from '@/pages/PoliciesPage';
+import { SupervisionPage } from '@/pages/SupervisionPage';
 import { GroupDetailPage } from '@/pages/GroupDetailPage';
 import { GroupEditPage } from '@/pages/GroupEditPage';
 import { SettingsPage } from '@/pages/SettingsPage';
-import { NotificationsPage } from '@/pages/NotificationsPage';
 import { AdminUsersPage } from '@/pages/AdminUsersPage';
 import { AdminDevicesPage } from '@/pages/AdminDevicesPage';
 import { ProfilePage } from '@/pages/ProfilePage';
-import { DownloadPage } from '@/pages/DownloadPage';
 import { ImportExportPage } from '@/pages/ImportExportPage';
-import { AdminMaintenancePage } from '@/pages/AdminMaintenancePage';
 import { AdminTenantsPage } from '@/pages/AdminTenantsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ForeignAuthPage } from '@/pages/ForeignAuthPage';
@@ -60,29 +52,21 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/devices" element={<DeviceListPage />} />
             <Route path="/devices/:id" element={<DeviceDetailPage />} />
-            <Route path="/scripts" element={<ScriptLibraryPage />} />
-            <Route path="/schedules" element={<ScriptSchedulesPage />} />
-            <Route path="/updates" element={<UpdatesPage />} />
-            <Route path="/compliance" element={<CompliancePage />} />
-            <Route path="/remote" element={<RemoteSessionsPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/schedules" element={<SchedulesPage />} />
+            <Route path="/policies" element={<PoliciesPage />} />
             {/* Groups */}
             <Route path="/group/:id" element={<GroupDetailPage />} />
             <Route path="/group/:id/edit" element={<GroupEditPage />} />
             {/* User */}
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/download" element={<DownloadPage />} />
 
             {/* Admin-only */}
             <Route element={<ProtectedRoute requiredRole="admin" />}>
-              <Route path="/groups" element={<GroupManagePage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/devices" element={<AdminDevicesPage />} />
+              <Route path="/admin/supervision" element={<SupervisionPage />} />
               <Route path="/admin/import-export" element={<ImportExportPage />} />
-              <Route path="/admin/maintenance" element={<AdminMaintenancePage />} />
               <Route path="/admin/tenants" element={<AdminTenantsPage />} />
             </Route>
           </Route>

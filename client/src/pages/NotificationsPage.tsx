@@ -162,7 +162,7 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
-export function NotificationsPage() {
+export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const { currentTenantId, tenants } = useTenantStore();
   const isMultiTenant = tenants.length > 1;
@@ -305,14 +305,15 @@ export function NotificationsPage() {
   };
 
   return (
-    <div className="p-6 min-w-0">
-      <div className="flex items-center justify-between mb-6">
+    <div className={embedded ? 'min-w-0' : 'p-6 min-w-0'}>
+      {!embedded && <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-text-primary">{t('notifications.title')}</h1>
         <Button size="sm" onClick={openCreate}>
           <Plus size={16} className="mr-1.5" />
           {t('notifications.newChannel')}
         </Button>
-      </div>
+      </div>}
+      {embedded && <div className="flex justify-end mb-4"><Button size="sm" onClick={openCreate}><Plus size={16} className="mr-1.5" />{t('notifications.newChannel')}</Button></div>}
 
       {/* Create/Edit Form */}
       {showForm && (

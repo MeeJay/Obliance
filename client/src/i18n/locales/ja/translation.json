@@ -95,7 +95,9 @@
     "history": "履歴",
     "download": "ダウンロード",
     "navigation": "ナビゲーション",
-    "addAgent": "エージェント追加"
+    "addAgent": "エージェント追加",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "監視ダッシュボード",
@@ -305,6 +307,15 @@
       "subtitle": "インターフェースのビジュアルテーマを選択してください。",
       "saved": "テーマを保存しました",
       "failed": "テーマの保存に失敗しました"
+    },
+    "avatar": {
+      "title": "プロフィール画像",
+      "hint": "JPG、PNG、GIF。最大375KB。",
+      "updated": "プロフィール画像を更新しました",
+      "removed": "プロフィール画像を削除しました",
+      "failed": "アップロードに失敗しました",
+      "tooLarge": "画像が大きすぎます — 最大375KB",
+      "remove": "画像を削除"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "MFA をリセット",
     "confirmResetMfa": "\"{{username}}\" の全ての2FA方法を無効にしますか？第二要素なしでログインできるようになります。",
     "mfaReset": "{{username}} の MFA を無効化しました",
-    "failedResetMfa": "MFA のリセットに失敗しました"
+    "failedResetMfa": "MFA のリセットに失敗しました",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "アップデート",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "バージョン情報",
+    "loading": "システム情報を読み込み中…",
+    "loadFailed": "システム情報を読み込めませんでした。",
+    "versions": "バージョン",
+    "server": "サーバー",
+    "client": "クライアント",
+    "agent": "エージェント",
+    "reach": "Reach",
+    "instance": "インスタンス",
+    "uptime": "稼働時間",
+    "environment": "環境",
+    "platform": "プラットフォーム",
+    "cpuCores": "CPUコア",
+    "memory": "メモリ",
+    "processRss": "プロセス (RSS)",
+    "heapUsed": "ヒープ使用",
+    "systemFree": "システム空き",
+    "cpuLoad": "CPU負荷平均",
+    "database": "データベース",
+    "connected": "接続済み",
+    "error": "エラー"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

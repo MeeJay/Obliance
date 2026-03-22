@@ -2848,6 +2848,15 @@ export function DeviceDetailPage() {
   const [chatMessages, setChatMessages] = useState<import('@/components/ChatPanel').ChatMessage[]>([]);
   const [chatId, setChatId]             = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<number | undefined>(undefined);
+  const [chatSoundEnabled, setChatSoundEnabled] = useState(true);
+  const [quickReplyTemplates, setQuickReplyTemplates] = useState<Array<{ id: number; translations: Record<string, string> }>>([]);
+
+  // Fetch admin quick reply templates once
+  useEffect(() => {
+    import('@/api/quickReplyTemplates.api').then(({ quickReplyTemplatesApi }) => {
+      quickReplyTemplatesApi.list().then(setQuickReplyTemplates).catch(() => {});
+    });
+  }, []);
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
@@ -3094,6 +3103,8 @@ export function DeviceDetailPage() {
           preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onChatToggle={() => setChatOpen(o => !o)}
           chatOpen={chatOpen}
+          chatSoundEnabled={chatSoundEnabled}
+          onChatSoundToggle={() => setChatSoundEnabled(v => !v)}
           onClose={async () => {
             if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
             setHeaderRemoteOpen(false);
@@ -3121,6 +3132,9 @@ export function DeviceDetailPage() {
             setMessages={setChatMessages}
             chatId={chatId}
             setChatId={setChatId}
+            soundEnabled={chatSoundEnabled}
+            personalQuickReplies={useAuthStore.getState().user?.preferences?.quickReplies || []}
+            adminTemplates={quickReplyTemplates}
           />
         </div>
       )}
@@ -3275,6 +3289,24 @@ export function DeviceDetailPage() {
 
               {/* ── Quick actions ── */}
               <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
+                {/* Chat — always next to Remote */}
+                <button
+                  onClick={() => {
+                    if (headerOrSessions && headerOrSessions.length > 1 && !chatOpen) {
+                      setChatSessionId(undefined);
+                      setChatOpen(true);
+                    } else {
+                      setChatOpen(!chatOpen);
+                    }
+                  }}
+                  disabled={device.status !== 'online'}
+                  title="Chat with user"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Chat
+                </button>
+                {/* Remote */}
                 {(() => {
                   const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
                     device.osType === 'windows' ? ['oblireach', 'cmd', 'powershell'] :
@@ -3284,16 +3316,6 @@ export function DeviceDetailPage() {
                   return (
                     <div className="relative" ref={remoteDropdownRef}>
                       {opts.length === 1 ? (
-                        <>
-                        <button
-                          onClick={() => setChatOpen(!chatOpen)}
-                          disabled={device.status !== 'online'}
-                          title="Chat with user"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          Chat
-                        </button>
                         <button
                           onClick={() => handleHeaderRemote(opts[0])}
                           disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
@@ -3303,26 +3325,7 @@ export function DeviceDetailPage() {
                           {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
                           {label(opts[0])}
                         </button>
-                        </>
                       ) : (
-                        <>
-                        <button
-                          onClick={() => {
-                            if (headerOrSessions.length > 1 && !chatOpen) {
-                              // Multiple WTS sessions — let user pick
-                              setChatSessionId(undefined);
-                              setChatOpen(true);
-                            } else {
-                              setChatOpen(!chatOpen);
-                            }
-                          }}
-                          disabled={device.status !== 'online'}
-                          title="Chat with user"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          Chat
-                        </button>
                         <button
                           onClick={() => setRemoteDropdownOpen((o) => !o)}
                           disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}

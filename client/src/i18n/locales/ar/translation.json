@@ -95,7 +95,9 @@
     "history": "السجل",
     "download": "تنزيل",
     "navigation": "التنقل",
-    "addAgent": "إضافة وكيل"
+    "addAgent": "إضافة وكيل",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "لوحة المراقبة",
@@ -305,6 +307,15 @@
       "subtitle": "اختر السمة البصرية لواجهتك.",
       "saved": "تم حفظ السمة",
       "failed": "فشل حفظ السمة"
+    },
+    "avatar": {
+      "title": "صورة الملف الشخصي",
+      "hint": "JPG أو PNG أو GIF. الحد الأقصى 375 كيلوبايت.",
+      "updated": "تم تحديث الصورة",
+      "removed": "تم إزالة الصورة",
+      "failed": "فشل الرفع",
+      "tooLarge": "الصورة كبيرة جدًا — الحد الأقصى 375 كيلوبايت",
+      "remove": "إزالة الصورة"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "إعادة تعيين MFA",
     "confirmResetMfa": "تعطيل جميع طرق المصادقة الثنائية لـ \"{{username}}\"؟ سيتمكن من تسجيل الدخول بدون عامل ثانٍ.",
     "mfaReset": "تم تعطيل MFA لـ {{username}}",
-    "failedResetMfa": "فشل إعادة تعيين MFA"
+    "failedResetMfa": "فشل إعادة تعيين MFA",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "التحديثات",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "حول",
+    "loading": "جارٍ تحميل معلومات النظام…",
+    "loadFailed": "تعذر تحميل معلومات النظام.",
+    "versions": "الإصدارات",
+    "server": "الخادم",
+    "client": "العميل",
+    "agent": "الوكيل",
+    "reach": "Reach",
+    "instance": "المثيل",
+    "uptime": "وقت التشغيل",
+    "environment": "البيئة",
+    "platform": "المنصة",
+    "cpuCores": "أنوية المعالج",
+    "memory": "الذاكرة",
+    "processRss": "العملية (RSS)",
+    "heapUsed": "الكومة المستخدمة",
+    "systemFree": "النظام الحر",
+    "cpuLoad": "متوسط حمل المعالج",
+    "database": "قاعدة البيانات",
+    "connected": "متصل",
+    "error": "خطأ"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

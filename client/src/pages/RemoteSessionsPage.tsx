@@ -44,7 +44,7 @@ function formatDate(val: string | null): string {
 
 const ACTIVE_STATUSES: RemoteSessionStatus[] = ['waiting', 'connecting', 'active'];
 
-export function RemoteSessionsPage() {
+export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<Tab>('active');
   const [activeSessions, setActiveSessions] = useState<RemoteSession[]>([]);
   const [historySessions, setHistorySessions] = useState<RemoteSession[]>([]);
@@ -164,8 +164,8 @@ export function RemoteSessionsPage() {
 
   return (
     <>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+        {!embedded && <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Remote Sessions</h1>
             <p className="text-sm text-text-muted mt-0.5">Access devices remotely via Oblireach, RDP, or SSH</p>
@@ -173,7 +173,7 @@ export function RemoteSessionsPage() {
           <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
-        </div>
+        </div>}
 
         {/* New session panel */}
         <div className="bg-bg-secondary border border-border rounded-xl p-5 space-y-4">

@@ -66,7 +66,7 @@ function formatBytes(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function UpdatesPage() {
+export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('updates');
   const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
@@ -261,8 +261,8 @@ export function UpdatesPage() {
   const allChecked = visibleUpdates.length > 0 && visibleUpdates.every(u => selectedIds.has(u.id));
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+      {!embedded && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('updates.title')}</h1>
           <p className="text-sm text-text-muted mt-0.5">{t('updates.subtitle')}</p>
@@ -270,7 +270,7 @@ export function UpdatesPage() {
         <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
           <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
         </button>
-      </div>
+      </div>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

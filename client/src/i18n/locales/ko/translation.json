@@ -95,7 +95,9 @@
     "history": "기록",
     "download": "다운로드",
     "navigation": "탐색",
-    "addAgent": "에이전트 추가"
+    "addAgent": "에이전트 추가",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "모니터링 대시보드",
@@ -305,6 +307,15 @@
       "subtitle": "인터페이스의 비주얼 테마를 선택하세요.",
       "saved": "테마가 저장되었습니다",
       "failed": "테마 저장 실패"
+    },
+    "avatar": {
+      "title": "프로필 사진",
+      "hint": "JPG, PNG 또는 GIF. 최대 375KB.",
+      "updated": "프로필 사진 업데이트됨",
+      "removed": "프로필 사진 제거됨",
+      "failed": "업로드 실패",
+      "tooLarge": "이미지가 너무 큽니다 — 최대 375KB",
+      "remove": "사진 제거"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "MFA 초기화",
     "confirmResetMfa": "\"{{username}}\"의 모든 2FA 방법을 비활성화하시겠습니까? 두 번째 인증 요소 없이 로그인할 수 있게 됩니다.",
     "mfaReset": "{{username}}의 MFA가 비활성화되었습니다",
-    "failedResetMfa": "MFA 초기화에 실패했습니다"
+    "failedResetMfa": "MFA 초기화에 실패했습니다",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "업데이트",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "정보",
+    "loading": "시스템 정보 로드 중…",
+    "loadFailed": "시스템 정보를 로드할 수 없습니다.",
+    "versions": "버전",
+    "server": "서버",
+    "client": "클라이언트",
+    "agent": "에이전트",
+    "reach": "Reach",
+    "instance": "인스턴스",
+    "uptime": "가동 시간",
+    "environment": "환경",
+    "platform": "플랫폼",
+    "cpuCores": "CPU 코어",
+    "memory": "메모리",
+    "processRss": "프로세스 (RSS)",
+    "heapUsed": "힙 사용",
+    "systemFree": "시스템 여유",
+    "cpuLoad": "CPU 부하 평균",
+    "database": "데이터베이스",
+    "connected": "연결됨",
+    "error": "오류"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

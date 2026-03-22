@@ -153,18 +153,78 @@ export function DashboardPage() {
 
   const s = summary;
 
-  // Build a lookup map groupId → stats
-  const statsMap = new Map<number | null, GroupStats>();
-  for (const gs of groupStats) statsMap.set(gs.groupId, gs);
+  // Build a lookup map groupId → stats (direct devices only)
+  const directStatsMap = new Map<number | null, GroupStats>();
+  for (const gs of groupStats) directStatsMap.set(gs.groupId, gs);
 
-  // Collect all descendant group IDs (exclude root itself)
-  const collectChildIds = (node: DeviceGroupTreeNode): number[] => {
-    const ids: number[] = [];
-    for (const child of node.children) {
-      ids.push(child.id);
-      ids.push(...collectChildIds(child));
+  // Compute aggregated stats for a group (its own devices + all descendants)
+  const emptyStats = (id: number | null, name: string | null): GroupStats => ({
+    groupId: id, groupName: name, online: 0, offline: 0, warning: 0, critical: 0,
+    total: 0, complianceScore: null, policyCount: 0, pendingUpdates: 0,
+  });
+
+  const computeAggregatedStats = (node: DeviceGroupTreeNode): GroupStats => {
+    const own = directStatsMap.get(node.id);
+    const agg = emptyStats(node.id, node.name);
+
+    // Add own direct devices
+    if (own) {
+      agg.online += own.online; agg.offline += own.offline;
+      agg.warning += own.warning; agg.critical += own.critical;
+      agg.total += own.total; agg.pendingUpdates += own.pendingUpdates;
+      agg.policyCount += own.policyCount;
     }
-    return ids;
+
+    // Recursively add children
+    const childAggs: GroupStats[] = [];
+    for (const child of node.children) {
+      const childAgg = computeAggregatedStats(child);
+      childAggs.push(childAgg);
+      agg.online += childAgg.online; agg.offline += childAgg.offline;
+      agg.warning += childAgg.warning; agg.critical += childAgg.critical;
+      agg.total += childAgg.total; agg.pendingUpdates += childAgg.pendingUpdates;
+      agg.policyCount = Math.max(agg.policyCount, childAgg.policyCount);
+    }
+
+    // Average compliance across all non-null scores
+    const scores = [own?.complianceScore, ...childAggs.map(c => c.complianceScore)].filter((s): s is number => s !== null);
+    agg.complianceScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : null;
+
+    return agg;
+  };
+
+  // Recursive render: groups with children = wide, leaf groups = small grid
+  const renderGroupNode = (node: DeviceGroupTreeNode, depth: number): React.ReactNode => {
+    const hasChildren = node.children.length > 0;
+    const aggStats = computeAggregatedStats(node);
+
+    if (!hasChildren) {
+      // Leaf — rendered as small card by parent's grid
+      return null; // handled in parent
+    }
+
+    // Node with children — wide card + recurse
+    const leafChildren = node.children.filter(c => c.children.length === 0);
+    const branchChildren = node.children.filter(c => c.children.length > 0);
+
+    return (
+      <div key={node.id} className="space-y-2" style={{ marginLeft: depth > 0 ? 16 : 0 }}>
+        <GroupCard stats={aggStats} wide />
+
+        {/* Branch children (have sub-groups) — recurse */}
+        {branchChildren.map(child => renderGroupNode(child, depth + 1))}
+
+        {/* Leaf children (no sub-groups) — small grid */}
+        {leafChildren.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-4 border-l-2 border-accent/20 ml-2">
+            {leafChildren.map(child => {
+              const childStats = computeAggregatedStats(child);
+              return <GroupCard key={child.id} stats={childStats} />;
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -259,31 +319,18 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Root groups — wide cards with children below */}
             {groupTree.map((root) => {
-              const rootStats = statsMap.get(root.id);
-              const childIds = collectChildIds(root);
-              const childStatsList = childIds.map(id => statsMap.get(id)).filter(Boolean) as GroupStats[];
-
-              return (
-                <div key={root.id} className="space-y-2">
-                  {/* Root card — full width */}
-                  {rootStats && <GroupCard stats={rootStats} wide />}
-
-                  {/* Children — grid */}
-                  {childStatsList.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-4 border-l-2 border-accent/20 ml-2">
-                      {childStatsList.map((cs) => (
-                        <GroupCard key={cs.groupId} stats={cs} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
+              const hasChildren = root.children.length > 0;
+              if (hasChildren) {
+                return renderGroupNode(root, 0);
+              }
+              // Root without children — show as wide card
+              const aggStats = computeAggregatedStats(root);
+              return <GroupCard key={root.id} stats={aggStats} wide />;
             })}
 
             {/* Ungrouped devices */}
-            {statsMap.get(null) && <GroupCard stats={statsMap.get(null)!} wide />}
+            {directStatsMap.get(null) && <GroupCard stats={directStatsMap.get(null)!} wide />}
           </div>
         )}
       </div>

@@ -7,11 +7,12 @@ import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
 import { DeviceTable } from '@/components/devices/DeviceTable';
+import { GroupManagePage } from './GroupManagePage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'agents' | 'keys';
+type Tab = 'agents' | 'groups' | 'keys';
 
 export function AdminDevicesPage() {
   const { t } = useTranslation();
@@ -115,7 +116,7 @@ export function AdminDevicesPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-        {(['agents', 'keys'] as Tab[]).map((t2) => (
+        {(['agents', 'groups', 'keys'] as Tab[]).map((t2) => (
           <button
             key={t2}
             onClick={() => setTab(t2)}
@@ -124,13 +125,16 @@ export function AdminDevicesPage() {
               tab === t2 ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
             )}
           >
-            {t2 === 'agents' ? t('agents.tabAgents') : t('devices.tabApiKeys')}
+            {t2 === 'agents' ? t('agents.tabAgents') : t2 === 'groups' ? t('agents.tabGroups') : t('devices.tabApiKeys')}
           </button>
         ))}
       </div>
 
       {/* Tab: Agents */}
       {tab === 'agents' && <DeviceTable mode="admin" />}
+
+      {/* Tab: Groups */}
+      {tab === 'groups' && <GroupManagePage embedded />}
 
       {/* Tab: API Keys */}
       {tab === 'keys' && (

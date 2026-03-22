@@ -89,7 +89,7 @@ function formatDate(val: string | null): string {
   return new Date(val).toLocaleString();
 }
 
-export function ReportsPage() {
+export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
   const [reports, setReports] = useState<Report[]>([]);
   const [outputsByReport, setOutputsByReport] = useState<Record<number, ReportOutput[]>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -236,8 +236,8 @@ export function ReportsPage() {
   const filteredReports = filterType ? reports.filter(r => r.type === filterType) : reports;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+      {!embedded && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Reports</h1>
           <p className="text-sm text-text-muted mt-0.5">Generate and download fleet reports</p>
@@ -254,7 +254,7 @@ export function ReportsPage() {
             New Report
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Report form */}
       {showForm && (

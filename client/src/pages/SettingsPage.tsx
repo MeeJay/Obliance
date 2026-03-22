@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Copy, RefreshCw, Info, Cpu, HardDrive, Database, Clock } from 'lucide-react';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
 import { useAuthStore } from '@/store/authStore';
 import { smtpServerApi, type CreateSmtpServerRequest } from '@/api/smtpServer.api';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -248,42 +249,43 @@ export function SettingsPage() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Info size={18} className="text-accent" />
-            <h2 className="text-lg font-semibold text-text-primary">About</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t('about.title')}</h2>
           </div>
           <div className="rounded-lg border border-border bg-bg-secondary p-5">
             {systemInfoLoading ? (
-              <p className="text-sm text-text-muted animate-pulse">Loading system information…</p>
+              <p className="text-sm text-text-muted animate-pulse">{t('about.loading')}</p>
             ) : systemInfo ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
                 <div className="space-y-2">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Server size={12} /> Versions
+                    <Server size={12} /> {t('about.versions')}
                   </p>
-                  <AboutRow label="Server"  value={`v${systemInfo.appVersion}`} />
-                  <AboutRow label="Client"  value={`v${__APP_VERSION__}`} />
-                  <AboutRow label="Agent"   value={`v${systemInfo.agentVersion}`} />
+                  <AboutRow label={t('about.server')}  value={`v${systemInfo.appVersion}`} />
+                  <AboutRow label={t('about.client')}  value={`v${__APP_VERSION__}`} />
+                  <AboutRow label={t('about.agent')}   value={`v${systemInfo.agentVersion}`} />
+                  <AboutRow label={t('about.reach')}   value={`v${systemInfo.oblireachVersion}`} />
                   <AboutRow label="Node.js" value={systemInfo.nodeVersion} />
                 </div>
                 <div className="space-y-2">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Clock size={12} /> Instance
+                    <Clock size={12} /> {t('about.instance')}
                   </p>
-                  <AboutRow label="Uptime"      value={formatUptime(systemInfo.uptimeSeconds)} />
-                  <AboutRow label="Environment" value={systemInfo.environment.isDocker ? 'Docker' : 'Native'} />
-                  <AboutRow label="Platform"    value={systemInfo.environment.platform} />
-                  <AboutRow label="CPU cores"   value={String(systemInfo.cpu.cores)} />
+                  <AboutRow label={t('about.uptime')}      value={formatUptime(systemInfo.uptimeSeconds)} />
+                  <AboutRow label={t('about.environment')} value={systemInfo.environment.isDocker ? 'Docker' : 'Native'} />
+                  <AboutRow label={t('about.platform')}    value={systemInfo.environment.platform} />
+                  <AboutRow label={t('about.cpuCores')}    value={String(systemInfo.cpu.cores)} />
                 </div>
                 <div className="space-y-2">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <HardDrive size={12} /> Memory
+                    <HardDrive size={12} /> {t('about.memory')}
                   </p>
-                  <AboutRow label="Process (RSS)" value={`${systemInfo.memory.processRssMb} MB`} />
-                  <AboutRow label="Heap used"     value={`${systemInfo.memory.processHeapMb} MB`} />
-                  <AboutRow label="System free"   value={`${systemInfo.memory.systemFreeMb} / ${systemInfo.memory.systemTotalMb} MB`} />
+                  <AboutRow label={t('about.processRss')} value={`${systemInfo.memory.processRssMb} MB`} />
+                  <AboutRow label={t('about.heapUsed')}   value={`${systemInfo.memory.processHeapMb} MB`} />
+                  <AboutRow label={t('about.systemFree')} value={`${systemInfo.memory.systemFreeMb} / ${systemInfo.memory.systemTotalMb} MB`} />
                 </div>
                 <div className="space-y-2">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Cpu size={12} /> CPU load avg
+                    <Cpu size={12} /> {t('about.cpuLoad')}
                   </p>
                   <AboutRow label="1 min"  value={String(systemInfo.cpu.loadAvg1)} />
                   <AboutRow label="5 min"  value={String(systemInfo.cpu.loadAvg5)} />
@@ -291,7 +293,7 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Database size={12} /> Database
+                    <Database size={12} /> {t('about.database')}
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-text-muted">PostgreSQL</span>
@@ -303,13 +305,13 @@ export function SettingsPage() {
                         'h-1.5 w-1.5 rounded-full',
                         systemInfo.environment.dbStatus === 'ok' ? 'bg-status-up' : 'bg-status-down',
                       )} />
-                      {systemInfo.environment.dbStatus === 'ok' ? 'Connected' : 'Error'}
+                      {systemInfo.environment.dbStatus === 'ok' ? t('about.connected') : t('about.error')}
                     </span>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-text-muted">Could not load system information.</p>
+              <p className="text-sm text-text-muted">{t('about.loadFailed')}</p>
             )}
           </div>
         </div>
@@ -320,6 +322,9 @@ export function SettingsPage() {
 
       {admin && (
         <>
+          {/* ── Quick Reply Templates ── */}
+          <QuickReplyTemplatesSection />
+
           {/* ── SMTP Servers ── */}
           <div>
             <div className="flex items-center justify-between mb-4">

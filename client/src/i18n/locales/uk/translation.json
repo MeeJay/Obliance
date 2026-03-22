@@ -95,7 +95,9 @@
     "history": "Історія",
     "download": "Завантажити",
     "navigation": "Навігація",
-    "addAgent": "Додати агент"
+    "addAgent": "Додати агент",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Панель моніторингу",
@@ -305,6 +307,15 @@
       "subtitle": "Оберіть візуальну тему для вашого інтерфейсу.",
       "saved": "Тему збережено",
       "failed": "Не вдалося зберегти тему"
+    },
+    "avatar": {
+      "title": "Фото профілю",
+      "hint": "JPG, PNG або GIF. Макс. 375 КБ.",
+      "updated": "Фото оновлено",
+      "removed": "Фото видалено",
+      "failed": "Помилка завантаження",
+      "tooLarge": "Зображення завелике — макс. 375 КБ",
+      "remove": "Видалити фото"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Скинути MFA",
     "confirmResetMfa": "Вимкнути всі методи 2FA для \"{{username}}\"? Користувач зможе увійти без другого фактора.",
     "mfaReset": "MFA вимкнено для {{username}}",
-    "failedResetMfa": "Не вдалося скинути MFA"
+    "failedResetMfa": "Не вдалося скинути MFA",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Оновлення",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Про систему",
+    "loading": "Завантаження інформації про систему…",
+    "loadFailed": "Не вдалося завантажити інформацію про систему.",
+    "versions": "Версії",
+    "server": "Сервер",
+    "client": "Клієнт",
+    "agent": "Агент",
+    "reach": "Reach",
+    "instance": "Екземпляр",
+    "uptime": "Час роботи",
+    "environment": "Середовище",
+    "platform": "Платформа",
+    "cpuCores": "Ядра CPU",
+    "memory": "Пам'ять",
+    "processRss": "Процес (RSS)",
+    "heapUsed": "Купа використ.",
+    "systemFree": "Система вільн.",
+    "cpuLoad": "Середнє навантаження CPU",
+    "database": "База даних",
+    "connected": "Підключена",
+    "error": "Помилка"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

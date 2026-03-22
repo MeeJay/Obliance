@@ -12,5 +12,7 @@ router.use(requireAuth);
 router.get('/', profileController.get);
 router.put('/', validate(updateProfileSchema), profileController.update);
 router.put('/password', validate(changePasswordSchema), profileController.changePassword);
+router.put('/avatar', profileController.uploadAvatar);
+router.delete('/avatar', profileController.deleteAvatar);
 
 export default router;

@@ -23,6 +23,7 @@ export interface User {
   foreignId: number | null;
   foreignSourceUrl: string | null;
   hasPassword: boolean;
+  avatar: string | null;
 }
 
 export interface UserWithPassword extends User {
@@ -41,6 +42,18 @@ export interface UserPreferences {
   preferredTheme?: AppTheme;
   /** Preferred video codec for Oblireach remote sessions. Falls back to JPEG if unavailable. */
   preferredCodec?: 'h264' | 'h265' | 'vp9' | 'av1' | 'jpeg';
+  /** Personal quick reply messages for the chat (operator-defined). */
+  quickReplies?: string[];
+}
+
+export interface QuickReplyTemplate {
+  id: number;
+  tenantId: number;
+  translations: Record<string, string>;
+  sortOrder: number;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── TENANTS ─────────────────────────────────────────────────────────────────

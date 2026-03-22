@@ -266,7 +266,7 @@ const defaultPolicyForm: PolicyFormData = {
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-export function CompliancePage() {
+export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const deviceMap = useDeviceStore(s => s.devices);
   const devices = Array.from(deviceMap.values());
@@ -436,9 +436,9 @@ export function CompliancePage() {
   const failingCount = results.filter(r => r.complianceScore < 50).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      {!embedded && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('compliance.title')}</h1>
           <p className="text-sm text-text-muted mt-0.5">{t('compliance.description')}</p>
@@ -446,7 +446,7 @@ export function CompliancePage() {
         <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
           <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
         </button>
-      </div>
+      </div>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

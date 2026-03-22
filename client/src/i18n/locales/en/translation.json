@@ -98,7 +98,9 @@
     "history": "History",
     "download": "Download",
     "navigation": "Navigation",
-    "addAgent": "Add Agent"
+    "addAgent": "Add Agent",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Monitoring Dashboard",
@@ -637,6 +639,15 @@
       "subtitle": "Select the visual theme for your interface.",
       "saved": "Theme saved",
       "failed": "Failed to save theme"
+    },
+    "avatar": {
+      "title": "Profile picture",
+      "hint": "JPG, PNG or GIF. Max 375KB.",
+      "updated": "Profile picture updated",
+      "removed": "Profile picture removed",
+      "failed": "Failed to upload picture",
+      "tooLarge": "Image too large — max 375KB",
+      "remove": "Remove picture"
     }
   },
   "users": {
@@ -694,7 +705,8 @@
     "resetMfa": "Reset MFA",
     "confirmResetMfa": "Disable all 2FA methods for \"{{username}}\"? They will be able to log in without a second factor.",
     "mfaReset": "MFA disabled for {{username}}",
-    "failedResetMfa": "Failed to reset MFA"
+    "failedResetMfa": "Failed to reset MFA",
+    "tabNotifications": "Notifications"
   },
   "agents": {
     "tabKeys": "API Keys",
@@ -739,7 +751,8 @@
     },
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
-    "tabAgents": "Agents"
+    "tabAgents": "Agents",
+    "tabGroups": "Groups"
   },
   "remediations": {
     "title": "Remediations",
@@ -1414,5 +1427,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "About",
+    "loading": "Loading system information…",
+    "loadFailed": "Could not load system information.",
+    "versions": "Versions",
+    "server": "Server",
+    "client": "Client",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instance",
+    "uptime": "Uptime",
+    "environment": "Environment",
+    "platform": "Platform",
+    "cpuCores": "CPU cores",
+    "memory": "Memory",
+    "processRss": "Process (RSS)",
+    "heapUsed": "Heap used",
+    "systemFree": "System free",
+    "cpuLoad": "CPU load avg",
+    "database": "Database",
+    "connected": "Connected",
+    "error": "Error"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

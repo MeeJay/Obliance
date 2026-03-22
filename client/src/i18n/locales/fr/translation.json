@@ -97,7 +97,9 @@
     "history": "Historique",
     "download": "Télécharger",
     "navigation": "Navigation",
-    "addAgent": "Ajouter un agent"
+    "addAgent": "Ajouter un agent",
+    "policies": "Politiques",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Tableau de bord de surveillance",
@@ -619,6 +621,15 @@
       "subtitle": "Sélectionnez le thème visuel de votre interface.",
       "saved": "Thème enregistré",
       "failed": "Échec de l'enregistrement du thème"
+    },
+    "avatar": {
+      "title": "Photo de profil",
+      "hint": "JPG, PNG ou GIF. Max 375 Ko.",
+      "updated": "Photo de profil mise à jour",
+      "removed": "Photo de profil supprimée",
+      "failed": "Échec du téléchargement",
+      "tooLarge": "Image trop volumineuse — max 375 Ko",
+      "remove": "Supprimer la photo"
     }
   },
   "users": {
@@ -676,7 +687,8 @@
     "resetMfa": "Réinitialiser le MFA",
     "confirmResetMfa": "Désactiver tous les facteurs 2FA de \"{{username}}\" ? L'utilisateur pourra se connecter sans second facteur.",
     "mfaReset": "MFA désactivé pour {{username}}",
-    "failedResetMfa": "Échec de la réinitialisation du MFA"
+    "failedResetMfa": "Échec de la réinitialisation du MFA",
+    "tabNotifications": "Notifications"
   },
   "agents": {
     "tabKeys": "Clés API",
@@ -707,7 +719,8 @@
     "suspendAll": "Tout suspendre",
     "title": "Agents",
     "subtitle": "Gérer les agents et clés API",
-    "tabAgents": "Agents"
+    "tabAgents": "Agents",
+    "tabGroups": "Groupes"
   },
   "remediations": {
     "title": "Remédiations",
@@ -1309,5 +1322,44 @@
     "windowsHint": "Exécuter dans PowerShell en tant qu'administrateur",
     "linuxHint": "Exécuter dans le terminal (root ou sudo)",
     "macosHint": "Exécuter dans le terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "À propos",
+    "loading": "Chargement des informations système…",
+    "loadFailed": "Impossible de charger les informations système.",
+    "versions": "Versions",
+    "server": "Serveur",
+    "client": "Client",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instance",
+    "uptime": "Temps de fonctionnement",
+    "environment": "Environnement",
+    "platform": "Plateforme",
+    "cpuCores": "Cœurs CPU",
+    "memory": "Mémoire",
+    "processRss": "Processus (RSS)",
+    "heapUsed": "Tas utilisé",
+    "systemFree": "Système libre",
+    "cpuLoad": "Charge CPU moy.",
+    "database": "Base de données",
+    "connected": "Connectée",
+    "error": "Erreur"
+  },
+  "schedules": {
+    "title": "Planifications",
+    "tabSchedules": "Planifications",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Politiques",
+    "tabUpdates": "Mises à jour",
+    "tabCompliance": "Conformité"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Sessions distantes",
+    "tabHistory": "Historique",
+    "tabReports": "Rapports"
   }
 }

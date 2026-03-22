@@ -38,6 +38,7 @@ import obliguardRoutes from './obliguard.routes';
 import oblimapRoutes from './oblimap.routes';
 import systemRoutes from './system.routes';
 import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
+import quickReplyTemplatesRoutes from './quickReplyTemplates.routes';
 import reachRoutes from './reach.routes';
 import processRoutes from './process.routes';
 import fileRoutes from './file.routes';
@@ -90,6 +91,7 @@ tenantRouter.use('/oblireach/devices', obliReachDevicesRouter);
 tenantRouter.use('/reach',           reachRoutes);        // Oblireach desktop client API
 tenantRouter.use('/processes',      processRoutes);
 tenantRouter.use('/files',          fileRoutes); // /api/files/:deviceId/files/*
+tenantRouter.use('/quick-reply-templates', quickReplyTemplatesRoutes);
 
 router.use('/', tenantRouter);
 

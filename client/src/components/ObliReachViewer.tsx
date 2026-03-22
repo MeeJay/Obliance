@@ -45,6 +45,10 @@ export interface ObliReachViewerProps {
   onChatToggle?: () => void;
   /** Whether the chat panel is currently open (controls button highlight). */
   chatOpen?: boolean;
+  /** Whether chat notification sound is enabled. */
+  chatSoundEnabled?: boolean;
+  /** Toggle chat sound on/off. */
+  onChatSoundToggle?: () => void;
 }
 
 // ── Control message shapes ────────────────────────────────────────────────────
@@ -99,6 +103,8 @@ export function ObliReachViewer({
   preferredCodec,
   onChatToggle,
   chatOpen: chatOpenProp,
+  chatSoundEnabled,
+  onChatSoundToggle,
 }: ObliReachViewerProps) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -756,6 +762,22 @@ export function ObliReachViewer({
             >
               <MessageCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Chat</span>
+            </button>
+          )}
+
+          {/* ── Chat sound toggle ── */}
+          {onChatSoundToggle && (
+            <button
+              onClick={onChatSoundToggle}
+              title={chatSoundEnabled ? 'Mute chat notifications' : 'Unmute chat notifications'}
+              className={clsx(
+                'p-1.5 rounded transition-colors',
+                chatSoundEnabled
+                  ? 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
+                  : 'text-red-400 bg-red-500/10'
+              )}
+            >
+              {chatSoundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
           )}
 

@@ -95,7 +95,9 @@
     "history": "Historik",
     "download": "Hämta",
     "navigation": "Navigering",
-    "addAgent": "Lägg till agent"
+    "addAgent": "Lägg till agent",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Övervakningspanel",
@@ -305,6 +307,15 @@
       "subtitle": "Välj det visuella temat för ditt gränssnitt.",
       "saved": "Tema sparat",
       "failed": "Det gick inte att spara temat"
+    },
+    "avatar": {
+      "title": "Profilbild",
+      "hint": "JPG, PNG eller GIF. Max 375 KB.",
+      "updated": "Profilbild uppdaterad",
+      "removed": "Profilbild borttagen",
+      "failed": "Uppladdning misslyckades",
+      "tooLarge": "Bilden är för stor — max 375 KB",
+      "remove": "Ta bort bild"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Återställ MFA",
     "confirmResetMfa": "Inaktivera alla 2FA-metoder för \"{{username}}\"? De kommer att kunna logga in utan en andra faktor.",
     "mfaReset": "MFA inaktiverat för {{username}}",
-    "failedResetMfa": "Misslyckades med att återställa MFA"
+    "failedResetMfa": "Misslyckades med att återställa MFA",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Uppdateringar",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Om",
+    "loading": "Laddar systeminformation…",
+    "loadFailed": "Kunde inte ladda systeminformation.",
+    "versions": "Versioner",
+    "server": "Server",
+    "client": "Klient",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instans",
+    "uptime": "Drifttid",
+    "environment": "Miljö",
+    "platform": "Plattform",
+    "cpuCores": "CPU-kärnor",
+    "memory": "Minne",
+    "processRss": "Process (RSS)",
+    "heapUsed": "Heap använt",
+    "systemFree": "System ledigt",
+    "cpuLoad": "CPU-last snitt",
+    "database": "Databas",
+    "connected": "Ansluten",
+    "error": "Fel"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

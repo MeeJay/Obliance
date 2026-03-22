@@ -95,7 +95,9 @@
     "history": "Historie",
     "download": "Stažení",
     "navigation": "Navigace",
-    "addAgent": "Přidat agenta"
+    "addAgent": "Přidat agenta",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Monitorovací panel",
@@ -305,6 +307,15 @@
       "subtitle": "Vyberte vizuální téma pro vaše rozhraní.",
       "saved": "Motiv uložen",
       "failed": "Motiv se nepodařilo uložit"
+    },
+    "avatar": {
+      "title": "Profilový obrázek",
+      "hint": "JPG, PNG nebo GIF. Max 375 KB.",
+      "updated": "Obrázek aktualizován",
+      "removed": "Obrázek odstraněn",
+      "failed": "Nahrávání selhalo",
+      "tooLarge": "Obrázek je příliš velký — max 375 KB",
+      "remove": "Odstranit obrázek"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Resetovat MFA",
     "confirmResetMfa": "Zakázat všechny metody 2FA pro \"{{username}}\"? Bude se moci přihlásit bez druhého faktoru.",
     "mfaReset": "MFA bylo deaktivováno pro {{username}}",
-    "failedResetMfa": "Resetování MFA se nezdařilo"
+    "failedResetMfa": "Resetování MFA se nezdařilo",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Aktualizace",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "O aplikaci",
+    "loading": "Načítání systémových informací…",
+    "loadFailed": "Nepodařilo se načíst systémové informace.",
+    "versions": "Verze",
+    "server": "Server",
+    "client": "Klient",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instance",
+    "uptime": "Doba běhu",
+    "environment": "Prostředí",
+    "platform": "Platforma",
+    "cpuCores": "Jádra CPU",
+    "memory": "Paměť",
+    "processRss": "Proces (RSS)",
+    "heapUsed": "Halda použitá",
+    "systemFree": "Systém volný",
+    "cpuLoad": "Průměrná zátěž CPU",
+    "database": "Databáze",
+    "connected": "Připojeno",
+    "error": "Chyba"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

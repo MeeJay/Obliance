@@ -33,6 +33,15 @@ router.get('/', requireAuth, requireRole('admin'), async (_req: Request, res: Re
     clientVersion = clientPkg.version;
   } catch { /* ignore */ }
 
+  // Oblireach version from dist
+  let oblireachVersion = 'unknown';
+  const oblireachVersionFile = join(process.cwd(), '..', 'agent', 'dist', 'oblireach-version.txt');
+  try {
+    if (existsSync(oblireachVersionFile)) {
+      oblireachVersion = readFileSync(oblireachVersionFile, 'utf-8').trim();
+    }
+  } catch { /* ignore */ }
+
   // Memory
   const mem = process.memoryUsage();
   const processRssMb   = Math.round(mem.rss      / 1024 / 1024 * 10) / 10;
@@ -59,6 +68,7 @@ router.get('/', requireAuth, requireRole('admin'), async (_req: Request, res: Re
     appVersion,
     nodeVersion:   process.version,
     agentVersion,
+    oblireachVersion,
     clientVersion,
     uptimeSeconds: Math.floor(process.uptime()),
     memory: { processRssMb, processHeapMb, systemTotalMb, systemFreeMb },

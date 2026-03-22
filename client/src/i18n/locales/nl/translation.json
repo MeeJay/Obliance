@@ -95,7 +95,9 @@
     "history": "Geschiedenis",
     "download": "Downloaden",
     "navigation": "Navigatie",
-    "addAgent": "Agent toevoegen"
+    "addAgent": "Agent toevoegen",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Monitoring Dashboard",
@@ -305,6 +307,15 @@
       "subtitle": "Selecteer het visuele thema voor uw interface.",
       "saved": "Thema opgeslagen",
       "failed": "Thema opslaan mislukt"
+    },
+    "avatar": {
+      "title": "Profielfoto",
+      "hint": "JPG, PNG of GIF. Max 375 KB.",
+      "updated": "Profielfoto bijgewerkt",
+      "removed": "Profielfoto verwijderd",
+      "failed": "Upload mislukt",
+      "tooLarge": "Afbeelding te groot — max 375 KB",
+      "remove": "Foto verwijderen"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "MFA resetten",
     "confirmResetMfa": "Alle 2FA-methoden voor \"{{username}}\" uitschakelen? Ze kunnen inloggen zonder tweede factor.",
     "mfaReset": "MFA uitgeschakeld voor {{username}}",
-    "failedResetMfa": "MFA resetten mislukt"
+    "failedResetMfa": "MFA resetten mislukt",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Updates",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Over",
+    "loading": "Systeeminformatie laden…",
+    "loadFailed": "Kan systeeminformatie niet laden.",
+    "versions": "Versies",
+    "server": "Server",
+    "client": "Client",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instantie",
+    "uptime": "Uptime",
+    "environment": "Omgeving",
+    "platform": "Platform",
+    "cpuCores": "CPU-kernen",
+    "memory": "Geheugen",
+    "processRss": "Proces (RSS)",
+    "heapUsed": "Heap gebruikt",
+    "systemFree": "Systeem vrij",
+    "cpuLoad": "CPU-belasting gem.",
+    "database": "Database",
+    "connected": "Verbonden",
+    "error": "Fout"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

@@ -35,11 +35,12 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { NotificationsPage } from './NotificationsPage';
 
 type PermissionLevel = 'ro' | 'rw';
 type PermissionScope = 'group' | 'device';
 
-type Tab = 'users' | 'teams';
+type Tab = 'users' | 'teams' | 'notifications';
 type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
 type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
@@ -496,7 +497,20 @@ export function AdminUsersPage() {
               <Users size={14} className="inline mr-1.5" />
               {t('users.tabTeams')}
             </button>
+            <button
+              onClick={() => setTab('notifications')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                tab === 'notifications'
+                  ? 'bg-accent text-white'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {t('users.tabNotifications')}
+            </button>
           </div>
+
+          {/* ── Notifications Tab ── */}
+          {tab === 'notifications' && <NotificationsPage embedded />}
 
           {/* ── Users Tab ── */}
           {tab === 'users' && (

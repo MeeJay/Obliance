@@ -6,7 +6,7 @@ import { useGroupStore } from '@/store/groupStore';
 import { useAuthStore } from '@/store/authStore';
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
-import type { DeviceGroup, Device } from '@obliance/shared';
+import type { DeviceGroup, DeviceGroupTreeNode, Device } from '@obliance/shared';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { OsIcon } from '@/components/devices/OsIcon';
 import { Button } from '@/components/common/Button';
@@ -25,21 +25,48 @@ export function GroupDetailPage() {
 
   const [group, setGroup] = useState<DeviceGroup | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [subGroupDevices, setSubGroupDevices] = useState<Map<number, { name: string; devices: Device[] }>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // Fetch group + devices on mount
+  // Fetch group + devices + sub-group devices on mount
   useEffect(() => {
     async function loadData() {
       try {
-        const [g, devs] = await Promise.all([
+        const [g, directDevs, tree] = await Promise.all([
           groupsApi.getById(groupId),
           deviceApi.list({ groupId }),
+          groupsApi.tree(),
         ]);
         setGroup(g);
-        setDevices(devs);
-      } catch {
-        // group may come from store if fetch fails
-      }
+        setDevices(directDevs);
+
+        // If no direct devices or group has children, load descendant devices
+        const findNode = (nodes: DeviceGroupTreeNode[]): DeviceGroupTreeNode | null => {
+          for (const n of nodes) {
+            if (n.id === groupId) return n;
+            const found = findNode(n.children);
+            if (found) return found;
+          }
+          return null;
+        };
+        const node = findNode(tree);
+        if (node && node.children.length > 0) {
+          const subMap = new Map<number, { name: string; devices: Device[] }>();
+          const loadChildren = async (children: DeviceGroupTreeNode[]) => {
+            for (const child of children) {
+              const childDevs = await deviceApi.list({ groupId: child.id });
+              if (childDevs.length > 0) {
+                subMap.set(child.id, { name: child.name, devices: childDevs });
+              }
+              if (child.children.length > 0) {
+                await loadChildren(child.children);
+              }
+            }
+          };
+          await loadChildren(node.children);
+          setSubGroupDevices(subMap);
+        }
+      } catch {}
       setLoading(false);
     }
     loadData();
@@ -78,9 +105,12 @@ export function GroupDetailPage() {
     }
   };
 
-  const onlineCount = devices.filter((d) => d.status === 'online').length;
-  const offlineCount = devices.filter((d) => d.status === 'offline').length;
-  const warningCount = devices.filter((d) => d.status === 'warning' || d.status === 'critical').length;
+  // All devices = direct + all sub-groups
+  const allSubDevices = Array.from(subGroupDevices.values()).flatMap(sg => sg.devices);
+  const allDevices = [...devices, ...allSubDevices];
+  const onlineCount = allDevices.filter((d) => d.status === 'online').length;
+  const offlineCount = allDevices.filter((d) => d.status === 'offline').length;
+  const warningCount = allDevices.filter((d) => d.status === 'warning' || d.status === 'critical').length;
 
   return (
     <div className="p-6">
@@ -123,11 +153,11 @@ export function GroupDetailPage() {
       </div>
 
       {/* Stats */}
-      {devices.length > 0 && (
+      {allDevices.length > 0 && (
         <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
           <div className="rounded-lg border border-border bg-bg-secondary p-4">
             <div className="text-sm text-text-secondary mb-1">{t('groups.detail.totalAgents', { defaultValue: 'Total Devices' })}</div>
-            <div className="text-xl font-mono font-semibold text-text-primary">{devices.length}</div>
+            <div className="text-xl font-mono font-semibold text-text-primary">{allDevices.length}</div>
           </div>
           <div className="rounded-lg border border-status-up/30 bg-bg-secondary p-4">
             <div className="text-sm text-text-secondary mb-1">{t('groups.detail.online', { defaultValue: 'Online' })}</div>
@@ -149,33 +179,54 @@ export function GroupDetailPage() {
       )}
 
       {/* Device list */}
-      {devices.length > 0 ? (
-        <div className="rounded-lg border border-border bg-bg-secondary">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
-              Devices ({devices.length})
-            </h3>
-          </div>
-          <div className="divide-y divide-border">
-            {devices.map((device) => (
-              <Link
-                key={device.id}
-                to={`/devices/${device.id}`}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors"
-              >
-                <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-text-primary truncate">
-                    {device.displayName ?? device.hostname}
-                  </div>
-                  {device.displayName && (
-                    <div className="text-xs text-text-muted truncate">{device.hostname}</div>
-                  )}
-                </div>
-                <DeviceStatusBadge status={device.status} size="sm" />
-              </Link>
-            ))}
-          </div>
+      {allDevices.length > 0 ? (
+        <div className="space-y-4">
+          {/* Direct devices in this group */}
+          {devices.length > 0 && (
+            <div className="rounded-lg border border-border bg-bg-secondary">
+              <div className="px-4 py-3 border-b border-border">
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                  {group.name} ({devices.length})
+                </h3>
+              </div>
+              <div className="divide-y divide-border">
+                {devices.map((device) => (
+                  <Link key={device.id} to={`/devices/${device.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
+                    <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-primary truncate">{device.displayName ?? device.hostname}</div>
+                      {device.displayName && <div className="text-xs text-text-muted truncate">{device.hostname}</div>}
+                    </div>
+                    <DeviceStatusBadge status={device.status} size="sm" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sub-group devices */}
+          {Array.from(subGroupDevices.entries()).map(([sgId, { name, devices: sgDevices }]) => (
+            <div key={sgId} className="rounded-lg border border-border bg-bg-secondary">
+              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                <FolderOpen size={14} className="text-accent" />
+                <Link to={`/group/${sgId}`} className="text-xs font-semibold text-text-muted uppercase tracking-wide hover:text-accent transition-colors">
+                  {name} ({sgDevices.length})
+                </Link>
+              </div>
+              <div className="divide-y divide-border">
+                {sgDevices.map((device) => (
+                  <Link key={device.id} to={`/devices/${device.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
+                    <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text-primary truncate">{device.displayName ?? device.hostname}</div>
+                      {device.displayName && <div className="text-xs text-text-muted truncate">{device.hostname}</div>}
+                    </div>
+                    <DeviceStatusBadge status={device.status} size="sm" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         !loading && (

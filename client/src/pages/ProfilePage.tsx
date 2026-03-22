@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Save, KeyRound, Bell, CheckCircle2, AlertTriangle, QrCode, Mail, Palette, Monitor } from 'lucide-react';
+import { User, Save, KeyRound, Bell, CheckCircle2, AlertTriangle, QrCode, Mail, Palette, Monitor, Camera, Trash2, MessageCircle, X } from 'lucide-react';
 import { profileApi } from '@/api/profile.api';
 import { appConfigApi } from '@/api/appConfig.api';
 import { twoFactorApi, type TwoFactorStatus } from '@/api/twoFactor.api';
@@ -29,6 +29,10 @@ export function ProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
 
+  // Avatar
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // Theme state — initialise from localStorage so the picker shows the active theme immediately
   const [preferredTheme, setPreferredTheme] = useState<AppTheme>(loadSavedTheme);
 
@@ -52,6 +56,7 @@ export function ProfilePage() {
       setDisplayName(profile.displayName || '');
       setEmail((profile as any).email || '');
       setPreferredLanguage((profile as any).preferredLanguage || '');
+      setAvatar(profile.avatar ?? null);
       if (profile.preferences?.preferredTheme) {
         setPreferredTheme(profile.preferences.preferredTheme);
         applyTheme(profile.preferences.preferredTheme);
@@ -134,6 +139,22 @@ export function ProfilePage() {
   };
 
   const [preferredCodec, setPreferredCodec] = useState<string>(sessionUser?.preferences?.preferredCodec || 'h264');
+  const [quickReplies, setQuickReplies] = useState<string[]>(sessionUser?.preferences?.quickReplies || []);
+  const [newReply, setNewReply] = useState('');
+
+  const handleAddReply = async () => {
+    if (!newReply.trim() || quickReplies.length >= 50) return;
+    const updated = [...quickReplies, newReply.trim()];
+    setQuickReplies(updated);
+    setNewReply('');
+    try { await profileApi.update({ preferences: { quickReplies: updated } }); } catch {}
+  };
+
+  const handleRemoveReply = async (idx: number) => {
+    const updated = quickReplies.filter((_, i) => i !== idx);
+    setQuickReplies(updated);
+    try { await profileApi.update({ preferences: { quickReplies: updated } }); } catch {}
+  };
 
   const handleCodecChange = async (codec: string) => {
     setPreferredCodec(codec);
@@ -156,6 +177,70 @@ export function ProfilePage() {
   return (
     <div className="p-6 min-w-0">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">{t('profile.title')}</h1>
+
+      {/* Avatar section */}
+      <div className="mb-8 rounded-lg border border-border bg-bg-secondary p-5">
+        <div className="flex items-center gap-6">
+          <div className="relative group">
+            {avatar ? (
+              <img src={avatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-border" />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center border-2 border-border">
+                <User size={32} className="text-accent" />
+              </div>
+            )}
+            <label className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+              <Camera size={20} className="text-white" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 375_000) { toast.error(t('profile.avatar.tooLarge')); return; }
+                  const reader = new FileReader();
+                  reader.onload = async () => {
+                    const dataUri = reader.result as string;
+                    setAvatarUploading(true);
+                    try {
+                      await profileApi.uploadAvatar(dataUri);
+                      setAvatar(dataUri);
+                      toast.success(t('profile.avatar.updated'));
+                    } catch { toast.error(t('profile.avatar.failed')); }
+                    finally { setAvatarUploading(false); }
+                  };
+                  reader.readAsDataURL(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {avatarUploading && (
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-text-primary">{t('profile.avatar.title')}</p>
+            <p className="text-xs text-text-muted">{t('profile.avatar.hint')}</p>
+            {avatar && (
+              <button
+                onClick={async () => {
+                  try {
+                    await profileApi.deleteAvatar();
+                    setAvatar(null);
+                    toast.success(t('profile.avatar.removed'));
+                  } catch { toast.error(t('common.error')); }
+                }}
+                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 mt-1"
+              >
+                <Trash2 size={12} /> {t('profile.avatar.remove')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Profile section */}
       <form onSubmit={handleProfileSubmit} className="mb-8">
@@ -372,6 +457,43 @@ export function ProfilePage() {
               If the selected codec is unavailable on the remote agent, it will automatically fall back to JPEG.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Quick Replies section */}
+      <div>
+        <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <MessageCircle size={18} className="text-accent" />
+          Quick Replies
+        </h2>
+        <div className="bg-bg-secondary border border-border rounded-xl p-5 space-y-3">
+          <p className="text-xs text-text-muted">
+            Personal quick reply messages for the support chat. These are available alongside your tenant's global templates.
+          </p>
+          {quickReplies.length === 0 && (
+            <p className="text-xs text-text-muted italic">No quick replies yet.</p>
+          )}
+          {quickReplies.map((reply, i) => (
+            <div key={i} className="flex items-center gap-2 bg-bg-tertiary rounded-lg px-3 py-2">
+              <span className="flex-1 text-sm text-text-primary truncate">{reply}</span>
+              <button onClick={() => handleRemoveReply(i)} className="text-text-muted hover:text-red-400 transition-colors shrink-0">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          {quickReplies.length < 50 && (
+            <div className="flex gap-2">
+              <input
+                value={newReply}
+                onChange={e => setNewReply(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddReply()}
+                placeholder="Type a quick reply..."
+                maxLength={500}
+                className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary"
+              />
+              <Button onClick={handleAddReply} disabled={!newReply.trim()} size="sm">Add</Button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -95,7 +95,9 @@
     "history": "Cronologia",
     "download": "Scarica",
     "navigation": "Navigazione",
-    "addAgent": "Aggiungi agente"
+    "addAgent": "Aggiungi agente",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Dashboard di monitoraggio",
@@ -305,6 +307,15 @@
       "subtitle": "Seleziona il tema visivo per la tua interfaccia.",
       "saved": "Tema salvato",
       "failed": "Impossibile salvare il tema"
+    },
+    "avatar": {
+      "title": "Foto profilo",
+      "hint": "JPG, PNG o GIF. Max 375 KB.",
+      "updated": "Foto aggiornata",
+      "removed": "Foto rimossa",
+      "failed": "Caricamento fallito",
+      "tooLarge": "Immagine troppo grande — max 375 KB",
+      "remove": "Rimuovi foto"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Reimposta MFA",
     "confirmResetMfa": "Disabilitare tutti i metodi 2FA per \"{{username}}\"? Potrà accedere senza secondo fattore.",
     "mfaReset": "MFA disabilitato per {{username}}",
-    "failedResetMfa": "Impossibile reimpostare il MFA"
+    "failedResetMfa": "Impossibile reimpostare il MFA",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Aggiornamenti",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Informazioni",
+    "loading": "Caricamento informazioni di sistema…",
+    "loadFailed": "Impossibile caricare le informazioni di sistema.",
+    "versions": "Versioni",
+    "server": "Server",
+    "client": "Client",
+    "agent": "Agente",
+    "reach": "Reach",
+    "instance": "Istanza",
+    "uptime": "Uptime",
+    "environment": "Ambiente",
+    "platform": "Piattaforma",
+    "cpuCores": "Core CPU",
+    "memory": "Memoria",
+    "processRss": "Processo (RSS)",
+    "heapUsed": "Heap usato",
+    "systemFree": "Sistema libero",
+    "cpuLoad": "Carico CPU medio",
+    "database": "Database",
+    "connected": "Connesso",
+    "error": "Errore"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

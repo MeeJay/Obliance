@@ -58,7 +58,7 @@ function formatDate(val: string | null) {
   return new Date(val).toLocaleString();
 }
 
-export function ScriptSchedulesPage() {
+export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,8 +180,8 @@ export function ScriptSchedulesPage() {
   const groups = getGroupList();
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+      {!embedded && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Script Schedules</h1>
           <p className="text-sm text-text-muted mt-0.5">Automate script execution on a schedule</p>
@@ -198,7 +198,7 @@ export function ScriptSchedulesPage() {
             New Schedule
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Form panel */}
       {showForm && (

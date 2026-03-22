@@ -15,4 +15,13 @@ export const profileApi = {
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await apiClient.put('/profile/password', { currentPassword, newPassword });
   },
+
+  async uploadAvatar(avatar: string): Promise<string> {
+    const res = await apiClient.put('/profile/avatar', { avatar });
+    return res.data.avatar;
+  },
+
+  async deleteAvatar(): Promise<void> {
+    await apiClient.delete('/profile/avatar');
+  },
 };

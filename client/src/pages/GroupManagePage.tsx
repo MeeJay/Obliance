@@ -83,7 +83,7 @@ function findNodeById(nodes: DeviceGroupTreeNode[], id: number): DeviceGroupTree
   return null;
 }
 
-export function GroupManagePage() {
+export function GroupManagePage({ embedded }: { embedded?: boolean } = {}) {
   const { fetchGroups, fetchTree, tree } = useGroupStore();
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
@@ -252,14 +252,15 @@ export function GroupManagePage() {
   };
 
   return (
-    <div className="p-6 min-w-0">
-      <div className="flex items-center justify-between mb-6">
+    <div className={embedded ? 'min-w-0' : 'p-6 min-w-0'}>
+      {!embedded && <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-text-primary">{t('nav.groups')}</h1>
         <Button size="sm" onClick={() => openCreate()}>
           <Plus size={16} className="mr-1.5" />
           {t('groups.new')}
         </Button>
-      </div>
+      </div>}
+      {embedded && <div className="flex justify-end mb-4"><Button size="sm" onClick={() => openCreate()}><Plus size={16} className="mr-1.5" />{t('groups.new')}</Button></div>}
 
       {/* Form */}
       {showForm && (

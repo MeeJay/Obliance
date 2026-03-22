@@ -95,7 +95,9 @@
     "history": "Geçmiş",
     "download": "İndir",
     "navigation": "Gezinti",
-    "addAgent": "Ajan ekle"
+    "addAgent": "Ajan ekle",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "İzleme Paneli",
@@ -305,6 +307,15 @@
       "subtitle": "Arayüzünüz için görsel temayı seçin.",
       "saved": "Tema kaydedildi",
       "failed": "Tema kaydedilemedi"
+    },
+    "avatar": {
+      "title": "Profil fotoğrafı",
+      "hint": "JPG, PNG veya GIF. Maks 375 KB.",
+      "updated": "Profil fotoğrafı güncellendi",
+      "removed": "Profil fotoğrafı kaldırıldı",
+      "failed": "Yükleme başarısız",
+      "tooLarge": "Resim çok büyük — maks 375 KB",
+      "remove": "Fotoğrafı kaldır"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "MFA'yı Sıfırla",
     "confirmResetMfa": "\"{{username}}\" için tüm 2FA yöntemlerini devre dışı bırakılsın mı? İkinci faktör olmadan oturum açabilecekler.",
     "mfaReset": "{{username}} için MFA devre dışı bırakıldı",
-    "failedResetMfa": "MFA sıfırlanamadı"
+    "failedResetMfa": "MFA sıfırlanamadı",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Güncellemeler",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Hakkında",
+    "loading": "Sistem bilgileri yükleniyor…",
+    "loadFailed": "Sistem bilgileri yüklenemedi.",
+    "versions": "Sürümler",
+    "server": "Sunucu",
+    "client": "İstemci",
+    "agent": "Ajan",
+    "reach": "Reach",
+    "instance": "Örnek",
+    "uptime": "Çalışma süresi",
+    "environment": "Ortam",
+    "platform": "Platform",
+    "cpuCores": "CPU çekirdek",
+    "memory": "Bellek",
+    "processRss": "İşlem (RSS)",
+    "heapUsed": "Heap kullanılan",
+    "systemFree": "Sistem boş",
+    "cpuLoad": "CPU yük ort.",
+    "database": "Veritabanı",
+    "connected": "Bağlı",
+    "error": "Hata"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

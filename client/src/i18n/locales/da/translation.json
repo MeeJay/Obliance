@@ -95,7 +95,9 @@
     "history": "Historik",
     "download": "Download",
     "navigation": "Navigation",
-    "addAgent": "Tilføj agent"
+    "addAgent": "Tilføj agent",
+    "policies": "Policies",
+    "supervision": "Supervision"
   },
   "login": {
     "title": "Overvågningsdashboard",
@@ -305,6 +307,15 @@
       "subtitle": "Vælg det visuelle tema for din grænseflade.",
       "saved": "Tema gemt",
       "failed": "Kunne ikke gemme temaet"
+    },
+    "avatar": {
+      "title": "Profilbillede",
+      "hint": "JPG, PNG eller GIF. Maks 375 KB.",
+      "updated": "Profilbillede opdateret",
+      "removed": "Profilbillede fjernet",
+      "failed": "Upload fejlede",
+      "tooLarge": "Billede for stort — maks 375 KB",
+      "remove": "Fjern billede"
     }
   },
   "notFound": {
@@ -657,7 +668,8 @@
     "resetMfa": "Nulstil MFA",
     "confirmResetMfa": "Deaktiver alle 2FA-metoder for \"{{username}}\"? De vil kunne logge ind uden en anden faktor.",
     "mfaReset": "MFA deaktiveret for {{username}}",
-    "failedResetMfa": "Nulstilling af MFA mislykkedes"
+    "failedResetMfa": "Nulstilling af MFA mislykkedes",
+    "tabNotifications": "Notifications"
   },
   "updates": {
     "title": "Opdateringer",
@@ -792,7 +804,8 @@
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
     "tabAgents": "Agents",
-    "tabKeys": "API Keys"
+    "tabKeys": "API Keys",
+    "tabGroups": "Groups"
   },
   "apiKeys": {
     "defaultGroup": "Default group",
@@ -806,5 +819,44 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)"
+  },
+  "about": {
+    "title": "Om",
+    "loading": "Indlæser systeminformation…",
+    "loadFailed": "Kunne ikke indlæse systeminformation.",
+    "versions": "Versioner",
+    "server": "Server",
+    "client": "Klient",
+    "agent": "Agent",
+    "reach": "Reach",
+    "instance": "Instans",
+    "uptime": "Oppetid",
+    "environment": "Miljø",
+    "platform": "Platform",
+    "cpuCores": "CPU-kerner",
+    "memory": "Hukommelse",
+    "processRss": "Proces (RSS)",
+    "heapUsed": "Heap brugt",
+    "systemFree": "System ledig",
+    "cpuLoad": "CPU-belastning gns.",
+    "database": "Database",
+    "connected": "Tilsluttet",
+    "error": "Fejl"
+  },
+  "schedules": {
+    "title": "Schedules",
+    "tabSchedules": "Schedules",
+    "tabScripts": "Scripts"
+  },
+  "policies": {
+    "title": "Policies",
+    "tabUpdates": "Updates",
+    "tabCompliance": "Compliance"
+  },
+  "supervision": {
+    "title": "Supervision",
+    "tabRemote": "Remote Sessions",
+    "tabHistory": "History",
+    "tabReports": "Reports"
   }
 }

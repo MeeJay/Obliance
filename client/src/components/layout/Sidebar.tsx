@@ -444,27 +444,19 @@ export function Sidebar() {
 
   // ── Nav items ──────────────────────────────────────────────────────────────
   const mainNavItems: NavItem[] = [
-    { label: t('nav.dashboard'),  path: '/',           icon: <LayoutDashboard size={18} /> },
-    { label: t('nav.devices'),    path: '/devices',    icon: <Monitor size={18} /> },
-    { label: t('nav.scripts'),    path: '/scripts',    icon: <Code2 size={18} /> },
-    { label: t('nav.schedules'),  path: '/schedules',  icon: <CalendarClock size={18} /> },
-    { label: t('nav.updates'),    path: '/updates',    icon: <RefreshCw size={18} /> },
-    { label: t('nav.compliance'), path: '/compliance', icon: <ShieldCheck size={18} /> },
-    { label: t('nav.remote'),     path: '/remote',     icon: <Laptop size={18} /> },
-    { label: t('nav.reports'),    path: '/reports',    icon: <FileBarChart2 size={18} /> },
-    { label: t('nav.history'),    path: '/history',    icon: <History size={18} /> },
-    { label: t('nav.download'),   path: '/download',   icon: <Download size={18} /> },
+    { label: t('nav.dashboard'),   path: '/',           icon: <LayoutDashboard size={18} /> },
+    { label: t('nav.devices'),     path: '/devices',    icon: <Monitor size={18} /> },
+    { label: t('nav.schedules'),   path: '/schedules',  icon: <CalendarClock size={18} /> },
+    { label: t('nav.policies'),    path: '/policies',   icon: <ShieldCheck size={18} /> },
   ];
 
   const adminNavItems: NavItem[] = [
-    { label: t('nav.groups'),       path: '/groups',              icon: <FolderTree size={18} /> },
-    { label: t('nav.notifications'), path: '/notifications',      icon: <Bell size={18} /> },
-    { label: t('nav.users'),        path: '/admin/users',         icon: <Users size={18} /> },
-    { label: t('nav.agents'),       path: '/admin/devices',       icon: <Terminal size={18} /> },
-    { label: t('nav.maintenance'),  path: '/admin/maintenance',   icon: <CalendarClock size={18} /> },
-    { label: t('tenant.pageTitle'), path: '/admin/tenants',       icon: <Building2 size={18} /> },
-    { label: t('nav.importExport'), path: '/admin/import-export', icon: <PackageOpen size={18} /> },
-    { label: t('nav.settings'),     path: '/settings',            icon: <Settings size={18} /> },
+    { label: t('nav.agents'),        path: '/admin/devices',       icon: <Terminal size={18} /> },
+    { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
+    { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
+    { label: t('tenant.pageTitle'),  path: '/admin/tenants',       icon: <Building2 size={18} /> },
+    { label: t('nav.importExport'),  path: '/admin/import-export', icon: <PackageOpen size={18} /> },
+    { label: t('nav.settings'),      path: '/settings',            icon: <Settings size={18} /> },
   ];
 
   // ── Ungrouped devices ──────────────────────────────────────────────────────
