@@ -342,11 +342,14 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
-	// Retry loop: error 1618 = another msiexec is running (e.g. Windows Update).
-	// Wait 30s between attempts, up to 5 retries (total ~2.5 min max wait).
+
+	// Batch script with:
+	//  - 5s initial wait (service needs time to fully stop)
+	//  - Retry loop for error 1618 (another msiexec in progress)
+	//  - Fallback: restart old service if MSI fails entirely
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
-			"timeout /t 2 /nobreak >nul\r\n"+
+			"timeout /t 5 /nobreak >nul\r\n"+
 			"set RETRIES=0\r\n"+
 			":RETRY\r\n"+
 			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
@@ -362,13 +365,32 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 			"  net start OblianceAgent >nul 2>&1\r\n"+
 			")\r\n"+
 			"del /q \"%s\"\r\n"+
+			"schtasks /delete /tn OblianceUpdate /f >nul 2>&1\r\n"+
 			"del /q \"%%~f0\"\r\n",
 		msiPath, serverURL, apiKey, logPath, msiPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
-	// Start the batch script detached; it will outlive the current service process.
-	return exec.Command("cmd", "/c", scriptPath).Start()
+
+	// Use a scheduled task to run the script — survives service stop,
+	// unlike a child process which the SCM may kill when the service exits.
+	// Delete any stale task first.
+	exec.Command("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
+	if err := exec.Command("schtasks",
+		"/create", "/tn", "OblianceUpdate",
+		"/tr", scriptPath,
+		"/sc", "once",
+		"/st", "00:00",
+		"/ru", "SYSTEM",
+		"/rl", "HIGHEST",
+		"/f",
+	).Run(); err != nil {
+		return fmt.Errorf("schtasks create: %w", err)
+	}
+	if err := exec.Command("schtasks", "/run", "/tn", "OblianceUpdate").Run(); err != nil {
+		return fmt.Errorf("schtasks run: %w", err)
+	}
+	return nil
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────

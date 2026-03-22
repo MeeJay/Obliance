@@ -143,6 +143,9 @@ export interface Device {
   maxMissedPushes: number;
   complianceRemediationEnabled: boolean;
   privacyModeEnabled: boolean;
+  lastLoggedInUser: string | null;
+  lastRebootAt: string | null;
+  timezone: string | null;
   // Metadata
   tags: string[];
   customFields: Record<string, string>;
@@ -730,6 +733,24 @@ export interface BitLockerVolume {
   recoveryKeys: string[];
 }
 
+export interface OSDetailsInfo {
+  edition?: string;
+  displayVersion?: string;
+  buildNumber?: string;
+  windowsKey?: string;
+  officeVersion?: string;
+  officeKey?: string;
+}
+
+export interface BatteryHealth {
+  present: boolean;
+  designCapacity?: number;
+  fullCapacity?: number;
+  healthPercent?: number;
+  cycleCount?: number;
+  status?: string;
+}
+
 export interface HardwareInventory {
   id: number;
   deviceId: number;
@@ -740,6 +761,8 @@ export interface HardwareInventory {
   gpu: GpuInfo[];
   motherboard: MotherboardInfo;
   bios: BiosInfo;
+  os?: OSDetailsInfo;
+  battery?: BatteryHealth;
   bitlocker?: BitLockerVolume[];
   raw: Record<string, any>;
   scannedAt: string;

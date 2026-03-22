@@ -80,12 +80,13 @@ router.post('/push', agentAuth, async (req, res, next) => {
   try {
     const body = req.body as AgentPushRequest & {
       hostname?: string;
-      osInfo?: { platform?: string; distro?: string; release?: string; arch?: string };
+      osInfo?: { platform?: string; distro?: string; release?: string; arch?: string; bootTime?: number; timezone?: string };
       ipLocal?: string;
       macAddress?: string;
       privacyMode?: boolean;
+      lastLoggedInUser?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, lastLoggedInUser } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -139,6 +140,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
         ip_local: ipLocal || device.ip_local,
         mac_address: macAddress || device.mac_address,
         privacy_mode_enabled: typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled,
+        last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
+        last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
+        timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),
       });
       device = await db('devices').where({ id: device.id }).first();

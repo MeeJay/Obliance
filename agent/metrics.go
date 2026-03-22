@@ -86,6 +86,8 @@ type OSInfo struct {
 	Distro   string `json:"distro,omitempty"`
 	Release  string `json:"release"`
 	Arch     string `json:"arch"`
+	BootTime int64  `json:"bootTime,omitempty"` // unix epoch seconds
+	Timezone string `json:"timezone,omitempty"`
 }
 
 // ── Delta tracking ─────────────────────────────────────────────────────────────
@@ -720,10 +722,13 @@ func getOSInfo() OSInfo {
 			Arch:     runtime.GOARCH,
 		}
 	}
+	tz, _ := time.Now().Zone()
 	return OSInfo{
 		Platform: info.OS,
 		Distro:   info.Platform,
 		Release:  info.PlatformVersion,
 		Arch:     runtime.GOARCH,
+		BootTime: int64(info.BootTime),
+		Timezone: tz,
 	}
 }

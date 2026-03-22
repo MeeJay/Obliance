@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -87,6 +90,25 @@ type SoftwareEntry struct {
 	PackageID       string `json:"packageId,omitempty"`
 }
 
+type OSDetails struct {
+	Edition        string `json:"edition,omitempty"`        // "Windows 11 Pro", "macOS Tahoe", "Debian 12"
+	DisplayVersion string `json:"displayVersion,omitempty"` // "25H2", "26.3.1", "12.8"
+	BuildNumber    string `json:"buildNumber,omitempty"`    // "26200.8037", "25D2128"
+	WindowsKey     string `json:"windowsKey,omitempty"`     // Product key (partial)
+	OfficeVersion  string `json:"officeVersion,omitempty"`  // "Microsoft 365 Apps" / "Office 2021"
+	OfficeKey      string `json:"officeKey,omitempty"`      // Last 5 chars of product key
+}
+
+type BatteryInfo struct {
+	Present         bool    `json:"present"`
+	DesignCapacity  int     `json:"designCapacity,omitempty"`  // mWh
+	FullCapacity    int     `json:"fullCapacity,omitempty"`    // mWh
+	CurrentCapacity int     `json:"currentCapacity,omitempty"` // mWh
+	HealthPercent   float64 `json:"healthPercent,omitempty"`   // fullCapacity/designCapacity * 100
+	CycleCount      int     `json:"cycleCount,omitempty"`
+	Status          string  `json:"status,omitempty"` // Charging, Discharging, Full, etc.
+}
+
 type InventoryData struct {
 	CPU         CpuInfo                `json:"cpu"`
 	Memory      MemoryInfo             `json:"memory"`
@@ -95,6 +117,8 @@ type InventoryData struct {
 	GPU         []GpuInfo              `json:"gpu"`
 	Motherboard MotherboardInfo        `json:"motherboard"`
 	BIOS        BiosInfo               `json:"bios"`
+	OS          OSDetails              `json:"os"`
+	Battery     *BatteryInfo           `json:"battery,omitempty"`
 	Software    []SoftwareEntry        `json:"software,omitempty"`
 	BitLocker   []BitLockerVolume      `json:"bitlocker,omitempty"`
 	Raw         map[string]interface{} `json:"raw,omitempty"`
@@ -239,6 +263,59 @@ $result = @{
   }
 }
 
+# OS details
+$osEdition = $os.Caption.Trim()
+$osBuild = $os.BuildNumber
+$osVer = $os.Version
+# DisplayVersion from registry (25H2 etc.)
+$dispVer = try { (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop).DisplayVersion } catch { '' }
+# Windows product key (partial — last 5 via SoftwareLicensingProduct)
+$winKey = try { (Get-WmiObject -Query "SELECT OA3xOriginalProductKey FROM SoftwareLicensingService" -ErrorAction Stop).OA3xOriginalProductKey } catch { '' }
+if (-not $winKey) { $winKey = try { (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform' -ErrorAction Stop).BackupProductKeyDefault } catch { '' } }
+# Office version + key
+$officeVer = ''
+$officeKey = ''
+$offPaths = @('HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration', 'HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\InstalledPackages')
+foreach ($p in $offPaths) {
+  if (Test-Path $p) {
+    $props = Get-ItemProperty $p -ErrorAction SilentlyContinue
+    if ($props.ProductReleaseIds) { $officeVer = $props.ProductReleaseIds; break }
+    if ($props.ClientVersionToReport) { $officeVer = "Office " + $props.ClientVersionToReport; break }
+  }
+}
+# Office key last 5 from OSPP
+$officeKey = try {
+  $ospp = Get-WmiObject -Query "SELECT PartialProductKey,Name FROM SoftwareLicensingProduct WHERE ApplicationId='0ff1ce15-a989-479d-af46-f275c6370663' AND PartialProductKey IS NOT NULL" -ErrorAction Stop | Select-Object -First 1
+  if ($ospp) { $ospp.PartialProductKey } else { '' }
+} catch { '' }
+if ($officeVer -eq '' -and $ospp.Name) { $officeVer = $ospp.Name }
+
+$result['osDetails'] = @{
+  edition        = $osEdition
+  displayVersion = $dispVer
+  buildNumber    = $osVer
+  windowsKey     = $winKey
+  officeVersion  = $officeVer
+  officeKey      = $officeKey
+}
+
+# Battery
+$bat = Get-WmiObject Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($bat) {
+  $design = try { (Get-WmiObject BatteryStaticData -Namespace ROOT\WMI -ErrorAction Stop).DesignedCapacity } catch { 0 }
+  $full   = try { (Get-WmiObject BatteryFullChargedCapacity -Namespace ROOT\WMI -ErrorAction Stop).FullChargedCapacity } catch { 0 }
+  $cycle  = try { (Get-WmiObject BatteryCycleCount -Namespace ROOT\WMI -ErrorAction Stop).CycleCount } catch { 0 }
+  $health = if ($design -gt 0) { [math]::Round($full / $design * 100, 1) } else { 0 }
+  $result['battery'] = @{
+    present        = $true
+    designCapacity = [int]$design
+    fullCapacity   = [int]$full
+    healthPercent  = $health
+    cycleCount     = [int]$cycle
+    status         = switch([int]$bat.BatteryStatus){ 1{'Discharging'} 2{'AC Power'} 3{'Full'} 4{'Low'} 5{'Critical'} 6{'Charging'} default{'Unknown'} }
+  }
+}
+
 $result | ConvertTo-Json -Depth 5 -Compress`
 
 	out, err := exec.Command("powershell.exe",
@@ -357,6 +434,30 @@ $result | ConvertTo-Json -Depth 5 -Compress`
 		}
 	}
 
+	// OS Details
+	if od, ok := raw["osDetails"].(map[string]interface{}); ok {
+		inv.OS = OSDetails{
+			Edition:        stringField(od, "edition"),
+			DisplayVersion: stringField(od, "displayVersion"),
+			BuildNumber:    stringField(od, "buildNumber"),
+			WindowsKey:     stringField(od, "windowsKey"),
+			OfficeVersion:  stringField(od, "officeVersion"),
+			OfficeKey:      stringField(od, "officeKey"),
+		}
+	}
+
+	// Battery
+	if bat, ok := raw["battery"].(map[string]interface{}); ok {
+		inv.Battery = &BatteryInfo{
+			Present:        true,
+			DesignCapacity:  intField(bat, "designCapacity"),
+			FullCapacity:    intField(bat, "fullCapacity"),
+			HealthPercent:   float64Field(bat, "healthPercent"),
+			CycleCount:      intField(bat, "cycleCount"),
+			Status:          stringField(bat, "status"),
+		}
+	}
+
 	return nil
 }
 
@@ -393,6 +494,12 @@ func scanLinuxInventory(inv *InventoryData) error {
 
 	// BIOS from DMI
 	inv.BIOS = readLinuxBIOS()
+
+	// OS Details
+	inv.OS = collectLinuxOSDetails()
+
+	// Battery
+	inv.Battery = collectLinuxBattery()
 
 	return nil
 }
@@ -555,6 +662,78 @@ func readLinuxBIOS() BiosInfo {
 	}
 }
 
+func collectLinuxOSDetails() OSDetails {
+	od := OSDetails{}
+	// /etc/os-release has PRETTY_NAME, VERSION_ID, VERSION
+	if out, err := exec.Command("cat", "/etc/os-release").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			val := strings.Trim(strings.TrimSpace(parts[1]), "\"")
+			switch parts[0] {
+			case "PRETTY_NAME":
+				od.Edition = val
+			case "VERSION_ID":
+				od.DisplayVersion = val
+			case "BUILD_ID":
+				od.BuildNumber = val
+			}
+		}
+	}
+	if od.BuildNumber == "" {
+		if out, err := exec.Command("uname", "-r").Output(); err == nil {
+			od.BuildNumber = strings.TrimSpace(string(out))
+		}
+	}
+	return od
+}
+
+func collectLinuxBattery() *BatteryInfo {
+	// Check /sys/class/power_supply/BAT0 (or BAT1)
+	for _, name := range []string{"BAT0", "BAT1", "macsmc-battery"} {
+		base := "/sys/class/power_supply/" + name
+		if _, err := os.Stat(base); err != nil {
+			continue
+		}
+		read := func(f string) string {
+			out, err := os.ReadFile(base + "/" + f)
+			if err != nil {
+				return ""
+			}
+			return strings.TrimSpace(string(out))
+		}
+		readInt := func(f string) int {
+			v := read(f)
+			n, _ := strconv.Atoi(v)
+			return n
+		}
+
+		// Energy values in µWh, convert to mWh
+		design := readInt("energy_full_design") / 1000
+		full := readInt("energy_full") / 1000
+		if design == 0 {
+			// Some systems use charge_full_design (µAh) instead
+			design = readInt("charge_full_design") / 1000
+			full = readInt("charge_full") / 1000
+		}
+		health := 0.0
+		if design > 0 {
+			health = float64(full) / float64(design) * 100
+		}
+		return &BatteryInfo{
+			Present:        true,
+			DesignCapacity: design,
+			FullCapacity:   full,
+			HealthPercent:  math.Round(health*10) / 10,
+			CycleCount:     readInt("cycle_count"),
+			Status:         read("status"),
+		}
+	}
+	return nil
+}
+
 // ── macOS ─────────────────────────────────────────────────────────────────────
 
 func scanDarwinInventory(inv *InventoryData) error {
@@ -669,6 +848,51 @@ func scanDarwinInventory(inv *InventoryData) error {
 			Model: stringField(item, "spdisplays_vendor") + " " + stringField(item, "_name"),
 			VRAM:  stringField(item, "spdisplays_vram"),
 		})
+	}
+
+	// OS Details via sw_vers
+	if out, err := exec.Command("sw_vers").Output(); err == nil {
+		od := OSDetails{}
+		for _, line := range strings.Split(string(out), "\n") {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			val := strings.TrimSpace(parts[1])
+			switch strings.TrimSpace(parts[0]) {
+			case "ProductName":
+				od.Edition = val
+			case "ProductVersion":
+				od.DisplayVersion = val
+			case "BuildVersion":
+				od.BuildNumber = val
+			}
+		}
+		inv.OS = od
+	}
+
+	// Battery via system_profiler SPPowerDataType
+	if out, err := exec.Command("system_profiler", "-json", "SPPowerDataType").Output(); err == nil {
+		var pw map[string][]map[string]interface{}
+		if json.Unmarshal(out, &pw) == nil {
+			for _, item := range pw["SPPowerDataType"] {
+				if bi, ok := item["sppower_battery_health_info"].(map[string]interface{}); ok {
+					cycle, _ := strconv.Atoi(fmt.Sprintf("%v", bi["sppower_battery_cycle_count"]))
+					maxCap := stringField(bi, "sppower_battery_health_maximum_capacity")
+					health := 0.0
+					if strings.HasSuffix(maxCap, "%") {
+						fmt.Sscanf(maxCap, "%f%%", &health)
+					}
+					inv.Battery = &BatteryInfo{
+						Present:       true,
+						CycleCount:    cycle,
+						HealthPercent: health,
+						Status:        stringField(bi, "sppower_battery_health"),
+					}
+					break
+				}
+			}
+		}
 	}
 
 	return nil
@@ -1003,6 +1227,20 @@ func int64Field(m map[string]interface{}, key string) int64 {
 			return int64(n)
 		case int64:
 			return n
+		}
+	}
+	return 0
+}
+
+func float64Field(m map[string]interface{}, key string) float64 {
+	if v, ok := m[key]; ok {
+		switch n := v.(type) {
+		case float64:
+			return n
+		case int:
+			return float64(n)
+		case int64:
+			return float64(n)
 		}
 	}
 	return 0

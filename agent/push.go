@@ -12,15 +12,16 @@ import (
 // ── Push request / response types ─────────────────────────────────────────────
 
 type pushBody struct {
-	DeviceUUID   string       `json:"deviceUuid"`
-	Hostname     string       `json:"hostname"`
-	AgentVersion string       `json:"agentVersion"`
-	OSInfo       OSInfo       `json:"osInfo"`
-	Metrics      Metrics      `json:"metrics"`
-	Acks         []CommandAck `json:"acks,omitempty"`
-	IPLocal      string       `json:"ipLocal,omitempty"`
-	MACAddress   string       `json:"macAddress,omitempty"`
-	PrivacyMode  bool         `json:"privacyMode"`
+	DeviceUUID       string       `json:"deviceUuid"`
+	Hostname         string       `json:"hostname"`
+	AgentVersion     string       `json:"agentVersion"`
+	OSInfo           OSInfo       `json:"osInfo"`
+	Metrics          Metrics      `json:"metrics"`
+	Acks             []CommandAck `json:"acks,omitempty"`
+	IPLocal          string       `json:"ipLocal,omitempty"`
+	MACAddress       string       `json:"macAddress,omitempty"`
+	PrivacyMode      bool         `json:"privacyMode"`
+	LastLoggedInUser string       `json:"lastLoggedInUser,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -64,15 +65,16 @@ func push(cfg *Config) {
 
 	ipLocal, macAddress := getLocalNetworkInfo()
 	body := pushBody{
-		DeviceUUID:   cfg.DeviceUUID,
-		Hostname:     hostname,
-		AgentVersion: cfg.AgentVersion,
-		OSInfo:       getOSInfo(),
-		Metrics:      collectMetrics(),
-		Acks:         acks,
-		IPLocal:      ipLocal,
-		MACAddress:   macAddress,
-		PrivacyMode:  IsPrivacyMode(),
+		DeviceUUID:       cfg.DeviceUUID,
+		Hostname:         hostname,
+		AgentVersion:     cfg.AgentVersion,
+		OSInfo:           getOSInfo(),
+		Metrics:          collectMetrics(),
+		Acks:             acks,
+		IPLocal:          ipLocal,
+		MACAddress:       macAddress,
+		PrivacyMode:      IsPrivacyMode(),
+		LastLoggedInUser: getLastLoggedInUser(),
 	}
 
 	data, err := json.Marshal(body)

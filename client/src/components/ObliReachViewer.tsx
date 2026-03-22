@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
@@ -41,6 +41,10 @@ export interface ObliReachViewerProps {
   /** User's preferred codec (from profile preferences). If the codec is
    *  unavailable on the agent, falls back to JPEG automatically. */
   preferredCodec?: string;
+  /** Called when the user clicks the Chat button in the toolbar. */
+  onChatToggle?: () => void;
+  /** Whether the chat panel is currently open (controls button highlight). */
+  chatOpen?: boolean;
 }
 
 // ── Control message shapes ────────────────────────────────────────────────────
@@ -93,6 +97,8 @@ export function ObliReachViewer({
   relayHost,
   onClose,
   preferredCodec,
+  onChatToggle,
+  chatOpen: chatOpenProp,
 }: ObliReachViewerProps) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -631,6 +637,23 @@ export function ObliReachViewer({
             >
               {inputBlocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">{inputBlocked ? 'Blocked' : 'Block'}</span>
+            </button>
+          )}
+
+          {/* ── Chat toggle ── */}
+          {onChatToggle && (
+            <button
+              onClick={onChatToggle}
+              title={chatOpenProp ? 'Hide chat' : 'Chat with user'}
+              className={clsx(
+                'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors',
+                chatOpenProp
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                  : 'bg-bg-secondary text-text-muted border-border hover:text-text-primary hover:bg-bg-tertiary'
+              )}
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Chat</span>
             </button>
           )}
 

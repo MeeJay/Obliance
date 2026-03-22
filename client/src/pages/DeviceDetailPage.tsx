@@ -67,6 +67,7 @@ function OverviewTab({ device }: { device: Device }) {
               ['OS Version', device.osVersion ?? '—'],
               ['Architecture', device.osArch ?? '—'],
               ['Agent Version', device.agentVersion ?? '—'],
+              ['Last Logged In', device.lastLoggedInUser ?? '—'],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <dt className="text-text-muted">{k}</dt>
@@ -82,6 +83,7 @@ function OverviewTab({ device }: { device: Device }) {
               ['Local IP', device.ipLocal ?? '—'],
               ['Public IP', device.ipPublic ?? '—'],
               ['MAC Address', device.macAddress ?? '—'],
+              ['Timezone', device.timezone ?? '—'],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <dt className="text-text-muted">{k}</dt>
@@ -100,19 +102,48 @@ function OverviewTab({ device }: { device: Device }) {
         </div>
       )}
 
-      {/* Hardware summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {device.cpuModel && (
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-            <Cpu className="w-5 h-5 text-blue-400 shrink-0" />
-            <div>
-              <p className="text-xs text-text-muted">CPU</p>
-              <p className="text-sm text-text-primary font-medium">{device.cpuModel}</p>
-              {device.cpuCores && <p className="text-xs text-text-muted">{device.cpuCores} cores</p>}
-            </div>
+      {/* Timestamps */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
+          <Clock className="w-5 h-5 text-purple-400 shrink-0" />
+          <div>
+            <p className="text-xs text-text-muted">Last Seen</p>
+            <p className="text-sm text-text-primary font-medium">
+              {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : '—'}
+            </p>
           </div>
-        )}
-        {device.ramTotalGb && (
+        </div>
+        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
+          <Power className="w-5 h-5 text-orange-400 shrink-0" />
+          <div>
+            <p className="text-xs text-text-muted">Last Reboot</p>
+            <p className="text-sm text-text-primary font-medium">
+              {device.lastRebootAt ? new Date(device.lastRebootAt).toLocaleString() : '—'}
+            </p>
+          </div>
+        </div>
+        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
+          <Plus className="w-5 h-5 text-blue-400 shrink-0" />
+          <div>
+            <p className="text-xs text-text-muted">Added</p>
+            <p className="text-sm text-text-primary font-medium">
+              {new Date(device.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
+          <Cpu className="w-5 h-5 text-blue-400 shrink-0" />
+          <div>
+            <p className="text-xs text-text-muted">CPU</p>
+            <p className="text-sm text-text-primary font-medium truncate">{device.cpuModel ?? '—'}</p>
+            {device.cpuCores && <p className="text-xs text-text-muted">{device.cpuCores} cores</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Hardware summary */}
+      {device.ramTotalGb && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
             <MemoryStick className="w-5 h-5 text-green-400 shrink-0" />
             <div>
@@ -120,17 +151,8 @@ function OverviewTab({ device }: { device: Device }) {
               <p className="text-sm text-text-primary font-medium">{device.ramTotalGb} GB</p>
             </div>
           </div>
-        )}
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-          <Clock className="w-5 h-5 text-purple-400 shrink-0" />
-          <div>
-            <p className="text-xs text-text-muted">Last seen</p>
-            <p className="text-sm text-text-primary font-medium">
-              {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : '—'}
-            </p>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Tags */}
       {device.tags && device.tags.length > 0 && (
@@ -217,6 +239,26 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
 
       {activeSection === 'hardware' && hardware && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* OS Details */}
+          {hardware.os && hardware.os.edition && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />Operating System</h4>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+                {[
+                  ['Edition', hardware.os.edition],
+                  ['Version', hardware.os.displayVersion ? `${hardware.os.displayVersion}${hardware.os.buildNumber ? ` (${hardware.os.buildNumber})` : ''}` : null],
+                  hardware.os.windowsKey ? ['Windows Key', hardware.os.windowsKey] : null,
+                  hardware.os.officeVersion ? ['Office', hardware.os.officeVersion] : null,
+                  hardware.os.officeKey ? ['Office Key', `XXXXX-XXXXX-XXXXX-XXXXX-${hardware.os.officeKey}`] : null,
+                ].filter(Boolean).filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k as string} className="flex justify-between text-sm">
+                    <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
+                    <dd className="text-text-primary font-medium text-right truncate select-all">{v as string}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
           {/* CPU */}
           <div className="p-4 bg-bg-secondary border border-border rounded-xl">
             <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Cpu className="w-4 h-4" />CPU</h4>
@@ -334,6 +376,51 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {/* Battery Health */}
+          {hardware.battery?.present && (
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="6" width="18" height="12" rx="2" /><line x1="23" y1="10" x2="23" y2="14" />
+                </svg>
+                Battery
+              </h4>
+              <div className="flex flex-wrap items-center gap-6">
+                {hardware.battery.healthPercent != null && (
+                  <div>
+                    <p className={clsx('text-2xl font-bold', hardware.battery.healthPercent >= 80 ? 'text-green-400' : hardware.battery.healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400')}>
+                      {hardware.battery.healthPercent.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-text-muted">Health</p>
+                  </div>
+                )}
+                {hardware.battery.cycleCount != null && hardware.battery.cycleCount > 0 && (
+                  <div>
+                    <p className="text-xl font-bold text-text-primary">{hardware.battery.cycleCount}</p>
+                    <p className="text-xs text-text-muted">Cycles</p>
+                  </div>
+                )}
+                {hardware.battery.designCapacity != null && hardware.battery.designCapacity > 0 && (
+                  <div>
+                    <p className="text-sm text-text-primary">{(hardware.battery.designCapacity / 1000).toFixed(1)} Wh</p>
+                    <p className="text-xs text-text-muted">Design capacity</p>
+                  </div>
+                )}
+                {hardware.battery.fullCapacity != null && hardware.battery.fullCapacity > 0 && (
+                  <div>
+                    <p className="text-sm text-text-primary">{(hardware.battery.fullCapacity / 1000).toFixed(1)} Wh</p>
+                    <p className="text-xs text-text-muted">Current max capacity</p>
+                  </div>
+                )}
+                {hardware.battery.status && (
+                  <div>
+                    <p className="text-sm text-text-primary">{hardware.battery.status}</p>
+                    <p className="text-xs text-text-muted">Status</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3002,6 +3089,8 @@ export function DeviceDetailPage() {
           sessionToken={headerRemoteSession?.sessionToken ?? null}
           deviceName={device.displayName || device.hostname}
           preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
+          onChatToggle={() => setChatOpen(o => !o)}
+          chatOpen={chatOpen}
           onClose={async () => {
             if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
             setHeaderRemoteOpen(false);
@@ -3018,11 +3107,12 @@ export function DeviceDetailPage() {
       )}
       {/* Chat panel — slides in from the right */}
       {chatOpen && (
-        <div className="fixed right-0 top-0 bottom-0 z-40 shadow-2xl">
+        <div className="fixed right-0 top-0 bottom-0 z-[60] shadow-2xl">
           <ChatPanel
             deviceUuid={device.uuid}
+            sessionId={chatSessionId}
             operatorName={useAuthStore.getState().user?.displayName || useAuthStore.getState().user?.username || 'Operator'}
-            onClose={() => { setChatOpen(false); setChatId(null); setChatMessages([]); }}
+            onClose={() => { setChatOpen(false); setChatId(null); setChatMessages([]); setChatSessionId(undefined); }}
             onRemoteAccessGranted={() => { handleHeaderRemote('oblireach'); }}
             messages={chatMessages}
             setMessages={setChatMessages}
@@ -3191,6 +3281,16 @@ export function DeviceDetailPage() {
                   return (
                     <div className="relative" ref={remoteDropdownRef}>
                       {opts.length === 1 ? (
+                        <>
+                        <button
+                          onClick={() => setChatOpen(!chatOpen)}
+                          disabled={device.status !== 'online'}
+                          title="Chat with user"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Chat
+                        </button>
                         <button
                           onClick={() => handleHeaderRemote(opts[0])}
                           disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
@@ -3200,6 +3300,7 @@ export function DeviceDetailPage() {
                           {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
                           {label(opts[0])}
                         </button>
+                        </>
                       ) : (
                         <>
                         <button
