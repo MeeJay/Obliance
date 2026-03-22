@@ -3300,7 +3300,7 @@ export function DeviceDetailPage() {
                   const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
                     device.osType === 'windows' ? ['oblireach', 'cmd', 'powershell'] :
                     device.osType === 'macos'   ? ['oblireach', 'ssh'] :
-                                                  ['ssh'];
+                                                  ['oblireach', 'ssh'];
                   const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
                   return (
                     <div className="relative" ref={remoteDropdownRef}>

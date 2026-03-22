@@ -27,7 +27,9 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
 
   // Redirect to enrollment if user hasn't completed the required enrollment version.
   // Skip the check when already on /enroll to prevent a redirect loop.
+  // Skip for Obligate SSO users — onboarding is managed by Gate.
   if (
+    user.foreignSource !== 'obligate' &&
     (user.enrollmentVersion ?? 0) < REQUIRED_ENROLLMENT_VERSION &&
     location.pathname !== '/enroll'
   ) {
