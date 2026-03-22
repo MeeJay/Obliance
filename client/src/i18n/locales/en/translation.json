@@ -756,7 +756,10 @@
       "alertDesc": "Notify when a threshold is breached",
       "update": "Update",
       "updateDesc": "Notify when the agent starts a self-update"
-    }
+    },
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents"
   },
   "remediations": {
     "title": "Remediations",
@@ -1009,7 +1012,7 @@
     "confirmDelete": "Delete {{hostname}}?",
     "confirmRefuse": "Refuse {{hostname}}?",
     "confirmSuspend": "Suspend {{hostname}}?",
-    "noDevices": "No devices found.",
+    "noDevices": "No devices found",
     "statusOnline": "Online",
     "statusOffline": "Offline",
     "statusSuspended": "Suspended",
@@ -1057,7 +1060,47 @@
     "refuseSuccess": "Device refused",
     "suspendSuccess": "Device suspended",
     "unsuspendSuccess": "Device unsuspended",
-    "deleteSuccess": "Device deleted"
+    "deleteSuccess": "Device deleted",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "compliance": {
     "title": "Compliance",
@@ -1378,5 +1421,9 @@
     "renameFailed": "Rename failed",
     "deleted": "Deleted successfully",
     "deleteFailed": "Delete failed"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

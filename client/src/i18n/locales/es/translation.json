@@ -513,7 +513,10 @@
     "keepCurrent": "— Mantener actual —",
     "noChange": "— Sin cambio —",
     "approveAll": "Aprobar todos",
-    "suspendAll": "Suspender todos"
+    "suspendAll": "Suspender todos",
+    "title": "Agentes",
+    "subtitle": "Gestionar agentes y claves API",
+    "tabAgents": "Agentes"
   },
   "notFound": {
     "title": "404",
@@ -574,7 +577,7 @@
     "confirmDelete": "¿Eliminar {{hostname}}?",
     "confirmRefuse": "¿Rechazar {{hostname}}?",
     "confirmSuspend": "¿Suspender {{hostname}}?",
-    "noDevices": "No se encontraron dispositivos.",
+    "noDevices": "No se encontraron dispositivos",
     "statusOnline": "En línea",
     "statusOffline": "Sin conexión",
     "statusSuspended": "Suspendido",
@@ -622,7 +625,47 @@
     "refuseSuccess": "Dispositivo rechazado",
     "suspendSuccess": "Dispositivo suspendido",
     "unsuspendSuccess": "Dispositivo reactivado",
-    "deleteSuccess": "Dispositivo eliminado"
+    "deleteSuccess": "Dispositivo eliminado",
+    "filters": {
+      "all": "Todos",
+      "approved": "Aprobados",
+      "pending": "Pendientes",
+      "refused": "Rechazados",
+      "suspended": "Suspendidos",
+      "search": "Buscar dispositivos...",
+      "allStatus": "Todos los estados",
+      "allOs": "Todos los SO",
+      "allGroups": "Todos los grupos",
+      "reset": "Restablecer",
+      "select": "Seleccionar"
+    },
+    "table": {
+      "device": "Dispositivo",
+      "os": "SO",
+      "agent": "Agente",
+      "metrics": "Métricas",
+      "status": "Estado"
+    },
+    "pagination": {
+      "page": "Página {{page}} / {{total}}",
+      "total": "dispositivos"
+    },
+    "batch": {
+      "actions": "Acciones",
+      "selected": "{{count}} seleccionados",
+      "selectAllGroup": "Seleccionar los {{count}} dispositivos del grupo",
+      "allGroupSelected": "{{count}} dispositivos del grupo seleccionados",
+      "approve": "Aprobar",
+      "restartAgent": "Reiniciar agente",
+      "reboot": "Reiniciar",
+      "shutdown": "Apagar",
+      "scanInventory": "Escanear inventario",
+      "delete": "Eliminar",
+      "approved": "{{count}} dispositivos aprobados",
+      "deleted": "{{count}} dispositivos eliminados",
+      "dispatched": "{{count}} comandos enviados",
+      "confirmDelete": "¿Eliminar dispositivos seleccionados? Irreversible."
+    }
   },
   "compliance": {
     "title": "Cumplimiento",
@@ -943,5 +986,9 @@
     "renameFailed": "Error al renombrar",
     "deleted": "Eliminado con éxito",
     "deleteFailed": "Error al eliminar"
+  },
+  "apiKeys": {
+    "defaultGroup": "Grupo predeterminado",
+    "noGroup": "Sin grupo predeterminado"
   }
 }

@@ -77,7 +77,7 @@
     "groups": "Skupiny",
     "notifications": "Oznámení",
     "users": "Uživatelé",
-    "agents": "Agenti",
+    "agents": "Agents",
     "remediations": "Nápravné akce",
     "maintenance": "Údržba",
     "importExport": "Import / Export",
@@ -375,7 +375,7 @@
     "confirmDelete": "Smazat {{hostname}}?",
     "confirmRefuse": "Zamítnout {{hostname}}?",
     "confirmSuspend": "Pozastavit {{hostname}}?",
-    "noDevices": "Nenalezena žádná zařízení.",
+    "noDevices": "No devices found",
     "statusOnline": "Online",
     "statusOffline": "Offline",
     "statusSuspended": "Pozastaveno",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Zařízení zamítnuto",
     "suspendSuccess": "Zařízení pozastaveno",
     "unsuspendSuccess": "Zařízení obnoveno",
-    "deleteSuccess": "Zařízení smazáno"
+    "deleteSuccess": "Zařízení smazáno",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Přejmenování selhalo",
     "deleted": "Smazáno",
     "deleteFailed": "Smazání selhalo"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

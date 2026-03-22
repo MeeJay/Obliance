@@ -125,10 +125,17 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
           timestamp: Date.now(),
         },
       };
-      // Find the device for this chat — stored in socket data when chat:open was called
-      // For simplicity, broadcast to all oblireachHub connections
-      // (the agent-side chat.go only processes messages matching its active chatID)
       oblireachHub.broadcastCommand(cmd);
+      // Persist to DB
+      try {
+        await db('chat_messages').insert({
+          chat_id: payload.chatId,
+          tenant_id: tenantId,
+          sender: payload.operatorName || user.displayName || user.username || 'Operator',
+          message: payload.message,
+          is_operator: true,
+        });
+      } catch {}
     });
 
     socket.on('chat:close', (payload: { chatId: string }) => {

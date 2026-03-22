@@ -77,7 +77,7 @@
     "groups": "Grupper",
     "notifications": "Aviseringar",
     "users": "Användare",
-    "agents": "Agenter",
+    "agents": "Agents",
     "remediations": "Åtgärder",
     "maintenance": "Underhåll",
     "importExport": "Import / Export",
@@ -375,7 +375,7 @@
     "confirmDelete": "Radera {{hostname}}?",
     "confirmRefuse": "Neka {{hostname}}?",
     "confirmSuspend": "Suspendera {{hostname}}?",
-    "noDevices": "Inga enheter hittades.",
+    "noDevices": "No devices found",
     "statusOnline": "Online",
     "statusOffline": "Offline",
     "statusSuspended": "Inaktiverad",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Enhet nekad",
     "suspendSuccess": "Enhet suspenderad",
     "unsuspendSuccess": "Enhet återaktiverad",
-    "deleteSuccess": "Enhet raderad"
+    "deleteSuccess": "Enhet raderad",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Namnbyte misslyckades",
     "deleted": "Raderat",
     "deleteFailed": "Radering misslyckades"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

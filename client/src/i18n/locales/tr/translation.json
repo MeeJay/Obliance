@@ -77,7 +77,7 @@
     "groups": "Gruplar",
     "notifications": "Bildirimler",
     "users": "Kullanıcılar",
-    "agents": "Ajanlar",
+    "agents": "Agents",
     "remediations": "Düzeltmeler",
     "maintenance": "Bakım",
     "importExport": "İçe / Dışa aktar",
@@ -375,7 +375,7 @@
     "confirmDelete": "{{hostname}} silinsin mi?",
     "confirmRefuse": "{{hostname}} reddedilsin mi?",
     "confirmSuspend": "{{hostname}} askıya alınsın mı?",
-    "noDevices": "Cihaz bulunamadı.",
+    "noDevices": "No devices found",
     "statusOnline": "Çevrimiçi",
     "statusOffline": "Çevrimdışı",
     "statusSuspended": "Askıya Alındı",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Cihaz reddedildi",
     "suspendSuccess": "Cihaz askıya alındı",
     "unsuspendSuccess": "Cihaz askıdan çıkarıldı",
-    "deleteSuccess": "Cihaz silindi"
+    "deleteSuccess": "Cihaz silindi",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Yeniden adlandırma başarısız",
     "deleted": "Silindi",
     "deleteFailed": "Silme başarısız"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

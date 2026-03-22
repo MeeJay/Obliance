@@ -77,7 +77,7 @@
     "groups": "分组",
     "notifications": "通知",
     "users": "用户",
-    "agents": "代理",
+    "agents": "Agents",
     "remediations": "修复",
     "maintenance": "维护",
     "importExport": "导入 / 导出",
@@ -375,7 +375,7 @@
     "confirmDelete": "删除 {{hostname}}？",
     "confirmRefuse": "拒绝 {{hostname}}？",
     "confirmSuspend": "暂停 {{hostname}}？",
-    "noDevices": "未找到设备。",
+    "noDevices": "No devices found",
     "statusOnline": "在线",
     "statusOffline": "离线",
     "statusSuspended": "已暂停",
@@ -423,7 +423,47 @@
     "refuseSuccess": "设备已拒绝",
     "suspendSuccess": "设备已暂停",
     "unsuspendSuccess": "设备已恢复",
-    "deleteSuccess": "设备已删除"
+    "deleteSuccess": "设备已删除",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "重命名失败",
     "deleted": "删除成功",
     "deleteFailed": "删除失败"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

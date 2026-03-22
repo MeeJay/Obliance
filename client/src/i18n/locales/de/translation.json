@@ -375,7 +375,7 @@
     "confirmDelete": "{{hostname}} löschen?",
     "confirmRefuse": "{{hostname}} ablehnen?",
     "confirmSuspend": "{{hostname}} sperren?",
-    "noDevices": "Keine Geräte gefunden.",
+    "noDevices": "Keine Geräte gefunden",
     "statusOnline": "Online",
     "statusOffline": "Offline",
     "statusSuspended": "Gesperrt",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Gerät abgelehnt",
     "suspendSuccess": "Gerät gesperrt",
     "unsuspendSuccess": "Gerät entsperrt",
-    "deleteSuccess": "Gerät gelöscht"
+    "deleteSuccess": "Gerät gelöscht",
+    "filters": {
+      "all": "Alle",
+      "approved": "Genehmigt",
+      "pending": "Ausstehend",
+      "refused": "Abgelehnt",
+      "suspended": "Gesperrt",
+      "search": "Geräte suchen...",
+      "allStatus": "Alle Status",
+      "allOs": "Alle OS",
+      "allGroups": "Alle Gruppen",
+      "reset": "Zurücksetzen",
+      "select": "Auswählen"
+    },
+    "table": {
+      "device": "Gerät",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metriken",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Seite {{page}} / {{total}}",
+      "total": "Geräte"
+    },
+    "batch": {
+      "actions": "Aktionen",
+      "selected": "{{count}} ausgewählt",
+      "selectAllGroup": "Alle {{count}} Geräte der Gruppe auswählen",
+      "allGroupSelected": "Alle {{count}} Geräte der Gruppe ausgewählt",
+      "approve": "Genehmigen",
+      "restartAgent": "Agent neustarten",
+      "reboot": "Neustarten",
+      "shutdown": "Herunterfahren",
+      "scanInventory": "Inventar scannen",
+      "delete": "Löschen",
+      "approved": "{{count}} Geräte genehmigt",
+      "deleted": "{{count}} Geräte gelöscht",
+      "dispatched": "{{count}} Befehle gesendet",
+      "confirmDelete": "Ausgewählte Geräte löschen? Nicht rückgängig."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Umbenennen fehlgeschlagen",
     "deleted": "Erfolgreich gelöscht",
     "deleteFailed": "Löschen fehlgeschlagen"
+  },
+  "agents": {
+    "title": "Agenten",
+    "subtitle": "Agenten und API-Schlüssel verwalten",
+    "tabAgents": "Agenten",
+    "tabKeys": "API-Schlüssel"
+  },
+  "apiKeys": {
+    "defaultGroup": "Standardgruppe",
+    "noGroup": "Keine Standardgruppe"
   }
 }

@@ -717,7 +717,10 @@
     "keepCurrent": "— Conserver l'actuel —",
     "noChange": "— Aucun changement —",
     "approveAll": "Tout approuver",
-    "suspendAll": "Tout suspendre"
+    "suspendAll": "Tout suspendre",
+    "title": "Agents",
+    "subtitle": "Gérer les agents et clés API",
+    "tabAgents": "Agents"
   },
   "remediations": {
     "title": "Remédiations",
@@ -897,7 +900,7 @@
     "confirmDelete": "Supprimer {{hostname}} ?",
     "confirmRefuse": "Refuser {{hostname}} ?",
     "confirmSuspend": "Suspendre {{hostname}} ?",
-    "noDevices": "Aucun appareil trouvé.",
+    "noDevices": "Aucun appareil trouvé",
     "statusOnline": "En ligne",
     "statusOffline": "Hors ligne",
     "statusSuspended": "Suspendu",
@@ -945,7 +948,47 @@
     "refuseSuccess": "Appareil refusé",
     "suspendSuccess": "Appareil suspendu",
     "unsuspendSuccess": "Appareil réactivé",
-    "deleteSuccess": "Appareil supprimé"
+    "deleteSuccess": "Appareil supprimé",
+    "filters": {
+      "all": "Tous",
+      "approved": "Approuvés",
+      "pending": "En attente",
+      "refused": "Refusés",
+      "suspended": "Suspendus",
+      "search": "Rechercher des appareils...",
+      "allStatus": "Tous les statuts",
+      "allOs": "Tous les OS",
+      "allGroups": "Tous les groupes",
+      "reset": "Réinitialiser",
+      "select": "Sélectionner"
+    },
+    "table": {
+      "device": "Appareil",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Métriques",
+      "status": "Statut"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "appareils"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} sélectionnés",
+      "selectAllGroup": "Sélectionner les {{count}} appareils du groupe",
+      "allGroupSelected": "{{count}} appareils du groupe sélectionnés",
+      "approve": "Approuver",
+      "restartAgent": "Redémarrer l'agent",
+      "reboot": "Redémarrer",
+      "shutdown": "Éteindre",
+      "scanInventory": "Scanner l'inventaire",
+      "delete": "Supprimer",
+      "approved": "{{count}} appareils approuvés",
+      "deleted": "{{count}} appareils supprimés",
+      "dispatched": "{{count}} commandes envoyées",
+      "confirmDelete": "Supprimer les appareils sélectionnés ? Action irréversible."
+    }
   },
   "compliance": {
     "title": "Conformité",
@@ -1266,5 +1309,9 @@
     "renameFailed": "Échec du renommage",
     "deleted": "Supprimé avec succès",
     "deleteFailed": "Échec de la suppression"
+  },
+  "apiKeys": {
+    "defaultGroup": "Groupe par défaut",
+    "noGroup": "Aucun groupe par défaut"
   }
 }

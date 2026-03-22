@@ -77,7 +77,7 @@
     "groups": "Групи",
     "notifications": "Сповіщення",
     "users": "Користувачі",
-    "agents": "Агенти",
+    "agents": "Agents",
     "remediations": "Виправлення",
     "maintenance": "Технічне обслуговування",
     "importExport": "Імпорт / Експорт",
@@ -375,7 +375,7 @@
     "confirmDelete": "Видалити {{hostname}}?",
     "confirmRefuse": "Відхилити {{hostname}}?",
     "confirmSuspend": "Призупинити {{hostname}}?",
-    "noDevices": "Пристроїв не знайдено.",
+    "noDevices": "No devices found",
     "statusOnline": "В мережі",
     "statusOffline": "Поза мережею",
     "statusSuspended": "Призупинено",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Пристрій відхилено",
     "suspendSuccess": "Пристрій призупинено",
     "unsuspendSuccess": "Пристрій відновлено",
-    "deleteSuccess": "Пристрій видалено"
+    "deleteSuccess": "Пристрій видалено",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Не вдалося перейменувати",
     "deleted": "Видалено",
     "deleteFailed": "Не вдалося видалити"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

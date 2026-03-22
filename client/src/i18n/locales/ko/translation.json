@@ -77,7 +77,7 @@
     "groups": "그룹",
     "notifications": "알림",
     "users": "사용자",
-    "agents": "에이전트",
+    "agents": "Agents",
     "remediations": "수정",
     "maintenance": "유지보수",
     "importExport": "가져오기 / 내보내기",
@@ -375,7 +375,7 @@
     "confirmDelete": "{{hostname}}를 삭제하시겠습니까?",
     "confirmRefuse": "{{hostname}}를 거부하시겠습니까?",
     "confirmSuspend": "{{hostname}}를 일시 중단하시겠습니까?",
-    "noDevices": "장치를 찾을 수 없습니다.",
+    "noDevices": "No devices found",
     "statusOnline": "온라인",
     "statusOffline": "오프라인",
     "statusSuspended": "정지됨",
@@ -423,7 +423,47 @@
     "refuseSuccess": "기기가 거부되었습니다",
     "suspendSuccess": "기기가 일시 중단되었습니다",
     "unsuspendSuccess": "기기가 재개되었습니다",
-    "deleteSuccess": "기기가 삭제되었습니다"
+    "deleteSuccess": "기기가 삭제되었습니다",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "이름 변경 실패",
     "deleted": "삭제 완료",
     "deleteFailed": "삭제 실패"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

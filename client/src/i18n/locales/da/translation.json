@@ -77,7 +77,7 @@
     "groups": "Grupper",
     "notifications": "Notifikationer",
     "users": "Brugere",
-    "agents": "Agenter",
+    "agents": "Agents",
     "remediations": "Afhjælpninger",
     "maintenance": "Vedligeholdelse",
     "importExport": "Import / Eksport",
@@ -375,7 +375,7 @@
     "confirmDelete": "Slet {{hostname}}?",
     "confirmRefuse": "Afvis {{hostname}}?",
     "confirmSuspend": "Suspender {{hostname}}?",
-    "noDevices": "Ingen enheder fundet.",
+    "noDevices": "No devices found",
     "statusOnline": "Online",
     "statusOffline": "Offline",
     "statusSuspended": "Suspenderet",
@@ -423,7 +423,47 @@
     "refuseSuccess": "Enhed afvist",
     "suspendSuccess": "Enhed suspenderet",
     "unsuspendSuccess": "Enhed genaktiveret",
-    "deleteSuccess": "Enhed slettet"
+    "deleteSuccess": "Enhed slettet",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "Omdøbning mislykkedes",
     "deleted": "Slettet",
     "deleteFailed": "Sletning mislykkedes"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

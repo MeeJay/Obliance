@@ -56,6 +56,15 @@ export function ChatPanel({
   const [remoteRequested, setRemoteRequested] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const quickReplies = [
+    'Hello! How can I help you today?',
+    'I need to take remote control to check your settings. Is that okay?',
+    'Could you please describe the issue you are experiencing?',
+    'I have resolved the issue. Is there anything else I can help with?',
+    'Thank you for contacting support. Have a great day!',
+  ];
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -277,8 +286,24 @@ export function ChatPanel({
           <div className="text-xs text-center text-yellow-400 py-1">Waiting for user response...</div>
         )}
 
+        {/* Quick replies */}
+        {showTemplates && (
+          <div className="mb-1 space-y-1 max-h-32 overflow-y-auto">
+            {quickReplies.map((t, i) => (
+              <button key={i} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
+                className="w-full text-left px-2 py-1 text-xs bg-bg-tertiary text-text-muted rounded hover:bg-accent/10 hover:text-text-primary truncate transition-colors">
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Input */}
         <div className="flex gap-2">
+          <button onClick={() => setShowTemplates(v => !v)} title="Quick replies"
+            className="px-2 py-1.5 bg-bg-tertiary border border-border rounded text-text-muted hover:text-text-primary transition-colors text-xs">
+            /
+          </button>
           <input
             ref={inputRef}
             value={input}

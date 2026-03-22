@@ -101,13 +101,24 @@ class ObliReachHubService {
         if (msg.type === 'heartbeat') {
           await this._handleHeartbeat(conn, msg);
         } else if (msg.type === 'chat_message' && msg.chatId) {
-          // User sent a chat message → forward to browser via Socket.io
+          const chatSender = msg.payload?.from || 'User';
+          const chatText = msg.payload?.text || '';
           try {
             getIO().to(`chat:${msg.chatId}`).emit('chat:message', {
               chatId: msg.chatId,
-              sender: msg.payload?.from || 'User',
-              message: msg.payload?.text || '',
+              sender: chatSender,
+              message: chatText,
               timestamp: msg.payload?.timestamp || Date.now(),
+            });
+          } catch {}
+          // Persist to DB
+          try {
+            await db('chat_messages').insert({
+              chat_id: msg.chatId,
+              tenant_id: conn.tenantId,
+              sender: chatSender,
+              message: chatText,
+              is_operator: false,
             });
           } catch {}
         } else if (msg.type === 'chat_event' && msg.chatId) {

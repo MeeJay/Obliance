@@ -77,7 +77,7 @@
     "groups": "グループ",
     "notifications": "通知",
     "users": "ユーザー",
-    "agents": "エージェント",
+    "agents": "Agents",
     "remediations": "修復",
     "maintenance": "メンテナンス",
     "importExport": "インポート / エクスポート",
@@ -375,7 +375,7 @@
     "confirmDelete": "{{hostname}}を削除しますか？",
     "confirmRefuse": "{{hostname}}を拒否しますか？",
     "confirmSuspend": "{{hostname}}を一時停止しますか？",
-    "noDevices": "デバイスが見つかりません。",
+    "noDevices": "No devices found",
     "statusOnline": "オンライン",
     "statusOffline": "オフライン",
     "statusSuspended": "停止中",
@@ -423,7 +423,47 @@
     "refuseSuccess": "デバイスを拒否しました",
     "suspendSuccess": "デバイスを一時停止しました",
     "unsuspendSuccess": "デバイスを再開しました",
-    "deleteSuccess": "デバイスを削除しました"
+    "deleteSuccess": "デバイスを削除しました",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "名前の変更に失敗しました",
     "deleted": "削除しました",
     "deleteFailed": "削除に失敗しました"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }

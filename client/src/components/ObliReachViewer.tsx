@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Download } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
@@ -116,6 +116,9 @@ export function ObliReachViewer({
   const [monitors, setMonitors] = useState<Array<{index:number;name:string;x:number;y:number;width:number;height:number}>>([]);
   const [activeMonitor, setActiveMonitor] = useState(0);
   const [inputBlocked, setInputBlocked] = useState(false);
+  const [isRecording, setIsRecording]   = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunks   = useRef<Blob[]>([]);
   const codecLabel: Record<string,string> = { h264: 'H.264', h265: 'H.265', vp9: 'VP9', av1: 'AV1', jpeg: 'JPEG' };
   const codec = codecLabel[codecId] || codecId.toUpperCase();
   const nativeTop = useNativeTopOffset();
@@ -366,6 +369,19 @@ export function ObliReachViewer({
       case 'input_block_status':
         setInputBlocked((msg as any).blocked ?? false);
         break;
+      case 'clipboard_content':
+        // Remote clipboard → local clipboard
+        if ((msg as any).text) {
+          navigator.clipboard.writeText((msg as any).text).catch(() => {});
+        }
+        break;
+      case 'inactivity_warning':
+        setErrorMsg(`Session will disconnect in ${(msg as any).seconds || 30}s due to inactivity`);
+        break;
+      case 'inactivity_timeout':
+        setStatus('disconnected');
+        setErrorMsg('Session disconnected due to inactivity');
+        break;
       case 'codec_switch': {
         const c = (msg as any).codec;
         setCodecId(c);
@@ -476,6 +492,16 @@ export function ObliReachViewer({
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     e.preventDefault();
+    // Intercept Ctrl+V to sync clipboard to remote
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') {
+      navigator.clipboard.readText().then(text => {
+        if (text) sendJson({ type: 'clipboard_set', text });
+      }).catch(() => {});
+    }
+    // Intercept Ctrl+C to request clipboard from remote
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') {
+      sendJson({ type: 'clipboard_get' });
+    }
     sendJson({ type: 'key', action: 'down', code: e.code, key: e.key,
       ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey });
   }, [sendJson]);
@@ -508,6 +534,10 @@ export function ObliReachViewer({
   }, [isFullscreen]);
 
   const handleClose = useCallback(() => {
+    // Stop recording if active
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
     wsRef.current?.close();
     onClose();
   }, [onClose]);
@@ -524,6 +554,53 @@ export function ObliReachViewer({
   const handleInputBlock = useCallback(() => {
     sendJson({ type: 'set_input_block', block: !inputBlocked });
   }, [sendJson, inputBlocked]);
+
+  const handleScreenshot = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `oblireach-screenshot-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }, []);
+
+  const handleToggleRecording = useCallback(() => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      // Start recording
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      try {
+        const stream = canvas.captureStream(15);
+        const mr = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 5_000_000 });
+        recordedChunks.current = [];
+        mr.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.current.push(e.data); };
+        mr.onstop = () => {
+          const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `oblireach-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+          recordedChunks.current = [];
+        };
+        mr.start(1000); // collect data every second
+        mediaRecorderRef.current = mr;
+        setIsRecording(true);
+      } catch (e) {
+        console.error('Recording failed:', e);
+      }
+    }
+  }, [isRecording]);
 
   // ── Status config ─────────────────────────────────────────────────────────
   const statusCfg: Record<ConnStatus, { label: string; color: string; spin?: boolean }> = {
@@ -654,6 +731,31 @@ export function ObliReachViewer({
             >
               <MessageCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Chat</span>
+            </button>
+          )}
+
+          {/* ── Screenshot ── */}
+          {status === 'streaming' && (
+            <button onClick={handleScreenshot} title="Take screenshot"
+              className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors">
+              <Camera className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* ── Record toggle ── */}
+          {status === 'streaming' && (
+            <button
+              onClick={handleToggleRecording}
+              title={isRecording ? 'Stop recording' : 'Record session'}
+              className={clsx(
+                'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors',
+                isRecording
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse'
+                  : 'bg-bg-secondary text-text-muted border-border hover:text-text-primary hover:bg-bg-tertiary'
+              )}
+            >
+              <Circle className={clsx('w-3.5 h-3.5', isRecording && 'fill-red-400')} />
+              <span className="hidden sm:inline">{isRecording ? 'Stop' : 'Record'}</span>
             </button>
           )}
 

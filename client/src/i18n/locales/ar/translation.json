@@ -77,7 +77,7 @@
     "groups": "المجموعات",
     "notifications": "الإشعارات",
     "users": "المستخدمون",
-    "agents": "الوكلاء",
+    "agents": "Agents",
     "remediations": "المعالجة",
     "maintenance": "الصيانة",
     "importExport": "استيراد / تصدير",
@@ -375,7 +375,7 @@
     "confirmDelete": "حذف {{hostname}}؟",
     "confirmRefuse": "رفض {{hostname}}؟",
     "confirmSuspend": "تعليق {{hostname}}؟",
-    "noDevices": "لم يتم العثور على أجهزة.",
+    "noDevices": "No devices found",
     "statusOnline": "متصل",
     "statusOffline": "غير متصل",
     "statusSuspended": "موقوف",
@@ -423,7 +423,47 @@
     "refuseSuccess": "تم رفض الجهاز",
     "suspendSuccess": "تم تعليق الجهاز",
     "unsuspendSuccess": "تم استئناف الجهاز",
-    "deleteSuccess": "تم حذف الجهاز"
+    "deleteSuccess": "تم حذف الجهاز",
+    "filters": {
+      "all": "All",
+      "approved": "Approved",
+      "pending": "Pending",
+      "refused": "Refused",
+      "suspended": "Suspended",
+      "search": "Search devices...",
+      "allStatus": "All statuses",
+      "allOs": "All OS",
+      "allGroups": "All groups",
+      "reset": "Reset",
+      "select": "Select"
+    },
+    "table": {
+      "device": "Device",
+      "os": "OS",
+      "agent": "Agent",
+      "metrics": "Metrics",
+      "status": "Status"
+    },
+    "pagination": {
+      "page": "Page {{page}} / {{total}}",
+      "total": "devices"
+    },
+    "batch": {
+      "actions": "Actions",
+      "selected": "{{count}} selected",
+      "selectAllGroup": "Select all {{count}} devices in group",
+      "allGroupSelected": "All {{count}} devices in group selected",
+      "approve": "Approve",
+      "restartAgent": "Restart Agent",
+      "reboot": "Reboot",
+      "shutdown": "Shutdown",
+      "scanInventory": "Scan Inventory",
+      "delete": "Delete",
+      "approved": "{{count}} devices approved",
+      "deleted": "{{count}} devices deleted",
+      "dispatched": "{{count}} commands dispatched",
+      "confirmDelete": "Delete selected devices? This cannot be undone."
+    }
   },
   "settings": {
     "agent": {
@@ -756,5 +796,15 @@
     "renameFailed": "فشلت إعادة التسمية",
     "deleted": "تم الحذف",
     "deleteFailed": "فشل الحذف"
+  },
+  "agents": {
+    "title": "Agents",
+    "subtitle": "Manage agents and API keys",
+    "tabAgents": "Agents",
+    "tabKeys": "API Keys"
+  },
+  "apiKeys": {
+    "defaultGroup": "Default group",
+    "noGroup": "No default group"
   }
 }
