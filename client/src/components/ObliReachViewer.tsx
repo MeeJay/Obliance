@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
@@ -107,6 +107,9 @@ export function ObliReachViewer({
   const [codecId, setCodecId]     = useState('h264'); // technical id: h264, h265, vp9, jpeg
   const [bitrate, setBitrate]     = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [monitors, setMonitors] = useState<Array<{index:number;name:string;x:number;y:number;width:number;height:number}>>([]);
+  const [activeMonitor, setActiveMonitor] = useState(0);
+  const [inputBlocked, setInputBlocked] = useState(false);
   const codecLabel: Record<string,string> = { h264: 'H.264', h265: 'H.265', vp9: 'VP9', av1: 'AV1', jpeg: 'JPEG' };
   const codec = codecLabel[codecId] || codecId.toUpperCase();
   const nativeTop = useNativeTopOffset();
@@ -354,6 +357,9 @@ export function ObliReachViewer({
       case 'bitrate':
         setBitrate((msg as any).bitrate || 0);
         break;
+      case 'input_block_status':
+        setInputBlocked((msg as any).blocked ?? false);
+        break;
       case 'codec_switch': {
         const c = (msg as any).codec;
         setCodecId(c);
@@ -389,6 +395,7 @@ export function ObliReachViewer({
       case 'init': {
         const m = msg as InitMsg;
         setCodecId('h264');
+        if ((msg as any).monitors) setMonitors((msg as any).monitors);
         if (m.codec === 'h264') {
           onInit(m.width, m.height, m.extradata);
           // If the user has a preferred codec, request a switch after init
@@ -463,13 +470,13 @@ export function ObliReachViewer({
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     e.preventDefault();
-    sendJson({ type: 'key', action: 'down', code: e.code,
+    sendJson({ type: 'key', action: 'down', code: e.code, key: e.key,
       ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey });
   }, [sendJson]);
 
   const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
     e.preventDefault();
-    sendJson({ type: 'key', action: 'up', code: e.code,
+    sendJson({ type: 'key', action: 'up', code: e.code, key: e.key,
       ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey });
   }, [sendJson]);
 
@@ -502,6 +509,15 @@ export function ObliReachViewer({
   const handleCodecSwitch = useCallback((newCodec: string) => {
     sendJson({ type: 'set_codec', codec: newCodec });
   }, [sendJson]);
+
+  const handleMonitorSwitch = useCallback((idx: number) => {
+    setActiveMonitor(idx);
+    sendJson({ type: 'set_monitor', index: idx });
+  }, [sendJson]);
+
+  const handleInputBlock = useCallback(() => {
+    sendJson({ type: 'set_input_block', block: !inputBlocked });
+  }, [sendJson, inputBlocked]);
 
   // ── Status config ─────────────────────────────────────────────────────────
   const statusCfg: Record<ConnStatus, { label: string; color: string; spin?: boolean }> = {
@@ -547,6 +563,45 @@ export function ObliReachViewer({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {/* ── Monitor selector ── */}
+          {status === 'streaming' && monitors.length > 1 && (() => {
+            const minX = Math.min(...monitors.map(m => m.x));
+            const minY = Math.min(...monitors.map(m => m.y));
+            const maxX = Math.max(...monitors.map(m => m.x + m.width));
+            const maxY = Math.max(...monitors.map(m => m.y + m.height));
+            const totalW = maxX - minX || 1;
+            const totalH = maxY - minY || 1;
+            const boxW = 100;
+            const boxH = Math.round(boxW * totalH / totalW);
+            return (
+              <div className="relative border border-border rounded bg-bg-tertiary" style={{ width: boxW, height: Math.max(boxH, 20) }} title="Select monitor">
+                {monitors.map(m => {
+                  const l = ((m.x - minX) / totalW) * 100;
+                  const t = ((m.y - minY) / totalH) * 100;
+                  const w = (m.width / totalW) * 100;
+                  const h = (m.height / totalH) * 100;
+                  return (
+                    <div
+                      key={m.index}
+                      onClick={() => handleMonitorSwitch(m.index)}
+                      className={clsx(
+                        'absolute border cursor-pointer flex items-center justify-center text-[8px] font-bold transition-colors',
+                        m.index === activeMonitor
+                          ? 'bg-accent/30 border-accent text-accent'
+                          : 'bg-bg-secondary/60 border-border/60 text-text-muted hover:bg-accent/10'
+                      )}
+                      style={{ left: `${l}%`, top: `${t}%`, width: `${w}%`, height: `${h}%` }}
+                      title={`${m.name} (${m.width}×${m.height})`}
+                    >
+                      {m.index + 1}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* ── Codec selector ── */}
           {status === 'streaming' && (
             <select
               value={codecId}
@@ -560,6 +615,23 @@ export function ObliReachViewer({
               <option value="av1">AV1</option>
               <option value="jpeg">JPEG</option>
             </select>
+          )}
+
+          {/* ── Input block toggle ── */}
+          {status === 'streaming' && (
+            <button
+              onClick={handleInputBlock}
+              title={inputBlocked ? 'Unblock remote user input' : 'Block remote user input'}
+              className={clsx(
+                'flex items-center gap-1.5 px-2 py-1 text-xs border rounded transition-colors',
+                inputBlocked
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 hover:bg-orange-500/30'
+                  : 'bg-bg-secondary text-text-muted border-border hover:text-text-primary hover:bg-bg-tertiary'
+              )}
+            >
+              {inputBlocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{inputBlocked ? 'Blocked' : 'Block'}</span>
+            </button>
           )}
 
           <button

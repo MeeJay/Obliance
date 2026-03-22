@@ -6,6 +6,8 @@ import { logger } from './utils/logger';
 import { SocketEvents } from '@obliance/shared';
 import { processService } from './services/process.service';
 import { fileExplorerService } from './services/fileExplorer.service';
+import { oblireachHub } from './services/oblireachHub.service';
+import crypto from 'crypto';
 
 let io: SocketIOServer;
 
@@ -81,6 +83,76 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
         audit,
         payload.requestId,
       );
+    });
+
+    // ── Chat ───────────────────────────────────────────────────────────────
+    socket.on('chat:open', async (payload: { deviceUuid: string; sessionId?: number; operatorName: string }, ack?: (res: any) => void) => {
+      if (!payload?.deviceUuid || !tenantId) return;
+      const chatId = crypto.randomBytes(8).toString('hex');
+      const device = await db('devices').where({ uuid: payload.deviceUuid }).first().catch(() => null);
+      if (!device) { ack?.({ error: 'device not found' }); return; }
+
+      const cmd = {
+        type: 'open_chat',
+        id: `chat_${chatId}`,
+        payload: {
+          chatId,
+          operatorName: payload.operatorName || user.displayName || user.username || 'Operator',
+          sessionId: payload.sessionId,
+        },
+      };
+      const delivered = oblireachHub.push(device.uuid, cmd);
+      if (!delivered) { ack?.({ error: 'agent offline' }); return; }
+
+      socket.join(`chat:${chatId}`);
+      ack?.({ chatId });
+      logger.info({ chatId, deviceUuid: payload.deviceUuid }, 'Chat session opened');
+    });
+
+    socket.on('chat:message', (payload: { chatId: string; message: string; operatorName?: string }) => {
+      if (!payload?.chatId || !payload?.message) return;
+      // Find device UUID for this chat — we need to route to the agent
+      // The chatId is unique; the agent knows it. Push via all connected agents.
+      // In practice, the chat was opened on a specific device, so we broadcast
+      // the command to all agents (only the one with the matching chatId will handle it).
+      const cmd = {
+        type: 'chat_message',
+        id: `cmsg_${Date.now()}`,
+        payload: {
+          chatId: payload.chatId,
+          message: payload.message,
+          operatorName: payload.operatorName || user.displayName || user.username || 'Operator',
+          timestamp: Date.now(),
+        },
+      };
+      // Find the device for this chat — stored in socket data when chat:open was called
+      // For simplicity, broadcast to all oblireachHub connections
+      // (the agent-side chat.go only processes messages matching its active chatID)
+      oblireachHub.broadcastCommand(cmd);
+    });
+
+    socket.on('chat:close', (payload: { chatId: string }) => {
+      if (!payload?.chatId) return;
+      oblireachHub.broadcastCommand({
+        type: 'close_chat',
+        id: `cclose_${Date.now()}`,
+        payload: { chatId: payload.chatId },
+      });
+    });
+
+    socket.on('chat:request_remote', (payload: { chatId: string; message?: string }) => {
+      if (!payload?.chatId) return;
+      oblireachHub.broadcastCommand({
+        type: 'request_remote',
+        id: `creq_${Date.now()}`,
+        payload: { chatId: payload.chatId, message: payload.message || '' },
+      });
+    });
+
+    socket.on('join', (room: string) => {
+      if (typeof room === 'string' && room.startsWith('chat:')) {
+        socket.join(room);
+      }
     });
 
     socket.on('disconnect', () => {

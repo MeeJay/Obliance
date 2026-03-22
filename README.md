@@ -1,26 +1,33 @@
 # Obliance
 
-Self-hosted Remote Monitoring & Management platform. Monitor endpoints, collect real-time system metrics, run scripts, manage updates, and automate remediation — across multi-tenant workspaces with full RBAC, in one command.
+Self-hosted Remote Monitoring & Management platform. Monitor endpoints, collect real-time system metrics, run scripts, manage updates, browse remote filesystems, take remote control, and automate remediation — across multi-tenant workspaces with full RBAC, in one command.
 
 ---
 
 ## Features at a Glance
 
-- **Endpoint agent** - Windows/Linux/macOS, CPU, memory, disk, network, temperature, GPU metrics
-- **13 service check types** - HTTP, Ping, TCP, DNS, SSL, SMTP, Docker, Game Server, Push, Script, JSON API, Browser, Value Watcher
-- **Script library** - run scripts on demand or on schedule across devices
-- **Remote sessions** - SSH-based remote access from the UI
-- **Update management** - track and push updates across the fleet
-- **Automated remediation** - 5 action types triggered on state changes
-- **10 notification channels** - Telegram, Discord, Slack, Teams, SMTP, Webhook, Gotify, Ntfy, Pushover, Free Mobile
-- **Multi-tenant workspaces** - isolated tenants with per-workspace roles
-- **Teams & RBAC** - read-only / read-write per group or device
-- **Maintenance windows** - one-time or recurring, scope-based, suppresses alerts
-- **2FA** - TOTP authenticator apps + Email OTP
-- **Import / Export** - full config backup as JSON with conflict resolution
+- **Endpoint agent** — Windows/Linux/macOS, CPU, memory, disk, network, temperature, GPU metrics
+- **13 service check types** — HTTP, Ping, TCP, DNS, SSL, SMTP, Docker, Game Server, Push, Script, JSON API, Browser, Value Watcher
+- **Script library** — run scripts on demand or on schedule across devices
+- **Remote sessions** — SSH, CMD, PowerShell terminals from the browser (SYSTEM or user session)
+- **ObliReach** — real-time H.264 screen streaming (built-in, no VNC dependency)
+- **File Explorer** — browse, upload, download, rename, delete files on remote devices with full audit trail
+- **Process Manager** — real-time process list, CPU/memory per process, kill processes
+- **Service Manager** — start, stop, restart Windows/Linux services
+- **Update management** — track and push OS updates across the fleet
+- **Compliance engine** — preset & custom compliance checks with severity levels and fleet scoring
+- **Automated remediation** — 5 action types triggered on state changes
+- **10 notification channels** — Telegram, Discord, Slack, Teams, SMTP, Webhook, Gotify, Ntfy, Pushover, Free Mobile
+- **Multi-tenant workspaces** — isolated tenants with per-workspace roles
+- **Teams & RBAC** — read-only / read-write per group or device
+- **Maintenance windows** — one-time or recurring, scope-based, suppresses alerts
+- **2FA** — TOTP authenticator apps + Email OTP
+- **Privacy mode** — per-device toggle that blocks remote access, file explorer, process listing, and script execution
+- **Import / Export** — full config backup as JSON with conflict resolution
 - **18 UI languages**
-- **Real-time** - Socket.io live updates and live alert toasts
-- **Desktop tray app** - Windows & macOS, multi-tenant tab bar, auto-update
+- **Real-time** — Socket.io live updates and live alert toasts
+- **Desktop tray app** — Windows & macOS, multi-tenant tab bar, auto-update
+- **Fleet dashboard** — agent version tracking, update status, compliance score at a glance
 
 ---
 
@@ -55,6 +62,60 @@ A lightweight Go binary deployed on managed endpoints. Pushes metrics to the ser
 - Suspend / resume without deletion
 - Bulk approve, suspend, or uninstall
 - Auto-delete 10 minutes after uninstall command
+- Agent version tracking — dashboard shows up-to-date vs outdated agents
+
+---
+
+## Remote Access
+
+### Shell Sessions (SSH / CMD / PowerShell)
+
+Open a full interactive terminal on any managed device directly from the browser.
+
+- **Windows**: CMD or PowerShell via ConPTY (Windows 10 Build 1809+)
+- **Linux / macOS**: bash or sh via PTY
+- **Session context**: launch as SYSTEM or in a specific logged-in user's session (WTS session picker)
+- **Resize**: terminal auto-resizes to match the browser window
+- WebSocket relay with 15-second keepalive (proxy-safe)
+
+### ObliReach — Remote Desktop
+
+Real-time screen streaming built into the agent — no VNC server required.
+
+- **5 codecs**: H.264 (OpenH264), H.265 (HEVC), VP9, AV1, JPEG fallback — per-user preference with automatic fallback
+- Hardware-accelerated encoding (Windows Media Foundation)
+- WebCodecs VideoDecoder in the browser (no plugin)
+- Session picker: choose which logged-in user's desktop to view
+- Full input relay: keyboard, mouse (move, click, scroll)
+- Block remote user input (lock keyboard/mouse on the remote side)
+- Adaptive quality based on network conditions
+
+### File Explorer
+
+Browse and manage files on remote devices from the browser.
+
+- Navigate directories with breadcrumb path (drives on Windows, / on Unix)
+- Upload files via drag & drop (up to 50 MB)
+- Download files with one click
+- Create folders, rename, delete with confirmation
+- **Audit trail**: all dangerous operations (create, rename, delete, upload) are logged
+- **WebSocket-based**: instant response, no command queue overhead
+- Disabled in Privacy Mode
+
+### Process Manager
+
+Real-time process monitoring via native Win32 APIs (no WMI overhead).
+
+- Process list with PID, name, CPU %, memory, user
+- CPU % calculated from `GetProcessTimes` deltas (Windows) or `/proc` (Linux)
+- Kill processes remotely
+- WebSocket subscription: live updates while the tab is open, auto-stops on tab switch
+
+### Service Manager
+
+- List all Windows services or systemd units
+- Start, stop, restart services remotely
+- Service status with startup type
 
 ---
 
@@ -77,6 +138,18 @@ Monitor external services and infrastructure alongside your managed endpoints.
 | **JSON API** | Fetch a JSON endpoint, extract a value via JSONPath, validate it |
 | **Browser** | Headless Playwright check — renders JS, waits for selectors, optional screenshot on failure |
 | **Value Watcher** | Numeric value monitoring with operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between`, `changed` |
+
+---
+
+## Compliance Engine
+
+Define compliance checks and monitor your fleet's adherence.
+
+- **Built-in presets**: Windows Baseline, Windows Performance, macOS Baseline, Linux Baseline
+- **Custom checks**: define your own rules per device or group
+- **Severity levels**: optional, low, moderate, high, critical
+- **Fleet compliance score** on the dashboard
+- Per-device compliance tab with pass/fail details
 
 ---
 
@@ -120,6 +193,18 @@ Automatically react to state changes with configurable actions.
 - Scope-based binding with merge / replace / exclude inheritance
 - AES-256-GCM encryption for SSH credentials
 - Full execution history: status, output, error, duration
+
+---
+
+## Privacy Mode
+
+Per-device privacy toggle that blocks all intrusive remote operations.
+
+- Blocks: remote sessions, file explorer, process listing, script execution
+- Can be enabled locally by the device user (tray app or CLI)
+- Admin can force-disable remotely
+- Privacy lock: make the config file read-only to prevent remote override
+- When enabled: stops ObliReach service and disables auto-start
 
 ---
 
@@ -183,6 +268,16 @@ Suppress alerts and exclude downtime from statistics during planned maintenance.
 
 ---
 
+## Audit Trail
+
+Track who did what across the platform.
+
+- **Command history**: every task (script, update, remote session) is logged with user, status, duration, and result
+- **File explorer audit**: create, rename, delete, upload operations are logged with user, path, and timestamp
+- **Tasks tab**: shows which user triggered each command with computed execution duration
+
+---
+
 ## Two-Factor Authentication
 
 - **TOTP** — any authenticator app (Google Authenticator, Authy, 1Password, etc.)
@@ -230,6 +325,20 @@ Real-time status-change notifications delivered via Socket.io without polling.
 
 ---
 
+## Dashboard
+
+- Live status updates via Socket.io — no manual refresh needed
+- Fleet overview: online/offline/warning/critical counts
+- Agent version tracking: up-to-date vs outdated agent count with latest version number
+- Pending OS updates count
+- Fleet compliance score
+- Per-item status: `UP`, `DOWN`, `ALERT`, `PAUSED`, `PENDING`, `MAINTENANCE`, `SSL_WARNING`, `SSL_EXPIRED`, `OFFLINE`
+- 24-hour uptime %, average/min/max response time
+- Group-level aggregated status (number of items down, in alert, pending, etc.)
+- Bulk operations: multi-select, pause/resume, delete, edit
+
+---
+
 ## Desktop App
 
 A lightweight system tray application (Go) for quick access without keeping a browser tab open.
@@ -261,17 +370,6 @@ A lightweight system tray application (Go) for quick access without keeping a br
 English · French · Spanish · German · Portuguese (BR) · Chinese (Simplified) · Japanese · Korean · Russian · Arabic · Italian · Dutch · Polish · Turkish · Swedish · Danish · Czech · Ukrainian
 
 Language is saved per user and applied immediately without page reload.
-
----
-
-## Dashboard
-
-- Live status updates via Socket.io — no manual refresh needed
-- Per-item status: `UP`, `DOWN`, `ALERT`, `PAUSED`, `PENDING`, `MAINTENANCE`, `SSL_WARNING`, `SSL_EXPIRED`, `OFFLINE`
-- 24-hour uptime %, average/min/max response time
-- Group-level aggregated status (number of items down, in alert, pending, etc.)
-- Bulk operations: multi-select, pause/resume, delete, edit
-- Configurable heartbeat retention
 
 ---
 

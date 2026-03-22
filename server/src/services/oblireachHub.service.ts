@@ -3,6 +3,7 @@ import path from 'path';
 import type { WebSocket } from 'ws';
 import { db } from '../db';
 import { logger } from '../utils/logger';
+import { getIO } from '../socket';
 
 // ── Version helpers ────────────────────────────────────────────────────────────
 // (Mirrored from oblireach-agent.routes.ts — kept in sync manually)
@@ -99,8 +100,30 @@ class ObliReachHubService {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'heartbeat') {
           await this._handleHeartbeat(conn, msg);
+        } else if (msg.type === 'chat_message' && msg.chatId) {
+          // User sent a chat message → forward to browser via Socket.io
+          try {
+            getIO().to(`chat:${msg.chatId}`).emit('chat:message', {
+              chatId: msg.chatId,
+              sender: msg.payload?.from || 'User',
+              message: msg.payload?.text || '',
+              timestamp: msg.payload?.timestamp || Date.now(),
+            });
+          } catch {}
+        } else if (msg.type === 'chat_event' && msg.chatId) {
+          // User event (closed, allow_remote, deny_remote)
+          const action = msg.payload?.action;
+          if (action === 'user_closed') {
+            try { getIO().to(`chat:${msg.chatId}`).emit('chat:closed', { chatId: msg.chatId }); } catch {}
+          } else if (action === 'allow_remote' || action === 'deny_remote') {
+            try {
+              getIO().to(`chat:${msg.chatId}`).emit('chat:remote_response', {
+                chatId: msg.chatId,
+                allowed: !!msg.payload?.allowed,
+              });
+            } catch {}
+          }
         }
-        // Other message types (future acks, etc.) are silently ignored for now.
       } catch { /* malformed JSON — discard */ }
     });
 
@@ -233,6 +256,20 @@ class ObliReachHubService {
 
   connectedCount(): number {
     return this.byDevice.size;
+  }
+
+  /**
+   * Broadcast a command to ALL connected agents.
+   * Used for chat messages where we don't track device→chatId mapping server-side.
+   * The agent ignores commands for chatIDs it doesn't own.
+   */
+  broadcastCommand(cmd: OrCommand): void {
+    const json = JSON.stringify(cmd);
+    for (const [, conn] of this.byDevice) {
+      if (conn.ws.readyState === 1) {
+        try { conn.ws.send(json); } catch {}
+      }
+    }
   }
 }
 

@@ -6,7 +6,7 @@ import {
   Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -20,6 +20,7 @@ import { complianceApi } from '@/api/compliance.api';
 import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
+import { ChatPanel } from '@/components/ChatPanel';
 import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -1418,6 +1419,9 @@ function RemoteTab({ device }: { device: Device }) {
   // connecting overlay before REMOTE_TUNNEL_READY arrives.
   const [sshModalOpen, setSshModalOpen] = useState(false);
   const [orModalOpen, setOrModalOpen]   = useState(false);
+  const [chatOpen, setChatOpen]         = useState(false);
+  const [chatMessages, setChatMessages] = useState<import('@/components/ChatPanel').ChatMessage[]>([]);
+  const [chatId, setChatId]             = useState<string | null>(null);
   // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
   const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
   const [orSession,  setOrSession]  = useState<RemoteSession | null>(null);
@@ -1667,6 +1671,21 @@ function RemoteTab({ device }: { device: Device }) {
             setOrSession(null);
           }}
         />
+      )}
+      {/* Chat panel — slides in from the right */}
+      {chatOpen && (
+        <div className="fixed right-0 top-0 bottom-0 z-40 shadow-2xl">
+          <ChatPanel
+            deviceUuid={device.uuid}
+            operatorName={useAuthStore.getState().user?.displayName || useAuthStore.getState().user?.username || 'Operator'}
+            onClose={() => { setChatOpen(false); setChatId(null); setChatMessages([]); }}
+            onRemoteAccessGranted={() => { handleStartObliReachSession(); }}
+            messages={chatMessages}
+            setMessages={setChatMessages}
+            chatId={chatId}
+            setChatId={setChatId}
+          />
+        </div>
       )}
       {/* WTS Session picker — shown on RDS when multiple sessions are available */}
       {orSessionPickerOpen && (
@@ -3179,6 +3198,15 @@ export function DeviceDetailPage() {
                           {label(opts[0])}
                         </button>
                       ) : (
+                        <button
+                          onClick={() => setChatOpen(!chatOpen)}
+                          disabled={device.status !== 'online'}
+                          title="Chat with user"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Chat
+                        </button>
                         <button
                           onClick={() => setRemoteDropdownOpen((o) => !o)}
                           disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
