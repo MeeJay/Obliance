@@ -127,6 +127,9 @@
       "sessionExpired": "Session expired. Please log in again."
     },
     "loginFailed": "Login failed",
+    "ssoUnavailable": "Centralized login (Obligate) is unavailable. Using local authentication as fallback.",
+    "ssoChecking": "Checking authentication...",
+    "ssoRedirecting": "Redirecting to login...",
     "clientVersion": "client v{{version}}",
     "serverVersion": "server v{{version}}"
   },
@@ -509,6 +512,10 @@
     "failedTenantAssign": "Failed to update workspace access"
   },
   "settings": {
+    "obligate": {
+      "description": "Connect this app to your Obligate SSO gateway for centralized authentication and cross-app navigation. Register this app in Obligate first, then paste the API key here.",
+      "warning": "When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback."
+    },
     "title": "Global Settings",
     "globalDesc": "These defaults apply to all groups and monitors unless overridden at a lower level.",
     "defaultSettings": "Default Settings",

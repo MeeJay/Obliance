@@ -24,13 +24,18 @@ export const enrollmentController = {
 
       const { displayName, email, preferredLanguage, toastEnabled, toastPosition, preferredTheme } = parsed.data;
 
-      // Check if email is already used by another user
-      const existing = await db('users')
-        .where({ email })
-        .whereNot({ id: req.session.userId })
-        .first();
-      if (existing) {
-        throw new AppError(409, 'This email address is already in use');
+      // Check if email is already used by another user.
+      // Skip for Obligate SSO users — their email comes from Obligate and may
+      // already exist on an older local account (before SSO migration).
+      const currentUser = await db('users').where({ id: req.session.userId }).select('foreign_source').first() as { foreign_source: string | null } | undefined;
+      if (currentUser?.foreign_source !== 'obligate') {
+        const existing = await db('users')
+          .where({ email })
+          .whereNot({ id: req.session.userId })
+          .first();
+        if (existing) {
+          throw new AppError(409, 'This email address is already in use');
+        }
       }
 
       const preferences = { toastEnabled, toastPosition, preferredTheme };

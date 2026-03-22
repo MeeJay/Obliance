@@ -13,7 +13,7 @@ import { ThemePicker } from '@/components/ThemePicker';
 import { applyTheme, type AppTheme } from '@/utils/theme';
 
 type Step = 'language' | 'profile' | 'alerts' | 'appearance' | 'password' | 'security';
-const STEPS: Step[] = ['language', 'profile', 'alerts', 'appearance', 'password', 'security'];
+const ALL_STEPS: Step[] = ['language', 'profile', 'alerts', 'appearance', 'password', 'security'];
 
 interface EnrollData {
   preferredLanguage: string;
@@ -33,7 +33,7 @@ const LANG_FLAGS: Record<string, string> = {
 };
 
 // ── Stepper ─────────────────────────────────────────────────────────────────
-function Stepper({ currentStep }: { currentStep: Step }) {
+function Stepper({ currentStep, steps }: { currentStep: Step; steps: Step[] }) {
   const { t } = useTranslation();
   const labels: Record<Step, string> = {
     language:   t('enrollment.stepLanguage'),
@@ -43,11 +43,11 @@ function Stepper({ currentStep }: { currentStep: Step }) {
     password:   t('enrollment.stepPassword'),
     security:   t('enrollment.stepSecurity'),
   };
-  const currentIdx = STEPS.indexOf(currentStep);
+  const currentIdx = steps.indexOf(currentStep);
 
   return (
     <div className="flex items-center justify-center gap-0 mb-8">
-      {STEPS.map((step, idx) => (
+      {steps.map((step, idx) => (
         <div key={step} className="flex items-center">
           <div className="flex flex-col items-center gap-1">
             <div
@@ -65,7 +65,7 @@ function Stepper({ currentStep }: { currentStep: Step }) {
               {labels[step]}
             </span>
           </div>
-          {idx < STEPS.length - 1 && (
+          {idx < steps.length - 1 && (
             <div className={`w-10 sm:w-16 h-0.5 mx-1 mb-5 transition-colors ${idx < currentIdx ? 'bg-primary' : 'bg-border'}`} />
           )}
         </div>
@@ -395,6 +395,9 @@ export function EnrollmentPage() {
   const navigate = useNavigate();
   const { checkSession, user } = useAuthStore();
 
+  const isObligateUser = user?.foreignSource === 'obligate';
+  const STEPS = isObligateUser ? ALL_STEPS.filter(s => s !== 'password' && s !== 'security' && s !== 'profile' && s !== 'alerts') : ALL_STEPS;
+
   const [step, setStep] = useState<Step>('language');
   const [data, setData] = useState<EnrollData>({
     preferredLanguage: user?.preferredLanguage ?? 'en',
@@ -454,7 +457,10 @@ export function EnrollmentPage() {
     e?.preventDefault();
     setError('');
 
-    if (step === 'language') { setStep('profile'); return; }
+    if (step === 'language') {
+      if (isObligateUser) { setStep('appearance'); return; }
+      setStep('profile'); return;
+    }
 
     if (step === 'profile') {
       if (!data.email) { setEmailError(t('enrollment.profile.emailRequired')); return; }
@@ -466,7 +472,10 @@ export function EnrollmentPage() {
     }
 
     if (step === 'alerts') { setStep('appearance'); return; }
-    if (step === 'appearance') { setStep('password'); return; }
+    if (step === 'appearance') {
+      if (isObligateUser) { await completeEnrollment(); return; }
+      setStep('password'); return;
+    }
 
     if (step === 'password') {
       // If user entered something, validate and set the password
@@ -533,8 +542,9 @@ export function EnrollmentPage() {
     if (idx > 0) setStep(STEPS[idx - 1]);
   };
 
+  const isLastStep = step === STEPS[STEPS.length - 1];
   const isNextDisabled = step === 'security' && totpSetup && !totpSkipped && totpCode.length !== 6;
-  const nextLabel = step === 'security' ? t('enrollment.complete') : t('common.next');
+  const nextLabel = isLastStep ? t('enrollment.complete') : t('common.next');
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-4">
@@ -547,7 +557,7 @@ export function EnrollmentPage() {
         </div>
 
         {/* Stepper */}
-        <Stepper currentStep={step} />
+        <Stepper currentStep={step} steps={STEPS} />
 
         {/* Card */}
         <form onSubmit={handleNext} className="rounded-xl border border-border bg-bg-secondary p-6 shadow-sm">

@@ -571,13 +571,18 @@ export function AdminUsersPage() {
                   <div key={user.id} className="flex items-center gap-2 px-3 py-2.5 group">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-text-primary truncate">{user.username}</span>
+                        <span className="text-sm font-medium text-text-primary truncate">{user.username.startsWith('og_') ? user.username.slice(3) : user.username}</span>
                         {user.displayName && <span className="text-xs text-text-muted">({user.displayName})</span>}
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                           user.role === 'admin' ? 'bg-accent/10 text-accent' : 'bg-bg-tertiary text-text-muted'
                         }`}>
                           {user.role === 'admin' ? <><Shield size={10} className="inline mr-0.5" />{t('users.roleAdmin')}</> : t('users.roleUser')}
                         </span>
+                        {user.foreignSource === 'obligate' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#1e1b4b]/60 border border-[#4338ca]/40 px-1.5 py-0.5 text-[10px] font-medium text-[#a5b4fc]">
+                            SSO
+                          </span>
+                        )}
                         {!user.isActive && (
                           <span className="rounded-full bg-status-down/10 px-1.5 py-0.5 text-[10px] font-medium text-status-down">Off</span>
                         )}

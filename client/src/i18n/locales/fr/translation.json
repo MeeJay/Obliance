@@ -126,6 +126,9 @@
       "sessionExpired": "Session expirée. Veuillez vous reconnecter."
     },
     "loginFailed": "Échec de la connexion",
+    "ssoUnavailable": "L'authentification centralisée (Obligate) est indisponible. Connexion locale active en mode dégradé.",
+    "ssoChecking": "Vérification de l'authentification...",
+    "ssoRedirecting": "Redirection vers la page de connexion...",
     "clientVersion": "client v{{version}}",
     "serverVersion": "serveur v{{version}}"
   },
@@ -500,6 +503,10 @@
     "selectSmtp": "— Sélectionnez un serveur SMTP —"
   },
   "settings": {
+    "obligate": {
+      "description": "Connectez cette application à votre passerelle SSO Obligate pour l'authentification centralisée et la navigation inter-applications. Enregistrez d'abord cette application dans Obligate, puis collez la clé API ici.",
+      "warning": "Lorsque cette option est activée, l'authentification locale est désactivée. Les utilisateurs doivent se connecter via la passerelle Obligate. Si la passerelle devient inaccessible, l'authentification locale est automatiquement rétablie en mode dégradé."
+    },
     "title": "Paramètres globaux",
     "globalDesc": "Ces valeurs par défaut s'appliquent à tous les groupes et moniteurs sauf si écrasées à un niveau inférieur.",
     "defaultSettings": "Paramètres par défaut",

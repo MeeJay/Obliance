@@ -171,7 +171,7 @@ export function SettingsPage() {
     setConfigSaving(true);
     try {
       await appConfigApi.setConfig(key, value);
-      setAppConfig((prev) => prev ? { ...prev, [key]: value } : prev);
+      setAppConfig((prev) => prev ? { ...prev, [key]: String(value) } : prev);
     } catch {
       toast.error(t('settings.failedUpdate'));
     } finally {
@@ -181,7 +181,12 @@ export function SettingsPage() {
 
   async function saveObligateConfig() {
     try {
-      const patch: { url?: string | null; apiKey?: string | null; enabled?: boolean } = { url: obligateUrl.trim() || null };
+      const trimmedUrl = obligateUrl.trim().replace(/\/$/, '');
+      if (trimmedUrl && trimmedUrl === window.location.origin.replace(/\/$/, '')) {
+        toast.error('Obligate URL cannot point to this application. Enter the URL of your Obligate SSO gateway.');
+        return;
+      }
+      const patch: { url?: string | null; apiKey?: string | null; enabled?: boolean } = { url: trimmedUrl || null };
       if (obligateApiKey.trim()) patch.apiKey = obligateApiKey.trim();
       const updated = await appConfigApi.patchObligateConfig(patch);
       setObligateCfg(updated);
@@ -441,9 +446,11 @@ export function SettingsPage() {
             </div>
             <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
               <p className="text-sm text-text-muted">
-                Connect Obliance to your Obligate SSO gateway for centralized authentication and cross-app navigation.
-                Register this app in Obligate first, then paste the API key here.
+                {t('settings.obligate.description', 'Connect this app to your Obligate SSO gateway for centralized authentication and cross-app navigation. Register this app in Obligate first, then paste the API key here.')}
               </p>
+              <div className="bg-status-pending-bg border border-status-pending/30 rounded-md p-3 text-sm text-status-pending">
+                {t('settings.obligate.warning', 'When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback.')}
+              </div>
 
               <div>
                 <div className="flex items-center gap-2 mb-1">

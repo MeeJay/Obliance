@@ -38,6 +38,13 @@ export function LoginPage() {
       .then((data: { success: boolean; data?: { obligateUrl: string | null; obligateReachable: boolean; obligateEnabled: boolean } }) => {
         if (data.success && data.data?.obligateEnabled && data.data.obligateUrl) {
           if (data.data.obligateReachable) {
+            // Anti-loop: if we redirected to SSO less than 15s ago and ended up back here, Gate is broken
+            const lastRedirect = sessionStorage.getItem('_sso_redirect_ts');
+            if (lastRedirect && Date.now() - parseInt(lastRedirect) < 15000) {
+              setSsoState('unavailable');
+              return 'unavailable';
+            }
+            sessionStorage.setItem('_sso_redirect_ts', String(Date.now()));
             setSsoState('redirecting');
             window.location.href = '/auth/sso-redirect';
             return 'redirected';
@@ -48,7 +55,7 @@ export function LoginPage() {
         setSsoState('local');
         return 'local';
       })
-      .catch(() => { setSsoState('local'); return 'local'; });
+      .catch(() => { setSsoState('unavailable'); return 'unavailable'; });
   };
 
   useEffect(() => {

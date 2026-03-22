@@ -140,10 +140,29 @@ router.get('/sso-redirect', async (req, res) => {
       res.redirect('/login');
       return;
     }
+    // Verify Obligate is reachable before redirecting (prevents redirect loop when Gate is down)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const healthRes = await fetch(`${raw.url}/health`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!healthRes.ok) { res.redirect('/login?error=sso_failed'); return; }
+    } catch {
+      res.redirect('/login?error=sso_failed');
+      return;
+    }
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const redirectUri = `${protocol}://${host}/auth/callback`;
+    const selfUrl = `${protocol}://${host}`;
+    // Safety: never redirect to ourselves (misconfigured obligate_url pointing to this app)
+    if (raw.url.replace(/\/$/, '') === selfUrl.replace(/\/$/, '')) {
+      logger.error({ obligateUrl: raw.url, selfUrl }, 'sso-redirect: obligate_url points to this app — aborting to prevent loop');
+      res.redirect('/login?error=sso_misconfigured');
+      return;
+    }
+    const redirectUri = `${selfUrl}/auth/callback`;
     const obligateUrl = `${raw.url}/authorize?client_id=${encodeURIComponent(raw.apiKey)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    logger.info({ obligateUrl: raw.url, redirectUri }, 'sso-redirect: redirecting to Obligate');
     res.redirect(obligateUrl);
   } catch {
     res.redirect('/login');
@@ -204,6 +223,27 @@ router.get('/sso-config', async (_req, res) => {
     res.json({ success: true, data: config });
   } catch (err) {
     res.json({ success: true, data: { obligateUrl: null, obligateReachable: false, obligateEnabled: false } });
+  }
+});
+
+/**
+ * GET /api/auth/sso-logout-url
+ * Returns Obligate logout URL so the client can redirect after local logout.
+ */
+router.get('/sso-logout-url', async (req, res) => {
+  try {
+    const cfg = await appConfigService.getObligateRaw();
+    if (!cfg.url) {
+      res.json({ success: true, data: null });
+      return;
+    }
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const redirectUri = `${protocol}://${host}/login`;
+    const logoutUrl = `${cfg.url}/logout?redirect_uri=${encodeURIComponent(redirectUri)}`;
+    res.json({ success: true, data: logoutUrl });
+  } catch {
+    res.json({ success: true, data: null });
   }
 });
 

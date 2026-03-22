@@ -16,6 +16,16 @@ import toast from 'react-hot-toast';
 export function ProfilePage() {
   const { t } = useTranslation();
   const { user: sessionUser, requires2faSetup } = useAuthStore();
+  const [obligateUrl, setObligateUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sessionUser?.foreignSource === 'obligate') {
+      appConfigApi.getConfig().then(cfg => {
+        const url = (cfg as any).obligate_url ?? (cfg as any).obligateUrl ?? null;
+        setObligateUrl(url);
+      }).catch(() => {});
+    }
+  }, [sessionUser]);
   const { localEnabled: alertEnabled, position: alertPosition, setEnabled, setPosition } = useLiveAlertsStore();
 
   const [displayName, setDisplayName] = useState('');
@@ -174,6 +184,27 @@ export function ProfilePage() {
     }
   };
 
+  if (sessionUser?.foreignSource === 'obligate' && obligateUrl) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto">
+        <div className="bg-bg-secondary border border-border rounded-lg p-6 text-center">
+          <h2 className="text-lg font-medium text-text-primary mb-2">Profile managed by Obligate</h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Your profile, password, and preferences are managed centrally through Obligate SSO.
+          </p>
+          <a
+            href={`${obligateUrl}/account`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md font-medium text-sm transition-colors"
+          >
+            Open Obligate Profile
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 min-w-0">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">{t('profile.title')}</h1>
@@ -300,48 +331,50 @@ export function ProfilePage() {
       </form>
 
       {/* Password section */}
-      <form onSubmit={handlePasswordSubmit} className="mb-8">
-        <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <KeyRound size={18} className="text-accent" />
-            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
-              {t('profile.password.title')}
-            </h2>
+      {sessionUser?.foreignSource !== 'obligate' && (
+        <form onSubmit={handlePasswordSubmit} className="mb-8">
+          <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <KeyRound size={18} className="text-accent" />
+              <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+                {t('profile.password.title')}
+              </h2>
+            </div>
+
+            <Input
+              label={t('profile.password.current')}
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder={t('profile.password.currentPlaceholder')}
+              required
+            />
+
+            <Input
+              label={t('profile.password.new')}
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder={t('profile.password.newPlaceholder')}
+              required
+            />
+
+            <Input
+              label={t('profile.password.confirm')}
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t('profile.password.confirmPlaceholder')}
+              required
+            />
+
+            <Button type="submit" loading={savingPassword}>
+              <KeyRound size={16} className="mr-1.5" />
+              {t('profile.password.change')}
+            </Button>
           </div>
-
-          <Input
-            label={t('profile.password.current')}
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder={t('profile.password.currentPlaceholder')}
-            required
-          />
-
-          <Input
-            label={t('profile.password.new')}
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder={t('profile.password.newPlaceholder')}
-            required
-          />
-
-          <Input
-            label={t('profile.password.confirm')}
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder={t('profile.password.confirmPlaceholder')}
-            required
-          />
-
-          <Button type="submit" loading={savingPassword}>
-            <KeyRound size={16} className="mr-1.5" />
-            {t('profile.password.change')}
-          </Button>
-        </div>
-      </form>
+        </form>
+      )}
 
       {/* Appearance section */}
       <div className="mb-8">

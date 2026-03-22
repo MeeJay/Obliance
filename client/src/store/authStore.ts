@@ -98,11 +98,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    // Fetch Obligate logout URL BEFORE destroying local state
+    let obligateLogoutUrl: string | null = null;
+    try {
+      const res = await fetch('/api/auth/sso-logout-url', { credentials: 'include' });
+      const data = await res.json() as { success: boolean; data: string | null };
+      if (data.success && data.data) obligateLogoutUrl = data.data;
+    } catch { /* ignore */ }
+
     try {
       await authApi.logout();
     } finally {
       disconnectSocket();
       set({ user: null, permissions: null, requires2faSetup: false });
+    }
+
+    if (obligateLogoutUrl) {
+      window.location.href = obligateLogoutUrl;
     }
   },
 
