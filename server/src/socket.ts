@@ -109,7 +109,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       logger.info({ chatId, deviceUuid: payload.deviceUuid }, 'Chat session opened');
     });
 
-    socket.on('chat:message', (payload: { chatId: string; message: string; operatorName?: string }) => {
+    socket.on('chat:message', async (payload: { chatId: string; message: string; operatorName?: string }) => {
       if (!payload?.chatId || !payload?.message) return;
       // Find device UUID for this chat — we need to route to the agent
       // The chatId is unique; the agent knows it. Push via all connected agents.

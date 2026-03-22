@@ -85,8 +85,8 @@ router.get('/group-stats', async (req, res, next) => {
     };
 
     for (const row of deviceRows) {
-      const s = getOrCreate(row.group_id);
-      const count = parseInt(row.count);
+      const s = getOrCreate(Number(row.group_id));
+      const count = parseInt(String(row.count));
       s.total += count;
       if (row.status === 'online') s.online += count;
       else if (row.status === 'offline') s.offline += count;
