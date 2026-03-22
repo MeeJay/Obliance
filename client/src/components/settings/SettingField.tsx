@@ -55,7 +55,7 @@ export function SettingField({
   };
 
   const handleBlur = () => {
-    if (isOverriding && localValue !== overrideValue) {
+    if ((scope === 'global' || isOverriding) && localValue !== (overrideValue ?? numericInherited)) {
       handleSave();
     }
   };
@@ -105,7 +105,7 @@ export function SettingField({
           <>
             <input
               type="number"
-              value={isOverriding ? localValue : numericInherited}
+              value={scope === 'global' || isOverriding ? localValue : numericInherited}
               onChange={(e) => setLocalValue(parseInt(e.target.value, 10) || 0)}
               onBlur={handleBlur}
               onKeyDown={(e) => { if (e.key === 'Enter') handleBlur(); }}
