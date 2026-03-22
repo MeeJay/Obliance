@@ -43,20 +43,28 @@ func ensureTrayRunning() {
 	}
 
 	log.Printf("tray-launcher: tray not running, looking for user sessions...")
+
+	// Use the same enumWtsSessions() from wts_windows.go — it handles the
+	// WTS struct layout correctly and filters to real user sessions.
 	sessions, err := enumWtsSessions()
 	if err != nil {
 		log.Printf("tray-launcher: enumWtsSessions error: %v", err)
 		return
 	}
-	if len(sessions) == 0 {
-		log.Printf("tray-launcher: no active user sessions found")
-		return
-	}
+
+	log.Printf("tray-launcher: enumWtsSessions returned %d session(s)", len(sessions))
+
+	launched := 0
 	for _, s := range sessions {
-		if s.State == "Active" && s.Username != "" {
-			log.Printf("tray-launcher: found session %d (%s), launching tray...", s.ID, s.Username)
-			launchTrayInSession(uint32(s.ID), trayExe)
+		if s.Username == "" {
+			continue
 		}
+		log.Printf("tray-launcher: session %d user=%s state=%s, launching tray...", s.ID, s.Username, s.State)
+		launchTrayInSession(uint32(s.ID), trayExe)
+		launched++
+	}
+	if launched == 0 {
+		log.Printf("tray-launcher: no user sessions with username found")
 	}
 }
 

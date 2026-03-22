@@ -22,10 +22,14 @@ const (
 	wtsDomainName          = 7  // WTSInfoClass: WTSDomainName
 )
 
+// WTS_SESSION_INFOW — must match the Windows SDK layout exactly.
+// On 64-bit: SessionId (DWORD, 4) + padding (4) + pWinStationName (LPWSTR, 8) + State (DWORD, 4) + padding (4) = 24 bytes.
 type wtsSessionInfoW struct {
 	SessionID      uint32
-	WinStationName [33]uint16
+	_              uint32  // alignment padding
+	WinStationName uintptr // LPWSTR — pointer to UTF-16 string, NOT inline array
 	State          uint32
+	_              uint32  // trailing padding
 }
 
 type WtsSession struct {
@@ -77,7 +81,10 @@ func enumWtsSessions() ([]WtsSession, error) {
 			continue
 		}
 		domain := querySessionString(entry.SessionID, wtsDomainName)
-		stationName := windows.UTF16ToString(entry.WinStationName[:])
+		stationName := ""
+		if entry.WinStationName != 0 {
+			stationName = windows.UTF16PtrToString((*uint16)(unsafe.Pointer(entry.WinStationName)))
+		}
 
 		sessions = append(sessions, WtsSession{
 			ID:       int(entry.SessionID),

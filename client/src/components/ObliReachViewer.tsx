@@ -123,7 +123,7 @@ export function ObliReachViewer({
   const [activeMonitor, setActiveMonitor] = useState(0);
   const [inputBlocked, setInputBlocked] = useState(false);
   const [isRecording, setIsRecording]   = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true); // enabled by default when available
   const [hasAudio, setHasAudio]         = useState(false);
   const audioCtxRef  = useRef<AudioContext | null>(null);
   const audioRateRef = useRef(48000);
