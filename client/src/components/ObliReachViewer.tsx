@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Volume2, VolumeX } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
@@ -117,6 +117,10 @@ export function ObliReachViewer({
   const [activeMonitor, setActiveMonitor] = useState(0);
   const [inputBlocked, setInputBlocked] = useState(false);
   const [isRecording, setIsRecording]   = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [hasAudio, setHasAudio]         = useState(false);
+  const audioCtxRef  = useRef<AudioContext | null>(null);
+  const audioRateRef = useRef(48000);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunks   = useRef<Blob[]>([]);
   const codecLabel: Record<string,string> = { h264: 'H.264', h265: 'H.265', vp9: 'VP9', av1: 'AV1', jpeg: 'JPEG' };
@@ -246,6 +250,25 @@ export function ObliReachViewer({
       if (buf.byteLength < 2) return;
       const view = new Uint8Array(buf);
       const frameType = view[0];
+
+      if (frameType === 0x06 && audioEnabled) {
+        // Audio frame — PCM 16-bit mono LE
+        if (!audioCtxRef.current) {
+          try { audioCtxRef.current = new AudioContext({ sampleRate: audioRateRef.current }); } catch {}
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx) {
+          const pcm16 = new Int16Array(buf.slice(1));
+          const audioBuffer = ctx.createBuffer(1, pcm16.length, audioRateRef.current);
+          const channel = audioBuffer.getChannelData(0);
+          for (let i = 0; i < pcm16.length; i++) channel[i] = pcm16[i] / 32768;
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+          source.start();
+        }
+        return;
+      }
 
       if (frameType === 0x01) {
         // JPEG frame — decode with createImageBitmap (no WebCodecs needed)
@@ -418,6 +441,7 @@ export function ObliReachViewer({
         const m = msg as InitMsg;
         setCodecId('h264');
         if ((msg as any).monitors) setMonitors((msg as any).monitors);
+        if ((msg as any).audioAvail) { setHasAudio(true); audioRateRef.current = (msg as any).audioRate || 48000; }
         if (m.codec === 'h264') {
           onInit(m.width, m.height, m.extradata);
           // If the user has a preferred codec, request a switch after init
@@ -534,10 +558,11 @@ export function ObliReachViewer({
   }, [isFullscreen]);
 
   const handleClose = useCallback(() => {
-    // Stop recording if active
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
     wsRef.current?.close();
     onClose();
   }, [onClose]);
@@ -731,6 +756,22 @@ export function ObliReachViewer({
             >
               <MessageCircle className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Chat</span>
+            </button>
+          )}
+
+          {/* ── Audio toggle ── */}
+          {status === 'streaming' && hasAudio && (
+            <button
+              onClick={() => setAudioEnabled(v => !v)}
+              title={audioEnabled ? 'Mute remote audio' : 'Enable remote audio'}
+              className={clsx(
+                'p-1.5 rounded transition-colors',
+                audioEnabled
+                  ? 'text-accent hover:text-accent/70'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
+              )}
+            >
+              {audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
           )}
 

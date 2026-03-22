@@ -5,8 +5,8 @@ import { auditService } from '../services/audit.service';
 
 const router = Router();
 
-// Upload route needs larger body limit for base64 file content (up to ~67MB for 50MB files)
-const uploadBodyParser = express.json({ limit: '75mb' });
+// Upload route needs larger body limit for base64 file content
+const uploadBodyParser = express.json({ limit: '200mb' });
 
 // POST /api/devices/:deviceId/files/list
 router.post('/:deviceId/files/list', async (req: Request, res: Response, next: NextFunction) => {

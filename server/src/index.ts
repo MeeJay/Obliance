@@ -39,7 +39,7 @@ async function main() {
   // the same HTTP port we intercept ALL upgrade events, route /api/remote/*
   // paths to our own WS server, and forward everything else to socket.io's
   // original listeners.
-  const remoteWss = new WebSocketServer({ noServer: true });
+  const remoteWss = new WebSocketServer({ noServer: true, maxPayload: 150 * 1024 * 1024 });
 
   // Capture and remove the upgrade listeners socket.io just registered so we
   // can act as the sole dispatcher.

@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// maxDownloadSize is the maximum file size (50 MB) allowed for download_file.
-const maxDownloadSize = 50 * 1024 * 1024
+// maxDownloadSize is the maximum file size (150 MB) allowed for download_file.
+const maxDownloadSize = 150 * 1024 * 1024
 
 // FileInfo describes a single file or directory entry.
 type FileInfo struct {

@@ -47,7 +47,7 @@ interface Props {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const MAX_UPLOAD_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_UPLOAD_SIZE = 150 * 1024 * 1024; // 1150 MB
 
 function formatSize(bytes: number): string {
   if (bytes <= 0) return '-';
@@ -465,7 +465,7 @@ export default function FileExplorerTab({ device }: Props) {
     const oversized = droppedFiles.filter((f) => f.size > MAX_UPLOAD_SIZE);
     if (oversized.length > 0) {
       toast.error(
-        `${oversized.length} file(s) exceed 50 MB limit: ${oversized.map((f) => f.name).join(', ')}`,
+        `${oversized.length} file(s) exceed 150 MB limit: ${oversized.map((f) => f.name).join(', ')}`,
       );
     }
 
@@ -618,7 +618,7 @@ export default function FileExplorerTab({ device }: Props) {
             <div className="flex flex-col items-center gap-2 text-accent">
               <Upload className="w-10 h-10" />
               <span className="text-sm font-medium">{t('fileExplorer.dropToUpload')}</span>
-              <span className="text-xs text-text-muted">Max 50 MB per file</span>
+              <span className="text-xs text-text-muted">Max 150 MB per file</span>
             </div>
           </div>
         )}

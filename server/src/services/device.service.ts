@@ -6,6 +6,8 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '@obliance/shared';
 import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck } from '@obliance/shared';
 import { appConfigService } from './appConfig.service';
+import { settingsService } from './settings.service';
+import { SETTINGS_KEYS } from '@obliance/shared';
 
 // ── Agent version cache (re-read from disk every 5 min) ──────────────────────
 let _cachedVersion: string | null = null;
@@ -66,6 +68,7 @@ class DeviceService {
       lastSeenAt: row.last_seen_at,
       lastPushAt: row.last_push_at,
       pushIntervalSeconds: row.push_interval_seconds,
+      scanIntervalSeconds: row.scan_interval_seconds ?? null,
       overrideGroupSettings: row.override_group_settings,
       maxMissedPushes: row.max_missed_pushes,
       complianceRemediationEnabled: row.compliance_remediation_enabled ?? true,
@@ -156,6 +159,7 @@ class DeviceService {
     if (data.sensorDisplayNames !== undefined) updates.sensor_display_names = JSON.stringify(data.sensorDisplayNames);
     if (data.notificationTypes !== undefined) updates.notification_types = JSON.stringify(data.notificationTypes);
     if (data.pushIntervalSeconds !== undefined) updates.push_interval_seconds = data.pushIntervalSeconds;
+    if (data.scanIntervalSeconds !== undefined) updates.scan_interval_seconds = data.scanIntervalSeconds;
     if (data.overrideGroupSettings !== undefined) updates.override_group_settings = data.overrideGroupSettings;
     if (data.maxMissedPushes !== undefined) updates.max_missed_pushes = data.maxMissedPushes;
     if (data.complianceRemediationEnabled !== undefined) updates.compliance_remediation_enabled = data.complianceRemediationEnabled;
@@ -546,24 +550,44 @@ class DeviceService {
     let pushIntervalSeconds = 60;
     let fastPollInterval = 5;
 
+    const globalCfg = await appConfigService.getAgentGlobal();
+    let groupConfig: any = {};
+    if (device.group_id) {
+      const group = await db('device_groups').where({ id: device.group_id }).first();
+      groupConfig = group?.group_config || {};
+    }
+
+    // Push interval: Device > Group > Global default (60)
     if (device.override_group_settings || !device.group_id) {
       pushIntervalSeconds = device.push_interval_seconds || 60;
-    } else if (device.group_id) {
-      const group = await db('device_groups').where({ id: device.group_id }).first();
-      const groupConfig = group?.group_config || {};
+    } else {
       pushIntervalSeconds = device.push_interval_seconds || groupConfig.pushIntervalSeconds || 60;
     }
 
-    // Get fast poll, task retrieve delay and scan interval from app_config
+    // Scan interval: Device > Group > Settings cascade > AgentGlobalConfig > default (3600)
+    let scanIntervalSeconds: number;
+    if (device.scan_interval_seconds != null) {
+      scanIntervalSeconds = device.scan_interval_seconds;
+    } else if (groupConfig.scanIntervalSeconds != null) {
+      scanIntervalSeconds = groupConfig.scanIntervalSeconds;
+    } else {
+      // Fall back to the settings cascade system (global/group/device)
+      try {
+        const resolved = await settingsService.resolveForDevice(tenantId, deviceId, device.group_id);
+        const scanSetting = resolved[SETTINGS_KEYS.SCAN_INTERVAL as keyof typeof resolved];
+        scanIntervalSeconds = typeof scanSetting?.value === 'number' ? scanSetting.value : (globalCfg.scanIntervalSeconds ?? 3600);
+      } catch {
+        scanIntervalSeconds = globalCfg.scanIntervalSeconds ?? 3600;
+      }
+    }
+
+    // Get fast poll, task retrieve delay from app_config
     const [fastPollConfig, taskDelayConfig] = await Promise.all([
       db('app_config').where({ key: 'fast_poll_interval' }).first(),
       db('app_config').where({ key: 'task_retrieve_delay_seconds' }).first(),
     ]);
     if (fastPollConfig?.value) fastPollInterval = parseInt(fastPollConfig.value);
     const taskRetrieveDelaySeconds = taskDelayConfig?.value ? parseInt(taskDelayConfig.value) : 10;
-
-    const globalCfg = await appConfigService.getAgentGlobal();
-    const scanIntervalSeconds = globalCfg.scanIntervalSeconds ?? 0;
 
     return {
       pushIntervalSeconds,

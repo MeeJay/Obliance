@@ -4,6 +4,7 @@
 
 export const SETTINGS_KEYS = {
   PUSH_INTERVAL:            'pushInterval',           // seconds between agent pushes
+  SCAN_INTERVAL:            'scanInterval',            // seconds between automatic inventory/update/compliance scans
   FAST_POLL_INTERVAL:       'fastPollInterval',       // seconds when commands pending
   MAX_MISSED_PUSHES:        'maxMissedPushes',        // offline detection threshold
   NOTIFICATION_COOLDOWN:    'notificationCooldown',   // min seconds between alerts
@@ -34,6 +35,16 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     min: 10,
     max: 3600,
     defaultValue: 60,
+  },
+  {
+    key: SETTINGS_KEYS.SCAN_INTERVAL,
+    label: 'Scan Interval',
+    description: 'How often the agent automatically scans inventory, updates and compliance. 0 = disabled.',
+    type: 'number',
+    unit: 'seconds',
+    min: 0,
+    max: 86400,
+    defaultValue: 3600,
   },
   {
     key: SETTINGS_KEYS.FAST_POLL_INTERVAL,
@@ -86,6 +97,7 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
 
 export const HARDCODED_DEFAULTS: Record<SettingKey, number | boolean> = {
   [SETTINGS_KEYS.PUSH_INTERVAL]:            60,
+  [SETTINGS_KEYS.SCAN_INTERVAL]:            3600,
   [SETTINGS_KEYS.FAST_POLL_INTERVAL]:       5,
   [SETTINGS_KEYS.MAX_MISSED_PUSHES]:        3,
   [SETTINGS_KEYS.NOTIFICATION_COOLDOWN]:    300,

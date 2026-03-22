@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
 import { deviceApi, type GroupStats } from '@/api/device.api';
+import { groupsApi } from '@/api/groups.api';
+import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 
@@ -36,73 +38,85 @@ function ComplianceBadge({ score }: { score: number | null }) {
   );
 }
 
-function GroupCard({ stats }: { stats: GroupStats }) {
+function GroupCard({ stats, wide }: { stats: GroupStats; wide?: boolean }) {
   const { t } = useTranslation();
   const name = stats.groupName ?? t('dashboard.ungrouped');
   const healthPercent = stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
-  const healthColor = healthPercent >= 80 ? 'bg-green-400' : healthPercent >= 50 ? 'bg-yellow-400' : 'bg-red-400';
+  const healthColor = healthPercent >= 80 ? 'text-green-400' : healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400';
+  const barColor = healthPercent >= 80 ? 'bg-green-400' : healthPercent >= 50 ? 'bg-yellow-400' : 'bg-red-400';
+
+  if (wide) {
+    return (
+      <Link
+        to={stats.groupId ? `/group/${stats.groupId}` : '/devices'}
+        className="p-4 bg-bg-secondary border border-border rounded-xl hover:border-accent/50 transition-colors flex items-center gap-5"
+      >
+        {/* Name */}
+        <div className="flex items-center gap-2 min-w-[160px]">
+          <FolderOpen className="w-5 h-5 text-accent shrink-0" />
+          <h3 className="text-sm font-semibold text-text-primary truncate">{name}</h3>
+        </div>
+
+        {/* Online / Total */}
+        <div className="flex items-center gap-2 min-w-[100px]">
+          <Wifi className="w-3.5 h-3.5 text-green-400 shrink-0" />
+          <span className={clsx('text-sm font-semibold', healthColor)}>{stats.online}</span>
+          <span className="text-xs text-text-muted">/ {stats.total}</span>
+        </div>
+
+        {/* Health bar */}
+        <div className="flex-1 max-w-[200px]">
+          <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
+            <div className={clsx('h-full rounded-full transition-all', barColor)} style={{ width: `${healthPercent}%` }} />
+          </div>
+        </div>
+
+        {/* Alerts */}
+        <div className="flex items-center gap-3 text-xs min-w-[100px]">
+          {stats.warning > 0 && <span className="flex items-center gap-1 text-yellow-400"><AlertTriangle className="w-3 h-3" />{stats.warning}</span>}
+          {stats.critical > 0 && <span className="flex items-center gap-1 text-red-400"><AlertCircle className="w-3 h-3" />{stats.critical}</span>}
+          {stats.warning === 0 && stats.critical === 0 && <span className="text-text-muted">—</span>}
+        </div>
+
+        {/* Compliance */}
+        <div className="flex items-center gap-1.5 text-xs min-w-[80px]">
+          <ShieldCheck className="w-3.5 h-3.5 text-text-muted shrink-0" />
+          <ComplianceBadge score={stats.complianceScore} />
+          {stats.policyCount > 0 && <span className="text-text-muted">({stats.policyCount})</span>}
+        </div>
+
+        {/* Updates */}
+        <div className="flex items-center gap-1 text-xs min-w-[50px]">
+          {stats.pendingUpdates > 0 ? (
+            <span className="flex items-center gap-1 text-orange-400"><Package className="w-3 h-3" />{stats.pendingUpdates}</span>
+          ) : (
+            <span className="text-text-muted">—</span>
+          )}
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <Link
       to={stats.groupId ? `/group/${stats.groupId}` : '/devices'}
-      className="p-4 bg-bg-secondary border border-border rounded-xl hover:border-accent/50 transition-colors space-y-3"
+      className="p-3 bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors space-y-2"
     >
-      {/* Header */}
       <div className="flex items-center gap-2">
-        <FolderOpen className="w-4 h-4 text-accent shrink-0" />
-        <h3 className="text-sm font-semibold text-text-primary truncate flex-1">{name}</h3>
-        <span className="text-xs text-text-muted">{stats.total} {t('dashboard.devices')}</span>
+        <FolderOpen className="w-3.5 h-3.5 text-accent shrink-0" />
+        <h3 className="text-xs font-semibold text-text-primary truncate flex-1">{name}</h3>
+        <span className={clsx('text-xs font-medium', healthColor)}>{stats.online}/{stats.total}</span>
       </div>
-
-      {/* Health bar */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-text-muted">{t('dashboard.availability')}</span>
-          <span className={clsx('font-medium', healthPercent >= 80 ? 'text-green-400' : healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400')}>
-            {stats.online}/{stats.total} online
-          </span>
-        </div>
-        <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-          <div className={clsx('h-full rounded-full transition-all', healthColor)} style={{ width: `${healthPercent}%` }} />
-        </div>
+      <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
+        <div className={clsx('h-full rounded-full', barColor)} style={{ width: `${healthPercent}%` }} />
       </div>
-
-      {/* Stats row */}
-      <div className="flex items-center gap-3 text-xs flex-wrap">
-        {/* Status breakdown */}
-        {stats.warning > 0 && (
-          <span className="flex items-center gap-1 text-yellow-400">
-            <AlertTriangle className="w-3 h-3" /> {stats.warning}
-          </span>
-        )}
-        {stats.critical > 0 && (
-          <span className="flex items-center gap-1 text-red-400">
-            <AlertCircle className="w-3 h-3" /> {stats.critical}
-          </span>
-        )}
-        {stats.offline > 0 && (
-          <span className="flex items-center gap-1 text-text-muted">
-            <WifiOff className="w-3 h-3" /> {stats.offline}
-          </span>
-        )}
-
+      <div className="flex items-center gap-2 text-[10px]">
+        {stats.warning > 0 && <span className="text-yellow-400">{stats.warning}w</span>}
+        {stats.critical > 0 && <span className="text-red-400">{stats.critical}c</span>}
         <span className="flex-1" />
-
-        {/* Compliance */}
-        <span className="flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3 text-text-muted" />
-          <ComplianceBadge score={stats.complianceScore} />
-          {stats.policyCount > 0 && (
-            <span className="text-text-muted">({stats.policyCount} {stats.policyCount === 1 ? 'policy' : 'policies'})</span>
-          )}
-        </span>
-
-        {/* Updates */}
-        {stats.pendingUpdates > 0 && (
-          <span className="flex items-center gap-1 text-orange-400">
-            <Package className="w-3 h-3" /> {stats.pendingUpdates}
-          </span>
-        )}
+        <ShieldCheck className="w-2.5 h-2.5 text-text-muted" />
+        <ComplianceBadge score={stats.complianceScore} />
+        {stats.pendingUpdates > 0 && <span className="text-orange-400"><Package className="w-2.5 h-2.5 inline" /> {stats.pendingUpdates}</span>}
       </div>
     </Link>
   );
@@ -113,6 +127,7 @@ export function DashboardPage() {
   const { fetchDevices, summary, fetchSummary } = useDeviceStore();
   const [isLoading, setIsLoading] = useState(true);
   const [groupStats, setGroupStats] = useState<GroupStats[]>([]);
+  const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -121,6 +136,7 @@ export function DashboardPage() {
         fetchDevices(),
         fetchSummary(),
         deviceApi.getGroupStats().then(setGroupStats).catch(() => {}),
+        groupsApi.tree().then(setGroupTree).catch(() => {}),
       ]);
       setIsLoading(false);
     };
@@ -136,6 +152,20 @@ export function DashboardPage() {
   }
 
   const s = summary;
+
+  // Build a lookup map groupId → stats
+  const statsMap = new Map<number | null, GroupStats>();
+  for (const gs of groupStats) statsMap.set(gs.groupId, gs);
+
+  // Collect all descendant group IDs (exclude root itself)
+  const collectChildIds = (node: DeviceGroupTreeNode): number[] => {
+    const ids: number[] = [];
+    for (const child of node.children) {
+      ids.push(child.id);
+      ids.push(...collectChildIds(child));
+    }
+    return ids;
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -228,10 +258,32 @@ export function DashboardPage() {
             <p>{t('dashboard.noGroups')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groupStats.map((stats) => (
-              <GroupCard key={stats.groupId ?? 'ungrouped'} stats={stats} />
-            ))}
+          <div className="space-y-4">
+            {/* Root groups — wide cards with children below */}
+            {groupTree.map((root) => {
+              const rootStats = statsMap.get(root.id);
+              const childIds = collectChildIds(root);
+              const childStatsList = childIds.map(id => statsMap.get(id)).filter(Boolean) as GroupStats[];
+
+              return (
+                <div key={root.id} className="space-y-2">
+                  {/* Root card — full width */}
+                  {rootStats && <GroupCard stats={rootStats} wide />}
+
+                  {/* Children — grid */}
+                  {childStatsList.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-4 border-l-2 border-accent/20 ml-2">
+                      {childStatsList.map((cs) => (
+                        <GroupCard key={cs.groupId} stats={cs} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Ungrouped devices */}
+            {statsMap.get(null) && <GroupCard stats={statsMap.get(null)!} wide />}
           </div>
         )}
       </div>

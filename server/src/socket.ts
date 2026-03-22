@@ -18,6 +18,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       credentials: true,
     },
     transports: ['websocket', 'polling'],
+    maxHttpBufferSize: 150 * 1024 * 1024, // 150 MB for file explorer uploads (base64)
   });
 
   // Authentication middleware

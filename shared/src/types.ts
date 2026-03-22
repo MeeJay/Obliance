@@ -82,6 +82,7 @@ export interface DeviceGroup {
 
 export interface DeviceGroupConfig {
   pushIntervalSeconds?: number;
+  scanIntervalSeconds?: number;
   maxMissedPushes?: number;
   autoApprove?: boolean;
 }
@@ -139,6 +140,7 @@ export interface Device {
   lastPushAt: string | null;
   // Config
   pushIntervalSeconds: number | null;
+  scanIntervalSeconds: number | null;
   overrideGroupSettings: boolean;
   maxMissedPushes: number;
   complianceRemediationEnabled: boolean;

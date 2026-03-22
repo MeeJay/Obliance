@@ -1077,6 +1077,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
     // Monitoring
     overrideGroupSettings: device.overrideGroupSettings ?? false,
     pushIntervalSeconds:   device.pushIntervalSeconds ?? null as number | null,
+    scanIntervalSeconds:   device.scanIntervalSeconds ?? null as number | null,
     maxMissedPushes:       device.maxMissedPushes ?? 3,
     // Notifications
     notifOnline:   device.notificationTypes?.online   ?? true,
@@ -1166,6 +1167,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         customFields:  form.customFields,
         overrideGroupSettings: form.overrideGroupSettings,
         pushIntervalSeconds:   form.overrideGroupSettings ? (form.pushIntervalSeconds ?? null) : null,
+        scanIntervalSeconds:   form.overrideGroupSettings ? (form.scanIntervalSeconds ?? null) : null,
         maxMissedPushes:       form.maxMissedPushes,
         notificationTypes: {
           online:   form.notifOnline,
@@ -1276,6 +1278,13 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
                 value={form.pushIntervalSeconds ?? ''}
                 onChange={e => set('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
                 placeholder="60" className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-text-muted mb-1 block">Scan interval (seconds) — 0 = disabled</span>
+              <input type="number" min={0} max={86400}
+                value={form.scanIntervalSeconds ?? ''}
+                onChange={e => set('scanIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="Inherit from group/global" className={inputCls} />
             </label>
             <label className="block">
               <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
