@@ -145,6 +145,7 @@ class DeviceService {
     sensorDisplayNames: any;
     notificationTypes: any;
     pushIntervalSeconds: number | null;
+    scanIntervalSeconds: number | null;
     overrideGroupSettings: boolean;
     maxMissedPushes: number;
     complianceRemediationEnabled: boolean;
