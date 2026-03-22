@@ -93,12 +93,17 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       const device = await db('devices').where({ uuid: payload.deviceUuid }).first().catch(() => null);
       if (!device) { ack?.({ error: 'device not found' }); return; }
 
+      // Look up operator's avatar
+      const operatorUser = await db('users').where({ id: user.id }).first().catch(() => null);
+      const operatorAvatar = operatorUser?.avatar || null;
+
       const cmd = {
         type: 'open_chat',
         id: `chat_${chatId}`,
         payload: {
           chatId,
           operatorName: payload.operatorName || user.displayName || user.username || 'Operator',
+          operatorAvatar,
           sessionId: payload.sessionId,
         },
       };
