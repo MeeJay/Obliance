@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Přehled",
-    "select": "Vybrat",
-    "cancelSelection": "Zrušit",
-    "addAgent": "Přidat agenta",
-    "addMonitor": "Přidat monitor",
-    "editSelected": "Upravit vybrané",
-    "pause": "Pozastavit",
-    "resume": "Obnovit",
-    "bulkDelete": "Smazat",
-    "statsUp": "Online",
-    "statsDown": "Offline",
-    "statsAlert": "Alarm",
-    "statsPending": "Čekající",
-    "statsPaused": "Pozastaveno",
-    "statsSslWarn": "SSL varování",
-    "statsSslExpired": "SSL vypršelo",
-    "statsUptime": "Dostupnost (24h)",
-    "statsAvgResponse": "Prům. odezva",
-    "sectionDown": "Offline",
-    "sectionAlert": "Alarm",
-    "sectionSslExpired": "SSL vypršelo",
-    "sectionUngrouped": "Bez skupiny",
-    "noMonitors": "Nenalezeny žádné monitory"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "Přidat monitor",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

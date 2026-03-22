@@ -232,33 +232,19 @@
     }
   },
   "dashboard": {
-    "title": "Tableau de bord",
-    "select": "Sélectionner",
-    "cancelSelection": "Annuler",
-    "addAgent": "Ajouter un agent",
-    "addMonitor": "Ajouter un moniteur",
-    "editSelected": "Modifier la sélection",
-    "pause": "Mettre en pause",
-    "resume": "Reprendre",
-    "bulkDelete": "Supprimer",
-    "statsUp": "En ligne",
-    "statsDown": "Hors ligne",
-    "statsAlert": "Alerte",
-    "statsPending": "En attente",
-    "statsPaused": "En pause",
-    "statsSslWarn": "SSL Avert.",
-    "statsSslExpired": "SSL Expiré",
-    "statsUptime": "Disponibilité (24h)",
-    "statsAvgResponse": "Réponse moy.",
-    "sectionDown": "Hors ligne",
-    "sectionAlert": "Alerte",
-    "sectionSslExpired": "SSL Expiré",
-    "sectionUngrouped": "Sans groupe",
-    "noMonitors": "Aucun moniteur trouvé",
-    "selectedCount_one": "{{count}} moniteur sélectionné",
-    "selectedCount_other": "{{count}} moniteurs sélectionnés",
-    "selectedCountAgent_one": "{{count}} agent sélectionné",
-    "selectedCountAgent_other": "{{count}} agents sélectionnés"
+    "title": "Vue d'ensemble",
+    "viewAll": "Voir tous les appareils",
+    "pendingUpdates": "Mises à jour en attente",
+    "manage": "Gérer",
+    "view": "Voir",
+    "allUpToDate": "Tous à jour",
+    "complianceScore": "Score de conformité",
+    "groupOverview": "Vue par groupe",
+    "manageGroups": "Gérer les groupes",
+    "noGroups": "Aucun groupe configuré",
+    "ungrouped": "Sans groupe",
+    "devices": "appareils",
+    "availability": "Disponibilité"
   },
   "monitors": {
     "new": "Ajouter un moniteur",
@@ -1314,5 +1300,14 @@
   "apiKeys": {
     "defaultGroup": "Groupe par défaut",
     "noGroup": "Aucun groupe par défaut"
+  },
+  "addAgent": {
+    "title": "Ajouter un agent",
+    "noKeys": "Créez d'abord une clé API dans la page Agents",
+    "selectKey": "Clé API",
+    "chooseKey": "Sélectionnez une clé API...",
+    "windowsHint": "Exécuter dans PowerShell en tant qu'administrateur",
+    "linuxHint": "Exécuter dans le terminal (root ou sudo)",
+    "macosHint": "Exécuter dans le terminal (Apple Silicon & Intel)"
   }
 }

@@ -14,7 +14,10 @@ class InventoryService {
       cpu: row.cpu || {}, memory: row.memory || {},
       disks: row.disks || [], networkInterfaces: row.network_interfaces || [],
       gpu: row.gpu || [], motherboard: row.motherboard || {},
-      bios: row.bios || {}, bitlocker: row.bitlocker || [],
+      bios: row.bios || {},
+      os: row.os || undefined,
+      battery: row.battery || undefined,
+      bitlocker: row.bitlocker || [],
       raw: row.raw || {},
       scannedAt: row.scanned_at,
     };
@@ -98,6 +101,9 @@ class InventoryService {
       date:    data.bios?.date    ?? null,
     };
 
+    const os = data.os ?? null;
+    const battery = data.battery ?? null;
+
     await db('device_inventory_hardware').insert({
       device_id:          deviceId,
       cpu:                JSON.stringify(cpu),
@@ -107,6 +113,8 @@ class InventoryService {
       gpu:                JSON.stringify(gpu),
       motherboard:        JSON.stringify(motherboard),
       bios:               JSON.stringify(bios),
+      os:                 os ? JSON.stringify(os) : null,
+      battery:            battery ? JSON.stringify(battery) : null,
       bitlocker:          JSON.stringify(data.bitlocker ?? []),
       raw:                JSON.stringify(data.raw ?? {}),
       scanned_at:         new Date(),

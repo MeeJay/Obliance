@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Key, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Key, Copy, Check, ChevronDown, Monitor, Terminal, Apple } from 'lucide-react';
 import type { AgentApiKey } from '@obliance/shared';
 import { deviceApi } from '@/api/device.api';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
+import { useTranslation } from 'react-i18next';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -18,121 +19,164 @@ function CopyButton({ text }: { text: string }) {
       className="shrink-0 p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
       title="Copy"
     >
-      {copied ? <Check size={14} className="text-status-up" /> : <Copy size={14} />}
+      {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
     </button>
   );
 }
 
+type OsTab = 'windows' | 'linux' | 'macos';
+
 export function GlobalAddAgentModal() {
+  const { t } = useTranslation();
   const { addAgentModalOpen, closeAddAgentModal } = useUiStore();
   const [keys, setKeys] = useState<AgentApiKey[]>([]);
-  const [agentVersion] = useState('1.0.0');
-  const [expandedKeys, setExpandedKeys] = useState<Set<number>>(new Set());
+  const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
+  const [osTab, setOsTab] = useState<OsTab>('windows');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!addAgentModalOpen) return;
     deviceApi.listKeys().then((k) => {
       setKeys(k);
-      setExpandedKeys(new Set(k.map(key => key.id)));
+      if (k.length === 1) setSelectedKeyId(k[0].id);
+      else setSelectedKeyId(null);
     });
   }, [addAgentModalOpen]);
 
   if (!addAgentModalOpen) return null;
 
-  const toggleKey = (id: number) => {
-    setExpandedKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  const selectedKey = keys.find(k => k.id === selectedKeyId);
+
+  const origin = window.location.origin;
+  const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
+  const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
+  const windowsCmd = selectedKey ? `irm "${origin}/api/agent/installer/windows?key=${selectedKey.key}" | iex` : '';
+
+  const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
+    { id: 'windows', label: 'Windows', icon: <Monitor size={14} /> },
+    { id: 'linux', label: 'Linux', icon: <Terminal size={14} /> },
+    { id: 'macos', label: 'macOS', icon: <Apple size={14} /> },
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-xl border border-border bg-bg-primary shadow-2xl overflow-y-auto max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={closeAddAgentModal}>
+      <div className="w-full max-w-xl rounded-xl border border-border bg-bg-primary shadow-2xl overflow-y-auto max-h-[85vh]" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            <h2 className="text-base font-semibold text-text-primary">Add Agent</h2>
-            <p className="text-xs text-text-muted mt-0.5">Agent version: {agentVersion}</p>
-          </div>
-          <button onClick={closeAddAgentModal} className="text-text-muted hover:text-text-primary text-xl leading-none">×</button>
+          <h2 className="text-base font-semibold text-text-primary">{t('addAgent.title')}</h2>
+          <button onClick={closeAddAgentModal} className="text-text-muted hover:text-text-primary text-xl leading-none">&times;</button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-3">
+        <div className="p-6 space-y-5">
           {keys.length === 0 ? (
             <div className="text-center py-8">
               <Key size={28} className="mx-auto mb-2 text-text-muted" />
-              <p className="text-sm text-text-muted">Create an API Key first in the Agents page</p>
+              <p className="text-sm text-text-muted">{t('addAgent.noKeys')}</p>
             </div>
           ) : (
-            keys.map(apiKey => {
-              const expanded = expandedKeys.has(apiKey.id);
-              const linuxCmd = deviceApi.getInstallerUrl('linux', apiKey.key);
-              const macosCmd = deviceApi.getInstallerUrl('macos', apiKey.key);
-              const origin = window.location.origin;
-              const linuxOneliner = `curl -fsSL "${linuxCmd}" | bash`;
-              const macosOneliner = `sudo bash -c "$(curl -fsSL '${macosCmd}')"`;
-              const windowsCmd = `irm "${origin}/api/agent/installer/windows?key=${apiKey.key}" | iex`;
-
-              return (
-                <div key={apiKey.id} className="rounded-lg border border-border bg-bg-secondary">
+            <>
+              {/* API Key selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-text-muted uppercase">{t('addAgent.selectKey')}</label>
+                <div className="relative">
                   <button
-                    onClick={() => toggleKey(apiKey.id)}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-left"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 bg-bg-secondary border border-border rounded-lg text-sm text-left hover:border-accent/50 transition-colors"
                   >
-                    {expanded ? <ChevronDown size={14} className="text-text-muted shrink-0" /> : <ChevronRight size={14} className="text-text-muted shrink-0" />}
                     <Key size={14} className="text-accent shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-text-primary">{apiKey.name}</span>
-                      <span className="ml-2 text-xs font-mono text-text-muted">{apiKey.key.slice(0, 8)}...{apiKey.key.slice(-4)}</span>
-                    </div>
-                    {apiKey.lastUsedAt && (
-                      <span className="text-xs text-text-muted shrink-0">Last used {new Date(apiKey.lastUsedAt).toLocaleDateString()}</span>
+                    {selectedKey ? (
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <span className="font-medium text-text-primary">{selectedKey.name}</span>
+                        <code className="text-xs text-text-muted font-mono">{selectedKey.key.slice(0, 8)}...{selectedKey.key.slice(-4)}</code>
+                        {selectedKey.defaultGroupName && (
+                          <span className="text-xs text-accent">→ {selectedKey.defaultGroupName}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="flex-1 text-text-muted">{t('addAgent.chooseKey')}</span>
                     )}
+                    <ChevronDown size={14} className="text-text-muted shrink-0" />
                   </button>
+                  {dropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                      {keys.map(k => (
+                        <button
+                          key={k.id}
+                          onClick={() => { setSelectedKeyId(k.id); setDropdownOpen(false); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors ${
+                            selectedKeyId === k.id ? 'bg-accent/10 text-accent' : 'text-text-primary hover:bg-bg-tertiary'
+                          }`}
+                        >
+                          <Key size={14} className={selectedKeyId === k.id ? 'text-accent' : 'text-text-muted'} />
+                          <span className="font-medium">{k.name}</span>
+                          <code className="text-xs text-text-muted font-mono ml-auto">{k.key.slice(0, 8)}...</code>
+                          {k.defaultGroupName && (
+                            <span className="text-xs text-text-muted">→ {k.defaultGroupName}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                  {expanded && (
-                    <div className="px-4 pb-4 space-y-3 border-t border-border">
-                      <div>
-                        <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-1.5 mt-3">Linux</p>
-                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
-                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{linuxOneliner}</code>
-                          <CopyButton text={linuxOneliner} />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-1.5">macOS — Apple Silicon (M1 / M2 / M3 / M4)</p>
-                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
-                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{macosOneliner}</code>
-                          <CopyButton text={macosOneliner} />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-1.5">macOS — Intel (x86_64)</p>
-                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
-                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{macosOneliner}</code>
-                          <CopyButton text={macosOneliner} />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-1.5">Windows (PowerShell, admin)</p>
+              {/* Install commands (only when key selected) */}
+              {selectedKey && (
+                <div className="space-y-3">
+                  {/* OS tabs */}
+                  <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
+                    {osTabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOsTab(tab.id)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          osTab === tab.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary'
+                        }`}
+                      >
+                        {tab.icon}
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Command block */}
+                  <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
+                    {osTab === 'windows' && (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-text-muted">{t('addAgent.windowsHint')}</p>
                         <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
                           <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{windowsCmd}</code>
                           <CopyButton text={windowsCmd} />
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    {osTab === 'linux' && (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-text-muted">{t('addAgent.linuxHint')}</p>
+                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
+                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{linuxCmd}</code>
+                          <CopyButton text={linuxCmd} />
+                        </div>
+                      </div>
+                    )}
+                    {osTab === 'macos' && (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-text-muted">{t('addAgent.macosHint')}</p>
+                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
+                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{macosCmd}</code>
+                          <CopyButton text={macosCmd} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 
         <div className="px-6 pb-6">
-          <Button variant="secondary" onClick={closeAddAgentModal} className="w-full">Close</Button>
+          <Button variant="secondary" onClick={closeAddAgentModal} className="w-full">{t('common.close')}</Button>
         </div>
       </div>
     </div>

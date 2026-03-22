@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Painel",
-    "select": "Selecionar",
-    "cancelSelection": "Cancelar",
-    "addAgent": "Adicionar agente",
-    "addMonitor": "Adicionar monitor",
-    "editSelected": "Editar seleção",
-    "pause": "Pausar",
-    "resume": "Retomar",
-    "bulkDelete": "Excluir",
-    "statsUp": "On-line",
-    "statsDown": "Fora",
-    "statsAlert": "Alerta",
-    "statsPending": "Pendente",
-    "statsPaused": "Pausado",
-    "statsSslWarn": "SSL Aviso",
-    "statsSslExpired": "SSL Expirado",
-    "statsUptime": "Disponibilidade (24h)",
-    "statsAvgResponse": "Resp. média",
-    "sectionDown": "Fora",
-    "sectionAlert": "Alerta",
-    "sectionSslExpired": "SSL Expirado",
-    "sectionUngrouped": "Sem grupo",
-    "noMonitors": "Nenhum monitor encontrado"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "Adicionar monitor",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

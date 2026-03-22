@@ -229,33 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Panel de control",
-    "select": "Seleccionar",
-    "cancelSelection": "Cancelar",
-    "addAgent": "Agregar agente",
-    "addMonitor": "Agregar monitor",
-    "editSelected": "Editar selección",
-    "pause": "Pausar",
-    "resume": "Reanudar",
-    "bulkDelete": "Eliminar",
-    "statsUp": "En línea",
-    "statsDown": "Caído",
-    "statsAlert": "Alerta",
-    "statsPending": "Pendiente",
-    "statsPaused": "Pausado",
-    "statsSslWarn": "SSL Aviso",
-    "statsSslExpired": "SSL Expirado",
-    "statsUptime": "Disponibilidad (24h)",
-    "statsAvgResponse": "Respuesta prom.",
-    "sectionDown": "Caído",
-    "sectionAlert": "Alerta",
-    "sectionSslExpired": "SSL Expirado",
-    "sectionUngrouped": "Sin grupo",
-    "noMonitors": "No se encontraron monitores",
-    "selectedCount_one": "{{count}} monitor seleccionado",
-    "selectedCount_other": "{{count}} monitores seleccionados",
-    "selectedCountAgent_one": "{{count}} agente seleccionado",
-    "selectedCountAgent_other": "{{count}} agentes seleccionados"
+    "title": "Resumen de flota",
+    "viewAll": "Ver todos los dispositivos",
+    "pendingUpdates": "Actualizaciones pendientes",
+    "manage": "Gestionar",
+    "view": "Ver",
+    "allUpToDate": "Todos actualizados",
+    "complianceScore": "Puntuación de cumplimiento",
+    "groupOverview": "Resumen por grupo",
+    "manageGroups": "Gestionar grupos",
+    "noGroups": "Sin grupos configurados",
+    "ungrouped": "Sin grupo",
+    "devices": "dispositivos",
+    "availability": "Disponibilidad"
   },
   "monitors": {
     "new": "Agregar monitor",
@@ -991,5 +977,14 @@
   "apiKeys": {
     "defaultGroup": "Grupo predeterminado",
     "noGroup": "Sin grupo predeterminado"
+  },
+  "addAgent": {
+    "title": "Añadir agente",
+    "noKeys": "Cree primero una clave API en la página Agentes",
+    "selectKey": "Clave API",
+    "chooseKey": "Seleccione una clave API...",
+    "windowsHint": "Ejecutar en PowerShell como administrador",
+    "linuxHint": "Ejecutar en terminal (root o sudo)",
+    "macosHint": "Ejecutar en terminal (Apple Silicon & Intel)"
   }
 }

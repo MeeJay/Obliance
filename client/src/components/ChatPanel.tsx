@@ -57,6 +57,8 @@ export function ChatPanel({
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const quickReplies = [
     'Hello! How can I help you today?',
@@ -185,6 +187,35 @@ export function ChatPanel({
     inputRef.current?.focus();
   }, [input, chatId, operatorName, setMessages]);
 
+  const handleFileSend = useCallback(async (file: File) => {
+    if (!chatId || !isConnected) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setMessages(prev => [...prev, { sender: 'System', text: 'File too large (max 5 MB)', timestamp: Date.now(), isSystem: true }]);
+      return;
+    }
+    setUploadProgress(`Sending ${file.name}...`);
+    try {
+      const buf = await file.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('chat:file', { chatId, fileName: file.name, fileSize: file.size, fileData: b64 });
+        setMessages(prev => [...prev, { sender: operatorName, text: `📎 Sent file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, timestamp: Date.now() }]);
+      }
+    } catch {
+      setMessages(prev => [...prev, { sender: 'System', text: 'Failed to send file', timestamp: Date.now(), isSystem: true }]);
+    } finally {
+      setUploadProgress(null);
+    }
+  }, [chatId, isConnected, operatorName, setMessages]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSend(file);
+  }, [handleFileSend]);
+
   const handleClose = useCallback(() => {
     const socket = getSocket();
     if (socket && chatId) {
@@ -208,7 +239,16 @@ export function ChatPanel({
   }, [chatId, requestMessage, setMessages]);
 
   return (
-    <div className="flex flex-col h-full bg-bg-primary border-l border-border" style={{ width: 360 }}>
+    <div className="flex flex-col h-full bg-bg-primary border-l border-border relative" style={{ width: 360 }}
+      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-10 bg-accent/20 border-2 border-dashed border-accent flex items-center justify-center">
+          <span className="text-accent font-medium">Drop file to send</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-bg-secondary shrink-0">
         <div className="flex items-center gap-2">
@@ -282,6 +322,11 @@ export function ChatPanel({
         )}
         {remoteRequested && (
           <div className="text-xs text-center text-yellow-400 py-1">Waiting for user response...</div>
+        )}
+
+        {/* Upload progress */}
+        {uploadProgress && (
+          <div className="text-xs text-center text-accent py-1 animate-pulse">{uploadProgress}</div>
         )}
 
         {/* Quick replies */}

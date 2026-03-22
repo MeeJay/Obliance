@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "대시보드",
-    "select": "선택",
-    "cancelSelection": "취소",
-    "addAgent": "에이전트 추가",
-    "addMonitor": "모니터 추가",
-    "editSelected": "선택 항목 편집",
-    "pause": "일시정지",
-    "resume": "재개",
-    "bulkDelete": "삭제",
-    "statsUp": "정상",
-    "statsDown": "중단",
-    "statsAlert": "경보",
-    "statsPending": "대기 중",
-    "statsPaused": "일시정지",
-    "statsSslWarn": "SSL 경고",
-    "statsSslExpired": "SSL 만료됨",
-    "statsUptime": "가용성 (24h)",
-    "statsAvgResponse": "평균 응답시간",
-    "sectionDown": "중단",
-    "sectionAlert": "경보",
-    "sectionSslExpired": "SSL 만료됨",
-    "sectionUngrouped": "그룹 없음",
-    "noMonitors": "모니터를 찾을 수 없습니다"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "모니터 추가",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

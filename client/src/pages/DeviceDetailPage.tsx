@@ -102,57 +102,51 @@ function OverviewTab({ device }: { device: Device }) {
         </div>
       )}
 
-      {/* Timestamps */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-          <Clock className="w-5 h-5 text-purple-400 shrink-0" />
-          <div>
-            <p className="text-xs text-text-muted">Last Seen</p>
-            <p className="text-sm text-text-primary font-medium">
+      {/* Quick info cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+          <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Seen</p>
+            <p className="text-xs text-text-primary font-medium truncate">
               {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : '—'}
             </p>
           </div>
         </div>
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-          <Power className="w-5 h-5 text-orange-400 shrink-0" />
-          <div>
-            <p className="text-xs text-text-muted">Last Reboot</p>
-            <p className="text-sm text-text-primary font-medium">
+        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+          <Power className="w-4 h-4 text-orange-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Reboot</p>
+            <p className="text-xs text-text-primary font-medium truncate">
               {device.lastRebootAt ? new Date(device.lastRebootAt).toLocaleString() : '—'}
             </p>
           </div>
         </div>
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-          <Plus className="w-5 h-5 text-blue-400 shrink-0" />
-          <div>
-            <p className="text-xs text-text-muted">Added</p>
-            <p className="text-sm text-text-primary font-medium">
+        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+          <Plus className="w-4 h-4 text-blue-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-text-muted uppercase tracking-wide">Added</p>
+            <p className="text-xs text-text-primary font-medium truncate">
               {new Date(device.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-          <Cpu className="w-5 h-5 text-blue-400 shrink-0" />
-          <div>
-            <p className="text-xs text-text-muted">CPU</p>
-            <p className="text-sm text-text-primary font-medium truncate">{device.cpuModel ?? '—'}</p>
-            {device.cpuCores && <p className="text-xs text-text-muted">{device.cpuCores} cores</p>}
+        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+          <Cpu className="w-4 h-4 text-cyan-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-text-muted uppercase tracking-wide">CPU</p>
+            <p className="text-xs text-text-primary font-medium truncate" title={device.cpuModel ?? undefined}>{device.cpuModel ?? '—'}</p>
+            {device.cpuCores && <p className="text-[10px] text-text-muted">{device.cpuCores} cores</p>}
+          </div>
+        </div>
+        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+          <MemoryStick className="w-4 h-4 text-green-400 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-text-muted uppercase tracking-wide">RAM</p>
+            <p className="text-xs text-text-primary font-medium">{device.ramTotalGb ? `${device.ramTotalGb} GB` : '—'}</p>
           </div>
         </div>
       </div>
-
-      {/* Hardware summary */}
-      {device.ramTotalGb && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-3">
-            <MemoryStick className="w-5 h-5 text-green-400 shrink-0" />
-            <div>
-              <p className="text-xs text-text-muted">RAM</p>
-              <p className="text-sm text-text-primary font-medium">{device.ramTotalGb} GB</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Tags */}
       {device.tags && device.tags.length > 0 && (

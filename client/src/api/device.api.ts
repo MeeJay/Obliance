@@ -3,6 +3,19 @@ import type { Device, FleetSummary, AgentApiKey, ServiceInfo } from '@obliance/s
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
+export interface GroupStats {
+  groupId: number | null;
+  groupName: string | null;
+  online: number;
+  offline: number;
+  warning: number;
+  critical: number;
+  total: number;
+  complianceScore: number | null;
+  policyCount: number;
+  pendingUpdates: number;
+}
+
 export const deviceApi = {
   // Fleet
   async list(params?: { groupId?: number; status?: string; search?: string; approvalStatus?: string }): Promise<Device[]> {
@@ -21,6 +34,10 @@ export const deviceApi = {
   async getSummary(): Promise<FleetSummary> {
     const res = await apiClient.get<ApiResponse<FleetSummary>>('/devices/summary');
     return res.data.data!;
+  },
+  async getGroupStats(): Promise<GroupStats[]> {
+    const res = await apiClient.get<ApiResponse<GroupStats[]>>('/devices/group-stats');
+    return res.data.data ?? [];
   },
   async getById(id: number): Promise<Device> {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);

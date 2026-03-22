@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Instrumentpanel",
-    "select": "Välj",
-    "cancelSelection": "Avbryt",
-    "addAgent": "Lägg till agent",
-    "addMonitor": "Lägg till monitor",
-    "editSelected": "Redigera markerade",
-    "pause": "Pausa",
-    "resume": "Återuppta",
-    "bulkDelete": "Ta bort",
-    "statsUp": "Online",
-    "statsDown": "Offline",
-    "statsAlert": "Larm",
-    "statsPending": "Väntande",
-    "statsPaused": "Pausad",
-    "statsSslWarn": "SSL-varning",
-    "statsSslExpired": "SSL utgånget",
-    "statsUptime": "Drifttid (24h)",
-    "statsAvgResponse": "Medelrespons",
-    "sectionDown": "Offline",
-    "sectionAlert": "Larm",
-    "sectionSslExpired": "SSL utgånget",
-    "sectionUngrouped": "Utan grupp",
-    "noMonitors": "Inga monitorer hittades"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "Lägg till monitor",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

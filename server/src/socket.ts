@@ -147,6 +147,15 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       });
     });
 
+    socket.on('chat:file', (payload: { chatId: string; fileName: string; fileSize: number; fileData: string }) => {
+      if (!payload?.chatId || !payload?.fileData) return;
+      oblireachHub.broadcastCommand({
+        type: 'chat_file',
+        id: `cfile_${Date.now()}`,
+        payload: { chatId: payload.chatId, fileName: payload.fileName, fileSize: payload.fileSize, fileData: payload.fileData },
+      });
+    });
+
     socket.on('chat:request_remote', (payload: { chatId: string; message?: string }) => {
       if (!payload?.chatId) return;
       oblireachHub.broadcastCommand({

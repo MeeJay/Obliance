@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "仪表板",
-    "select": "选择",
-    "cancelSelection": "取消",
-    "addAgent": "添加代理",
-    "addMonitor": "添加监控器",
-    "editSelected": "编辑所选",
-    "pause": "暂停",
-    "resume": "恢复",
-    "bulkDelete": "删除",
-    "statsUp": "正常",
-    "statsDown": "故障",
-    "statsAlert": "警报",
-    "statsPending": "待处理",
-    "statsPaused": "已暂停",
-    "statsSslWarn": "SSL 警告",
-    "statsSslExpired": "SSL 过期",
-    "statsUptime": "可用性 (24h)",
-    "statsAvgResponse": "平均响应",
-    "sectionDown": "故障",
-    "sectionAlert": "警报",
-    "sectionSslExpired": "SSL 过期",
-    "sectionUngrouped": "未分组",
-    "noMonitors": "未找到监控器"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "添加监控器",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Dashboard",
-    "select": "Auswählen",
-    "cancelSelection": "Abbrechen",
-    "addAgent": "Agent hinzufügen",
-    "addMonitor": "Monitor hinzufügen",
-    "editSelected": "Auswahl bearbeiten",
-    "pause": "Pausieren",
-    "resume": "Fortsetzen",
-    "bulkDelete": "Löschen",
-    "statsUp": "Online",
-    "statsDown": "Offline",
-    "statsAlert": "Alarm",
-    "statsPending": "Ausstehend",
-    "statsPaused": "Pausiert",
-    "statsSslWarn": "SSL Warn.",
-    "statsSslExpired": "SSL Abgelaufen",
-    "statsUptime": "Verfügbarkeit (24h)",
-    "statsAvgResponse": "Ø Antwortzeit",
-    "sectionDown": "Offline",
-    "sectionAlert": "Alarm",
-    "sectionSslExpired": "SSL Abgelaufen",
-    "sectionUngrouped": "Ohne Gruppe",
-    "noMonitors": "Keine Monitore gefunden"
+    "title": "Flottenübersicht",
+    "viewAll": "Alle Geräte anzeigen",
+    "pendingUpdates": "Ausstehende Updates",
+    "manage": "Verwalten",
+    "view": "Ansehen",
+    "allUpToDate": "Alle aktuell",
+    "complianceScore": "Konformitätsbewertung",
+    "groupOverview": "Gruppenübersicht",
+    "manageGroups": "Gruppen verwalten",
+    "noGroups": "Noch keine Gruppen",
+    "ungrouped": "Ohne Gruppe",
+    "devices": "Geräte",
+    "availability": "Verfügbarkeit"
   },
   "monitors": {
     "new": "Monitor hinzufügen",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Standardgruppe",
     "noGroup": "Keine Standardgruppe"
+  },
+  "addAgent": {
+    "title": "Agent hinzufügen",
+    "noKeys": "Erstellen Sie zuerst einen API-Schlüssel",
+    "selectKey": "API-Schlüssel",
+    "chooseKey": "API-Schlüssel auswählen...",
+    "windowsHint": "In PowerShell als Administrator ausführen",
+    "linuxHint": "Im Terminal ausführen (root oder sudo)",
+    "macosHint": "Im Terminal ausführen (Apple Silicon & Intel)"
   }
 }

@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "لوحة التحكم",
-    "select": "تحديد",
-    "cancelSelection": "إلغاء",
-    "addAgent": "إضافة وكيل",
-    "addMonitor": "إضافة مراقب",
-    "editSelected": "تعديل المحدد",
-    "pause": "إيقاف مؤقت",
-    "resume": "استئناف",
-    "bulkDelete": "حذف",
-    "statsUp": "يعمل",
-    "statsDown": "معطّل",
-    "statsAlert": "تنبيه",
-    "statsPending": "في الانتظار",
-    "statsPaused": "متوقف",
-    "statsSslWarn": "SSL تحذير",
-    "statsSslExpired": "SSL منتهي",
-    "statsUptime": "وقت التشغيل (24س)",
-    "statsAvgResponse": "متوسط الاستجابة",
-    "sectionDown": "معطّل",
-    "sectionAlert": "تنبيه",
-    "sectionSslExpired": "SSL منتهي",
-    "sectionUngrouped": "بدون مجموعة",
-    "noMonitors": "لا توجد مراقبون"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "إضافة مراقب",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }

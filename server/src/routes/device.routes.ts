@@ -30,6 +30,91 @@ router.get('/summary', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/group-stats — stats per group for dashboard
+router.get('/group-stats', async (req, res, next) => {
+  try {
+    const tenantId = req.tenantId!;
+
+    // Device counts per group + status
+    const deviceRows = await db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .select('group_id', 'status')
+      .count('* as count')
+      .groupBy('group_id', 'status');
+
+    // Compliance scores per group (latest per device)
+    const complianceRows = await db.raw(`
+      SELECT d.group_id,
+             ROUND(AVG(cr.compliance_score)::numeric, 1) as avg_score,
+             COUNT(DISTINCT cr.policy_id) as policy_count
+      FROM compliance_results cr
+      JOIN devices d ON d.id = cr.device_id
+      WHERE d.tenant_id = ? AND d.approval_status = 'approved'
+        AND cr.id IN (
+          SELECT DISTINCT ON (device_id, policy_id) id
+          FROM compliance_results
+          WHERE tenant_id = ?
+          ORDER BY device_id, policy_id, checked_at DESC
+        )
+      GROUP BY d.group_id
+    `, [tenantId, tenantId]);
+
+    // Pending updates per group
+    const updateRows = await db.raw(`
+      SELECT d.group_id, COUNT(DISTINCT du.device_id) as devices_with_updates
+      FROM device_updates du
+      JOIN devices d ON d.id = du.device_id
+      WHERE d.tenant_id = ? AND du.status = 'available'
+      GROUP BY d.group_id
+    `, [tenantId]);
+
+    // Group names
+    const groups = await db('device_groups')
+      .where({ tenant_id: tenantId })
+      .select('id', 'name', 'parent_id');
+
+    // Build stats map
+    const statsMap = new Map<number | null, any>();
+
+    const getOrCreate = (gid: number | null) => {
+      if (!statsMap.has(gid)) {
+        statsMap.set(gid, { groupId: gid, groupName: null, online: 0, offline: 0, warning: 0, critical: 0, total: 0, complianceScore: null, policyCount: 0, pendingUpdates: 0 });
+      }
+      return statsMap.get(gid)!;
+    };
+
+    for (const row of deviceRows) {
+      const s = getOrCreate(row.group_id);
+      const count = parseInt(row.count);
+      s.total += count;
+      if (row.status === 'online') s.online += count;
+      else if (row.status === 'offline') s.offline += count;
+      else if (row.status === 'warning') s.warning += count;
+      else if (row.status === 'critical') s.critical += count;
+    }
+
+    for (const row of (complianceRows.rows ?? complianceRows)) {
+      const s = getOrCreate(row.group_id);
+      s.complianceScore = parseFloat(row.avg_score);
+      s.policyCount = parseInt(row.policy_count);
+    }
+
+    for (const row of (updateRows.rows ?? updateRows)) {
+      const s = getOrCreate(row.group_id);
+      s.pendingUpdates = parseInt(row.devices_with_updates);
+    }
+
+    // Set group names
+    const groupMap = new Map(groups.map((g: any) => [g.id, g.name]));
+    for (const [gid, stats] of statsMap) {
+      stats.groupName = gid ? (groupMap.get(gid) ?? 'Unknown') : null;
+    }
+
+    res.json({ data: Array.from(statsMap.values()).sort((a: any, b: any) => b.total - a.total) });
+  } catch (err) { next(err); }
+});
+
 // POST /api/devices/bulk/approve
 router.post('/bulk/approve', requireRole('admin'), async (req, res, next) => {
   try {

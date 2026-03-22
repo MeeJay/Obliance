@@ -229,29 +229,19 @@
     }
   },
   "dashboard": {
-    "title": "Gösterge paneli",
-    "select": "Seç",
-    "cancelSelection": "İptal",
-    "addAgent": "Ajan ekle",
-    "addMonitor": "Monitör ekle",
-    "editSelected": "Seçileni düzenle",
-    "pause": "Duraklat",
-    "resume": "Devam et",
-    "bulkDelete": "Sil",
-    "statsUp": "Çevrimiçi",
-    "statsDown": "Çevrimdışı",
-    "statsAlert": "Alarm",
-    "statsPending": "Bekliyor",
-    "statsPaused": "Duraklatıldı",
-    "statsSslWarn": "SSL Uyarı",
-    "statsSslExpired": "SSL Süresi Doldu",
-    "statsUptime": "Çalışma süresi (24s)",
-    "statsAvgResponse": "Ort. Yanıt",
-    "sectionDown": "Çevrimdışı",
-    "sectionAlert": "Alarm",
-    "sectionSslExpired": "SSL Süresi Doldu",
-    "sectionUngrouped": "Grupsuz",
-    "noMonitors": "Monitör bulunamadı"
+    "title": "Fleet Overview",
+    "viewAll": "View all devices",
+    "pendingUpdates": "Pending updates",
+    "manage": "Manage",
+    "view": "View",
+    "allUpToDate": "All up to date",
+    "complianceScore": "Fleet compliance score",
+    "groupOverview": "Group Overview",
+    "manageGroups": "Manage groups",
+    "noGroups": "No groups configured yet",
+    "ungrouped": "Ungrouped",
+    "devices": "devices",
+    "availability": "Availability"
   },
   "monitors": {
     "new": "Monitör ekle",
@@ -807,5 +797,14 @@
   "apiKeys": {
     "defaultGroup": "Default group",
     "noGroup": "No default group"
+  },
+  "addAgent": {
+    "title": "Add Agent",
+    "noKeys": "Create an API key first in the Agents page",
+    "selectKey": "API Key",
+    "chooseKey": "Select an API key...",
+    "windowsHint": "Run in PowerShell as Administrator",
+    "linuxHint": "Run in terminal (root or sudo)",
+    "macosHint": "Run in terminal (Apple Silicon & Intel)"
   }
 }
