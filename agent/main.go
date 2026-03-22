@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -217,6 +219,24 @@ func checkForUpdate(cfg *Config) {
 	applyUpdateIfNewer(cfg, info.Version)
 }
 
+// verifyFileSHA256 checks the SHA-256 of a downloaded file against the expected hash.
+func verifyFileSHA256(filePath, expectedHash string) bool {
+	if expectedHash == "" {
+		return true // no hash provided — skip check
+	}
+	f, err := os.Open(filePath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false
+	}
+	actual := hex.EncodeToString(h.Sum(nil))
+	return actual == expectedHash
+}
+
 // applyUpdateIfNewer downloads and applies an update when remoteVersion is
 // strictly newer than the running agentVersion. Safe to call from push()
 // (periodic) and checkForUpdate (startup) — exits/restarts if an update is
@@ -275,6 +295,13 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 			log.Printf("Auto-update: MSI download truncated (%d/%d bytes) — skipping", written, dlResp.ContentLength)
 			return
 		}
+		// Verify integrity via SHA-256 hash from server
+		expectedHash := dlResp.Header.Get("X-Content-SHA256")
+		if !verifyFileSHA256(msiPath, expectedHash) {
+			os.Remove(msiPath)
+			log.Printf("Auto-update: MSI hash mismatch — download corrupted, skipping")
+			return
+		}
 
 		// Launch msiexec via a detached batch script — the script outlives the
 		// service process. msiexec will stop the service, install the new version,
@@ -309,6 +336,13 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 		if dlResp.ContentLength > 0 && written != dlResp.ContentLength {
 			os.Remove(tmpPath)
 			log.Printf("Auto-update: download truncated (%d/%d bytes) — skipping", written, dlResp.ContentLength)
+			return
+		}
+		// Verify integrity via SHA-256 hash from server
+		expectedHash := dlResp.Header.Get("X-Content-SHA256")
+		if !verifyFileSHA256(tmpPath, expectedHash) {
+			os.Remove(tmpPath)
+			log.Printf("Auto-update: binary hash mismatch — download corrupted, skipping")
 			return
 		}
 		if err := os.Rename(tmpPath, exePath); err != nil {

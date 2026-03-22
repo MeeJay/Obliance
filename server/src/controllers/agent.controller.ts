@@ -138,8 +138,14 @@ export function agentDownload(req: Request, res: Response): void {
     return;
   }
 
+  // Compute and send SHA-256 hash so the agent can verify integrity after download
+  const crypto = require('crypto');
+  const fileBuffer = fs.readFileSync(filePath);
+  const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
   res.setHeader('Content-Type', 'application/octet-stream');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('X-Content-SHA256', hash);
   res.sendFile(filePath);
 }
 
