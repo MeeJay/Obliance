@@ -28,23 +28,33 @@ var (
 // ensureTrayRunning checks if obliance-tray.exe is running and launches it
 // in each active user session if not. Called periodically from mainLoop.
 func ensureTrayRunning() {
-	trayExe := filepath.Join(os.Getenv("ProgramFiles"), "OblianceAgent", "obliance-tray.exe")
+	programFiles := os.Getenv("ProgramFiles")
+	if programFiles == "" {
+		programFiles = `C:\Program Files`
+	}
+	trayExe := filepath.Join(programFiles, "OblianceAgent", "obliance-tray.exe")
 	if _, err := os.Stat(trayExe); err != nil {
-		return // tray not installed
+		log.Printf("tray-launcher: tray exe not found at %s", trayExe)
+		return
 	}
 
-	// Check if already running
 	if isTrayRunning() {
 		return
 	}
 
-	// Find active user sessions and launch tray in each
+	log.Printf("tray-launcher: tray not running, looking for user sessions...")
 	sessions, err := enumWtsSessions()
 	if err != nil {
+		log.Printf("tray-launcher: enumWtsSessions error: %v", err)
+		return
+	}
+	if len(sessions) == 0 {
+		log.Printf("tray-launcher: no active user sessions found")
 		return
 	}
 	for _, s := range sessions {
 		if s.State == "Active" && s.Username != "" {
+			log.Printf("tray-launcher: found session %d (%s), launching tray...", s.ID, s.Username)
 			launchTrayInSession(uint32(s.ID), trayExe)
 		}
 	}
@@ -108,8 +118,9 @@ func launchTrayInSession(sessionID uint32, exePath string) {
 // watchTrayLoop periodically ensures the tray is running. Started as a
 // goroutine from mainLoop.
 func watchTrayLoop(stopCh <-chan struct{}) {
-	// Initial delay — let the agent and any MSI finish first.
+	log.Printf("tray-launcher: watchTrayLoop started, waiting 15s...")
 	time.Sleep(15 * time.Second)
+	log.Printf("tray-launcher: initial check")
 	ensureTrayRunning()
 
 	ticker := time.NewTicker(60 * time.Second)
