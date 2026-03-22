@@ -231,8 +231,13 @@ export async function listKeys(req: Request, res: Response): Promise<void> {
       this.on('devices.api_key_id', '=', 'agent_api_keys.id')
           .andOn('devices.approval_status', db.raw("'approved'"));
     })
-    .groupBy('agent_api_keys.id')
-    .select('agent_api_keys.*', db.raw('COUNT(devices.id)::int as device_count'))
+    .leftJoin('device_groups', 'device_groups.id', 'agent_api_keys.default_group_id')
+    .groupBy('agent_api_keys.id', 'device_groups.name')
+    .select(
+      'agent_api_keys.*',
+      db.raw('COUNT(devices.id)::int as device_count'),
+      'device_groups.name as default_group_name',
+    )
     .orderBy('agent_api_keys.created_at', 'desc');
 
   const data = rows.map((r: any) => ({
@@ -240,6 +245,8 @@ export async function listKeys(req: Request, res: Response): Promise<void> {
     tenantId: r.tenant_id,
     name: r.name,
     key: r.key,
+    defaultGroupId: r.default_group_id ?? null,
+    defaultGroupName: r.default_group_name ?? null,
     createdBy: r.created_by,
     createdAt: r.created_at,
     lastUsedAt: r.last_used_at,
@@ -249,7 +256,7 @@ export async function listKeys(req: Request, res: Response): Promise<void> {
 }
 
 export async function createKey(req: Request, res: Response): Promise<void> {
-  const { name } = req.body as { name: string };
+  const { name, defaultGroupId } = req.body as { name: string; defaultGroupId?: number | null };
   if (!name?.trim()) {
     res.status(400).json({ success: false, error: 'Name is required' });
     return;
@@ -260,6 +267,7 @@ export async function createKey(req: Request, res: Response): Promise<void> {
     tenant_id: req.tenantId,
     name: name.trim(),
     key: rawKey,
+    default_group_id: defaultGroupId ?? null,
     created_by: userId,
   }).returning('*');
   res.status(201).json({
@@ -269,12 +277,31 @@ export async function createKey(req: Request, res: Response): Promise<void> {
       tenantId: row.tenant_id,
       name: row.name,
       key: row.key,
+      defaultGroupId: row.default_group_id ?? null,
+      defaultGroupName: null,
       createdBy: row.created_by,
       createdAt: row.created_at,
       lastUsedAt: row.last_used_at ?? null,
       deviceCount: 0,
     },
   });
+}
+
+export async function updateKey(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  const { name, defaultGroupId } = req.body as { name?: string; defaultGroupId?: number | null };
+  const updates: any = {};
+  if (name !== undefined) updates.name = name.trim();
+  if (defaultGroupId !== undefined) updates.default_group_id = defaultGroupId;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ success: false, error: 'Nothing to update' });
+    return;
+  }
+  const affected = await db('agent_api_keys')
+    .where({ id, tenant_id: req.tenantId })
+    .update(updates);
+  if (!affected) { res.status(404).json({ success: false, error: 'Key not found' }); return; }
+  res.json({ success: true });
 }
 
 export async function deleteKey(req: Request, res: Response): Promise<void> {
@@ -305,7 +332,7 @@ export async function getDevice(req: Request, res: Response): Promise<void> {
 export async function listDevices(req: Request, res: Response): Promise<void> {
   const status = req.query.status as string | undefined;
   const validStatuses = ['pending', 'approved', 'refused', 'suspended'];
-  const devices = await deviceService.getDevices(
+  const devices = await deviceService.getDevicesList(
     req.tenantId,
     validStatuses.includes(status ?? '') ? { status } : undefined,
   );

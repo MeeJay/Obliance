@@ -6,8 +6,17 @@ interface ApiResponse<T> { data?: T; error?: string; }
 export const deviceApi = {
   // Fleet
   async list(params?: { groupId?: number; status?: string; search?: string; approvalStatus?: string }): Promise<Device[]> {
-    const res = await apiClient.get<ApiResponse<Device[]>>('/devices', { params });
-    return res.data.data ?? [];
+    const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number }>>('/devices', { params });
+    const data = res.data.data;
+    // Support both paginated response { items, total } and legacy array
+    return Array.isArray(data) ? data : (data?.items ?? []);
+  },
+  async listPaginated(params?: {
+    groupId?: number; status?: string; search?: string;
+    approvalStatus?: string; osType?: string; page?: number; pageSize?: number;
+  }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
+    const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
+    return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
   },
   async getSummary(): Promise<FleetSummary> {
     const res = await apiClient.get<ApiResponse<FleetSummary>>('/devices/summary');
@@ -46,6 +55,10 @@ export const deviceApi = {
     const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/unsuspend`);
     return res.data.data!;
   },
+  async batch(params: { groupId?: number; deviceIds?: number[]; action: string }): Promise<{ dispatched: number }> {
+    const res = await apiClient.post<ApiResponse<{ dispatched: number }>>('/devices/batch', params);
+    return res.data.data ?? { dispatched: 0 };
+  },
   async disablePrivacyMode(id: number): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy-mode/disable`);
   },
@@ -63,9 +76,12 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<AgentApiKey[]>>('/agent/keys');
     return res.data.data ?? [];
   },
-  async createKey(name: string): Promise<AgentApiKey> {
-    const res = await apiClient.post<ApiResponse<AgentApiKey>>('/agent/keys', { name });
+  async createKey(name: string, defaultGroupId?: number | null): Promise<AgentApiKey> {
+    const res = await apiClient.post<ApiResponse<AgentApiKey>>('/agent/keys', { name, defaultGroupId });
     return res.data.data!;
+  },
+  async updateKey(id: number, data: { name?: string; defaultGroupId?: number | null }): Promise<void> {
+    await apiClient.put(`/agent/keys/${id}`, data);
   },
   async deleteKey(id: number): Promise<void> {
     await apiClient.delete(`/agent/keys/${id}`);

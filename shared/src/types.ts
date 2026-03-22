@@ -224,6 +224,8 @@ export interface AgentApiKey {
   tenantId: number;
   name: string | null;
   key: string;
+  defaultGroupId: number | null;
+  defaultGroupName: string | null;
   createdBy: number | null;
   createdAt: string;
   lastUsedAt: string | null;

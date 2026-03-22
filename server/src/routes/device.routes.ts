@@ -11,12 +11,14 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, status, approvalStatus, search } = req.query as any;
-    const devices = await deviceService.getDevices(req.tenantId!, {
+    const { groupId, status, approvalStatus, search, osType, page, pageSize } = req.query as any;
+    const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
-      status, approvalStatus, search,
+      status, approvalStatus, search, osType,
+      page: page ? parseInt(page) : undefined,
+      pageSize: pageSize ? parseInt(pageSize) : undefined,
     });
-    res.json({ data: devices });
+    res.json({ data: result });
   } catch (err) { next(err); }
 });
 
@@ -45,6 +47,40 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
     const list = ids ?? deviceIds ?? [];
     await deviceService.bulkDelete(list, req.tenantId!);
     res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/batch — batch action by group or device IDs
+router.post('/batch', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { groupId, deviceIds, action } = req.body as {
+      groupId?: number; deviceIds?: number[];
+      action: 'restart_agent' | 'reboot' | 'shutdown' | 'scan_inventory' | 'scan_updates' | 'check_compliance';
+    };
+    if (!action) return res.status(400).json({ error: 'action required' });
+
+    let ids: number[] = deviceIds ?? [];
+    if (groupId && !deviceIds?.length) {
+      const rows = await db('devices')
+        .where({ tenant_id: req.tenantId!, group_id: groupId, approval_status: 'approved' })
+        .whereNot({ status: 'suspended' })
+        .select('id');
+      ids = rows.map((r: any) => r.id);
+    }
+    if (!ids.length) return res.json({ data: { dispatched: 0 } });
+
+    let dispatched = 0;
+    for (const deviceId of ids) {
+      await commandService.enqueue({
+        deviceId,
+        tenantId: req.tenantId!,
+        type: action as any,
+        priority: 'normal',
+        createdBy: req.session.userId,
+      });
+      dispatched++;
+    }
+    res.json({ data: { dispatched } });
   } catch (err) { next(err); }
 });
 

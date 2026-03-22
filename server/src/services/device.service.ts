@@ -86,14 +86,20 @@ class DeviceService {
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
-  async getDevices(tenantId: number, filters?: { groupId?: number; status?: string; approvalStatus?: string; search?: string }) {
+  async getDevices(tenantId: number, filters?: {
+    groupId?: number; status?: string; approvalStatus?: string;
+    search?: string; osType?: string; page?: number; pageSize?: number;
+  }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
+    const page = Math.max(1, filters?.page ?? 1);
+    const pageSize = Math.min(500, Math.max(1, filters?.pageSize ?? 100));
+
     let q = db('devices').where({ tenant_id: tenantId });
     // Never show pending_uninstall devices in normal listings
     q = q.whereNot({ status: 'pending_uninstall' });
     if (filters?.groupId) q = q.where({ group_id: filters.groupId });
     if (filters?.status) q = q.where({ status: filters.status });
+    if (filters?.osType) q = q.where({ os_type: filters.osType });
     if (filters?.approvalStatus === 'suspended') {
-      // "Suspended" filter = devices whose status is suspended (regardless of approvalStatus)
       q = q.where({ status: 'suspended' });
     } else if (filters?.approvalStatus) {
       q = q.where({ approval_status: filters.approvalStatus });
@@ -102,8 +108,18 @@ class DeviceService {
       this.whereILike('hostname', `%${filters.search}%`)
           .orWhereILike('display_name', `%${filters.search}%`);
     });
-    const rows = await q.orderBy('hostname');
-    return rows.map(this.rowToDevice.bind(this));
+
+    const countResult = await q.clone().count('* as count').first();
+    const total = Number(countResult?.count ?? 0);
+
+    const rows = await q.orderBy('hostname').limit(pageSize).offset((page - 1) * pageSize);
+    return { items: rows.map(this.rowToDevice.bind(this)), total, page, pageSize };
+  }
+
+  /** Legacy non-paginated list — used by sidebar and internal calls. */
+  async getDevicesList(tenantId: number, filters?: { groupId?: number; status?: string; approvalStatus?: string; search?: string }): Promise<Device[]> {
+    const result = await this.getDevices(tenantId, { ...filters, page: 1, pageSize: 10000 });
+    return result.items;
   }
 
   async getDeviceById(id: number, tenantId: number): Promise<Device | null> {
@@ -153,11 +169,20 @@ class DeviceService {
   }
 
   async approveDevice(id: number, tenantId: number, approvedBy: number) {
+    // Check if the device's API key has a default group
+    const deviceRow = await db('devices').where({ id, tenant_id: tenantId }).first();
+    let groupId = deviceRow?.group_id;
+    if (!groupId && deviceRow?.api_key_id) {
+      const keyRow = await db('agent_api_keys').where({ id: deviceRow.api_key_id }).first();
+      if (keyRow?.default_group_id) groupId = keyRow.default_group_id;
+    }
+
     await db('devices').where({ id, tenant_id: tenantId }).update({
       approval_status: 'approved',
       status: 'offline',
       approved_by: approvedBy,
       approved_at: new Date(),
+      group_id: groupId ?? null,
       updated_at: new Date(),
     });
     const device = await this.getDeviceById(id, tenantId);
