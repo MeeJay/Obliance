@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { commandService } from '../services/command.service';
 import { agentHub } from '../services/agentHub.service';
+import { permissionService } from '../services/permission.service';
 import { db } from '../db';
+import { AppError } from '../middleware/errorHandler';
 import type { CommandType, CommandPriority } from '@obliance/shared';
 
 const router = Router();
@@ -23,6 +25,12 @@ router.post('/', async (req, res, next) => {
     // Verify device belongs to tenant
     const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
     if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    // Permission check — non-admins need write access to the device
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
+      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+    }
 
     const cmd = await commandService.enqueue({
       deviceId,
@@ -58,9 +66,27 @@ router.post('/', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const { deviceId, status } = req.query as any;
+
+    // Non-admins: if deviceId specified, check read access; otherwise filter to visible devices
+    if (req.session.role !== 'admin' && deviceId) {
+      const canRead = await permissionService.canReadDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canRead) return next(new AppError(403, 'Insufficient permissions'));
+    }
+
     const commands = await commandService.getCommands(req.tenantId!, {
       deviceId: deviceId ? parseInt(deviceId) : undefined, status,
     });
+
+    // Filter results to visible devices for non-admins
+    if (req.session.role !== 'admin') {
+      const visible = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+      if (visible !== 'all') {
+        const visibleSet = new Set(visible);
+        const filtered = commands.filter((c: any) => visibleSet.has(c.deviceId));
+        return res.json({ data: { items: filtered, total: filtered.length } });
+      }
+    }
+
     res.json({ data: { items: commands, total: commands.length } });
   } catch (err) { next(err); }
 });

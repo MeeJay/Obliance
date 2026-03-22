@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
+import { requireRole } from '../middleware/rbac';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
     const [row] = await db('script_schedules').insert({
       tenant_id: req.tenantId!,
@@ -34,7 +35,7 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     const updates: any = { updated_at: new Date() };
     if (req.body.name !== undefined) updates.name = req.body.name;
@@ -47,7 +48,7 @@ router.patch('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).delete();
     res.status(204).send();

@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { scriptService } from '../services/script.service';
 import { scheduleService } from '../services/schedule.service';
+import { requireRole } from '../middleware/rbac';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
@@ -33,8 +36,8 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/scripts
-router.post('/', async (req, res, next) => {
+// POST /api/scripts (admin only)
+router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
     const script = await scriptService.createScript(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -43,11 +46,11 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT/PATCH /api/scripts/:id
-router.put('/:id', async (req, res, next) => {
+// PUT/PATCH /api/scripts/:id (admin only)
+router.put('/:id', requireRole('admin'), async (req, res, next) => {
   return handleScriptUpdate(req, res, next);
 });
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireRole('admin'), async (req, res, next) => {
   return handleScriptUpdate(req, res, next);
 });
 async function handleScriptUpdate(req: any, res: any, next: any) {
@@ -75,8 +78,8 @@ async function handleScriptUpdate(req: any, res: any, next: any) {
   } catch (err) { next(err); }
 }
 
-// DELETE /api/scripts/:id
-router.delete('/:id', async (req, res, next) => {
+// DELETE /api/scripts/:id (admin only)
+router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await scriptService.deleteScript(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
@@ -87,6 +90,15 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/execute', async (req, res, next) => {
   try {
     const { deviceIds, parameterValues } = req.body;
+
+    // Permission check: user must have write access to all target devices
+    if (req.session.role !== 'admin' && deviceIds?.length) {
+      for (const did of deviceIds) {
+        const canWrite = await permissionService.canWriteDevice(req.session.userId!, did, false);
+        if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+      }
+    }
+
     const executions = await scheduleService.executeNow(
       parseInt(req.params.id), deviceIds, req.tenantId!,
       parameterValues || {}, req.session.userId!

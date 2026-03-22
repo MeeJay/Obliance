@@ -1,14 +1,34 @@
 import { Router } from 'express';
 import { updateService } from '../services/update.service';
+import { requireDeviceWriteParam } from '../middleware/rbac';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
 router.get('/', async (req, res, next) => {
   try {
     const { status, severity, deviceId } = req.query as any;
+
+    // Permission check: if filtering by specific device, check read access
+    if (deviceId && req.session.role !== 'admin') {
+      const canRead = await permissionService.canReadDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canRead) throw new AppError(403, 'Insufficient permissions');
+    }
+
     const items = await updateService.getTenantUpdates(req.tenantId!, {
       status, severity, deviceId: deviceId ? parseInt(deviceId) : undefined,
     });
+
+    // Filter by visible devices for non-admins when no specific device filter
+    if (!deviceId && req.session.role !== 'admin') {
+      const visibleIds = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+      if (Array.isArray(visibleIds)) {
+        const filtered = items.filter((item: any) => visibleIds.includes(item.device_id));
+        return res.json({ data: { items: filtered, total: filtered.length } });
+      }
+    }
+
     res.json({ data: { items, total: items.length } });
   } catch (err) { next(err); }
 });
@@ -43,7 +63,7 @@ router.delete('/policies/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/device/:deviceId/approve', async (req, res, next) => {
+router.post('/device/:deviceId/approve', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const { updateId, severities } = req.body;
     if (updateId) {
@@ -57,7 +77,7 @@ router.post('/device/:deviceId/approve', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/device/:deviceId/deploy', async (req, res, next) => {
+router.post('/device/:deviceId/deploy', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const updates = await updateService.deployApprovedUpdates(
       parseInt(req.params.deviceId), req.tenantId!, req.session.userId!
@@ -66,7 +86,7 @@ router.post('/device/:deviceId/deploy', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/device/:deviceId/scan', async (req, res, next) => {
+router.post('/device/:deviceId/scan', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const cmd = await updateService.triggerUpdateScan(
       parseInt(req.params.deviceId), req.tenantId!, req.session.userId!
@@ -76,7 +96,7 @@ router.post('/device/:deviceId/scan', async (req, res, next) => {
 });
 
 // Alias matching client URL: POST /updates/scan/:deviceId
-router.post('/scan/:deviceId', async (req, res, next) => {
+router.post('/scan/:deviceId', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const cmd = await updateService.triggerUpdateScan(
       parseInt(req.params.deviceId), req.tenantId!, req.session.userId!

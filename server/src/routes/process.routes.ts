@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { requireRole } from '../middleware/rbac';
+import { requireDeviceWriteParam } from '../middleware/rbac';
 import { commandService } from '../services/command.service';
 
 const router = Router();
 
-// Kill a process on a device (admin only)
-router.post('/:deviceId/kill', requireRole('admin'), async (req, res, next) => {
+// Kill a process on a device (requires device write permission)
+router.post('/:deviceId/kill', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const deviceId = Number(req.params.deviceId);
     const { pid, name } = req.body;

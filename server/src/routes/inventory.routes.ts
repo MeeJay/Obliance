@@ -1,7 +1,19 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { inventoryService } from '../services/inventory.service';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
+
+// All inventory routes require read access to the device
+router.param('deviceId', async (req: Request, _res: Response, next: NextFunction, val: string) => {
+  if (req.session?.role === 'admin') return next();
+  const deviceId = parseInt(val, 10);
+  if (isNaN(deviceId)) return next();
+  const canRead = await permissionService.canReadDevice(req.session.userId!, deviceId, false);
+  if (!canRead) return next(new AppError(403, 'Insufficient permissions'));
+  next();
+});
 
 router.get('/:deviceId/hardware', async (req, res, next) => {
   try {

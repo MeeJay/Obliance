@@ -265,8 +265,9 @@ export function AdminUsersPage() {
       resetTeamForm();
       load();
       selectTeam(team.id);
-    } catch {
-      toast.error(t('users.teams.failedCreate'));
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? err?.message ?? t('users.teams.failedCreate');
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -696,11 +697,6 @@ export function AdminUsersPage() {
                   <form onSubmit={teamFormMode === 'create' ? handleCreateTeam : handleEditTeam} className="space-y-3">
                     <Input label={t('users.teams.nameLabel')} value={formTeamName} onChange={(e) => setFormTeamName(e.target.value)} required />
                     <Input label={t('users.teams.descLabel')} value={formTeamDesc} onChange={(e) => setFormTeamDesc(e.target.value)} />
-                    <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
-                      <input type="checkbox" checked={formCanCreate} onChange={(e) => setFormCanCreate(e.target.checked)}
-                        className="rounded border-border text-accent focus:ring-accent" />
-                      {t('users.teams.canCreate')}
-                    </label>
                     {/* Tenant selector — platform admin only, create mode only */}
                     {isPlatformAdmin && teamFormMode === 'create' && teamTenants.length > 0 && (
                       <div className="space-y-1">

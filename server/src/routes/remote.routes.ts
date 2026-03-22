@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { remoteService } from '../services/remote.service';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 
 const router = Router();
@@ -7,6 +9,12 @@ const router = Router();
 router.post('/sessions', async (req, res, next) => {
   try {
     const { deviceId, protocol, sessionId } = req.body;
+
+    // Permission check — non-admins need write access to create remote sessions
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
+      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+    }
     const session = await remoteService.createSession(
       deviceId, req.tenantId!, req.session.userId!, protocol,
       typeof sessionId === 'number' ? sessionId : undefined,

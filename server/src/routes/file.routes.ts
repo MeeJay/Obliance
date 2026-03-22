@@ -2,8 +2,24 @@ import { Router, Request, Response, NextFunction } from 'express';
 import express from 'express';
 import { commandService } from '../services/command.service';
 import { auditService } from '../services/audit.service';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
+
+// All file operations require device access. Uses router.param() to check
+// permissions once for every route with :deviceId.
+router.param('deviceId', async (req: Request, _res: Response, next: NextFunction, val: string) => {
+  if (req.session?.role === 'admin') return next();
+  const deviceId = parseInt(val, 10);
+  if (isNaN(deviceId)) return next();
+  const isReadOnly = req.path.includes('/list') || req.path.includes('/download') || req.path.includes('/audit-log');
+  const allowed = isReadOnly
+    ? await permissionService.canReadDevice(req.session.userId!, deviceId, false)
+    : await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
+  if (!allowed) return next(new AppError(403, 'Insufficient permissions'));
+  next();
+});
 
 // Upload route needs larger body limit for base64 file content
 const uploadBodyParser = express.json({ limit: '200mb' });

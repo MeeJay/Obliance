@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { deviceService } from '../services/device.service';
 import { commandService } from '../services/command.service';
-import { requireRole } from '../middleware/rbac';
+import { requireRole, requireDeviceRead, requireDeviceWrite } from '../middleware/rbac';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 
 const router = Router();
@@ -12,12 +14,24 @@ const router = Router();
 router.get('/', async (req, res, next) => {
   try {
     const { groupId, status, approvalStatus, search, osType, page, pageSize } = req.query as any;
+
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
       status, approvalStatus, search, osType,
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
     });
+
+    // Filter by visible devices for non-admins
+    if (req.session.role !== 'admin') {
+      const visible = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+      if (Array.isArray(visible)) {
+        const visibleSet = new Set(visible);
+        result.items = result.items.filter((d: any) => visibleSet.has(d.id));
+        result.total = result.items.length;
+      }
+    }
+
     res.json({ data: result });
   } catch (err) { next(err); }
 });
@@ -172,7 +186,7 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
 // ── Single-device routes (:id) ────────────────────────────────────────────────
 
 // GET /api/devices/:id
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireDeviceRead(), async (req, res, next) => {
   try {
     const device = await deviceService.getDeviceById(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
@@ -181,7 +195,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // PATCH /api/devices/:id
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
   try {
     const device = await deviceService.updateDevice(parseInt(req.params.id), req.tenantId!, req.body);
     if (!device) return res.status(404).json({ error: 'Device not found' });
@@ -190,7 +204,7 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 // GET /api/devices/:id/services
-router.get('/:id/services', async (req, res, next) => {
+router.get('/:id/services', requireDeviceRead(), async (req, res, next) => {
   try {
     const deviceId = parseInt(req.params.id);
     const device = await db('devices')

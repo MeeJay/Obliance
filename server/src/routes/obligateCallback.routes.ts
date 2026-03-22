@@ -100,6 +100,26 @@ router.get('/callback', async (req, res) => {
       }
     }
 
+    // Sync preferences from Obligate (theme, language, toast settings)
+    if (assertion.preferences) {
+      const prefUpdate: Record<string, unknown> = {};
+      if (assertion.preferences.preferredLanguage) prefUpdate.preferred_language = assertion.preferences.preferredLanguage;
+      if (Object.keys(prefUpdate).length > 0) {
+        await db('users').where({ id: localUserId }).update(prefUpdate);
+      }
+      const uiPrefs: Record<string, unknown> = {};
+      if (assertion.preferences.preferredTheme) uiPrefs.preferredTheme = assertion.preferences.preferredTheme;
+      if (assertion.preferences.toastEnabled !== undefined) uiPrefs.toastEnabled = assertion.preferences.toastEnabled;
+      if (assertion.preferences.toastPosition) uiPrefs.toastPosition = assertion.preferences.toastPosition;
+      if (Object.keys(uiPrefs).length > 0) {
+        const existingRow = await db('users').where({ id: localUserId }).select('preferences').first() as { preferences: unknown } | undefined;
+        const existing = (typeof existingRow?.preferences === 'string' ? JSON.parse(existingRow.preferences) : existingRow?.preferences) ?? {};
+        await db('users').where({ id: localUserId }).update({
+          preferences: JSON.stringify({ ...existing, ...uiPrefs }),
+        });
+      }
+    }
+
     // Establish session
     req.session.userId = localUserId;
     const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
@@ -120,7 +140,7 @@ router.get('/callback', async (req, res) => {
       if (err) { logger.error(err, 'Session save failed'); res.redirect('/login?error=sso_failed'); return; }
       logger.info({ sessionId: req.sessionID, userId: req.session.userId }, 'Session saved, redirecting to /');
       res.setHeader('Content-Type', 'text/html');
-      res.end('<html><head><meta http-equiv="refresh" content="0;url=/"></head><body>Redirecting...</body></html>');
+      res.end(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;color:#8b949e;font-family:-apple-system,BlinkMacSystemFont,sans-serif}.s{text-align:center}.d{width:28px;height:28px;border:2.5px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:r .6s linear infinite;margin:0 auto 14px}@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div class="s"><div class="d"></div><div>Signing in...</div></div></body></html>`);
     });
   } catch (err) {
     logger.error(err, 'Obligate callback error');
@@ -211,6 +231,30 @@ router.get('/app-info', async (req, res) => {
     logger.error(err, 'app-info error');
     res.status(500).json({ success: false, error: 'Failed to fetch app info' });
   }
+});
+
+/**
+ * GET /api/auth/dashboard-stats
+ * Called by Obligate (Bearer auth) to display stats on the Obligate dashboard.
+ */
+router.get('/dashboard-stats', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ success: false }); return; }
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.apiKey || authHeader.slice(7) !== raw.apiKey) { res.status(401).json({ success: false }); return; }
+
+    const [totalDevices, onlineDevices, pendingCommands] = await Promise.all([
+      db('devices').where({ approval_status: 'approved' }).count('id as c').first(),
+      db('devices').where({ approval_status: 'approved', status: 'online' }).count('id as c').first(),
+      db('command_queue').where({ status: 'pending' }).count('id as c').first(),
+    ]);
+    res.json({ success: true, data: { stats: [
+      { label: 'Devices', value: Number((totalDevices as any)?.c ?? 0), color: '#58a6ff' },
+      { label: 'Online', value: Number((onlineDevices as any)?.c ?? 0), color: '#2ea043' },
+      { label: 'Pending Commands', value: Number((pendingCommands as any)?.c ?? 0), color: '#d29922' },
+    ] } });
+  } catch { res.json({ success: true, data: null }); }
 });
 
 /**

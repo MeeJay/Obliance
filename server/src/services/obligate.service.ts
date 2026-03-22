@@ -11,6 +11,14 @@ export interface ObligateUserAssertion {
   teams: string[];
   authSource: 'local' | 'ldap';
   linkedLocalUserId: number | null;
+  preferences?: {
+    preferredTheme?: string;
+    toastEnabled?: boolean;
+    toastPosition?: string;
+    profilePhotoUrl?: string | null;
+    preferredLanguage?: string;
+    appSpecific?: Record<string, string>;
+  };
 }
 
 export const obligateService = {

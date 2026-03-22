@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { complianceService } from '../services/compliance.service';
+import { requireRole, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
+import { permissionService } from '../services/permission.service';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
@@ -10,7 +13,7 @@ router.get('/policies', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/policies', async (req, res, next) => {
+router.post('/policies', requireRole('admin'), async (req, res, next) => {
   try {
     const policy = await complianceService.createPolicy(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -19,21 +22,21 @@ router.post('/policies', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/policies/:id', async (req, res, next) => {
+router.put('/policies/:id', requireRole('admin'), async (req, res, next) => {
   try {
     const policy = await complianceService.updatePolicy(parseInt(req.params.id), req.tenantId!, req.body);
     res.json({ data: policy });
   } catch (err) { next(err); }
 });
 
-router.delete('/policies/:id', async (req, res, next) => {
+router.delete('/policies/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await complianceService.deletePolicy(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
   } catch (err) { next(err); }
 });
 
-router.post('/policies/:id/check/:deviceId', async (req, res, next) => {
+router.post('/policies/:id/check/:deviceId', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const cmd = await complianceService.triggerCheck(
       parseInt(req.params.deviceId), parseInt(req.params.id),
@@ -48,6 +51,12 @@ router.post('/check', async (req, res, next) => {
   try {
     const { deviceId, policyId } = req.body;
     if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+
+    // Permission check: user must have write access to the device
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+    }
 
     if (policyId) {
       // Check against a specific policy
@@ -75,10 +84,23 @@ router.get('/results', async (req, res, next) => {
   try {
     const { deviceId, page } = req.query as any;
     if (deviceId) {
+      // Permission check: user must have read access to the device
+      if (req.session.role !== 'admin') {
+        const canRead = await permissionService.canReadDevice(req.session.userId!, parseInt(deviceId), false);
+        if (!canRead) throw new AppError(403, 'Insufficient permissions');
+      }
       const items = await complianceService.getLatestResults(parseInt(deviceId), req.tenantId!);
       res.json({ data: { items, total: items.length } });
     } else {
       const items = await complianceService.getAllResults(req.tenantId!, page ? parseInt(page) : 1);
+      // Filter by visible devices for non-admins
+      if (req.session.role !== 'admin') {
+        const visibleIds = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+        if (Array.isArray(visibleIds)) {
+          const filtered = items.filter((item: any) => visibleIds.includes(item.device_id));
+          return res.json({ data: { items: filtered, total: filtered.length } });
+        }
+      }
       res.json({ data: { items, total: items.length } });
     }
   } catch (err) { next(err); }
@@ -88,18 +110,35 @@ router.get('/results', async (req, res, next) => {
 router.get('/results/filter', async (req, res, next) => {
   try {
     const { deviceId, page } = req.query as any;
+
+    // Permission check: if filtering by specific device, check read access
+    if (deviceId && req.session.role !== 'admin') {
+      const canRead = await permissionService.canReadDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canRead) throw new AppError(403, 'Insufficient permissions');
+    }
+
     const items = await complianceService.getAllResults(
       req.tenantId!,
       page ? parseInt(page) : 1,
       100, // limit (default page size)
       deviceId ? parseInt(deviceId) : undefined,
     );
+
+    // Filter by visible devices for non-admins when no specific device filter
+    if (!deviceId && req.session.role !== 'admin') {
+      const visibleIds = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+      if (Array.isArray(visibleIds)) {
+        const filtered = items.filter((item: any) => visibleIds.includes(item.device_id));
+        return res.json({ data: { items: filtered, total: filtered.length } });
+      }
+    }
+
     res.json({ data: { items, total: items.length } });
   } catch (err) { next(err); }
 });
 
 // Legacy path kept for backward compat
-router.get('/results/device/:deviceId', async (req, res, next) => {
+router.get('/results/device/:deviceId', requireDeviceRead('deviceId'), async (req, res, next) => {
   try {
     const items = await complianceService.getLatestResults(parseInt(req.params.deviceId), req.tenantId!);
     res.json({ data: { items, total: items.length } });
@@ -127,7 +166,7 @@ router.get('/templates', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/templates', async (req, res, next) => {
+router.post('/templates', requireRole('admin'), async (req, res, next) => {
   try {
     const t = await complianceService.createTemplate(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,

@@ -57,6 +57,44 @@ export function requireGroupWrite() {
 }
 
 /**
+ * Require read permission on a device.
+ * @param paramName — name of the route param containing the device ID (default: 'id')
+ */
+export function requireDeviceRead(paramName = 'id') {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (req.session.role === 'admin') return next();
+      const deviceId = parseInt(req.params[paramName], 10);
+      if (isNaN(deviceId)) return next(new AppError(400, 'Invalid device ID'));
+      const canRead = await permissionService.canReadDevice(req.session.userId!, deviceId, false);
+      if (!canRead) return next(new AppError(403, 'Insufficient permissions'));
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
+ * Require write permission on a device.
+ * @param paramName — name of the route param containing the device ID (default: 'id')
+ */
+export function requireDeviceWriteParam(paramName = 'id') {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (req.session.role === 'admin') return next();
+      const deviceId = parseInt(req.params[paramName], 10);
+      if (isNaN(deviceId)) return next(new AppError(400, 'Invalid device ID'));
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
+      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
  * Require canCreate permission (for creating new devices/groups).
  */
 export function requireCanCreate() {
