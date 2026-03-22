@@ -94,7 +94,8 @@
     "reports": "Přehledy",
     "history": "Historie",
     "download": "Stažení",
-    "navigation": "Navigace"
+    "navigation": "Navigace",
+    "addAgent": "Přidat agenta"
   },
   "login": {
     "title": "Monitorovací panel",

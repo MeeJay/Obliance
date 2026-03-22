@@ -94,7 +94,8 @@
     "reports": "Raporty",
     "history": "Historia",
     "download": "Pobieranie",
-    "navigation": "Nawigacja"
+    "navigation": "Nawigacja",
+    "addAgent": "Dodaj agenta"
   },
   "login": {
     "title": "Pulpit monitoringu",

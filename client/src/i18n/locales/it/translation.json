@@ -94,7 +94,8 @@
     "reports": "Rapporti",
     "history": "Cronologia",
     "download": "Scarica",
-    "navigation": "Navigazione"
+    "navigation": "Navigazione",
+    "addAgent": "Aggiungi agente"
   },
   "login": {
     "title": "Dashboard di monitoraggio",

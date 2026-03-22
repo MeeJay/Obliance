@@ -94,7 +94,8 @@
     "reports": "Rapporter",
     "history": "Historik",
     "download": "Download",
-    "navigation": "Navigation"
+    "navigation": "Navigation",
+    "addAgent": "Tilføj agent"
   },
   "login": {
     "title": "Overvågningsdashboard",

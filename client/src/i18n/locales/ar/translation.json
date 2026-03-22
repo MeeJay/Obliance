@@ -94,7 +94,8 @@
     "reports": "التقارير",
     "history": "السجل",
     "download": "تنزيل",
-    "navigation": "التنقل"
+    "navigation": "التنقل",
+    "addAgent": "إضافة وكيل"
   },
   "login": {
     "title": "لوحة المراقبة",

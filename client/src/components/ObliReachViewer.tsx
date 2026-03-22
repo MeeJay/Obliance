@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Download } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 

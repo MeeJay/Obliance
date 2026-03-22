@@ -250,7 +250,7 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
                   hardware.os.windowsKey ? ['Windows Key', hardware.os.windowsKey] : null,
                   hardware.os.officeVersion ? ['Office', hardware.os.officeVersion] : null,
                   hardware.os.officeKey ? ['Office Key', `XXXXX-XXXXX-XXXXX-XXXXX-${hardware.os.officeKey}`] : null,
-                ].filter(Boolean).filter(([, v]) => v).map(([k, v]) => (
+                ].filter((x): x is [string, string] => Array.isArray(x) && !!x[1]).map(([k, v]) => (
                   <div key={k as string} className="flex justify-between text-sm">
                     <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
                     <dd className="text-text-primary font-medium text-right truncate select-all">{v as string}</dd>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RefreshCw, ChevronLeft, ChevronRight, X, Eye, RotateCcw, Power, PowerOff, Trash2, ShieldCheck, Loader2, MoreHorizontal } from 'lucide-react';
+import { Search, RefreshCw, ChevronLeft, ChevronRight, X, Eye, RotateCcw, PowerOff, Trash2, ShieldCheck, Loader2, MoreHorizontal } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';

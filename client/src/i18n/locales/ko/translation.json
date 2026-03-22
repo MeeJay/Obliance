@@ -94,7 +94,8 @@
     "reports": "보고서",
     "history": "기록",
     "download": "다운로드",
-    "navigation": "탐색"
+    "navigation": "탐색",
+    "addAgent": "에이전트 추가"
   },
   "login": {
     "title": "모니터링 대시보드",

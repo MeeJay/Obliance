@@ -96,7 +96,8 @@
     "reports": "Rapports",
     "history": "Historique",
     "download": "Télécharger",
-    "navigation": "Navigation"
+    "navigation": "Navigation",
+    "addAgent": "Ajouter un agent"
   },
   "login": {
     "title": "Tableau de bord de surveillance",

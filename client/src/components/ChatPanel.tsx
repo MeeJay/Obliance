@@ -83,8 +83,6 @@ export function ChatPanel({
       if (res?.chatId) {
         setChatId(res.chatId);
         setIsConnected(true);
-        socket.join?.(`chat:${res.chatId}`);
-        // Also join via emit for Socket.io v4
         socket.emit('join', `chat:${res.chatId}`);
       } else {
         setMessages(prev => [...prev, {

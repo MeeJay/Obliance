@@ -94,7 +94,8 @@
     "reports": "レポート",
     "history": "履歴",
     "download": "ダウンロード",
-    "navigation": "ナビゲーション"
+    "navigation": "ナビゲーション",
+    "addAgent": "エージェント追加"
   },
   "login": {
     "title": "監視ダッシュボード",

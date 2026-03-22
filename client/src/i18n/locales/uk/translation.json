@@ -94,7 +94,8 @@
     "reports": "Звіти",
     "history": "Історія",
     "download": "Завантажити",
-    "navigation": "Навігація"
+    "navigation": "Навігація",
+    "addAgent": "Додати агент"
   },
   "login": {
     "title": "Панель моніторингу",

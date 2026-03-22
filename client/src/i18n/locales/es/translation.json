@@ -94,7 +94,8 @@
     "reports": "Informes",
     "history": "Historial",
     "download": "Descargar",
-    "navigation": "Navegación"
+    "navigation": "Navegación",
+    "addAgent": "Añadir agente"
   },
   "login": {
     "title": "Panel de monitorización",

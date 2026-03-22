@@ -97,7 +97,8 @@
     "reports": "Reports",
     "history": "History",
     "download": "Download",
-    "navigation": "Navigation"
+    "navigation": "Navigation",
+    "addAgent": "Add Agent"
   },
   "login": {
     "title": "Monitoring Dashboard",

@@ -94,7 +94,8 @@
     "reports": "Отчёты",
     "history": "История",
     "download": "Загрузить",
-    "navigation": "Навигация"
+    "navigation": "Навигация",
+    "addAgent": "Добавить агент"
   },
   "login": {
     "title": "Панель мониторинга",

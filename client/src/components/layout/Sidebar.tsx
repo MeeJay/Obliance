@@ -35,6 +35,7 @@ import {
   FileBarChart2,
   Download,
   History,
+  Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/utils/cn';
@@ -293,7 +294,7 @@ export function Sidebar() {
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isAdmin } = useAuthStore();
-  const { sidebarFloating, toggleSidebarFloating } = useUiStore();
+  const { sidebarFloating, toggleSidebarFloating, openAddAgentModal } = useUiStore();
   const { tenants, currentTenantId, setCurrentTenant } = useTenantStore();
 
   const admin = isAdmin();
@@ -530,6 +531,17 @@ export function Sidebar() {
           )}
         >
           {sidebarFloating ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+        </button>
+      </div>
+
+      {/* Add agent button */}
+      <div className="px-3 pt-3">
+        <button
+          onClick={openAddAgentModal}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        >
+          <Plus size={14} />
+          {t('nav.addAgent')}
         </button>
       </div>
 

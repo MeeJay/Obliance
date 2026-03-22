@@ -94,7 +94,8 @@
     "reports": "Rapporter",
     "history": "Historik",
     "download": "Hämta",
-    "navigation": "Navigering"
+    "navigation": "Navigering",
+    "addAgent": "Lägg till agent"
   },
   "login": {
     "title": "Övervakningspanel",

@@ -94,7 +94,8 @@
     "reports": "报告",
     "history": "历史记录",
     "download": "下载",
-    "navigation": "导航"
+    "navigation": "导航",
+    "addAgent": "添加代理"
   },
   "login": {
     "title": "监控仪表板",

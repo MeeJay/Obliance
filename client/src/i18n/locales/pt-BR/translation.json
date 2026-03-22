@@ -94,7 +94,8 @@
     "reports": "Relatórios",
     "history": "Histórico",
     "download": "Baixar",
-    "navigation": "Navegação"
+    "navigation": "Navegação",
+    "addAgent": "Adicionar agente"
   },
   "login": {
     "title": "Painel de Monitoramento",
