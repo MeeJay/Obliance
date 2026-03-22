@@ -42,6 +42,7 @@ function rowToUser(row: UserRow): User {
     foreignSource: row.foreign_source ?? null,
     foreignId: row.foreign_id ?? null,
     foreignSourceUrl: row.foreign_source_url ?? null,
+    avatar: row.avatar ?? null,
   };
 }
 

@@ -32,6 +32,7 @@ function rowToUser(row: UserRow): User {
     foreignId: (row as any).foreign_id ?? null,
     foreignSourceUrl: (row as any).foreign_source_url ?? null,
     hasPassword: (row as any).has_password ?? true,
+    avatar: (row as any).avatar ?? null,
   };
 }
 
