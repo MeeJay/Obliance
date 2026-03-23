@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { deviceService } from '../services/device.service';
 import { commandService } from '../services/command.service';
 import { maintenanceService } from '../services/maintenance.service';
+import { obligateService } from '../services/obligate.service';
 import { db } from '../db';
 
 
@@ -29,6 +30,8 @@ export async function agentPush(req: Request, res: Response): Promise<void> {
     }
 
     const result = await deviceService.handlePush(device.id, agentTenantId, req.body);
+    // Register/update device UUID with Obligate for cross-app linking (non-blocking, idempotent)
+    obligateService.registerDeviceLink(deviceUuid, `/devices/${device.id}`).catch(() => {});
     res.status(200).json(result);
   } catch (error) {
     console.error(error);

@@ -133,6 +133,11 @@ var (
 )
 
 func main() {
+	// Single-instance guard: prevent multiple tray apps from running.
+	if !acquireSingleInstanceLock() {
+		// Another instance is already running — exit silently.
+		os.Exit(0)
+	}
 	systray.Run(onReady, onExit)
 }
 
