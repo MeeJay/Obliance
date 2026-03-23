@@ -20,6 +20,9 @@ export const updateApi = {
     const res = await apiClient.post<{ dispatched: number }>(`/updates/device/${deviceId}/deploy`);
     return res.data;
   },
+  async retryUpdate(deviceId: number, updateId: number): Promise<void> {
+    await apiClient.post(`/updates/device/${deviceId}/retry/${updateId}`);
+  },
   async triggerScan(deviceId: number): Promise<void> {
     await apiClient.post(`/updates/scan/${deviceId}`);
   },

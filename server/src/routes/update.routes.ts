@@ -86,6 +86,16 @@ router.post('/device/:deviceId/deploy', requireDeviceWriteParam('deviceId'), asy
   } catch (err) { next(err); }
 });
 
+// Retry a failed/installed update — resets status to approved and re-enqueues install command
+router.post('/device/:deviceId/retry/:updateId', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.deviceId);
+    const updateId = parseInt(req.params.updateId);
+    const result = await updateService.retryUpdate(deviceId, updateId, req.tenantId!, req.session.userId!);
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
 router.post('/device/:deviceId/scan', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const cmd = await updateService.triggerUpdateScan(

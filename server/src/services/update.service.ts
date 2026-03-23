@@ -68,6 +68,17 @@ class UpdateService {
     sizeBytes?: number; requiresReboot?: boolean;
   }>) {
     const now = new Date();
+    const freshUids = new Set(updates.map(u => u.updateUid));
+
+    // Remove stale updates that are no longer reported by the agent
+    // (installed outside Obliance, or retracted by vendor).
+    // Keep 'installed' and 'failed' as historical records.
+    await db('device_updates')
+      .where({ device_id: deviceId, tenant_id: tenantId })
+      .whereIn('status', ['available', 'approved', 'pending_install', 'failed'])
+      .whereNotIn('update_uid', [...freshUids])
+      .delete();
+
     for (const u of updates) {
       await db('device_updates')
         .insert({
@@ -81,18 +92,11 @@ class UpdateService {
         .onConflict(['device_id', 'update_uid'])
         .merge({
           title: u.title, description: u.description,
-          // Never downgrade a known severity to 'unknown' on re-scan:
-          // keep the existing value when the new scan can't determine severity.
           severity: (u.severity && u.severity !== 'unknown')
             ? u.severity
             : db.raw('device_updates.severity'),
           scanned_at: now,
           updated_at: now,
-          // If the update re-appears in a scan while it is stuck in pending_install
-          // for more than 6 hours, it means the install ACK was lost (agent crash,
-          // network failure, etc.). Reset to 'available' so the admin can retry.
-          // Updates that are 'installed', 'failed', 'approved' or recently
-          // pending_install are left untouched.
           status: db.raw(
             `CASE WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status ELSE device_updates.status END`,
             [new Date(Date.now() - 6 * 60 * 60 * 1000)],
@@ -137,6 +141,29 @@ class UpdateService {
     }
 
     return approved;
+  }
+
+  async retryUpdate(deviceId: number, updateId: number, tenantId: number, createdBy: number) {
+    const update = await db('device_updates')
+      .where({ id: updateId, device_id: deviceId, tenant_id: tenantId })
+      .first();
+    if (!update) throw new Error('Update not found');
+
+    // Reset status to pending_install
+    await db('device_updates').where({ id: updateId }).update({
+      status: 'pending_install',
+      updated_at: new Date(),
+    });
+
+    // Re-enqueue install command
+    const cmd = await commandService.enqueue({
+      deviceId, tenantId, type: 'install_update',
+      payload: { updateUid: update.update_uid, source: update.source || 'windows_update' },
+      priority: 'normal',
+      createdBy,
+    });
+
+    return { updateId, status: 'pending_install', commandId: cmd.id };
   }
 
   async triggerUpdateScan(deviceId: number, tenantId: number, createdBy: number) {

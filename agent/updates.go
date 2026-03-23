@@ -126,7 +126,8 @@ foreach ($u in $result.Updates) {
 		"-NoProfile", "-NonInteractive", "-Command", psScript,
 	).Output()
 	if err != nil {
-		return nil, fmt.Errorf("windows update scan: %w", err)
+		// Don't fail the entire scan — WU may be unavailable but winget/choco still work
+		log.Printf("Windows Update scan failed (continuing with package managers): %v", err)
 	}
 
 	var updates []UpdateInfo

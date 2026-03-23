@@ -758,6 +758,25 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                 {update.status === 'approved' && (
                   <span className="shrink-0 text-xs text-green-400 opacity-60">✓ {t('updates.status.approved')}</span>
                 )}
+                {(update.status === 'failed' || update.status === 'installed') && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await updateApi.retryUpdate(deviceId, update.id);
+                        setUpdates((prev) => prev.map((u) =>
+                          u.id === update.id ? { ...u, status: 'pending_install' as const } : u
+                        ));
+                        toast.success(`Retry queued for ${update.updateUid}`);
+                      } catch {
+                        toast.error('Failed to retry update');
+                      }
+                    }}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Retry
+                  </button>
+                )}
               </div>
             ))}
           </div>
