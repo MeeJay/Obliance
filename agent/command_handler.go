@@ -333,7 +333,8 @@ func (d *CommandDispatcher) handleInstallUpdate(cmd AgentCommand) (interface{}, 
 	if !ok || uid == "" {
 		return nil, fmt.Errorf("install_update: updateUid not specified")
 	}
-	if err := InstallUpdate(uid); err != nil {
+	source := payloadString(payload, "source")
+	if err := InstallUpdate(uid, source); err != nil {
 		return nil, err
 	}
 	return map[string]string{"updateUid": uid, "message": "installed successfully"}, nil

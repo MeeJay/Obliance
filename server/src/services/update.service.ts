@@ -130,7 +130,7 @@ class UpdateService {
     for (const u of approved) {
       await commandService.enqueue({
         deviceId, tenantId, type: 'install_update',
-        payload: { updateUid: u.update_uid },
+        payload: { updateUid: u.update_uid, source: u.source || 'windows_update' },
         priority: 'normal',
         createdBy,
       });

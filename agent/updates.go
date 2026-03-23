@@ -43,10 +43,10 @@ func ScanUpdates() ([]UpdateInfo, error) {
 }
 
 // InstallUpdate installs the update identified by updateUID on the current platform.
-func InstallUpdate(updateUID string) error {
+func InstallUpdate(updateUID, source string) error {
 	switch runtime.GOOS {
 	case "windows":
-		return installWindowsUpdate(updateUID)
+		return installWindowsUpdate(updateUID, source)
 	case "linux":
 		return installLinuxUpdate(updateUID)
 	case "darwin":
@@ -147,13 +147,17 @@ foreach ($u in $result.Updates) {
 		if uid == "" {
 			uid = sanitizeUID(title)
 		}
-		severity := "unknown"
-		if len(parts) >= 3 && parts[2] != "" {
-			severity = normaliseSeverity(strings.TrimSpace(parts[2]))
+		rawSeverity := ""
+		if len(parts) >= 3 {
+			rawSeverity = strings.TrimSpace(parts[2])
 		}
 		category := ""
 		if len(parts) >= 4 {
 			category = strings.TrimSpace(parts[3])
+		}
+		severity := normaliseSeverity(rawSeverity)
+		if severity == "unknown" && category != "" {
+			severity = severityFromCategory(category)
 		}
 		var sizeBytes int64
 		if len(parts) >= 5 {
@@ -266,7 +270,7 @@ func scanWingetUpdates() []UpdateInfo {
 		updates = append(updates, UpdateInfo{
 			UpdateUID: uid,
 			Title:     name + " → " + available,
-			Severity:  "unknown",
+			Severity:  "moderate",
 			Category:  "Application",
 			Source:    source,
 		})
@@ -309,7 +313,7 @@ func scanChocolateyUpdates() []UpdateInfo {
 		updates = append(updates, UpdateInfo{
 			UpdateUID: sanitizeUID("choco-" + name),
 			Title:     name + " → " + available,
-			Severity:  "unknown",
+			Severity:  "moderate",
 			Category:  "Application",
 			Source:    "chocolatey",
 		})
@@ -349,8 +353,18 @@ func runeSlice(runes []rune, start, end int) string {
 	return strings.TrimSpace(string(runes[start:end]))
 }
 
-func installWindowsUpdate(updateUID string) error {
-	// Accept KBxxxxxxxx or bare numeric ID.
+func installWindowsUpdate(updateUID, source string) error {
+	switch source {
+	case "chocolatey":
+		return installChocolateyUpdate(updateUID)
+	case "winget":
+		return installWingetUpdate(updateUID)
+	default:
+		return installWindowsKBUpdate(updateUID)
+	}
+}
+
+func installWindowsKBUpdate(updateUID string) error {
 	kbID := updateUID
 	if !strings.HasPrefix(strings.ToUpper(kbID), "KB") {
 		kbID = "KB" + kbID
@@ -385,6 +399,30 @@ if ($mod) {
 		return fmt.Errorf("install update %s: %w\n%s", updateUID, err, string(out))
 	}
 	log.Printf("Update %s installed: %s", updateUID, strings.TrimSpace(string(out)))
+	return nil
+}
+
+func installChocolateyUpdate(pkgName string) error {
+	// Strip "choco-" prefix if present (added by scan)
+	pkg := strings.TrimPrefix(pkgName, "choco-")
+	cmd := exec.Command("choco", "upgrade", pkg, "-y", "--no-progress")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("choco upgrade %s: %w\n%s", pkg, err, string(out))
+	}
+	log.Printf("Chocolatey update %s: %s", pkg, strings.TrimSpace(string(out)))
+	return nil
+}
+
+func installWingetUpdate(pkgID string) error {
+	cmd := exec.Command("winget", "upgrade", "--id", pkgID,
+		"--accept-source-agreements", "--accept-package-agreements",
+		"--silent", "--disable-interactivity")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("winget upgrade %s: %w\n%s", pkgID, err, string(out))
+	}
+	log.Printf("Winget update %s: %s", pkgID, strings.TrimSpace(string(out)))
 	return nil
 }
 
@@ -435,7 +473,7 @@ func scanAptUpdates(aptPath string) ([]UpdateInfo, error) {
 		updates = append(updates, UpdateInfo{
 			UpdateUID: pkgName,
 			Title:     fmt.Sprintf("%s %s", pkgName, newVersion),
-			Severity:  "unknown",
+			Severity:  "moderate",
 			Source:    "apt",
 		})
 	}
@@ -487,7 +525,7 @@ func parseDnfOutput(output, source string) []UpdateInfo {
 		updates = append(updates, UpdateInfo{
 			UpdateUID: pkgName,
 			Title:     fmt.Sprintf("%s %s", pkgName, version),
-			Severity:  "unknown",
+			Severity:  "moderate",
 			Source:    source,
 		})
 	}
@@ -555,7 +593,7 @@ func parseSoftwareupdateOutput(output string) []UpdateInfo {
 			updates = append(updates, UpdateInfo{
 				UpdateUID:      currentUID,
 				Title:          currentTitle,
-				Severity:       "unknown",
+				Severity:       "important",
 				Source:         "softwareupdate",
 				RequiresReboot: requiresReboot,
 			})
@@ -588,8 +626,34 @@ func normaliseSeverity(s string) string {
 		return "moderate"
 	case "low", "optional":
 		return "optional"
+	case "":
+		return "unknown"
 	default:
 		return "unknown"
+	}
+}
+
+// severityFromCategory infers a severity when MsrcSeverity is absent,
+// based on the Windows Update category name.
+func severityFromCategory(cat string) string {
+	lc := strings.ToLower(cat)
+	switch {
+	case strings.Contains(lc, "security"):
+		return "important"
+	case strings.Contains(lc, "critical"):
+		return "critical"
+	case strings.Contains(lc, "service pack"), strings.Contains(lc, "feature pack"):
+		return "important"
+	case strings.Contains(lc, "definition"), strings.Contains(lc, "defender"):
+		return "moderate"
+	case strings.Contains(lc, "driver"):
+		return "optional"
+	case strings.Contains(lc, "update rollup"), strings.Contains(lc, "cumulative"):
+		return "important"
+	case strings.Contains(lc, "tool"):
+		return "optional"
+	default:
+		return "moderate"
 	}
 }
 
