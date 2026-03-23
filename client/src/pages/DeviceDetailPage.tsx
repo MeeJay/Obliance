@@ -7,6 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -2816,6 +2817,7 @@ export function DeviceDetailPage() {
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
+  const [crossAppLinks, setCrossAppLinks] = useState<Array<{ appType: string; name: string; url: string; color: string | null }>>([]);
 
   // Uninstall countdown (ticks every second while device is pending_uninstall)
   const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
@@ -3050,6 +3052,16 @@ export function DeviceDetailPage() {
     }).catch(() => setHeaderOrInstalled(false));
   }, [device?.uuid]);
 
+  useEffect(() => {
+    if (!device?.uuid) return;
+    fetch(`/api/auth/device-links?uuid=${encodeURIComponent(device.uuid)}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then((d: { success: boolean; data?: Array<{ appType: string; name: string; url: string; color: string | null }> }) => {
+        if (d.success && d.data) setCrossAppLinks(d.data);
+      })
+      .catch(() => {});
+  }, [device?.uuid]);
+
 
   if (isLoading) {
     return (
@@ -3251,6 +3263,20 @@ export function DeviceDetailPage() {
           ) : (
             /* ── Approved/suspended device: show all actions ── */
             <>
+              {crossAppLinks.map(link => (
+                <a
+                  key={link.appType}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Open in ${link.name}`}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
+                  style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
+                >
+                  <ArrowLeftRight size={12} />
+                  {link.name}
+                </a>
+              ))}
               {/* ── Scan All ── */}
               <button
                 onClick={handleScanAll}
