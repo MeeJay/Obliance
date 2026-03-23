@@ -138,13 +138,19 @@ export const obligateService = {
 
   /**
    * Register a device UUID + path with Obligate for cross-app linking.
+   * Throttled: only calls Obligate once every 10 minutes per UUID.
+   * Failed attempts don't update the throttle so the next push retries.
    */
+  _linkThrottle: new Map<string, number>(),
   async registerDeviceLink(uuid: string, appPath: string): Promise<void> {
+    const now = Date.now();
+    if (now - (this._linkThrottle.get(uuid) ?? 0) < 10 * 60 * 1000) return;
+
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) return;
 
     try {
-      await fetch(`${raw.url}/api/devices/register`, {
+      const res = await fetch(`${raw.url}/api/devices/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +158,8 @@ export const obligateService = {
         },
         body: JSON.stringify({ uuid, path: appPath }),
       });
-    } catch { /* non-critical */ }
+      if (res.ok) this._linkThrottle.set(uuid, now);
+    } catch { /* non-critical — will retry on next push */ }
   },
 
   /**
