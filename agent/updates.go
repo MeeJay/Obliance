@@ -344,8 +344,12 @@ func scanWingetUpdates() []UpdateInfo {
 		id := runeSlice(runes, idPos, versionPos)
 		available := runeSlice(runes, availablePos, sourcePos)
 
-		if name == "" || available == "" || name == "Name" {
+		if available == "" || name == "Name" {
 			continue
+		}
+		// If name is empty or looks like a raw ID, use the ID as a prettier fallback
+		if name == "" {
+			name = id
 		}
 		// winget appends a footer like "N upgrades available."
 		if strings.Contains(strings.ToLower(name), "upgrade") && strings.Contains(name, ".") {
@@ -363,9 +367,16 @@ func scanWingetUpdates() []UpdateInfo {
 			}
 		}
 
+		// Prettify: if name looks like a raw ID (contains dots like Company.Product),
+		// try to extract a human-readable name from it
+		displayName := name
+		if strings.Count(displayName, ".") >= 2 && !strings.Contains(displayName, " ") {
+			displayName = prettifyWingetID(displayName)
+		}
+
 		updates = append(updates, UpdateInfo{
 			UpdateUID: uid,
-			Title:     name + " → " + available,
+			Title:     displayName + " → " + available,
 			Severity:  "moderate",
 			Category:  "Application",
 			Source:    source,
@@ -755,6 +766,51 @@ func severityFromCategory(cat string) string {
 
 // sanitizeUID creates a simple slug from a title string for use as an update UID
 // when no KB/package ID is available.
+// prettifyWingetID turns "MicrosoftCorporationII.WinAppRuntime.Main.1.8"
+// into "Win App Runtime Main" by stripping the publisher prefix and splitting CamelCase.
+func prettifyWingetID(id string) string {
+	// Strip leading store ID (e.g. "9PLJQ12FQ3CV-")
+	if idx := strings.Index(id, "-"); idx >= 0 && idx < 20 {
+		id = id[idx+1:]
+	}
+	parts := strings.Split(id, ".")
+	// Skip the first part if it looks like a publisher (e.g. "MicrosoftCorporationII", "Google")
+	start := 0
+	if len(parts) > 2 {
+		start = 1
+	}
+	// Take the product parts, skip version-like suffixes (digits only)
+	var nameParts []string
+	for _, p := range parts[start:] {
+		// Stop at version numbers
+		if len(p) > 0 && p[0] >= '0' && p[0] <= '9' {
+			break
+		}
+		// Split CamelCase: "WinAppRuntime" → "Win App Runtime"
+		var words []string
+		current := ""
+		for i, r := range p {
+			if i > 0 && r >= 'A' && r <= 'Z' {
+				if current != "" {
+					words = append(words, current)
+				}
+				current = string(r)
+			} else {
+				current += string(r)
+			}
+		}
+		if current != "" {
+			words = append(words, current)
+		}
+		nameParts = append(nameParts, strings.Join(words, " "))
+	}
+	result := strings.Join(nameParts, " ")
+	if result == "" {
+		return id // fallback to original
+	}
+	return result
+}
+
 func sanitizeUID(title string) string {
 	slug := strings.ToLower(title)
 	slug = strings.Map(func(r rune) rune {
