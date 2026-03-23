@@ -1,5 +1,6 @@
 import { appConfigService } from './appConfig.service';
 import { logger } from '../utils/logger';
+import { db } from '../db';
 
 export interface ObligateUserAssertion {
   obligateUserId: number;
@@ -180,6 +181,54 @@ export const obligateService = {
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Fetch latest preferences from Obligate and sync to local DB.
+   * Throttled: once per 60s per user. Runs in background, never throws.
+   */
+  _prefThrottle: new Map<number, number>(),
+  async syncUserPreferences(localUserId: number, obligateUserId: number): Promise<void> {
+    const now = Date.now();
+    if (now - (this._prefThrottle.get(localUserId) ?? 0) < 60 * 1000) return;
+
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.url || !raw.apiKey) return;
+
+    try {
+      const res = await fetch(`${raw.url}/api/apps/user-preferences/${obligateUserId}`, {
+        headers: { 'Authorization': `Bearer ${raw.apiKey}` },
+      });
+      if (!res.ok) return;
+      this._prefThrottle.set(localUserId, now);
+
+      const { success, data } = await res.json() as { success: boolean; data?: {
+        preferredTheme?: string; toastEnabled?: boolean; toastPosition?: string;
+        preferredLanguage?: string; anonymousMode?: boolean;
+      } };
+      if (!success || !data) return;
+
+      // Sync language column
+      const colUpdate: Record<string, unknown> = {};
+      if (data.preferredLanguage) colUpdate.preferred_language = data.preferredLanguage;
+      if (Object.keys(colUpdate).length > 0) {
+        await db('users').where({ id: localUserId }).update(colUpdate);
+      }
+
+      // Sync UI prefs into preferences JSON
+      const uiPrefs: Record<string, unknown> = {};
+      if (data.preferredTheme) uiPrefs.preferredTheme = data.preferredTheme;
+      if (data.toastEnabled !== undefined) uiPrefs.toastEnabled = data.toastEnabled;
+      if (data.toastPosition) uiPrefs.toastPosition = data.toastPosition;
+      if (data.anonymousMode !== undefined) uiPrefs.anonymousMode = data.anonymousMode;
+      if (Object.keys(uiPrefs).length > 0) {
+        const row = await db('users').where({ id: localUserId }).select('preferences').first() as { preferences: unknown } | undefined;
+        const existing = (typeof row?.preferences === 'string' ? JSON.parse(row.preferences) : row?.preferences) ?? {};
+        await db('users').where({ id: localUserId }).update({
+          preferences: JSON.stringify({ ...existing, ...uiPrefs }),
+        });
+      }
+    } catch { /* non-critical */ }
   },
 
   /**

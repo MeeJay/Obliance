@@ -127,17 +127,38 @@ if (-not $usedModule) {
     }
   }
 }
-# Installed updates pending reboot — IsInstalled=1 AND RebootRequired=1
-$session2 = New-Object -ComObject Microsoft.Update.Session
-$searcher2 = $session2.CreateUpdateSearcher()
-try { $rbResult = $searcher2.Search("IsInstalled=1 and RebootRequired=1") } catch { $rbResult = $null }
-if ($rbResult) {
-  foreach ($u in $rbResult.Updates) {
-    $kb = ($u.KBArticleIDs | Select-Object -First 1)
-    $sev = if ($u.MsrcSeverity) { $u.MsrcSeverity.ToLower() } else { 'unknown' }
-    $cat = if ($u.Categories.Count -gt 0) { $u.Categories.Item(0).Name } else { '' }
-    "REBOOT|$kb|$($u.Title)|$sev|$cat|$($u.MaxDownloadSize)"
-  }
+# Installed updates pending reboot — check registry then query history
+$rebootPending = $false
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $rebootPending = $true }
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $rebootPending = $true }
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending') { $rebootPending = $true }
+if ($rebootPending) {
+  # Query the WU update history for recently succeeded installs (last 72h)
+  try {
+    $s3 = New-Object -ComObject Microsoft.Update.Session
+    $sr3 = $s3.CreateUpdateSearcher()
+    $hCount = $sr3.GetTotalHistoryCount()
+    if ($hCount -gt 0) {
+      $hist = $sr3.QueryHistory(0, [Math]::Min($hCount, 100))
+      $cutoff = (Get-Date).AddHours(-72)
+      foreach ($h in $hist) {
+        if ($h.Date -lt $cutoff) { continue }
+        if ($h.ResultCode -ne 2) { continue }
+        $kb = ''
+        if ($h.Title -match 'KB(\d+)') { $kb = "KB$($Matches[1])" }
+        if (-not $kb) { $kb = $h.UpdateIdentity.UpdateID.Substring(0,8) }
+        $sev = 'important'
+        "REBOOT|$kb|$($h.Title)|$sev|Update"
+      }
+    }
+  } catch {}
+  # Also check Get-HotFix for very recent installs (same day)
+  try {
+    $today = (Get-Date).ToString('M/d/yyyy')
+    Get-HotFix -ErrorAction SilentlyContinue | Where-Object { $_.InstalledOn -ge (Get-Date).AddDays(-3) } | ForEach-Object {
+      "REBOOT|$($_.HotFixID)|$($_.Description) - $($_.HotFixID)|important|Security Update"
+    }
+  } catch {}
 }`
 
 	out, err := exec.Command("powershell.exe",
@@ -240,6 +261,18 @@ if ($rbResult) {
 			RequiresReboot: requiresReboot,
 		})
 	}
+	// Deduplicate (REBOOT entries from history + Get-HotFix may overlap)
+	seen := make(map[string]bool)
+	deduped := make([]UpdateInfo, 0, len(updates))
+	for _, u := range updates {
+		if seen[u.UpdateUID] {
+			continue
+		}
+		seen[u.UpdateUID] = true
+		deduped = append(deduped, u)
+	}
+	updates = deduped
+
 	// Also scan app package managers (winget, chocolatey)
 	updates = append(updates, scanWingetUpdates()...)
 	updates = append(updates, scanChocolateyUpdates()...)

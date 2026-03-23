@@ -6,6 +6,8 @@ import { permissionService } from '../services/permission.service';
 import { tenantService } from '../services/tenant.service';
 import { AppError } from '../middleware/errorHandler';
 import { config } from '../config';
+import { obligateService } from '../services/obligate.service';
+import { db } from '../db';
 import type { LoginInput } from '../validators/auth.schema';
 
 /** Helper: resolve & store the first accessible tenant in the session. */
@@ -79,7 +81,16 @@ export const authController = {
 
   async me(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const user = await authService.getUserById(req.session.userId!);
+      const userId = req.session.userId!;
+
+      // Sync preferences from Obligate for SSO users (throttled, non-blocking)
+      const fRow = await db('users').where({ id: userId }).select('foreign_source', 'foreign_id').first() as
+        { foreign_source: string | null; foreign_id: number | null } | undefined;
+      if (fRow?.foreign_source === 'obligate' && fRow.foreign_id) {
+        await obligateService.syncUserPreferences(userId, fRow.foreign_id).catch(() => {});
+      }
+
+      const user = await authService.getUserById(userId);
       if (!user) {
         throw new AppError(401, 'User not found');
       }
