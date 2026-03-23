@@ -28,7 +28,7 @@ import FileExplorerTab from '@/components/devices/FileExplorerTab';
 import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
-import { anonymize, anonymizeIp } from '@/utils/anonymize';
+import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -61,13 +61,13 @@ function OverviewTab({ device }: { device: Device }) {
           <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Identity</h3>
           <dl className="space-y-2">
             {[
-              ['Hostname', device.hostname],
-              ['Display Name', device.displayName || '—'],
+              ['Hostname', anonymize(device.hostname)],
+              ['Display Name', anonymize(device.displayName) || '—'],
               ['OS', device.osName ?? device.osType],
               ['OS Version', device.osVersion ?? '—'],
               ['Architecture', device.osArch ?? '—'],
               ['Agent Version', device.agentVersion ?? '—'],
-              ['Last Logged In', device.lastLoggedInUser ?? '—'],
+              ['Last Logged In', anonymize(device.lastLoggedInUser) || '—'],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <dt className="text-text-muted">{k}</dt>
@@ -80,9 +80,9 @@ function OverviewTab({ device }: { device: Device }) {
           <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Network</h3>
           <dl className="space-y-2">
             {[
-              ['Local IP', device.ipLocal ?? '—'],
-              ['Public IP', device.ipPublic ?? '—'],
-              ['MAC Address', device.macAddress ?? '—'],
+              ['Local IP', anonymizeIp(device.ipLocal) || '—'],
+              ['Public IP', anonymizeIp(device.ipPublic) || '—'],
+              ['MAC Address', anonymizeMac(device.macAddress) || '—'],
               ['Timezone', device.timezone ?? '—'],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
@@ -313,11 +313,11 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
               <div className="space-y-2">
                 {(hardware.networkInterfaces ?? []).map((iface, i) => (
                   <div key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
-                    <span className="text-text-primary font-medium">{iface.name}</span>
-                    {iface.mac && <span className="text-text-muted text-xs font-mono">{iface.mac}</span>}
+                    <span className="text-text-primary font-medium">{anonymize(iface.name)}</span>
+                    {iface.mac && <span className="text-text-muted text-xs font-mono">{anonymizeMac(iface.mac)}</span>}
                     {iface.type && <span className="text-text-muted text-xs">{iface.type}</span>}
                     {(iface.addresses ?? []).length > 0 && (
-                      <span className="text-text-muted text-xs">{(iface.addresses ?? []).join(' · ')}</span>
+                      <span className="text-text-muted text-xs">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
                     )}
                   </div>
                 ))}
@@ -363,7 +363,7 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
                       <div className="space-y-0.5">
                         {vol.recoveryKeys.map((key, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{key}</code>
+                            <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
                           </div>
                         ))}
                       </div>
@@ -1442,7 +1442,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
             </div>
             <button
               onClick={async () => {
-                const name = device.displayName || device.hostname;
+                const name = anonymize(device.displayName || device.hostname);
                 if (!confirm(`Delete "${name}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.`)) return;
                 try {
                   await deviceApi.delete(device.id);
@@ -1497,7 +1497,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
             ) : (
               <button
                 onClick={async () => {
-                  const name = device.displayName || device.hostname;
+                  const name = anonymize(device.displayName || device.hostname);
                   if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.`)) return;
                   try {
                     await deviceApi.initiateUninstall(device.id);
@@ -1771,7 +1771,7 @@ function RemoteTab({ device }: { device: Device }) {
       {orModalOpen && (
         <ObliReachViewer
           sessionToken={orSession?.sessionToken ?? null}
-          deviceName={device.displayName || device.hostname}
+          deviceName={anonymize(device.displayName || device.hostname)}
           preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onClose={async () => {
             if (orSession) try { await remoteApi.endSession(orSession.id); } catch {}
@@ -1882,7 +1882,7 @@ function RemoteTab({ device }: { device: Device }) {
       {sshModalOpen && (
         <SshTerminalModal
           session={sshSession}
-          deviceName={device.displayName || device.hostname}
+          deviceName={anonymize(device.displayName || device.hostname)}
           onClose={() => { setSshModalOpen(false); setSshSession(null); }}
         />
       )}
@@ -3108,7 +3108,7 @@ export function DeviceDetailPage() {
       {headerRemoteOpen && headerRemoteProtocol === 'oblireach' && (
         <ObliReachViewer
           sessionToken={headerRemoteSession?.sessionToken ?? null}
-          deviceName={device.displayName || device.hostname}
+          deviceName={anonymize(device.displayName || device.hostname)}
           preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
           onChatToggle={() => setChatOpen(o => !o)}
           chatOpen={chatOpen}
@@ -3124,7 +3124,7 @@ export function DeviceDetailPage() {
       {headerRemoteOpen && (headerRemoteProtocol === 'ssh' || headerRemoteProtocol === 'cmd' || headerRemoteProtocol === 'powershell') && (
         <SshTerminalModal
           session={headerRemoteSession}
-          deviceName={device.displayName || device.hostname}
+          deviceName={anonymize(device.displayName || device.hostname)}
           onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
         />
       )}

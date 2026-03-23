@@ -179,7 +179,7 @@ export function GroupDetailPage() {
             <FolderOpen size={24} className="text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-text-primary">{group.name}</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">{anonymize(group.name)}</h1>
             {group.description && (
               <p className="text-sm text-text-muted mt-1">{group.description}</p>
             )}

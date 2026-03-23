@@ -10,6 +10,7 @@ import { deviceApi, type GroupStats } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
+import { anonymize } from '@/utils/anonymize';
 import { clsx } from 'clsx';
 
 function StatCard({ icon: Icon, label, value, color, to }: { icon: any; label: string; value: number; color: string; to?: string }) {
@@ -40,7 +41,7 @@ function ComplianceBadge({ score }: { score: number | null }) {
 
 function GroupCard({ stats, wide }: { stats: GroupStats; wide?: boolean }) {
   const { t } = useTranslation();
-  const name = stats.groupName ?? t('dashboard.ungrouped');
+  const name = anonymize(stats.groupName) || t('dashboard.ungrouped');
   const healthPercent = stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
   const healthColor = healthPercent >= 80 ? 'text-green-400' : healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400';
   const barColor = healthPercent >= 80 ? 'bg-green-400' : healthPercent >= 50 ? 'bg-yellow-400' : 'bg-red-400';

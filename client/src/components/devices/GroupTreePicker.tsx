@@ -3,6 +3,7 @@ import { ChevronRight, FolderOpen, X } from 'lucide-react';
 import { groupsApi } from '@/api/groups.api';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
+import { anonymize } from '@/utils/anonymize';
 import { clsx } from 'clsx';
 
 interface GroupTreePickerProps {
@@ -99,7 +100,7 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
             <span className="w-3" />
           )}
           <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
-          <span className="truncate flex-1">{node.name}</span>
+          <span className="truncate flex-1">{anonymize(node.name)}</span>
           <span className="text-text-muted text-[10px] shrink-0">{count}</span>
           {hasChildren && (
             <button
@@ -122,7 +123,7 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary hover:border-accent/50 transition-colors min-w-[120px]"
       >
         <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
-        <span className="truncate">{selectedName ?? t('devices.filters.allGroups')}</span>
+        <span className="truncate">{anonymize(selectedName) || t('devices.filters.allGroups')}</span>
         {value && (
           <X
             className="w-3 h-3 text-text-muted hover:text-text-primary shrink-0 ml-auto"

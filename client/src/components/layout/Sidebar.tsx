@@ -217,7 +217,7 @@ function GroupRow({
           className="flex items-center gap-1.5 flex-1 py-1 min-w-0"
         >
           <Server size={13} className="shrink-0 text-text-muted" />
-          <span className="truncate flex-1 text-xs font-medium">{group.name}</span>
+          <span className="truncate flex-1 text-xs font-medium">{anonymize(group.name)}</span>
           {groupDevices.length > 0 && (
             <span className="flex items-center gap-1 shrink-0">
               {onlineCount > 0 && (
