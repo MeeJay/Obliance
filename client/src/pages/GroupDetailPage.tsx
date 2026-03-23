@@ -4,6 +4,7 @@ import { Pencil, Trash2, ArrowLeft, FolderOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGroupStore } from '@/store/groupStore';
 import { useAuthStore } from '@/store/authStore';
+import { anonymize } from '@/utils/anonymize';
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
 import type { DeviceGroup, DeviceGroupTreeNode, Device } from '@obliance/shared';
@@ -136,7 +137,7 @@ export function GroupDetailPage() {
             <Link key={device.id} to={`/devices/${device.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
               <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-text-primary truncate">{device.displayName ?? device.hostname}</div>
+                <div className="text-sm text-text-primary truncate">{anonymize(device.displayName ?? device.hostname)}</div>
                 {device.displayName && <div className="text-xs text-text-muted truncate">{device.hostname}</div>}
               </div>
               <DeviceStatusBadge status={device.status} size="sm" />

@@ -9,6 +9,7 @@ import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
 import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
 import type { Device } from '@obliance/shared';
 import { useAuthStore } from '@/store/authStore';
+import { anonymize, anonymizeIp } from '@/utils/anonymize';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -351,8 +352,8 @@ export function DeviceTable({ mode }: DeviceTableProps) {
                     <div className="flex items-center gap-2.5">
                       <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{device.displayName || device.hostname}</p>
-                        <p className="text-xs text-text-muted truncate">{device.ipLocal ?? device.ipPublic ?? ''}</p>
+                        <p className="text-sm font-medium text-text-primary truncate">{anonymize(device.displayName || device.hostname)}</p>
+                        <p className="text-xs text-text-muted truncate">{anonymizeIp(device.ipLocal ?? device.ipPublic ?? '')}</p>
                       </div>
                     </div>
                   </td>

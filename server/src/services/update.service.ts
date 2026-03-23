@@ -65,7 +65,7 @@ class UpdateService {
   async upsertUpdates(deviceId: number, tenantId: number, updates: Array<{
     updateUid: string; title?: string; description?: string;
     severity?: string; category?: string; source?: string;
-    sizeBytes?: number; requiresReboot?: boolean;
+    status?: string; sizeBytes?: number; requiresReboot?: boolean;
   }>) {
     const now = new Date();
     const freshUids = new Set(updates.map(u => u.updateUid));
@@ -80,6 +80,7 @@ class UpdateService {
       .delete();
 
     for (const u of updates) {
+      const initialStatus = u.status === 'pending_reboot' ? 'pending_reboot' : 'available';
       await db('device_updates')
         .insert({
           device_id: deviceId, tenant_id: tenantId,
@@ -87,7 +88,7 @@ class UpdateService {
           severity: u.severity || 'unknown', category: u.category,
           source: u.source || 'other', size_bytes: u.sizeBytes,
           requires_reboot: u.requiresReboot || false,
-          status: 'available', scanned_at: now,
+          status: initialStatus, scanned_at: now,
         })
         .onConflict(['device_id', 'update_uid'])
         .merge({
@@ -97,10 +98,14 @@ class UpdateService {
             : db.raw('device_updates.severity'),
           scanned_at: now,
           updated_at: now,
-          status: db.raw(
-            `CASE WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status ELSE device_updates.status END`,
-            [new Date(Date.now() - 6 * 60 * 60 * 1000)],
-          ),
+          // Agent says pending_reboot → force that status regardless of current state
+          // Otherwise: reset stale pending_install to available after 6h
+          status: u.status === 'pending_reboot'
+            ? db.raw("'pending_reboot'::update_status")
+            : db.raw(
+                `CASE WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status ELSE device_updates.status END`,
+                [new Date(Date.now() - 6 * 60 * 60 * 1000)],
+              ),
         });
     }
   }

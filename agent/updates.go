@@ -22,6 +22,7 @@ type UpdateInfo struct {
 	Severity       string `json:"severity"` // critical, important, moderate, optional, unknown
 	Category       string `json:"category,omitempty"`
 	Source         string `json:"source"`
+	Status         string `json:"status,omitempty"` // pending_reboot (agent-side hint, empty = available)
 	SizeBytes      int64  `json:"sizeBytes,omitempty"`
 	RequiresReboot bool   `json:"requiresReboot"`
 }
@@ -98,28 +99,45 @@ func scanWindowsUpdates() ([]UpdateInfo, error) {
 	const psScript = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
 $ErrorActionPreference='SilentlyContinue'
+$usedModule = $false
 $mod = Get-Module -ListAvailable PSWindowsUpdate -ErrorAction SilentlyContinue
 if ($mod) {
   Import-Module PSWindowsUpdate -ErrorAction SilentlyContinue
   $updates = Get-WindowsUpdate -AcceptAll -IgnoreReboot 2>$null
   if ($updates) {
+    $usedModule = $true
     $updates | ForEach-Object {
       $severity = if ($_.MsrcSeverity) { $_.MsrcSeverity.ToLower() } else { 'unknown' }
       "$($_.KBArticleIDs -join ',')|$($_.Title)|$severity|$($_.Categories[0].Name)|$($_.Size)|$($_.RebootRequired)"
     }
-    exit 0
   }
 }
-# COM API fallback (no module required, Windows-native)
-$session = New-Object -ComObject Microsoft.Update.Session
-$searcher = $session.CreateUpdateSearcher()
-try { $result = $searcher.Search("IsInstalled=0 and Type='Software'") } catch { exit 1 }
-foreach ($u in $result.Updates) {
-  $kb = ($u.KBArticleIDs | Select-Object -First 1)
-  $sev = if ($u.MsrcSeverity) { $u.MsrcSeverity.ToLower() } else { 'unknown' }
-  $cat = if ($u.Categories.Count -gt 0) { $u.Categories.Item(0).Name } else { '' }
-  $reboot = if ($u.InstallationBehavior.RebootBehavior -eq 1) { 'True' } else { 'False' }
-  "$kb|$($u.Title)|$sev|$cat|$($u.MaxDownloadSize)|$reboot"
+if (-not $usedModule) {
+  # COM API fallback — pending (not installed) updates
+  $session = New-Object -ComObject Microsoft.Update.Session
+  $searcher = $session.CreateUpdateSearcher()
+  try { $result = $searcher.Search("IsInstalled=0 and Type='Software'") } catch { $result = $null }
+  if ($result) {
+    foreach ($u in $result.Updates) {
+      $kb = ($u.KBArticleIDs | Select-Object -First 1)
+      $sev = if ($u.MsrcSeverity) { $u.MsrcSeverity.ToLower() } else { 'unknown' }
+      $cat = if ($u.Categories.Count -gt 0) { $u.Categories.Item(0).Name } else { '' }
+      $reboot = if ($u.InstallationBehavior.RebootBehavior -eq 1) { 'True' } else { 'False' }
+      "$kb|$($u.Title)|$sev|$cat|$($u.MaxDownloadSize)|$reboot"
+    }
+  }
+}
+# Installed updates pending reboot — IsInstalled=1 AND RebootRequired=1
+$session2 = New-Object -ComObject Microsoft.Update.Session
+$searcher2 = $session2.CreateUpdateSearcher()
+try { $rbResult = $searcher2.Search("IsInstalled=1 and RebootRequired=1") } catch { $rbResult = $null }
+if ($rbResult) {
+  foreach ($u in $rbResult.Updates) {
+    $kb = ($u.KBArticleIDs | Select-Object -First 1)
+    $sev = if ($u.MsrcSeverity) { $u.MsrcSeverity.ToLower() } else { 'unknown' }
+    $cat = if ($u.Categories.Count -gt 0) { $u.Categories.Item(0).Name } else { '' }
+    "REBOOT|$kb|$($u.Title)|$sev|$cat|$($u.MaxDownloadSize)"
+  }
 }`
 
 	out, err := exec.Command("powershell.exe",
@@ -136,6 +154,50 @@ foreach ($u in $result.Updates) {
 		if line == "" {
 			continue
 		}
+
+		// REBOOT|KB...|Title|severity|category|size — installed, pending reboot
+		if strings.HasPrefix(line, "REBOOT|") {
+			rParts := strings.SplitN(line, "|", 6)
+			if len(rParts) < 3 {
+				continue
+			}
+			uid := strings.TrimSpace(rParts[1])
+			title := strings.TrimSpace(rParts[2])
+			if title == "" {
+				continue
+			}
+			if uid == "" {
+				uid = sanitizeUID(title)
+			}
+			sev := "important"
+			if len(rParts) >= 4 && rParts[3] != "" {
+				sev = normaliseSeverity(rParts[3])
+			}
+			cat := ""
+			if len(rParts) >= 5 {
+				cat = strings.TrimSpace(rParts[4])
+			}
+			if sev == "unknown" && cat != "" {
+				sev = severityFromCategory(cat)
+			}
+			var sz int64
+			if len(rParts) >= 6 {
+				fmt.Sscanf(strings.TrimSpace(rParts[5]), "%d", &sz)
+			}
+			updates = append(updates, UpdateInfo{
+				UpdateUID:      uid,
+				Title:          title,
+				Severity:       sev,
+				Category:       cat,
+				Source:         "windows_update",
+				Status:         "pending_reboot",
+				SizeBytes:      sz,
+				RequiresReboot: true,
+			})
+			continue
+		}
+
+		// Normal: KB|Title|severity|category|size|rebootRequired
 		parts := strings.SplitN(line, "|", 6)
 		if len(parts) < 2 {
 			continue

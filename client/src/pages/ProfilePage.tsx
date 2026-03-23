@@ -10,6 +10,7 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { ThemePicker } from '@/components/ThemePicker';
 import { applyTheme, loadSavedTheme, type AppTheme } from '@/utils/theme';
+import { anonymize } from '@/utils/anonymize';
 import { SUPPORTED_LANGUAGES, setLanguage } from '@/i18n';
 import toast from 'react-hot-toast';
 
@@ -286,7 +287,7 @@ export function ProfilePage() {
           <div className="space-y-1">
             <label className="block text-sm font-medium text-text-secondary">{t('profile.usernameLabel')}</label>
             <p className="text-sm text-text-primary font-mono bg-bg-tertiary rounded-md px-3 py-2">
-              {sessionUser?.username}
+              {anonymize(sessionUser?.username)}
             </p>
           </div>
 

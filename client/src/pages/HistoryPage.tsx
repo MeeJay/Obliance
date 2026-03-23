@@ -11,6 +11,7 @@ import { updateApi } from '@/api/update.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
 import type { Command, ScriptExecution, DeviceUpdate } from '@obliance/shared';
+import { anonymize } from '@/utils/anonymize';
 import toast from 'react-hot-toast';
 
 // ─── Unified event model ─────────────────────────────────────────────────────
@@ -196,7 +197,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
 
   const deviceName = (id: number) => {
     const d = getDevice(id);
-    return d?.displayName || d?.hostname || `#${id}`;
+    return anonymize(d?.displayName || d?.hostname) || `#${id}`;
   };
 
   // Apply filters
@@ -368,7 +369,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
                             className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors group"
                           >
                             <Monitor className="w-3.5 h-3.5 text-text-muted group-hover:text-accent shrink-0" />
-                            <span className="truncate max-w-[140px]">{device.displayName || device.hostname}</span>
+                            <span className="truncate max-w-[140px]">{anonymize(device.displayName || device.hostname)}</span>
                           </Link>
                         ) : (
                           <span className="text-xs text-text-muted">#{ev.deviceId}</span>
@@ -385,7 +386,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
 
                       {/* User */}
                       <td className="px-4 py-2.5 text-xs text-text-muted hidden md:table-cell whitespace-nowrap">
-                        {ev.createdByName ?? '—'}
+                        {anonymize(ev.createdByName) || '—'}
                       </td>
 
                       {/* Duration */}

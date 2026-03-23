@@ -28,6 +28,7 @@ import FileExplorerTab from '@/components/devices/FileExplorerTab';
 import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
+import { anonymize, anonymizeIp } from '@/utils/anonymize';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -671,6 +672,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
     pending_install: t('updates.status.pendingInstall'),
     installing: t('updates.status.installing'),
     installed: t('updates.status.installed'),
+    pending_reboot: t('updates.status.pendingReboot'),
     failed: t('updates.status.failed'),
     excluded: t('updates.status.excluded'),
     superseded: t('updates.status.superseded'),
@@ -741,6 +743,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                   <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
                     update.status === 'approved' ? 'text-green-400' :
                     update.status === 'installing' || update.status === 'pending_install' ? 'text-yellow-400' :
+                    update.status === 'pending_reboot' ? 'text-orange-400' :
                     update.status === 'installed' ? 'text-blue-400' :
                     update.status === 'failed' ? 'text-red-400' : '',
                   )}>{STATUS_LABEL[update.status] ?? update.status}</span></p>
@@ -3231,7 +3234,7 @@ export function DeviceDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
-            <h1 className="text-2xl font-bold text-text-primary truncate">{device.displayName || device.hostname}</h1>
+            <h1 className="text-2xl font-bold text-text-primary truncate">{anonymize(device.displayName || device.hostname)}</h1>
             <DeviceStatusBadge status={device.status} />
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
@@ -3241,7 +3244,7 @@ export function DeviceDetailPage() {
             )}
           </div>
           <p className="text-sm text-text-muted mt-1">
-            {device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown IP'} · Agent v{device.agentVersion ?? '?'}
+            {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}
             {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
               <span>
                 {' '}· Reach v{headerOrVersion}

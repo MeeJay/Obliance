@@ -44,6 +44,8 @@ export interface UserPreferences {
   preferredCodec?: 'h264' | 'h265' | 'vp9' | 'av1' | 'jpeg';
   /** Personal quick reply messages for the chat (operator-defined). */
   quickReplies?: string[];
+  /** Anonymous mode — masks hostnames, IPs, usernames in the UI (for demos/screenshots). */
+  anonymousMode?: boolean;
 }
 
 export interface QuickReplyTemplate {
@@ -499,7 +501,7 @@ export interface ScriptExecution {
 
 export type UpdateSeverity = 'critical' | 'important' | 'moderate' | 'optional' | 'unknown';
 export type UpdateSource = 'windows_update' | 'apt' | 'yum' | 'dnf' | 'pacman' | 'brew' | 'chocolatey' | 'winget' | 'other';
-export type UpdateStatus = 'available' | 'approved' | 'pending_install' | 'installing' | 'installed' | 'failed' | 'excluded' | 'superseded';
+export type UpdateStatus = 'available' | 'approved' | 'pending_install' | 'installing' | 'installed' | 'pending_reboot' | 'failed' | 'excluded' | 'superseded';
 export type RebootBehavior = 'never' | 'ask' | 'auto_immediate' | 'auto_delayed';
 
 export interface UpdatePolicy {

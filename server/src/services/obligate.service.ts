@@ -17,6 +17,7 @@ export interface ObligateUserAssertion {
     toastPosition?: string;
     profilePhotoUrl?: string | null;
     preferredLanguage?: string;
+    anonymousMode?: boolean;
     appSpecific?: Record<string, string>;
   };
 }

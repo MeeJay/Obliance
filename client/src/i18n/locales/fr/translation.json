@@ -1225,6 +1225,7 @@
       "pendingInstall": "En file",
       "installing": "Installation…",
       "installed": "Installée",
+      "pendingReboot": "Redémarrage requis",
       "failed": "Échouée",
       "excluded": "Exclue",
       "superseded": "Remplacée"

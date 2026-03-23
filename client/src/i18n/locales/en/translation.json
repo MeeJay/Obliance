@@ -1330,6 +1330,7 @@
       "pendingInstall": "Queued",
       "installing": "Installing…",
       "installed": "Installed",
+      "pendingReboot": "Pending Reboot",
       "failed": "Failed",
       "excluded": "Excluded",
       "superseded": "Superseded"
