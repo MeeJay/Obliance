@@ -347,4 +347,20 @@ router.post('/set-password', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/auth/device-links?uuid=xxx
+ * Returns cross-app links for a device UUID via Obligate.
+ */
+router.get('/device-links', async (req, res) => {
+  try {
+    if (!req.session?.userId) { res.status(401).json({ success: false }); return; }
+    const uuid = req.query.uuid as string;
+    if (!uuid) { res.json({ success: true, data: [] }); return; }
+    const links = await obligateService.getDeviceLinks(uuid);
+    res.json({ success: true, data: links });
+  } catch {
+    res.json({ success: true, data: [] });
+  }
+});
+
 export default router;
