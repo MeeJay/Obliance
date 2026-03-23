@@ -8,6 +8,7 @@ import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, Comman
 import { appConfigService } from './appConfig.service';
 import { settingsService } from './settings.service';
 import { SETTINGS_KEYS } from '@obliance/shared';
+import { obligateService } from './obligate.service';
 
 // ── Agent version cache (re-read from disk every 5 min) ──────────────────────
 let _cachedVersion: string | null = null;
@@ -458,6 +459,9 @@ class DeviceService {
     if (this.io) {
       this.io.to(`tenant:${data.tenantId}:admin`).emit(SocketEvents.DEVICE_UPDATED, this.rowToDevice(row));
     }
+
+    // Register device UUID with Obligate for cross-app linking (non-blocking)
+    obligateService.registerDeviceLink(data.uuid, `/devices/${row.id}`).catch(() => {});
 
     return { deviceId: row.id, isNew: true };
   }

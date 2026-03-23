@@ -9,7 +9,7 @@ router.get('/', async (req, res, next) => {
   try { res.json(await reportService.getReports(req.tenantId!)); } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
     const report = await reportService.createReport(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -25,7 +25,7 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/generate', async (req, res, next) => {
+router.post('/:id/generate', requireRole('admin'), async (req, res, next) => {
   try {
     const output = await reportService.generateReport(parseInt(req.params.id), req.tenantId!);
     res.status(202).json(output);

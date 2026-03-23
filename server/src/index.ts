@@ -16,6 +16,7 @@ import { commandService } from './services/command.service';
 import { remoteService } from './services/remote.service';
 import { agentHub } from './services/agentHub.service';
 import { oblireachHub } from './services/oblireachHub.service';
+import { obligateService } from './services/obligate.service';
 
 async function main() {
   // Run database migrations
@@ -195,6 +196,9 @@ async function main() {
 
   server.listen(config.port, () => {
     logger.info({ port: config.port, env: config.nodeEnv }, `Obliance RMM started`);
+
+    // Sync preference schemas with Obligate (non-blocking)
+    obligateService.syncPreferenceSchemas().catch(() => {});
   });
 
   // Graceful shutdown

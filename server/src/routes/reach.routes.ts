@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { scriptService } from '../services/script.service';
 import { oblireachHub } from '../services/oblireachHub.service';
+import { permissionService } from '../services/permission.service';
 
 const router = Router();
 
@@ -100,10 +101,18 @@ router.get('/overview', async (req, res, next) => {
       devices: [],
     };
 
+    // Filter devices by user permissions
+    let visibleDeviceIds: number[] | 'all' = 'all';
+    if (req.session.role !== 'admin') {
+      visibleDeviceIds = await permissionService.getVisibleDeviceIds(req.session.userId!, false) as number[] | 'all';
+    }
+
     for (const dev of devices) {
       const or = orMap.get(dev.uuid);
       // Only include devices where the Oblireach agent has been installed
       if (!or) continue;
+      // Permission filter
+      if (visibleDeviceIds !== 'all' && !visibleDeviceIds.includes(dev.id)) continue;
 
       const enriched = {
         id: dev.id,

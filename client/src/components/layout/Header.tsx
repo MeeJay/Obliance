@@ -69,9 +69,8 @@ export function Header() {
             key={app.appType}
             type="button"
             onClick={() => {
-              // Redirect through Obligate authorize — existing session -> instant switch
-              const callbackUrl = `${app.baseUrl}/auth/callback`;
-              window.location.href = `/auth/sso-redirect?target=${encodeURIComponent(callbackUrl)}`;
+              // Navigate to target app's SSO redirect — it handles its own Obligate auth flow
+              window.location.href = `${app.baseUrl}/auth/sso-redirect`;
             }}
             className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border transition-all
               text-accent bg-accent/10 border-accent/30
