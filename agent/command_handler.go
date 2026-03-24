@@ -268,15 +268,16 @@ func (d *CommandDispatcher) handleScanInventory(cmd AgentCommand) (interface{}, 
 
 func (d *CommandDispatcher) handleScanUpdates(cmd AgentCommand) (interface{}, error) {
 	cfg := d.makeConfig()
-	updates, err := ScanUpdates()
+	updates, rebootPending, err := ScanUpdates()
 	if err != nil {
 		return nil, fmt.Errorf("scan updates: %w", err)
 	}
-	if postErr := PostUpdates(updates, cfg); postErr != nil {
+	if postErr := PostUpdates(updates, rebootPending, cfg); postErr != nil {
 		return nil, fmt.Errorf("post updates: %w", postErr)
 	}
 	return map[string]interface{}{
-		"updateCount": len(updates),
+		"updateCount":   len(updates),
+		"rebootPending": rebootPending,
 	}, nil
 }
 

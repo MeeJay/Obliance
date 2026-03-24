@@ -65,46 +65,20 @@ class UpdateService {
   async upsertUpdates(deviceId: number, tenantId: number, updates: Array<{
     updateUid: string; title?: string; description?: string;
     severity?: string; category?: string; source?: string;
-    status?: string; sizeBytes?: number; requiresReboot?: boolean;
+    sizeBytes?: number; requiresReboot?: boolean;
   }>) {
     const now = new Date();
     const freshUids = new Set(updates.map(u => u.updateUid));
 
-    // Remove stale updates that are no longer reported by the agent
-    // (installed outside Obliance, or retracted by vendor).
-    // Keep 'installed' and 'failed' as historical records.
+    // Remove stale updates no longer reported by the agent.
+    // Keep 'installed' as historical records.
     await db('device_updates')
       .where({ device_id: deviceId, tenant_id: tenantId })
-      .whereIn('status', ['available', 'approved', 'pending_install', 'failed'])
+      .whereIn('status', ['available', 'approved', 'pending_install', 'failed', 'pending_reboot'])
       .whereNotIn('update_uid', [...freshUids])
       .delete();
 
-    // Updates that were pending reboot but are no longer in the fresh scan
-    // → the reboot happened, mark them as installed
-    await db('device_updates')
-      .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
-      .whereNotIn('update_uid', [...freshUids])
-      .update({ status: 'installed', updated_at: new Date() });
-
-    // Safety net: any pending_reboot older than 24h that IS in the fresh scan
-    // but without the pending_reboot flag → force back to available
-    const rebootUidsInFresh = updates.filter(u => u.status === 'pending_reboot').map(u => u.updateUid);
-    const nonRebootFreshUids = [...freshUids].filter(uid => !rebootUidsInFresh.includes(uid));
-    if (nonRebootFreshUids.length > 0) {
-      await db('device_updates')
-        .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
-        .whereIn('update_uid', nonRebootFreshUids)
-        .update({ status: 'available', updated_at: new Date() });
-    }
-
-    // Auto-expire: any pending_reboot older than 48h → mark installed (reboot likely happened)
-    await db('device_updates')
-      .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
-      .where('updated_at', '<', new Date(Date.now() - 48 * 60 * 60 * 1000))
-      .update({ status: 'installed', updated_at: new Date() });
-
     for (const u of updates) {
-      const initialStatus = u.status === 'pending_reboot' ? 'pending_reboot' : 'available';
       await db('device_updates')
         .insert({
           device_id: deviceId, tenant_id: tenantId,
@@ -112,7 +86,7 @@ class UpdateService {
           severity: u.severity || 'unknown', category: u.category,
           source: u.source || 'other', size_bytes: u.sizeBytes,
           requires_reboot: u.requiresReboot || false,
-          status: initialStatus, scanned_at: now,
+          status: 'available', scanned_at: now,
         })
         .onConflict(['device_id', 'update_uid'])
         .merge({
@@ -122,18 +96,13 @@ class UpdateService {
             : db.raw('device_updates.severity'),
           scanned_at: now,
           updated_at: now,
-          // Agent says pending_reboot → force that status regardless of current state
-          // Otherwise: reset stale pending_install to available after 6h
-          status: u.status === 'pending_reboot'
-            ? db.raw("'pending_reboot'::update_status")
-            : db.raw(
-                `CASE
-                  WHEN device_updates.status = 'pending_reboot'::update_status THEN 'available'::update_status
-                  WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status
-                  ELSE device_updates.status
-                END`,
-                [new Date(Date.now() - 6 * 60 * 60 * 1000)],
-              ),
+          status: db.raw(
+            `CASE
+              WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status
+              ELSE device_updates.status
+            END`,
+            [new Date(Date.now() - 6 * 60 * 60 * 1000)],
+          ),
         });
     }
   }

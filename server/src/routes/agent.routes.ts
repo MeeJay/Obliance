@@ -257,11 +257,19 @@ router.post('/updates', agentAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Device access denied' });
     }
 
-    const { updates } = req.body as { updates: any[] };
+    const { updates, rebootPending } = req.body as { updates: any[]; rebootPending?: boolean };
     if (Array.isArray(updates) && updates.length > 0) {
       await updateService.upsertUpdates(device.id, tenantId, updates);
       // Apply auto-approve policies to newly discovered updates
       await updateService.applyAutoApprove(device.id, tenantId);
+    }
+
+    // Store reboot pending flag on device
+    if (typeof rebootPending === 'boolean') {
+      await db('devices').where({ id: device.id }).update({
+        reboot_pending: rebootPending,
+        updated_at: new Date(),
+      });
     }
 
     res.json({ ok: true, count: updates?.length ?? 0 });

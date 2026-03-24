@@ -113,13 +113,16 @@ function OverviewTab({ device }: { device: Device }) {
             </p>
           </div>
         </div>
-        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <Power className="w-4 h-4 text-orange-400 shrink-0" />
+        <div className={clsx('p-3 border rounded-xl flex items-center gap-2.5', device.rebootPending ? 'bg-orange-500/5 border-orange-500/30' : 'bg-bg-secondary border-border')}>
+          <Power className={clsx('w-4 h-4 shrink-0', device.rebootPending ? 'text-orange-400' : 'text-orange-400')} />
           <div className="min-w-0">
             <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Reboot</p>
             <p className="text-xs text-text-primary font-medium truncate">
               {device.lastRebootAt ? new Date(device.lastRebootAt).toLocaleString() : '—'}
             </p>
+            {device.rebootPending && (
+              <p className="text-[10px] text-orange-400 font-medium">Restart required</p>
+            )}
           </div>
         </div>
         <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">

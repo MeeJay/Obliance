@@ -76,6 +76,7 @@ class DeviceService {
       privacyModeEnabled: row.privacy_mode_enabled ?? false,
       lastLoggedInUser: row.last_logged_in_user ?? null,
       lastRebootAt: row.last_reboot_at ?? null,
+      rebootPending: row.reboot_pending ?? false,
       timezone: row.timezone ?? null,
       tags: row.tags || [],
       customFields: row.custom_fields || {},

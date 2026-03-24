@@ -22,24 +22,33 @@ type UpdateInfo struct {
 	Severity       string `json:"severity"` // critical, important, moderate, optional, unknown
 	Category       string `json:"category,omitempty"`
 	Source         string `json:"source"`
-	Status         string `json:"status,omitempty"` // pending_reboot (agent-side hint, empty = available)
 	SizeBytes      int64  `json:"sizeBytes,omitempty"`
 	RequiresReboot bool   `json:"requiresReboot"`
+}
+
+// UpdateScanResult is the payload sent to the server.
+type UpdateScanResult struct {
+	DeviceUUID    string       `json:"deviceUuid"`
+	Updates       []UpdateInfo `json:"updates"`
+	RebootPending bool         `json:"rebootPending"`
+	ScannedAt     time.Time    `json:"scannedAt"`
 }
 
 // ── Entry points ──────────────────────────────────────────────────────────────
 
 // ScanUpdates detects pending updates for the current platform and returns them.
-func ScanUpdates() ([]UpdateInfo, error) {
+func ScanUpdates() ([]UpdateInfo, bool, error) {
 	switch runtime.GOOS {
 	case "windows":
 		return scanWindowsUpdates()
 	case "linux":
-		return scanLinuxUpdates()
+		updates, err := scanLinuxUpdates()
+		return updates, false, err
 	case "darwin":
-		return scanDarwinUpdates()
+		updates, err := scanDarwinUpdates()
+		return updates, false, err
 	default:
-		return nil, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+		return nil, false, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 }
 
@@ -58,11 +67,12 @@ func InstallUpdate(updateUID, source string) error {
 }
 
 // PostUpdates POSTs the update list to the server.
-func PostUpdates(updates []UpdateInfo, cfg *Config) error {
+func PostUpdates(updates []UpdateInfo, rebootPending bool, cfg *Config) error {
 	payload := map[string]interface{}{
-		"deviceUuid": cfg.DeviceUUID,
-		"updates":    updates,
-		"scannedAt":  time.Now().UTC(),
+		"deviceUuid":    cfg.DeviceUUID,
+		"updates":       updates,
+		"rebootPending": rebootPending,
+		"scannedAt":     time.Now().UTC(),
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -93,7 +103,7 @@ func PostUpdates(updates []UpdateInfo, cfg *Config) error {
 
 // scanWindowsUpdates uses PowerShell's PSWindowsUpdate module when available,
 // falling back to the built-in Windows Update COM API (WUApiLib).
-func scanWindowsUpdates() ([]UpdateInfo, error) {
+func scanWindowsUpdates() ([]UpdateInfo, bool, error) {
 	// Primary: PSWindowsUpdate module (must be pre-installed).
 	// Falls back to COM API below if unavailable.
 	const psScript = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
@@ -127,42 +137,9 @@ if (-not $usedModule) {
     }
   }
 }
-# Installed updates pending reboot — read the exact KBs from the RebootRequired registry key
-$rebootKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
-if (Test-Path $rebootKey) {
-  try {
-    # The RebootRequired key has subvalues whose names are the update GUIDs or KB numbers
-    $pendingKBs = @()
-    $props = Get-ItemProperty $rebootKey -ErrorAction SilentlyContinue
-    if ($props) {
-      $props.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object { $pendingKBs += $_.Name }
-    }
-    # Query history to match GUIDs/KBs to titles
-    $s3 = New-Object -ComObject Microsoft.Update.Session
-    $sr3 = $s3.CreateUpdateSearcher()
-    $hCount = $sr3.GetTotalHistoryCount()
-    if ($hCount -gt 0) {
-      $hist = $sr3.QueryHistory(0, [Math]::Min($hCount, 50))
-      $matched = @{}
-      foreach ($h in $hist) {
-        if ($h.ResultCode -ne 2) { continue }
-        $uid = $h.UpdateIdentity.UpdateID
-        $kb = ''; if ($h.Title -match 'KB(\d+)') { $kb = "KB$($Matches[1])" }
-        # Match if the update GUID or KB appears in pendingKBs
-        $found = $false
-        foreach ($pk in $pendingKBs) { if ($uid -like "*$pk*" -or $pk -like "*$uid*" -or ($kb -and $pk -like "*$kb*")) { $found = $true; break } }
-        if ($found -and -not $matched[$uid]) {
-          $matched[$uid] = $true
-          $id = if ($kb) { $kb } else { $uid.Substring(0,8) }
-          "REBOOT|$id|$($h.Title)|important|Update"
-        }
-      }
-    }
-    # If no match from history, just report that a reboot is pending generically
-    if ($matched.Count -eq 0) {
-      "REBOOT|REBOOT-PENDING|Windows Update - Restart Required|important|Update"
-    }
-  } catch {}
+# Check if reboot is pending (simple boolean flag)
+if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') {
+  "REBOOT_PENDING"
 }`
 
 	out, err := exec.Command("powershell.exe",
@@ -174,51 +151,14 @@ if (Test-Path $rebootKey) {
 	}
 
 	var updates []UpdateInfo
+	rebootPending := false
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-
-		// REBOOT|KB...|Title|severity|category|size — installed, pending reboot
-		if strings.HasPrefix(line, "REBOOT|") {
-			rParts := strings.SplitN(line, "|", 6)
-			if len(rParts) < 3 {
-				continue
-			}
-			uid := strings.TrimSpace(rParts[1])
-			title := strings.TrimSpace(rParts[2])
-			if title == "" {
-				continue
-			}
-			if uid == "" {
-				uid = sanitizeUID(title)
-			}
-			sev := "important"
-			if len(rParts) >= 4 && rParts[3] != "" {
-				sev = normaliseSeverity(rParts[3])
-			}
-			cat := ""
-			if len(rParts) >= 5 {
-				cat = strings.TrimSpace(rParts[4])
-			}
-			if sev == "unknown" && cat != "" {
-				sev = severityFromCategory(cat)
-			}
-			var sz int64
-			if len(rParts) >= 6 {
-				fmt.Sscanf(strings.TrimSpace(rParts[5]), "%d", &sz)
-			}
-			updates = append(updates, UpdateInfo{
-				UpdateUID:      uid,
-				Title:          title,
-				Severity:       sev,
-				Category:       cat,
-				Source:         "windows_update",
-				Status:         "pending_reboot",
-				SizeBytes:      sz,
-				RequiresReboot: true,
-			})
+		if line == "REBOOT_PENDING" {
+			rebootPending = true
 			continue
 		}
 
@@ -281,7 +221,7 @@ if (Test-Path $rebootKey) {
 	updates = append(updates, scanWingetUpdates()...)
 	updates = append(updates, scanChocolateyUpdates()...)
 
-	return updates, nil
+	return updates, rebootPending, nil
 }
 
 // scanWingetUpdates detects outdated apps via Windows Package Manager (winget).

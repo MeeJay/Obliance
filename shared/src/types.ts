@@ -162,6 +162,7 @@ export interface Device {
   privacyModeEnabled: boolean;
   lastLoggedInUser: string | null;
   lastRebootAt: string | null;
+  rebootPending: boolean;
   timezone: string | null;
   // Metadata
   tags: string[];
