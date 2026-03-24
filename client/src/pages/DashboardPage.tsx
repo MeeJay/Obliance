@@ -311,7 +311,7 @@ export function DashboardPage() {
             <Activity className="w-4 h-4 text-text-muted" />
             {t('dashboard.groupOverview')}
           </h2>
-          <Link to="/groups" className="text-sm text-accent hover:text-accent/80">{t('dashboard.manageGroups')} →</Link>
+          <Link to="/admin/devices?tab=groups" className="text-sm text-accent hover:text-accent/80">{t('dashboard.manageGroups')} →</Link>
         </div>
         {groupStats.length === 0 ? (
           <div className="p-8 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
