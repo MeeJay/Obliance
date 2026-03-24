@@ -110,7 +110,11 @@ class UpdateService {
           status: u.status === 'pending_reboot'
             ? db.raw("'pending_reboot'::update_status")
             : db.raw(
-                `CASE WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status ELSE device_updates.status END`,
+                `CASE
+                  WHEN device_updates.status = 'pending_reboot'::update_status THEN 'available'::update_status
+                  WHEN device_updates.status = 'pending_install'::update_status AND device_updates.updated_at < ? THEN 'available'::update_status
+                  ELSE device_updates.status
+                END`,
                 [new Date(Date.now() - 6 * 60 * 60 * 1000)],
               ),
         });
