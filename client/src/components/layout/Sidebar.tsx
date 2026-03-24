@@ -503,8 +503,7 @@ export function Sidebar() {
       {/* Logo + float/pin toggle */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Obliance" className="h-8 w-8 rounded-lg" />
-          <span className="text-lg font-semibold text-text-primary">Obliance</span>
+          <img src="/logo.svg" alt="Obliance" className="h-10 w-10 rounded-lg" />
         </Link>
         <button
           onClick={toggleSidebarFloating}

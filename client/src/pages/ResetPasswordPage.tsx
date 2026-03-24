@@ -65,8 +65,7 @@ export function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <img src="/logo.svg" alt="Obliance" className="mx-auto h-16 w-16 mb-3" />
-          <h1 className="text-3xl font-bold text-text-primary">Obliance</h1>
+          <img src="/logo.svg" alt="Obliance" className="mx-auto h-24 w-24 mb-3" />
         </div>
 
         <div className="rounded-lg border border-border bg-bg-secondary p-6 space-y-5">
