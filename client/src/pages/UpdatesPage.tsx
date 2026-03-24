@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Package, AlertCircle, AlertTriangle, Info, Check, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
+import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
-import { deviceApi } from '@/api/device.api';
-import type { DeviceUpdate, UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
+import type { UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { useTranslation } from 'react-i18next';
@@ -60,12 +59,6 @@ const defaultPolicyForm: PolicyFormData = {
   enabled: true,
 };
 
-function formatBytes(bytes: number | null) {
-  if (!bytes) return null;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('updates');
@@ -82,8 +75,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const [aggPage, setAggPage] = useState(1);
   const [selectedSeverity, setSelectedSeverity] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
-  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const [selectedGroupId] = useState<number | undefined>(undefined);
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   const [expandedDevices, setExpandedDevices] = useState<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>>([]);
 
@@ -111,7 +103,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   }, [selectedSeverity, selectedSource, selectedGroupId, aggPage, t]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setAggPage(1); setSelectedUids(new Set()); }, [selectedSeverity, selectedSource, selectedGroupId]);
+  useEffect(() => { setAggPage(1); }, [selectedSeverity, selectedSource, selectedGroupId]);
 
   // Real-time: reload on scan completion
   useEffect(() => {
@@ -224,15 +216,6 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
     }
   };
 
-  const countBySeverity = (sev: UpdateSeverity) => updates.filter(u => u.severity === sev && u.status === 'available').length;
-
-  // Severity filter is client-side (cards); device filter is server-side (reload)
-  const visibleUpdates = selectedSeverity
-    ? updates.filter(u => u.severity === selectedSeverity)
-    : updates;
-
-  const allChecked = visibleUpdates.length > 0 && visibleUpdates.every(u => selectedIds.has(u.id));
-
   return (
     <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
       {!embedded && <div className="flex items-center justify-between">
@@ -250,7 +233,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
         {(['critical', 'important', 'moderate', 'optional'] as UpdateSeverity[]).map((sev) => {
           const cfg = SEVERITY_CONFIG[sev];
           const Icon = cfg.icon;
-          const count = countBySeverity(sev);
+          const count = aggUpdates.filter(u => u.severity === sev).reduce((sum, u) => sum + u.deviceCount, 0);
           const colorParts = cfg.color.split(' ');
           return (
             <button
@@ -344,7 +327,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {aggUpdates.map((upd) => {
-                      const cfg = SEVERITY_CONFIG[upd.severity] ?? SEVERITY_CONFIG.unknown;
+                      const cfg = SEVERITY_CONFIG[upd.severity as UpdateSeverity] ?? SEVERITY_CONFIG.unknown;
                       const isExpanded = expandedUid === upd.updateUid;
                       return (
                         <React.Fragment key={upd.updateUid}>
@@ -393,145 +376,6 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
         </div>
       )}
 
-      {/* REMOVE old updates tab content below — replaced by aggregated view above */}
-      {false && selectedIds.size > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-accent/10 border border-accent/30 rounded-lg">
-              <span className="text-sm text-text-primary font-medium">{selectedIds.size} {t('updates.selected')}</span>
-              <button
-                onClick={handleBulkApprove}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded text-sm hover:bg-green-500/30 transition-colors"
-              >
-                <Check className="w-3.5 h-3.5" />
-                {t('updates.actions.approveSelected')}
-              </button>
-              <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-sm text-text-muted hover:text-text-primary flex items-center gap-1">
-                <X className="w-3.5 h-3.5" />
-                {t('updates.actions.clear')}
-              </button>
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="flex items-center justify-center h-48">
-              <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-            </div>
-          ) : visibleUpdates.length === 0 ? (
-            <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
-              <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
-              <p className="font-medium text-text-primary mb-1">{t('updates.noUpdatesFound')}</p>
-              <p className="text-sm">{selectedSeverity ? t('updates.noSeverityUpdates', { severity: selectedSeverity }) : t('updates.allUpToDate')}</p>
-            </div>
-          ) : (
-            <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-bg-tertiary/50">
-                    <th className="w-10 px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={allChecked}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedIds(new Set(visibleUpdates.map(u => u.id)));
-                          else setSelectedIds(new Set());
-                        }}
-                        className="rounded"
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.update')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden sm:table-cell">{t('updates.table.device')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.severity')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">{t('updates.table.source')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">{t('updates.table.size')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.status')}</th>
-                    <th className="w-28 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {visibleUpdates.map((update) => {
-                    const cfg = SEVERITY_CONFIG[update.severity];
-                    return (
-                      <tr key={update.id} className={clsx('transition-colors', selectedIds.has(update.id) ? 'bg-accent/5' : 'hover:bg-bg-tertiary')}>
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(update.id)}
-                            onChange={() => {
-                              setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (next.has(update.id)) next.delete(update.id);
-                                else next.add(update.id);
-                                return next;
-                              });
-                            }}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-text-primary font-medium">{update.title ?? update.updateUid}</p>
-                          {update.requiresReboot && (
-                            <p className="text-xs text-orange-400 mt-0.5">Requires reboot</p>
-                          )}
-                          {update.category && (
-                            <p className="text-xs text-text-muted mt-0.5">{update.category}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          {update.deviceName ? (
-                            <span className="flex items-center gap-1.5 text-xs text-text-primary">
-                              <Monitor className="w-3 h-3 text-text-muted shrink-0" />
-                              {update.deviceName}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-text-muted">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', cfg.color)}>
-                            {cfg.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="text-xs text-text-muted">{update.source.replace('_', ' ')}</span>
-                        </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
-                          <span className="text-xs text-text-muted">{formatBytes(update.sizeBytes) ?? '—'}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={clsx('text-xs font-medium', {
-                            'text-text-muted': update.status === 'available',
-                            'text-green-400': update.status === 'approved',
-                            'text-yellow-400': update.status === 'pending_install' || update.status === 'installing',
-                            'text-blue-400': update.status === 'installed',
-                            'text-red-400': update.status === 'failed',
-                          })}>
-                            {t(`updates.status.${update.status === 'pending_install' ? 'pendingInstall' : update.status}`, update.status)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {update.status === 'available' && (
-                            <button
-                              onClick={() => handleApprove(update)}
-                              className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors"
-                            >
-                              {t('updates.actions.approve')}
-                            </button>
-                          )}
-                          {update.status === 'approved' && (
-                            <span className="text-xs text-green-400 flex items-center gap-1 justify-end">
-                              <Check className="w-3 h-3" />
-                              {t('updates.status.approved')}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {activeTab === 'policies' && (
         <div className="space-y-4">
