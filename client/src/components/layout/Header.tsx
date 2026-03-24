@@ -48,7 +48,7 @@ export function Header() {
             is mirrored here so it remains always accessible. */}
         {sidebarFloating && (
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src="/logo.svg" alt="Obliance" className="h-10 w-10 rounded-lg" />
+            <img src="/logo.svg" alt="Obliance" className="h-10 w-auto max-w-[200px] object-contain" />
           </Link>
         )}
 
