@@ -262,7 +262,7 @@ export function DashboardPage() {
               <p className="text-xl font-bold text-text-primary">{s.pendingUpdates}</p>
               <p className="text-sm text-text-muted">{t('dashboard.pendingUpdates')}</p>
             </div>
-            <Link to="/updates" className="ml-auto text-sm text-accent hover:text-accent/80">{t('dashboard.manage')} →</Link>
+            <Link to="/policies?tab=updates" className="ml-auto text-sm text-accent hover:text-accent/80">{t('dashboard.manage')} →</Link>
           </div>
 
           <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
