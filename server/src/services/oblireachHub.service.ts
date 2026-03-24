@@ -282,6 +282,16 @@ class ObliReachHubService {
       }
     }
   }
+
+  /** Broadcast a command only to agents belonging to the specified tenant. */
+  broadcastCommandToTenant(tenantId: number, cmd: OrCommand): void {
+    const json = JSON.stringify(cmd);
+    for (const [, conn] of this.byDevice) {
+      if (conn.tenantId === tenantId && conn.ws.readyState === 1) {
+        try { conn.ws.send(json); } catch {}
+      }
+    }
+  }
 }
 
 export const oblireachHub = new ObliReachHubService();
