@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -179,6 +179,21 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const devices = getDeviceList();
   const groups = getGroupList();
 
+  // Build full path labels for groups (e.g. "Parent > Child > Grandchild")
+  const groupPathMap = useMemo(() => {
+    const map = new Map<number, string>();
+    const groupById = new Map(groups.map((g) => [g.id, g]));
+    const buildPath = (g: typeof groups[0]): string => {
+      if (map.has(g.id)) return map.get(g.id)!;
+      const parent = g.parentId != null ? groupById.get(g.parentId) : null;
+      const path = parent ? `${buildPath(parent)} › ${g.name}` : g.name;
+      map.set(g.id, path);
+      return path;
+    };
+    for (const g of groups) buildPath(g);
+    return map;
+  }, [groups]);
+
   return (
     <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
       {!embedded && <div className="flex items-center justify-between">
@@ -264,7 +279,9 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 >
                   <option value="">Select...</option>
                   {form.targetType === 'group'
-                    ? groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)
+                    ? groups
+                        .sort((a, b) => (groupPathMap.get(a.id) ?? '').localeCompare(groupPathMap.get(b.id) ?? ''))
+                        .map((g) => <option key={g.id} value={g.id}>{groupPathMap.get(g.id) ?? g.name}</option>)
                     : devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)
                   }
                 </select>
