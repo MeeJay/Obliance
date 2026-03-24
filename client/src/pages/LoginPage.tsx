@@ -140,7 +140,7 @@ export function LoginPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-primary">
         <div className="text-center">
-          <img src="/logo.webp" alt="Obliance" className="mx-auto h-16 w-16 mb-3 animate-pulse" />
+          <img src="/logo.svg" alt="Obliance" className="mx-auto h-16 w-16 mb-3 animate-pulse" />
           <p className="text-sm text-text-secondary">
             {ssoState === 'redirecting' ? t('login.ssoRedirecting', 'Redirecting to login...') : t('login.ssoChecking', 'Checking authentication...')}
           </p>
@@ -153,7 +153,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
       <div className="w-full max-w-sm space-y-8 relative">
         <div className="text-center">
-          <img src="/logo.webp" alt="Obliance" className="mx-auto h-16 w-16 mb-3" />
+          <img src="/logo.svg" alt="Obliance" className="mx-auto h-16 w-16 mb-3" />
           <h1 className="text-3xl font-bold text-text-primary">Obliance</h1>
           <p className="mt-2 text-sm text-text-secondary">{t('login.title')}</p>
         </div>
