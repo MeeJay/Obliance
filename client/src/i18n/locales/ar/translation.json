@@ -692,7 +692,8 @@
     "noPending": "لا توجد تحديثات معلقة",
     "noUpdates": "لم يتم العثور على تحديثات — قم بإجراء فحص",
     "filters": {
-      "allDevices": "جميع الأجهزة"
+      "allDevices": "جميع الأجهزة",
+      "allSources": "All sources"
     },
     "table": {
       "update": "تحديث",
@@ -700,7 +701,8 @@
       "severity": "الخطورة",
       "source": "المصدر",
       "size": "الحجم",
-      "status": "الحالة"
+      "status": "الحالة",
+      "devices": "Devices"
     },
     "status": {
       "available": "متاح",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "اعتماد",
-      "approveAll": "اعتماد الكل",
+      "approveAll": "Approve all",
       "approveSelected": "اعتماد المحدد",
       "deploy": "نشر",
       "scan": "فحص",
-      "clear": "مسح"
+      "clear": "مسح",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "تم اعتماد التحديث",

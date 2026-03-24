@@ -211,6 +211,184 @@ class UpdateService {
     await db('update_policies').where({ id, tenant_id: tenantId }).delete();
   }
 
+  // ─── Aggregated view ──────────────────────────────────────────────────────
+
+  /**
+   * Returns updates grouped by title (update_uid + title), with device count
+   * and severity. Only shows 'available' status by default.
+   */
+  async getAggregatedUpdates(tenantId: number, filters?: {
+    severity?: string; source?: string; groupId?: number; status?: string;
+    page?: number; pageSize?: number;
+  }) {
+    const status = filters?.status || 'available';
+    const page = Math.max(1, filters?.page ?? 1);
+    const pageSize = Math.min(200, Math.max(1, filters?.pageSize ?? 50));
+
+    let baseQ = db('device_updates as du')
+      .join('devices as d', 'd.id', 'du.device_id')
+      .where({ 'du.tenant_id': tenantId, 'du.status': status });
+
+    if (filters?.severity) baseQ = baseQ.where({ 'du.severity': filters.severity });
+    if (filters?.source) baseQ = baseQ.where({ 'du.source': filters.source });
+    if (filters?.groupId) baseQ = baseQ.where({ 'd.group_id': filters.groupId });
+
+    // Count total distinct titles
+    const countResult = await baseQ.clone()
+      .countDistinct('du.update_uid as count')
+      .first();
+    const total = Number(countResult?.count ?? 0);
+
+    // Aggregated rows
+    const rows = await baseQ.clone()
+      .select(
+        'du.update_uid',
+        db.raw('MIN(du.title) as title'),
+        db.raw('MIN(du.severity) as severity'),
+        db.raw('MIN(du.category) as category'),
+        db.raw('MIN(du.source) as source'),
+        db.raw('MIN(du.size_bytes) as size_bytes'),
+        db.raw('BOOL_OR(du.requires_reboot) as requires_reboot'),
+        db.raw('COUNT(DISTINCT du.device_id)::int as device_count'),
+      )
+      .groupBy('du.update_uid')
+      .orderByRaw(`
+        CASE MIN(du.severity)
+          WHEN 'critical' THEN 1
+          WHEN 'important' THEN 2
+          WHEN 'moderate' THEN 3
+          WHEN 'optional' THEN 4
+          ELSE 5
+        END
+      `)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    const items = rows.map((r: any) => ({
+      updateUid: r.update_uid,
+      title: r.title,
+      severity: r.severity,
+      category: r.category,
+      source: r.source,
+      sizeBytes: r.size_bytes,
+      requiresReboot: r.requires_reboot,
+      deviceCount: r.device_count,
+    }));
+
+    return { items, total, page, pageSize };
+  }
+
+  /**
+   * Returns the list of devices affected by a specific update title.
+   */
+  async getUpdateDevices(tenantId: number, updateUid: string, status = 'available') {
+    const rows = await db('device_updates as du')
+      .join('devices as d', 'd.id', 'du.device_id')
+      .where({ 'du.tenant_id': tenantId, 'du.update_uid': updateUid, 'du.status': status })
+      .select(
+        'du.id', 'du.device_id', 'du.status',
+        db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
+        'd.group_id',
+      )
+      .orderBy('device_name');
+    return rows.map((r: any) => ({
+      id: r.id, deviceId: r.device_id, deviceName: r.device_name,
+      groupId: r.group_id, status: r.status,
+    }));
+  }
+
+  /**
+   * Bulk approve all instances of an update title across devices.
+   * Optionally scoped to a group.
+   */
+  async bulkApproveByTitle(tenantId: number, updateUid: string, approvedBy: number, groupId?: number) {
+    let q = db('device_updates')
+      .where({ tenant_id: tenantId, update_uid: updateUid, status: 'available' });
+
+    if (groupId) {
+      q = q.whereIn('device_id', db('devices').where({ group_id: groupId }).select('id'));
+    }
+
+    const count = await q.update({
+      status: 'approved',
+      approved_by: approvedBy,
+      approved_at: new Date(),
+      updated_at: new Date(),
+    });
+    return count;
+  }
+
+  /**
+   * Bulk approve ALL available updates matching a severity across the tenant (or group).
+   */
+  async bulkApproveBySeverity(tenantId: number, severities: string[], approvedBy: number, groupId?: number) {
+    let q = db('device_updates')
+      .where({ tenant_id: tenantId, status: 'available' })
+      .whereIn('severity', severities);
+
+    if (groupId) {
+      q = q.whereIn('device_id', db('devices').where({ group_id: groupId }).select('id'));
+    }
+
+    const count = await q.update({
+      status: 'approved',
+      approved_by: approvedBy,
+      approved_at: new Date(),
+      updated_at: new Date(),
+    });
+    return count;
+  }
+
+  /**
+   * Auto-approve updates based on enabled policies.
+   * Called after agent posts new scan results.
+   */
+  async applyAutoApprove(deviceId: number, tenantId: number) {
+    const device = await db('devices').where({ id: deviceId }).first();
+    if (!device) return;
+
+    // Find all enabled policies that apply to this device
+    const policies = await db('update_policies')
+      .where({ tenant_id: tenantId, enabled: true })
+      .where(function() {
+        this.where({ target_type: 'all' })
+          .orWhere(function() {
+            this.where({ target_type: 'device', target_id: deviceId });
+          })
+          .orWhere(function() {
+            if (device.group_id) {
+              this.where({ target_type: 'group', target_id: device.group_id });
+            }
+          });
+      });
+
+    for (const policy of policies) {
+      const severities: string[] = [];
+      if (policy.auto_approve_critical) severities.push('critical');
+      if (policy.auto_approve_security) severities.push('important');
+      if (policy.auto_approve_optional) severities.push('moderate', 'optional');
+      if (severities.length === 0) continue;
+
+      // Excluded updates/categories
+      const excludedUids: string[] = policy.excluded_update_ids ? JSON.parse(policy.excluded_update_ids) : [];
+      const excludedCats: string[] = policy.excluded_categories ? JSON.parse(policy.excluded_categories) : [];
+
+      let q = db('device_updates')
+        .where({ device_id: deviceId, tenant_id: tenantId, status: 'available' })
+        .whereIn('severity', severities);
+
+      if (excludedUids.length > 0) q = q.whereNotIn('update_uid', excludedUids);
+      if (excludedCats.length > 0) q = q.whereNotIn('category', excludedCats);
+
+      await q.update({
+        status: 'approved',
+        approved_by: policy.created_by,
+        approved_at: new Date(),
+        updated_at: new Date(),
+      });
+    }
+  }
+
   // Update statistics for tenant dashboard
   async getUpdateStats(tenantId: number) {
     const stats = await db('device_updates')

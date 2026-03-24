@@ -692,7 +692,8 @@
     "noPending": "保留中のアップデートなし",
     "noUpdates": "アップデートなし — スキャンを実行してください",
     "filters": {
-      "allDevices": "すべてのデバイス"
+      "allDevices": "すべてのデバイス",
+      "allSources": "All sources"
     },
     "table": {
       "update": "アップデート",
@@ -700,7 +701,8 @@
       "severity": "重要度",
       "source": "ソース",
       "size": "サイズ",
-      "status": "ステータス"
+      "status": "ステータス",
+      "devices": "Devices"
     },
     "status": {
       "available": "利用可能",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "承認",
-      "approveAll": "すべて承認",
+      "approveAll": "Approve all",
       "approveSelected": "選択を承認",
       "deploy": "デプロイ",
       "scan": "スキャン",
-      "clear": "クリア"
+      "clear": "クリア",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "アップデートを承認しました",

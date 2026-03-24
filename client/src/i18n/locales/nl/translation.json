@@ -692,7 +692,8 @@
     "noPending": "Geen openstaande updates",
     "noUpdates": "Geen updates gevonden — voer een scan uit",
     "filters": {
-      "allDevices": "Alle apparaten"
+      "allDevices": "Alle apparaten",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Update",
@@ -700,7 +701,8 @@
       "severity": "Ernst",
       "source": "Bron",
       "size": "Grootte",
-      "status": "Status"
+      "status": "Status",
+      "devices": "Devices"
     },
     "status": {
       "available": "Beschikbaar",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Goedkeuren",
-      "approveAll": "Alles goedkeuren",
+      "approveAll": "Approve all",
       "approveSelected": "Selectie goedkeuren",
       "deploy": "Uitrollen",
       "scan": "Scannen",
-      "clear": "Wissen"
+      "clear": "Wissen",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Update goedgekeurd",

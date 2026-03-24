@@ -692,7 +692,8 @@
     "noPending": "보류 중인 업데이트 없음",
     "noUpdates": "업데이트 없음 — 스캔을 실행하세요",
     "filters": {
-      "allDevices": "모든 장치"
+      "allDevices": "모든 장치",
+      "allSources": "All sources"
     },
     "table": {
       "update": "업데이트",
@@ -700,7 +701,8 @@
       "severity": "심각도",
       "source": "소스",
       "size": "크기",
-      "status": "상태"
+      "status": "상태",
+      "devices": "Devices"
     },
     "status": {
       "available": "사용 가능",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "승인",
-      "approveAll": "모두 승인",
+      "approveAll": "Approve all",
       "approveSelected": "선택 승인",
       "deploy": "배포",
       "scan": "스캔",
-      "clear": "지우기"
+      "clear": "지우기",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "업데이트 승인됨",

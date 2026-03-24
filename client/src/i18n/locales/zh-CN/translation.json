@@ -692,7 +692,8 @@
     "noPending": "没有待处理的更新",
     "noUpdates": "未找到更新 — 运行扫描以检查",
     "filters": {
-      "allDevices": "所有设备"
+      "allDevices": "所有设备",
+      "allSources": "All sources"
     },
     "table": {
       "update": "更新",
@@ -700,7 +701,8 @@
       "severity": "严重性",
       "source": "来源",
       "size": "大小",
-      "status": "状态"
+      "status": "状态",
+      "devices": "Devices"
     },
     "status": {
       "available": "可用",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "批准",
-      "approveAll": "全部批准",
+      "approveAll": "Approve all",
       "approveSelected": "批准所选",
       "deploy": "部署",
       "scan": "扫描",
-      "clear": "清除"
+      "clear": "清除",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "更新已批准",

@@ -1314,7 +1314,8 @@
     "noPending": "No pending updates",
     "noUpdates": "No updates found — run a scan to check for updates",
     "filters": {
-      "allDevices": "All devices"
+      "allDevices": "All devices",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Update",
@@ -1322,7 +1323,8 @@
       "severity": "Severity",
       "source": "Source",
       "size": "Size",
-      "status": "Status"
+      "status": "Status",
+      "devices": "Devices"
     },
     "status": {
       "available": "Available",
@@ -1337,11 +1339,14 @@
     },
     "actions": {
       "approve": "Approve",
-      "approveAll": "Approve All",
+      "approveAll": "Approve all",
       "approveSelected": "Approve selected",
       "deploy": "Deploy",
       "scan": "Scan",
-      "clear": "Clear"
+      "clear": "Clear",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Update approved",

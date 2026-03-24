@@ -692,7 +692,8 @@
     "noPending": "Keine ausstehenden Updates",
     "noUpdates": "Keine Updates gefunden — starten Sie einen Scan",
     "filters": {
-      "allDevices": "Alle Geräte"
+      "allDevices": "Alle Geräte",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Update",
@@ -700,7 +701,8 @@
       "severity": "Schweregrad",
       "source": "Quelle",
       "size": "Größe",
-      "status": "Status"
+      "status": "Status",
+      "devices": "Devices"
     },
     "status": {
       "available": "Verfügbar",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Genehmigen",
-      "approveAll": "Alle genehmigen",
+      "approveAll": "Approve all",
       "approveSelected": "Auswahl genehmigen",
       "deploy": "Bereitstellen",
       "scan": "Scannen",
-      "clear": "Löschen"
+      "clear": "Löschen",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Update genehmigt",

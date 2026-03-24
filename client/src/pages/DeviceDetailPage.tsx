@@ -788,7 +788,7 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                 {update.status === 'approved' && (
                   <span className="shrink-0 text-xs text-green-400 opacity-60">✓ {t('updates.status.approved')}</span>
                 )}
-                {(update.status === 'failed' || update.status === 'installed') && (
+                {update.status === 'failed' && (
                   <button
                     onClick={async () => {
                       try {

@@ -879,7 +879,8 @@
     "noPending": "Sin actualizaciones pendientes",
     "noUpdates": "No se encontraron actualizaciones — ejecute un escaneo",
     "filters": {
-      "allDevices": "Todos los dispositivos"
+      "allDevices": "Todos los dispositivos",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Actualización",
@@ -887,7 +888,8 @@
       "severity": "Severidad",
       "source": "Fuente",
       "size": "Tamaño",
-      "status": "Estado"
+      "status": "Estado",
+      "devices": "Devices"
     },
     "status": {
       "available": "Disponible",
@@ -901,11 +903,14 @@
     },
     "actions": {
       "approve": "Aprobar",
-      "approveAll": "Aprobar todo",
+      "approveAll": "Approve all",
       "approveSelected": "Aprobar selección",
       "deploy": "Desplegar",
       "scan": "Escanear",
-      "clear": "Limpiar"
+      "clear": "Limpiar",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Actualización aprobada",

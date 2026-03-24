@@ -692,7 +692,8 @@
     "noPending": "Ingen ventende opdateringer",
     "noUpdates": "Ingen opdateringer — kør en scanning",
     "filters": {
-      "allDevices": "Alle enheder"
+      "allDevices": "Alle enheder",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Opdatering",
@@ -700,7 +701,8 @@
       "severity": "Alvorlighed",
       "source": "Kilde",
       "size": "Størrelse",
-      "status": "Status"
+      "status": "Status",
+      "devices": "Devices"
     },
     "status": {
       "available": "Tilgængelig",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Godkend",
-      "approveAll": "Godkend alle",
+      "approveAll": "Approve all",
       "approveSelected": "Godkend valgte",
       "deploy": "Udrull",
       "scan": "Scan",
-      "clear": "Ryd"
+      "clear": "Ryd",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Opdatering godkendt",

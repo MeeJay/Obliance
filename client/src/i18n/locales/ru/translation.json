@@ -692,7 +692,8 @@
     "noPending": "Нет ожидающих обновлений",
     "noUpdates": "Обновления не найдены — запустите сканирование",
     "filters": {
-      "allDevices": "Все устройства"
+      "allDevices": "Все устройства",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Обновление",
@@ -700,7 +701,8 @@
       "severity": "Важность",
       "source": "Источник",
       "size": "Размер",
-      "status": "Статус"
+      "status": "Статус",
+      "devices": "Devices"
     },
     "status": {
       "available": "Доступно",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Одобрить",
-      "approveAll": "Одобрить все",
+      "approveAll": "Approve all",
       "approveSelected": "Одобрить выбранное",
       "deploy": "Развернуть",
       "scan": "Сканировать",
-      "clear": "Очистить"
+      "clear": "Очистить",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Обновление одобрено",

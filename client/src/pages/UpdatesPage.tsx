@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Package, AlertCircle, AlertTriangle, Info, Check, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
 import { deviceApi } from '@/api/device.api';
@@ -69,103 +69,76 @@ function formatBytes(bytes: number | null) {
 export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('updates');
-  const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
   const [policies, setPolicies] = useState<UpdatePolicy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSeverity, setSelectedSeverity] = useState('');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<number | ''>('');
-  const [deviceOptions, setDeviceOptions] = useState<{ id: number; label: string }[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showPolicyForm, setShowPolicyForm] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<UpdatePolicy | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormData>(defaultPolicyForm);
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
 
-  // Load device list once for the filter dropdown
-  useEffect(() => {
-    deviceApi.list().then((devices) => {
-      setDeviceOptions(
-        devices.map((d) => ({ id: d.id, label: d.displayName || d.hostname }))
-          .sort((a, b) => a.label.localeCompare(b.label)),
-      );
-    }).catch(() => {});
-  }, []);
+  // Aggregated updates state
+  const [aggUpdates, setAggUpdates] = useState<import('@/api/update.api').AggregatedUpdate[]>([]);
+  const [aggTotal, setAggTotal] = useState(0);
+  const [aggPage, setAggPage] = useState(1);
+  const [selectedSeverity, setSelectedSeverity] = useState('');
+  const [selectedSource, setSelectedSource] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const [expandedUid, setExpandedUid] = useState<string | null>(null);
+  const [expandedDevices, setExpandedDevices] = useState<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>>([]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [updatesData, policiesData] = await Promise.all([
-        updateApi.listUpdates({
+      const [aggData, policiesData] = await Promise.all([
+        updateApi.listAggregated({
           severity: selectedSeverity || undefined,
-          deviceId: selectedDeviceId || undefined,
+          source: selectedSource || undefined,
+          groupId: selectedGroupId,
+          page: aggPage,
+          pageSize: 50,
         }),
         updateApi.listPolicies(),
       ]);
-      setUpdates(updatesData.items);
+      setAggUpdates(aggData.items);
+      setAggTotal(aggData.total);
       setPolicies(policiesData);
     } catch {
       toast.error(t('updates.toast.loadFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSeverity, selectedDeviceId]);
+  }, [selectedSeverity, selectedSource, selectedGroupId, aggPage, t]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setAggPage(1); setSelectedUids(new Set()); }, [selectedSeverity, selectedSource, selectedGroupId]);
 
-  // Real-time update status via socket
+  // Real-time: reload on scan completion
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     const onCmd = (cmd: Command) => {
-      if (cmd.type === 'install_update') {
-        const uid = (cmd.payload as any)?.updateUid as string | undefined;
-        if (!uid) return;
-        if (cmd.status === 'ack_running') {
-          setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'installing' as const } : u
-          ));
-        } else if (cmd.status === 'success') {
-          setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'installed' as const } : u
-          ));
-          toast.success(`${uid} ${t('updates.toast.installed')}`);
-        } else if (['failure', 'timeout'].includes(cmd.status)) {
-          setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'failed' as const } : u
-          ));
-          toast.error(`${uid} ${t('updates.toast.failed')}`);
-        }
-      }
-      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
-        load();
-      }
+      if (cmd.type === 'scan_updates' && cmd.status === 'success') load();
     };
     socket.on(SocketEvents.COMMAND_RESULT, onCmd);
-    socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
-    return () => {
-      socket.off(SocketEvents.COMMAND_RESULT, onCmd);
-      socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
-    };
-  }, [load, t]);
+    return () => { socket.off(SocketEvents.COMMAND_RESULT, onCmd); };
+  }, [load]);
 
-  const handleBulkApprove = async () => {
-    if (selectedIds.size === 0) return;
+  // Expand a row to show affected devices
+  const handleExpand = async (uid: string) => {
+    if (expandedUid === uid) { setExpandedUid(null); return; }
+    setExpandedUid(uid);
     try {
-      // Approve each selected update individually (server approves per device+updateId)
-      const selected = updates.filter((u) => selectedIds.has(u.id));
-      await Promise.all(selected.map((u) => updateApi.approveUpdate(u.deviceId, u.id)));
-      setSelectedIds(new Set());
-      toast.success(t('updates.toast.bulkApproved', { count: selected.length }));
-      await load();
-    } catch {
-      toast.error(t('updates.toast.approveFailed'));
-    }
+      const devices = await updateApi.getUpdateDevices(uid);
+      setExpandedDevices(devices);
+    } catch { setExpandedDevices([]); }
   };
 
-  const handleApprove = async (update: DeviceUpdate) => {
+  // Approve a single title across all devices
+  const handleApproveTitle = async (uid: string) => {
     try {
-      await updateApi.approveUpdate(update.deviceId, update.id);
-      toast.success(t('updates.toast.approved'));
+      const result = await updateApi.bulkApproveByTitle(uid, selectedGroupId);
+      toast.success(t('updates.toast.bulkApproved', { count: result.approved }));
       await load();
     } catch {
       toast.error(t('updates.toast.approveFailed'));
@@ -303,32 +276,30 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
         })}
       </div>
 
-      {/* Device filter */}
-      {activeTab === 'updates' && deviceOptions.length > 0 && (
-        <div className="flex items-center gap-3">
-          <Monitor className="w-4 h-4 text-text-muted shrink-0" />
-          <select
-            value={selectedDeviceId}
-            onChange={(e) => {
-              setSelectedDeviceId(e.target.value === '' ? '' : Number(e.target.value));
-              setSelectedIds(new Set());
-            }}
-            className="px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-          >
-            <option value="">{t('updates.filters.allDevices')}</option>
-            {deviceOptions.map((d) => (
-              <option key={d.id} value={d.id}>{d.label}</option>
-            ))}
+      {/* Source filter + bulk actions */}
+      {activeTab === 'updates' && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)} className="px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent">
+            <option value="">All sources</option>
+            <option value="windows_update">Windows Update</option>
+            <option value="winget">Winget</option>
+            <option value="chocolatey">Chocolatey</option>
+            <option value="apt">APT</option>
+            <option value="brew">Brew</option>
           </select>
-          {selectedDeviceId !== '' && (
-            <button
-              onClick={() => { setSelectedDeviceId(''); setSelectedIds(new Set()); }}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
-            >
-              <X className="w-3.5 h-3.5" />
-              Clear
+          {(selectedSeverity || selectedSource) && (
+            <button onClick={() => { setSelectedSeverity(''); setSelectedSource(''); }} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+              <X className="w-3.5 h-3.5" /> {t('updates.actions.clear')}
             </button>
           )}
+          <div className="ml-auto flex gap-2">
+            <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
+              {t('updates.actions.approveAllCritical')}
+            </button>
+            <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important','moderate','optional','unknown']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors">
+              {t('updates.actions.approveAll')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -350,8 +321,80 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
 
       {activeTab === 'updates' && (
         <div className="space-y-4">
-          {/* Bulk action bar */}
-          {selectedIds.size > 0 && (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>
+          ) : aggUpdates.length === 0 ? (
+            <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
+              <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <p className="font-medium text-text-primary mb-1">{t('updates.noUpdatesFound')}</p>
+              <p className="text-sm">{t('updates.allUpToDate')}</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-bg-tertiary/50">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.update')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.severity')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">{t('updates.table.source')}</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-text-muted uppercase">{t('updates.table.devices')}</th>
+                      <th className="w-28 px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {aggUpdates.map((upd) => {
+                      const cfg = SEVERITY_CONFIG[upd.severity] ?? SEVERITY_CONFIG.unknown;
+                      const isExpanded = expandedUid === upd.updateUid;
+                      return (
+                        <React.Fragment key={upd.updateUid}>
+                          <tr className="hover:bg-bg-tertiary transition-colors cursor-pointer" onClick={() => handleExpand(upd.updateUid)}>
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-text-primary font-medium">{upd.title ?? upd.updateUid}</p>
+                              {upd.requiresReboot && <p className="text-xs text-orange-400 mt-0.5">Requires reboot</p>}
+                              {upd.category && <p className="text-xs text-text-muted mt-0.5">{upd.category}</p>}
+                            </td>
+                            <td className="px-4 py-3"><span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', cfg.color)}>{cfg.label}</span></td>
+                            <td className="px-4 py-3 hidden md:table-cell"><span className="text-xs text-text-muted">{upd.source.replace('_', ' ')}</span></td>
+                            <td className="px-4 py-3 text-center"><span className="text-xs font-medium text-text-primary bg-bg-tertiary px-2 py-0.5 rounded-full">{upd.deviceCount}</span></td>
+                            <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors">{t('updates.actions.approve')}</button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr><td colSpan={5} className="px-8 py-3 bg-bg-tertiary/30">
+                              <div className="space-y-1">
+                                {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">Loading...</p> : expandedDevices.map((d) => (
+                                  <div key={d.id} className="flex items-center gap-3 text-xs">
+                                    <Monitor className="w-3 h-3 text-text-muted shrink-0" />
+                                    <span className="text-text-primary">{d.deviceName}</span>
+                                    <span className="text-text-muted ml-auto">{d.status}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td></tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {Math.ceil(aggTotal / 50) > 1 && (
+                <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
+                  <button onClick={() => setAggPage(p => Math.max(1, p - 1))} disabled={aggPage === 1} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">←</button>
+                  <span>{aggPage} / {Math.ceil(aggTotal / 50)}</span>
+                  <button onClick={() => setAggPage(p => p + 1)} disabled={aggPage >= Math.ceil(aggTotal / 50)} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">→</button>
+                  <span className="text-xs ml-2">({aggTotal} updates)</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* REMOVE old updates tab content below — replaced by aggregated view above */}
+      {false && selectedIds.size > 0 && (
             <div className="flex items-center gap-3 p-3 bg-accent/10 border border-accent/30 rounded-lg">
               <span className="text-sm text-text-primary font-medium">{selectedIds.size} {t('updates.selected')}</span>
               <button

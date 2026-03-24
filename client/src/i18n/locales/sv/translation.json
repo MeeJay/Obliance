@@ -692,7 +692,8 @@
     "noPending": "Inga väntande uppdateringar",
     "noUpdates": "Inga uppdateringar — kör en skanning",
     "filters": {
-      "allDevices": "Alla enheter"
+      "allDevices": "Alla enheter",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Uppdatering",
@@ -700,7 +701,8 @@
       "severity": "Allvarlighet",
       "source": "Källa",
       "size": "Storlek",
-      "status": "Status"
+      "status": "Status",
+      "devices": "Devices"
     },
     "status": {
       "available": "Tillgänglig",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Godkänn",
-      "approveAll": "Godkänn alla",
+      "approveAll": "Approve all",
       "approveSelected": "Godkänn valda",
       "deploy": "Distribuera",
       "scan": "Skanna",
-      "clear": "Rensa"
+      "clear": "Rensa",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Uppdatering godkänd",

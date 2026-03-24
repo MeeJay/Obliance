@@ -692,7 +692,8 @@
     "noPending": "Bekleyen güncelleme yok",
     "noUpdates": "Güncelleme yok — tarama çalıştırın",
     "filters": {
-      "allDevices": "Tüm cihazlar"
+      "allDevices": "Tüm cihazlar",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Güncelleme",
@@ -700,7 +701,8 @@
       "severity": "Önem",
       "source": "Kaynak",
       "size": "Boyut",
-      "status": "Durum"
+      "status": "Durum",
+      "devices": "Devices"
     },
     "status": {
       "available": "Mevcut",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Onayla",
-      "approveAll": "Tümünü onayla",
+      "approveAll": "Approve all",
       "approveSelected": "Seçileni onayla",
       "deploy": "Dağıt",
       "scan": "Tara",
-      "clear": "Temizle"
+      "clear": "Temizle",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Güncelleme onaylandı",

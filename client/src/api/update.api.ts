@@ -41,4 +41,36 @@ export const updateApi = {
   async deletePolicy(id: number): Promise<void> {
     await apiClient.delete(`/updates/policies/${id}`);
   },
+
+  // ── Aggregated view ──────────────────────────────────────────────────────
+  async listAggregated(params?: {
+    severity?: string; source?: string; groupId?: number; status?: string;
+    page?: number; pageSize?: number;
+  }): Promise<{ items: AggregatedUpdate[]; total: number; page: number; pageSize: number }> {
+    const res = await apiClient.get<ApiResponse<{ items: AggregatedUpdate[]; total: number; page: number; pageSize: number }>>('/updates/aggregated', { params });
+    return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 50 };
+  },
+  async getUpdateDevices(updateUid: string): Promise<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>> {
+    const res = await apiClient.get<ApiResponse<Array<any>>>(`/updates/aggregated/${encodeURIComponent(updateUid)}/devices`);
+    return res.data.data ?? [];
+  },
+  async bulkApproveByTitle(updateUid: string, groupId?: number): Promise<{ approved: number }> {
+    const res = await apiClient.post<ApiResponse<{ approved: number }>>('/updates/bulk-approve', { updateUid, groupId });
+    return res.data.data ?? { approved: 0 };
+  },
+  async bulkApproveBySeverity(severities: string[], groupId?: number): Promise<{ approved: number }> {
+    const res = await apiClient.post<ApiResponse<{ approved: number }>>('/updates/bulk-approve-severity', { severities, groupId });
+    return res.data.data ?? { approved: 0 };
+  },
 };
+
+export interface AggregatedUpdate {
+  updateUid: string;
+  title: string;
+  severity: string;
+  category: string;
+  source: string;
+  sizeBytes: number;
+  requiresReboot: boolean;
+  deviceCount: number;
+}

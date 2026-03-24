@@ -692,7 +692,8 @@
     "noPending": "Nessun aggiornamento in sospeso",
     "noUpdates": "Nessun aggiornamento — esegui una scansione",
     "filters": {
-      "allDevices": "Tutti i dispositivi"
+      "allDevices": "Tutti i dispositivi",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Aggiornamento",
@@ -700,7 +701,8 @@
       "severity": "Gravità",
       "source": "Fonte",
       "size": "Dimensione",
-      "status": "Stato"
+      "status": "Stato",
+      "devices": "Devices"
     },
     "status": {
       "available": "Disponibile",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Approva",
-      "approveAll": "Approva tutto",
+      "approveAll": "Approve all",
       "approveSelected": "Approva selezione",
       "deploy": "Distribuisci",
       "scan": "Scansiona",
-      "clear": "Cancella"
+      "clear": "Cancella",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Aggiornamento approvato",

@@ -692,7 +692,8 @@
     "noPending": "Немає очікуваних оновлень",
     "noUpdates": "Оновлень не знайдено — запустіть сканування",
     "filters": {
-      "allDevices": "Усі пристрої"
+      "allDevices": "Усі пристрої",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Оновлення",
@@ -700,7 +701,8 @@
       "severity": "Важливість",
       "source": "Джерело",
       "size": "Розмір",
-      "status": "Статус"
+      "status": "Статус",
+      "devices": "Devices"
     },
     "status": {
       "available": "Доступне",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Затвердити",
-      "approveAll": "Затвердити все",
+      "approveAll": "Approve all",
       "approveSelected": "Затвердити вибране",
       "deploy": "Розгорнути",
       "scan": "Сканувати",
-      "clear": "Очистити"
+      "clear": "Очистити",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Оновлення затверджене",

@@ -115,4 +115,53 @@ router.post('/scan/:deviceId', requireDeviceWriteParam('deviceId'), async (req, 
   } catch (err) { next(err); }
 });
 
+// ── Aggregated view ──────────────────────────────────────────────────────────
+
+// GET /updates/aggregated — grouped by title, with device counts
+router.get('/aggregated', async (req, res, next) => {
+  try {
+    const { severity, source, groupId, status, page, pageSize } = req.query as any;
+    const result = await updateService.getAggregatedUpdates(req.tenantId!, {
+      severity, source,
+      groupId: groupId ? parseInt(groupId) : undefined,
+      status,
+      page: page ? parseInt(page) : undefined,
+      pageSize: pageSize ? parseInt(pageSize) : undefined,
+    });
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
+// GET /updates/aggregated/:updateUid/devices — devices affected by a specific update
+router.get('/aggregated/:updateUid/devices', async (req, res, next) => {
+  try {
+    const devices = await updateService.getUpdateDevices(req.tenantId!, req.params.updateUid);
+    res.json({ data: devices });
+  } catch (err) { next(err); }
+});
+
+// POST /updates/bulk-approve — approve all instances of an update title
+router.post('/bulk-approve', async (req, res, next) => {
+  try {
+    const { updateUid, groupId } = req.body as { updateUid: string; groupId?: number };
+    if (!updateUid) return res.status(400).json({ error: 'updateUid required' });
+    const count = await updateService.bulkApproveByTitle(
+      req.tenantId!, updateUid, req.session.userId!, groupId,
+    );
+    res.json({ data: { approved: count } });
+  } catch (err) { next(err); }
+});
+
+// POST /updates/bulk-approve-severity — approve all updates of given severities
+router.post('/bulk-approve-severity', async (req, res, next) => {
+  try {
+    const { severities, groupId } = req.body as { severities: string[]; groupId?: number };
+    if (!severities?.length) return res.status(400).json({ error: 'severities required' });
+    const count = await updateService.bulkApproveBySeverity(
+      req.tenantId!, severities, req.session.userId!, groupId,
+    );
+    res.json({ data: { approved: count } });
+  } catch (err) { next(err); }
+});
+
 export default router;

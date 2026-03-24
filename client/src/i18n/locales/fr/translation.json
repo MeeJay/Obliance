@@ -1209,7 +1209,8 @@
     "noPending": "Aucune mise à jour en attente",
     "noUpdates": "Aucune mise à jour — lancez un scan pour vérifier",
     "filters": {
-      "allDevices": "Tous les appareils"
+      "allDevices": "Tous les appareils",
+      "allSources": "Toutes les sources"
     },
     "table": {
       "update": "Mise à jour",
@@ -1217,7 +1218,8 @@
       "severity": "Sévérité",
       "source": "Source",
       "size": "Taille",
-      "status": "Statut"
+      "status": "Statut",
+      "devices": "Appareils"
     },
     "status": {
       "available": "Disponible",
@@ -1236,7 +1238,10 @@
       "approveSelected": "Approuver la sélection",
       "deploy": "Déployer",
       "scan": "Scanner",
-      "clear": "Effacer"
+      "clear": "Effacer",
+      "approveAllCritical": "Approuver toutes les critiques",
+      "allSources": "Toutes les sources",
+      "devices": "Appareils"
     },
     "toast": {
       "approved": "Mise à jour approuvée",

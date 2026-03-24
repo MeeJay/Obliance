@@ -692,7 +692,8 @@
     "noPending": "Žádné čekající aktualizace",
     "noUpdates": "Žádné aktualizace — spusťte skenování",
     "filters": {
-      "allDevices": "Všechna zařízení"
+      "allDevices": "Všechna zařízení",
+      "allSources": "All sources"
     },
     "table": {
       "update": "Aktualizace",
@@ -700,7 +701,8 @@
       "severity": "Závažnost",
       "source": "Zdroj",
       "size": "Velikost",
-      "status": "Stav"
+      "status": "Stav",
+      "devices": "Devices"
     },
     "status": {
       "available": "Dostupná",
@@ -714,11 +716,14 @@
     },
     "actions": {
       "approve": "Schválit",
-      "approveAll": "Schválit vše",
+      "approveAll": "Approve all",
       "approveSelected": "Schválit vybrané",
       "deploy": "Nasadit",
       "scan": "Skenovat",
-      "clear": "Vymazat"
+      "clear": "Vymazat",
+      "approveAllCritical": "Approve all critical",
+      "allSources": "All sources",
+      "devices": "Devices"
     },
     "toast": {
       "approved": "Aktualizace schválena",

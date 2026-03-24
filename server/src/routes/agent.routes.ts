@@ -260,6 +260,8 @@ router.post('/updates', agentAuth, async (req, res, next) => {
     const { updates } = req.body as { updates: any[] };
     if (Array.isArray(updates) && updates.length > 0) {
       await updateService.upsertUpdates(device.id, tenantId, updates);
+      // Apply auto-approve policies to newly discovered updates
+      await updateService.applyAutoApprove(device.id, tenantId);
     }
 
     res.json({ ok: true, count: updates?.length ?? 0 });
