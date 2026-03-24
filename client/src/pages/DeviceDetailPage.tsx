@@ -722,6 +722,25 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
               {t('updates.actions.deploy')} ({approved.length})
             </button>
           )}
+          {failed.length > 0 && (
+            <button
+              onClick={async () => {
+                const failedIds = new Set(failed.map((u) => u.id));
+                setUpdates((prev) => prev.map((x) =>
+                  failedIds.has(x.id) ? { ...x, status: 'pending_install' as const } : x
+                ));
+                let ok = 0;
+                for (const u of failed) {
+                  try { await updateApi.retryUpdate(deviceId, u.id); ok++; } catch {}
+                }
+                toast.success(`${ok} update(s) queued for retry`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Retry all ({failed.length})
+            </button>
+          )}
           <button
             onClick={handleScan}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
