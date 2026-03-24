@@ -28,8 +28,18 @@ router.post('/', async (req, res, next) => {
 
     // Permission check — non-admins need write access to the device
     if (req.session.role !== 'admin') {
-      const canWrite = await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
-      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+      // Determine required capability based on command type
+      const POWER_COMMANDS = ['reboot', 'shutdown', 'restart_agent', 'uninstall_agent'];
+      const REMOTE_COMMANDS = ['open_remote_tunnel', 'close_remote_tunnel'];
+      const FILE_COMMANDS = ['list_directory', 'create_directory', 'rename_file', 'delete_file', 'download_file', 'upload_file'];
+
+      let requiredCap = 'execute'; // default for scripts, scans, etc.
+      if (POWER_COMMANDS.includes(type)) requiredCap = 'power';
+      else if (REMOTE_COMMANDS.includes(type)) requiredCap = 'remote';
+      else if (FILE_COMMANDS.includes(type)) requiredCap = 'files';
+
+      const allowed = await permissionService.canUseCapability(req.session.userId!, deviceId, false, requiredCap);
+      if (!allowed) return next(new AppError(403, `Capability '${requiredCap}' not permitted for your team`));
     }
 
     const cmd = await commandService.enqueue({

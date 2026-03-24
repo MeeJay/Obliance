@@ -10,10 +10,10 @@ router.post('/sessions', async (req, res, next) => {
   try {
     const { deviceId, protocol, sessionId } = req.body;
 
-    // Permission check — non-admins need write access to create remote sessions
+    // Permission check — need 'remote' capability
     if (req.session.role !== 'admin') {
-      const canWrite = await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
-      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+      const canRemote = await permissionService.canUseCapability(req.session.userId!, deviceId, false, 'remote');
+      if (!canRemote) return next(new AppError(403, 'Remote access not permitted for your team'));
     }
     const session = await remoteService.createSession(
       deviceId, req.tenantId!, req.session.userId!, protocol,

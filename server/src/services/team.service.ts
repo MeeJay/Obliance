@@ -34,7 +34,10 @@ function rowToTeam(row: TeamRow): UserTeam {
   };
 }
 
-function rowToPermission(row: PermissionRow): TeamPermission {
+function rowToPermission(row: any): TeamPermission {
+  const caps = row.capabilities
+    ? (typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities)
+    : (row.level === 'rw' ? ['monitor', 'execute'] : ['monitor']);
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -42,6 +45,7 @@ function rowToPermission(row: PermissionRow): TeamPermission {
     scope: row.scope,
     scopeId: row.scope_id,
     level: row.level,
+    capabilities: caps,
   };
 }
 
@@ -142,17 +146,23 @@ export const teamService = {
 
   async setPermissions(
     teamId: number,
-    permissions: Array<{ scope: 'group' | 'device'; scopeId: number; level: 'ro' | 'rw' }>,
+    permissions: Array<{ scope: 'group' | 'device'; scopeId: number; level: 'ro' | 'rw'; capabilities?: string[] }>,
   ): Promise<TeamPermission[]> {
+    // Resolve tenant_id from the team
+    const team = await db('user_teams').where({ id: teamId }).select('tenant_id').first();
+    const tenantId = team?.tenant_id;
+
     return db.transaction(async (trx) => {
       await trx('team_permissions').where({ team_id: teamId }).del();
       if (permissions.length > 0) {
         await trx('team_permissions').insert(
           permissions.map((p) => ({
             team_id: teamId,
+            tenant_id: tenantId,
             scope: p.scope,
             scope_id: p.scopeId,
             level: p.level,
+            capabilities: JSON.stringify(p.capabilities ?? (p.level === 'rw' ? ['monitor', 'execute'] : ['monitor'])),
           })),
         );
       }

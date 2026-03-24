@@ -380,16 +380,17 @@ export function AdminUsersPage() {
 
   // ── Permissions management ──
 
-  const addPermission = async (scope: PermissionScope, scopeId: number, level: PermissionLevel) => {
+  const addPermission = async (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => {
     if (!selectedTeamId) return;
     const existing = teamPermissions.find((p) => p.scope === scope && p.scopeId === scopeId);
+    const defaultCaps = level === 'rw' ? ['monitor', 'execute'] : ['monitor'];
     if (existing) {
       const newPerms = teamPermissions.map((p) =>
-        p.id === existing.id ? { ...p, level } : p,
+        p.id === existing.id ? { ...p, level, capabilities: capabilities ?? p.capabilities ?? defaultCaps } : p,
       );
       try {
         await teamsApi.setPermissions(selectedTeamId, {
-          permissions: newPerms.map((p) => ({ scope: p.scope, scopeId: p.scopeId, level: p.level })),
+          permissions: newPerms.map((p) => ({ scope: p.scope, scopeId: p.scopeId, level: p.level, capabilities: p.capabilities ?? defaultCaps })),
         });
         await loadTeamDetails(selectedTeamId);
       } catch {
@@ -397,8 +398,8 @@ export function AdminUsersPage() {
       }
     } else {
       const newPerms = [
-        ...teamPermissions.map((p) => ({ scope: p.scope, scopeId: p.scopeId, level: p.level })),
-        { scope, scopeId, level },
+        ...teamPermissions.map((p) => ({ scope: p.scope, scopeId: p.scopeId, level: p.level, capabilities: p.capabilities ?? defaultCaps })),
+        { scope, scopeId, level, capabilities: capabilities ?? defaultCaps },
       ];
       try {
         await teamsApi.setPermissions(selectedTeamId, { permissions: newPerms });
@@ -407,6 +408,13 @@ export function AdminUsersPage() {
         toast.error(t('users.teams.failedAddPermission'));
       }
     }
+  };
+
+  const toggleCapability = async (perm: TeamPermission, cap: string) => {
+    const caps = [...(perm.capabilities ?? [])];
+    const idx = caps.indexOf(cap);
+    if (idx >= 0) caps.splice(idx, 1); else caps.push(cap);
+    await addPermission(perm.scope, perm.scopeId, perm.level, caps);
   };
 
   const removePermission = async (permId: number) => {
@@ -858,6 +866,7 @@ export function AdminUsersPage() {
                           addPermission={addPermission}
                           removePermission={removePermission}
                           togglePermissionLevel={togglePermissionLevel}
+                          toggleCapability={toggleCapability}
                         />
                       ))}
                       {/* Ungrouped devices */}
@@ -873,6 +882,7 @@ export function AdminUsersPage() {
                             addPermission={addPermission}
                             removePermission={removePermission}
                             togglePermissionLevel={togglePermissionLevel}
+                          toggleCapability={toggleCapability}
                           />
                         );
                       })}
@@ -1025,9 +1035,37 @@ interface PermTreeNodeProps {
   assignedGroupIds: Set<number>;
   coveredGroupIds: Set<number>;
   coveredByGroupId: Map<number, number>;
-  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel) => Promise<void>;
+  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => Promise<void>;
   removePermission: (permId: number) => Promise<void>;
   togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
+  toggleCapability: (perm: TeamPermission, cap: string) => Promise<void>;
+}
+
+function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: string) => void }) {
+  if (perm.level === 'ro') return null; // RO only gets monitor, no toggles
+  const CAPS: Array<{ key: string; icon: string; label: string }> = [
+    { key: 'execute', icon: '⚡', label: 'Execute scripts & commands' },
+    { key: 'remote', icon: '🖥', label: 'Remote access (Reach, RDP, SSH)' },
+    { key: 'files', icon: '📁', label: 'File explorer' },
+    { key: 'power', icon: '⏻', label: 'Reboot, Shutdown, Restart Agent' },
+  ];
+  const caps = perm.capabilities ?? [];
+  return (
+    <span className="flex items-center gap-0.5 shrink-0">
+      {CAPS.map(({ key, icon, label }) => (
+        <button
+          key={key}
+          onClick={(e) => { e.stopPropagation(); onToggle(key); }}
+          title={label}
+          className={`text-[11px] w-5 h-5 flex items-center justify-center rounded transition-colors ${
+            caps.includes(key) ? 'bg-accent/20 text-accent' : 'bg-bg-tertiary text-text-muted/40 hover:text-text-muted'
+          }`}
+        >
+          {icon}
+        </button>
+      ))}
+    </span>
+  );
 }
 
 function PermTreeNode({
@@ -1042,6 +1080,7 @@ function PermTreeNode({
   addPermission,
   removePermission,
   togglePermissionLevel,
+  toggleCapability,
 }: PermTreeNodeProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
@@ -1085,6 +1124,7 @@ function PermTreeNode({
             >
               {perm.level === 'rw' ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</> : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
             </button>
+            <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
             <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
               <Trash2 size={11} />
             </button>
@@ -1151,9 +1191,10 @@ interface PermDeviceRowProps {
   depth: number;
   perm: TeamPermission | undefined;
   isCovered: boolean;
-  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel) => Promise<void>;
+  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => Promise<void>;
   removePermission: (permId: number) => Promise<void>;
   togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
+  toggleCapability: (perm: TeamPermission, cap: string) => Promise<void>;
 }
 
 function PermDeviceRow({
@@ -1164,6 +1205,7 @@ function PermDeviceRow({
   addPermission,
   removePermission,
   togglePermissionLevel,
+  toggleCapability,
 }: PermDeviceRowProps) {
   const { t } = useTranslation();
   return (
@@ -1191,6 +1233,7 @@ function PermDeviceRow({
           >
             {perm.level === 'rw' ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</> : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
           </button>
+          <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
           <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
             <Trash2 size={11} />
           </button>

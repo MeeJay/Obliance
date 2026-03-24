@@ -13,11 +13,9 @@ router.param('deviceId', async (req: Request, _res: Response, next: NextFunction
   if (req.session?.role === 'admin') return next();
   const deviceId = parseInt(val, 10);
   if (isNaN(deviceId)) return next();
-  const isReadOnly = req.path.includes('/list') || req.path.includes('/download') || req.path.includes('/audit-log');
-  const allowed = isReadOnly
-    ? await permissionService.canReadDevice(req.session.userId!, deviceId, false)
-    : await permissionService.canWriteDevice(req.session.userId!, deviceId, false);
-  if (!allowed) return next(new AppError(403, 'Insufficient permissions'));
+  // File explorer requires the 'files' capability
+  const canFiles = await permissionService.canUseCapability(req.session.userId!, deviceId, false, 'files');
+  if (!canFiles) return next(new AppError(403, 'File access not permitted for your team'));
   next();
 });
 

@@ -916,6 +916,8 @@ export interface TeamMembership {
   userId: number;
 }
 
+export type Capability = 'monitor' | 'execute' | 'remote' | 'files' | 'power';
+
 export interface TeamPermission {
   id: number;
   tenantId: number;
@@ -923,6 +925,7 @@ export interface TeamPermission {
   scope: 'group' | 'device';
   scopeId: number;
   level: 'ro' | 'rw';
+  capabilities: Capability[];
 }
 
 // ─── SMTP ────────────────────────────────────────────────────────────────────
@@ -1050,6 +1053,7 @@ export interface SetTeamPermissionsRequest {
     scope: 'group' | 'device';
     scopeId: number;
     level: 'ro' | 'rw';
+    capabilities?: Capability[];
   }>;
 }
 

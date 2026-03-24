@@ -70,6 +70,45 @@ export const permissionService = {
   },
 
   /**
+   * Check if user has a specific capability on a device.
+   * Admins always have all capabilities.
+   * Checks both direct device permissions and inherited group permissions.
+   */
+  async canUseCapability(userId: number, deviceId: number, isAdmin: boolean, capability: string): Promise<boolean> {
+    if (isAdmin) return true;
+
+    const deviceRow = await db('devices').where({ id: deviceId }).select('group_id').first();
+    if (!deviceRow) return false;
+
+    // Check direct device permissions
+    const directPerms = await db('team_permissions as tp')
+      .join('team_memberships as tm', 'tm.team_id', 'tp.team_id')
+      .where({ 'tm.user_id': userId, 'tp.scope': 'device', 'tp.scope_id': deviceId })
+      .select('tp.capabilities');
+
+    for (const row of directPerms) {
+      const caps = typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : (row.capabilities ?? []);
+      if (caps.includes(capability)) return true;
+    }
+
+    // Check group permissions (via closure table)
+    if (deviceRow.group_id) {
+      const groupPerms = await db('team_permissions as tp')
+        .join('team_memberships as tm', 'tm.team_id', 'tp.team_id')
+        .join('device_group_closure as dgc', 'dgc.ancestor_id', 'tp.scope_id')
+        .where({ 'tm.user_id': userId, 'tp.scope': 'group', 'dgc.descendant_id': deviceRow.group_id })
+        .select('tp.capabilities');
+
+      for (const row of groupPerms) {
+        const caps = typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : (row.capabilities ?? []);
+        if (caps.includes(capability)) return true;
+      }
+    }
+
+    return false;
+  },
+
+  /**
    * Get effective permission for a user on a group.
    * Checks direct group permissions + ancestor permissions via closure table.
    */
