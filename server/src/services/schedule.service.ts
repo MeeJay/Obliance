@@ -114,16 +114,21 @@ class ScheduleService {
 
   private async resolveTargetDevices(schedule: any) {
     const tenantId = schedule.tenant_id;
+    const targetIds: number[] = typeof schedule.target_ids === 'string'
+      ? JSON.parse(schedule.target_ids || '[]')
+      : (schedule.target_ids || []);
+
     let q = db('devices').where({ tenant_id: tenantId, approval_status: 'approved', status: 'online' });
 
-    if (schedule.target_type === 'device' && schedule.target_id) {
-      q = q.where({ id: schedule.target_id });
-    } else if (schedule.target_type === 'group' && schedule.target_id) {
-      // Get all devices in group and descendants
+    if (schedule.target_type === 'device' && targetIds.length > 0) {
+      q = q.whereIn('id', targetIds);
+    } else if (schedule.target_type === 'group' && targetIds.length > 0) {
+      // Get all devices in selected groups and their descendants
       const descendants = await db('device_group_closure')
-        .where({ ancestor_id: schedule.target_id })
+        .whereIn('ancestor_id', targetIds)
         .pluck('descendant_id');
-      q = q.whereIn('group_id', descendants);
+      const allGroupIds = [...new Set([...targetIds, ...descendants])];
+      q = q.whereIn('group_id', allGroupIds);
     }
 
     return q;

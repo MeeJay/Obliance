@@ -86,8 +86,7 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
     return (
       <div key={node.id}>
         <button
-          onClick={() => hasChildren ? toggle(node.id) : select(node.id)}
-          onDoubleClick={() => select(node.id)}
+          onClick={() => { select(node.id); if (hasChildren) toggle(node.id); }}
           className={clsx(
             'w-full flex items-center gap-1.5 px-2 py-1.5 text-xs rounded transition-colors text-left',
             isSelected ? 'bg-accent/20 text-accent' : 'text-text-primary hover:bg-bg-tertiary',
@@ -102,14 +101,6 @@ export function GroupTreePicker({ value, onChange, className }: GroupTreePickerP
           <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
           <span className="truncate flex-1">{anonymize(node.name)}</span>
           <span className="text-text-muted text-[10px] shrink-0">{count}</span>
-          {hasChildren && (
-            <button
-              onClick={(e) => { e.stopPropagation(); select(node.id); }}
-              className="text-[10px] text-accent hover:underline shrink-0 ml-1"
-            >
-              {t('devices.filters.select')}
-            </button>
-          )}
         </button>
         {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
       </div>

@@ -4,12 +4,39 @@ import { requireRole } from '../middleware/rbac';
 
 const router = Router();
 
+function rowToSchedule(row: any) {
+  return {
+    id: row.id,
+    uuid: row.uuid,
+    tenantId: row.tenant_id,
+    scriptId: row.script_id,
+    name: row.name,
+    description: row.description,
+    targetType: row.target_type,
+    targetIds: typeof row.target_ids === 'string' ? JSON.parse(row.target_ids) : (row.target_ids ?? []),
+    cronExpression: row.cron_expression,
+    fireOnceAt: row.fire_once_at,
+    timezone: row.timezone,
+    parameterValues: typeof row.parameter_values === 'string' ? JSON.parse(row.parameter_values) : (row.parameter_values ?? {}),
+    catchupEnabled: row.catchup_enabled,
+    catchupMax: row.catchup_max,
+    runConditions: typeof row.run_conditions === 'string' ? JSON.parse(row.run_conditions) : (row.run_conditions ?? []),
+    enabled: row.enabled,
+    lastRunAt: row.last_run_at,
+    nextRunAt: row.next_run_at,
+    createdBy: row.created_by,
+    updatedBy: row.updated_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const rows = await db('script_schedules')
       .where({ tenant_id: req.tenantId! })
       .orderBy('name');
-    res.json(rows);
+    res.json({ data: rows.map(rowToSchedule) });
   } catch (err) { next(err); }
 });
 
@@ -20,7 +47,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       script_id: req.body.scriptId,
       name: req.body.name, description: req.body.description,
       target_type: req.body.targetType || 'device',
-      target_id: req.body.targetId,
+      target_ids: JSON.stringify(req.body.targetIds || []),
       cron_expression: req.body.cronExpression,
       fire_once_at: req.body.fireOnceAt,
       timezone: req.body.timezone || 'UTC',
@@ -31,7 +58,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
-    res.status(201).json(row);
+    res.status(201).json({ data: rowToSchedule(row) });
   } catch (err) { next(err); }
 });
 
@@ -42,9 +69,15 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
     if (req.body.cronExpression !== undefined) updates.cron_expression = req.body.cronExpression;
     if (req.body.catchupEnabled !== undefined) updates.catchup_enabled = req.body.catchupEnabled;
+    if (req.body.targetType !== undefined) updates.target_type = req.body.targetType;
+    if (req.body.targetIds !== undefined) updates.target_ids = JSON.stringify(req.body.targetIds);
+    if (req.body.scriptId !== undefined) updates.script_id = req.body.scriptId;
+    if (req.body.description !== undefined) updates.description = req.body.description;
+    if (req.body.fireOnceAt !== undefined) updates.fire_once_at = req.body.fireOnceAt;
+    if (req.body.timezone !== undefined) updates.timezone = req.body.timezone;
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).update(updates);
     const row = await db('script_schedules').where({ id: req.params.id }).first();
-    res.json(row);
+    res.json({ data: rowToSchedule(row) });
   } catch (err) { next(err); }
 });
 

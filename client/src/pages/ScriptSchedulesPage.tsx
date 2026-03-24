@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
+import { groupsApi } from '@/api/groups.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { useGroupStore } from '@/store/groupStore';
-import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
-import type { Script, ScriptSchedule, ScheduleTargetType } from '@obliance/shared';
+import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -13,7 +13,7 @@ interface ScheduleFormData {
   description: string;
   scriptId: number | null;
   targetType: ScheduleTargetType;
-  targetId: number | null;
+  targetIds: number[];
   scheduleMode: 'cron' | 'once';
   cronExpression: string;
   fireOnceAt: string;
@@ -28,7 +28,7 @@ const defaultForm: ScheduleFormData = {
   description: '',
   scriptId: null,
   targetType: 'all',
-  targetId: null,
+  targetIds: [],
   scheduleMode: 'cron',
   cronExpression: '0 2 * * *',
   fireOnceAt: '',
@@ -103,7 +103,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       description: schedule.description ?? '',
       scriptId: schedule.scriptId,
       targetType: schedule.targetType,
-      targetId: schedule.targetId,
+      targetIds: schedule.targetIds ?? [],
       scheduleMode: schedule.cronExpression ? 'cron' : 'once',
       cronExpression: schedule.cronExpression ?? '0 2 * * *',
       fireOnceAt: schedule.fireOnceAt ? schedule.fireOnceAt.slice(0, 16) : '',
@@ -128,7 +128,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         description: form.description || null,
         scriptId: form.scriptId,
         targetType: form.targetType,
-        targetId: form.targetId,
+        targetIds: form.targetIds,
         cronExpression: form.scheduleMode === 'cron' ? form.cronExpression : null,
         fireOnceAt: form.scheduleMode === 'once' ? new Date(form.fireOnceAt).toISOString() : null,
         timezone: form.timezone,
@@ -247,7 +247,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               <label className="text-xs font-medium text-text-muted uppercase">Target Type</label>
               <select
                 value={form.targetType}
-                onChange={(e) => setForm({ ...form, targetType: e.target.value as ScheduleTargetType, targetId: null })}
+                onChange={(e) => setForm({ ...form, targetType: e.target.value as ScheduleTargetType, targetIds: [] })}
                 className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
               >
                 <option value="all">All devices</option>
@@ -255,25 +255,26 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 <option value="device">Specific device</option>
               </select>
             </div>
-            {form.targetType !== 'all' && (
+            {form.targetType === 'group' && (
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">{form.targetType === 'group' ? 'Group' : 'Device'}</label>
-                {form.targetType === 'group' ? (
-                  <GroupTreePicker
-                    value={form.targetId}
-                    onChange={(groupId) => setForm({ ...form, targetId: groupId })}
-                    className="w-full"
-                  />
-                ) : (
-                  <select
-                    value={form.targetId ?? ''}
-                    onChange={(e) => setForm({ ...form, targetId: e.target.value ? parseInt(e.target.value, 10) : null })}
-                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                  >
-                    <option value="">Select...</option>
-                    {devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)}
-                  </select>
-                )}
+                <label className="text-xs font-medium text-text-muted uppercase">Groups</label>
+                <GroupTreeMultiSelect
+                  selectedIds={form.targetIds}
+                  onChange={(ids) => setForm({ ...form, targetIds: ids })}
+                />
+              </div>
+            )}
+            {form.targetType === 'device' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Devices</label>
+                <select
+                  multiple
+                  value={form.targetIds.map(String)}
+                  onChange={(e) => setForm({ ...form, targetIds: Array.from(e.target.selectedOptions, (o) => parseInt(o.value, 10)) })}
+                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent min-h-[120px]"
+                >
+                  {devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)}
+                </select>
               </div>
             )}
             <div className="space-y-1">
@@ -424,7 +425,9 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                       </span>
                       <span className="flex items-center gap-1">
                         <Play className="w-3 h-3" />
-                        {schedule.targetType === 'all' ? 'All devices' : `${schedule.targetType} #${schedule.targetId}`}
+                        {schedule.targetType === 'all'
+                          ? 'All devices'
+                          : `${(schedule.targetIds ?? []).length} ${schedule.targetType}(s)`}
                       </span>
                       <span className="flex items-center gap-1 font-mono">
                         <Clock className="w-3 h-3" />
@@ -485,6 +488,131 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Inline Group Tree Multi-Select ──
+
+function GroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    groupsApi.tree().then((t) => {
+      setTree(t);
+      // Auto-expand all on first load
+      const all = new Set<number>();
+      const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
+      walk(t);
+      setExpanded(all);
+    }).catch(() => {});
+  }, []);
+
+  // Collect all descendant IDs of a node
+  const getDescendantIds = (node: DeviceGroupTreeNode): number[] => {
+    const ids: number[] = [];
+    for (const c of node.children) { ids.push(c.id, ...getDescendantIds(c)); }
+    return ids;
+  };
+
+  const selected = new Set(selectedIds);
+
+  // Check state for a node: 'all' | 'some' | 'none'
+  const getCheckState = (node: DeviceGroupTreeNode): 'all' | 'some' | 'none' => {
+    const descendants = getDescendantIds(node);
+    const selfSelected = selected.has(node.id);
+    if (descendants.length === 0) return selfSelected ? 'all' : 'none';
+    const allIds = [node.id, ...descendants];
+    const selectedCount = allIds.filter((id) => selected.has(id)).length;
+    if (selectedCount === allIds.length) return 'all';
+    if (selectedCount > 0) return 'some';
+    return 'none';
+  };
+
+  const toggleNode = (node: DeviceGroupTreeNode) => {
+    const descendants = getDescendantIds(node);
+    const allIds = [node.id, ...descendants];
+    const state = getCheckState(node);
+
+    let next: Set<number>;
+    if (state === 'all') {
+      // Deselect all
+      next = new Set(selectedIds.filter((id) => !allIds.includes(id)));
+    } else {
+      // Select all
+      next = new Set([...selectedIds, ...allIds]);
+    }
+    onChange(Array.from(next));
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const renderNode = (node: DeviceGroupTreeNode, depth: number) => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expanded.has(node.id);
+    const state = getCheckState(node);
+    const count = node.total ?? node.deviceCount ?? 0;
+
+    return (
+      <div key={node.id}>
+        <div
+          className={clsx(
+            'flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover',
+            state === 'all' && 'bg-accent/5',
+          )}
+          style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}
+        >
+          <button
+            onClick={() => hasChildren && toggleExpand(node.id)}
+            className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}
+          >
+            <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+          </button>
+
+          <button
+            onClick={() => toggleNode(node)}
+            className={clsx(
+              'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+              state === 'all' ? 'bg-accent border-accent text-white' :
+              state === 'some' ? 'bg-accent/30 border-accent text-white' :
+              'border-border hover:border-accent/50',
+            )}
+          >
+            {state === 'all' && <Check className="w-3 h-3" />}
+            {state === 'some' && <Minus className="w-3 h-3" />}
+          </button>
+
+          <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', state !== 'none' ? 'text-accent' : 'text-text-muted')} />
+          <span
+            className={clsx(
+              'flex-1 text-sm truncate cursor-pointer',
+              state !== 'none' ? 'text-text-primary font-medium' : 'text-text-primary',
+            )}
+            onClick={() => toggleNode(node)}
+          >
+            {node.name}
+          </span>
+          <span className="text-text-muted text-[10px] shrink-0">{count}</span>
+        </div>
+        {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
+      </div>
+    );
+  };
+
+  if (tree.length === 0) {
+    return <p className="text-sm text-text-muted py-2">No groups available</p>;
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-bg-tertiary max-h-60 overflow-y-auto py-1">
+      {tree.map((n) => renderNode(n, 0))}
     </div>
   );
 }

@@ -449,7 +449,7 @@ export interface ScriptSchedule {
   name: string;
   description: string | null;
   targetType: ScheduleTargetType;
-  targetId: number | null;
+  targetIds: number[];
   cronExpression: string | null;
   fireOnceAt: string | null;
   timezone: string;
