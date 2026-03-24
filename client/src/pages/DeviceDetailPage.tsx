@@ -498,7 +498,7 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-muted">{executions.length} recent executions</p>
-        <Link to="/scripts" className="text-sm text-accent hover:text-accent/80">Script library →</Link>
+        <Link to="/schedules?tab=scripts" className="text-sm text-accent hover:text-accent/80">Script library →</Link>
       </div>
       {executions.length === 0 ? (
         <div className="p-12 text-center text-text-muted">

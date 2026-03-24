@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarClock, Code2 } from 'lucide-react';
 import { ScriptSchedulesPage } from './ScriptSchedulesPage';
 import { ScriptLibraryPage } from './ScriptLibraryPage';
@@ -9,7 +10,9 @@ type Tab = 'schedules' | 'scripts';
 
 export function SchedulesPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('schedules');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'scripts' ? 'scripts' : 'schedules';
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
