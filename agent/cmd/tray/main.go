@@ -77,6 +77,48 @@ func readAgentVersion() string {
 	return cfg.AgentVersion
 }
 
+func readObliReachVersion() string {
+	// Try to read version from ObliReach agent config
+	var reachDir string
+	if runtime.GOOS == "windows" {
+		reachDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
+	} else {
+		reachDir = "/etc/oblireach-agent"
+	}
+
+	// Check if the binary exists
+	exeName := "oblireach-agent"
+	if runtime.GOOS == "windows" {
+		exeName = "oblireach-agent.exe"
+	}
+	exePath := filepath.Join(reachDir, exeName)
+	if _, err := os.Stat(exePath); os.IsNotExist(err) {
+		return "" // not installed
+	}
+
+	// Try to read version from config.json
+	cfgPath := filepath.Join(reachDir, "config.json")
+	if data, err := os.ReadFile(cfgPath); err == nil {
+		var cfg struct {
+			AgentVersion string `json:"agentVersion"`
+		}
+		json.Unmarshal(data, &cfg)
+		if cfg.AgentVersion != "" {
+			return cfg.AgentVersion
+		}
+	}
+
+	// Fallback: try to get version from the binary
+	if out, err := exec.Command(exePath, "--version").Output(); err == nil {
+		v := strings.TrimSpace(string(out))
+		if v != "" {
+			return v
+		}
+	}
+
+	return "installed"
+}
+
 func isAgentServiceRunning() bool {
 	if runtime.GOOS != "windows" {
 		return false
@@ -148,6 +190,12 @@ func onReady() {
 	version := readAgentVersion()
 	mVersion = systray.AddMenuItem("Obliance Agent v"+version, "")
 	mVersion.Disable()
+
+	reachVersion := readObliReachVersion()
+	if reachVersion != "" {
+		mReachVersion := systray.AddMenuItem("ObliReach Agent v"+reachVersion, "")
+		mReachVersion.Disable()
+	}
 
 	mStatus = systray.AddMenuItem("Status: checking...", "")
 	mStatus.Disable()
