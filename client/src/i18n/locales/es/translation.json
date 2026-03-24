@@ -1038,7 +1038,9 @@
   "schedules": {
     "title": "Programaciones",
     "tabSchedules": "Programaciones",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "tabRun": "Ejecutar",
+    "tabHistory": "Historial"
   },
   "policies": {
     "title": "Políticas",

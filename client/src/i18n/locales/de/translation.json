@@ -858,7 +858,9 @@
   "schedules": {
     "title": "Zeitpläne",
     "tabSchedules": "Zeitpläne",
-    "tabScripts": "Skripte"
+    "tabScripts": "Skripte",
+    "tabRun": "Ausführen",
+    "tabHistory": "Verlauf"
   },
   "policies": {
     "title": "Richtlinien",

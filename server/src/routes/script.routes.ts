@@ -122,10 +122,19 @@ router.post('/:id/execute', async (req, res, next) => {
       }
     }
 
-    const executions = await scheduleService.executeNow(
+    const rawExecs = await scheduleService.executeNow(
       parseInt(req.params.id), deviceIds, req.tenantId!,
       parameterValues || {}, req.session.userId!
     );
+    const executions = rawExecs.map((r: any) => ({
+      id: r.id,
+      deviceId: r.device_id,
+      scriptId: r.script_id,
+      batchId: r.batch_id,
+      status: r.status,
+      triggeredBy: r.triggered_by,
+      triggeredAt: r.triggered_at,
+    }));
     res.status(202).json({ data: executions });
   } catch (err) { next(err); }
 });

@@ -1474,7 +1474,9 @@
   "schedules": {
     "title": "Schedules",
     "tabSchedules": "Schedules",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "tabRun": "Run",
+    "tabHistory": "History"
   },
   "policies": {
     "title": "Policies",

@@ -1369,7 +1369,9 @@
   "schedules": {
     "title": "Planifications",
     "tabSchedules": "Planifications",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "tabRun": "Exécuter",
+    "tabHistory": "Historique"
   },
   "policies": {
     "title": "Politiques",

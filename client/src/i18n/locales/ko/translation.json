@@ -858,7 +858,9 @@
   "schedules": {
     "title": "Schedules",
     "tabSchedules": "Schedules",
-    "tabScripts": "Scripts"
+    "tabScripts": "Scripts",
+    "tabRun": "실행",
+    "tabHistory": "기록"
   },
   "policies": {
     "title": "Policies",

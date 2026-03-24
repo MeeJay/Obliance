@@ -20,8 +20,8 @@ export function SchedulesPage() {
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
     { id: 'scripts', label: t('schedules.tabScripts'), icon: <Code2 size={16} /> },
-    { id: 'run', label: 'Run', icon: <Play size={16} /> },
-    { id: 'history', label: 'History', icon: <History size={16} /> },
+    { id: 'run', label: t('schedules.tabRun'), icon: <Play size={16} /> },
+    { id: 'history', label: t('schedules.tabHistory'), icon: <History size={16} /> },
   ];
 
   return (
