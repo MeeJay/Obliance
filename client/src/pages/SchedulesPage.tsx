@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarClock, Code2 } from 'lucide-react';
+import { CalendarClock, Code2, Play, History } from 'lucide-react';
 import { ScriptSchedulesPage } from './ScriptSchedulesPage';
 import { ScriptLibraryPage } from './ScriptLibraryPage';
+import { ScriptRunPage } from './ScriptRunPage';
+import { ScriptHistoryPage } from './ScriptHistoryPage';
 import { clsx } from 'clsx';
 
-type Tab = 'schedules' | 'scripts';
+type Tab = 'schedules' | 'scripts' | 'run' | 'history';
 
 export function SchedulesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'scripts' ? 'scripts' : 'schedules';
+  const rawTab = searchParams.get('tab');
+  const initialTab: Tab = ['scripts', 'run', 'history'].includes(rawTab ?? '') ? rawTab as Tab : 'schedules';
   const [tab, setTab] = useState<Tab>(initialTab);
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
     { id: 'scripts', label: t('schedules.tabScripts'), icon: <Code2 size={16} /> },
+    { id: 'run', label: 'Run', icon: <Play size={16} /> },
+    { id: 'history', label: 'History', icon: <History size={16} /> },
   ];
 
   return (
@@ -39,6 +44,8 @@ export function SchedulesPage() {
       </div>
       {tab === 'schedules' && <ScriptSchedulesPage embedded />}
       {tab === 'scripts' && <ScriptLibraryPage embedded />}
+      {tab === 'run' && <ScriptRunPage embedded />}
+      {tab === 'history' && <ScriptHistoryPage embedded />}
     </div>
   );
 }

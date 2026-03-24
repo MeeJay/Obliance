@@ -478,6 +478,7 @@ export interface ScriptExecution {
   scriptId: number;
   deviceId: number;
   scheduleId: number | null;
+  batchId: string | null;
   commandQueueId: string | null;
   scriptSnapshot: Pick<Script, 'id' | 'name' | 'platform' | 'runtime' | 'content' | 'timeoutSeconds' | 'runAs'>;
   parameterValues: Record<string, any>;
@@ -496,6 +497,22 @@ export interface ScriptExecution {
   createdAt: string;
   device?: Pick<Device, 'id' | 'hostname' | 'displayName' | 'osType'>;
   schedule?: Pick<ScriptSchedule, 'id' | 'name'>;
+}
+
+export interface ExecutionBatch {
+  batchId: string;
+  scriptId: number;
+  scriptName: string;
+  scheduleId: number | null;
+  scheduleName: string | null;
+  triggeredBy: ExecutionTrigger;
+  triggeredByUsername: string | null;
+  triggeredAt: string;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  pendingCount: number;
+  runningCount: number;
 }
 
 // ─── UPDATES ─────────────────────────────────────────────────────────────────

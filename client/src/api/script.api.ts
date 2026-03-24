@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Script, ScriptCategory, ScriptSchedule, ScriptExecution } from '@obliance/shared';
+import type { Script, ScriptCategory, ScriptSchedule, ScriptExecution, ExecutionBatch } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -30,8 +30,8 @@ export const scriptApi = {
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/scripts/${id}`);
   },
-  async executeNow(scriptId: number, deviceIds: number[], parameterValues?: Record<string, any>): Promise<ScriptExecution[]> {
-    const res = await apiClient.post<ApiResponse<ScriptExecution[]>>(`/scripts/${scriptId}/execute`, { deviceIds, parameterValues });
+  async executeNow(scriptId: number, opts: { deviceIds?: number[]; targetType?: string; targetIds?: number[]; parameterValues?: Record<string, any> }): Promise<ScriptExecution[]> {
+    const res = await apiClient.post<ApiResponse<ScriptExecution[]>>(`/scripts/${scriptId}/execute`, opts);
     return res.data.data ?? [];
   },
 
@@ -64,5 +64,15 @@ export const scriptApi = {
   async getExecution(id: string): Promise<ScriptExecution> {
     const res = await apiClient.get<ApiResponse<ScriptExecution>>(`/executions/${id}`);
     return res.data.data!;
+  },
+
+  // Batches (History tab)
+  async listBatches(params?: { page?: number; pageSize?: number }): Promise<{ items: ExecutionBatch[]; total: number }> {
+    const res = await apiClient.get<ApiResponse<{ items: ExecutionBatch[]; total: number }>>('/executions/batches', { params });
+    return res.data.data ?? { items: [], total: 0 };
+  },
+  async getBatchDetail(batchId: string): Promise<Array<{ id: string; deviceId: number; hostname: string; osType: string; status: string; exitCode: number | null; stdout: string | null; stderr: string | null; triggeredAt: string; startedAt: string | null; finishedAt: string | null }>> {
+    const res = await apiClient.get<ApiResponse<any[]>>(`/executions/batches/${batchId}`);
+    return res.data.data ?? [];
   },
 };

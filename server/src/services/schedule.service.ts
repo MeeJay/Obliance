@@ -1,4 +1,5 @@
 import * as cron from 'node-cron';
+import crypto from 'crypto';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { commandService } from './command.service';
@@ -38,13 +39,14 @@ class ScheduleService {
     try {
       // Get target devices
       const devices = await this.resolveTargetDevices(schedule);
+      const batchId = crypto.randomUUID();
 
       for (const device of devices) {
         // Check run conditions
         if (!await this.checkConditions(schedule.run_conditions || [], device)) continue;
 
             // Create execution record + command
-        await this.dispatchExecution(schedule, device, now, false);
+        await this.dispatchExecution(schedule, device, now, false, undefined, batchId);
       }
 
       // Handle catch-up: find missed executions
@@ -81,8 +83,9 @@ class ScheduleService {
     );
 
     for (const missedTime of missed) {
+      const catchupBatchId = crypto.randomUUID();
       for (const device of devices) {
-        await this.dispatchExecution(schedule, device, now, true, missedTime);
+        await this.dispatchExecution(schedule, device, now, true, missedTime, catchupBatchId);
       }
     }
   }
@@ -146,7 +149,7 @@ class ScheduleService {
   }
 
   private async dispatchExecution(
-    schedule: any, device: any, now: Date, isCatchup: boolean, catchupForAt?: Date
+    schedule: any, device: any, now: Date, isCatchup: boolean, catchupForAt?: Date, batchId?: string
   ) {
     const script = await db('scripts').where({ id: schedule.script_id }).first();
     if (!script) return;
@@ -163,6 +166,7 @@ class ScheduleService {
         timeoutSeconds: script.timeout_seconds, runAs: script.run_as,
       }),
       parameter_values: JSON.stringify(schedule.parameter_values || {}),
+      batch_id: batchId || null,
       status: 'pending',
       triggered_by: isCatchup ? 'catchup' : 'schedule',
       triggered_at: now,
@@ -199,6 +203,7 @@ class ScheduleService {
     const script = await db('scripts').where({ id: scriptId }).first();
     if (!script) throw new Error('Script not found');
 
+    const batchId = crypto.randomUUID();
     const executions = [];
     for (const deviceId of deviceIds) {
       const device = await db('devices').where({ id: deviceId, tenant_id: tenantId }).first();
@@ -208,6 +213,7 @@ class ScheduleService {
         tenant_id: tenantId,
         script_id: scriptId,
         device_id: deviceId,
+        batch_id: batchId,
         script_snapshot: JSON.stringify({
           id: script.id, name: script.name, platform: script.platform,
           runtime: script.runtime, content: script.content,
