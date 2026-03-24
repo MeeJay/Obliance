@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { useGroupStore } from '@/store/groupStore';
+import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
 import type { Script, ScriptSchedule, ScheduleTargetType } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -69,7 +70,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { getDeviceList, fetchDevices } = useDeviceStore();
-  const { getGroupList, fetchGroups } = useGroupStore();
+  const { fetchGroups } = useGroupStore();
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -177,22 +178,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   };
 
   const devices = getDeviceList();
-  const groups = getGroupList();
 
-  // Build full path labels for groups (e.g. "Parent > Child > Grandchild")
-  const groupPathMap = useMemo(() => {
-    const map = new Map<number, string>();
-    const groupById = new Map(groups.map((g) => [g.id, g]));
-    const buildPath = (g: typeof groups[0]): string => {
-      if (map.has(g.id)) return map.get(g.id)!;
-      const parent = g.parentId != null ? groupById.get(g.parentId) : null;
-      const path = parent ? `${buildPath(parent)} › ${g.name}` : g.name;
-      map.set(g.id, path);
-      return path;
-    };
-    for (const g of groups) buildPath(g);
-    return map;
-  }, [groups]);
 
   return (
     <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
@@ -272,19 +258,22 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             {form.targetType !== 'all' && (
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">{form.targetType === 'group' ? 'Group' : 'Device'}</label>
-                <select
-                  value={form.targetId ?? ''}
-                  onChange={(e) => setForm({ ...form, targetId: e.target.value ? parseInt(e.target.value, 10) : null })}
-                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">Select...</option>
-                  {form.targetType === 'group'
-                    ? groups
-                        .sort((a, b) => (groupPathMap.get(a.id) ?? '').localeCompare(groupPathMap.get(b.id) ?? ''))
-                        .map((g) => <option key={g.id} value={g.id}>{groupPathMap.get(g.id) ?? g.name}</option>)
-                    : devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)
-                  }
-                </select>
+                {form.targetType === 'group' ? (
+                  <GroupTreePicker
+                    value={form.targetId}
+                    onChange={(groupId) => setForm({ ...form, targetId: groupId })}
+                    className="w-full"
+                  />
+                ) : (
+                  <select
+                    value={form.targetId ?? ''}
+                    onChange={(e) => setForm({ ...form, targetId: e.target.value ? parseInt(e.target.value, 10) : null })}
+                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="">Select...</option>
+                    {devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)}
+                  </select>
+                )}
               </div>
             )}
             <div className="space-y-1">
