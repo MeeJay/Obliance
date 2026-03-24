@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
       platform, categoryId: categoryId ? parseInt(categoryId) : undefined, search, scriptType,
       availableInReach: availableInReach === 'true',
     });
-    res.json(scripts);
+    res.json({ data: scripts });
   } catch (err) { next(err); }
 });
 
@@ -24,7 +24,7 @@ router.get('/', async (req, res, next) => {
 router.get('/categories', async (req, res, next) => {
   try {
     const categories = await scriptService.getCategories(req.tenantId!);
-    res.json(categories);
+    res.json({ data: categories });
   } catch (err) { next(err); }
 });
 
@@ -33,7 +33,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const script = await scriptService.getScriptById(parseInt(req.params.id), req.tenantId!);
     if (!script) return res.status(404).json({ error: 'Script not found' });
-    res.json(script);
+    res.json({ data: script });
   } catch (err) { next(err); }
 });
 
@@ -43,7 +43,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
     const script = await scriptService.createScript(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
-    res.status(201).json(script);
+    res.status(201).json({ data: script });
   } catch (err) { next(err); }
 });
 
@@ -68,14 +68,14 @@ async function handleScriptUpdate(req: any, res: any, next: any) {
         ...req.body, updatedBy: req.session.userId,
       });
       if (!script) return res.status(404).json({ error: 'Script not found' });
-      return res.json(script);
+      return res.json({ data: script });
     }
 
     const script = await scriptService.updateScript(scriptId, req.tenantId!, {
       ...req.body, updatedBy: req.session.userId,
     });
     if (!script) return res.status(404).json({ error: 'Script not found' });
-    res.json(script);
+    res.json({ data: script });
   } catch (err) { next(err); }
 }
 
