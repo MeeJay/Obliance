@@ -86,6 +86,23 @@ class UpdateService {
       .whereNotIn('update_uid', [...freshUids])
       .update({ status: 'installed', updated_at: new Date() });
 
+    // Safety net: any pending_reboot older than 24h that IS in the fresh scan
+    // but without the pending_reboot flag → force back to available
+    const rebootUidsInFresh = updates.filter(u => u.status === 'pending_reboot').map(u => u.updateUid);
+    const nonRebootFreshUids = [...freshUids].filter(uid => !rebootUidsInFresh.includes(uid));
+    if (nonRebootFreshUids.length > 0) {
+      await db('device_updates')
+        .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
+        .whereIn('update_uid', nonRebootFreshUids)
+        .update({ status: 'available', updated_at: new Date() });
+    }
+
+    // Auto-expire: any pending_reboot older than 48h → mark installed (reboot likely happened)
+    await db('device_updates')
+      .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
+      .where('updated_at', '<', new Date(Date.now() - 48 * 60 * 60 * 1000))
+      .update({ status: 'installed', updated_at: new Date() });
+
     for (const u of updates) {
       const initialStatus = u.status === 'pending_reboot' ? 'pending_reboot' : 'available';
       await db('device_updates')
