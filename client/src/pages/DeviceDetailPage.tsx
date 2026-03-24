@@ -680,18 +680,26 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
 
   const available = updates.filter((u) => u.status === 'available');
   const approved = updates.filter((u) => u.status === 'approved');
+  const failed = updates.filter((u) => u.status === 'failed');
+  const pendingReboot = updates.filter((u) => u.status === 'pending_reboot');
 
   if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+
+  const hasSummary = available.length > 0 || approved.length > 0 || failed.length > 0 || pendingReboot.length > 0;
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-text-muted">
+        <p className="text-sm text-text-muted flex items-center gap-1.5 flex-wrap">
           {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} {t('updates.status.available').toLowerCase()}</span>}
-          {available.length > 0 && approved.length > 0 && <span className="text-text-muted"> · </span>}
+          {available.length > 0 && (approved.length > 0 || failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
           {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} {t('updates.status.approved').toLowerCase()}</span>}
-          {available.length === 0 && approved.length === 0 && <span>{t('updates.noPending')}</span>}
+          {approved.length > 0 && (failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
+          {failed.length > 0 && <span className="text-red-400 font-medium">{failed.length} {t('updates.status.failed').toLowerCase()}</span>}
+          {failed.length > 0 && pendingReboot.length > 0 && <span className="text-text-muted">·</span>}
+          {pendingReboot.length > 0 && <span className="text-orange-400 font-medium">{pendingReboot.length} {t('updates.status.pendingReboot').toLowerCase()}</span>}
+          {!hasSummary && <span>{t('updates.noPending')}</span>}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           {available.length > 0 && (

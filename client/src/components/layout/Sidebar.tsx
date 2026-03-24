@@ -666,7 +666,7 @@ export function Sidebar() {
           )}
         >
           <UserCircle size={18} />
-          <span className="truncate flex-1">{user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username)}</span>
+          <span className="truncate flex-1">{anonymize(user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username))}</span>
         </Link>
 
         <button
