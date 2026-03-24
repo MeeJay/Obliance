@@ -127,36 +127,40 @@ if (-not $usedModule) {
     }
   }
 }
-# Installed updates pending reboot — check registry then query history
-$rebootPending = $false
-if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $rebootPending = $true }
-if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $rebootPending = $true }
-if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending') { $rebootPending = $true }
-if ($rebootPending) {
-  # Query the WU update history for recently succeeded installs (last 72h)
+# Installed updates pending reboot — read the exact KBs from the RebootRequired registry key
+$rebootKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+if (Test-Path $rebootKey) {
   try {
+    # The RebootRequired key has subvalues whose names are the update GUIDs or KB numbers
+    $pendingKBs = @()
+    $props = Get-ItemProperty $rebootKey -ErrorAction SilentlyContinue
+    if ($props) {
+      $props.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object { $pendingKBs += $_.Name }
+    }
+    # Query history to match GUIDs/KBs to titles
     $s3 = New-Object -ComObject Microsoft.Update.Session
     $sr3 = $s3.CreateUpdateSearcher()
     $hCount = $sr3.GetTotalHistoryCount()
     if ($hCount -gt 0) {
-      $hist = $sr3.QueryHistory(0, [Math]::Min($hCount, 100))
-      $cutoff = (Get-Date).AddHours(-72)
+      $hist = $sr3.QueryHistory(0, [Math]::Min($hCount, 50))
+      $matched = @{}
       foreach ($h in $hist) {
-        if ($h.Date -lt $cutoff) { continue }
         if ($h.ResultCode -ne 2) { continue }
-        $kb = ''
-        if ($h.Title -match 'KB(\d+)') { $kb = "KB$($Matches[1])" }
-        if (-not $kb) { $kb = $h.UpdateIdentity.UpdateID.Substring(0,8) }
-        $sev = 'important'
-        "REBOOT|$kb|$($h.Title)|$sev|Update"
+        $uid = $h.UpdateIdentity.UpdateID
+        $kb = ''; if ($h.Title -match 'KB(\d+)') { $kb = "KB$($Matches[1])" }
+        # Match if the update GUID or KB appears in pendingKBs
+        $found = $false
+        foreach ($pk in $pendingKBs) { if ($uid -like "*$pk*" -or $pk -like "*$uid*" -or ($kb -and $pk -like "*$kb*")) { $found = $true; break } }
+        if ($found -and -not $matched[$uid]) {
+          $matched[$uid] = $true
+          $id = if ($kb) { $kb } else { $uid.Substring(0,8) }
+          "REBOOT|$id|$($h.Title)|important|Update"
+        }
       }
     }
-  } catch {}
-  # Also check Get-HotFix for very recent installs (same day)
-  try {
-    $today = (Get-Date).ToString('M/d/yyyy')
-    Get-HotFix -ErrorAction SilentlyContinue | Where-Object { $_.InstalledOn -ge (Get-Date).AddDays(-3) } | ForEach-Object {
-      "REBOOT|$($_.HotFixID)|$($_.Description) - $($_.HotFixID)|important|Security Update"
+    # If no match from history, just report that a reboot is pending generically
+    if ($matched.Count -eq 0) {
+      "REBOOT|REBOOT-PENDING|Windows Update - Restart Required|important|Update"
     }
   } catch {}
 }`
