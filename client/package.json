@@ -1,6 +1,6 @@
 {
   "name": "@obliance/client",
-  "version": "4.4.43",
+  "version": "4.4.44",
   "private": true,
   "type": "module",
   "scripts": {

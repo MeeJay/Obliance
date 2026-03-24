@@ -22,6 +22,7 @@ import type {
   User,
   UserTeam,
   TeamPermission,
+  Capability,
   DeviceGroupTreeNode,
   Device,
   UserTenantAssignment,
@@ -380,10 +381,10 @@ export function AdminUsersPage() {
 
   // ── Permissions management ──
 
-  const addPermission = async (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => {
+  const addPermission = async (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: Capability[]) => {
     if (!selectedTeamId) return;
     const existing = teamPermissions.find((p) => p.scope === scope && p.scopeId === scopeId);
-    const defaultCaps = level === 'rw' ? ['monitor', 'execute'] : ['monitor'];
+    const defaultCaps: Capability[] = level === 'rw' ? ['monitor', 'execute'] : ['monitor'];
     if (existing) {
       const newPerms = teamPermissions.map((p) =>
         p.id === existing.id ? { ...p, level, capabilities: capabilities ?? p.capabilities ?? defaultCaps } : p,
@@ -410,8 +411,8 @@ export function AdminUsersPage() {
     }
   };
 
-  const toggleCapability = async (perm: TeamPermission, cap: string) => {
-    const caps = [...(perm.capabilities ?? [])];
+  const toggleCapability = async (perm: TeamPermission, cap: Capability) => {
+    const caps: Capability[] = [...(perm.capabilities ?? [])];
     const idx = caps.indexOf(cap);
     if (idx >= 0) caps.splice(idx, 1); else caps.push(cap);
     await addPermission(perm.scope, perm.scopeId, perm.level, caps);
@@ -1035,15 +1036,15 @@ interface PermTreeNodeProps {
   assignedGroupIds: Set<number>;
   coveredGroupIds: Set<number>;
   coveredByGroupId: Map<number, number>;
-  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => Promise<void>;
+  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: Capability[]) => Promise<void>;
   removePermission: (permId: number) => Promise<void>;
   togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
-  toggleCapability: (perm: TeamPermission, cap: string) => Promise<void>;
+  toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
 }
 
-function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: string) => void }) {
+function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: Capability) => void }) {
   if (perm.level === 'ro') return null; // RO only gets monitor, no toggles
-  const CAPS: Array<{ key: string; icon: string; label: string }> = [
+  const CAPS: Array<{ key: Capability; icon: string; label: string }> = [
     { key: 'execute', icon: '⚡', label: 'Execute scripts & commands' },
     { key: 'remote', icon: '🖥', label: 'Remote access (Reach, RDP, SSH)' },
     { key: 'files', icon: '📁', label: 'File explorer' },
@@ -1162,6 +1163,7 @@ function PermTreeNode({
               addPermission={addPermission}
               removePermission={removePermission}
               togglePermissionLevel={togglePermissionLevel}
+              toggleCapability={toggleCapability}
             />
           ))}
           {(devicesByGroup.get(node.id) ?? []).map((device) => {
@@ -1177,6 +1179,7 @@ function PermTreeNode({
                 addPermission={addPermission}
                 removePermission={removePermission}
                 togglePermissionLevel={togglePermissionLevel}
+                toggleCapability={toggleCapability}
               />
             );
           })}
@@ -1191,10 +1194,10 @@ interface PermDeviceRowProps {
   depth: number;
   perm: TeamPermission | undefined;
   isCovered: boolean;
-  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: string[]) => Promise<void>;
+  addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: Capability[]) => Promise<void>;
   removePermission: (permId: number) => Promise<void>;
   togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
-  toggleCapability: (perm: TeamPermission, cap: string) => Promise<void>;
+  toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
 }
 
 function PermDeviceRow({

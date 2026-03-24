@@ -79,6 +79,13 @@ class UpdateService {
       .whereNotIn('update_uid', [...freshUids])
       .delete();
 
+    // Updates that were pending reboot but are no longer in the fresh scan
+    // → the reboot happened, mark them as installed
+    await db('device_updates')
+      .where({ device_id: deviceId, tenant_id: tenantId, status: 'pending_reboot' })
+      .whereNotIn('update_uid', [...freshUids])
+      .update({ status: 'installed', updated_at: new Date() });
+
     for (const u of updates) {
       const initialStatus = u.status === 'pending_reboot' ? 'pending_reboot' : 'available';
       await db('device_updates')

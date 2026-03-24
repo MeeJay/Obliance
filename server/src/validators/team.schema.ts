@@ -22,6 +22,7 @@ export const setTeamPermissionsSchema = z.object({
       scope: z.enum(['group', 'device']),
       scopeId: z.number().int().positive(),
       level: z.enum(['ro', 'rw']),
+      capabilities: z.array(z.enum(['monitor', 'execute', 'remote', 'files', 'power'])).optional(),
     }),
   ),
 });
