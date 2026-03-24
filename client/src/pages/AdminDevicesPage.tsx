@@ -3,6 +3,7 @@ import {
   Key, Plus, Trash2, Copy, ChevronRight, RefreshCw, FolderOpen, Edit,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
@@ -16,7 +17,9 @@ type Tab = 'agents' | 'groups' | 'keys';
 
 export function AdminDevicesPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('agents');
+  const [searchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(['groups', 'keys'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // ── API Keys state ─────────────────────────────────────────────────────────
