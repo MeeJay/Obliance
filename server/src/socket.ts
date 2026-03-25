@@ -37,8 +37,9 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       const user = await db('users').where({ id: userId, is_active: true }).first();
       if (!user) return next(new Error('Unauthorized'));
 
-      // Validate tenant membership — prevent cross-tenant spoofing
-      if (tenantId) {
+      // Validate tenant membership — prevent cross-tenant spoofing.
+      // Admins bypass this check (they can access any tenant, matching REST behaviour).
+      if (tenantId && user.role !== 'admin') {
         const membership = await db('user_tenants')
           .where({ user_id: user.id, tenant_id: tenantId })
           .first();

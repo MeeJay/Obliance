@@ -108,6 +108,18 @@ func isBlockedByPrivacy(cmdType string) bool {
 }
 
 func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in command %s (%s): %v", cmd.ID, cmd.Type, r)
+			d.addAck(CommandAck{
+				CommandID:   cmd.ID,
+				CommandType: cmd.Type,
+				Status:      "failure",
+				Result:      map[string]string{"error": fmt.Sprintf("panic: %v", r)},
+			})
+		}
+	}()
+
 	var result interface{}
 	var execErr error
 

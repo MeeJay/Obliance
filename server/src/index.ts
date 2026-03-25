@@ -194,6 +194,12 @@ async function main() {
   remoteService.cleanupStaleSessions();                                    // run once at startup
   setInterval(() => remoteService.cleanupStaleSessions(), 2 * 60 * 1000); // then every 2 min
 
+  // Scheduled compliance checks — every 6h, skip devices checked within the window
+  const COMPLIANCE_INTERVAL = 6 * 60 * 60 * 1000;
+  const { complianceService } = require('./services/compliance.service');
+  setTimeout(() => complianceService.runScheduledChecks(COMPLIANCE_INTERVAL).catch(() => {}), 60_000); // first run 1 min after startup
+  setInterval(() => complianceService.runScheduledChecks(COMPLIANCE_INTERVAL).catch(() => {}), COMPLIANCE_INTERVAL);
+
   server.listen(config.port, () => {
     logger.info({ port: config.port, env: config.nodeEnv }, `Obliance RMM started`);
 

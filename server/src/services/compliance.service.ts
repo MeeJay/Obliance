@@ -153,6 +153,59 @@ class ComplianceService {
     });
   }
 
+  // ─── Scheduled checks ────────────────────────────────────────────────────
+  /**
+   * Run compliance checks for all enabled policies across all tenants.
+   * Called periodically by index.ts (default every 6h).
+   * Skips devices that were already checked within the interval.
+   */
+  async runScheduledChecks(intervalMs: number) {
+    const policies = await db('compliance_policies').where({ enabled: true });
+    const cutoff = new Date(Date.now() - intervalMs);
+
+    for (const row of policies) {
+      const policy = this.rowToPolicy(row);
+      if (!policy.rules?.length) continue;
+
+      // Resolve target devices
+      let deviceQuery = db('devices')
+        .where({ tenant_id: policy.tenantId, approval_status: 'approved' })
+        .whereIn('status', ['online', 'warning', 'critical']);
+
+      if (policy.targetType === 'group' && policy.targetIds.length > 0) {
+        // Get all devices in these groups + descendants
+        const descendants = await db('device_group_closure')
+          .whereIn('ancestor_id', policy.targetIds)
+          .select('descendant_id');
+        const allGroupIds = [...new Set([...policy.targetIds, ...descendants.map((d: any) => d.descendant_id)])];
+        deviceQuery = deviceQuery.whereIn('group_id', allGroupIds);
+      }
+
+      const devices = await deviceQuery.select('id');
+
+      for (const device of devices) {
+        // Skip if already checked recently
+        const lastCheck = await db('compliance_results')
+          .where({ device_id: device.id, policy_id: policy.id })
+          .orderBy('checked_at', 'desc')
+          .first();
+
+        if (lastCheck && new Date(lastCheck.checked_at) > cutoff) continue;
+
+        try {
+          await commandService.enqueue({
+            deviceId: device.id, tenantId: policy.tenantId,
+            type: 'check_compliance',
+            payload: { policyId: policy.id, rules: policy.rules },
+            priority: 'low', expiresInSeconds: 600, createdBy: policy.createdBy ?? 0,
+          });
+        } catch {
+          // Device may be offline or queue full — skip silently
+        }
+      }
+    }
+  }
+
   // ─── Store results (called from agent route) ─────────────────────────────
   async storeResults(
     deviceId: number,
@@ -359,7 +412,7 @@ class ComplianceService {
           script: rule.remediationScript,
           runtime: rule.targetPlatform === 'windows' ? 'powershell' : 'bash',
         },
-        priority: 'normal', expiresInSeconds: 300, createdBy,
+        priority: 'low', expiresInSeconds: 300, createdBy,
       })
     ));
     return cmds;

@@ -455,6 +455,8 @@ func mainLoop(cfg *Config) {
 	log.Printf("Server: %s", cfg.ServerURL)
 	log.Printf("Device UUID: %s", cfg.DeviceUUID)
 
+
+
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()
 	privacyStopCh := make(chan struct{})
@@ -484,14 +486,21 @@ func mainLoop(cfg *Config) {
 		lastScan := time.Time{} // zero = never scanned
 		for {
 			time.Sleep(60 * time.Second)
-			secs := cfg.ScanIntervalSeconds
-			if secs <= 0 {
-				continue // disabled
-			}
-			if time.Since(lastScan) >= time.Duration(secs)*time.Second {
-				runScanAll(cfg)
-				lastScan = time.Now()
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("PANIC in periodic scan: %v", r)
+					}
+				}()
+				secs := cfg.ScanIntervalSeconds
+				if secs <= 0 {
+					return // disabled
+				}
+				if time.Since(lastScan) >= time.Duration(secs)*time.Second {
+					runScanAll(cfg)
+					lastScan = time.Now()
+				}
+			}()
 		}
 	}()
 

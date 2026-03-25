@@ -293,7 +293,6 @@ class DeviceService {
       } catch { /* table may not exist on old schema versions */ }
     }
     // Polymorphic references
-    try { await db('script_schedules').where({ target_type: 'device', target_id: id }).delete(); } catch { /* ignore */ }
     try { await db('update_policies').where({ target_type: 'device', target_id: id }).delete(); } catch { /* ignore */ }
     try { await db('reports').where({ scope_type: 'device', scope_id: id }).delete(); } catch { /* ignore */ }
   }
@@ -342,16 +341,6 @@ class DeviceService {
     }
 
     // Polymorphic references (no DB FK — must be cleaned in code)
-    try {
-      const a = await db.raw(`
-        DELETE FROM script_schedules
-        WHERE target_type = 'device'
-          AND target_id IS NOT NULL
-          AND target_id NOT IN (SELECT id FROM devices)
-      `);
-      total += a?.rowCount ?? 0;
-    } catch { /* ignore */ }
-
     try {
       const b = await db.raw(`
         DELETE FROM update_policies

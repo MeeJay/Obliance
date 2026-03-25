@@ -2481,9 +2481,12 @@ function RemoteTab({ device }: { device: Device }) {
 const COMMAND_LABELS: Record<string, string> = {
   run_script: 'Run Script',
   install_update: 'Install Update',
+  install_updates: 'Install Updates (batch)',
+  cancel_script: 'Cancel Script',
   scan_inventory: 'Scan Inventory',
   scan_updates: 'Scan Updates',
   check_compliance: 'Check Compliance',
+  remediate_rule: 'Remediate Rule',
   open_remote_tunnel: 'Open Tunnel',
   close_remote_tunnel: 'Close Tunnel',
   reboot: 'Reboot',
@@ -2495,7 +2498,18 @@ const COMMAND_LABELS: Record<string, string> = {
   stop_service: 'Stop Service',
   install_software: 'Install Software',
   uninstall_software: 'Uninstall Software',
+  uninstall_agent: 'Uninstall Agent',
+  install_oblireach: 'Install ObliReach',
   disable_privacy_mode: 'Disable Privacy',
+  list_processes: 'List Processes',
+  kill_process: 'Kill Process',
+  list_wts_sessions: 'List Sessions',
+  list_directory: 'List Directory',
+  create_directory: 'Create Directory',
+  rename_file: 'Rename File',
+  delete_file: 'Delete File',
+  download_file: 'Download File',
+  upload_file: 'Upload File',
 };
 
 const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
@@ -2508,7 +2522,7 @@ const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: stri
   cancelled:   { color: 'text-gray-400',   bg: 'bg-gray-400/10',   label: 'Cancelled' },
 };
 
-type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'remediation';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
   const socket = getSocket();
@@ -2566,31 +2580,38 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
     }
   };
 
+  const isRemediation = (c: Command) => c.type === 'remediate_rule';
+  const nonRemediation = commands.filter(c => !isRemediation(c));
+  const remediationCmds = commands.filter(isRemediation);
+
   const counts: Record<CmdFilter, number> = {
-    all:       commands.length,
-    queued:    commands.filter(c => c.status === 'pending' || c.status === 'sent').length,
-    running:   commands.filter(c => c.status === 'ack_running').length,
-    done:      commands.filter(c => c.status === 'success').length,
-    failed:    commands.filter(c => c.status === 'failure' || c.status === 'timeout').length,
-    cancelled: commands.filter(c => c.status === 'cancelled').length,
+    all:         nonRemediation.length,
+    queued:      nonRemediation.filter(c => c.status === 'pending' || c.status === 'sent').length,
+    running:     nonRemediation.filter(c => c.status === 'ack_running').length,
+    done:        nonRemediation.filter(c => c.status === 'success').length,
+    failed:      nonRemediation.filter(c => c.status === 'failure' || c.status === 'timeout').length,
+    cancelled:   nonRemediation.filter(c => c.status === 'cancelled').length,
+    remediation: remediationCmds.length,
   };
 
   const filtered = commands.filter(cmd => {
-    if (filter === 'queued')    return cmd.status === 'pending' || cmd.status === 'sent';
-    if (filter === 'running')   return cmd.status === 'ack_running';
-    if (filter === 'done')      return cmd.status === 'success';
-    if (filter === 'failed')    return cmd.status === 'failure' || cmd.status === 'timeout';
-    if (filter === 'cancelled') return cmd.status === 'cancelled';
-    return true;
+    if (filter === 'remediation') return isRemediation(cmd);
+    if (filter === 'queued')    return !isRemediation(cmd) && (cmd.status === 'pending' || cmd.status === 'sent');
+    if (filter === 'running')   return !isRemediation(cmd) && cmd.status === 'ack_running';
+    if (filter === 'done')      return !isRemediation(cmd) && cmd.status === 'success';
+    if (filter === 'failed')    return !isRemediation(cmd) && (cmd.status === 'failure' || cmd.status === 'timeout');
+    if (filter === 'cancelled') return !isRemediation(cmd) && cmd.status === 'cancelled';
+    return !isRemediation(cmd); // 'all' excludes remediation
   });
 
   const FILTER_PILLS: { key: CmdFilter; label: string }[] = [
-    { key: 'all',       label: 'All' },
-    { key: 'queued',    label: 'Queued' },
-    { key: 'running',   label: 'Running' },
-    { key: 'done',      label: 'Done' },
-    { key: 'failed',    label: 'Failed' },
-    { key: 'cancelled', label: 'Cancelled' },
+    { key: 'all',         label: 'All' },
+    { key: 'queued',      label: 'Queued' },
+    { key: 'running',     label: 'Running' },
+    { key: 'done',        label: 'Done' },
+    { key: 'failed',      label: 'Failed' },
+    { key: 'cancelled',   label: 'Cancelled' },
+    { key: 'remediation', label: 'Remediation' },
   ];
 
   if (isLoading) return (
@@ -2670,9 +2691,13 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
                       <div className="text-sm text-text-primary font-medium truncate">
                         {COMMAND_LABELS[cmd.type] ?? cmd.type}
                       </div>
-                      {payloadKeys.length > 0 && (
+                      {cmd.type === 'remediate_rule' && cmd.payload?.ruleName ? (
+                        <div className="text-xs text-text-muted mt-0.5 truncate">
+                          {cmd.payload.ruleName} <span className="font-mono text-text-muted/60">({cmd.payload.ruleId})</span>
+                        </div>
+                      ) : payloadKeys.length > 0 && (
                         <div className="text-xs text-text-muted mt-0.5 font-mono truncate">
-                          {payloadKeys.filter(k => k !== 'sessionToken').map(k => `${k}=${String(cmd.payload[k])}`).join(' ')}
+                          {payloadKeys.filter(k => !['sessionToken', 'script'].includes(k)).map(k => `${k}=${String(cmd.payload[k]).slice(0, 80)}`).join(' ')}
                         </div>
                       )}
                       {cmd.result?.error && (
