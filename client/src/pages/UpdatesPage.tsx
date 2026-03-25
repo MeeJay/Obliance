@@ -304,12 +304,39 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
               <X className="w-3.5 h-3.5" /> {t('updates.actions.clear')}
             </button>
           )}
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex gap-2 flex-wrap">
             {selectedUids.size > 0 && (
-              <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
-                Approve selected ({selectedUids.size})
-              </button>
+              <>
+                <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
+                  Approve ({selectedUids.size})
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await updateApi.bulkApproveAndDeploy([...selectedUids], selectedGroupId);
+                      toast.success(`${r.approved} approved, ${r.dispatched} dispatched to ${r.devices} device(s)`);
+                      setSelectedUids(new Set());
+                      await load();
+                    } catch { toast.error(t('updates.toast.approveFailed')); }
+                  }}
+                  className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium"
+                >
+                  Approve & Deploy ({selectedUids.size})
+                </button>
+              </>
             )}
+            <button
+              onClick={async () => {
+                try {
+                  const r = await updateApi.bulkDeploy();
+                  toast.success(`${r.dispatched} update(s) deployed to ${r.devices} device(s)`);
+                  await load();
+                } catch { toast.error('Deploy failed'); }
+              }}
+              className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+            >
+              Deploy all approved
+            </button>
             <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
               {t('updates.actions.approveAllCritical')}
             </button>

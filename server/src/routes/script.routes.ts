@@ -97,7 +97,7 @@ router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
 
     const clone = await scriptService.createScript(req.tenantId!, {
       name: `${original.name} (copy)`,
-      description: original.description,
+      description: original.description ?? undefined,
       platform: original.platform,
       runtime: original.runtime,
       content: original.content,
@@ -105,7 +105,7 @@ router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
       expectedExitCode: original.expectedExitCode,
       runAs: original.runAs,
       tags: original.tags,
-      categoryId: original.categoryId,
+      categoryId: original.categoryId ?? undefined,
       availableInReach: original.availableInReach,
       createdBy: req.session.userId,
     });

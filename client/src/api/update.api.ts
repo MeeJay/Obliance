@@ -66,6 +66,14 @@ export const updateApi = {
     const res = await apiClient.post<ApiResponse<{ approved: number }>>('/updates/bulk-approve-titles', { updateUids, groupId });
     return res.data.data ?? { approved: 0 };
   },
+  async bulkDeploy(): Promise<{ dispatched: number; devices: number }> {
+    const res = await apiClient.post<ApiResponse<{ dispatched: number; devices: number }>>('/updates/bulk-deploy');
+    return res.data.data ?? { dispatched: 0, devices: 0 };
+  },
+  async bulkApproveAndDeploy(updateUids: string[], groupId?: number): Promise<{ approved: number; dispatched: number; devices: number }> {
+    const res = await apiClient.post<ApiResponse<{ approved: number; dispatched: number; devices: number }>>('/updates/bulk-approve-and-deploy', { updateUids, groupId });
+    return res.data.data ?? { approved: 0, dispatched: 0, devices: 0 };
+  },
 };
 
 export interface AggregatedUpdate {

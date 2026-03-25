@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { db } from '../db';
 import { updateService } from '../services/update.service';
 import { requireDeviceWriteParam } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
@@ -162,6 +163,52 @@ router.post('/bulk-approve-titles', async (req, res, next) => {
       total += await updateService.bulkApproveByTitle(req.tenantId!, uid, req.session.userId!, groupId);
     }
     res.json({ data: { approved: total } });
+  } catch (err) { next(err); }
+});
+
+// POST /updates/bulk-deploy — deploy all approved updates across all affected devices
+router.post('/bulk-deploy', async (req, res, next) => {
+  try {
+    const deviceIds = await db('device_updates')
+      .where({ tenant_id: req.tenantId!, status: 'approved' })
+      .distinct('device_id')
+      .pluck('device_id');
+
+    let totalDispatched = 0;
+    for (const deviceId of deviceIds) {
+      const updates = await updateService.deployApprovedUpdates(deviceId, req.tenantId!, req.session.userId!);
+      totalDispatched += updates.length;
+    }
+    res.json({ data: { dispatched: totalDispatched, devices: deviceIds.length } });
+  } catch (err) { next(err); }
+});
+
+// POST /updates/bulk-approve-and-deploy — approve selected titles then deploy them
+router.post('/bulk-approve-and-deploy', async (req, res, next) => {
+  try {
+    const { updateUids, groupId } = req.body as { updateUids: string[]; groupId?: number };
+    if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
+
+    // Approve
+    let approved = 0;
+    for (const uid of updateUids) {
+      approved += await updateService.bulkApproveByTitle(req.tenantId!, uid, req.session.userId!, groupId);
+    }
+
+    // Deploy on all devices that now have these approved updates
+    const deviceIds = await db('device_updates')
+      .where({ tenant_id: req.tenantId!, status: 'approved' })
+      .whereIn('update_uid', updateUids)
+      .distinct('device_id')
+      .pluck('device_id');
+
+    let dispatched = 0;
+    for (const deviceId of deviceIds) {
+      const updates = await updateService.deployApprovedUpdates(deviceId, req.tenantId!, req.session.userId!);
+      dispatched += updates.length;
+    }
+
+    res.json({ data: { approved, dispatched, devices: deviceIds.length } });
   } catch (err) { next(err); }
 });
 
