@@ -256,6 +256,7 @@ export type CommandType =
   | 'run_script'
   | 'install_update'
   | 'install_updates'
+  | 'cancel_script'
   | 'scan_inventory'
   | 'scan_updates'
   | 'check_compliance'

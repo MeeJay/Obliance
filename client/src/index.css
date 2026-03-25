@@ -35,10 +35,10 @@
   --c-status-paused:         107 101 122;
   --c-status-paused-bg:      26 22 37;
 
-  --c-accent:                167 139 250;
-  --c-accent-hover:          192 168 255;
-  --c-accent-dark:           124 58 237;
-  --c-primary:               167 139 250;
+  --c-accent:                194 0 27;
+  --c-accent-hover:          224 30 55;
+  --c-accent-dark:           150 0 20;
+  --c-primary:               194 0 27;
 }
 
 /* ── Neon UI — fonds neutres (Obliguard-style) + accent lilas ───────────────── */
@@ -67,10 +67,10 @@
   --c-status-paused:         114 88 52;
   --c-status-paused-bg:      20 13 6;
 
-  --c-accent:                168 128 255;
-  --c-accent-hover:          192 160 255;
-  --c-accent-dark:           120 64 220;
-  --c-primary:               168 128 255;
+  --c-accent:                194 0 27;
+  --c-accent-hover:          224 30 55;
+  --c-accent-dark:           150 0 20;
+  --c-primary:               194 0 27;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

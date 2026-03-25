@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, X, StopCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { scriptApi } from '@/api/script.api';
 import type { ExecutionBatch } from '@obliance/shared';
 import { clsx } from 'clsx';
@@ -198,6 +199,14 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
                               {dev.finishedAt && dev.startedAt && (
                                 <span className="text-[10px] text-text-muted">
                                   {((new Date(dev.finishedAt).getTime() - new Date(dev.startedAt).getTime()) / 1000).toFixed(1)}s
+                                </span>
+                              )}
+                              {(dev.status === 'running' || dev.status === 'sent') && (
+                                <span
+                                  onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(dev.id).then(() => { toast.success('Stopped'); toggleBatch(batch.batchId); toggleBatch(batch.batchId); }).catch(() => toast.error('Failed to stop')); }}
+                                  className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer shrink-0" title="Stop"
+                                >
+                                  <StopCircle className="w-3.5 h-3.5" />
                                 </span>
                               )}
                             </button>

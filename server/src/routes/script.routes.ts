@@ -89,6 +89,30 @@ async function handleScriptUpdate(req: any, res: any, next: any) {
   } catch (err) { next(err); }
 }
 
+// POST /api/scripts/:id/clone (admin only)
+router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
+  try {
+    const original = await scriptService.getScriptById(parseInt(req.params.id), req.tenantId!);
+    if (!original) return res.status(404).json({ error: 'Script not found' });
+
+    const clone = await scriptService.createScript(req.tenantId!, {
+      name: `${original.name} (copy)`,
+      description: original.description,
+      platform: original.platform,
+      runtime: original.runtime,
+      content: original.content,
+      timeoutSeconds: original.timeoutSeconds,
+      expectedExitCode: original.expectedExitCode,
+      runAs: original.runAs,
+      tags: original.tags,
+      categoryId: original.categoryId,
+      availableInReach: original.availableInReach,
+      createdBy: req.session.userId,
+    });
+    res.status(201).json({ data: clone });
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/scripts/:id (admin only)
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {

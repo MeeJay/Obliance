@@ -34,6 +34,10 @@ export const scriptApi = {
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/scripts/${id}`);
   },
+  async clone(id: number): Promise<Script> {
+    const res = await apiClient.post<ApiResponse<Script>>(`/scripts/${id}/clone`);
+    return res.data.data!;
+  },
   async executeNow(scriptId: number, opts: { deviceIds?: number[]; targetType?: string; targetIds?: number[]; parameterValues?: Record<string, any> }): Promise<ScriptExecution[]> {
     const res = await apiClient.post<ApiResponse<ScriptExecution[]>>(`/scripts/${scriptId}/execute`, opts);
     return res.data.data ?? [];
@@ -72,6 +76,9 @@ export const scriptApi = {
   async getExecution(id: string): Promise<ScriptExecution> {
     const res = await apiClient.get<ApiResponse<ScriptExecution>>(`/executions/${id}`);
     return res.data.data!;
+  },
+  async stopExecution(id: string): Promise<void> {
+    await apiClient.post(`/executions/${id}/stop`);
   },
 
   // Batches (History tab)

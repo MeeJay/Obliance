@@ -133,6 +133,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "run_script":
 		result, execErr = d.handleRunScript(cmd)
 
+	case "cancel_script":
+		result, execErr = d.handleCancelScript(cmd)
+
 	case "install_update":
 		result, execErr = d.handleInstallUpdate(cmd)
 
@@ -282,6 +285,21 @@ func (d *CommandDispatcher) handleScanUpdates(cmd AgentCommand) (interface{}, er
 		"updateCount":   len(updates),
 		"rebootPending": rebootPending,
 	}, nil
+}
+
+func (d *CommandDispatcher) handleCancelScript(cmd AgentCommand) (interface{}, error) {
+	payload := cmd.Payload
+	if payload == nil {
+		return nil, fmt.Errorf("cancel_script: missing payload")
+	}
+	targetCmdID, ok := payload["commandQueueId"].(string)
+	if !ok || targetCmdID == "" {
+		return nil, fmt.Errorf("cancel_script: commandQueueId not specified")
+	}
+	if CancelRunningScript(targetCmdID) {
+		return map[string]string{"status": "cancelled", "commandQueueId": targetCmdID}, nil
+	}
+	return map[string]string{"status": "not_found", "commandQueueId": targetCmdID}, nil
 }
 
 func (d *CommandDispatcher) handleRunScript(cmd AgentCommand) (interface{}, error) {
@@ -1317,6 +1335,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleScanUpdates(cmd)
 	case "run_script":
 		return d.handleRunScript(cmd)
+	case "cancel_script":
+		return d.handleCancelScript(cmd)
 	case "install_update":
 		return d.handleInstallUpdate(cmd)
 	case "install_updates":

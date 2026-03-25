@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen } from 'lucide-react';
+import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen, Copy } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime } from '@obliance/shared';
@@ -436,6 +436,20 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                 >
                   <Edit className="w-3.5 h-3.5" />
                   Edit
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const cloned = await scriptApi.clone(selectedScript.id);
+                      toast.success(`Cloned as "${cloned.name}"`);
+                      await load();
+                      setSelectedScript(cloned);
+                    } catch { toast.error('Failed to clone'); }
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Clone
                 </button>
                 {!selectedScript.isBuiltin && (
                   <button

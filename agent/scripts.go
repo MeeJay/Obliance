@@ -9,8 +9,40 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
+
+// ── Running scripts registry (for cancel support) ────────────────────────────
+
+var (
+	runningScripts   = make(map[string]context.CancelFunc) // cmdID -> cancel
+	runningScriptsMu sync.Mutex
+)
+
+func registerRunningScript(cmdID string, cancel context.CancelFunc) {
+	runningScriptsMu.Lock()
+	runningScripts[cmdID] = cancel
+	runningScriptsMu.Unlock()
+}
+
+func unregisterRunningScript(cmdID string) {
+	runningScriptsMu.Lock()
+	delete(runningScripts, cmdID)
+	runningScriptsMu.Unlock()
+}
+
+// CancelRunningScript cancels a running script by its command ID.
+func CancelRunningScript(cmdID string) bool {
+	runningScriptsMu.Lock()
+	cancel, ok := runningScripts[cmdID]
+	runningScriptsMu.Unlock()
+	if ok {
+		cancel()
+		return true
+	}
+	return false
+}
 
 // ── Script types ───────────────────────────────────────────────────────────────
 
@@ -80,6 +112,12 @@ func ExecuteScript(cmd ScriptCommand) (*ScriptResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
+	// Register so this script can be cancelled remotely
+	if cmd.ID != "" {
+		registerRunningScript(cmd.ID, cancel)
+		defer unregisterRunningScript(cmd.ID)
+	}
+
 	execCmd := exec.CommandContext(ctx, execArgs[0], execArgs[1:]...)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
@@ -100,6 +138,14 @@ func ExecuteScript(cmd ScriptCommand) (*ScriptResult, error) {
 				ExitCode: exitCode,
 				Stdout:   stdoutBuf.String(),
 				Stderr:   fmt.Sprintf("script timed out after %d seconds", timeout),
+				Duration: duration,
+			}, nil
+		} else if ctx.Err() == context.Canceled {
+			exitCode = -2
+			return &ScriptResult{
+				ExitCode: exitCode,
+				Stdout:   stdoutBuf.String(),
+				Stderr:   "script cancelled by user",
 				Duration: duration,
 			}, nil
 		} else {

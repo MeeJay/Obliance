@@ -206,6 +206,22 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         </div>
       </div>}
 
+      {/* Embedded header with actions */}
+      {embedded && (
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Schedule
+          </button>
+        </div>
+      )}
+
       {/* Form panel */}
       {showForm && (
         <div className="bg-bg-secondary border border-border rounded-xl p-6 space-y-5">

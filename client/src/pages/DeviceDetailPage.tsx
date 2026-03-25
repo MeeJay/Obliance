@@ -7,7 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock, Maximize2,
+  ArrowLeftRight, CalendarClock, Maximize2, StopCircle,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -554,6 +554,12 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
                     <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
                     <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
                     {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
+                    {(ex.status === 'running' || ex.status === 'sent') && (
+                      <span onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(ex.id).then(() => { toast.success('Script stopped'); load(); }).catch(() => toast.error('Failed to stop')); }}
+                        className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer" title="Stop">
+                        <StopCircle className="w-4 h-4" />
+                      </span>
+                    )}
                   </button>
                   {isExpanded && (
                     <div className="border-t border-border p-3 space-y-2 bg-bg-tertiary/50">

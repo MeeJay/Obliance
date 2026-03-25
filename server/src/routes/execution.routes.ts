@@ -193,11 +193,43 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Cancel a pending execution (not yet sent to agent)
 router.post('/:id/cancel', async (req, res, next) => {
   try {
     await db('script_executions')
       .where({ id: req.params.id, tenant_id: req.tenantId!, status: 'pending' })
       .update({ status: 'cancelled', updated_at: new Date() });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// Stop a running execution (send cancel_script to agent)
+router.post('/:id/stop', async (req, res, next) => {
+  try {
+    const exec = await db('script_executions')
+      .where({ id: req.params.id, tenant_id: req.tenantId! })
+      .whereIn('status', ['running', 'sent'])
+      .first();
+    if (!exec) return res.status(404).json({ error: 'No running execution found' });
+
+    if (!exec.command_queue_id) return res.status(400).json({ error: 'No linked command' });
+
+    // Enqueue a cancel_script command to the device
+    const { commandService } = await import('../services/command.service');
+    await commandService.enqueue({
+      deviceId: exec.device_id,
+      tenantId: req.tenantId!,
+      type: 'cancel_script',
+      payload: { commandQueueId: exec.command_queue_id },
+      priority: 'urgent',
+      createdBy: req.session.userId!,
+    });
+
+    // Mark execution as cancelled
+    await db('script_executions')
+      .where({ id: req.params.id })
+      .update({ status: 'cancelled', finished_at: new Date() });
+
     res.json({ success: true });
   } catch (err) { next(err); }
 });
