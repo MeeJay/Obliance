@@ -255,6 +255,7 @@ export interface AgentApiKey {
 export type CommandType =
   | 'run_script'
   | 'install_update'
+  | 'install_updates'
   | 'scan_inventory'
   | 'scan_updates'
   | 'check_compliance'

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -61,6 +62,32 @@ func InstallUpdate(updateUID, source string) error {
 		return installLinuxUpdate(updateUID)
 	case "darwin":
 		return installDarwinUpdate(updateUID)
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+}
+
+// InstallUpdatesBatch installs multiple updates in a single package manager invocation.
+// This avoids lock contention (e.g. dpkg lock on Linux).
+func InstallUpdatesBatch(uids []string, source string) error {
+	switch runtime.GOOS {
+	case "windows":
+		// Windows updates are handled individually via COM/winget/choco
+		for _, uid := range uids {
+			if err := installWindowsUpdate(uid, source); err != nil {
+				return err
+			}
+		}
+		return nil
+	case "linux":
+		return installLinuxUpdatesBatch(uids)
+	case "darwin":
+		for _, uid := range uids {
+			if err := installDarwinUpdate(uid); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -604,6 +631,36 @@ func installLinuxUpdate(updateUID string) error {
 		}
 	}
 	return fmt.Errorf("no supported package manager found to install update %s", updateUID)
+}
+
+func installLinuxUpdatesBatch(uids []string) error {
+	if len(uids) == 0 {
+		return nil
+	}
+	// Try apt first — pass all packages in a single invocation
+	if aptPath, err := exec.LookPath("apt"); err == nil {
+		args := append([]string{"-y", "install", "--only-upgrade"}, uids...)
+		cmd := exec.Command(aptPath, args...)
+		cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("apt batch install: %w\n%s", err, string(out))
+		}
+		return nil
+	}
+	// Fallback: dnf/yum batch
+	for _, mgr := range []string{"dnf", "yum"} {
+		if mgrPath, err := exec.LookPath(mgr); err == nil {
+			args := append([]string{"-y", "update"}, uids...)
+			cmd := exec.Command(mgrPath, args...)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("%s batch update: %w\n%s", mgr, err, string(out))
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no supported package manager found")
 }
 
 // ── macOS ─────────────────────────────────────────────────────────────────────

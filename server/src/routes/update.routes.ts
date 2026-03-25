@@ -152,6 +152,19 @@ router.post('/bulk-approve', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /updates/bulk-approve-titles — approve multiple update titles at once
+router.post('/bulk-approve-titles', async (req, res, next) => {
+  try {
+    const { updateUids, groupId } = req.body as { updateUids: string[]; groupId?: number };
+    if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
+    let total = 0;
+    for (const uid of updateUids) {
+      total += await updateService.bulkApproveByTitle(req.tenantId!, uid, req.session.userId!, groupId);
+    }
+    res.json({ data: { approved: total } });
+  } catch (err) { next(err); }
+});
+
 // POST /updates/bulk-approve-severity — approve all updates of given severities
 router.post('/bulk-approve-severity', async (req, res, next) => {
   try {

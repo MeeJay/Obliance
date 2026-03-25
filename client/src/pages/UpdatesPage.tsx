@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor } from 'lucide-react';
+import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor, CheckSquare, Square } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
 import type { UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
@@ -78,6 +78,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const [selectedGroupId] = useState<number | undefined>(undefined);
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   const [expandedDevices, setExpandedDevices] = useState<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>>([]);
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -124,6 +125,34 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
       const devices = await updateApi.getUpdateDevices(uid);
       setExpandedDevices(devices);
     } catch { setExpandedDevices([]); }
+  };
+
+  const toggleSelect = (uid: string) => {
+    setSelectedUids((prev) => {
+      const next = new Set(prev);
+      next.has(uid) ? next.delete(uid) : next.add(uid);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUids.size === aggUpdates.length) {
+      setSelectedUids(new Set());
+    } else {
+      setSelectedUids(new Set(aggUpdates.map((u) => u.updateUid)));
+    }
+  };
+
+  const handleApproveSelected = async () => {
+    if (selectedUids.size === 0) return;
+    try {
+      const result = await updateApi.bulkApproveTitles([...selectedUids], selectedGroupId);
+      toast.success(t('updates.toast.bulkApproved', { count: result.approved }));
+      setSelectedUids(new Set());
+      await load();
+    } catch {
+      toast.error(t('updates.toast.approveFailed'));
+    }
   };
 
   // Approve a single title across all devices
@@ -276,6 +305,11 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
             </button>
           )}
           <div className="ml-auto flex gap-2">
+            {selectedUids.size > 0 && (
+              <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
+                Approve selected ({selectedUids.size})
+              </button>
+            )}
             <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
               {t('updates.actions.approveAllCritical')}
             </button>
@@ -318,6 +352,13 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-bg-tertiary/50">
+                      <th className="w-10 px-3 py-3">
+                        <button onClick={toggleSelectAll} className="text-text-muted hover:text-text-primary transition-colors">
+                          {selectedUids.size === aggUpdates.length && aggUpdates.length > 0
+                            ? <CheckSquare className="w-4 h-4 text-accent" />
+                            : <Square className="w-4 h-4" />}
+                        </button>
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.update')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.severity')}</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">{t('updates.table.source')}</th>
@@ -332,6 +373,13 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                       return (
                         <React.Fragment key={upd.updateUid}>
                           <tr className="hover:bg-bg-tertiary transition-colors cursor-pointer" onClick={() => handleExpand(upd.updateUid)}>
+                            <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => toggleSelect(upd.updateUid)} className="text-text-muted hover:text-text-primary transition-colors">
+                                {selectedUids.has(upd.updateUid)
+                                  ? <CheckSquare className="w-4 h-4 text-accent" />
+                                  : <Square className="w-4 h-4" />}
+                              </button>
+                            </td>
                             <td className="px-4 py-3">
                               <p className="text-sm text-text-primary font-medium">{upd.title ?? upd.updateUid}</p>
                               {upd.requiresReboot && <p className="text-xs text-orange-400 mt-0.5">Requires reboot</p>}
@@ -345,7 +393,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr><td colSpan={5} className="px-8 py-3 bg-bg-tertiary/30">
+                            <tr><td colSpan={6} className="px-8 py-3 bg-bg-tertiary/30">
                               <div className="space-y-1">
                                 {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">Loading...</p> : expandedDevices.map((d) => (
                                   <div key={d.id} className="flex items-center gap-3 text-xs">

@@ -131,12 +131,19 @@ class UpdateService {
       .whereIn('id', approved.map((u: any) => u.id))
       .update({ status: 'pending_install', updated_at: new Date() });
 
-    // Enqueue ONE install_update command per update.
-    // The agent handler reads payload.updateUid (singular) — one command per KB.
+    // Group approved updates by source and enqueue ONE batch command per source.
+    // This avoids dpkg/apt lock contention on Linux and is more efficient overall.
+    const bySource = new Map<string, string[]>();
     for (const u of approved) {
+      const source = u.source || 'windows_update';
+      if (!bySource.has(source)) bySource.set(source, []);
+      bySource.get(source)!.push(u.update_uid);
+    }
+
+    for (const [source, uids] of bySource) {
       await commandService.enqueue({
-        deviceId, tenantId, type: 'install_update',
-        payload: { updateUid: u.update_uid, source: u.source || 'windows_update' },
+        deviceId, tenantId, type: 'install_updates',
+        payload: { updateUids: uids, source },
         priority: 'normal',
         createdBy,
       });

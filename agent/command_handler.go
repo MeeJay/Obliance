@@ -136,6 +136,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "install_update":
 		result, execErr = d.handleInstallUpdate(cmd)
 
+	case "install_updates":
+		result, execErr = d.handleInstallUpdates(cmd)
+
 	case "check_compliance":
 		result, execErr = d.handleCheckCompliance(cmd)
 
@@ -339,6 +342,34 @@ func (d *CommandDispatcher) handleInstallUpdate(cmd AgentCommand) (interface{}, 
 		return nil, err
 	}
 	return map[string]string{"updateUid": uid, "message": "installed successfully"}, nil
+}
+
+func (d *CommandDispatcher) handleInstallUpdates(cmd AgentCommand) (interface{}, error) {
+	payload := cmd.Payload
+	if payload == nil {
+		return nil, fmt.Errorf("install_updates: missing payload")
+	}
+	source := payloadString(payload, "source")
+
+	// Extract updateUids array
+	rawUids, ok := payload["updateUids"].([]interface{})
+	if !ok || len(rawUids) == 0 {
+		return nil, fmt.Errorf("install_updates: updateUids array required")
+	}
+	var uids []string
+	for _, raw := range rawUids {
+		if s, ok := raw.(string); ok && s != "" {
+			uids = append(uids, s)
+		}
+	}
+	if len(uids) == 0 {
+		return nil, fmt.Errorf("install_updates: no valid uids")
+	}
+
+	if err := InstallUpdatesBatch(uids, source); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"updateUids": uids, "count": len(uids), "message": "batch install completed"}, nil
 }
 
 // ── Compliance Rule Evaluation Engine ────────────────────────────────────────
@@ -1288,6 +1319,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleRunScript(cmd)
 	case "install_update":
 		return d.handleInstallUpdate(cmd)
+	case "install_updates":
+		return d.handleInstallUpdates(cmd)
 	case "check_compliance":
 		return d.handleCheckCompliance(cmd)
 	case "list_wts_sessions":

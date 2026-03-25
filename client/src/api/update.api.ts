@@ -62,6 +62,10 @@ export const updateApi = {
     const res = await apiClient.post<ApiResponse<{ approved: number }>>('/updates/bulk-approve-severity', { severities, groupId });
     return res.data.data ?? { approved: 0 };
   },
+  async bulkApproveTitles(updateUids: string[], groupId?: number): Promise<{ approved: number }> {
+    const res = await apiClient.post<ApiResponse<{ approved: number }>>('/updates/bulk-approve-titles', { updateUids, groupId });
+    return res.data.data ?? { approved: 0 };
+  },
 };
 
 export interface AggregatedUpdate {

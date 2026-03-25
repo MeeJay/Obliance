@@ -147,14 +147,17 @@ class CommandService {
         } catch {}
       }
 
-      // When install_update starts running, mark the update as "installing"
-      if (!isTerminal && ack.status === 'ack_running' && row && row.type === 'install_update') {
+      // When install_update(s) starts running, mark the update(s) as "installing"
+      if (!isTerminal && ack.status === 'ack_running' && row && (row.type === 'install_update' || row.type === 'install_updates')) {
         try {
           const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
-          const updateUid = payload.updateUid as string | undefined;
-          if (updateUid) {
+          const uids: string[] = row.type === 'install_updates'
+            ? (payload.updateUids ?? [])
+            : (payload.updateUid ? [payload.updateUid] : []);
+          if (uids.length) {
             await db('device_updates')
-              .where({ update_uid: updateUid, device_id: deviceId })
+              .whereIn('update_uid', uids)
+              .where({ device_id: deviceId })
               .update({ status: 'installing', updated_at: new Date() });
           }
         } catch (updateErr) {
@@ -162,14 +165,17 @@ class CommandService {
         }
       }
 
-      // When install_update finishes, reflect the outcome in device_updates
-      if (isTerminal && row && row.type === 'install_update') {
+      // When install_update(s) finishes, reflect the outcome in device_updates
+      if (isTerminal && row && (row.type === 'install_update' || row.type === 'install_updates')) {
         try {
           const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
-          const updateUid = payload.updateUid as string | undefined;
-          if (updateUid) {
+          const uids: string[] = row.type === 'install_updates'
+            ? (payload.updateUids ?? [])
+            : (payload.updateUid ? [payload.updateUid] : []);
+          if (uids.length) {
             await db('device_updates')
-              .where({ update_uid: updateUid, device_id: deviceId })
+              .whereIn('update_uid', uids)
+              .where({ device_id: deviceId })
               .update({
                 status: ack.status === 'success' ? 'installed' : 'failed',
                 installed_at: ack.status === 'success' ? new Date() : null,
@@ -180,7 +186,7 @@ class CommandService {
               });
           }
         } catch (updateErr) {
-          logger.error(updateErr, 'Failed to update device_updates status from install_update ack');
+          logger.error(updateErr, 'Failed to update device_updates status from install_update(s) ack');
         }
       }
 
