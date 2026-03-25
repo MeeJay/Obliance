@@ -662,7 +662,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector',
+    remediationScript: 'Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }',
   }),
   r('soc2-C1-2-b', {
     name: 'Chiffrement BitLocker — méthode AES 256 bits [C1.2]',
@@ -766,7 +766,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector',
+    remediationScript: 'Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }',
   }),
   r('soc2-sec-2', {
     name: 'Antivirus Defender — activé [SOC2 Security]',

@@ -105,6 +105,28 @@ class CommandService {
         .where({ id: ack.commandId, device_id: deviceId })
         .update(updates);
 
+      // If no row was updated, this is a synthetic/periodic command from the agent.
+      // Insert it into command_queue so it appears in task history (only for terminal acks).
+      if (affected === 0 && isTerminal && ack.commandType) {
+        try {
+          const now = new Date();
+          await db('command_queue').insert({
+            id: ack.commandId,
+            device_id: deviceId,
+            tenant_id: tenantId,
+            type: ack.commandType,
+            payload: JSON.stringify(ack.result || {}),
+            status: ack.status,
+            priority: 'normal',
+            created_at: now,
+            sent_at: now,
+            acked_at: now,
+            ...(isTerminal ? { finished_at: now } : {}),
+            result: JSON.stringify(ack.result || {}),
+          });
+        } catch { /* ignore dupes or missing enum */ }
+      }
+
       // Emit update and keep row for script_execution linkage below
       let row: any;
       try {

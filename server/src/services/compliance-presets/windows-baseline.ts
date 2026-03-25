@@ -1056,15 +1056,15 @@ export const windowsBaselineRules: ComplianceRule[] = [
   // ─── ENCRYPTION (8) ─────────────────────────────────────────────────────────
 
   r('wsb-094', {
-    name: 'Chiffrement — BitLocker activé sur le lecteur OS',
+    name: 'Chiffrement — BitLocker activé sur tous les volumes',
     category: 'Encryption',
     checkType: 'command',
     targetPlatform: 'windows',
-    target: '(Get-BitLockerVolume -MountPoint $env:SystemDrive).ProtectionStatus',
-    expected: 'On',
+    target: `$vols=Get-BitLockerVolume -EA SilentlyContinue; if(!$vols){'FAIL'}else{$off=$vols|Where-Object{$_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown'}; if($off){'FAIL: '+($off.MountPoint -join ',')}else{'PASS'}}`,
+    expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest',
+    remediationScript: `Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }`,
   }),
   r('wsb-095', {
     name: 'Chiffrement — TLS 1.0 client désactivé',

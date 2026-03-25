@@ -216,7 +216,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
+    remediationScript: "Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }",
   }),
   r('hipaa-310-c-2-ii', {
     name: 'Réutilisation des médias — méthode de chiffrement BitLocker AES 256 bits [§164.310(c)(2)(ii)]',
@@ -273,7 +273,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
+    remediationScript: "Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }",
   }),
   r('hipaa-312-b', {
     name: 'Mécanismes d\'audit — base d\'audit activée [§164.312(b)]',
@@ -353,7 +353,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
+    remediationScript: "Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }",
   }),
   r('hipaa-tech-2', {
     name: 'Pare-feu Windows — activé sur tous les profils [HIPAA Tech]',
