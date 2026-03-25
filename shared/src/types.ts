@@ -126,6 +126,7 @@ export interface Device {
   uuid: string;
   tenantId: number;
   groupId: number | null;
+  groupName?: string | null;
   apiKeyId: number | null;
   // Identity
   hostname: string;

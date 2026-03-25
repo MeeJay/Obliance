@@ -94,31 +94,55 @@ class DeviceService {
   async getDevices(tenantId: number, filters?: {
     groupId?: number; status?: string; approvalStatus?: string;
     search?: string; osType?: string; page?: number; pageSize?: number;
+    sortBy?: string; sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     const pageSize = Math.min(500, Math.max(1, filters?.pageSize ?? 100));
 
-    let q = db('devices').where({ tenant_id: tenantId });
+    let q = db('devices')
+      .leftJoin('device_groups', 'devices.group_id', 'device_groups.id')
+      .where({ 'devices.tenant_id': tenantId });
     // Never show pending_uninstall devices in normal listings
-    q = q.whereNot({ status: 'pending_uninstall' });
-    if (filters?.groupId) q = q.where({ group_id: filters.groupId });
-    if (filters?.status) q = q.where({ status: filters.status });
-    if (filters?.osType) q = q.where({ os_type: filters.osType });
+    q = q.whereNot({ 'devices.status': 'pending_uninstall' });
+    if (filters?.groupId) q = q.where({ 'devices.group_id': filters.groupId });
+    if (filters?.status) q = q.where({ 'devices.status': filters.status });
+    if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
     if (filters?.approvalStatus === 'suspended') {
-      q = q.where({ status: 'suspended' });
+      q = q.where({ 'devices.status': 'suspended' });
     } else if (filters?.approvalStatus) {
-      q = q.where({ approval_status: filters.approvalStatus });
+      q = q.where({ 'devices.approval_status': filters.approvalStatus });
     }
     if (filters?.search) q = q.where(function() {
-      this.whereILike('hostname', `%${filters.search}%`)
-          .orWhereILike('display_name', `%${filters.search}%`);
+      this.whereILike('devices.hostname', `%${filters.search}%`)
+          .orWhereILike('devices.display_name', `%${filters.search}%`)
+          .orWhereILike('devices.ip_local', `%${filters.search}%`)
+          .orWhereILike('devices.ip_public', `%${filters.search}%`);
     });
 
-    const countResult = await q.clone().count('* as count').first();
+    const countResult = await q.clone().count('devices.id as count').first();
     const total = Number(countResult?.count ?? 0);
 
-    const rows = await q.orderBy('hostname').limit(pageSize).offset((page - 1) * pageSize);
-    return { items: rows.map(this.rowToDevice.bind(this)), total, page, pageSize };
+    // Sortable columns
+    const SORT_MAP: Record<string, string> = {
+      name: 'devices.hostname', status: 'devices.status', os: 'devices.os_type',
+      lastSeen: 'devices.last_seen_at', version: 'devices.agent_version', group: 'device_groups.name',
+    };
+    const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
+    const sortDir = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
+
+    const rows = await q
+      .select('devices.*', 'device_groups.name as group_name')
+      .orderBy(sortCol, sortDir)
+      .limit(pageSize).offset((page - 1) * pageSize);
+
+    return {
+      items: rows.map((row: any) => {
+        const device = this.rowToDevice(row);
+        (device as any).groupName = row.group_name ?? null;
+        return device;
+      }),
+      total, page, pageSize,
+    };
   }
 
   /** Legacy non-paginated list — used by sidebar and internal calls. */

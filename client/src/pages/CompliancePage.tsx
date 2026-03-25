@@ -954,6 +954,24 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                     ))}
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-text-muted uppercase">Platform</label>
+                  <div className="flex gap-1">
+                    {(['all', 'windows', 'linux', 'macos'] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setForm({ ...form, targetPlatform: p })}
+                        className={clsx(
+                          'flex-1 py-2 text-xs rounded-lg border transition-colors',
+                          form.targetPlatform === p ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                        )}
+                      >
+                        {p === 'all' ? 'All' : p === 'macos' ? 'macOS' : p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="space-y-1 md:col-span-2">
                   <label className="text-xs font-medium text-text-muted uppercase">{t('compliance.descriptionLabel')}</label>
                   <input
@@ -1141,6 +1159,11 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                         <span>{t('compliance.target')}: <span className="text-text-primary">
                           {policy.targetType === 'all' ? t('compliance.allDevices') : `${policy.targetIds?.length ?? 0} group(s)`}
                         </span></span>
+                        {policy.targetPlatform && policy.targetPlatform !== 'all' && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-bg-tertiary border border-border capitalize">
+                            {policy.targetPlatform === 'macos' ? 'macOS' : policy.targetPlatform}
+                          </span>
+                        )}
                         <span>{t('compliance.rules')}: <span className="text-text-primary">{policy.rules.length}</span></span>
                         <span>{t('compliance.created')}: <span className="text-text-primary">{new Date(policy.createdAt).toLocaleDateString()}</span></span>
                       </div>

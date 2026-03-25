@@ -8,6 +8,7 @@ import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
 import { DeviceTable } from '@/components/devices/DeviceTable';
+import { DevicesPageLayout } from '@/components/devices/DevicesPageLayout';
 import { GroupManagePage } from './GroupManagePage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
@@ -125,7 +126,7 @@ export function AdminDevicesPage() {
       </div>
 
       {/* Tab: Agents */}
-      {tab === 'agents' && <DeviceTable mode="admin" />}
+      {tab === 'agents' && <DevicesPageLayout mode="admin" />}
 
       {/* Tab: Groups */}
       {tab === 'groups' && <GroupManagePage embedded />}

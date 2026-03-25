@@ -27,6 +27,7 @@ export const deviceApi = {
   async listPaginated(params?: {
     groupId?: number; status?: string; search?: string;
     approvalStatus?: string; osType?: string; page?: number; pageSize?: number;
+    sortBy?: string; sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
