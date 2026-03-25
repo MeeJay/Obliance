@@ -416,7 +416,28 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                             <td className="px-4 py-3 hidden md:table-cell"><span className="text-xs text-text-muted">{upd.source.replace('_', ' ')}</span></td>
                             <td className="px-4 py-3 text-center"><span className="text-xs font-medium text-text-primary bg-bg-tertiary px-2 py-0.5 rounded-full">{upd.deviceCount}</span></td>
                             <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors">{t('updates.actions.approve')}</button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {upd.deployingCount > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400">
+                                    {upd.deployingCount} deploying
+                                  </span>
+                                )}
+                                {upd.failedCount > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
+                                    {upd.failedCount} failed
+                                  </span>
+                                )}
+                                {upd.availableCount > 0 && (
+                                  <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors">
+                                    {t('updates.actions.approve')}{upd.approvedCount > 0 ? ` (${upd.availableCount})` : ''}
+                                  </button>
+                                )}
+                                {upd.availableCount === 0 && upd.approvedCount > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-400/10 border border-green-400/30 text-green-400">
+                                    Approved
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                           {isExpanded && (

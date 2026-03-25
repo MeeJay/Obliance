@@ -225,13 +225,14 @@ class UpdateService {
     severity?: string; source?: string; groupId?: number; status?: string;
     page?: number; pageSize?: number;
   }) {
-    const status = filters?.status || 'available';
     const page = Math.max(1, filters?.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, filters?.pageSize ?? 50));
+    const pendingStatuses = ['available', 'approved', 'pending_install', 'installing', 'failed'];
 
     let baseQ = db('device_updates as du')
       .join('devices as d', 'd.id', 'du.device_id')
-      .where({ 'du.tenant_id': tenantId, 'du.status': status });
+      .where('du.tenant_id', tenantId)
+      .whereIn('du.status', filters?.status ? [filters.status] : pendingStatuses);
 
     if (filters?.severity) baseQ = baseQ.where({ 'du.severity': filters.severity });
     if (filters?.source) baseQ = baseQ.where({ 'du.source': filters.source });
@@ -254,6 +255,10 @@ class UpdateService {
         db.raw('MIN(du.size_bytes) as size_bytes'),
         db.raw('BOOL_OR(du.requires_reboot) as requires_reboot'),
         db.raw('COUNT(DISTINCT du.device_id)::int as device_count'),
+        db.raw("COUNT(*) FILTER (WHERE du.status = 'available')::int as available_count"),
+        db.raw("COUNT(*) FILTER (WHERE du.status = 'approved')::int as approved_count"),
+        db.raw("COUNT(*) FILTER (WHERE du.status IN ('pending_install', 'installing'))::int as deploying_count"),
+        db.raw("COUNT(*) FILTER (WHERE du.status = 'failed')::int as failed_count"),
       )
       .groupBy('du.update_uid')
       .orderByRaw(`
@@ -277,6 +282,10 @@ class UpdateService {
       sizeBytes: r.size_bytes,
       requiresReboot: r.requires_reboot,
       deviceCount: r.device_count,
+      availableCount: r.available_count,
+      approvedCount: r.approved_count,
+      deployingCount: r.deploying_count,
+      failedCount: r.failed_count,
     }));
 
     return { items, total, page, pageSize };

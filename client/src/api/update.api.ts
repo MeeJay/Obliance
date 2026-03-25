@@ -85,4 +85,8 @@ export interface AggregatedUpdate {
   sizeBytes: number;
   requiresReboot: boolean;
   deviceCount: number;
+  availableCount: number;
+  approvedCount: number;
+  deployingCount: number;
+  failedCount: number;
 }
