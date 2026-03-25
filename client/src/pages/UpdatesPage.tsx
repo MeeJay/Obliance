@@ -73,6 +73,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const [aggUpdates, setAggUpdates] = useState<import('@/api/update.api').AggregatedUpdate[]>([]);
   const [aggTotal, setAggTotal] = useState(0);
   const [aggPage, setAggPage] = useState(1);
+  const [aggPageSize, setAggPageSize] = useState(100);
   const [selectedSeverity, setSelectedSeverity] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedGroupId] = useState<number | undefined>(undefined);
@@ -89,7 +90,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
           source: selectedSource || undefined,
           groupId: selectedGroupId,
           page: aggPage,
-          pageSize: 50,
+          pageSize: aggPageSize,
         }),
         updateApi.listPolicies(),
       ]);
@@ -101,10 +102,10 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSeverity, selectedSource, selectedGroupId, aggPage, t]);
+  }, [selectedSeverity, selectedSource, selectedGroupId, aggPage, aggPageSize, t]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setAggPage(1); }, [selectedSeverity, selectedSource, selectedGroupId]);
+  useEffect(() => { setAggPage(1); }, [selectedSeverity, selectedSource, selectedGroupId, aggPageSize]);
 
   // Real-time: reload on scan completion
   useEffect(() => {
@@ -310,6 +311,22 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                 <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
                   Approve ({selectedUids.size})
                 </button>
+                {aggUpdates.some((u) => selectedUids.has(u.updateUid) && u.failedCount > 0) && (
+                  <button
+                    onClick={async () => {
+                      const failedUids = aggUpdates.filter((u) => selectedUids.has(u.updateUid) && u.failedCount > 0).map((u) => u.updateUid);
+                      try {
+                        const r = await updateApi.bulkRetryTitles(failedUids);
+                        toast.success(`${r.retried} update(s) retried`);
+                        setSelectedUids(new Set());
+                        await load();
+                      } catch { toast.error('Retry failed'); }
+                    }}
+                    className="text-xs px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors font-medium"
+                  >
+                    Retry failed
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     try {
@@ -423,9 +440,18 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                                   </span>
                                 )}
                                 {upd.failedCount > 0 && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400">
-                                    {upd.failedCount} failed
-                                  </span>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const r = await updateApi.bulkRetry(upd.updateUid);
+                                        toast.success(`${r.retried} update(s) retried`);
+                                        await load();
+                                      } catch { toast.error('Retry failed'); }
+                                    }}
+                                    className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors"
+                                  >
+                                    {upd.failedCount} failed — retry
+                                  </button>
                                 )}
                                 {upd.availableCount > 0 && (
                                   <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors">
@@ -459,14 +485,23 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                   </tbody>
                 </table>
               </div>
-              {Math.ceil(aggTotal / 50) > 1 && (
-                <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
-                  <button onClick={() => setAggPage(p => Math.max(1, p - 1))} disabled={aggPage === 1} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">←</button>
-                  <span>{aggPage} / {Math.ceil(aggTotal / 50)}</span>
-                  <button onClick={() => setAggPage(p => p + 1)} disabled={aggPage >= Math.ceil(aggTotal / 50)} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">→</button>
-                  <span className="text-xs ml-2">({aggTotal} updates)</span>
-                </div>
-              )}
+              <div className="flex items-center justify-center gap-3 text-sm text-text-muted">
+                {Math.ceil(aggTotal / aggPageSize) > 1 && (
+                  <>
+                    <button onClick={() => setAggPage(p => Math.max(1, p - 1))} disabled={aggPage === 1} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">←</button>
+                    <span>{aggPage} / {Math.ceil(aggTotal / aggPageSize)}</span>
+                    <button onClick={() => setAggPage(p => p + 1)} disabled={aggPage >= Math.ceil(aggTotal / aggPageSize)} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">→</button>
+                  </>
+                )}
+                <span className="text-xs">({aggTotal} updates)</span>
+                <select
+                  value={aggPageSize}
+                  onChange={(e) => setAggPageSize(parseInt(e.target.value, 10))}
+                  className="px-2 py-1 text-xs bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+                >
+                  {[50, 100, 200, 500].map((n) => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+              </div>
             </>
           )}
         </div>

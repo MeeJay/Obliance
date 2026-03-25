@@ -74,6 +74,14 @@ export const updateApi = {
     const res = await apiClient.post<ApiResponse<{ approved: number; dispatched: number; devices: number }>>('/updates/bulk-approve-and-deploy', { updateUids, groupId });
     return res.data.data ?? { approved: 0, dispatched: 0, devices: 0 };
   },
+  async bulkRetry(updateUid: string): Promise<{ retried: number }> {
+    const res = await apiClient.post<ApiResponse<{ retried: number }>>('/updates/bulk-retry', { updateUid });
+    return res.data.data ?? { retried: 0 };
+  },
+  async bulkRetryTitles(updateUids: string[]): Promise<{ retried: number }> {
+    const res = await apiClient.post<ApiResponse<{ retried: number }>>('/updates/bulk-retry-titles', { updateUids });
+    return res.data.data ?? { retried: 0 };
+  },
 };
 
 export interface AggregatedUpdate {

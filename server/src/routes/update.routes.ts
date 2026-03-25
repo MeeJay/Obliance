@@ -97,6 +97,47 @@ router.post('/device/:deviceId/retry/:updateId', requireDeviceWriteParam('device
   } catch (err) { next(err); }
 });
 
+// POST /updates/bulk-retry — retry all failed updates for a given title across all devices
+router.post('/bulk-retry', async (req, res, next) => {
+  try {
+    const { updateUid } = req.body as { updateUid: string };
+    if (!updateUid) return res.status(400).json({ error: 'updateUid required' });
+
+    const failedUpdates = await db('device_updates')
+      .where({ tenant_id: req.tenantId!, update_uid: updateUid, status: 'failed' });
+
+    let retried = 0;
+    for (const u of failedUpdates) {
+      try {
+        await updateService.retryUpdate(u.device_id, u.id, req.tenantId!, req.session.userId!);
+        retried++;
+      } catch { /* skip individual failures */ }
+    }
+    res.json({ data: { retried } });
+  } catch (err) { next(err); }
+});
+
+// POST /updates/bulk-retry-titles — retry all failed updates for multiple titles
+router.post('/bulk-retry-titles', async (req, res, next) => {
+  try {
+    const { updateUids } = req.body as { updateUids: string[] };
+    if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
+
+    const failedUpdates = await db('device_updates')
+      .where({ tenant_id: req.tenantId!, status: 'failed' })
+      .whereIn('update_uid', updateUids);
+
+    let retried = 0;
+    for (const u of failedUpdates) {
+      try {
+        await updateService.retryUpdate(u.device_id, u.id, req.tenantId!, req.session.userId!);
+        retried++;
+      } catch { /* skip */ }
+    }
+    res.json({ data: { retried } });
+  } catch (err) { next(err); }
+});
+
 router.post('/device/:deviceId/scan', requireDeviceWriteParam('deviceId'), async (req, res, next) => {
   try {
     const cmd = await updateService.triggerUpdateScan(
