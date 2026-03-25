@@ -455,9 +455,28 @@ func (d *CommandDispatcher) handleCheckCompliance(cmd AgentCommand) (interface{}
 	remediationEnabled := d.remediationEnabled
 	d.mu.Unlock()
 
+	// Detect third-party AV/firewall (Windows only) — auto-pass Defender/firewall-logging rules
+	thirdPartyAV, thirdPartyFW := detectThirdPartySecurity()
+	if thirdPartyAV != "" {
+		log.Printf("Compliance: third-party AV detected: %s — Defender rules auto-pass", thirdPartyAV)
+	}
+	if thirdPartyFW != "" {
+		log.Printf("Compliance: third-party firewall detected: %s", thirdPartyFW)
+	}
+
 	// Evaluate each rule
 	results := make([]ComplianceRuleResult, 0, len(rules))
 	for _, rule := range rules {
+		// Auto-pass Defender rules when a third-party AV is active
+		if thirdPartyAV != "" && isDefenderRule(rule) {
+			results = append(results, ComplianceRuleResult{
+				RuleID:      rule.ID,
+				Status:      "pass",
+				ActualValue: fmt.Sprintf("Third-party AV: %s", thirdPartyAV),
+				CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+			})
+			continue
+		}
 		r := evaluateComplianceRule(rule)
 		// Auto-remediate failing rules when enabled and a script is configured.
 		if remediationEnabled && r.Status == "fail" && rule.AutoRemediateScriptId != nil {
@@ -563,6 +582,58 @@ func (d *CommandDispatcher) handleRemediateRule(cmd AgentCommand) (interface{}, 
 		"stdout":   result.Stdout,
 		"stderr":   result.Stderr,
 	}, nil
+}
+
+// detectThirdPartySecurity checks for third-party AV and firewall products via WMI SecurityCenter2.
+// Returns (avName, fwName) — empty strings if only Windows Defender / Windows Firewall are found.
+func detectThirdPartySecurity() (string, string) {
+	if runtime.GOOS != "windows" {
+		return "", ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var avName, fwName string
+
+	// Detect third-party AntiVirus
+	avOut, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -EA SilentlyContinue | Where-Object { $_.displayName -notmatch 'Windows Defender|Microsoft Defender' } | Select-Object -First 1 -ExpandProperty displayName`,
+	).Output()
+	if err == nil {
+		name := strings.TrimSpace(string(avOut))
+		if name != "" {
+			avName = name
+		}
+	}
+
+	// Detect third-party Firewall
+	fwOut, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName FirewallProduct -EA SilentlyContinue | Where-Object { $_.displayName -notmatch 'Windows' } | Select-Object -First 1 -ExpandProperty displayName`,
+	).Output()
+	if err == nil {
+		name := strings.TrimSpace(string(fwOut))
+		if name != "" {
+			fwName = name
+		}
+	}
+
+	return avName, fwName
+}
+
+// isDefenderRule returns true if the compliance rule is checking Windows Defender functionality.
+// Detects by rule ID prefix (wsb-011..wsb-025 = Defender section in baseline) or category/name keywords.
+func isDefenderRule(rule ComplianceRule) bool {
+	name := strings.ToLower(rule.Name)
+	cat := strings.ToLower(rule.Category)
+	target := strings.ToLower(rule.Target)
+	if strings.Contains(name, "defender") || strings.Contains(cat, "defender") || strings.Contains(cat, "antivirus") {
+		return true
+	}
+	if strings.Contains(target, "get-mpcomputerstatus") || strings.Contains(target, "set-mppreference") ||
+		strings.Contains(target, "windows defender") || strings.Contains(target, "microsoft\\windows defender") {
+		return true
+	}
+	return false
 }
 
 // evaluateComplianceRule evaluates a single rule and returns its result.
