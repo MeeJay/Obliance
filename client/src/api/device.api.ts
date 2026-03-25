@@ -25,7 +25,7 @@ export const deviceApi = {
     return Array.isArray(data) ? data : (data?.items ?? []);
   },
   async listPaginated(params?: {
-    groupId?: number; status?: string; search?: string;
+    groupId?: number; includeSubgroups?: boolean; status?: string; search?: string;
     approvalStatus?: string; osType?: string; page?: number; pageSize?: number;
     sortBy?: string; sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {

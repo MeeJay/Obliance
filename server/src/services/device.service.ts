@@ -92,7 +92,7 @@ class DeviceService {
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
   async getDevices(tenantId: number, filters?: {
-    groupId?: number; status?: string; approvalStatus?: string;
+    groupId?: number; includeSubgroups?: boolean; status?: string; approvalStatus?: string;
     search?: string; osType?: string; page?: number; pageSize?: number;
     sortBy?: string; sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
@@ -104,7 +104,18 @@ class DeviceService {
       .where({ 'devices.tenant_id': tenantId });
     // Never show pending_uninstall devices in normal listings
     q = q.whereNot({ 'devices.status': 'pending_uninstall' });
-    if (filters?.groupId) q = q.where({ 'devices.group_id': filters.groupId });
+    if (filters?.groupId) {
+      if (filters.includeSubgroups) {
+        // Include devices from all descendant groups via closure table
+        const descendants = await db('device_group_closure')
+          .where('ancestor_id', filters.groupId)
+          .select('descendant_id');
+        const allGroupIds = [filters.groupId, ...descendants.map((d: any) => d.descendant_id)];
+        q = q.whereIn('devices.group_id', allGroupIds);
+      } else {
+        q = q.where({ 'devices.group_id': filters.groupId });
+      }
+    }
     if (filters?.status) q = q.where({ 'devices.status': filters.status });
     if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
     if (filters?.approvalStatus === 'suspended') {

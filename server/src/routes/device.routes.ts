@@ -13,13 +13,15 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, status, approvalStatus, search, osType, page, pageSize } = req.query as any;
+    const { groupId, includeSubgroups, status, approvalStatus, search, osType, page, pageSize, sortBy, sortOrder } = req.query as any;
 
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
+      includeSubgroups: includeSubgroups === 'true',
       status, approvalStatus, search, osType,
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
+      sortBy, sortOrder,
     });
 
     // Filter by visible devices for non-admins

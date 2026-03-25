@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
@@ -77,6 +77,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
         osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
         groupId: groupId ?? undefined,
+        includeSubgroups: groupId ? true : undefined,
         approvalStatus: approvalFilter || undefined,
         page,
         pageSize,
@@ -345,17 +346,37 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             </div>
           )}
           <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-            {devices.map(device => (
-              <DeviceRow
-                key={device.id}
-                device={device}
-                mode={mode}
-                isSelected={selectedIds.has(device.id)}
-                onSelect={toggleSelect}
-                onNavigate={id => navigate(`/devices/${id}`)}
-                onGroupClick={onGroupChange}
-              />
-            ))}
+            {(() => {
+              // Group devices by groupName when filtering by a parent group
+              if (groupId && devices.some(d => d.groupId !== groupId)) {
+                const grouped = new Map<string, Device[]>();
+                for (const d of devices) {
+                  const key = (d as any).groupName ?? 'Ungrouped';
+                  if (!grouped.has(key)) grouped.set(key, []);
+                  grouped.get(key)!.push(d);
+                }
+                return [...grouped.entries()].map(([gName, gDevices]) => (
+                  <div key={gName}>
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border sticky top-0 z-10">
+                      <FolderOpen className="w-3.5 h-3.5 text-accent" />
+                      <span className="text-xs font-semibold text-text-primary">{gName}</span>
+                      <span className="text-[10px] text-text-muted">({gDevices.length})</span>
+                    </div>
+                    {gDevices.map(device => (
+                      <DeviceRow key={device.id} device={device} mode={mode}
+                        isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+                        onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange} />
+                    ))}
+                  </div>
+                ));
+              }
+              // Flat list (no group filter or single group)
+              return devices.map(device => (
+                <DeviceRow key={device.id} device={device} mode={mode}
+                  isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+                  onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange} />
+              ));
+            })()}
           </div>
         </div>
       )}

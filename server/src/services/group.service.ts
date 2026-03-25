@@ -229,9 +229,37 @@ export const groupService = {
     const allGroups = await this.getAll(tenantId);
     const groupMap = new Map<number, DeviceGroupTreeNode>();
 
-    // Initialize nodes
+    // Count devices per group (direct members only)
+    const countRows = await db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .whereNotNull('group_id')
+      .groupBy('group_id')
+      .select('group_id', db.raw('count(*) as total'))
+      .select(
+        db.raw("count(*) filter (where status = 'online') as online_count"),
+        db.raw("count(*) filter (where status = 'offline') as offline_count"),
+        db.raw("count(*) filter (where status = 'warning') as warning_count"),
+        db.raw("count(*) filter (where status = 'critical') as critical_count"),
+      );
+    const directCounts = new Map<number, { total: number; online: number; offline: number; warning: number; critical: number }>();
+    for (const row of countRows) {
+      directCounts.set(row.group_id, {
+        total: parseInt(row.total), online: parseInt(row.online_count),
+        offline: parseInt(row.offline_count), warning: parseInt(row.warning_count),
+        critical: parseInt(row.critical_count),
+      });
+    }
+
+    // Initialize nodes with direct counts
     for (const g of allGroups) {
-      groupMap.set(g.id, { ...g, children: [] });
+      const dc = directCounts.get(g.id) ?? { total: 0, online: 0, offline: 0, warning: 0, critical: 0 };
+      groupMap.set(g.id, {
+        ...g, children: [],
+        deviceCount: dc.total, total: dc.total,
+        onlineCount: dc.online, offlineCount: dc.offline,
+        warningCount: dc.warning, criticalCount: dc.critical,
+      });
     }
 
     // Build tree
@@ -243,6 +271,30 @@ export const groupService = {
         roots.push(node);
       }
     }
+
+    // Accumulate counts from children (bottom-up)
+    function accumulate(node: DeviceGroupTreeNode): { total: number; online: number; offline: number; warning: number; critical: number } {
+      let totals = {
+        total: node.deviceCount ?? 0, online: node.onlineCount ?? 0,
+        offline: node.offlineCount ?? 0, warning: node.warningCount ?? 0,
+        critical: node.criticalCount ?? 0,
+      };
+      for (const child of node.children) {
+        const childTotals = accumulate(child);
+        totals.total += childTotals.total;
+        totals.online += childTotals.online;
+        totals.offline += childTotals.offline;
+        totals.warning += childTotals.warning;
+        totals.critical += childTotals.critical;
+      }
+      node.total = totals.total;
+      node.onlineCount = totals.online;
+      node.offlineCount = totals.offline;
+      node.warningCount = totals.warning;
+      node.criticalCount = totals.critical;
+      return totals;
+    }
+    for (const root of roots) accumulate(root);
 
     return roots;
   },
