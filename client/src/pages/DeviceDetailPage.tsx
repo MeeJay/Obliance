@@ -6,7 +6,7 @@ import {
   Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
+  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
   ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
@@ -1650,8 +1650,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
     setTimeout(() => autoSave(), 0);
   };
 
-  // handleSave kept as alias for autoSave (for any remaining references)
-  const handleSave = () => autoSave();
+
 
   const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
   const cardCls  = 'p-5 bg-bg-secondary border border-border rounded-xl space-y-4';
