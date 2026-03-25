@@ -145,6 +145,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "check_compliance":
 		result, execErr = d.handleCheckCompliance(cmd)
 
+	case "remediate_rule":
+		result, execErr = d.handleRemediateRule(cmd)
+
 	case "open_remote_tunnel":
 		result, execErr = d.handleOpenRemoteTunnel(cmd)
 
@@ -404,6 +407,7 @@ type ComplianceRule struct {
 	Operator              string      `json:"operator"` // eq|neq|gt|lt|contains|not_contains|exists|not_exists|regex
 	Severity              string      `json:"severity"`
 	AutoRemediateScriptId interface{} `json:"autoRemediateScriptId"`
+	RemediationScript     string      `json:"remediationScript,omitempty"`
 }
 
 // ComplianceRuleResult mirrors the shared ComplianceRuleResult TypeScript type.
@@ -502,6 +506,50 @@ func (d *CommandDispatcher) handleCheckCompliance(cmd AgentCommand) (interface{}
 		"failed":   evaluated - passed,
 		"total":    len(results),
 		"platform": runtime.GOOS,
+	}, nil
+}
+
+// handleRemediateRule executes an inline remediation script for a single compliance rule.
+func (d *CommandDispatcher) handleRemediateRule(cmd AgentCommand) (interface{}, error) {
+	if cmd.Payload == nil {
+		return nil, fmt.Errorf("no payload")
+	}
+	script, _ := cmd.Payload["script"].(string)
+	if script == "" {
+		return nil, fmt.Errorf("empty remediation script")
+	}
+	ruleId, _ := cmd.Payload["ruleId"].(string)
+	runtimeStr, _ := cmd.Payload["runtime"].(string)
+	if runtimeStr == "" {
+		if runtime.GOOS == "windows" {
+			runtimeStr = "powershell"
+		} else {
+			runtimeStr = "bash"
+		}
+	}
+
+	log.Printf("Compliance: remediating rule %s with inline script (%s)", ruleId, runtimeStr)
+
+	result, err := ExecuteScript(ScriptCommand{
+		ID:             "remediate-" + ruleId,
+		Runtime:        runtimeStr,
+		Content:        script,
+		TimeoutSeconds: 120,
+	})
+	if err != nil {
+		return map[string]interface{}{
+			"ruleId":  ruleId,
+			"success": false,
+			"error":   err.Error(),
+		}, err
+	}
+
+	return map[string]interface{}{
+		"ruleId":   ruleId,
+		"success":  result.ExitCode == 0,
+		"exitCode": result.ExitCode,
+		"stdout":   result.Stdout,
+		"stderr":   result.Stderr,
 	}, nil
 }
 
@@ -1343,6 +1391,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleInstallUpdates(cmd)
 	case "check_compliance":
 		return d.handleCheckCompliance(cmd)
+	case "remediate_rule":
+		return d.handleRemediateRule(cmd)
 	case "list_wts_sessions":
 		return d.handleListWtsSessions(cmd)
 	case "list_processes":

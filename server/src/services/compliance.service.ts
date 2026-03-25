@@ -287,6 +287,73 @@ class ComplianceService {
     ];
   }
 
+  // ─── Ignore rules ───────────────────────────────────────────────────────────
+  async getIgnoredRules(deviceId: number, policyId: number, tenantId: number): Promise<string[]> {
+    const rows = await db('compliance_ignored_rules')
+      .where({ device_id: deviceId, policy_id: policyId, tenant_id: tenantId })
+      .select('rule_id');
+    return rows.map((r: any) => r.rule_id);
+  }
+
+  async getIgnoredRulesForDevice(deviceId: number, tenantId: number): Promise<Record<number, string[]>> {
+    const rows = await db('compliance_ignored_rules')
+      .where({ device_id: deviceId, tenant_id: tenantId })
+      .select('policy_id', 'rule_id');
+    const result: Record<number, string[]> = {};
+    for (const r of rows) {
+      if (!result[r.policy_id]) result[r.policy_id] = [];
+      result[r.policy_id].push(r.rule_id);
+    }
+    return result;
+  }
+
+  async ignoreRules(deviceId: number, policyId: number, ruleIds: string[], tenantId: number, userId: number) {
+    const rows = ruleIds.map(ruleId => ({
+      tenant_id: tenantId, device_id: deviceId, policy_id: policyId,
+      rule_id: ruleId, ignored_by: userId,
+    }));
+    await db('compliance_ignored_rules')
+      .insert(rows)
+      .onConflict(['device_id', 'policy_id', 'rule_id'])
+      .ignore();
+  }
+
+  async unignoreRules(deviceId: number, policyId: number, ruleIds: string[], tenantId: number) {
+    await db('compliance_ignored_rules')
+      .where({ device_id: deviceId, policy_id: policyId, tenant_id: tenantId })
+      .whereIn('rule_id', ruleIds)
+      .delete();
+  }
+
+  // ─── Remediate ──────────────────────────────────────────────────────────────
+  async triggerRemediation(
+    deviceId: number, policyId: number, ruleIds: string[],
+    tenantId: number, createdBy: number,
+  ) {
+    const policy = await this.getPolicyById(policyId, tenantId);
+    if (!policy) throw new Error('Policy not found');
+
+    // Find matching rules with remediationScript
+    const rulesToRemediate = policy.rules.filter(
+      r => ruleIds.includes(r.id) && r.remediationScript
+    );
+    if (rulesToRemediate.length === 0) throw new Error('No remediable rules found');
+
+    // Enqueue one command per rule (keeps granular ACK tracking)
+    const cmds = await Promise.all(rulesToRemediate.map(rule =>
+      commandService.enqueue({
+        deviceId, tenantId, type: 'remediate_rule',
+        payload: {
+          policyId, ruleId: rule.id, ruleName: rule.name,
+          script: rule.remediationScript,
+          runtime: rule.targetPlatform === 'windows' ? 'powershell' : 'bash',
+        },
+        priority: 'normal', expiresInSeconds: 300, createdBy,
+      })
+    ));
+    return cmds;
+  }
+
   // ─── Config Templates ─────────────────────────────────────────────────────
   async getTemplates(tenantId: number): Promise<ConfigTemplate[]> {
     const rows = await db('config_templates')

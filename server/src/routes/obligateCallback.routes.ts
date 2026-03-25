@@ -8,6 +8,117 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
+// ── Desktop SSO flow (for Oblireach client-app) ──────────────────────────────
+// In-memory store for pending desktop SSO requests (5-min TTL).
+const desktopSsoRequests = new Map<string, {
+  state: string;
+  callbackUrl: string;
+  createdAt: number;
+}>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, r] of desktopSsoRequests) {
+    if (now - r.createdAt > 5 * 60 * 1000) desktopSsoRequests.delete(id);
+  }
+}, 5 * 60 * 1000).unref();
+
+/**
+ * Shared: provision or sync a user from an Obligate assertion.
+ * Creates session fields on req.session.
+ * Returns the local user ID.
+ */
+async function provisionObligateUser(assertion: import('../services/obligate.service').ObligateUserAssertion, req: any): Promise<number> {
+  let localUserId: number;
+
+  if (assertion.linkedLocalUserId) {
+    localUserId = assertion.linkedLocalUserId;
+    await db('users').where({ id: localUserId }).update({
+      role: assertion.role === 'admin' ? 'admin' : 'user',
+      email: assertion.email,
+      display_name: assertion.displayName,
+      updated_at: new Date(),
+    });
+  } else {
+    const existingLink = await db('sso_foreign_users')
+      .where({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId })
+      .first() as { local_user_id: number } | undefined;
+
+    if (existingLink) {
+      localUserId = existingLink.local_user_id;
+      await db('users').where({ id: localUserId }).update({
+        role: assertion.role === 'admin' ? 'admin' : 'user',
+        email: assertion.email,
+        display_name: assertion.displayName,
+        updated_at: new Date(),
+      });
+    } else {
+      const [newUser] = await db('users')
+        .insert({
+          username: `og_${assertion.username}`,
+          display_name: assertion.displayName || assertion.username,
+          email: assertion.email,
+          role: assertion.role === 'admin' ? 'admin' : 'user',
+          is_active: true,
+          foreign_source: 'obligate',
+          foreign_id: assertion.obligateUserId,
+        })
+        .returning('id') as Array<{ id: number }>;
+      localUserId = newUser.id;
+
+      await db('sso_foreign_users').insert({
+        foreign_source: 'obligate',
+        foreign_user_id: assertion.obligateUserId,
+        local_user_id: localUserId,
+      });
+
+      for (const t of assertion.tenants) {
+        const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
+        if (tenant) {
+          await db('user_tenants')
+            .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
+            .onConflict(['user_id', 'tenant_id'])
+            .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
+        }
+      }
+
+      obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
+    }
+  }
+
+  // Sync preferences
+  if (assertion.preferences) {
+    const prefUpdate: Record<string, unknown> = {};
+    if (assertion.preferences.preferredLanguage) prefUpdate.preferred_language = assertion.preferences.preferredLanguage;
+    if (Object.keys(prefUpdate).length > 0) {
+      await db('users').where({ id: localUserId }).update(prefUpdate);
+    }
+    const uiPrefs: Record<string, unknown> = {};
+    if (assertion.preferences.preferredTheme) uiPrefs.preferredTheme = assertion.preferences.preferredTheme;
+    if (assertion.preferences.toastEnabled !== undefined) uiPrefs.toastEnabled = assertion.preferences.toastEnabled;
+    if (assertion.preferences.toastPosition) uiPrefs.toastPosition = assertion.preferences.toastPosition;
+    if (assertion.preferences.anonymousMode !== undefined) uiPrefs.anonymousMode = assertion.preferences.anonymousMode;
+    if (Object.keys(uiPrefs).length > 0) {
+      const existingRow = await db('users').where({ id: localUserId }).select('preferences').first() as { preferences: unknown } | undefined;
+      const existing = (typeof existingRow?.preferences === 'string' ? JSON.parse(existingRow.preferences) : existingRow?.preferences) ?? {};
+      await db('users').where({ id: localUserId }).update({
+        preferences: JSON.stringify({ ...existing, ...uiPrefs }),
+      });
+    }
+  }
+
+  // Set session
+  req.session.userId = localUserId;
+  const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
+  if (user) {
+    req.session.username = user.username;
+    req.session.role = user.role;
+  }
+  const tenant = await tenantService.getFirstTenantForUser(localUserId);
+  req.session.currentTenantId = tenant?.id ?? 1;
+
+  return localUserId;
+}
+
 /**
  * GET /auth/callback?code=xxx&state=xxx
  * Called by Obligate after successful authentication.
@@ -46,104 +157,8 @@ router.get('/callback', async (req, res) => {
     }
     logger.info({ obligateUserId: assertion.obligateUserId, username: assertion.username }, 'Obligate callback: exchange OK');
 
-    // Find or create local user
-    let localUserId: number;
-
-    if (assertion.linkedLocalUserId) {
-      // Obligate already knows our local user ID (previously linked)
-      localUserId = assertion.linkedLocalUserId;
-      // Sync role/email from Obligate assertion
-      await db('users').where({ id: localUserId }).update({
-        role: assertion.role === 'admin' ? 'admin' : 'user',
-        email: assertion.email,
-        display_name: assertion.displayName,
-        updated_at: new Date(),
-      });
-    } else {
-      // Check sso_foreign_users for existing link
-      const existingLink = await db('sso_foreign_users')
-        .where({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId })
-        .first() as { local_user_id: number } | undefined;
-
-      if (existingLink) {
-        localUserId = existingLink.local_user_id;
-        await db('users').where({ id: localUserId }).update({
-          role: assertion.role === 'admin' ? 'admin' : 'user',
-          email: assertion.email,
-          display_name: assertion.displayName,
-          updated_at: new Date(),
-        });
-      } else {
-        // Create new local user (foreign_source='obligate', no password)
-        const [newUser] = await db('users')
-          .insert({
-            username: `og_${assertion.username}`,
-            display_name: assertion.displayName || assertion.username,
-            email: assertion.email,
-            role: assertion.role === 'admin' ? 'admin' : 'user',
-            is_active: true,
-            foreign_source: 'obligate',
-            foreign_id: assertion.obligateUserId,
-          })
-          .returning('id') as Array<{ id: number }>;
-        localUserId = newUser.id;
-
-        // Record in sso_foreign_users
-        await db('sso_foreign_users').insert({
-          foreign_source: 'obligate',
-          foreign_user_id: assertion.obligateUserId,
-          local_user_id: localUserId,
-        });
-
-        // Auto-assign to tenants based on Obligate assertion
-        for (const t of assertion.tenants) {
-          const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
-          if (tenant) {
-            await db('user_tenants')
-              .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
-              .onConflict(['user_id', 'tenant_id'])
-              .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
-          }
-        }
-
-        // Report back to Obligate
-        obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
-      }
-    }
-
-    // Sync preferences from Obligate (theme, language, toast settings)
-    if (assertion.preferences) {
-      const prefUpdate: Record<string, unknown> = {};
-      if (assertion.preferences.preferredLanguage) prefUpdate.preferred_language = assertion.preferences.preferredLanguage;
-      if (Object.keys(prefUpdate).length > 0) {
-        await db('users').where({ id: localUserId }).update(prefUpdate);
-      }
-      const uiPrefs: Record<string, unknown> = {};
-      if (assertion.preferences.preferredTheme) uiPrefs.preferredTheme = assertion.preferences.preferredTheme;
-      if (assertion.preferences.toastEnabled !== undefined) uiPrefs.toastEnabled = assertion.preferences.toastEnabled;
-      if (assertion.preferences.toastPosition) uiPrefs.toastPosition = assertion.preferences.toastPosition;
-      if (assertion.preferences.anonymousMode !== undefined) uiPrefs.anonymousMode = assertion.preferences.anonymousMode;
-      if (Object.keys(uiPrefs).length > 0) {
-        const existingRow = await db('users').where({ id: localUserId }).select('preferences').first() as { preferences: unknown } | undefined;
-        const existing = (typeof existingRow?.preferences === 'string' ? JSON.parse(existingRow.preferences) : existingRow?.preferences) ?? {};
-        await db('users').where({ id: localUserId }).update({
-          preferences: JSON.stringify({ ...existing, ...uiPrefs }),
-        });
-      }
-    }
-
-    // Establish session
-    req.session.userId = localUserId;
-    const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
-    if (user) {
-      req.session.username = user.username;
-      req.session.role = user.role;
-    }
-
-    // Set tenant
-    const tenant = await tenantService.getFirstTenantForUser(localUserId);
-    req.session.currentTenantId = tenant?.id ?? 1;
-
+    // Provision user and create session
+    const localUserId = await provisionObligateUser(assertion, req);
     logger.info(`Obligate SSO: user ${assertion.username} (obligate #${assertion.obligateUserId}) → local #${localUserId}`);
 
     // Save session, then redirect via HTML meta refresh to ensure Set-Cookie header
@@ -382,6 +397,112 @@ router.get('/device-links', async (req, res) => {
     res.json({ success: true, data: links });
   } catch {
     res.json({ success: true, data: [] });
+  }
+});
+
+// ── Desktop SSO endpoints (for Oblireach client-app) ─────────────────────────
+
+/**
+ * POST /api/auth/sso-desktop-init
+ * Initiates the desktop OAuth flow.
+ * Body: { localCallbackUrl: "http://127.0.0.1:{port}/sso/callback" }
+ * Returns: { requestId, authorizeUrl }
+ */
+router.post('/sso-desktop-init', async (req, res) => {
+  try {
+    const { localCallbackUrl } = req.body as { localCallbackUrl?: string };
+    if (!localCallbackUrl) {
+      res.status(400).json({ success: false, error: 'Missing localCallbackUrl' });
+      return;
+    }
+
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.url || !raw.apiKey) {
+      res.status(503).json({ success: false, error: 'SSO not configured' });
+      return;
+    }
+
+    // Verify Obligate is reachable
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const healthRes = await fetch(`${raw.url}/health`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!healthRes.ok) { res.status(503).json({ success: false, error: 'Obligate unreachable' }); return; }
+    } catch {
+      res.status(503).json({ success: false, error: 'Obligate unreachable' });
+      return;
+    }
+
+    const requestId = crypto.randomUUID();
+    const state = crypto.randomBytes(32).toString('hex');
+
+    desktopSsoRequests.set(requestId, { state, callbackUrl: localCallbackUrl, createdAt: Date.now() });
+
+    const authorizeUrl = `${raw.url}/authorize?client_id=${encodeURIComponent(raw.apiKey)}&redirect_uri=${encodeURIComponent(localCallbackUrl)}&state=${encodeURIComponent(state)}`;
+
+    logger.info({ requestId, localCallbackUrl }, 'Desktop SSO: init');
+    res.json({ success: true, data: { requestId, authorizeUrl } });
+  } catch (err) {
+    logger.error(err, 'sso-desktop-init error');
+    res.status(500).json({ success: false, error: 'Internal error' });
+  }
+});
+
+/**
+ * POST /api/auth/sso-desktop-complete
+ * Completes the desktop OAuth flow: exchanges code, provisions user, creates session.
+ * Body: { requestId, code, state }
+ * Returns: { success: true } with session cookie set.
+ */
+router.post('/sso-desktop-complete', async (req, res) => {
+  try {
+    const { requestId, code, state } = req.body as { requestId?: string; code?: string; state?: string };
+    if (!requestId || !code || !state) {
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
+    }
+
+    const pending = desktopSsoRequests.get(requestId);
+    if (!pending) {
+      res.status(400).json({ success: false, error: 'Invalid or expired request' });
+      return;
+    }
+
+    if (state !== pending.state) {
+      desktopSsoRequests.delete(requestId);
+      res.status(400).json({ success: false, error: 'State mismatch' });
+      return;
+    }
+
+    desktopSsoRequests.delete(requestId);
+
+    if (Date.now() - pending.createdAt > 5 * 60 * 1000) {
+      res.status(400).json({ success: false, error: 'Request expired' });
+      return;
+    }
+
+    // Exchange code with Obligate using the stored callback URL as redirect_uri
+    const assertion = await obligateService.exchangeCode(code, pending.callbackUrl);
+    if (!assertion) {
+      res.status(400).json({ success: false, error: 'Code exchange failed' });
+      return;
+    }
+
+    const localUserId = await provisionObligateUser(assertion, req);
+    logger.info(`Desktop SSO: user ${assertion.username} (obligate #${assertion.obligateUserId}) → local #${localUserId}`);
+
+    req.session.save((err) => {
+      if (err) {
+        logger.error(err, 'Desktop SSO: session save failed');
+        res.status(500).json({ success: false, error: 'Session save failed' });
+        return;
+      }
+      res.json({ success: true });
+    });
+  } catch (err) {
+    logger.error(err, 'sso-desktop-complete error');
+    res.status(500).json({ success: false, error: 'Internal error' });
   }
 });
 

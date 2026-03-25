@@ -152,6 +152,75 @@ router.get('/overview', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /compliance/remediate — trigger remediation on failing rules
+router.post('/remediate', async (req, res, next) => {
+  try {
+    const { deviceId, policyId, ruleIds } = req.body;
+    if (!deviceId || !policyId || !ruleIds?.length) {
+      return res.status(400).json({ error: 'deviceId, policyId, ruleIds required' });
+    }
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+    }
+    const cmds = await complianceService.triggerRemediation(
+      parseInt(deviceId), parseInt(policyId), ruleIds,
+      req.tenantId!, req.session.userId!
+    );
+    res.json({ data: cmds });
+  } catch (err) { next(err); }
+});
+
+// POST /compliance/ignore — ignore rules on a device
+router.post('/ignore', async (req, res, next) => {
+  try {
+    const { deviceId, policyId, ruleIds } = req.body;
+    if (!deviceId || !policyId || !ruleIds?.length) {
+      return res.status(400).json({ error: 'deviceId, policyId, ruleIds required' });
+    }
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+    }
+    await complianceService.ignoreRules(
+      parseInt(deviceId), parseInt(policyId), ruleIds,
+      req.tenantId!, req.session.userId!
+    );
+    res.json({ data: { ok: true } });
+  } catch (err) { next(err); }
+});
+
+// POST /compliance/unignore — remove ignore on rules
+router.post('/unignore', async (req, res, next) => {
+  try {
+    const { deviceId, policyId, ruleIds } = req.body;
+    if (!deviceId || !policyId || !ruleIds?.length) {
+      return res.status(400).json({ error: 'deviceId, policyId, ruleIds required' });
+    }
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, parseInt(deviceId), false);
+      if (!canWrite) throw new AppError(403, 'Insufficient permissions');
+    }
+    await complianceService.unignoreRules(
+      parseInt(deviceId), parseInt(policyId), ruleIds, req.tenantId!
+    );
+    res.json({ data: { ok: true } });
+  } catch (err) { next(err); }
+});
+
+// GET /compliance/ignored/:deviceId — get all ignored rules for a device
+router.get('/ignored/:deviceId', async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.deviceId);
+    if (req.session.role !== 'admin') {
+      const canRead = await permissionService.canReadDevice(req.session.userId!, deviceId, false);
+      if (!canRead) throw new AppError(403, 'Insufficient permissions');
+    }
+    const ignored = await complianceService.getIgnoredRulesForDevice(deviceId, req.tenantId!);
+    res.json({ data: ignored });
+  } catch (err) { next(err); }
+});
+
 // GET /compliance/presets — built-in preset policies (static, no DB)
 router.get('/presets', async (_req, res, next) => {
   try {

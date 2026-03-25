@@ -282,7 +282,8 @@ export type CommandType =
   | 'rename_file'
   | 'delete_file'
   | 'download_file'
-  | 'upload_file';
+  | 'upload_file'
+  | 'remediate_rule';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -642,6 +643,8 @@ export interface ComplianceRule {
   operator: ComplianceOperator;
   severity: CheckSeverity;
   autoRemediateScriptId: number | null;
+  /** Inline remediation script — executed by the agent to fix a failing rule */
+  remediationScript?: string;
   /** Minimum OS version required for this rule to apply (e.g. "Windows 10 1607", "macOS 12", "Ubuntu 20.04"). Agent skips rule if OS is older. */
   minOsVersion?: string;
 }
@@ -679,6 +682,7 @@ export interface ComplianceRuleResult {
   actualValue: any;
   checkedAt: string;
   remediationTriggered: boolean;
+  ignored?: boolean;
 }
 
 export interface ComplianceResult {

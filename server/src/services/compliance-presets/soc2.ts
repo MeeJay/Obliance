@@ -16,6 +16,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'low',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeText' -Value 'Authorized access only. All activity is monitored.' -Type String",
   }),
   r('soc2-CC1-2', {
     name: 'Titre de notice légale — titre du message de connexion configuré [CC1.1]',
@@ -26,6 +27,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'low',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeCaption' -Value 'Security Notice' -Type String",
   }),
   r('soc2-CC1-3', {
     name: 'Structure organisationnelle — UAC applique la hiérarchie d\'autorité [CC1.3]',
@@ -36,6 +38,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('soc2-CC1-4', {
     name: 'Compétences requises — groupe Administrators limité aux comptes nécessaires [CC1.4]',
@@ -56,6 +59,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
 
   // ─── CC2 — Communication et information ──────────────────────────────────────
@@ -69,6 +73,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-Service -Name EventLog -StartupType Automatic; Start-Service -Name EventLog',
   }),
   r('soc2-CC2-2', {
     name: 'Politiques communiquées — message légal affiché aux utilisateurs [CC2.2]',
@@ -79,6 +84,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'low',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeText' -Value 'Authorized access only. All activity is monitored.' -Type String",
   }),
   r('soc2-CC2-3', {
     name: 'Communication externe — NTP configuré pour horodatage cohérent [CC2.3]',
@@ -89,6 +95,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name W32Time -StartupType Automatic; Start-Service -Name W32Time',
   }),
 
   // ─── CC3 — Évaluation des risques ────────────────────────────────────────────
@@ -102,6 +109,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('soc2-CC3-2', {
     name: 'Gestion des risques — mises à jour automatiques activées [CC3.2]',
@@ -112,6 +120,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'NoAutoUpdate' -Value 0 -Type DWord",
   }),
   r('soc2-CC3-3', {
     name: 'Analyse des fraudes — audit des changements de stratégie activé [CC3.3]',
@@ -122,6 +131,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
   r('soc2-CC3-4', {
     name: 'Changements significatifs — service Windows Update actif (détection des patchs) [CC3.4]',
@@ -132,6 +142,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name wuauserv -StartupType Automatic; Start-Service -Name wuauserv',
   }),
 
   // ─── CC4 — Activités de surveillance ─────────────────────────────────────────
@@ -145,6 +156,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '196608',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'wevtutil sl Security /ms:209715200',
   }),
   r('soc2-CC4-2', {
     name: 'Déficiences communiquées — audit des modifications de comptes activé [CC4.2]',
@@ -155,6 +167,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
 
   // ─── CC5 — Activités de contrôle ─────────────────────────────────────────────
@@ -168,6 +181,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('soc2-CC5-2', {
     name: 'Contrôles généraux IT — pare-feu actif sur tous les profils [CC5.2]',
@@ -178,6 +192,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled True',
   }),
   r('soc2-CC5-3', {
     name: 'Procédures déployées — SmartScreen activé (protection applicative) [CC5.3]',
@@ -188,6 +203,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'EnableSmartScreen' -Value 1 -Type DWord",
   }),
 
   // ─── CC6 — Contrôles d\'accès logique et physique ─────────────────────────────
@@ -201,6 +217,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('soc2-CC6-2', {
     name: 'Accès privilégié géré — compte Administrateur intégré désactivé [CC6.2]',
@@ -211,6 +228,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-LocalUser -Name "Administrator"',
   }),
   r('soc2-CC6-3', {
     name: 'Accès révoqué — comptes inactifs (>90 jours) désactivés [CC6.3]',
@@ -221,6 +239,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.LastLogon -lt (Get-Date).AddDays(-90) -and $_.LastLogon -ne $null } | Disable-LocalUser',
   }),
   r('soc2-CC6-4', {
     name: 'Accès physique — verrouillage de session automatique configuré [CC6.4]',
@@ -231,6 +250,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '900',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '600' -Type String; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveActive' -Value '1' -Type String",
   }),
   r('soc2-CC6-4-b', {
     name: 'Accès physique — économiseur d\'écran protégé par mot de passe [CC6.4]',
@@ -241,6 +261,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '1' -Type String",
   }),
   r('soc2-CC6-5', {
     name: 'Authentification multifacteur — NLA requis pour RDP [CC6.5]',
@@ -251,6 +272,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name 'UserAuthentication' -Value 1 -Type DWord",
   }),
   r('soc2-CC6-6', {
     name: 'Connexions réseau filtrées — pare-feu actif (3 profils) [CC6.6]',
@@ -261,6 +283,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled True',
   }),
   r('soc2-CC6-7', {
     name: 'Transmissions restreintes — TLS 1.0 désactivé [CC6.7]',
@@ -271,6 +294,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('soc2-CC6-7-b', {
     name: 'Transmissions restreintes — TLS 1.1 désactivé [CC6.7]',
@@ -281,6 +305,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('soc2-CC6-7-c', {
     name: 'Transmissions restreintes — TLS 1.2 activé [CC6.7]',
@@ -291,6 +316,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'Enabled' -Value 1 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'DisabledByDefault' -Value 0 -Type DWord",
   }),
   r('soc2-CC6-8', {
     name: 'Logiciels non autorisés prévenus — AppLocker/WDAC configuré [CC6.8]',
@@ -301,6 +327,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name AppIDSvc -StartupType Automatic; Start-Service -Name AppIDSvc',
   }),
   r('soc2-CC6-8-b', {
     name: 'Logiciels non autorisés prévenus — SMBv1 désactivé [CC6.8]',
@@ -311,6 +338,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force',
   }),
 
   // ─── CC7 — Opérations système ─────────────────────────────────────────────────
@@ -324,6 +352,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('soc2-CC7-2', {
     name: 'Menaces surveillées — protection en temps réel Defender active [CC7.2]',
@@ -334,6 +363,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('soc2-CC7-3', {
     name: 'Réponse aux incidents — journal des événements de sécurité actif [CC7.3]',
@@ -344,6 +374,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'wevtutil sl Security /e:true',
   }),
   r('soc2-CC7-4', {
     name: 'Incidents enregistrés — audit des connexions activé (Success and Failure) [CC7.4]',
@@ -354,6 +385,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('soc2-CC7-5', {
     name: 'Journaux d\'événements — taille du journal de sécurité ≥ 192 Mo [CC7.5]',
@@ -364,6 +396,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '196608',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'wevtutil sl Security /ms:209715200',
   }),
   r('soc2-CC7-6', {
     name: 'Journalisation des événements de sécurité — activée [CC7.6]',
@@ -374,6 +407,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'wevtutil sl Security /e:true',
   }),
   r('soc2-CC7-7', {
     name: 'Audit de connexion — réussies et échouées activé [CC7.7]',
@@ -384,6 +418,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('soc2-CC7-8', {
     name: 'Audit de gestion des comptes — activé [CC7.8]',
@@ -394,6 +429,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
   r('soc2-CC7-9', {
     name: 'Windows Event Forwarding — service WecSvc actif (centralisation des logs) [CC7.9]',
@@ -404,6 +440,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name WecSvc -StartupType Automatic; Start-Service -Name WecSvc',
   }),
   r('soc2-CC7-9-b', {
     name: 'PowerShell Script Block Logging — activé pour audit des scripts [CC7.9]',
@@ -414,6 +451,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1 -Type DWord",
   }),
 
   // ─── CC8 — Gestion des changements ───────────────────────────────────────────
@@ -427,6 +465,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name wuauserv -StartupType Automatic; Start-Service -Name wuauserv',
   }),
   r('soc2-CC8-2', {
     name: 'Modifications autorisées — signature de pilotes imposée [CC8.2]',
@@ -437,6 +476,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'bcdedit /deletevalue {current} nointegritychecks; bcdedit /set {current} testsigning off',
   }),
   r('soc2-CC8-3', {
     name: 'Tests de sécurité avant déploiement — Defender à jour (signatures récentes) [CC8.3]',
@@ -447,6 +487,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '7',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'Update-MpSignature',
   }),
   r('soc2-CC8-4', {
     name: 'Changements d\'urgence documentés — audit de stratégie activé [CC8.4]',
@@ -457,6 +498,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
 
   // ─── CC9 — Atténuation des risques ───────────────────────────────────────────
@@ -470,6 +512,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -EnableNetworkProtection Enabled',
   }),
   r('soc2-CC9-2', {
     name: 'Risques fournisseurs gérés — pare-feu profil Public bloque le trafic entrant [CC9.2]',
@@ -480,6 +523,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Block',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -DefaultInboundAction Block',
   }),
 
   // ─── A1 — Disponibilité ───────────────────────────────────────────────────────
@@ -493,6 +537,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name Winmgmt -StartupType Automatic; Start-Service -Name Winmgmt',
   }),
   r('soc2-A1-2', {
     name: 'Plan de reprise — service de sauvegarde Windows Engine configuré [A1.2]',
@@ -503,6 +548,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name wbengine -StartupType Manual',
   }),
   r('soc2-A1-3', {
     name: 'Sauvegardes planifiées — service Volume Shadow Copy actif [A1.3]',
@@ -513,6 +559,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name VSS -StartupType Manual; Start-Service -Name VSS',
   }),
   r('soc2-A1-4', {
     name: 'Capacité système surveillée — espace disque système ≥ 20% libre [A1.4]',
@@ -533,6 +580,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name MpsSvc -StartupType Automatic; Start-Service -Name MpsSvc',
   }),
   r('soc2-A1-6', {
     name: 'Service de sauvegarde Windows — type de démarrage automatique [A1.6]',
@@ -543,6 +591,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Automatic',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name wbengine -StartupType Automatic',
   }),
   r('soc2-A1-7', {
     name: 'Espace disque disponible — ≥ 20% du disque système [A1.7]',
@@ -566,6 +615,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
   }),
   r('soc2-PI1-2', {
     name: 'Traitement complet et exact — service de cryptographie actif (intégrité des données) [PI1.2]',
@@ -576,6 +626,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name CryptSvc -StartupType Automatic; Start-Service -Name CryptSvc',
   }),
   r('soc2-PI1-3', {
     name: 'Sorties système revues — audit des créations de processus activé [PI1.3]',
@@ -586,6 +637,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Process Creation" /success:enable',
   }),
 
   // ─── C1 — Confidentialité ─────────────────────────────────────────────────────
@@ -599,6 +651,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'AuditBaseObjects' -Value 1 -Type DWord",
   }),
   r('soc2-C1-2', {
     name: 'Données confidentielles chiffrées au repos — BitLocker actif [C1.2]',
@@ -609,6 +662,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector',
   }),
   r('soc2-C1-2-b', {
     name: 'Chiffrement BitLocker — méthode AES 256 bits [C1.2]',
@@ -629,6 +683,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '255',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name 'NoDriveTypeAutoRun' -Value 255 -Type DWord",
   }),
   r('soc2-C1-4', {
     name: 'Accès données confidentielles restreint — compte Invité désactivé [C1.4]',
@@ -639,6 +694,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-LocalUser -Name "Guest"',
   }),
   r('soc2-C1-5', {
     name: 'Accords de confidentialité — audit de partage de fichiers activé [C1.5]',
@@ -649,6 +705,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"File Share" /success:enable /failure:enable',
   }),
 
   // ─── P1 — Confidentialité des données personnelles ───────────────────────────
@@ -662,6 +719,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'low',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeText' -Value 'Authorized access only. All activity is monitored.' -Type String",
   }),
   r('soc2-P1-3', {
     name: 'Données personnelles protégées — pare-feu Windows actif [P1.3]',
@@ -672,6 +730,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled True',
   }),
   r('soc2-P1-6', {
     name: 'Violations de confidentialité détectées — Defender surveillance comportementale [P1.6]',
@@ -682,6 +741,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableBehaviorMonitoring $false',
   }),
   r('soc2-P1-7', {
     name: 'Politique de rétention des données — taille du journal système ≥ 100 Mo [P1.7]',
@@ -692,6 +752,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '102400',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'wevtutil sl System /ms:104857600',
   }),
 
   // ─── Contrôles de sécurité Windows additionnels SOC2 ─────────────────────────
@@ -705,6 +766,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryPasswordProtector',
   }),
   r('soc2-sec-2', {
     name: 'Antivirus Defender — activé [SOC2 Security]',
@@ -715,6 +777,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('soc2-sec-3', {
     name: 'Mises à jour automatiques — activées [SOC2 Security]',
@@ -725,6 +788,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'AUOptions' -Value 4 -Type DWord",
   }),
   r('soc2-sec-4', {
     name: 'Compte invité — désactivé [SOC2 Security]',
@@ -735,6 +799,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-LocalUser -Name "Guest"',
   }),
   r('soc2-sec-5', {
     name: 'Durée de vie maximale du mot de passe — ≤ 90 jours [SOC2 Security]',
@@ -745,6 +810,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '90',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'net accounts /maxpwage:90',
   }),
   r('soc2-sec-6', {
     name: 'Complexité du mot de passe — activée [SOC2 Security]',
@@ -755,6 +821,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'Yes',
     operator: 'contains',
     severity: 'critical',
+    remediationScript: "secedit /export /cfg $env:TEMP\\secpol.cfg /quiet; (Get-Content $env:TEMP\\secpol.cfg).Replace('PasswordComplexity = 0','PasswordComplexity = 1') | Set-Content $env:TEMP\\secpol.cfg; secedit /configure /db $env:TEMP\\secpol.sdb /cfg $env:TEMP\\secpol.cfg /areas SECURITYPOLICY /quiet; Remove-Item $env:TEMP\\secpol.cfg,$env:TEMP\\secpol.sdb -Force -ErrorAction SilentlyContinue",
   }),
   r('soc2-sec-7', {
     name: 'NLA requis pour RDP [SOC2 Security]',
@@ -765,6 +832,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name 'UserAuthentication' -Value 1 -Type DWord",
   }),
   r('soc2-sec-8', {
     name: 'SMBv1 — désactivé [SOC2 Security]',
@@ -775,6 +843,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force',
   }),
   r('soc2-sec-9', {
     name: 'PowerShell Script Block Logging — activé [SOC2 Security]',
@@ -785,6 +854,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1 -Type DWord",
   }),
   r('soc2-sec-10', {
     name: 'Accès distant sécurisé — connexion RDP chiffrée niveau élevé [SOC2 Security]',
@@ -795,6 +865,7 @@ export const soc2Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name 'MinEncryptionLevel' -Value 3 -Type DWord",
   }),
 
 ];

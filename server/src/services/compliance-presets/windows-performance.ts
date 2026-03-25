@@ -16,6 +16,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c',
   }),
   r('perf-002', {
     name: 'Plan d\'alimentation — Mise en veille désactivée (secteur)',
@@ -26,6 +27,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'powercfg /change standby-timeout-ac 0',
   }),
   r('perf-003', {
     name: 'Plan d\'alimentation — Extinction écran ≤ 15 min (secteur)',
@@ -36,6 +38,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'powercfg /change monitor-timeout-ac 15',
   }),
   r('perf-004', {
     name: 'Plan d\'alimentation — Disque dur jamais éteint (secteur)',
@@ -46,6 +49,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'powercfg /change disk-timeout-ac 0',
   }),
   r('perf-005', {
     name: 'Plan d\'alimentation — USB Selective Suspend désactivé',
@@ -56,6 +60,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USB\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USB\' -Name \'DisableSelectiveSuspend\' -Value 1 -Type DWord',
   }),
 
   // ─── TELEMETRY & TRACKING (12) ────────────────────────────────────────────
@@ -69,6 +74,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service DiagTrack -Force -ErrorAction SilentlyContinue; Set-Service DiagTrack -StartupType Disabled',
   }),
   r('perf-011', {
     name: 'Télémétrie — Niveau à Security (0)',
@@ -79,6 +85,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'AllowTelemetry\' -Value 0 -Type DWord',
   }),
   r('perf-012', {
     name: 'Télémétrie — dmwappushservice désactivé',
@@ -89,6 +96,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service dmwappushservice -Force -ErrorAction SilentlyContinue; Set-Service dmwappushservice -StartupType Disabled',
   }),
   r('perf-013', {
     name: 'Télémétrie — Connected User Experiences désactivé',
@@ -99,6 +107,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection\' -Name \'AllowTelemetry\' -Value 0 -Type DWord',
   }),
   r('perf-014', {
     name: 'Télémétrie — Advertising ID désactivé',
@@ -109,6 +118,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo\' -Name \'DisabledByGroupPolicy\' -Value 1 -Type DWord',
   }),
   r('perf-015', {
     name: 'Télémétrie — Feedback désactivé',
@@ -119,6 +129,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Siuf\\Rules\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Siuf\\Rules\' -Name \'NumberOfSIUFInPeriod\' -Value 0 -Type DWord',
   }),
   r('perf-016', {
     name: 'Télémétrie — Activity History désactivée',
@@ -129,6 +140,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnableActivityFeed\' -Value 0 -Type DWord',
   }),
   r('perf-017', {
     name: 'Télémétrie — Location tracking désactivé',
@@ -139,6 +151,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\LocationAndSensors\' -Name \'DisableLocation\' -Value 1 -Type DWord',
   }),
   r('perf-018', {
     name: 'Télémétrie — Handwriting data sharing désactivé',
@@ -149,6 +162,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\TabletPC\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\TabletPC\' -Name \'PreventHandwritingDataSharing\' -Value 1 -Type DWord',
   }),
   r('perf-019', {
     name: 'Télémétrie — Customer Experience Improvement désactivé',
@@ -159,6 +173,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\SQMClient\\Windows\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\SQMClient\\Windows\' -Name \'CEIPEnable\' -Value 0 -Type DWord',
   }),
   r('perf-020', {
     name: 'Télémétrie — Application Compatibility PCA désactivé',
@@ -169,6 +184,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service PcaSvc -Force -ErrorAction SilentlyContinue; Set-Service PcaSvc -StartupType Disabled',
   }),
   r('perf-021', {
     name: 'Télémétrie — Compatibility Telemetry (CompatTelRunner) désactivé',
@@ -179,6 +195,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Disable-ScheduledTask -TaskName "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser" -ErrorAction SilentlyContinue',
   }),
 
   // ─── VISUAL EFFECTS & UI (6) ──────────────────────────────────────────────
@@ -192,6 +209,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects\' -Name \'VisualFXSetting\' -Value 2 -Type DWord',
   }),
   r('perf-031', {
     name: 'Effets visuels — Transparence désactivée',
@@ -202,6 +220,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\' -Name \'EnableTransparency\' -Value 0 -Type DWord',
   }),
   r('perf-032', {
     name: 'Effets visuels — Animations de fenêtres désactivées',
@@ -212,6 +231,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\Control Panel\\Desktop\\WindowMetrics\' -Name \'MinAnimate\' -Value \'0\' -Type String',
   }),
   r('perf-033', {
     name: 'Effets visuels — Menu Start animation désactivée',
@@ -222,6 +242,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\Control Panel\\Desktop\' -Name \'MenuShowDelay\' -Value \'0\' -Type String',
   }),
   r('perf-034', {
     name: 'Game Bar — Désactivée',
@@ -232,6 +253,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR\' -Name \'AppCaptureEnabled\' -Value 0 -Type DWord',
   }),
   r('perf-035', {
     name: 'Game DVR — Background recording désactivé',
@@ -242,6 +264,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR\' -Name \'AllowGameDVR\' -Value 0 -Type DWord',
   }),
 
   // ─── SERVICES INUTILES (10) ───────────────────────────────────────────────
@@ -255,6 +278,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service SysMain -Force -ErrorAction SilentlyContinue; Set-Service SysMain -StartupType Disabled',
   }),
   r('perf-041', {
     name: 'Service Windows Search (WSearch) désactivé',
@@ -265,6 +289,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service WSearch -Force -ErrorAction SilentlyContinue; Set-Service WSearch -StartupType Disabled',
   }),
   r('perf-042', {
     name: 'Service Windows Update Medic désactivé',
@@ -275,6 +300,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service WaaSMedicSvc -Force -ErrorAction SilentlyContinue; Set-Service WaaSMedicSvc -StartupType Disabled -ErrorAction SilentlyContinue',
   }),
   r('perf-043', {
     name: 'Service Fax désactivé',
@@ -285,6 +311,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service Fax -Force -ErrorAction SilentlyContinue; Set-Service Fax -StartupType Disabled',
   }),
   r('perf-044', {
     name: 'Service Print Spooler désactivé (si pas d\'imprimante)',
@@ -295,6 +322,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service Spooler -Force -ErrorAction SilentlyContinue; Set-Service Spooler -StartupType Disabled',
   }),
   r('perf-045', {
     name: 'Service Bluetooth Support désactivé (si pas de BT)',
@@ -305,6 +333,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service bthserv -Force -ErrorAction SilentlyContinue; Set-Service bthserv -StartupType Disabled',
   }),
   r('perf-046', {
     name: 'Service Remote Registry désactivé',
@@ -315,6 +344,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service RemoteRegistry -Force -ErrorAction SilentlyContinue; Set-Service RemoteRegistry -StartupType Disabled',
   }),
   r('perf-047', {
     name: 'Service Xbox services désactivés',
@@ -325,6 +355,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '@("XblAuthManager","XblGameSave","XboxGipSvc","XboxNetApiSvc") | ForEach-Object { Stop-Service $_ -Force -ErrorAction SilentlyContinue; Set-Service $_ -StartupType Disabled -ErrorAction SilentlyContinue }',
   }),
   r('perf-048', {
     name: 'Service Maps Broker désactivé',
@@ -335,6 +366,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'Stopped',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service MapsBroker -Force -ErrorAction SilentlyContinue; Set-Service MapsBroker -StartupType Disabled',
   }),
   r('perf-049', {
     name: 'Service AllJoyn Router désactivé',
@@ -345,6 +377,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'Stop-Service AJRouter -Force -ErrorAction SilentlyContinue; Set-Service AJRouter -StartupType Disabled',
   }),
 
   // ─── SYSTEM OPTIMIZATION (8) ──────────────────────────────────────────────
@@ -358,6 +391,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'bcdedit /deletevalue useplatformclock',
   }),
   r('perf-061', {
     name: 'Mémoire virtuelle — Pagefile géré automatiquement',
@@ -368,6 +402,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$cs = Get-WmiObject Win32_ComputerSystem; $cs.AutomaticManagedPagefile = $true; $cs.Put() | Out-Null',
   }),
   r('perf-062', {
     name: 'Priorité GPU — Hardware-accelerated GPU scheduling activé',
@@ -378,6 +413,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\' -Name \'HwSchMode\' -Value 2 -Type DWord',
   }),
   r('perf-063', {
     name: 'Nagle Algorithm — TCP désactivé (low latency)',
@@ -388,6 +424,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Get-ChildItem \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces\' | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name \'TcpAckFrequency\' -Value 1 -Type DWord; Set-ItemProperty -Path $_.PSPath -Name \'TCPNoDelay\' -Value 1 -Type DWord }',
   }),
   r('perf-064', {
     name: 'Prefetch — Désactivé',
@@ -398,6 +435,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management\\PrefetchParameters\' -Name \'EnablePrefetcher\' -Value 0 -Type DWord',
   }),
   r('perf-065', {
     name: 'Cortana — Désactivée',
@@ -408,6 +446,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Name \'AllowCortana\' -Value 0 -Type DWord',
   }),
   r('perf-066', {
     name: 'Startup delay — Désactivé',
@@ -418,6 +457,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize\' -Name \'StartupDelayInMSec\' -Value 0 -Type DWord',
   }),
   r('perf-067', {
     name: 'Dernière heure d\'accès NTFS — Désactivée',
@@ -428,6 +468,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'fsutil behavior set disablelastaccess 1',
   }),
 
   // ─── NETWORK OPTIMIZATION (4) ─────────────────────────────────────────────
@@ -441,6 +482,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Get-NetAdapter | Where-Object Status -eq \'Up\' | Enable-NetAdapterRss -ErrorAction SilentlyContinue',
   }),
   r('perf-071', {
     name: 'Réseau — Autotuning Level normal',
@@ -451,6 +493,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'netsh int tcp set global autotuninglevel=normal',
   }),
   r('perf-072', {
     name: 'Réseau — ECN désactivé',
@@ -461,6 +504,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'netsh int tcp set global ecncapability=disabled',
   }),
   r('perf-073', {
     name: 'Réseau — Timestamps RFC 1323 désactivés',
@@ -471,6 +515,7 @@ export const windowsPerformanceRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'optional',
+    remediationScript: 'netsh int tcp set global timestamps=disabled',
   }),
 
 ];

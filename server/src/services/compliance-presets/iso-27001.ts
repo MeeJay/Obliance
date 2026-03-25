@@ -19,6 +19,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'moderate',
+    remediationScript: "New-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeText' -Value 'This system is for authorized use only. By using this system, you consent to monitoring.' -PropertyType String -Force",
   }),
   r('iso-A5-002', {
     name: 'Politique — Titre de mention légale à la connexion configuré [A.5.1]',
@@ -29,6 +30,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'moderate',
+    remediationScript: "New-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'LegalNoticeCaption' -Value 'Security Notice' -PropertyType String -Force",
   }),
 
   // A.5.2 - Rôles et responsabilités en matière de sécurité
@@ -41,6 +43,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Administrator'",
   }),
   r('iso-A5-004', {
     name: 'Rôles — Centre de sécurité Windows en cours d\'exécution [A.5.2]',
@@ -51,6 +54,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-Service -Name 'wscsvc' -StartupType Automatic; Start-Service -Name 'wscsvc'",
   }),
 
   // A.5.7 - Renseignement sur les menaces
@@ -63,6 +67,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "Set-MpPreference -MAPSReporting Advanced",
   }),
   r('iso-A5-006', {
     name: 'Renseignement sur les menaces — Soumission automatique d\'échantillons Defender activée [A.5.7]',
@@ -73,6 +78,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "Set-MpPreference -SubmitSamplesConsent SendAllSamples",
   }),
 
   // A.5.8 - Sécurité de l'information dans la gestion de projet
@@ -85,6 +91,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'ConsentPromptBehaviorAdmin' -Value 2 -Type DWord -Force",
   }),
 
   // A.5.9 - Inventaire des informations et des actifs
@@ -109,6 +116,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '4',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR' -Name 'Start' -Value 4 -Type DWord -Force",
   }),
   r('iso-A5-010', {
     name: 'Utilisation acceptable — Exécution automatique désactivée [A.5.10]',
@@ -119,6 +127,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '255',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name 'NoDriveTypeAutoRun' -Value 255 -Type DWord -Force",
   }),
 
   // A.5.14 - Transfert d'informations
@@ -131,6 +140,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A5-012', {
     name: 'Transfert d\'informations — TLS 1.1 serveur désactivé [A.5.14]',
@@ -141,6 +151,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A5-013', {
     name: 'Transfert d\'informations — SSL 2.0 serveur désactivé [A.5.14]',
@@ -151,6 +162,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
 
   // A.5.15 - Contrôle d'accès
@@ -163,6 +175,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Guest'",
   }),
   r('iso-A5-015', {
     name: 'Contrôle d\'accès — Compte Administrateur intégré renommé ou désactivé [A.5.15]',
@@ -173,6 +186,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Administrator'",
   }),
 
   // A.5.16 - Gestion des identités
@@ -185,6 +199,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '11',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "net accounts /lockoutthreshold:10",
   }),
 
   // A.5.17 - Informations d'authentification
@@ -197,6 +212,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "secedit /export /cfg \"$env:TEMP\\secpol.cfg\"; (Get-Content \"$env:TEMP\\secpol.cfg\").Replace('PasswordComplexity = 0','PasswordComplexity = 1') | Set-Content \"$env:TEMP\\secpol.cfg\"; secedit /configure /db \"$env:TEMP\\secpol.sdb\" /cfg \"$env:TEMP\\secpol.cfg\" /areas SECURITYPOLICY",
   }),
   r('iso-A5-018', {
     name: 'Authentification — Historique des mots de passe ≥ 24 [A.5.17]',
@@ -207,6 +223,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '23',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "net accounts /uniquepw:24",
   }),
   r('iso-A5-019', {
     name: 'Authentification — Âge maximal du mot de passe ≤ 60 jours [A.5.17]',
@@ -217,6 +234,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '61',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "net accounts /maxpwage:60",
   }),
   r('iso-A5-020', {
     name: 'Authentification — WDigest désactivé (pas de mot de passe en clair en mémoire) [A.5.17]',
@@ -227,6 +245,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Name 'UseLogonCredential' -Value 0 -Type DWord -Force",
   }),
 
   // A.5.18 - Droits d'accès
@@ -239,6 +258,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord -Force",
   }),
 
   // A.5.22 - Gestion des services fournisseurs
@@ -251,6 +271,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-Service -Name 'EventLog' -StartupType Automatic; Start-Service -Name 'EventLog'",
   }),
 
   // A.5.23 - Sécurité pour l'utilisation des services cloud
@@ -263,6 +284,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive' -Name 'DisableFileSyncNGSC' -Value 1 -Type DWord -Force",
   }),
 
   // A.5.24-30 - Gestion des incidents
@@ -275,6 +297,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "auditpol /set /subcategory:\"Logon\" /success:enable /failure:enable",
   }),
   r('iso-A5-025', {
     name: 'Incidents — Taille du journal de sécurité ≥ 196 608 Ko [A.5.26]',
@@ -285,6 +308,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '196607',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security' -Name 'MaxSize' -Value 196608 -Type DWord -Force",
   }),
   r('iso-A5-026', {
     name: 'Incidents — Journal de sécurité configuré pour conserver les événements [A.5.26]',
@@ -295,6 +319,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security' -Name 'Retention' -Value 0 -Type DWord -Force",
   }),
 
   // A.5.36 - Conformité aux politiques
@@ -323,6 +348,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Guest'",
   }),
 
   // A.6.3 - Sensibilisation, formation et éducation
@@ -335,6 +361,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1 -Type DWord -Force",
   }),
 
   // A.6.4 - Processus disciplinaire
@@ -347,6 +374,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'moderate',
+    remediationScript: "auditpol /set /subcategory:\"User Account Management\" /success:enable /failure:enable",
   }),
 
   // A.6.5 - Responsabilités après fin ou changement d'emploi
@@ -371,6 +399,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint 'C:' -EncryptionMethod XtsAes256 -RecoveryPasswordProtector",
   }),
 
   // A.6.7 - Télétravail
@@ -383,6 +412,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name 'UserAuthentication' -Value 1 -Type DWord -Force",
   }),
   r('iso-A6-007', {
     name: 'Télétravail — Verrouillage de session avec mot de passe activé [A.6.7]',
@@ -393,6 +423,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '1' -Type String -Force",
   }),
 
   // A.6.8 - Signalement des événements de sécurité
@@ -405,6 +436,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-Service -Name 'EventLog' -StartupType Automatic; Start-Service -Name 'EventLog'",
   }),
 
   // =========================================================================
@@ -421,6 +453,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '901',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '900' -Type String -Force",
   }),
 
   // A.7.2 - Contrôles d'entrée physique
@@ -433,6 +466,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint 'C:' -EncryptionMethod XtsAes256 -RecoveryPasswordProtector",
   }),
 
   // A.7.3 - Sécurisation des bureaux, salles et équipements
@@ -457,6 +491,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'moderate',
+    remediationScript: "auditpol /set /subcategory:\"Logon\" /success:enable /failure:enable",
   }),
 
   // A.7.5 - Protection contre les menaces physiques et environnementales
@@ -481,6 +516,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '301',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '300' -Type String -Force",
   }),
   r('iso-A7-007', {
     name: 'Bureau propre — Mot de passe requis à la reprise de l\'économiseur d\'écran [A.7.7]',
@@ -491,6 +527,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '1' -Type String -Force",
   }),
 
   // A.7.8 - Emplacement et protection des équipements
@@ -515,6 +552,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint 'C:' -EncryptionMethod XtsAes256 -RecoveryPasswordProtector",
   }),
   r('iso-A7-010', {
     name: 'Actifs hors site — Chiffrement des supports amovibles requis [A.7.9]',
@@ -525,6 +563,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\FVE' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\FVE' -Name 'RDVRequireEncryption' -Value 1 -Type DWord -Force",
   }),
 
   // A.7.10 - Supports de stockage
@@ -537,6 +576,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\RemovableStorageDevices' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\RemovableStorageDevices' -Name 'Deny_All' -Value 1 -Type DWord -Force",
   }),
 
   // A.7.11 - Infrastructures de support
@@ -549,6 +589,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "Set-Service -Name 'wuauserv' -StartupType Manual; Start-Service -Name 'wuauserv'",
   }),
 
   // A.7.12 - Sécurité du câblage
@@ -561,6 +602,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name 'RequireSecuritySignature' -Value 1 -Type DWord -Force",
   }),
 
   // A.7.13 - Maintenance des équipements
@@ -573,6 +615,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Stop-Service -Name 'RemoteRegistry' -Force -ErrorAction SilentlyContinue; Set-Service -Name 'RemoteRegistry' -StartupType Disabled",
   }),
 
   // =========================================================================
@@ -589,6 +632,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '4',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'AUOptions' -Value 4 -Type DWord -Force",
   }),
   r('iso-A8-002', {
     name: 'Endpoint — Protection en temps réel de l\'antivirus activée [A.8.1]',
@@ -599,6 +643,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false",
   }),
   r('iso-A8-003', {
     name: 'Endpoint — BitLocker activé sur le lecteur système [A.8.1]',
@@ -609,6 +654,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint 'C:' -EncryptionMethod XtsAes256 -RecoveryPasswordProtector",
   }),
 
   // A.8.2 - Droits d'accès privilégiés
@@ -621,6 +667,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'RunAsPPL' -Value 1 -Type DWord -Force",
   }),
   r('iso-A8-005', {
     name: 'Accès privilégié — LAPS configuré [A.8.2]',
@@ -641,6 +688,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'FilterAdministratorToken' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.3 - Restriction d'accès aux informations
@@ -653,6 +701,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True",
   }),
   r('iso-A8-008', {
     name: 'Restriction d\'accès — Service Application Identity (AppLocker) actif [A.8.3]',
@@ -663,6 +712,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Set-Service -Name 'AppIDSvc' -StartupType Automatic; Start-Service -Name 'AppIDSvc'",
   }),
 
   // A.8.5 - Authentification sécurisée
@@ -675,6 +725,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '5',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'LmCompatibilityLevel' -Value 5 -Type DWord -Force",
   }),
   r('iso-A8-010', {
     name: 'Authentification sécurisée — Longueur minimale du mot de passe ≥ 14 [A.8.5]',
@@ -685,6 +736,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '13',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "net accounts /minpwlen:14",
   }),
   r('iso-A8-011', {
     name: 'Authentification sécurisée — Credential Guard (VBS) activé [A.8.5]',
@@ -695,6 +747,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard' -Name 'EnableVirtualizationBasedSecurity' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.6 - Gestion de la capacité
@@ -719,6 +772,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false",
   }),
   r('iso-A8-014', {
     name: 'Protection malware — Protection cloud Defender activée [A.8.7]',
@@ -729,6 +783,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "Set-MpPreference -MAPSReporting Advanced",
   }),
   r('iso-A8-015', {
     name: 'Protection malware — Signatures antivirus à jour (≤ 7 jours) [A.8.7]',
@@ -739,6 +794,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '8',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "Update-MpSignature",
   }),
   r('iso-A8-016', {
     name: 'Protection malware — Protection contre les applications potentiellement indésirables (PUA) [A.8.7]',
@@ -749,6 +805,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "Set-MpPreference -PUAProtection Enabled",
   }),
 
   // A.8.8 - Gestion des vulnérabilités techniques
@@ -761,6 +818,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'NoAutoUpdate' -Value 0 -Type DWord -Force",
   }),
 
   // A.8.9 - Gestion de la configuration
@@ -773,6 +831,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force",
   }),
   r('iso-A8-019', {
     name: 'Configuration — LLMNR désactivé [A.8.9]',
@@ -783,6 +842,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient' -Name 'EnableMulticast' -Value 0 -Type DWord -Force",
   }),
   r('iso-A8-020', {
     name: 'Configuration — Service Registre distant désactivé [A.8.9]',
@@ -793,6 +853,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Stop-Service -Name 'RemoteRegistry' -Force -ErrorAction SilentlyContinue; Set-Service -Name 'RemoteRegistry' -StartupType Disabled",
   }),
   r('iso-A8-021', {
     name: 'Configuration — Spouleur d\'impression désactivé [A.8.9]',
@@ -803,6 +864,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Stop-Service -Name 'Spooler' -Force -ErrorAction SilentlyContinue; Set-Service -Name 'Spooler' -StartupType Disabled",
   }),
 
   // A.8.10 - Suppression d'informations
@@ -815,6 +877,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\FVE' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\FVE' -Name 'OSRecovery' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.11 - Masquage des données
@@ -827,6 +890,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Name 'UseLogonCredential' -Value 0 -Type DWord -Force",
   }),
 
   // A.8.12 - Prévention des fuites de données
@@ -839,6 +903,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '4',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR' -Name 'Start' -Value 4 -Type DWord -Force",
   }),
   r('iso-A8-025', {
     name: 'Prévention des fuites — Accès contrôlé aux dossiers Defender activé [A.8.12]',
@@ -849,6 +914,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "Set-MpPreference -EnableControlledFolderAccess Enabled",
   }),
 
   // A.8.13 - Sauvegarde des informations
@@ -861,6 +927,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Set-Service -Name 'VSS' -StartupType Manual; Start-Service -Name 'VSS'",
   }),
   r('iso-A8-027', {
     name: 'Sauvegarde — Service Sauvegarde Windows actif [A.8.13]',
@@ -871,6 +938,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "Set-Service -Name 'SDRSVC' -StartupType Manual; Start-Service -Name 'SDRSVC'",
   }),
 
   // A.8.15 - Journalisation
@@ -883,6 +951,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '196607',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Security' -Name 'MaxSize' -Value 196608 -Type DWord -Force",
   }),
   r('iso-A8-029', {
     name: 'Journalisation — Audit des événements de connexion activé [A.8.15]',
@@ -893,6 +962,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "auditpol /set /subcategory:\"Logon\" /success:enable /failure:enable",
   }),
   r('iso-A8-030', {
     name: 'Journalisation — Audit de la gestion des comptes utilisateurs activé [A.8.15]',
@@ -903,6 +973,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "auditpol /set /subcategory:\"User Account Management\" /success:enable /failure:enable",
   }),
   r('iso-A8-031', {
     name: 'Journalisation — Audit des modifications de stratégie d\'audit activé [A.8.15]',
@@ -913,6 +984,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "auditpol /set /subcategory:\"Audit Policy Change\" /success:enable /failure:enable",
   }),
 
   // A.8.16 - Activités de surveillance
@@ -925,6 +997,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Name 'EnableModuleLogging' -Value 1 -Type DWord -Force",
   }),
   r('iso-A8-033', {
     name: 'Surveillance — Journalisation des blocs de script PowerShell activée [A.8.16]',
@@ -935,6 +1008,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1 -Type DWord -Force",
   }),
   r('iso-A8-034', {
     name: 'Surveillance — Ligne de commande incluse dans les événements de création de processus [A.8.16]',
@@ -945,6 +1019,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Name 'ProcessCreationIncludeCmdLine_Enabled' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.17 - Synchronisation des horloges
@@ -957,6 +1032,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Local CMOS',
     operator: 'not_contains',
     severity: 'moderate',
+    remediationScript: "w32tm /config /manualpeerlist:\"time.windows.com,0x1\" /syncfromflags:manual /reliable:YES /update; Restart-Service w32time; w32tm /resync",
   }),
 
   // A.8.18 - Utilisation de programmes utilitaires privilégiés
@@ -981,6 +1057,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Name 'DisableMSI' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.20 - Sécurité des réseaux
@@ -993,6 +1070,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name 'RequireSecuritySignature' -Value 1 -Type DWord -Force",
   }),
   r('iso-A8-039', {
     name: 'Sécurité réseau — Signature de paquets SMB requise (client) [A.8.20]',
@@ -1003,6 +1081,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters' -Name 'RequireSecuritySignature' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.21 - Sécurité des services réseau
@@ -1015,6 +1094,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True",
   }),
 
   // A.8.22 - Ségrégation des réseaux
@@ -1027,6 +1107,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections' -Name 'NC_AllowNetBridge_NLA' -Value 0 -Type DWord -Force",
   }),
 
   // A.8.23 - Filtrage web
@@ -1039,6 +1120,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name 'EnableSmartScreen' -Value 1 -Type DWord -Force",
   }),
   r('iso-A8-043', {
     name: 'Filtrage web — Protection réseau Defender activée [A.8.23]',
@@ -1049,6 +1131,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "Set-MpPreference -EnableNetworkProtection Enabled",
   }),
 
   // A.8.24 - Utilisation de la cryptographie
@@ -1061,6 +1144,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A8-045', {
     name: 'Cryptographie — TLS 1.1 serveur désactivé [A.8.24]',
@@ -1071,6 +1155,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A8-046', {
     name: 'Cryptographie — SSL 2.0 serveur désactivé [A.8.24]',
@@ -1081,6 +1166,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A8-047', {
     name: 'Cryptographie — SSL 3.0 serveur désactivé [A.8.24]',
@@ -1091,6 +1177,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
   r('iso-A8-048', {
     name: 'Cryptographie — Chiffrement RC4 128/128 désactivé [A.8.24]',
@@ -1101,6 +1188,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Name 'Enabled' -Value 0 -Type DWord -Force",
   }),
 
   // A.8.25 - Cycle de développement sécurisé
@@ -1113,6 +1201,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel' -Name 'DisableExceptionChainValidation' -Value 0 -Type DWord -Force",
   }),
 
   // A.8.26 - Exigences de sécurité des applications
@@ -1125,6 +1214,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'OptOut',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "bcdedit /set {current} nx OptOut",
   }),
   r('iso-A8-051', {
     name: 'Sécurité applicative — ASLR (randomisation de l\'espace d\'adressage) activé [A.8.26]',
@@ -1135,6 +1225,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management' -Name 'MoveImages' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.27 - Architecture système sécurisée
@@ -1147,6 +1238,7 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard' -Name 'EnableVirtualizationBasedSecurity' -Value 1 -Type DWord -Force",
   }),
 
   // A.8.32 - Gestion des changements
@@ -1171,5 +1263,6 @@ export const iso27001Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Stop-Service -Name 'RemoteRegistry' -Force -ErrorAction SilentlyContinue; Set-Service -Name 'RemoteRegistry' -StartupType Disabled",
   }),
 ];

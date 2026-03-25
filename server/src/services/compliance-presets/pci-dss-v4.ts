@@ -16,6 +16,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -Enabled True',
   }),
   r('pci-1-1-2', {
     name: 'Pare-feu — Profil Private activé (Req 1.1.2)',
@@ -26,6 +27,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Private -Enabled True',
   }),
   r('pci-1-1-3', {
     name: 'Pare-feu — Profil Public activé (Req 1.1.3)',
@@ -36,6 +38,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -Enabled True',
   }),
   r('pci-1-2-1', {
     name: 'Pare-feu — Action par défaut trafic entrant Domain: bloquer (Req 1.2.1)',
@@ -46,6 +49,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Block',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -DefaultInboundAction Block',
   }),
   r('pci-1-2-2', {
     name: 'Pare-feu — Action par défaut trafic entrant Public: bloquer (Req 1.2.1)',
@@ -56,6 +60,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Block',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -DefaultInboundAction Block',
   }),
   r('pci-1-2-3', {
     name: 'Pare-feu — Action par défaut trafic sortant Domain: autoriser (Req 1.2.2)',
@@ -66,6 +71,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Allow',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -DefaultOutboundAction Allow',
   }),
   r('pci-1-2-4', {
     name: 'Pare-feu — Nombre de profils actifs (tous les profils couverts) (Req 1.2.3)',
@@ -76,6 +82,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled True',
   }),
   r('pci-1-2-5', {
     name: 'Pare-feu — Journalisation des connexions refusées activée (Req 1.2.5)',
@@ -86,6 +93,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -LogBlocked True',
   }),
   r('pci-1-3-1', {
     name: 'Service pare-feu Windows — actif (Req 1.3.1)',
@@ -96,6 +104,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-Service -Name MpsSvc -StartupType Automatic; Start-Service -Name MpsSvc',
   }),
   r('pci-1-4-1', {
     name: 'IPSec — service agent activé (NSC entre réseaux) (Req 1.4.1)',
@@ -106,6 +115,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name PolicyAgent -StartupType Automatic; Start-Service -Name PolicyAgent',
   }),
   r('pci-1-4-4', {
     name: 'Partage réseau — découverte réseau désactivée sur profil public (Req 1.4.4)',
@@ -116,6 +126,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -NotifyOnListen False',
   }),
   r('pci-1-5-1', {
     name: 'Accès distant (RDP) — NLA requis pour contrôles dispositifs distants (Req 1.5.1)',
@@ -126,6 +137,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\' -Name \'UserAuthentication\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 2 — Configurations sécurisées ──────────────────────────────────
@@ -139,6 +151,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-LocalUser -Name "Administrator"',
   }),
   r('pci-2-1-2', {
     name: 'Compte Invité local — désactivé (Req 2.1.1)',
@@ -149,6 +162,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-LocalUser -Name "Guest"',
   }),
   r('pci-2-2-1', {
     name: 'UAC — Contrôle de compte d\'utilisateur activé (Req 2.2.1)',
@@ -159,6 +173,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableLUA\' -Value 1 -Type DWord',
   }),
   r('pci-2-2-2', {
     name: 'UAC — Niveau d\'invite pour administrateurs (Req 2.2.2)',
@@ -169,6 +184,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'ConsentPromptBehaviorAdmin\' -Value 2 -Type DWord',
   }),
   r('pci-2-2-3', {
     name: 'SMBv1 — protocole non sécurisé désactivé (Req 2.2.3)',
@@ -179,6 +195,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force',
   }),
   r('pci-2-2-4', {
     name: 'SMBv2 — protocole sécurisé activé (Req 2.2.4)',
@@ -189,6 +206,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force',
   }),
   r('pci-2-2-5', {
     name: 'Telnet — service désactivé (protocole non sécurisé) (Req 2.2.5)',
@@ -199,6 +217,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-WindowsOptionalFeature -Online -FeatureName TelnetClient -NoRestart',
   }),
   r('pci-2-2-6', {
     name: 'AutoRun — désactivé pour les supports amovibles (Req 2.2.6)',
@@ -209,6 +228,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '255',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoDriveTypeAutoRun\' -Value 255 -Type DWord',
   }),
   r('pci-2-2-7', {
     name: 'Chiffrement des accès non-console — RDP chiffrement fort (Req 2.2.7)',
@@ -219,6 +239,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\' -Name \'MinEncryptionLevel\' -Value 3 -Type DWord',
   }),
   r('pci-2-3-1', {
     name: 'SNMP — service désactivé si inutilisé (Req 2.3.1)',
@@ -229,6 +250,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service -Name SNMP -Force -ErrorAction SilentlyContinue; Set-Service -Name SNMP -StartupType Disabled -ErrorAction SilentlyContinue',
   }),
 
   // ─── EXIGENCE 3 — Protection des données de compte stockées ──────────────────
@@ -242,6 +264,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest',
   }),
   r('pci-3-5-1-1', {
     name: 'BitLocker — méthode de chiffrement AES 256 bits (Req 3.5.1.1)',
@@ -262,6 +285,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name CryptSvc -StartupType Automatic; Start-Service -Name CryptSvc',
   }),
   r('pci-3-7-3', {
     name: 'Magasin de certificats — service de stockage sécurisé des clés actif (Req 3.7.3)',
@@ -272,6 +296,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name KeyIso -StartupType Automatic; Start-Service -Name KeyIso',
   }),
 
   // ─── EXIGENCE 4 — Chiffrement des transmissions ───────────────────────────────
@@ -285,6 +310,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-2-1-tls11', {
     name: 'TLS 1.1 — désactivé côté serveur (Req 4.2.1)',
@@ -295,6 +321,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-2-1-tls12', {
     name: 'TLS 1.2 — activé côté serveur (Req 4.2.1)',
@@ -305,6 +332,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server\' -Name \'Enabled\' -Value 1 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server\' -Name \'DisabledByDefault\' -Value 0 -Type DWord',
   }),
   r('pci-4-2-1-ssl2', {
     name: 'SSL 2.0 — désactivé côté serveur (Req 4.2.1)',
@@ -315,6 +343,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-2-1-ssl3', {
     name: 'SSL 3.0 — désactivé côté serveur (Req 4.2.1)',
@@ -325,6 +354,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-2-1-rc4', {
     name: 'RC4 — chiffrement faible désactivé (Req 4.2.1)',
@@ -335,6 +365,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128\' -Name \'Enabled\' -Value 0 -Type DWord',
   }),
   r('pci-4-2-1-1', {
     name: 'Service HTTP.sys — certificats TLS valides requis (Req 4.2.1.1)',
@@ -345,6 +376,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Start-Service -Name HTTP -ErrorAction SilentlyContinue',
   }),
 
   // ─── EXIGENCE 5 — Protection contre les malwares ──────────────────────────────
@@ -358,6 +390,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-Service -Name WinDefend -StartupType Automatic; Start-Service -Name WinDefend',
   }),
   r('pci-5-2-2', {
     name: 'Windows Defender — antivirus activé (Req 5.2.2)',
@@ -368,6 +401,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('pci-5-2-3', {
     name: 'Windows Defender — protection en temps réel activée (Req 5.2.3)',
@@ -378,6 +412,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('pci-5-3-1', {
     name: 'Windows Defender — définitions à jour (Req 5.3.1)',
@@ -388,6 +423,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '7',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'Update-MpSignature -ErrorAction SilentlyContinue',
   }),
   r('pci-5-3-2', {
     name: 'Windows Defender — protection contre altération activée (Req 5.3.2)',
@@ -408,6 +444,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows Defender\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows Defender\' -Name \'DisableAntiSpyware\' -Value 0 -Type DWord',
   }),
   r('pci-5-3-4', {
     name: 'Windows Defender — protection réseau activée (Req 5.3.3)',
@@ -418,6 +455,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -EnableNetworkProtection Enabled',
   }),
   r('pci-5-4-1', {
     name: 'Windows Defender SmartScreen — activé (anti-phishing) (Req 5.4.1)',
@@ -428,6 +466,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnableSmartScreen\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 6 — Développement et maintenance sécurisés ─────────────────────
@@ -441,6 +480,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Name \'NoAutoUpdate\' -Value 0 -Type DWord',
   }),
   r('pci-6-3-3-b', {
     name: 'Windows Update — options de mise à jour automatique configurées (Req 6.3.3)',
@@ -451,6 +491,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Name \'AUOptions\' -Value 3 -Type DWord',
   }),
   r('pci-6-5-1', {
     name: 'Service Windows Update — actif (Req 6.5.1)',
@@ -461,6 +502,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name wuauserv -StartupType Automatic; Start-Service -Name wuauserv',
   }),
 
   // ─── EXIGENCE 7 — Restriction de l\'accès aux composants système ──────────────
@@ -474,6 +516,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableLUA\' -Value 1 -Type DWord',
   }),
   r('pci-7-2-2', {
     name: 'Moindre privilège — membres du groupe Administrators limités (Req 7.2.2)',
@@ -494,6 +537,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'ConsentPromptBehaviorAdmin\' -Value 2 -Type DWord',
   }),
   r('pci-7-3-1', {
     name: 'Credential Guard — protection des secrets d\'accès (Req 7.3.1)',
@@ -504,6 +548,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\' -Name \'EnableVirtualizationBasedSecurity\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 8 — Identification et authentification des utilisateurs ─────────
@@ -517,6 +562,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.LastLogon -lt (Get-Date).AddDays(-90) -and $_.LastLogon -ne $null } | Disable-LocalUser',
   }),
   r('pci-8-2-6', {
     name: 'Délai d\'inactivité — verrouillage écran ≤ 15 minutes (Req 8.2.6)',
@@ -527,6 +573,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '900',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\Control Panel\\Desktop\' -Name \'ScreenSaveTimeOut\' -Value \'900\'',
   }),
   r('pci-8-2-6-b', {
     name: 'Économiseur d\'écran — protégé par mot de passe (Req 8.2.6)',
@@ -537,6 +584,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKCU:\\Control Panel\\Desktop\' -Name \'ScreenSaverIsSecure\' -Value \'1\'',
   }),
   r('pci-8-3-4', {
     name: 'Stratégie de verrouillage — seuil de tentatives invalides (Req 8.3.4)',
@@ -547,6 +595,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '10',
     operator: 'lt',
     severity: 'critical',
+    remediationScript: 'net accounts /lockoutthreshold:5',
   }),
   r('pci-8-3-5', {
     name: 'Stratégie de mot de passe — longueur minimum 12 caractères (Req 8.3.5)',
@@ -557,6 +606,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '12',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: 'net accounts /minpwlen:12',
   }),
   r('pci-8-3-6', {
     name: 'Stratégie de mot de passe — complexité requise activée (Req 8.3.6)',
@@ -577,6 +627,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '4',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'net accounts /uniquepw:5',
   }),
   r('pci-8-3-9', {
     name: 'Stratégie de mot de passe — expiration max 90 jours (Req 8.3.9)',
@@ -587,6 +638,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '90',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'net accounts /maxpwage:90',
   }),
   r('pci-8-4-1', {
     name: 'NLA (MFA réseau) — requis pour RDP (Req 8.4.1)',
@@ -597,6 +649,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\' -Name \'UserAuthentication\' -Value 1 -Type DWord',
   }),
   r('pci-8-6-2', {
     name: 'PowerShell Script Block Logging — mots de passe hardcodés détectables (Req 8.6.2)',
@@ -607,6 +660,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Name \'EnableScriptBlockLogging\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 9 — Restriction de l\'accès physique ───────────────────────────
@@ -620,6 +674,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableLUA\' -Value 1 -Type DWord',
   }),
   r('pci-9-4-2', {
     name: 'Journal des accès physiques — audit d\'ouverture de session activé (Req 9.4.2)',
@@ -630,6 +685,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
 
   // ─── EXIGENCE 10 — Journalisation et surveillance ────────────────────────────
@@ -643,6 +699,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: '$log = Get-WinEvent -ListLog Security; $log.IsEnabled = $true; $log.SaveChanges()',
   }),
   r('pci-10-2-1-1', {
     name: 'Audit — accès aux données (Object Access) activé (Req 10.2.1.1)',
@@ -653,6 +710,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-2', {
     name: 'Audit — actions administratives (Privilege Use) activé (Req 10.2.1.2)',
@@ -663,6 +721,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-3', {
     name: 'Audit — accès au journal d\'audit activé (Req 10.2.1.3)',
@@ -673,6 +732,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-4', {
     name: 'Audit — tentatives d\'accès invalides activé (Req 10.2.1.4)',
@@ -683,6 +743,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-5', {
     name: 'Audit — utilisation des mécanismes d\'identification (Req 10.2.1.5)',
@@ -693,6 +754,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-6', {
     name: 'Audit — démarrage/arrêt des journaux d\'audit (Req 10.2.1.6)',
@@ -703,6 +765,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Security System Extension" /success:enable /failure:enable',
   }),
   r('pci-10-2-1-7', {
     name: 'Audit — création et suppression d\'objets système (Req 10.2.1.7)',
@@ -713,6 +776,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Process Creation" /success:enable',
   }),
   r('pci-10-3-1', {
     name: 'Journal de sécurité — taille minimale 192 Mo (Req 10.3.1)',
@@ -723,6 +787,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '196608',
     operator: 'gt',
     severity: 'high',
+    remediationScript: '$log = Get-WinEvent -ListLog Security; $log.MaximumSizeInBytes = 201326592; $log.SaveChanges()',
   }),
   r('pci-10-3-2', {
     name: 'Journal des événements — politique de rétention configurée (Req 10.3.2)',
@@ -733,6 +798,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Circular',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: '$log = Get-WinEvent -ListLog Security; $log.LogMode = "AutoBackup"; $log.SaveChanges()',
   }),
   r('pci-10-5-1', {
     name: 'Journal des applications — taille minimale 100 Mo (Req 10.5.1)',
@@ -743,6 +809,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '102400',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: '$log = Get-WinEvent -ListLog Application; $log.MaximumSizeInBytes = 104857600; $log.SaveChanges()',
   }),
   r('pci-10-6-1', {
     name: 'Synchronisation NTP — service de temps Windows actif (Req 10.6.1)',
@@ -753,6 +820,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Service -Name W32Time -StartupType Automatic; Start-Service -Name W32Time',
   }),
   r('pci-10-6-1-b', {
     name: 'Synchronisation NTP — source de temps configurée (Req 10.6.1)',
@@ -763,6 +831,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Local CMOS Clock',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'w32tm /config /manualpeerlist:"time.windows.com" /syncfromflags:manual /reliable:YES /update; Restart-Service -Name W32Time',
   }),
   r('pci-10-7-1', {
     name: 'Windows Event Log — service actif (Req 10.7.1)',
@@ -773,6 +842,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-Service -Name EventLog -StartupType Automatic; Start-Service -Name EventLog',
   }),
   r('pci-10-7-1-b', {
     name: 'PowerShell Script Block Logging — activé (Req 10.7.1)',
@@ -783,6 +853,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Name \'EnableScriptBlockLogging\' -Value 1 -Type DWord',
   }),
   r('pci-10-7-1-c', {
     name: 'Audit — modification de stratégie d\'audit activé (Req 10.7.1)',
@@ -793,6 +864,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'AuditBaseObjects\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 11 — Tests de sécurité réguliers ───────────────────────────────
@@ -816,6 +888,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableBehaviorMonitoring $false',
   }),
   r('pci-11-5-1', {
     name: 'Détection de changements — Windows Defender IOAV activé (Req 11.5.1)',
@@ -826,6 +899,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-MpPreference -DisableIOAVProtection $false',
   }),
   r('pci-11-6-1', {
     name: 'Détection falsification HTTP — SmartScreen activé (Req 11.6.1)',
@@ -836,6 +910,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnableSmartScreen\' -Value 1 -Type DWord',
   }),
 
   // ─── EXIGENCE 12 — Politiques de sécurité organisationnelles ─────────────────
@@ -869,6 +944,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\' -Name \'SecurityLayer\' -Value 2 -Type DWord',
   }),
   r('pci-12-3-3', {
     name: 'Chiffrement — FIPS activé (algorithmes approuvés) (Req 12.3.3)',
@@ -879,6 +955,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy\' -Name \'Enabled\' -Value 1 -Type DWord',
   }),
   r('pci-12-5-1', {
     name: 'Inventaire — service de gestion d\'actifs (WMI) actif (Req 12.5.1)',
@@ -889,6 +966,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Set-Service -Name Winmgmt -StartupType Automatic; Start-Service -Name Winmgmt',
   }),
   r('pci-12-6-1', {
     name: 'Formation sécurité — App Locker ou WDAC configuré (Req 12.6.1)',
@@ -899,6 +977,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name AppIDSvc -StartupType Automatic; Start-Service -Name AppIDSvc',
   }),
   r('pci-12-10-1', {
     name: 'Réponse aux incidents — journal d\'événements système conservé (Req 12.10.1)',
@@ -909,6 +988,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '102400',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: '$log = Get-WinEvent -ListLog System; $log.MaximumSizeInBytes = 104857600; $log.SaveChanges()',
   }),
 
   // ─── EXIGENCE 1 (complément) — Pare-feu et sécurité réseau ───────────────────
@@ -922,6 +1002,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Block',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -DefaultOutboundAction Block',
   }),
   r('pci-1-net-02', {
     name: 'Pare-feu — journalisation des paquets refusés (domaine) activée (Req 1.3.1)',
@@ -932,6 +1013,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Private -LogBlocked True',
   }),
   r('pci-1-net-03', {
     name: 'Pare-feu — journalisation des connexions réussies activée (Req 1.3.2)',
@@ -942,6 +1024,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -LogAllowed True',
   }),
   r('pci-1-net-04', {
     name: 'IPv6 — désactivé si non utilisé dans le CDE (Req 1.2.5)',
@@ -952,6 +1035,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '255',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters\' -Name \'DisabledComponents\' -Value 255 -Type DWord',
   }),
   r('pci-1-net-05', {
     name: 'Partage de connexion Internet (ICS) — service désactivé (Req 1.4.2)',
@@ -962,6 +1046,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service -Name SharedAccess -Force -ErrorAction SilentlyContinue; Set-Service -Name SharedAccess -StartupType Disabled',
   }),
   r('pci-1-net-06', {
     name: 'Accès réseau — restriction des accès anonymes aux partages (Req 1.4.4)',
@@ -972,6 +1057,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters\' -Name \'RestrictNullSessAccess\' -Value 1 -Type DWord',
   }),
   r('pci-1-net-07', {
     name: 'NetBIOS sur TCP/IP — désactivé (Req 1.2.5)',
@@ -982,6 +1068,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters\' -Name \'NodeType\' -Value 2 -Type DWord',
   }),
   r('pci-1-net-08', {
     name: 'LLMNR — désactivé (Req 1.2.5)',
@@ -992,6 +1079,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient\' -Name \'EnableMulticast\' -Value 0 -Type DWord',
   }),
   r('pci-1-net-09', {
     name: 'Service Routing and Remote Access — désactivé si inutilisé (Req 1.4.1)',
@@ -1002,6 +1090,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service -Name RemoteAccess -Force -ErrorAction SilentlyContinue; Set-Service -Name RemoteAccess -StartupType Disabled',
   }),
   r('pci-1-net-10', {
     name: 'Taille du journal de pare-feu — ≥ 16 Mo (Req 10.2.2)',
@@ -1012,6 +1101,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '16384',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain,Private,Public -LogMaxSizeKilobytes 16384',
   }),
 
   // ─── EXIGENCE 2 (complément) — Configurations sécurisées ─────────────────────
@@ -1025,6 +1115,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\CredentialGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\CredentialGuard\' -Name \'Enabled\' -Value 1 -Type DWord',
   }),
   r('pci-2-cfg-02', {
     name: 'Secure Boot — activé (Req 2.2.1)',
@@ -1045,6 +1136,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '5',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'LmCompatibilityLevel\' -Value 5 -Type DWord',
   }),
   r('pci-2-cfg-04', {
     name: 'NTLMv2 — niveau de compatibilité LAN Manager (Req 2.2.5)',
@@ -1055,6 +1147,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'LmCompatibilityLevel\' -Value 5 -Type DWord',
   }),
   r('pci-2-cfg-05', {
     name: 'Windows Script Host — désactivé si inutilisé (Req 2.2.4)',
@@ -1065,6 +1158,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings\' -Name \'Enabled\' -Value 0 -Type DWord',
   }),
   r('pci-2-cfg-06', {
     name: 'Recherche dans le registre LSA — protection activée (Req 2.2.6)',
@@ -1075,6 +1169,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'RunAsPPL\' -Value 1 -Type DWord',
   }),
   r('pci-2-cfg-07', {
     name: 'WDigest — authentification désactivée (Req 2.2.6)',
@@ -1085,6 +1180,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest\' -Name \'UseLogonCredential\' -Value 0 -Type DWord',
   }),
   r('pci-2-cfg-08', {
     name: 'RC4 128/128 — chiffrement faible désactivé dans SCHANNEL (Req 2.2.5)',
@@ -1095,6 +1191,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128\' -Name \'Enabled\' -Value 0 -Type DWord',
   }),
   r('pci-2-cfg-09', {
     name: 'DES — chiffrement faible désactivé dans SCHANNEL (Req 2.2.5)',
@@ -1105,6 +1202,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\DES 56/56\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\DES 56/56\' -Name \'Enabled\' -Value 0 -Type DWord',
   }),
   r('pci-2-cfg-10', {
     name: 'PowerShell — version 2 désactivée (Req 2.2.4)',
@@ -1115,6 +1213,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Disable-WindowsOptionalFeature -Online -FeatureName MicrosoftWindowsPowerShellV2Root -NoRestart',
   }),
   r('pci-2-cfg-11', {
     name: 'Service d\'impression (Print Spooler) — désactivé sur les serveurs non imprimeurs (Req 2.2.4)',
@@ -1125,6 +1224,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue; Set-Service -Name Spooler -StartupType Disabled',
   }),
   r('pci-2-cfg-12', {
     name: 'Remote Registry — service désactivé (Req 2.2.4)',
@@ -1135,6 +1235,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service -Name RemoteRegistry -Force -ErrorAction SilentlyContinue; Set-Service -Name RemoteRegistry -StartupType Disabled',
   }),
 
   // ─── EXIGENCE 3 (complément) — Protection des données stockées ───────────────
@@ -1158,6 +1259,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Start-Service -Name DPAPI -ErrorAction SilentlyContinue',
   }),
   r('pci-3-data-03', {
     name: 'BitLocker — lecteur de données secondaire chiffré (Req 3.5.1)',
@@ -1181,6 +1283,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-tls-02', {
     name: 'TLS 1.1 — désactivé côté client (Req 4.2.1)',
@@ -1191,6 +1294,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-tls-03', {
     name: 'SSL 2.0 — désactivé côté client (Req 4.2.1)',
@@ -1201,6 +1305,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Client\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Client\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-tls-04', {
     name: 'SSL 3.0 — désactivé côté client (Req 4.2.1)',
@@ -1211,6 +1316,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Client\' -Name \'Enabled\' -Value 0 -Type DWord; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Client\' -Name \'DisabledByDefault\' -Value 1 -Type DWord',
   }),
   r('pci-4-tls-05', {
     name: 'AES 256 — chiffrement fort activé dans SCHANNEL (Req 4.2.1)',
@@ -1221,6 +1327,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '4294967295',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\AES 256/256\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\AES 256/256\' -Name \'Enabled\' -Value 0xFFFFFFFF -Type DWord',
   }),
   r('pci-4-tls-06', {
     name: 'SHA-256 — algorithme de hachage fort activé (Req 3.5.1.2)',
@@ -1231,6 +1338,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '4294967295',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Hashes\\SHA256\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Hashes\\SHA256\' -Name \'Enabled\' -Value 0xFFFFFFFF -Type DWord',
   }),
   r('pci-4-tls-07', {
     name: 'MD5 — algorithme de hachage faible désactivé (Req 4.2.1)',
@@ -1241,6 +1349,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Hashes\\MD5\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Hashes\\MD5\' -Name \'Enabled\' -Value 0 -Type DWord',
   }),
 
   // ─── EXIGENCE 5 (complément) — Protection contre les malwares ────────────────
@@ -1254,6 +1363,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '3',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'Update-MpSignature -ErrorAction SilentlyContinue',
   }),
   r('pci-5-av-02', {
     name: 'Windows Defender — protection anti-spyware activée (Req 5.2.1)',
@@ -1264,6 +1374,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('pci-5-av-03', {
     name: 'Windows Defender — protection IOAV activée (Req 5.2.3)',
@@ -1274,6 +1385,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableIOAVProtection $false',
   }),
   r('pci-5-av-04', {
     name: 'Windows Defender — surveillance comportementale activée (Req 5.2.2)',
@@ -1284,6 +1396,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableBehaviorMonitoring $false',
   }),
   r('pci-5-av-05', {
     name: 'Windows Defender — protection anti-ransomware (Controlled Folder Access) (Req 5.2.3)',
@@ -1294,6 +1407,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -EnableControlledFolderAccess Enabled',
   }),
   r('pci-5-av-06', {
     name: 'Windows Defender — scan des archives activé (Req 5.2.3)',
@@ -1304,6 +1418,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-MpPreference -DisableArchiveScanning $false',
   }),
   r('pci-5-av-07', {
     name: 'Windows Defender — scan des scripts activé (Req 5.2.3)',
@@ -1314,6 +1429,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableScriptScanning $false',
   }),
 
   // ─── EXIGENCE 6 (complément) — Développement et maintenance sécurisés ────────
@@ -1327,6 +1443,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Enabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Enable-WindowsOptionalFeature -Online -FeatureName Windows-Defender-ApplicationGuard -NoRestart',
   }),
   r('pci-6-dev-02', {
     name: 'Stratégie d\'exécution PowerShell — restreinte (Req 6.2.4)',
@@ -1337,6 +1454,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Unrestricted',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine -Force',
   }),
   r('pci-6-dev-03', {
     name: 'Windows Defender Exploit Protection — activé (Req 6.2.4)',
@@ -1347,6 +1465,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'ON',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ProcessMitigation -System -Enable DEP',
   }),
   r('pci-6-dev-04', {
     name: 'DEP — Data Execution Prevention activée (Req 6.2.4)',
@@ -1357,6 +1476,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'AlwaysOn',
     operator: 'contains',
     severity: 'high',
+    remediationScript: 'bcdedit /set {current} nx AlwaysOn',
   }),
 
   // ─── EXIGENCE 7 (complément) — Restriction d\'accès ──────────────────────────
@@ -1370,6 +1490,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Registry" /success:enable /failure:enable',
   }),
   r('pci-7-acc-02', {
     name: 'Accès aux objets sensibles — audit du système de fichiers activé (Req 7.2.1)',
@@ -1380,6 +1501,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
   }),
   r('pci-7-acc-03', {
     name: 'Accès au réseau — restriction des comptes anonymes (Req 7.2.2)',
@@ -1390,6 +1512,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'EveryoneIncludesAnonymous\' -Value 0 -Type DWord',
   }),
   r('pci-7-acc-04', {
     name: 'Élévation de privilèges — détection d\'utilisation de privilèges sensibles (Req 7.2.3)',
@@ -1400,6 +1523,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable',
   }),
 
   // ─── EXIGENCE 8 (complément) — Authentification ───────────────────────────────
@@ -1413,6 +1537,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '30',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'net accounts /lockoutduration:30',
   }),
   r('pci-8-auth-02', {
     name: 'Stratégie de verrouillage — fenêtre d\'observation ≥ 30 minutes (Req 8.3.4)',
@@ -1423,6 +1548,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '30',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'net accounts /lockoutwindow:30',
   }),
   r('pci-8-auth-03', {
     name: 'Compte invité — désactivé (Req 8.2.2)',
@@ -1433,6 +1559,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Disable-LocalUser -Name "Guest"',
   }),
   r('pci-8-auth-04', {
     name: 'Stratégie de mot de passe — historique minimum 5 (Req 8.3.7)',
@@ -1443,6 +1570,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '5',
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'net accounts /uniquepw:6',
   }),
   r('pci-8-auth-05', {
     name: 'Audit des créations de sessions — activé (Req 8.2.8)',
@@ -1453,6 +1581,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Special Logon" /success:enable',
   }),
   r('pci-8-auth-06', {
     name: 'Audit des déconnexions — activé (Req 8.2.8)',
@@ -1463,6 +1592,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Logoff" /success:enable',
   }),
   r('pci-8-auth-07', {
     name: 'Audit des verrouillages de compte — activé (Req 8.3.4)',
@@ -1473,6 +1603,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Account Lockout" /failure:enable',
   }),
   r('pci-8-auth-08', {
     name: 'RDP — couche de sécurité TLS obligatoire (Req 8.3.1)',
@@ -1483,6 +1614,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp\' -Name \'SecurityLayer\' -Value 2 -Type DWord',
   }),
 
   // ─── EXIGENCE 10 (complément) — Journalisation ────────────────────────────────
@@ -1496,6 +1628,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Non Sensitive Privilege Use" /success:enable /failure:enable',
   }),
   r('pci-10-log-02', {
     name: 'Audit de démarrage du système — activé (Req 10.2.1.6)',
@@ -1506,6 +1639,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other System Events" /success:enable /failure:enable',
   }),
   r('pci-10-log-03', {
     name: 'Journal des événements d\'application — taille ≥ 100 Mo (Req 10.5.1)',
@@ -1516,6 +1650,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '102400',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: '$log = Get-WinEvent -ListLog Application; $log.MaximumSizeInBytes = 104857600; $log.SaveChanges()',
   }),
   r('pci-10-log-04', {
     name: 'PowerShell Module Logging — activé (Req 10.2.2)',
@@ -1526,6 +1661,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging\' -Name \'EnableModuleLogging\' -Value 1 -Type DWord',
   }),
   r('pci-10-log-05', {
     name: 'Transcription PowerShell — activée (Req 10.2.2)',
@@ -1536,6 +1672,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription\' -Name \'EnableTranscripting\' -Value 1 -Type DWord',
   }),
   r('pci-10-log-06', {
     name: 'Audit d\'utilisation des handles — activé (Req 10.2.1.1)',
@@ -1546,6 +1683,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Handle Manipulation" /success:enable',
   }),
   r('pci-10-log-07', {
     name: 'NTP — synchronisation avec le serveur de temps configuré (Req 10.6.1)',
@@ -1556,6 +1694,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'NTP',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\W32Time\\Parameters\' -Name \'Type\' -Value \'NTP\' -Type String',
   }),
   r('pci-10-log-08', {
     name: 'Audit des événements de plateforme — activé (Req 10.2.2)',
@@ -1566,6 +1705,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Security State Change" /success:enable /failure:enable',
   }),
 
   // ─── EXIGENCE 11 (complément) — Tests de sécurité ────────────────────────────
@@ -1579,6 +1719,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableIntrusionPreventionSystem $false',
   }),
   r('pci-11-test-02', {
     name: 'Windows Defender — définitions NIS à jour (Req 11.2.1)',
@@ -1589,6 +1730,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '7',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'Update-MpSignature -ErrorAction SilentlyContinue',
   }),
   r('pci-11-test-03', {
     name: 'Windows Defender — protection des applications contre les exploits activée (Req 11.3.1)',
@@ -1622,6 +1764,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-Service -Name AppIDSvc -StartupType Automatic; Start-Service -Name AppIDSvc',
   }),
   r('pci-12-pol-02', {
     name: 'Audit de stratégie globale de changement — activé (Req 12.1.2)',
@@ -1632,6 +1775,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Authorization Policy Change" /success:enable /failure:enable',
   }),
   r('pci-12-pol-03', {
     name: 'Inventaire des composants — service WMI actif (Req 12.5.1)',
@@ -1642,6 +1786,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Set-Service -Name Winmgmt -StartupType Automatic; Start-Service -Name Winmgmt',
   }),
   r('pci-12-pol-04', {
     name: 'Plan de réponse aux incidents — service de journalisation des événements actif (Req 12.10.1)',
@@ -1652,6 +1797,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-Service -Name EventLog -StartupType Automatic; Start-Service -Name EventLog',
   }),
   r('pci-12-pol-05', {
     name: 'Gestion des identités — audit des modifications de groupe activé (Req 12.4.1)',
@@ -1662,6 +1808,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Security Group Management" /success:enable /failure:enable',
   }),
   r('pci-12-pol-06', {
     name: 'Gestion des objets informatiques — audit de gestion des ordinateurs activé (Req 12.4.1)',
@@ -1672,6 +1819,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Computer Account Management" /success:enable /failure:enable',
   }),
   r('pci-12-pol-07', {
     name: 'Chiffrement FIPS 140 — algorithmes validés activés (Req 12.3.3)',
@@ -1682,6 +1830,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\FipsAlgorithmPolicy\' -Name \'Enabled\' -Value 1 -Type DWord',
   }),
   r('pci-12-pol-08', {
     name: 'Gestion à distance sécurisée — WinRM avec HTTPS seulement (Req 12.3.1)',
@@ -1692,6 +1841,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Item WSMan:\\localhost\\Service\\AllowUnencrypted -Value $false -Force',
   }),
   r('pci-12-pol-09', {
     name: 'WinRM — authentification de base désactivée (Req 12.3.1)',
@@ -1702,6 +1852,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-Item WSMan:\\localhost\\Service\\Auth\\Basic -Value $false -Force',
   }),
 
 ];

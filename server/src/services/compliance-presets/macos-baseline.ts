@@ -17,6 +17,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     operator: 'eq',
     severity: 'critical',
     minOsVersion: 'macOS 12',
+    // SIP can only be toggled from Recovery Mode — cannot be automated
   }),
 
   r('msb-002', {
@@ -28,6 +29,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'spctl --master-enable',
   }),
 
   r('msb-003', {
@@ -39,6 +41,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // Secure Boot settings require Recovery Mode — cannot be automated
   }),
 
   r('msb-004', {
@@ -50,6 +53,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    // FileVault enable requires user interaction (password + recovery key) — cannot be fully automated
   }),
 
   r('msb-005', {
@@ -61,6 +65,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled.',
     operator: 'eq',
     severity: 'critical',
+    // SIP can only be toggled from Recovery Mode — cannot be automated
   }),
 
   r('msb-006', {
@@ -72,6 +77,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.security.XProtect Enabled -bool true',
   }),
 
   r('msb-007', {
@@ -83,6 +89,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'defaults write com.apple.LaunchServices LSQuarantine -bool true',
   }),
 
   r('msb-008', {
@@ -94,6 +101,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'softwareupdate --install --recommended',
   }),
 
   r('msb-009', {
@@ -105,6 +113,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '24',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'pmset -a hibernatemode 25',
   }),
 
   r('msb-010', {
@@ -116,6 +125,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'spctl --master-enable',
   }),
 
   // ── PARE-FEU ─────────────────────────────────────────────────────────────────
@@ -129,6 +139,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'critical',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.alf globalstate -int 1 && launchctl kickstart -k system/com.apple.alf',
   }),
 
   r('msb-012', {
@@ -140,6 +151,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.alf stealthenabled -int 1 && launchctl kickstart -k system/com.apple.alf',
   }),
 
   r('msb-013', {
@@ -151,6 +163,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.alf loggingenabled -int 1 && launchctl kickstart -k system/com.apple.alf',
   }),
 
   r('msb-014', {
@@ -162,6 +175,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.alf allowsignedenabled -int 1 && launchctl kickstart -k system/com.apple.alf',
   }),
 
   r('msb-015', {
@@ -173,6 +187,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '/sbin/pfctl -e 2>/dev/null; true',
   }),
 
   r('msb-016', {
@@ -184,6 +199,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'systemsetup -setremotelogin off',
   }),
 
   r('msb-017', {
@@ -195,6 +211,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'stopped',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -deactivate -stop',
   }),
 
   r('msb-018', {
@@ -206,6 +223,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.alf blockall -int 1 && launchctl kickstart -k system/com.apple.alf',
   }),
 
   // ── RÉSEAU ───────────────────────────────────────────────────────────────────
@@ -219,6 +237,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'pmset -a womp 0',
   }),
 
   r('msb-020', {
@@ -230,6 +249,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'systemsetup -setremoteappleevents off',
   }),
 
   r('msb-021', {
@@ -241,6 +261,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "defaults write /Library/Preferences/SystemConfiguration/com.apple.nat NAT -dict-add Enabled -bool false",
   }),
 
   r('msb-022', {
@@ -252,6 +273,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: 'cupsctl --no-share-printers',
   }),
 
   r('msb-023', {
@@ -263,6 +285,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.Bluetooth ControllerPowerState -int 0 && killall -HUP bluetoothd 2>/dev/null; true',
   }),
 
   r('msb-024', {
@@ -274,6 +297,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'stopped',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'nfsd stop && launchctl unload -w /System/Library/LaunchDaemons/com.apple.nfsd.plist 2>/dev/null; true',
   }),
 
   r('msb-025', {
@@ -285,6 +309,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'launchctl unload -w /System/Library/LaunchDaemons/com.apple.smbd.plist 2>/dev/null; true',
   }),
 
   r('msb-026', {
@@ -296,6 +321,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.NetworkBrowser DisableAirDrop -bool true',
   }),
 
   r('msb-027', {
@@ -307,6 +333,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.mDNSResponder.plist NoMulticastAdvertisements -bool true',
   }),
 
   r('msb-028', {
@@ -318,6 +345,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'launchctl unload -w /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist 2>/dev/null; true',
   }),
 
   // ── COMPTES UTILISATEURS ─────────────────────────────────────────────────────
@@ -331,6 +359,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false',
   }),
 
   r('msb-030', {
@@ -342,6 +371,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'disabled',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null; true',
   }),
 
   r('msb-031', {
@@ -353,6 +383,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'dscl . -create /Users/root UserShell /usr/bin/false && dsenableroot -d 2>/dev/null; true',
   }),
 
   r('msb-032', {
@@ -364,6 +395,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.loginwindow SHOWFULLNAME -bool true',
   }),
 
   r('msb-033', {
@@ -375,6 +407,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.loginwindow RetriesUntilHint -int 0',
   }),
 
   r('msb-034', {
@@ -386,6 +419,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '300',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'defaults -currentHost write com.apple.screensaver idleTime -int 300',
   }),
 
   r('msb-035', {
@@ -397,6 +431,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write com.apple.screensaver askForPassword -int 1',
   }),
 
   r('msb-036', {
@@ -408,6 +443,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '5',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'defaults write com.apple.screensaver askForPasswordDelay -int 5',
   }),
 
   r('msb-037', {
@@ -419,6 +455,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write /Library/Preferences/.GlobalPreferences MultipleSessionEnabled -bool false',
   }),
 
   r('msb-038', {
@@ -430,6 +467,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // Recovery key provisioning requires user interaction — cannot be automated
   }),
 
   // ── MISES À JOUR ─────────────────────────────────────────────────────────────
@@ -443,6 +481,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool true',
   }),
 
   r('msb-040', {
@@ -454,6 +493,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool true',
   }),
 
   r('msb-041', {
@@ -465,6 +505,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.SoftwareUpdate CriticalUpdateInstall -bool true',
   }),
 
   r('msb-042', {
@@ -476,6 +517,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.commerce AutoUpdate -bool true',
   }),
 
   r('msb-043', {
@@ -487,6 +529,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool true',
   }),
 
   // ── CHIFFREMENT ──────────────────────────────────────────────────────────────
@@ -500,6 +543,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    // FileVault enable requires user interaction (password + recovery key) — cannot be fully automated
   }),
 
   r('msb-045', {
@@ -511,6 +555,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    // Disk encryption requires user interaction — cannot be automated
   }),
 
   r('msb-046', {
@@ -522,6 +567,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'security set-keychain-settings -t 300 -l login.keychain-db',
   }),
 
   r('msb-047', {
@@ -533,6 +579,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    // iCloud Keychain toggle requires Apple ID interaction — cannot be automated
   }),
 
   r('msb-048', {
@@ -544,6 +591,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // Encryption in progress — must wait for completion, cannot be remediated
   }),
 
   // ── CONFIDENTIALITÉ / PROTECTION DES DONNÉES ─────────────────────────────────
@@ -557,6 +605,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.lookup.shared LookupSuggestionsDisabled -bool true',
   }),
 
   r('msb-050', {
@@ -568,6 +617,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "defaults write com.apple.assistant.support 'Assistant Enabled' -bool false",
   }),
 
   r('msb-051', {
@@ -579,6 +629,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.SubmitDiagInfo AutoSubmit -bool false',
   }),
 
   r('msb-052', {
@@ -590,6 +641,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "defaults write '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist' AutoSubmit -bool false",
   }),
 
   r('msb-053', {
@@ -601,6 +653,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false',
   }),
 
   r('msb-054', {
@@ -612,6 +665,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'launchctl unload -w /System/Library/LaunchDaemons/com.apple.screensharing.plist 2>/dev/null; true',
   }),
 
   r('msb-055', {
@@ -623,6 +677,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'low',
+    // Location Services toggle requires user consent via System Preferences — not reliably automated
   }),
 
   r('msb-056', {
@@ -634,6 +689,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    // iCloud Photos toggle requires Apple ID interaction — cannot be automated
   }),
 
   r('msb-057', {
@@ -645,6 +701,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    // TCC database is SIP-protected — cannot be modified programmatically
   }),
 
   r('msb-058', {
@@ -656,6 +713,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
+    // TCC database is SIP-protected — cannot be modified programmatically
   }),
 
   // ── AUDIT / JOURNALISATION ───────────────────────────────────────────────────
@@ -669,6 +727,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'launchctl load -w /System/Library/LaunchDaemons/com.apple.auditd.plist 2>/dev/null; true',
   }),
 
   r('msb-060', {
@@ -680,6 +739,8 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // Audit file is created by auditd — restart auditd to recreate
+    remediationScript: 'launchctl kickstart -k system/com.apple.auditd',
   }),
 
   r('msb-061', {
@@ -691,6 +752,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "grep -q 'policy:' /etc/security/audit_control && sed -i '' 's/^policy:.*/policy:ahlt/' /etc/security/audit_control || echo 'policy:ahlt' >> /etc/security/audit_control",
   }),
 
   r('msb-062', {
@@ -702,6 +764,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^flags:.*/&,lo/' /etc/security/audit_control && audit -s",
   }),
 
   r('msb-063', {
@@ -713,6 +776,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^flags:.*/&,aa,ad/' /etc/security/audit_control && audit -s",
   }),
 
   r('msb-064', {
@@ -724,6 +788,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '5',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "sed -i '' 's/^minfree:.*/minfree:25/' /etc/security/audit_control && audit -s",
   }),
 
   r('msb-065', {
@@ -735,6 +800,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'launchctl load -w /System/Library/LaunchDaemons/com.apple.syslogd.plist 2>/dev/null; true',
   }),
 
   r('msb-066', {
@@ -746,6 +812,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.loginwindow DisableConsoleAccess -bool true',
   }),
 
   r('msb-067', {
@@ -757,6 +824,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i '' 's/^flags:.*/&,fd,fm/' /etc/security/audit_control && audit -s",
   }),
 
   // ── SSH (SI ACTIVÉ) ──────────────────────────────────────────────────────────
@@ -770,6 +838,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "sed -i '' 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-069', {
@@ -781,6 +850,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "sed -i '' 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-070', {
@@ -792,6 +862,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '4',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^#*MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-071', {
@@ -803,6 +874,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '300',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "sed -i '' 's/^#*ClientAliveInterval.*/ClientAliveInterval 300/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-072', {
@@ -814,6 +886,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'yes',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^#*IgnoreRhosts.*/IgnoreRhosts yes/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-073', {
@@ -825,6 +898,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^#*HostbasedAuthentication.*/HostbasedAuthentication no/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-074', {
@@ -836,6 +910,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^#*AllowTcpForwarding.*/AllowTcpForwarding no/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   r('msb-075', {
@@ -847,6 +922,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i '' 's/^#*X11Forwarding.*/X11Forwarding no/' /etc/ssh/sshd_config && launchctl kickstart -k system/com.openssh.sshd 2>/dev/null; true",
   }),
 
   // ── PARAMÈTRES SYSTÈME ───────────────────────────────────────────────────────
@@ -860,6 +936,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '600',
     operator: 'lt',
     severity: 'high',
+    remediationScript: 'defaults -currentHost write com.apple.screensaver idleTime -int 600',
   }),
 
   r('msb-077', {
@@ -871,6 +948,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText 'Authorized use only. All activity may be monitored.'",
   }),
 
   r('msb-078', {
@@ -882,6 +960,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'systemsetup -setnetworktimeserver time.apple.com',
   }),
 
   r('msb-079', {
@@ -893,6 +972,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'systemsetup -setusingnetworktime on',
   }),
 
   r('msb-080', {
@@ -904,6 +984,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'spctl --master-enable',
   }),
 
   r('msb-081', {
@@ -915,6 +996,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'low',
+    remediationScript: 'pmset -a disksleep 10',
   }),
 
   r('msb-082', {
@@ -926,6 +1008,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'stopped',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'launchctl unload -w /System/Library/LaunchDaemons/ftp.plist 2>/dev/null; true',
   }),
 
   r('msb-083', {
@@ -937,6 +1020,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'stopped',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'launchctl unload -w /System/Library/LaunchDaemons/telnet.plist 2>/dev/null; true',
   }),
 
   r('msb-084', {
@@ -948,6 +1032,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.ncprefs content_visibility -int 2',
   }),
 
   r('msb-085', {
@@ -959,6 +1044,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.loginwindow HideAdminUsers -bool true',
   }),
 
   // ── SÉCURITÉ DES APPLICATIONS ─────────────────────────────────────────────────
@@ -972,6 +1058,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write com.apple.Safari WarnAboutFraudulentWebsites -bool true',
   }),
 
   r('msb-087', {
@@ -983,6 +1070,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.Safari WebKitPreferences.storageBlockingPolicy -int 2',
   }),
 
   r('msb-088', {
@@ -994,6 +1082,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'defaults write com.apple.Safari WebKitJavaEnabled -bool false',
   }),
 
   r('msb-089', {
@@ -1005,6 +1094,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "rm -rf '/Library/Internet Plug-Ins/Flash Player.plugin' '/Library/PreferencePanes/Flash Player.prefPane'",
   }),
 
   r('msb-090', {
@@ -1016,6 +1106,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'spctl --master-enable',
   }),
 
   r('msb-091', {
@@ -1027,6 +1118,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.Safari AutoOpenSafeDownloads -bool false',
   }),
 
   r('msb-092', {
@@ -1038,6 +1130,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'low',
+    remediationScript: 'defaults write com.apple.Safari WebKitJavaScriptEnabled -bool true',
   }),
 
   // ── RÈGLES COMPLÉMENTAIRES ───────────────────────────────────────────────────
@@ -1051,6 +1144,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write com.apple.coreduetd ActivityAdvertisingAllowed -bool false',
   }),
 
   r('msb-094', {
@@ -1062,6 +1156,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'defaults write com.apple.coreduetd ActivityReceivingAllowed -bool false',
   }),
 
   r('msb-095', {
@@ -1073,6 +1168,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'softwareupdate --install --recommended',
   }),
 
   r('msb-096', {
@@ -1084,6 +1180,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime -int 300',
   }),
 
   r('msb-097', {
@@ -1095,6 +1192,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "networksetup -listallnetworkservices 2>/dev/null | grep -v '\\*' | while read svc; do networksetup -setv6off \"$svc\" 2>/dev/null; done",
   }),
 
   r('msb-098', {
@@ -1106,6 +1204,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i '' 's/^flags:.*/&,fm/' /etc/security/audit_control && audit -s",
   }),
 
   r('msb-099', {
@@ -1117,6 +1216,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'defaults write com.apple.Bluetooth PrefKeyServicesEnabled -bool false',
   }),
 
   r('msb-100', {
@@ -1128,6 +1228,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'pmset -a DestroyFVKeyOnStandby 1',
   }),
 
   r('msb-101', {
@@ -1139,6 +1240,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'networksetup -setdnsservers Wi-Fi 1.1.1.1 1.0.0.1',
   }),
 
   r('msb-102', {
@@ -1150,6 +1252,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    // Removing admin accounts requires manual review — cannot be safely automated
   }),
 
   r('msb-103', {
@@ -1161,6 +1264,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
+    // TCC database is SIP-protected — cannot be modified programmatically
   }),
 
   r('msb-104', {
@@ -1173,6 +1277,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     operator: 'gt',
     severity: 'critical',
     minOsVersion: 'macOS 12',
+    // macOS major upgrade requires user interaction — cannot be automated
   }),
 
   r('msb-105', {
@@ -1184,6 +1289,7 @@ export const macosBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "networksetup -setnetworkserviceenabled 'Thunderbolt Bridge' off 2>/dev/null; true",
   }),
 
 ];

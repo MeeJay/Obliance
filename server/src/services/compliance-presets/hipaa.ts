@@ -16,6 +16,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-Service -Name 'WinDefend' -StartupType Automatic; Start-Service -Name 'WinDefend'",
   }),
   r('hipaa-308-a-1-ii-D', {
     name: 'Politiques documentées — Windows Update activé (réduction des risques) [§164.308(a)(1)(ii)(D)]',
@@ -26,6 +27,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'NoAutoUpdate' -Value 0 -Type DWord",
   }),
   r('hipaa-308-a-2', {
     name: 'Accès autorisés seulement — UAC activé [§164.308(a)(2)]',
@@ -36,6 +38,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('hipaa-308-a-3-ii-A', {
     name: 'Vérification du personnel — journal des connexions activé [§164.308(a)(3)(ii)(A)]',
@@ -46,6 +49,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('hipaa-308-a-3-ii-C', {
     name: 'Procédures de fin d\'emploi — comptes inactifs désactivés [§164.308(a)(3)(ii)(C)]',
@@ -56,6 +60,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Get-LocalUser | Where-Object { $_.Enabled -eq $true -and $_.LastLogon -lt (Get-Date).AddDays(-90) -and $_.LastLogon -ne $null } | Disable-LocalUser",
   }),
   r('hipaa-308-a-4-ii-A', {
     name: 'Moindre privilège — membres du groupe Administrators limités [§164.308(a)(4)(ii)(A)]',
@@ -76,6 +81,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Administrator'",
   }),
   r('hipaa-308-a-5-ii-B', {
     name: 'Protection anti-malware — Defender antivirus activé [§164.308(a)(5)(ii)(B)]',
@@ -86,6 +92,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false; Start-Service -Name 'WinDefend'",
   }),
   r('hipaa-308-a-5-ii-B-2', {
     name: 'Protection en temps réel — Defender protection en temps réel active [§164.308(a)(5)(ii)(B)]',
@@ -96,6 +103,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false",
   }),
   r('hipaa-308-a-5-ii-C', {
     name: 'Surveillance des connexions — audit des connexions activé [§164.308(a)(5)(ii)(C)]',
@@ -106,6 +114,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('hipaa-308-a-5-ii-D', {
     name: 'Gestion des mots de passe — longueur minimum 12 caractères [§164.308(a)(5)(ii)(D)]',
@@ -116,6 +125,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '12',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: "net accounts /minpwlen:12",
   }),
   r('hipaa-308-a-5-ii-D-2', {
     name: 'Gestion des mots de passe — complexité requise activée [§164.308(a)(5)(ii)(D)]',
@@ -126,6 +136,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'PasswordComplexity' -Value 1 -Type DWord",
   }),
   r('hipaa-308-a-6-ii', {
     name: 'Réponse aux incidents — journal des événements système activé [§164.308(a)(6)(ii)]',
@@ -136,6 +147,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Running',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-Service -Name 'EventLog' -StartupType Automatic; Start-Service -Name 'EventLog'",
   }),
   r('hipaa-308-a-7-ii-A', {
     name: 'Plan de sauvegarde — service de sauvegarde Windows configuré [§164.308(a)(7)(ii)(A)]',
@@ -146,6 +158,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "Set-Service -Name 'wbengine' -StartupType Manual",
   }),
   r('hipaa-308-a-8', {
     name: 'Révision des activités — taille du journal de sécurité ≥ 192 Mo [§164.308(a)(8)]',
@@ -156,6 +169,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '196608',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "wevtutil sl Security /ms:201326592",
   }),
 
   // ─── §164.310 Garanties physiques ─────────────────────────────────────────────
@@ -169,6 +183,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('hipaa-310-b-1', {
     name: 'Utilisation des postes — verrouillage automatique de session configuré [§164.310(b)]',
@@ -179,6 +194,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '900',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '900'",
   }),
   r('hipaa-310-b-2', {
     name: 'Postes de travail — économiseur d\'écran protégé par mot de passe [§164.310(b)]',
@@ -189,6 +205,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '1'",
   }),
   r('hipaa-310-c-2-i', {
     name: 'Disposition des médias — BitLocker activé (chiffrement avant réutilisation) [§164.310(c)(2)(i)]',
@@ -199,6 +216,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
   }),
   r('hipaa-310-c-2-ii', {
     name: 'Réutilisation des médias — méthode de chiffrement BitLocker AES 256 bits [§164.310(c)(2)(ii)]',
@@ -222,6 +240,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('hipaa-312-a-2-i', {
     name: 'ID unique par utilisateur — compte Invité désactivé (pas de comptes partagés) [§164.312(a)(2)(i)]',
@@ -232,6 +251,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Disable-LocalUser -Name 'Guest'",
   }),
   r('hipaa-312-a-2-iii', {
     name: 'Déconnexion automatique — délai d\'inactivité ≤ 15 minutes [§164.312(a)(2)(iii)]',
@@ -242,6 +262,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '900',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '900'",
   }),
   r('hipaa-312-a-2-iv', {
     name: 'Chiffrement des ePHI — BitLocker actif sur le lecteur système [§164.312(a)(2)(iv)]',
@@ -252,6 +273,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
   }),
   r('hipaa-312-b', {
     name: 'Mécanismes d\'audit — base d\'audit activée [§164.312(b)]',
@@ -262,6 +284,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'AuditBaseObjects' -Value 1 -Type DWord",
   }),
   r('hipaa-312-b-2', {
     name: 'Audit d\'accès aux objets — activé (Success and Failure) [§164.312(b)]',
@@ -272,6 +295,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
   }),
   r('hipaa-312-d', {
     name: 'Authentification des utilisateurs — UAC actif, authentification requise [§164.312(d)]',
@@ -282,6 +306,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('hipaa-312-e-1-tls10', {
     name: 'Chiffrement en transit — TLS 1.0 désactivé [§164.312(e)(1)]',
@@ -292,6 +317,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('hipaa-312-e-1-tls11', {
     name: 'Chiffrement en transit — TLS 1.1 désactivé [§164.312(e)(1)]',
@@ -302,6 +328,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('hipaa-312-e-1-tls12', {
     name: 'Chiffrement en transit — TLS 1.2 activé [§164.312(e)(1)]',
@@ -312,6 +339,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'Enabled' -Value 1 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'DisabledByDefault' -Value 0 -Type DWord",
   }),
 
   // ─── Contrôles techniques Windows spécifiques HIPAA ─────────────────────────
@@ -325,6 +353,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod Aes256 -RecoveryPasswordProtector -SkipHardwareTest",
   }),
   r('hipaa-tech-2', {
     name: 'Pare-feu Windows — activé sur tous les profils [HIPAA Tech]',
@@ -335,6 +364,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True",
   }),
   r('hipaa-tech-3', {
     name: 'Antivirus/Defender — activé et à jour [HIPAA Tech]',
@@ -345,6 +375,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false; Start-Service -Name 'WinDefend'",
   }),
   r('hipaa-tech-4', {
     name: 'Journalisation des événements de sécurité — activée [HIPAA Tech]',
@@ -355,6 +386,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "wevtutil sl Security /e:true",
   }),
   r('hipaa-tech-5', {
     name: 'Taille du journal de sécurité — ≥ 192 Mo [HIPAA Tech]',
@@ -365,6 +397,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '196608',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "wevtutil sl Security /ms:201326592",
   }),
   r('hipaa-tech-6', {
     name: 'Verrouillage automatique de session — ≤ 15 minutes [HIPAA Tech]',
@@ -375,6 +408,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '900',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '900'",
   }),
   r('hipaa-tech-7', {
     name: 'Mot de passe écran de veille — activé [HIPAA Tech]',
@@ -385,6 +419,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaverIsSecure' -Value '1'",
   }),
   r('hipaa-tech-8', {
     name: 'UAC — activé [HIPAA Tech]',
@@ -395,6 +430,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name 'EnableLUA' -Value 1 -Type DWord",
   }),
   r('hipaa-tech-9', {
     name: 'Windows Update automatique — configuré [HIPAA Tech]',
@@ -405,6 +441,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '3',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name 'AUOptions' -Value 4 -Type DWord",
   }),
   r('hipaa-tech-10', {
     name: 'TLS 1.0 — désactivé [HIPAA Tech]',
@@ -415,6 +452,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('hipaa-tech-11', {
     name: 'TLS 1.1 — désactivé [HIPAA Tech]',
@@ -425,6 +463,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'Enabled' -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name 'DisabledByDefault' -Value 1 -Type DWord",
   }),
   r('hipaa-tech-12', {
     name: 'Audit des connexions — réussies et échouées activé [HIPAA Tech]',
@@ -435,6 +474,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('hipaa-tech-13', {
     name: 'Audit de la gestion des comptes — activé [HIPAA Tech]',
@@ -445,6 +485,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
   r('hipaa-tech-14', {
     name: 'PowerShell Script Block Logging — activé [HIPAA Tech]',
@@ -455,6 +496,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1 -Type DWord",
   }),
   r('hipaa-tech-15', {
     name: 'Accès RDP — NLA requis [HIPAA Tech]',
@@ -465,6 +507,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name 'UserAuthentication' -Value 1 -Type DWord",
   }),
   r('hipaa-tech-16', {
     name: 'Compte administrateur local — désactivé ou renommé [HIPAA Tech]',
@@ -475,6 +518,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Administrator'",
   }),
   r('hipaa-tech-17', {
     name: 'Compte invité local — désactivé [HIPAA Tech]',
@@ -485,6 +529,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Disable-LocalUser -Name 'Guest'",
   }),
   r('hipaa-tech-18', {
     name: 'SMBv1 — désactivé [HIPAA Tech]',
@@ -495,6 +540,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'False',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force",
   }),
   r('hipaa-tech-19', {
     name: 'Stratégie de mot de passe — longueur minimum 12 caractères [HIPAA Tech]',
@@ -505,6 +551,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '12',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: "net accounts /minpwlen:12",
   }),
   r('hipaa-tech-20', {
     name: 'Stratégie de verrouillage de compte — seuil ≤ 5 tentatives [HIPAA Tech]',
@@ -515,6 +562,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '5',
     operator: 'lt',
     severity: 'critical',
+    remediationScript: "net accounts /lockoutthreshold:5",
   }),
 
   // ─── Contrôles Windows complémentaires HIPAA ──────────────────────────────────
@@ -528,6 +576,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'Enabled' -Value 1 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server' -Name 'DisabledByDefault' -Value 0 -Type DWord",
   }),
   r('hipaa-win-02', {
     name: 'SMBv2 — protocole de partage sécurisé activé [HIPAA Win]',
@@ -538,6 +587,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force",
   }),
   r('hipaa-win-03', {
     name: 'Signature SMB — requise côté serveur (intégrité des transmissions) [HIPAA Win]',
@@ -548,6 +598,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-SmbServerConfiguration -RequireSecuritySignature $true -Force",
   }),
   r('hipaa-win-04', {
     name: 'Chiffrement SMB — activé pour les partages sensibles [HIPAA Win]',
@@ -558,6 +609,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-SmbServerConfiguration -EncryptData $true -Force",
   }),
   r('hipaa-win-05', {
     name: 'NTLMv2 — niveau de compatibilité LAN Manager ≥ 3 [HIPAA Win]',
@@ -568,6 +620,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '3',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'LmCompatibilityLevel' -Value 5 -Type DWord",
   }),
   r('hipaa-win-06', {
     name: 'WDigest — stockage des mots de passe en clair désactivé [HIPAA Win]',
@@ -578,6 +631,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Name 'UseLogonCredential' -Value 0 -Type DWord",
   }),
   r('hipaa-win-07', {
     name: 'LSA — protection du processus activée (protection des ePHI en mémoire) [HIPAA Win]',
@@ -588,6 +642,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'RunAsPPL' -Value 1 -Type DWord",
   }),
   r('hipaa-win-08', {
     name: 'Audit des créations de processus — activé [HIPAA Win]',
@@ -598,6 +653,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Process Creation" /success:enable',
   }),
   r('hipaa-win-09', {
     name: 'Audit des modifications de stratégie — activé (traçabilité des changements) [HIPAA Win]',
@@ -608,6 +664,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
   r('hipaa-win-10', {
     name: 'Audit d\'accès aux objets — système de fichiers (traçabilité des accès ePHI) [HIPAA Win]',
@@ -618,6 +675,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
   }),
   r('hipaa-win-11', {
     name: 'Historique des mots de passe — 5 derniers minimum [HIPAA Win]',
@@ -628,6 +686,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '5',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "net accounts /uniquepw:5",
   }),
   r('hipaa-win-12', {
     name: 'Stratégie de verrouillage — durée ≥ 30 minutes [HIPAA Win]',
@@ -638,6 +697,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: '30',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "net accounts /lockoutduration:30",
   }),
   r('hipaa-win-13', {
     name: 'DEP — Data Execution Prevention activée (protection contre l\'exécution de code malveillant) [HIPAA Win]',
@@ -648,6 +708,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'AlwaysOn',
     operator: 'contains',
     severity: 'high',
+    remediationScript: "bcdedit /set {current} nx AlwaysOn",
   }),
   r('hipaa-win-14', {
     name: 'Windows Defender — protection contre les exploits activée [HIPAA Win]',
@@ -658,6 +719,7 @@ export const hipaaRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "Set-MpPreference -DisableBehaviorMonitoring $false",
   }),
   r('hipaa-win-15', {
     name: 'Secure Boot — activé (intégrité du démarrage du système) [HIPAA Win]',

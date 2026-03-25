@@ -3,6 +3,7 @@ import {
   Plus, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, Edit, Trash2,
   ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, Activity,
   BookOpen, GripVertical, X, Sparkles, ArrowRight, Monitor,
+  Wrench, EyeOff, Eye,
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -226,6 +227,20 @@ function RuleEditorRow({
               className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
             />
           </div>
+          {/* Remediation Script */}
+          <div className="lg:col-span-4 space-y-0.5">
+            <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              Remediation Script
+              <span className="ml-1 normal-case font-normal text-text-muted/60">— script to fix this rule when it fails</span>
+            </label>
+            <textarea
+              value={rule.remediationScript ?? ''}
+              onChange={e => set({ remediationScript: e.target.value || undefined })}
+              placeholder="PowerShell or Bash script to remediate..."
+              rows={2}
+              className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent resize-y"
+            />
+          </div>
         </div>
         <button
           onClick={onDelete}
@@ -283,6 +298,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [expandedResultId, setExpandedResultId] = useState<number | null>(null);
   const [showPresets, setShowPresets] = useState(false);
+  const [ignoredRules, setIgnoredRules] = useState<Record<number, Record<number, string[]>>>({});
+  const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -316,6 +333,16 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load ignored rules for expanded result
+  useEffect(() => {
+    if (expandedResultId == null) return;
+    const result = results.find(r => r.id === expandedResultId);
+    if (!result || ignoredRules[result.deviceId]?.[result.policyId]) return;
+    complianceApi.getIgnoredRules(result.deviceId).then(data => {
+      setIgnoredRules(prev => ({ ...prev, [result.deviceId]: data }));
+    }).catch(() => {});
+  }, [expandedResultId, results]);
 
   useEffect(() => {
     loadResults(filterDeviceId !== '' ? filterDeviceId : undefined);
@@ -407,6 +434,64 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
       toast.error(t('compliance.failedTrigger'));
     }
   };
+
+  const handleRemediate = async (deviceId: number, policyId: number, ruleIds: string[]) => {
+    const key = ruleIds.map(id => `${deviceId}:${policyId}:${id}`);
+    setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
+    try {
+      await complianceApi.remediate(deviceId, policyId, ruleIds);
+      toast.success(`Remediation sent for ${ruleIds.length} rule(s)`);
+    } catch {
+      toast.error('Failed to send remediation');
+    } finally {
+      setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.delete(k)); return s; });
+    }
+  };
+
+  const handleRemediateAll = async (result: ComplianceResult) => {
+    const policy = policies.find(p => p.id === result.policyId);
+    if (!policy) return;
+    const failingRuleIds = result.results
+      .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.deviceId, result.policyId, rr.ruleId))
+      .map(rr => rr.ruleId)
+      .filter(id => policy.rules.find(r => r.id === id)?.remediationScript);
+    if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
+    await handleRemediate(result.deviceId, result.policyId, failingRuleIds);
+  };
+
+  const handleIgnore = async (deviceId: number, policyId: number, ruleIds: string[]) => {
+    try {
+      await complianceApi.ignoreRules(deviceId, policyId, ruleIds);
+      setIgnoredRules(prev => {
+        const copy = { ...prev };
+        if (!copy[deviceId]) copy[deviceId] = {};
+        copy[deviceId][policyId] = [...(copy[deviceId][policyId] ?? []), ...ruleIds];
+        return copy;
+      });
+      toast.success(`${ruleIds.length} rule(s) ignored`);
+    } catch {
+      toast.error('Failed to ignore rules');
+    }
+  };
+
+  const handleUnignore = async (deviceId: number, policyId: number, ruleIds: string[]) => {
+    try {
+      await complianceApi.unignoreRules(deviceId, policyId, ruleIds);
+      setIgnoredRules(prev => {
+        const copy = { ...prev };
+        if (copy[deviceId]?.[policyId]) {
+          copy[deviceId][policyId] = copy[deviceId][policyId].filter(id => !ruleIds.includes(id));
+        }
+        return copy;
+      });
+      toast.success(`${ruleIds.length} rule(s) unignored`);
+    } catch {
+      toast.error('Failed to unignore rules');
+    }
+  };
+
+  const isRuleIgnored = (deviceId: number, policyId: number, ruleId: string) =>
+    ignoredRules[deviceId]?.[policyId]?.includes(ruleId) ?? false;
 
   // Rule CRUD
   const addRule = () => setForm(f => ({ ...f, rules: [...f.rules, makeEmptyRule()] }));
@@ -606,38 +691,102 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                   </div>
                 </div>
 
-                {expanded && result.results.length > 0 && (
-                  <div className="border-t border-border bg-bg-tertiary/50">
-                    <div className="divide-y divide-border">
-                      {result.results.map((ruleResult) => (
-                        <div key={ruleResult.ruleId} className="flex items-start gap-3 px-4 py-2.5">
-                          <div className="shrink-0 mt-0.5">
-                            {ruleResult.status === 'pass' && <CheckCircle className="w-4 h-4 text-green-400" />}
-                            {ruleResult.status === 'fail' && <XCircle className="w-4 h-4 text-red-400" />}
-                            {ruleResult.status === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-400" />}
-                            {['unknown', 'skipped', 'error'].includes(ruleResult.status) && (
-                              <div className="w-4 h-4 rounded-full border-2 border-border" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-text-primary">
-                              {ruleResult.ruleName ?? policyRuleNames.get(`${result.policyId}:${ruleResult.ruleId}`) ?? ruleResult.ruleId}
-                            </p>
-                            <p className="text-[10px] text-text-muted/60 font-mono">{ruleResult.ruleId}</p>
-                            {ruleResult.actualValue !== undefined && ruleResult.actualValue !== null && (
-                              <p className="text-xs text-text-muted mt-0.5">
-                                {t('compliance.actualValue')}: <span className="font-mono">{String(ruleResult.actualValue)}</span>
-                              </p>
-                            )}
-                          </div>
-                          <span className={clsx('text-xs font-medium shrink-0', statusColor(ruleResult.status))}>
-                            {ruleResult.status}
-                          </span>
+                {expanded && result.results.length > 0 && (() => {
+                  const policy = policies.find(p => p.id === result.policyId);
+                  const remediableFailCount = result.results.filter(rr =>
+                    rr.status === 'fail' && !isRuleIgnored(result.deviceId, result.policyId, rr.ruleId)
+                    && policy?.rules.find(r => r.id === rr.ruleId)?.remediationScript
+                  ).length;
+                  return (
+                    <div className="border-t border-border bg-bg-tertiary/50">
+                      {/* Bulk actions bar */}
+                      {remediableFailCount > 0 && (
+                        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-tertiary/80">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                          >
+                            <Wrench className="w-3.5 h-3.5" />
+                            Remediate all ({remediableFailCount})
+                          </button>
                         </div>
-                      ))}
+                      )}
+                      <div className="divide-y divide-border">
+                        {result.results.map((ruleResult) => {
+                          const ignored = isRuleIgnored(result.deviceId, result.policyId, ruleResult.ruleId);
+                          const rule = policy?.rules.find(r => r.id === ruleResult.ruleId);
+                          const hasRemediation = !!rule?.remediationScript;
+                          const isRemediating = remediatingRules.has(`${result.deviceId}:${result.policyId}:${ruleResult.ruleId}`);
+                          return (
+                            <div key={ruleResult.ruleId} className={clsx('flex items-start gap-3 px-4 py-2.5', ignored && 'opacity-50')}>
+                              <div className="shrink-0 mt-0.5">
+                                {ignored ? <EyeOff className="w-4 h-4 text-text-muted" /> :
+                                  ruleResult.status === 'pass' ? <CheckCircle className="w-4 h-4 text-green-400" /> :
+                                  ruleResult.status === 'fail' ? <XCircle className="w-4 h-4 text-red-400" /> :
+                                  ruleResult.status === 'warning' ? <AlertTriangle className="w-4 h-4 text-yellow-400" /> :
+                                  <div className="w-4 h-4 rounded-full border-2 border-border" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-text-primary">
+                                  {ruleResult.ruleName ?? policyRuleNames.get(`${result.policyId}:${ruleResult.ruleId}`) ?? ruleResult.ruleId}
+                                </p>
+                                <p className="text-[10px] text-text-muted/60 font-mono">{ruleResult.ruleId}</p>
+                                {ruleResult.actualValue !== undefined && ruleResult.actualValue !== null && (
+                                  <p className="text-xs text-text-muted mt-0.5">
+                                    {t('compliance.actualValue')}: <span className="font-mono">{String(ruleResult.actualValue)}</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {ignored && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20">
+                                    ignored
+                                  </span>
+                                )}
+                                {ruleResult.remediationTriggered && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    remediated
+                                  </span>
+                                )}
+                                <span className={clsx('text-xs font-medium', statusColor(ruleResult.status))}>
+                                  {ignored ? 'ignored' : ruleResult.status}
+                                </span>
+                                {/* Action buttons for failing rules */}
+                                {ruleResult.status === 'fail' && !ignored && hasRemediation && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleRemediate(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
+                                    disabled={isRemediating}
+                                    className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
+                                    title="Remediate"
+                                  >
+                                    <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
+                                  </button>
+                                )}
+                                {!ignored ? (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleIgnore(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
+                                    className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
+                                    title="Ignore this rule"
+                                  >
+                                    <EyeOff className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleUnignore(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
+                                    className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                                    title="Unignore this rule"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}

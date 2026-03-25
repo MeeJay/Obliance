@@ -33,4 +33,17 @@ export const complianceApi = {
     const res = await apiClient.get<ApiResponse<CompliancePreset[]>>('/compliance/presets');
     return res.data.data ?? [];
   },
+  async remediate(deviceId: number, policyId: number, ruleIds: string[]): Promise<void> {
+    await apiClient.post('/compliance/remediate', { deviceId, policyId, ruleIds });
+  },
+  async ignoreRules(deviceId: number, policyId: number, ruleIds: string[]): Promise<void> {
+    await apiClient.post('/compliance/ignore', { deviceId, policyId, ruleIds });
+  },
+  async unignoreRules(deviceId: number, policyId: number, ruleIds: string[]): Promise<void> {
+    await apiClient.post('/compliance/unignore', { deviceId, policyId, ruleIds });
+  },
+  async getIgnoredRules(deviceId: number): Promise<Record<number, string[]>> {
+    const res = await apiClient.get<ApiResponse<Record<number, string[]>>>(`/compliance/ignored/${deviceId}`);
+    return res.data.data ?? {};
+  },
 };

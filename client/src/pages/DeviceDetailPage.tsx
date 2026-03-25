@@ -7,7 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock, Maximize2, StopCircle,
+  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -1108,6 +1108,8 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   const [isLoading, setIsLoading]   = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [ignoredRules, setIgnoredRules] = useState<Record<number, string[]>>({});
+  const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setIsLoading(true);
@@ -1126,6 +1128,59 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   };
 
   useEffect(() => { load(); }, [deviceId]);
+
+  useEffect(() => {
+    complianceApi.getIgnoredRules(deviceId).then(data => setIgnoredRules(data)).catch(() => {});
+  }, [deviceId]);
+
+  const isRuleIgnored = (policyId: number, ruleId: string) =>
+    ignoredRules[policyId]?.includes(ruleId) ?? false;
+
+  const handleRemediate = async (policyId: number, ruleIds: string[]) => {
+    const key = ruleIds.map(id => `${policyId}:${id}`);
+    setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
+    try {
+      await complianceApi.remediate(deviceId, policyId, ruleIds);
+      toast.success(`Remediation sent for ${ruleIds.length} rule(s)`);
+    } catch {
+      toast.error('Failed to send remediation');
+    } finally {
+      setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.delete(k)); return s; });
+    }
+  };
+
+  const handleRemediateAll = async (result: ComplianceResult) => {
+    const policy = policies.find(p => p.id === result.policyId);
+    if (!policy) return;
+    const failingRuleIds = result.results
+      .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId))
+      .map(rr => rr.ruleId)
+      .filter(id => policy.rules.find(r => r.id === id)?.remediationScript);
+    if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
+    await handleRemediate(result.policyId, failingRuleIds);
+  };
+
+  const handleIgnore = async (policyId: number, ruleIds: string[]) => {
+    try {
+      await complianceApi.ignoreRules(deviceId, policyId, ruleIds);
+      setIgnoredRules(prev => ({
+        ...prev,
+        [policyId]: [...(prev[policyId] ?? []), ...ruleIds],
+      }));
+      toast.success(`${ruleIds.length} rule(s) ignored`);
+    } catch { toast.error('Failed to ignore rules'); }
+  };
+
+  const handleUnignore = async (policyId: number, ruleIds: string[]) => {
+    try {
+      await complianceApi.unignoreRules(deviceId, policyId, ruleIds);
+      setIgnoredRules(prev => ({
+        ...prev,
+        [policyId]: (prev[policyId] ?? []).filter(id => !ruleIds.includes(id)),
+      }));
+      toast.success(`${ruleIds.length} rule(s) unignored`);
+    } catch { toast.error('Failed to unignore rules'); }
+  };
 
   const handleTriggerCheck = async () => {
     setTriggering(true);
@@ -1290,52 +1345,113 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
               </div>
 
               {/* Expanded: per-rule breakdown */}
-              {isExpanded && (
-                <div className="divide-y divide-border">
-                  {result.results.map((rr) => {
-                    const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
-                    return (
-                      <div key={rr.ruleId} className="flex items-start gap-3 px-4 py-3">
-                        <div className="mt-0.5">{RULE_STATUS_ICON[rr.status] ?? RULE_STATUS_ICON.error}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-text-primary">
-                              {ruleInfo?.name ?? rr.ruleId}
-                            </span>
-                            {ruleInfo?.severity && (
-                              <span className={clsx('text-xs font-medium capitalize', SEVERITY_COLOR[ruleInfo.severity])}>
-                                {ruleInfo.severity}
-                              </span>
-                            )}
-                            {rr.remediationTriggered && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                remediated
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
-                            {rr.actualValue !== null && rr.actualValue !== undefined && (
-                              <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
-                            )}
-                            {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
-                              <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
-                            )}
-                          </div>
-                        </div>
-                        <span className={clsx(
-                          'text-xs font-medium shrink-0 capitalize mt-0.5',
-                          rr.status === 'pass' ? 'text-green-400'
-                          : rr.status === 'fail' ? 'text-red-400'
-                          : rr.status === 'warning' ? 'text-yellow-400'
-                          : 'text-text-muted'
-                        )}>
-                          {rr.status}
-                        </span>
+              {isExpanded && (() => {
+                const policy = policies.find(p => p.id === result.policyId);
+                const remediableFailCount = result.results.filter(rr =>
+                  rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId)
+                  && policy?.rules.find(r => r.id === rr.ruleId)?.remediationScript
+                ).length;
+                return (
+                  <div>
+                    {remediableFailCount > 0 && (
+                      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-bg-tertiary/80">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                        >
+                          <Wrench className="w-3.5 h-3.5" />
+                          Remediate all ({remediableFailCount})
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+                    <div className="divide-y divide-border">
+                      {result.results.map((rr) => {
+                        const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
+                        const ignored = isRuleIgnored(result.policyId, rr.ruleId);
+                        const hasRemediation = !!ruleInfo?.remediationScript;
+                        const isRemediating = remediatingRules.has(`${result.policyId}:${rr.ruleId}`);
+                        return (
+                          <div key={rr.ruleId} className={clsx('flex items-start gap-3 px-4 py-3', ignored && 'opacity-50')}>
+                            <div className="mt-0.5">
+                              {ignored ? <EyeOff className="w-4 h-4 text-text-muted" /> :
+                                (RULE_STATUS_ICON[rr.status] ?? RULE_STATUS_ICON.error)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm text-text-primary">
+                                  {ruleInfo?.name ?? rr.ruleId}
+                                </span>
+                                {ruleInfo?.severity && (
+                                  <span className={clsx('text-xs font-medium capitalize', SEVERITY_COLOR[ruleInfo.severity])}>
+                                    {ruleInfo.severity}
+                                  </span>
+                                )}
+                                {ignored && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20">
+                                    ignored
+                                  </span>
+                                )}
+                                {rr.remediationTriggered && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    remediated
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
+                                {rr.actualValue !== null && rr.actualValue !== undefined && (
+                                  <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
+                                )}
+                                {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
+                                  <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                              <span className={clsx(
+                                'text-xs font-medium capitalize',
+                                ignored ? 'text-text-muted' :
+                                rr.status === 'pass' ? 'text-green-400'
+                                : rr.status === 'fail' ? 'text-red-400'
+                                : rr.status === 'warning' ? 'text-yellow-400'
+                                : 'text-text-muted'
+                              )}>
+                                {ignored ? 'ignored' : rr.status}
+                              </span>
+                              {rr.status === 'fail' && !ignored && hasRemediation && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleRemediate(result.policyId, [rr.ruleId]); }}
+                                  disabled={isRemediating}
+                                  className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
+                                  title="Remediate"
+                                >
+                                  <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
+                                </button>
+                              )}
+                              {!ignored ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleIgnore(result.policyId, [rr.ruleId]); }}
+                                  className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
+                                  title="Ignore this rule"
+                                >
+                                  <EyeOff className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleUnignore(result.policyId, [rr.ruleId]); }}
+                                  className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                                  title="Unignore this rule"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })

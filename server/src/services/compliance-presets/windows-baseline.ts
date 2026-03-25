@@ -16,6 +16,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -Enabled True',
   }),
   r('wsb-002', {
     name: 'Pare-feu — Profil Private activé',
@@ -26,6 +27,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Private -Enabled True',
   }),
   r('wsb-003', {
     name: 'Pare-feu — Profil Public activé',
@@ -36,6 +38,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -Enabled True',
   }),
   r('wsb-004', {
     name: 'Pare-feu — Trafic entrant Domain bloqué par défaut',
@@ -46,6 +49,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -DefaultInboundAction Block',
   }),
   r('wsb-005', {
     name: 'Pare-feu — Trafic entrant Public bloqué par défaut',
@@ -56,6 +60,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -DefaultInboundAction Block',
   }),
   r('wsb-006', {
     name: 'Pare-feu — Journalisation Domain activée (paquets rejetés)',
@@ -66,6 +71,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -LogBlocked True',
   }),
   r('wsb-007', {
     name: 'Pare-feu — Journalisation Private activée (paquets rejetés)',
@@ -76,6 +82,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Private -LogBlocked True',
   }),
   r('wsb-008', {
     name: 'Pare-feu — Journalisation Public activée (paquets rejetés)',
@@ -86,6 +93,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -LogBlocked True',
   }),
   r('wsb-009', {
     name: 'Pare-feu — Taille log Domain ≥ 16384 Ko',
@@ -96,6 +104,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '16383',
     operator: 'gt',
     severity: 'low',
+    remediationScript: 'Set-NetFirewallProfile -Profile Domain -LogMaxSizeKilobytes 16384',
   }),
   r('wsb-010', {
     name: 'Pare-feu — Taille log Public ≥ 16384 Ko',
@@ -106,6 +115,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '16383',
     operator: 'gt',
     severity: 'low',
+    remediationScript: 'Set-NetFirewallProfile -Profile Public -LogMaxSizeKilobytes 16384',
   }),
 
   // ─── ANTIVIRUS / DEFENDER (15) ──────────────────────────────────────────────
@@ -119,6 +129,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-MpPreference -DisableRealtimeMonitoring $false',
   }),
   r('wsb-012', {
     name: 'Defender — Protection cloud activée',
@@ -129,6 +140,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -MAPSReporting Advanced',
   }),
   r('wsb-013', {
     name: 'Defender — Surveillance comportementale activée',
@@ -139,6 +151,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableBehaviorMonitoring $false',
   }),
   r('wsb-014', {
     name: 'Defender — Protection IOAV activée',
@@ -149,6 +162,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableIOAVProtection $false',
   }),
   r('wsb-015', {
     name: 'Defender — Protection réseau activée',
@@ -159,6 +173,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -EnableNetworkProtection Enabled',
   }),
   r('wsb-016', {
     name: 'Defender — Tamper Protection activée',
@@ -189,6 +204,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-MpPreference -PUAProtection Enabled',
   }),
   r('wsb-019', {
     name: 'Defender — Analyse des scripts activée',
@@ -199,6 +215,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -DisableScriptScanning $false',
   }),
   r('wsb-020', {
     name: 'Defender — Accès contrôlé aux dossiers activé',
@@ -209,6 +226,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-MpPreference -EnableControlledFolderAccess Enabled',
   }),
   r('wsb-021', {
     name: 'Defender — Règles ASR activées',
@@ -219,6 +237,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\ASR' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\ASR' -Name ExploitGuard_ASR_Rules -Value 1 -Type DWord`,
   }),
   r('wsb-022', {
     name: 'Defender — Rapport MAPS activé',
@@ -229,6 +248,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Set-MpPreference -MAPSReporting Advanced',
   }),
   r('wsb-023', {
     name: 'Defender — Soumission d\'échantillons automatique',
@@ -239,6 +259,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Set-MpPreference -SubmitSamplesConsent SendAllSamples',
   }),
   r('wsb-024', {
     name: 'Defender — Analyse complète planifiée activée',
@@ -249,6 +270,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'Set-MpPreference -ScanScheduleDay 1',
   }),
   r('wsb-025', {
     name: 'Defender — Désactivation par stratégie absente',
@@ -259,6 +281,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'neq',
     severity: 'critical',
+    remediationScript: `Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender' -Name DisableAntiSpyware -EA SilentlyContinue`,
   }),
 
   // ─── ACCOUNTS (10) ──────────────────────────────────────────────────────────
@@ -272,6 +295,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Get-LocalUser | Where-Object{$_.SID -like "S-1-5-*-501"} | Disable-LocalUser',
   }),
   r('wsb-027', {
     name: 'Comptes — Compte Administrateur intégré désactivé',
@@ -282,6 +306,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Get-LocalUser | Where-Object{$_.SID -like "S-1-5-*-500"} | Disable-LocalUser',
   }),
   r('wsb-028', {
     name: 'Comptes — Mots de passe vides interdits (hors console)',
@@ -292,6 +317,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name LimitBlankPasswordUse -Value 1 -Type DWord`,
   }),
   r('wsb-029', {
     name: 'Comptes — Seuil de verrouillage ≤ 10 tentatives',
@@ -302,6 +328,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'net accounts /lockoutthreshold:5',
   }),
   r('wsb-030', {
     name: 'Comptes — Durée de verrouillage ≥ 15 minutes',
@@ -312,6 +339,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'net accounts /lockoutduration:15',
   }),
   r('wsb-031', {
     name: 'Comptes — Réinitialisation compteur ≥ 15 minutes',
@@ -322,6 +350,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'net accounts /lockoutwindow:15',
   }),
   r('wsb-032', {
     name: 'Comptes — Complexité du mot de passe activée',
@@ -332,6 +361,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secpol$(Get-Random).cfg"; secedit /export /cfg $f /quiet; (Get-Content $f) -replace "PasswordComplexity\\s*=\\s*\\d+","PasswordComplexity = 1" | Set-Content $f; secedit /configure /db "$env:TEMP\\secpol.sdb" /cfg $f /quiet; Remove-Item $f,"$env:TEMP\\secpol.sdb" -Force -EA 0',
   }),
   r('wsb-033', {
     name: 'Comptes — Longueur minimale du mot de passe ≥ 14',
@@ -342,6 +372,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'net accounts /minpwlen:14',
   }),
   r('wsb-034', {
     name: 'Comptes — Durée maximale du mot de passe ≤ 60 jours',
@@ -352,6 +383,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'net accounts /maxpwage:60',
   }),
   r('wsb-035', {
     name: 'Comptes — Durée minimale du mot de passe ≥ 1 jour',
@@ -362,6 +394,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'net accounts /minpwage:1',
   }),
 
   // ─── CREDENTIALS (8) ────────────────────────────────────────────────────────
@@ -375,6 +408,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest' -Name UseLogonCredential -Value 0 -Type DWord`,
   }),
   r('wsb-037', {
     name: 'Identifiants — LSA RunAsPPL activé',
@@ -385,6 +419,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RunAsPPL -Value 1 -Type DWord`,
   }),
   r('wsb-038', {
     name: 'Identifiants — LAPS activé (BackupDirectory)',
@@ -406,6 +441,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     operator: 'eq',
     severity: 'high',
     minOsVersion: 'Windows 10 1607',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard' -Name EnableVirtualizationBasedSecurity -Value 1 -Type DWord`,
   }),
   r('wsb-040', {
     name: 'Identifiants — Audit LSA activé',
@@ -416,6 +452,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name AuditBaseObjects -Value 1 -Type DWord`,
   }),
   r('wsb-041', {
     name: 'Identifiants — Connexions en cache ≤ 4',
@@ -426,6 +463,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '5',
     operator: 'lt',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name CachedLogonsCount -Value '4' -Type String`,
   }),
   r('wsb-042', {
     name: 'Identifiants — Hash LM non stocké',
@@ -436,6 +474,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name NoLMHash -Value 1 -Type DWord`,
   }),
   r('wsb-043', {
     name: 'Identifiants — Niveau d\'authentification LAN ≥ NTLMv2 (5)',
@@ -446,6 +485,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '4',
     operator: 'gt',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name LmCompatibilityLevel -Value 5 -Type DWord`,
   }),
 
   // ─── NETWORK (12) ───────────────────────────────────────────────────────────
@@ -459,6 +499,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-SmbClientConfiguration -EnableSMB1Protocol $false -Force',
   }),
   r('wsb-045', {
     name: 'Réseau — SMBv1 serveur désactivé',
@@ -469,6 +510,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force',
   }),
   r('wsb-046', {
     name: 'Réseau — LLMNR désactivé',
@@ -479,6 +521,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient' -Name EnableMulticast -Value 0 -Type DWord`,
   }),
   r('wsb-047', {
     name: 'Réseau — Routage source IPv4 désactivé',
@@ -489,6 +532,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name DisableIPSourceRouting -Value 2 -Type DWord`,
   }),
   r('wsb-048', {
     name: 'Réseau — Routage source IPv6 désactivé',
@@ -499,6 +543,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters' -Name DisableIPSourceRouting -Value 2 -Type DWord`,
   }),
   r('wsb-049', {
     name: 'Réseau — Redirections ICMP désactivées',
@@ -509,6 +554,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name EnableICMPRedirect -Value 0 -Type DWord`,
   }),
   r('wsb-050', {
     name: 'Réseau — Énumération anonyme SAM désactivée',
@@ -519,6 +565,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RestrictAnonymousSAM -Value 1 -Type DWord`,
   }),
   r('wsb-051', {
     name: 'Réseau — Accès anonyme aux partages désactivé',
@@ -529,6 +576,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name RestrictAnonymous -Value 1 -Type DWord`,
   }),
   r('wsb-052', {
     name: 'Réseau — Signature SMB client requise',
@@ -539,6 +587,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters' -Name RequireSecuritySignature -Value 1 -Type DWord`,
   }),
   r('wsb-053', {
     name: 'Réseau — Signature SMB serveur requise',
@@ -549,6 +598,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name RequireSecuritySignature -Value 1 -Type DWord`,
   }),
   r('wsb-054', {
     name: 'Réseau — Sessions nulles désactivées',
@@ -559,6 +609,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name RestrictNullSessAccess -Value 1 -Type DWord`,
   }),
   r('wsb-055', {
     name: 'Réseau — WPAD désactivé',
@@ -569,6 +620,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Wpad' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Wpad' -Name WpadOverride -Value 1 -Type DWord`,
   }),
 
   // ─── SERVICES (15) ──────────────────────────────────────────────────────────
@@ -582,6 +634,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service RemoteRegistry -Force -EA SilentlyContinue; Set-Service RemoteRegistry -StartupType Disabled',
   }),
   r('wsb-057', {
     name: 'Services — Telnet désactivé',
@@ -592,6 +645,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Stop-Service TlntSvr -Force -EA SilentlyContinue; Set-Service TlntSvr -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-058', {
     name: 'Services — Moniteur infrarouge désactivé',
@@ -602,6 +656,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service irmon -Force -EA SilentlyContinue; Set-Service irmon -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-059', {
     name: 'Services — Partage de connexion Internet désactivé',
@@ -612,6 +667,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service SharedAccess -Force -EA SilentlyContinue; Set-Service SharedAccess -StartupType Disabled',
   }),
   r('wsb-060', {
     name: 'Services — Routage et accès distant désactivé',
@@ -622,6 +678,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service RemoteAccess -Force -EA SilentlyContinue; Set-Service RemoteAccess -StartupType Disabled',
   }),
   r('wsb-061', {
     name: 'Services — NetTcpPortSharing désactivé',
@@ -632,6 +689,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service NetTcpPortSharing -Force -EA SilentlyContinue; Set-Service NetTcpPortSharing -StartupType Disabled',
   }),
   r('wsb-062', {
     name: 'Services — SSDP Discovery désactivé',
@@ -642,6 +700,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service SSDPSRV -Force -EA SilentlyContinue; Set-Service SSDPSRV -StartupType Disabled',
   }),
   r('wsb-063', {
     name: 'Services — Hôte de périphériques UPnP désactivé',
@@ -652,6 +711,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service upnphost -Force -EA SilentlyContinue; Set-Service upnphost -StartupType Disabled',
   }),
   r('wsb-064', {
     name: 'Services — AllJoyn Router désactivé',
@@ -662,6 +722,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service AJRouter -Force -EA SilentlyContinue; Set-Service AJRouter -StartupType Disabled',
   }),
   r('wsb-065', {
     name: 'Services — Service de télécopie désactivé',
@@ -672,6 +733,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service Fax -Force -EA SilentlyContinue; Set-Service Fax -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-066', {
     name: 'Services — Connexion secondaire désactivée',
@@ -682,6 +744,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service seclogon -Force -EA SilentlyContinue; Set-Service seclogon -StartupType Disabled',
   }),
   r('wsb-067', {
     name: 'Services — W3SVC (IIS) désactivé',
@@ -692,6 +755,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service W3SVC -Force -EA SilentlyContinue; Set-Service W3SVC -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-068', {
     name: 'Services — Xbox Live Networking désactivé',
@@ -702,6 +766,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service XboxNetApiSvc -Force -EA SilentlyContinue; Set-Service XboxNetApiSvc -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-069', {
     name: 'Services — Bluetooth Support désactivé',
@@ -712,6 +777,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service bthserv -Force -EA SilentlyContinue; Set-Service bthserv -StartupType Disabled',
   }),
   r('wsb-070', {
     name: 'Services — Peer Name Resolution Protocol désactivé',
@@ -722,6 +788,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service PNRPsvc -Force -EA SilentlyContinue; Set-Service PNRPsvc -StartupType Disabled',
   }),
 
   // ─── UPDATES (5) ────────────────────────────────────────────────────────────
@@ -735,6 +802,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'neq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name NoAutoUpdate -Value 0 -Type DWord`,
   }),
   r('wsb-072', {
     name: 'Mises à jour — Mises à jour automatiques configurées',
@@ -745,6 +813,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'gt',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name AUOptions -Value 4 -Type DWord`,
   }),
   r('wsb-073', {
     name: 'Mises à jour — Service Windows Update actif',
@@ -755,6 +824,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'Set-Service wuauserv -StartupType Manual; Start-Service wuauserv',
   }),
   r('wsb-074', {
     name: 'Mises à jour — Service Windows Defender Update actif',
@@ -765,6 +835,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'Set-Service WdNisSvc -StartupType Manual; Start-Service WdNisSvc -EA SilentlyContinue',
   }),
   r('wsb-075', {
     name: 'Mises à jour — Builds preview désactivées',
@@ -775,6 +846,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate' -Name ManagePreviewBuilds -Value 1 -Type DWord`,
   }),
 
   // ─── REMOTE ACCESS (8) ──────────────────────────────────────────────────────
@@ -788,6 +860,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name UserAuthentication -Value 1 -Type DWord`,
   }),
   r('wsb-077', {
     name: 'Accès distant — Timeout session RDP ≤ 15 min',
@@ -798,6 +871,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '900001',
     operator: 'lt',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name MaxIdleTime -Value 900000 -Type DWord`,
   }),
   r('wsb-078', {
     name: 'Accès distant — Chiffrement RDP niveau High',
@@ -808,6 +882,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '3',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name MinEncryptionLevel -Value 3 -Type DWord`,
   }),
   r('wsb-079', {
     name: 'Accès distant — Assistance à distance désactivée',
@@ -818,6 +893,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name fAllowToGetHelp -Value 0 -Type DWord`,
   }),
   r('wsb-080', {
     name: 'Accès distant — Offre d\'assistance à distance désactivée',
@@ -828,6 +904,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name fAllowUnsolicited -Value 0 -Type DWord`,
   }),
   r('wsb-081', {
     name: 'Accès distant — Trafic WinRM non chiffré interdit (client)',
@@ -838,6 +915,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client' -Name AllowUnencryptedTraffic -Value 0 -Type DWord`,
   }),
   r('wsb-082', {
     name: 'Accès distant — Trafic WinRM non chiffré interdit (service)',
@@ -848,6 +926,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service' -Name AllowUnencryptedTraffic -Value 0 -Type DWord`,
   }),
   r('wsb-083', {
     name: 'Accès distant — Couche sécurité RDP = TLS (2)',
@@ -858,6 +937,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services' -Name SecurityLayer -Value 2 -Type DWord`,
   }),
 
   // ─── AUDIT (10) ─────────────────────────────────────────────────────────────
@@ -871,6 +951,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('wsb-085', {
     name: 'Audit — Gestion des comptes (succès+échec)',
@@ -881,6 +962,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
   r('wsb-086', {
     name: 'Audit — Changement de stratégie (succès+échec)',
@@ -891,6 +973,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
   r('wsb-087', {
     name: 'Audit — Utilisation de privilèges sensibles (succès+échec)',
@@ -901,6 +984,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable',
   }),
   r('wsb-088', {
     name: 'Audit — Événements système (succès+échec)',
@@ -911,6 +995,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Security System Extension" /success:enable /failure:enable',
   }),
   r('wsb-089', {
     name: 'Audit — Journalisation ScriptBlock PowerShell activée',
@@ -921,6 +1006,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name EnableScriptBlockLogging -Value 1 -Type DWord`,
   }),
   r('wsb-090', {
     name: 'Audit — Transcription PowerShell activée',
@@ -931,6 +1017,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription' -Name EnableTranscripting -Value 1 -Type DWord`,
   }),
   r('wsb-091', {
     name: 'Audit — Journalisation de modules PowerShell activée',
@@ -941,6 +1028,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Name EnableModuleLogging -Value 1 -Type DWord`,
   }),
   r('wsb-092', {
     name: 'Audit — Taille journal Sécurité ≥ 196608 Ko',
@@ -951,6 +1039,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '196607',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'wevtutil sl Security /ms:201326592',
   }),
   r('wsb-093', {
     name: 'Audit — Ligne de commande dans les événements de création de processus',
@@ -961,6 +1050,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Name ProcessCreationIncludeCmdLine_Enabled -Value 1 -Type DWord`,
   }),
 
   // ─── ENCRYPTION (8) ─────────────────────────────────────────────────────────
@@ -974,6 +1064,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Enable-BitLocker -MountPoint $env:SystemDrive -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest',
   }),
   r('wsb-095', {
     name: 'Chiffrement — TLS 1.0 client désactivé',
@@ -984,6 +1075,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Client' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-096', {
     name: 'Chiffrement — TLS 1.0 serveur désactivé',
@@ -994,6 +1086,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.0\\Server' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-097', {
     name: 'Chiffrement — TLS 1.1 client désactivé',
@@ -1004,6 +1097,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-098', {
     name: 'Chiffrement — TLS 1.1 serveur désactivé',
@@ -1014,6 +1108,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-099', {
     name: 'Chiffrement — SSL 3.0 désactivé',
@@ -1024,6 +1119,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 3.0\\Server' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-100', {
     name: 'Chiffrement — RC4 désactivé',
@@ -1034,6 +1130,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Ciphers\\RC4 128/128' -Name Enabled -Value 0 -Type DWord`,
   }),
   r('wsb-101', {
     name: 'Chiffrement — Secure Boot activé',
@@ -1058,6 +1155,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name EnableLUA -Value 1 -Type DWord`,
   }),
   r('wsb-103', {
     name: 'Système — UAC élévation admin = consentement (2)',
@@ -1068,6 +1166,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'gt',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name ConsentPromptBehaviorAdmin -Value 2 -Type DWord`,
   }),
   r('wsb-104', {
     name: 'Système — Exécution automatique des médias désactivée',
@@ -1078,6 +1177,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '255',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name NoDriveTypeAutoRun -Value 255 -Type DWord`,
   }),
   r('wsb-105', {
     name: 'Système — AutoRun désactivé',
@@ -1088,6 +1188,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name NoAutorun -Value 1 -Type DWord`,
   }),
   r('wsb-106', {
     name: 'Système — Ctrl+Alt+Suppr requis à la connexion',
@@ -1098,6 +1199,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name DisableCAD -Value 0 -Type DWord`,
   }),
   r('wsb-107', {
     name: 'Système — Dernier utilisateur non affiché',
@@ -1108,6 +1210,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name DontDisplayLastUserName -Value 1 -Type DWord`,
   }),
   r('wsb-108', {
     name: 'Système — Message légal à la connexion configuré',
@@ -1128,6 +1231,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop' -Name ScreenSaverIsSecure -Value '1' -Type String`,
   }),
   r('wsb-110', {
     name: 'Système — Windows Script Host désactivé',
@@ -1138,6 +1242,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows Script Host\\Settings' -Name Enabled -Value 0 -Type DWord`,
   }),
   r('wsb-111', {
     name: 'Système — Mode SafeDLL Search activé',
@@ -1148,6 +1253,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' -Name SafeDllSearchMode -Value 1 -Type DWord`,
   }),
   r('wsb-112', {
     name: 'Système — Protection des objets internes du système',
@@ -1158,6 +1264,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' -Name ProtectionMode -Value 1 -Type DWord`,
   }),
   r('wsb-113', {
     name: 'Système — AutoAdminLogon désactivé',
@@ -1168,6 +1275,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name AutoAdminLogon -Value '0' -Type String`,
   }),
   r('wsb-114', {
     name: 'Système — SEHOP activé (ExceptionChainValidation)',
@@ -1178,6 +1286,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel' -Name DisableExceptionChainValidation -Value 0 -Type DWord`,
   }),
   r('wsb-115', {
     name: 'Système — Stratégie chargement driver au démarrage = Bon+Inconnu',
@@ -1189,6 +1298,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     operator: 'eq',
     severity: 'high',
     minOsVersion: 'Windows 8',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\EarlyLaunch' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\EarlyLaunch' -Name DriverLoadPolicy -Value 3 -Type DWord`,
   }),
   r('wsb-116', {
     name: 'Système — UAC bureau sécurisé pour élévation',
@@ -1199,6 +1309,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name PromptOnSecureDesktop -Value 1 -Type DWord`,
   }),
 
   // ─── ADDITIONAL RULES to reach 120+ ─────────────────────────────────────────
@@ -1212,6 +1323,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service lltdsvc -Force -EA SilentlyContinue; Set-Service lltdsvc -StartupType Disabled -EA SilentlyContinue',
   }),
   r('wsb-118', {
     name: 'Réseau — Accès anonyme aux pipes nommés interdit',
@@ -1222,6 +1334,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name NullSessionPipes -Value @() -Type MultiString`,
   }),
   r('wsb-119', {
     name: 'Réseau — Accès anonyme aux partages interdit',
@@ -1232,6 +1345,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanManServer\\Parameters' -Name NullSessionShares -Value @() -Type MultiString`,
   }),
   r('wsb-120', {
     name: 'Réseau — Appels RPC distants à SAM restreints',
@@ -1253,6 +1367,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name Enabled -Value 0 -Type DWord; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\SSL 2.0\\Server' -Name DisabledByDefault -Value 1 -Type DWord`,
   }),
   r('wsb-122', {
     name: 'Système — Politiques d\'audit forcées (sous-catégories)',
@@ -1263,6 +1378,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name SCENoApplyLegacyAuditPolicy -Value 1 -Type DWord`,
   }),
   r('wsb-123', {
     name: 'Réseau — Minimum sécurité session NTLM client = 537395200',
@@ -1273,6 +1389,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0' -Name NTLMMinClientSec -Value 537395200 -Type DWord`,
   }),
   r('wsb-124', {
     name: 'Réseau — Minimum sécurité session NTLM serveur = 537395200',
@@ -1283,6 +1400,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0' -Name NTLMMinServerSec -Value 537395200 -Type DWord`,
   }),
   r('wsb-125', {
     name: 'Accès distant — WinRM Basic auth client désactivé',
@@ -1293,6 +1411,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client' -Name AllowBasic -Value 0 -Type DWord`,
   }),
   r('wsb-126', {
     name: 'Accès distant — WinRM Basic auth service désactivé',
@@ -1303,6 +1422,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service' -Name AllowBasic -Value 0 -Type DWord`,
   }),
   r('wsb-127', {
     name: 'Accès distant — WinRM Digest auth désactivé',
@@ -1313,6 +1433,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client' -Name AllowDigest -Value 0 -Type DWord`,
   }),
   r('wsb-128', {
     name: 'Accès distant — WinRM RunAs credentials non stockés',
@@ -1323,6 +1444,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service' -Name DisableRunAs -Value 1 -Type DWord`,
   }),
   r('wsb-129', {
     name: 'Système — OneDrive désactivé',
@@ -1333,6 +1455,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive' -Name DisableFileSyncNGSC -Value 1 -Type DWord`,
   }),
   r('wsb-130', {
     name: 'Système — Téléchargement pilotes d\'impression par utilisateurs interdit',
@@ -1343,6 +1466,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers' -Name AddPrinterDrivers -Value 1 -Type DWord`,
   }),
   r('wsb-131', {
     name: 'Réseau — Canal sécurisé Netlogon chiffré et signé',
@@ -1353,6 +1477,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters' -Name RequireSignOrSeal -Value 1 -Type DWord`,
   }),
   r('wsb-132', {
     name: 'Réseau — Clé de session Netlogon renforcée',
@@ -1363,6 +1488,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters' -Name RequireStrongKey -Value 1 -Type DWord`,
   }),
   r('wsb-133', {
     name: 'Réseau — Signature LDAP client requise',
@@ -1373,6 +1499,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LDAP' -Name LDAPClientIntegrity -Value 1 -Type DWord`,
   }),
   r('wsb-134', {
     name: 'Système — Rapport d\'erreurs Windows désactivé',
@@ -1383,6 +1510,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service WerSvc -Force -EA SilentlyContinue; Set-Service WerSvc -StartupType Disabled',
   }),
   r('wsb-135', {
     name: 'Audit — Validation d\'identifiants (succès+échec)',
@@ -1393,6 +1521,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Credential Validation" /success:enable /failure:enable',
   }),
   r('wsb-136', {
     name: 'Audit — Création de processus (succès)',
@@ -1403,6 +1532,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'No Auditing',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Process Creation" /success:enable',
   }),
   r('wsb-137', {
     name: 'Audit — Verrouillage de compte (échec)',
@@ -1413,6 +1543,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'No Auditing',
     operator: 'neq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Account Lockout" /failure:enable',
   }),
   r('wsb-138', {
     name: 'Réseau — Authentification PKU2U désactivée',
@@ -1423,6 +1554,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u' -Name AllowOnlineID -Value 0 -Type DWord`,
   }),
   r('wsb-139', {
     name: 'Système — Accès restreint aux chemins UNC (SYSVOL)',
@@ -1433,6 +1565,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths' -Name '\\\\*\\SYSVOL' -Value 'RequireMutualAuthentication=1,RequireIntegrity=1' -Type String`,
   }),
   r('wsb-140', {
     name: 'Système — Accès restreint aux chemins UNC (NETLOGON)',
@@ -1443,6 +1576,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '',
     operator: 'exists',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths' -Name '\\\\*\\NETLOGON' -Value 'RequireMutualAuthentication=1,RequireIntegrity=1' -Type String`,
   }),
   r('wsb-141', {
     name: 'Système — SmartScreen activé (Explorateur)',
@@ -1453,6 +1587,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System' -Name EnableSmartScreen -Value 1 -Type DWord`,
   }),
   r('wsb-142', {
     name: 'Système — Délégation non exportable des identifiants (CredSSP)',
@@ -1464,6 +1599,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     operator: 'eq',
     severity: 'high',
     minOsVersion: 'Windows 10 1703',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation' -Name AllowProtectedCreds -Value 1 -Type DWord`,
   }),
   r('wsb-143', {
     name: 'Système — Oracle de chiffrement CredSSP = Forcer mise à jour (0)',
@@ -1474,6 +1610,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\CredSSP\\Parameters' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\CredSSP\\Parameters' -Name AllowEncryptionOracle -Value 0 -Type DWord`,
   }),
   r('wsb-144', {
     name: 'Système — Télémétrie Windows = Désactivée ou Sécurité (0)',
@@ -1484,6 +1621,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection' -Name AllowTelemetry -Value 0 -Type DWord`,
   }),
   r('wsb-145', {
     name: 'Système — Compte Administrateur intégré en mode approbation Admin',
@@ -1494,6 +1632,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name FilterAdministratorToken -Value 1 -Type DWord`,
   }),
   r('wsb-146', {
     name: 'Services — Spouleur d\'impression désactivé (si non requis)',
@@ -1504,6 +1643,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service Spooler -Force -EA SilentlyContinue; Set-Service Spooler -StartupType Disabled',
   }),
   r('wsb-147', {
     name: 'Réseau — Passerelle par défaut SSDP Discovery sans service actif',
@@ -1514,6 +1654,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service upnphost -Force -EA SilentlyContinue; Set-Service upnphost -StartupType Disabled',
   }),
   r('wsb-148', {
     name: 'Mises à jour — Redémarrage automatique sans utilisateur connecté',
@@ -1524,6 +1665,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'neq',
     severity: 'low',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -Name NoAutoRebootWithLoggedOnUsers -Value 0 -Type DWord`,
   }),
   r('wsb-149', {
     name: 'Système — Pont réseau interdit',
@@ -1534,6 +1676,7 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections' -Force | Out-Null; Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections' -Name NC_AllowNetBridge_NLA -Value 0 -Type DWord`,
   }),
   r('wsb-150', {
     name: 'Système — Partage de connexion Internet via interface interdit',
@@ -1544,5 +1687,6 @@ export const windowsBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: `Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections' -Name NC_ShowSharedAccessUI -Value 0 -Type DWord`,
   }),
 ];

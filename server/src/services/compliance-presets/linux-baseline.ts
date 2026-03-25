@@ -17,6 +17,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     operator: 'eq',
     severity: 'high',
     minOsVersion: 'Ubuntu 22.04',
+    remediationScript: "mount -o remount,noexec /tmp && sed -i 's|\\(/tmp.*defaults\\)|\\1,noexec|' /etc/fstab",
   }),
 
   r('lsb-002', {
@@ -28,6 +29,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "mount -o remount,nosuid /tmp && sed -i 's|\\(/tmp.*defaults\\)|\\1,nosuid|' /etc/fstab",
   }),
 
   r('lsb-003', {
@@ -39,6 +41,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "mount -o remount,nodev /tmp && sed -i 's|\\(/tmp.*defaults\\)|\\1,nodev|' /etc/fstab",
   }),
 
   r('lsb-004', {
@@ -50,6 +53,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "mount -o remount,noexec,nosuid,nodev /var/tmp && sed -i 's|\\(/var/tmp.*defaults\\)|\\1,noexec,nosuid,nodev|' /etc/fstab",
   }),
 
   r('lsb-005', {
@@ -61,6 +65,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "mount -o remount,noexec /dev/shm && grep -q '/dev/shm' /etc/fstab && sed -i 's|\\(/dev/shm.*defaults\\)|\\1,noexec|' /etc/fstab || echo 'tmpfs /dev/shm tmpfs defaults,noexec,nosuid,nodev 0 0' >> /etc/fstab",
   }),
 
   r('lsb-006', {
@@ -72,6 +77,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "find / -xdev -type d -perm -0002 -not -perm -1000 -exec chmod +t {} \\;",
   }),
 
   r('lsb-007', {
@@ -83,6 +89,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "find / -xdev -nouser -exec chown root {} \\; && find / -xdev -nogroup -exec chgrp root {} \\;",
   }),
 
   r('lsb-008', {
@@ -94,6 +101,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    // No automatic remediation — requires disk partitioning
   }),
 
   r('lsb-009', {
@@ -105,6 +113,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    // No automatic remediation — requires disk partitioning
   }),
 
   r('lsb-010', {
@@ -116,6 +125,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y aide 2>/dev/null || dnf install -y aide 2>/dev/null; aide --init && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db",
   }),
 
   // ── SERVICES DÉSACTIVÉS ──────────────────────────────────────────────────────
@@ -129,6 +139,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "systemctl stop xinetd 2>/dev/null; systemctl disable xinetd 2>/dev/null; true",
   }),
 
   r('lsb-012', {
@@ -140,6 +151,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'critical',
+    remediationScript: "systemctl stop telnetd 2>/dev/null; systemctl disable telnetd 2>/dev/null; true",
   }),
 
   r('lsb-013', {
@@ -151,6 +163,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'critical',
+    remediationScript: "for s in rsh.socket rlogin.socket rexec.socket; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-014', {
@@ -162,6 +175,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "systemctl stop ypbind 2>/dev/null; systemctl disable ypbind 2>/dev/null; true",
   }),
 
   r('lsb-015', {
@@ -173,6 +187,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'high',
+    remediationScript: "systemctl stop tftp 2>/dev/null; systemctl disable tftp 2>/dev/null; true",
   }),
 
   r('lsb-016', {
@@ -184,6 +199,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in talk ntalk; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-017', {
@@ -195,6 +211,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in chargen.socket chargen-dgram; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-018', {
@@ -206,6 +223,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in daytime.socket daytime-dgram; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-019', {
@@ -217,6 +235,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in echo.socket echo-dgram; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-020', {
@@ -228,6 +247,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in discard.socket discard-dgram; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-021', {
@@ -239,6 +259,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "for s in time.socket time-dgram; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-022', {
@@ -250,6 +271,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "systemctl stop avahi-daemon 2>/dev/null; systemctl disable avahi-daemon 2>/dev/null; true",
   }),
 
   r('lsb-023', {
@@ -261,6 +283,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'low',
+    remediationScript: "systemctl stop cups 2>/dev/null; systemctl disable cups 2>/dev/null; true",
   }),
 
   r('lsb-024', {
@@ -272,6 +295,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "for s in dhcpd isc-dhcp-server; do systemctl stop $s 2>/dev/null; systemctl disable $s 2>/dev/null; done; true",
   }),
 
   r('lsb-025', {
@@ -283,6 +307,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "systemctl stop slapd 2>/dev/null; systemctl disable slapd 2>/dev/null; true",
   }),
 
   // ── RÉSEAU / SYSCTL ──────────────────────────────────────────────────────────
@@ -296,6 +321,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.ip_forward=0 && echo 'net.ipv4.ip_forward=0' > /etc/sysctl.d/99-security.conf && sysctl -p /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-027', {
@@ -307,6 +333,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.all.send_redirects=0 && grep -q 'net.ipv4.conf.all.send_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.all.send_redirects.*/net.ipv4.conf.all.send_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.all.send_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-028', {
@@ -318,6 +345,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.default.send_redirects=0 && grep -q 'net.ipv4.conf.default.send_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.default.send_redirects.*/net.ipv4.conf.default.send_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.default.send_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-029', {
@@ -329,6 +357,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.all.accept_redirects=0 && grep -q 'net.ipv4.conf.all.accept_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.all.accept_redirects.*/net.ipv4.conf.all.accept_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.all.accept_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-030', {
@@ -340,6 +369,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.default.accept_redirects=0 && grep -q 'net.ipv4.conf.default.accept_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.default.accept_redirects.*/net.ipv4.conf.default.accept_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.default.accept_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-031', {
@@ -351,6 +381,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.all.secure_redirects=0 && grep -q 'net.ipv4.conf.all.secure_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.all.secure_redirects.*/net.ipv4.conf.all.secure_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.all.secure_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-032', {
@@ -362,6 +393,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.default.secure_redirects=0 && grep -q 'net.ipv4.conf.default.secure_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.default.secure_redirects.*/net.ipv4.conf.default.secure_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.default.secure_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-033', {
@@ -373,6 +405,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w net.ipv4.conf.all.log_martians=1 && grep -q 'net.ipv4.conf.all.log_martians' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.all.log_martians.*/net.ipv4.conf.all.log_martians=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.all.log_martians=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-034', {
@@ -384,6 +417,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w net.ipv4.conf.default.log_martians=1 && grep -q 'net.ipv4.conf.default.log_martians' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.default.log_martians.*/net.ipv4.conf.default.log_martians=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.default.log_martians=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-035', {
@@ -395,6 +429,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1 && grep -q 'net.ipv4.icmp_echo_ignore_broadcasts' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.icmp_echo_ignore_broadcasts.*/net.ipv4.icmp_echo_ignore_broadcasts=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.icmp_echo_ignore_broadcasts=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-036', {
@@ -406,6 +441,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1 && grep -q 'net.ipv4.icmp_ignore_bogus_error_responses' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.icmp_ignore_bogus_error_responses.*/net.ipv4.icmp_ignore_bogus_error_responses=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.icmp_ignore_bogus_error_responses=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-037', {
@@ -417,6 +453,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.all.rp_filter=1 && grep -q 'net.ipv4.conf.all.rp_filter' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.all.rp_filter.*/net.ipv4.conf.all.rp_filter=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.all.rp_filter=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-038', {
@@ -428,6 +465,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.conf.default.rp_filter=1 && grep -q 'net.ipv4.conf.default.rp_filter' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.conf.default.rp_filter.*/net.ipv4.conf.default.rp_filter=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.conf.default.rp_filter=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-039', {
@@ -439,6 +477,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv4.tcp_syncookies=1 && grep -q 'net.ipv4.tcp_syncookies' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.tcp_syncookies.*/net.ipv4.tcp_syncookies=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.tcp_syncookies=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-040', {
@@ -450,6 +489,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv6.conf.all.accept_redirects=0 && grep -q 'net.ipv6.conf.all.accept_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv6.conf.all.accept_redirects.*/net.ipv6.conf.all.accept_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv6.conf.all.accept_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-041', {
@@ -461,6 +501,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv6.conf.default.accept_redirects=0 && grep -q 'net.ipv6.conf.default.accept_redirects' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv6.conf.default.accept_redirects.*/net.ipv6.conf.default.accept_redirects=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv6.conf.default.accept_redirects=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-042', {
@@ -472,6 +513,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv6.conf.all.accept_ra=0 && grep -q 'net.ipv6.conf.all.accept_ra' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv6.conf.all.accept_ra.*/net.ipv6.conf.all.accept_ra=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv6.conf.all.accept_ra=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-043', {
@@ -483,6 +525,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w net.ipv6.conf.default.accept_ra=0 && grep -q 'net.ipv6.conf.default.accept_ra' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv6.conf.default.accept_ra.*/net.ipv6.conf.default.accept_ra=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv6.conf.default.accept_ra=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-044', {
@@ -494,6 +537,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '2',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w kernel.randomize_va_space=2 && grep -q 'kernel.randomize_va_space' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/kernel.randomize_va_space.*/kernel.randomize_va_space=2/' /etc/sysctl.d/99-security.conf || echo 'kernel.randomize_va_space=2' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-045', {
@@ -505,6 +549,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sysctl -w fs.suid_dumpable=0 && grep -q 'fs.suid_dumpable' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/fs.suid_dumpable.*/fs.suid_dumpable=0/' /etc/sysctl.d/99-security.conf || echo 'fs.suid_dumpable=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   // ── PARE-FEU ────────────────────────────────────────────────────────────────
@@ -518,6 +563,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "ufw --force enable",
   }),
 
   r('lsb-047', {
@@ -529,6 +575,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "ufw default deny incoming",
   }),
 
   r('lsb-048', {
@@ -540,6 +587,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'active',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "systemctl start firewalld && systemctl enable firewalld",
   }),
 
   r('lsb-049', {
@@ -551,6 +599,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y ufw 2>/dev/null || dnf install -y firewalld 2>/dev/null; command -v ufw &>/dev/null && ufw --force enable || (systemctl start firewalld && systemctl enable firewalld)",
   }),
 
   r('lsb-050', {
@@ -562,6 +611,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "firewall-cmd --set-default-zone=drop",
   }),
 
   // ── SSH ─────────────────────────────────────────────────────────────────────
@@ -575,6 +625,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-052', {
@@ -586,6 +637,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-053', {
@@ -597,6 +649,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "sed -i 's/^#\\?PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-054', {
@@ -608,6 +661,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '4',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "sed -i 's/^#\\?MaxAuthTries.*/MaxAuthTries 4/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-055', {
@@ -619,6 +673,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '300',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?ClientAliveInterval.*/ClientAliveInterval 300/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-056', {
@@ -630,6 +685,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '3',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?ClientAliveCountMax.*/ClientAliveCountMax 3/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-057', {
@@ -641,6 +697,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '60',
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?LoginGraceTime.*/LoginGraceTime 60/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-058', {
@@ -652,6 +709,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^#\\?AllowTcpForwarding.*/AllowTcpForwarding no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-059', {
@@ -663,6 +721,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^#\\?X11Forwarding.*/X11Forwarding no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-060', {
@@ -674,6 +733,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'yes',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^#\\?IgnoreRhosts.*/IgnoreRhosts yes/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-061', {
@@ -685,6 +745,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'no',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^#\\?HostbasedAuthentication.*/HostbasedAuthentication no/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-062', {
@@ -696,6 +757,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'none',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "echo 'Authorized access only. All activity is monitored.' > /etc/issue.net && sed -i 's|^#\\?Banner.*|Banner /etc/issue.net|' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-063', {
@@ -707,6 +769,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'md5',
     operator: 'not_contains',
     severity: 'high',
+    remediationScript: "grep -q '^MACs' /etc/ssh/sshd_config && sed -i '/^MACs/s/,[^,]*md5[^,]*//g' /etc/ssh/sshd_config || echo 'MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256' >> /etc/ssh/sshd_config; systemctl restart sshd",
   }),
 
   r('lsb-064', {
@@ -718,6 +781,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'arcfour',
     operator: 'not_contains',
     severity: 'high',
+    remediationScript: "grep -q '^Ciphers' /etc/ssh/sshd_config && sed -i '/^Ciphers/s/,[^,]*arcfour[^,]*//g' /etc/ssh/sshd_config || echo 'Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr' >> /etc/ssh/sshd_config; systemctl restart sshd",
   }),
 
   r('lsb-065', {
@@ -729,6 +793,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'diffie-hellman-group1',
     operator: 'not_contains',
     severity: 'high',
+    remediationScript: "grep -q '^KexAlgorithms' /etc/ssh/sshd_config && sed -i '/^KexAlgorithms/s/,[^,]*diffie-hellman-group1[^,]*//g' /etc/ssh/sshd_config || echo 'KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256' >> /etc/ssh/sshd_config; systemctl restart sshd",
   }),
 
   r('lsb-066', {
@@ -740,6 +805,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '10',
     operator: 'lt',
     severity: 'low',
+    remediationScript: "sed -i 's/^#\\?MaxSessions.*/MaxSessions 10/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-067', {
@@ -751,6 +817,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'QUIET',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?LogLevel.*/LogLevel VERBOSE/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-068', {
@@ -762,6 +829,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'yes',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?StrictModes.*/StrictModes yes/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-069', {
@@ -773,6 +841,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'yes',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config && systemctl restart sshd",
   }),
 
   r('lsb-070', {
@@ -784,6 +853,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '7',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade openssh-server 2>/dev/null || dnf update -y openssh-server 2>/dev/null; systemctl restart sshd",
   }),
 
   // ── PAM / POLITIQUE DE MOTS DE PASSE ────────────────────────────────────────
@@ -797,6 +867,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y libpam-pwquality 2>/dev/null || dnf install -y libpwquality 2>/dev/null; grep -q 'pam_pwquality' /etc/pam.d/common-password 2>/dev/null || echo 'password requisite pam_pwquality.so retry=3' >> /etc/pam.d/common-password; grep -q 'pam_pwquality' /etc/pam.d/system-auth 2>/dev/null || echo 'password requisite pam_pwquality.so retry=3' >> /etc/pam.d/system-auth 2>/dev/null; true",
   }),
 
   r('lsb-072', {
@@ -808,6 +879,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '14',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "grep -q '^minlen' /etc/security/pwquality.conf 2>/dev/null && sed -i 's/^minlen.*/minlen = 14/' /etc/security/pwquality.conf || echo 'minlen = 14' >> /etc/security/pwquality.conf",
   }),
 
   r('lsb-073', {
@@ -819,6 +891,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '4',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "for f in /etc/pam.d/common-password /etc/pam.d/system-auth; do test -f $f && (grep -q 'remember=' $f && sed -i 's/remember=[0-9]*/remember=5/' $f || sed -i '/pam_unix.so/s/$/ remember=5/' $f); done; true",
   }),
 
   r('lsb-074', {
@@ -830,6 +903,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "grep -q '^dcredit' /etc/security/pwquality.conf 2>/dev/null && sed -i 's/^dcredit.*/dcredit = -1/' /etc/security/pwquality.conf || echo 'dcredit = -1' >> /etc/security/pwquality.conf",
   }),
 
   r('lsb-075', {
@@ -841,6 +915,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "grep -q '^ucredit' /etc/security/pwquality.conf 2>/dev/null && sed -i 's/^ucredit.*/ucredit = -1/' /etc/security/pwquality.conf || echo 'ucredit = -1' >> /etc/security/pwquality.conf",
   }),
 
   r('lsb-076', {
@@ -852,6 +927,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "grep -q '^lcredit' /etc/security/pwquality.conf 2>/dev/null && sed -i 's/^lcredit.*/lcredit = -1/' /etc/security/pwquality.conf || echo 'lcredit = -1' >> /etc/security/pwquality.conf",
   }),
 
   r('lsb-077', {
@@ -863,6 +939,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "grep -q '^ocredit' /etc/security/pwquality.conf 2>/dev/null && sed -i 's/^ocredit.*/ocredit = -1/' /etc/security/pwquality.conf || echo 'ocredit = -1' >> /etc/security/pwquality.conf",
   }),
 
   r('lsb-078', {
@@ -874,6 +951,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '90',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS\t90/' /etc/login.defs",
   }),
 
   r('lsb-079', {
@@ -885,6 +963,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS\t1/' /etc/login.defs",
   }),
 
   r('lsb-080', {
@@ -896,6 +975,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '6',
     operator: 'gt',
     severity: 'low',
+    remediationScript: "sed -i 's/^PASS_WARN_AGE.*/PASS_WARN_AGE\t7/' /etc/login.defs",
   }),
 
   r('lsb-081', {
@@ -907,6 +987,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "for f in /etc/pam.d/system-auth /etc/pam.d/password-auth; do test -f $f && grep -q 'pam_faillock' $f || sed -i '/^auth.*pam_unix/i auth required pam_faillock.so preauth deny=5 unlock_time=900' $f; done; true",
   }),
 
   r('lsb-082', {
@@ -918,6 +999,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '5',
     operator: 'lt',
     severity: 'high',
+    remediationScript: "grep -q '^deny' /etc/security/faillock.conf 2>/dev/null && sed -i 's/^deny.*/deny = 5/' /etc/security/faillock.conf || echo 'deny = 5' >> /etc/security/faillock.conf",
   }),
 
   r('lsb-083', {
@@ -929,6 +1011,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '900',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "grep -q '^unlock_time' /etc/security/faillock.conf 2>/dev/null && sed -i 's/^unlock_time.*/unlock_time = 900/' /etc/security/faillock.conf || echo 'unlock_time = 900' >> /etc/security/faillock.conf",
   }),
 
   r('lsb-084', {
@@ -940,6 +1023,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'L',
     operator: 'contains',
     severity: 'critical',
+    remediationScript: "passwd -l root",
   }),
 
   r('lsb-085', {
@@ -951,6 +1035,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^UMASK.*/UMASK\t\t027/' /etc/login.defs",
   }),
 
   // ── AUDITD ───────────────────────────────────────────────────────────────────
@@ -964,6 +1049,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'active',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y auditd 2>/dev/null || dnf install -y audit 2>/dev/null; systemctl start auditd && systemctl enable auditd",
   }),
 
   r('lsb-087', {
@@ -975,6 +1061,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
+    remediationScript: "systemctl restart auditd",
   }),
 
   r('lsb-088', {
@@ -986,6 +1073,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^max_log_file_action.*/max_log_file_action = keep_logs/' /etc/audit/auditd.conf && systemctl restart auditd",
   }),
 
   r('lsb-089', {
@@ -997,6 +1085,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^space_left_action.*/space_left_action = email/' /etc/audit/auditd.conf && systemctl restart auditd",
   }),
 
   r('lsb-090', {
@@ -1008,6 +1097,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^action_mail_acct.*/action_mail_acct = root/' /etc/audit/auditd.conf && systemctl restart auditd",
   }),
 
   r('lsb-091', {
@@ -1019,6 +1109,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^admin_space_left_action.*/admin_space_left_action = halt/' /etc/audit/auditd.conf && systemctl restart auditd",
   }),
 
   r('lsb-092', {
@@ -1030,6 +1121,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change' >> /etc/audit/rules.d/time.rules && echo '-a always,exit -F arch=b32 -S adjtimex -S settimeofday -k time-change' >> /etc/audit/rules.d/time.rules && augenrules --load",
   }),
 
   r('lsb-093', {
@@ -1041,6 +1133,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-w /etc/passwd -p wa -k identity' >> /etc/audit/rules.d/identity.rules && echo '-w /etc/group -p wa -k identity' >> /etc/audit/rules.d/identity.rules && echo '-w /etc/gshadow -p wa -k identity' >> /etc/audit/rules.d/identity.rules && echo '-w /etc/shadow -p wa -k identity' >> /etc/audit/rules.d/identity.rules && augenrules --load",
   }),
 
   r('lsb-094', {
@@ -1052,6 +1145,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-a always,exit -F arch=b64 -S sethostname -S setdomainname -k system-locale' >> /etc/audit/rules.d/network.rules && echo '-a always,exit -F arch=b32 -S sethostname -S setdomainname -k system-locale' >> /etc/audit/rules.d/network.rules && augenrules --load",
   }),
 
   r('lsb-095', {
@@ -1063,6 +1157,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-w /etc/selinux/ -p wa -k MAC-policy' >> /etc/audit/rules.d/mac.rules && echo '-w /etc/apparmor/ -p wa -k MAC-policy' >> /etc/audit/rules.d/mac.rules && echo '-w /etc/apparmor.d/ -p wa -k MAC-policy' >> /etc/audit/rules.d/mac.rules && augenrules --load",
   }),
 
   r('lsb-096', {
@@ -1074,6 +1169,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-w /var/log/faillog -p wa -k logins' >> /etc/audit/rules.d/logins.rules && echo '-w /var/log/btmp -p wa -k logins' >> /etc/audit/rules.d/logins.rules && echo '-w /var/log/wtmp -p wa -k logins' >> /etc/audit/rules.d/logins.rules && echo '-w /var/log/lastlog -p wa -k logins' >> /etc/audit/rules.d/logins.rules && augenrules --load",
   }),
 
   r('lsb-097', {
@@ -1085,6 +1181,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "echo '-a always,exit -F arch=b64 -S unlink -S rename -S unlinkat -S renameat -F auid>=1000 -F auid!=4294967295 -k delete' >> /etc/audit/rules.d/delete.rules && augenrules --load",
   }),
 
   r('lsb-098', {
@@ -1096,6 +1193,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-w /etc/sudoers -p wa -k sudoers' >> /etc/audit/rules.d/sudoers.rules && echo '-w /etc/sudoers.d/ -p wa -k sudoers' >> /etc/audit/rules.d/sudoers.rules && augenrules --load",
   }),
 
   r('lsb-099', {
@@ -1107,6 +1205,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-e 2' >> /etc/audit/rules.d/99-finalize.rules && augenrules --load",
   }),
 
   r('lsb-100', {
@@ -1118,6 +1217,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "echo '-w /usr/bin/sudo -p x -k priv_esc' >> /etc/audit/rules.d/priv-esc.rules && echo '-w /bin/su -p x -k priv_esc' >> /etc/audit/rules.d/priv-esc.rules && augenrules --load",
   }),
 
   // ── CONFIGURATION SYSTÈME ────────────────────────────────────────────────────
@@ -1131,6 +1231,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "touch /etc/cron.allow && chmod 600 /etc/cron.allow && chown root:root /etc/cron.allow",
   }),
 
   r('lsb-102', {
@@ -1142,6 +1243,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "chmod 700 /etc/cron.d && chown root:root /etc/cron.d",
   }),
 
   r('lsb-103', {
@@ -1153,6 +1255,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "sed -i 's/^#.*pam_wheel.so/auth required pam_wheel.so/' /etc/pam.d/su || echo 'auth required pam_wheel.so use_uid' >> /etc/pam.d/su",
   }),
 
   r('lsb-104', {
@@ -1164,6 +1267,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y sudo 2>/dev/null || dnf install -y sudo 2>/dev/null",
   }),
 
   r('lsb-105', {
@@ -1175,6 +1279,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "echo 'Defaults requiretty' > /etc/sudoers.d/requiretty && chmod 440 /etc/sudoers.d/requiretty",
   }),
 
   r('lsb-106', {
@@ -1186,6 +1291,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "echo 'Defaults use_pty' > /etc/sudoers.d/use_pty && chmod 440 /etc/sudoers.d/use_pty",
   }),
 
   r('lsb-107', {
@@ -1197,6 +1303,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y chrony 2>/dev/null || dnf install -y chrony 2>/dev/null; systemctl start chronyd && systemctl enable chronyd",
   }),
 
   r('lsb-108', {
@@ -1208,6 +1315,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "systemctl restart chronyd && chronyc makestep",
   }),
 
   r('lsb-109', {
@@ -1219,6 +1327,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: null,
     operator: 'exists',
     severity: 'low',
+    remediationScript: "touch /etc/hosts.allow && chmod 644 /etc/hosts.allow",
   }),
 
   r('lsb-110', {
@@ -1230,6 +1339,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w kernel.modules_disabled=1 && grep -q 'kernel.modules_disabled' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/kernel.modules_disabled.*/kernel.modules_disabled=1/' /etc/sysctl.d/99-security.conf || echo 'kernel.modules_disabled=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   // ── PERMISSIONS / FICHIERS SENSIBLES ─────────────────────────────────────────
@@ -1243,6 +1353,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '644',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "chmod 644 /etc/passwd && chown root:root /etc/passwd",
   }),
 
   r('lsb-112', {
@@ -1254,6 +1365,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "chmod 640 /etc/shadow && chown root:shadow /etc/shadow 2>/dev/null || chown root:root /etc/shadow",
   }),
 
   r('lsb-113', {
@@ -1265,6 +1377,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '644',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "chmod 644 /etc/group && chown root:root /etc/group",
   }),
 
   r('lsb-114', {
@@ -1276,6 +1389,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '000',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "chmod 000 /etc/gshadow && chown root:root /etc/gshadow",
   }),
 
   r('lsb-115', {
@@ -1287,6 +1401,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "chmod 644 /etc/passwd- && chown root:root /etc/passwd-",
   }),
 
   r('lsb-116', {
@@ -1298,6 +1413,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "chmod 640 /etc/shadow- && chown root:shadow /etc/shadow- 2>/dev/null || chown root:root /etc/shadow-",
   }),
 
   r('lsb-117', {
@@ -1309,6 +1425,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "test -f /boot/grub2/grub.cfg && chmod 600 /boot/grub2/grub.cfg; test -f /boot/grub/grub.cfg && chmod 600 /boot/grub/grub.cfg; true",
   }),
 
   r('lsb-118', {
@@ -1320,6 +1437,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "find / -xdev -type f -perm -0002 -exec chmod o-w {} \\;",
   }),
 
   r('lsb-119', {
@@ -1331,6 +1449,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '20',
     operator: 'lt',
     severity: 'moderate',
+    // No automatic remediation — requires manual review of SUID binaries
   }),
 
   r('lsb-120', {
@@ -1342,6 +1461,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "echo 'Authorized access only. All activity may be monitored and reported.' > /etc/motd",
   }),
 
   // ── JOURNALISATION ───────────────────────────────────────────────────────────
@@ -1355,6 +1475,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y rsyslog 2>/dev/null || dnf install -y rsyslog 2>/dev/null; systemctl start rsyslog && systemctl enable rsyslog",
   }),
 
   r('lsb-122', {
@@ -1366,6 +1487,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    // No automatic remediation — requires site-specific remote log server address
   }),
 
   r('lsb-123', {
@@ -1377,6 +1499,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sed -i 's/^#\\?Storage=.*/Storage=persistent/' /etc/systemd/journald.conf && mkdir -p /var/log/journal && systemctl restart systemd-journald",
   }),
 
   r('lsb-124', {
@@ -1388,6 +1511,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: null,
     operator: 'exists',
     severity: 'moderate',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get install -y logrotate 2>/dev/null || dnf install -y logrotate 2>/dev/null",
   }),
 
   r('lsb-125', {
@@ -1399,6 +1523,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "touch /var/log/auth.log && chmod 640 /var/log/auth.log && systemctl restart rsyslog 2>/dev/null; true",
   }),
 
   // ── RÈGLES COMPLÉMENTAIRES ───────────────────────────────────────────────────
@@ -1412,6 +1537,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "command -v apparmor_parser &>/dev/null && systemctl start apparmor && systemctl enable apparmor || (command -v setenforce &>/dev/null && setenforce 1); true",
   }),
 
   r('lsb-127', {
@@ -1423,6 +1549,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'Enforcing',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "setenforce 1 && sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config",
   }),
 
   r('lsb-128', {
@@ -1434,6 +1561,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "systemctl start apt-daily.timer 2>/dev/null && systemctl enable apt-daily.timer 2>/dev/null || (dnf install -y dnf-automatic 2>/dev/null && systemctl start dnf-automatic.timer && systemctl enable dnf-automatic.timer); true",
   }),
 
   r('lsb-129', {
@@ -1445,6 +1573,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y 2>/dev/null || dnf update -y --security 2>/dev/null",
   }),
 
   r('lsb-130', {
@@ -1456,6 +1585,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && grep -q 'net.ipv6.conf.all.disable_ipv6' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv6.conf.all.disable_ipv6.*/net.ipv6.conf.all.disable_ipv6=1/' /etc/sysctl.d/99-security.conf || echo 'net.ipv6.conf.all.disable_ipv6=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-131', {
@@ -1467,6 +1597,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "sysctl -w net.ipv4.tcp_timestamps=0 && grep -q 'net.ipv4.tcp_timestamps' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.tcp_timestamps.*/net.ipv4.tcp_timestamps=0/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.tcp_timestamps=0' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-132', {
@@ -1478,6 +1609,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    // No automatic remediation — requires manual review of which UID-0 accounts to change
   }),
 
   r('lsb-133', {
@@ -1489,6 +1621,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: "awk -F: '($2 == \"\" || $2 == \"!\") {print $1}' /etc/shadow | while read u; do passwd -l \"$u\"; done",
   }),
 
   r('lsb-134', {
@@ -1500,6 +1633,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '440',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "chmod 440 /etc/sudoers && chown root:root /etc/sudoers",
   }),
 
   r('lsb-135', {
@@ -1511,6 +1645,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '22',
     operator: 'neq',
     severity: 'low',
+    // No automatic remediation — choosing a non-standard port is site-specific
   }),
 
   r('lsb-136', {
@@ -1522,6 +1657,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // No automatic remediation — NX bit is a CPU/BIOS feature
   }),
 
   r('lsb-137', {
@@ -1533,6 +1669,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'low',
+    // No automatic remediation — VPN configuration is site-specific
   }),
 
   r('lsb-138', {
@@ -1544,6 +1681,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'enabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: "systemctl enable auditd",
   }),
 
   r('lsb-139', {
@@ -1555,6 +1693,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'low',
+    remediationScript: "grep -q 'pam_umask' /etc/pam.d/common-session 2>/dev/null || echo 'session optional pam_umask.so' >> /etc/pam.d/common-session; grep -q 'pam_umask' /etc/pam.d/system-auth 2>/dev/null || echo 'session optional pam_umask.so' >> /etc/pam.d/system-auth 2>/dev/null; true",
   }),
 
   r('lsb-140', {
@@ -1566,6 +1705,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w fs.protected_symlinks=1 && grep -q 'fs.protected_symlinks' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/fs.protected_symlinks.*/fs.protected_symlinks=1/' /etc/sysctl.d/99-security.conf || echo 'fs.protected_symlinks=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-141', {
@@ -1577,6 +1717,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w fs.protected_hardlinks=1 && grep -q 'fs.protected_hardlinks' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/fs.protected_hardlinks.*/fs.protected_hardlinks=1/' /etc/sysctl.d/99-security.conf || echo 'fs.protected_hardlinks=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-142', {
@@ -1588,6 +1729,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: "sysctl -w kernel.dmesg_restrict=1 && grep -q 'kernel.dmesg_restrict' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/kernel.dmesg_restrict.*/kernel.dmesg_restrict=1/' /etc/sysctl.d/99-security.conf || echo 'kernel.dmesg_restrict=1' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-143', {
@@ -1599,6 +1741,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "sysctl -w kernel.kptr_restrict=2 && grep -q 'kernel.kptr_restrict' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/kernel.kptr_restrict.*/kernel.kptr_restrict=2/' /etc/sysctl.d/99-security.conf || echo 'kernel.kptr_restrict=2' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-144', {
@@ -1610,6 +1753,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: '1024',
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: "sysctl -w net.ipv4.tcp_max_syn_backlog=2048 && grep -q 'net.ipv4.tcp_max_syn_backlog' /etc/sysctl.d/99-security.conf 2>/dev/null && sed -i 's/net.ipv4.tcp_max_syn_backlog.*/net.ipv4.tcp_max_syn_backlog=2048/' /etc/sysctl.d/99-security.conf || echo 'net.ipv4.tcp_max_syn_backlog=2048' >> /etc/sysctl.d/99-security.conf",
   }),
 
   r('lsb-145', {
@@ -1621,6 +1765,7 @@ export const linuxBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'high',
+    // No automatic remediation — disk encryption requires manual setup and data migration
   }),
 
 ];

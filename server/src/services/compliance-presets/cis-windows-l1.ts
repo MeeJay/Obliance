@@ -16,6 +16,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nPasswordHistorySize = 24" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-2', {
@@ -27,6 +28,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nMaximumPasswordAge = 365" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-3', {
@@ -38,6 +40,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nMinimumPasswordAge = 1" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-4', {
@@ -49,6 +52,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nMinimumPasswordLength = 14" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-5', {
@@ -60,6 +64,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nPasswordComplexity = 1" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-6', {
@@ -71,6 +76,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nClearTextPassword = 0" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-1-1-7', {
@@ -82,6 +88,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SAM\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SAM\' -Name \'RelaxMinimumPasswordLengthLimits\' -Value 0 -Type DWord',
   }),
 
   // ─── SECTION 1.2 — Account Lockout Policy ───────────────────────────────────
@@ -95,6 +102,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'net accounts /lockoutduration:15',
   }),
 
   r('cis-l1-1-2-2', {
@@ -106,6 +114,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'net accounts /lockoutthreshold:5',
   }),
 
   r('cis-l1-1-2-3', {
@@ -117,6 +126,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SAM\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SAM\' -Name \'AllowAdministratorLockout\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-1-2-4', {
@@ -128,6 +138,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'net accounts /lockoutwindow:15',
   }),
 
   // ─── SECTION 2.2 — User Rights Assignment ───────────────────────────────────
@@ -141,6 +152,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeTrustedCredManAccessPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-2', {
@@ -152,6 +164,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544,*S-1-5-32-555',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeNetworkLogonRight = *S-1-5-32-544,*S-1-5-32-555" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-3', {
@@ -163,6 +176,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeTcbPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-4', {
@@ -174,6 +188,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeIncreaseQuotaPrivilege = *S-1-5-19,*S-1-5-20,*S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-5', {
@@ -185,6 +200,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544,*S-1-5-32-545',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeInteractiveLogonRight = *S-1-5-32-544,*S-1-5-32-545" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-6', {
@@ -196,6 +212,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544,*S-1-5-32-555',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeRemoteInteractiveLogonRight = *S-1-5-32-544,*S-1-5-32-555" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-7', {
@@ -207,6 +224,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeBackupPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-8', {
@@ -218,6 +236,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeSystemtimePrivilege = *S-1-5-19,*S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-9', {
@@ -229,6 +248,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-32-544,*S-1-5-32-545',
     operator: 'eq',
     severity: 'low',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeTimeZonePrivilege = *S-1-5-19,*S-1-5-32-544,*S-1-5-32-545" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-10', {
@@ -240,6 +260,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeCreatePagefilePrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-11', {
@@ -251,6 +272,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeCreateTokenPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-12', {
@@ -262,6 +284,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-18,*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeCreateGlobalPrivilege = *S-1-5-19,*S-1-5-20,*S-1-5-18,*S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-13', {
@@ -273,6 +296,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeCreatePermanentPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-14', {
@@ -284,6 +308,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544,*S-1-5-19',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeCreateSymbolicLinkPrivilege = *S-1-5-32-544,*S-1-5-19" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-15', {
@@ -295,6 +320,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDebugPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-16', {
@@ -306,6 +332,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDenyNetworkLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-17', {
@@ -317,6 +344,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDenyBatchLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-18', {
@@ -328,6 +356,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDenyServiceLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-19', {
@@ -339,6 +368,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDenyInteractiveLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-20', {
@@ -350,6 +380,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeDenyRemoteInteractiveLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-21', {
@@ -361,6 +392,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeEnableDelegationPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-22', {
@@ -372,6 +404,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeRemoteShutdownPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-23', {
@@ -383,6 +416,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-18',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeAuditPrivilege = *S-1-5-19,*S-1-5-20,*S-1-5-18" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-24', {
@@ -394,6 +428,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-20,*S-1-5-18,*S-1-5-32-544',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeImpersonatePrivilege = *S-1-5-19,*S-1-5-20,*S-1-5-18,*S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-25', {
@@ -405,6 +440,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeIncreaseBasePriorityPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-26', {
@@ -416,6 +452,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeLoadDriverPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-27', {
@@ -427,6 +464,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeLockMemoryPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-28', {
@@ -438,6 +476,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'low',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeBatchLogonRight = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-29', {
@@ -449,6 +488,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeSecurityPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-30', {
@@ -460,6 +500,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeRelabelPrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-31', {
@@ -471,6 +512,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeSystemEnvironmentPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-32', {
@@ -482,6 +524,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeManageVolumePrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-33', {
@@ -493,6 +536,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeProfileSingleProcessPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-34', {
@@ -504,6 +548,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeSystemProfilePrivilege = " | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-35', {
@@ -515,6 +560,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-19,*S-1-5-20',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeAssignPrimaryTokenPrivilege = *S-1-5-19,*S-1-5-20" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-36', {
@@ -526,6 +572,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeRestorePrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-37', {
@@ -537,6 +584,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeShutdownPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-2-38', {
@@ -548,6 +596,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '*S-1-5-32-544',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.inf"; "[Unicode]`r`nUnicode=yes`r`n[Version]`r`nsignature=""$CHICAGO$""`r`nRevision=1`r`n[Privilege Rights]`r`nSeTakeOwnershipPrivilege = *S-1-5-32-544" | Set-Content $f -Encoding Unicode; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas USER_RIGHTS /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   // ─── SECTION 2.3 — Security Options ─────────────────────────────────────────
@@ -561,6 +610,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'NoConnectedUser\' -Value 3 -Type DWord',
   }),
 
   r('cis-l1-2-3-1-2', {
@@ -572,6 +622,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'PASS',
     operator: 'eq',
     severity: 'high',
+    remediationScript: '$f="$env:TEMP\\secfix.cfg"; "[System Access]`r`nEnableGuestAccount = 0" | Set-Content $f; secedit /configure /db "$env:TEMP\\secfix.sdb" /cfg $f /areas SECURITYPOLICY /quiet; Remove-Item $f,"$env:TEMP\\secfix.sdb" -Force -EA 0',
   }),
 
   r('cis-l1-2-3-1-3', {
@@ -583,6 +634,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'LimitBlankPasswordUse\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-1-4', {
@@ -594,6 +646,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Administrator',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'Rename-LocalUser -Name \'Administrator\' -NewName \'OblAdmin\'',
   }),
 
   r('cis-l1-2-3-1-5', {
@@ -605,6 +658,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Guest',
     operator: 'neq',
     severity: 'moderate',
+    remediationScript: 'Rename-LocalUser -Name \'Guest\' -NewName \'OblGuest\'',
   }),
 
   r('cis-l1-2-3-2-1', {
@@ -616,6 +670,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'SCENoApplyLegacyAuditPolicy\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-2-2', {
@@ -627,6 +682,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'CrashOnAuditFail\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-4-1', {
@@ -638,6 +694,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'AllocateDASD\' -Value 2 -Type DWord',
   }),
 
   r('cis-l1-2-3-4-2', {
@@ -649,6 +706,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers\' -Name \'AddPrinterDrivers\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-1', {
@@ -660,6 +718,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'RequireSignOrSeal\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-2', {
@@ -671,6 +730,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'SealSecureChannel\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-3', {
@@ -682,6 +742,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'SignSecureChannel\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-4', {
@@ -693,6 +754,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'DisablePasswordChange\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-5', {
@@ -704,6 +766,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 30,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'MaximumPasswordAge\' -Value 30 -Type DWord',
   }),
 
   r('cis-l1-2-3-6-6', {
@@ -715,6 +778,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Netlogon\\Parameters\' -Name \'RequireStrongKey\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-1', {
@@ -726,6 +790,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'DisableCAD\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-2', {
@@ -737,6 +802,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'DontDisplayLastUserName\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-3', {
@@ -748,6 +814,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 900,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'InactivityTimeoutSecs\' -Value 900 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-4', {
@@ -759,6 +826,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '',
     operator: 'neq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'LegalNoticeText\' -Value \'Authorized use only. All activity may be monitored.\' -Type String',
   }),
 
   r('cis-l1-2-3-7-5', {
@@ -770,6 +838,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '',
     operator: 'neq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'LegalNoticeCaption\' -Value \'Warning\' -Type String',
   }),
 
   r('cis-l1-2-3-7-6', {
@@ -781,6 +850,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 4,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'CachedLogonsCount\' -Value 4 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-7', {
@@ -792,6 +862,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 14,
     operator: 'lt',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'PasswordExpiryWarning\' -Value 14 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-8', {
@@ -803,6 +874,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'ForceUnlockLogon\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-7-9', {
@@ -814,6 +886,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'ScRemoveOption\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-8-1', {
@@ -825,6 +898,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Name \'RequireSecuritySignature\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-8-2', {
@@ -836,6 +910,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Name \'EnableSecuritySignature\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-8-3', {
@@ -847,6 +922,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Name \'EnablePlainTextPassword\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-9-1', {
@@ -858,6 +934,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 15,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'AutoDisconnect\' -Value 15 -Type DWord',
   }),
 
   r('cis-l1-2-3-9-2', {
@@ -869,6 +946,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'RequireSecuritySignature\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-9-3', {
@@ -880,6 +958,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'EnableSecuritySignature\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-9-4', {
@@ -891,6 +970,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'EnableForcedLogOff\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-9-5', {
@@ -902,6 +982,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'SmbServerNameHardeningLevel\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-1', {
@@ -913,6 +994,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'AnonymousNameLookup\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-2', {
@@ -924,6 +1006,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'RestrictAnonymousSAM\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-3', {
@@ -935,6 +1018,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'RestrictAnonymous\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-4', {
@@ -946,6 +1030,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'DisableDomainCreds\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-5', {
@@ -957,6 +1042,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'EveryoneIncludesAnonymous\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-6', {
@@ -968,6 +1054,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'NullSessionPipes\' -Value @() -Type MultiString',
   }),
 
   r('cis-l1-2-3-10-7', {
@@ -1001,6 +1088,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'RestrictNullSessAccess\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-10-10', {
@@ -1012,6 +1100,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'O:BA',
     operator: 'contains',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'RestrictRemoteSAM\' -Value \'O:BAG:BAD:(A;;RC;;;BA)\' -Type String',
   }),
 
   r('cis-l1-2-3-10-11', {
@@ -1023,6 +1112,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: '',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\' -Name \'NullSessionShares\' -Value @() -Type MultiString',
   }),
 
   r('cis-l1-2-3-10-12', {
@@ -1034,6 +1124,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'ForceGuest\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-1', {
@@ -1045,6 +1136,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'UseMachineId\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-2', {
@@ -1056,6 +1148,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Name \'AllowNullSessionFallback\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-3', {
@@ -1067,6 +1160,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\pku2u\' -Name \'AllowOnlineID\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-4', {
@@ -1078,6 +1172,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2147483640,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Kerberos\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Kerberos\\Parameters\' -Name \'SupportedEncryptionTypes\' -Value 2147483640 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-5', {
@@ -1089,6 +1184,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'NoLMHash\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-6', {
@@ -1100,6 +1196,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters\' -Name \'EnableForcedLogOff\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-7', {
@@ -1111,6 +1208,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 5,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\' -Name \'LmCompatibilityLevel\' -Value 5 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-8', {
@@ -1122,6 +1220,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ldap\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ldap\' -Name \'LDAPClientIntegrity\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-9', {
@@ -1133,6 +1232,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 537395200,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Name \'NTLMMinClientSec\' -Value 537395200 -Type DWord',
   }),
 
   r('cis-l1-2-3-11-10', {
@@ -1144,6 +1244,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 537395200,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\MSV1_0\' -Name \'NTLMMinServerSec\' -Value 537395200 -Type DWord',
   }),
 
   r('cis-l1-2-3-13-1', {
@@ -1155,6 +1256,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'ShutdownWithoutLogon\' -Value 0 -Type DWord',
   }),
 
   r('cis-l1-2-3-15-1', {
@@ -1166,6 +1268,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Kernel\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Kernel\' -Name \'ObCaseInsensitive\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-15-2', {
@@ -1177,6 +1280,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\' -Name \'ProtectionMode\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-1', {
@@ -1188,6 +1292,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'FilterAdministratorToken\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-2', {
@@ -1199,6 +1304,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'ConsentPromptBehaviorAdmin\' -Value 2 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-3', {
@@ -1210,6 +1316,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'ConsentPromptBehaviorUser\' -Value 3 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-4', {
@@ -1221,6 +1328,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableInstallerDetection\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-5', {
@@ -1232,6 +1340,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableSecureUIAPaths\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-6', {
@@ -1243,6 +1352,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableLUA\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-7', {
@@ -1254,6 +1364,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'PromptOnSecureDesktop\' -Value 1 -Type DWord',
   }),
 
   r('cis-l1-2-3-17-8', {
@@ -1265,6 +1376,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableVirtualization\' -Value 1 -Type DWord',
   }),
 
   // ─── SECTION 5 — System Services ────────────────────────────────────────────
@@ -1278,6 +1390,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'bthserv\' -Force -EA SilentlyContinue; Set-Service \'bthserv\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-2', {
@@ -1289,6 +1402,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'Browser\' -Force -EA SilentlyContinue; Set-Service \'Browser\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-3', {
@@ -1300,6 +1414,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'MapsBroker\' -Force -EA SilentlyContinue; Set-Service \'MapsBroker\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-4', {
@@ -1311,6 +1426,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'lfsvc\' -Force -EA SilentlyContinue; Set-Service \'lfsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-5', {
@@ -1322,6 +1438,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'IISADMIN\' -Force -EA SilentlyContinue; Set-Service \'IISADMIN\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-6', {
@@ -1333,6 +1450,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'irmon\' -Force -EA SilentlyContinue; Set-Service \'irmon\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-7', {
@@ -1344,6 +1462,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'SharedAccess\' -Force -EA SilentlyContinue; Set-Service \'SharedAccess\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-8', {
@@ -1355,6 +1474,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'lltdsvc\' -Force -EA SilentlyContinue; Set-Service \'lltdsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-9', {
@@ -1366,6 +1486,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'LxssManager\' -Force -EA SilentlyContinue; Set-Service \'LxssManager\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-10', {
@@ -1377,6 +1498,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'ftpsvc\' -Force -EA SilentlyContinue; Set-Service \'ftpsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-11', {
@@ -1388,6 +1510,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'MSiSCSI\' -Force -EA SilentlyContinue; Set-Service \'MSiSCSI\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-12', {
@@ -1399,6 +1522,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'sshd\' -Force -EA SilentlyContinue; Set-Service \'sshd\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-13', {
@@ -1410,6 +1534,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'PNRPsvc\' -Force -EA SilentlyContinue; Set-Service \'PNRPsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-14', {
@@ -1421,6 +1546,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'p2psvc\' -Force -EA SilentlyContinue; Set-Service \'p2psvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-15', {
@@ -1432,6 +1558,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'p2pimsvc\' -Force -EA SilentlyContinue; Set-Service \'p2pimsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-16', {
@@ -1443,6 +1570,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'PNRPAutoReg\' -Force -EA SilentlyContinue; Set-Service \'PNRPAutoReg\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-17', {
@@ -1454,6 +1582,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'Spooler\' -Force -EA SilentlyContinue; Set-Service \'Spooler\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-18', {
@@ -1465,6 +1594,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'wercplsupport\' -Force -EA SilentlyContinue; Set-Service \'wercplsupport\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-19', {
@@ -1476,6 +1606,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'RasAuto\' -Force -EA SilentlyContinue; Set-Service \'RasAuto\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-20', {
@@ -1487,6 +1618,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'SessionEnv\' -Force -EA SilentlyContinue; Set-Service \'SessionEnv\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-21', {
@@ -1498,6 +1630,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'TermService\' -Force -EA SilentlyContinue; Set-Service \'TermService\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-22', {
@@ -1509,6 +1642,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'UmRdpService\' -Force -EA SilentlyContinue; Set-Service \'UmRdpService\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-23', {
@@ -1520,6 +1654,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'RpcLocator\' -Force -EA SilentlyContinue; Set-Service \'RpcLocator\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-24', {
@@ -1531,6 +1666,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Stop-Service \'RemoteRegistry\' -Force -EA SilentlyContinue; Set-Service \'RemoteRegistry\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-25', {
@@ -1542,6 +1678,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'RemoteAccess\' -Force -EA SilentlyContinue; Set-Service \'RemoteAccess\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-26', {
@@ -1553,6 +1690,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'simptcp\' -Force -EA SilentlyContinue; Set-Service \'simptcp\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-27', {
@@ -1564,6 +1702,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'SNMP\' -Force -EA SilentlyContinue; Set-Service \'SNMP\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-28', {
@@ -1575,6 +1714,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'sacsvr\' -Force -EA SilentlyContinue; Set-Service \'sacsvr\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-29', {
@@ -1586,6 +1726,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Stop-Service \'TlntSvr\' -Force -EA SilentlyContinue; Set-Service \'TlntSvr\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-30', {
@@ -1597,6 +1738,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'tftpd\' -Force -EA SilentlyContinue; Set-Service \'tftpd\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-31', {
@@ -1608,6 +1750,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'WinHttpAutoProxySvc\' -Force -EA SilentlyContinue; Set-Service \'WinHttpAutoProxySvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-32', {
@@ -1619,6 +1762,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'WerSvc\' -Force -EA SilentlyContinue; Set-Service \'WerSvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-33', {
@@ -1630,6 +1774,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'Wecsvc\' -Force -EA SilentlyContinue; Set-Service \'Wecsvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-34', {
@@ -1641,6 +1786,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'WMPNetworkSvc\' -Force -EA SilentlyContinue; Set-Service \'WMPNetworkSvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-35', {
@@ -1652,6 +1798,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'Stop-Service \'icssvc\' -Force -EA SilentlyContinue; Set-Service \'icssvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-36', {
@@ -1663,6 +1810,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'WpnService\' -Force -EA SilentlyContinue; Set-Service \'WpnService\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-37', {
@@ -1674,6 +1822,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'PushToInstall\' -Force -EA SilentlyContinue; Set-Service \'PushToInstall\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-38', {
@@ -1685,6 +1834,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'Stop-Service \'WinRM\' -Force -EA SilentlyContinue; Set-Service \'WinRM\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-39', {
@@ -1696,6 +1846,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'Stop-Service \'W3SVC\' -Force -EA SilentlyContinue; Set-Service \'W3SVC\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-40', {
@@ -1707,6 +1858,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'XboxGipSvc\' -Force -EA SilentlyContinue; Set-Service \'XboxGipSvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-41', {
@@ -1718,6 +1870,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'xbgm\' -Force -EA SilentlyContinue; Set-Service \'xbgm\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-42', {
@@ -1729,6 +1882,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'XblAuthManager\' -Force -EA SilentlyContinue; Set-Service \'XblAuthManager\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-43', {
@@ -1740,6 +1894,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'XblGameSave\' -Force -EA SilentlyContinue; Set-Service \'XblGameSave\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
   r('cis-l1-5-44', {
@@ -1751,6 +1906,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Disabled',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'Stop-Service \'XboxNetApiSvc\' -Force -EA SilentlyContinue; Set-Service \'XboxNetApiSvc\' -StartupType Disabled -EA SilentlyContinue',
   }),
 
 
@@ -1766,6 +1922,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Name \'EnableFirewall\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-1-2', {
     name: 'Windows Firewall — Domain: Inbound connections blocked',
@@ -1776,6 +1933,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Name \'DefaultInboundAction\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-1-3', {
     name: 'Windows Firewall — Domain: Outbound connections allowed',
@@ -1786,6 +1944,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Name \'DefaultOutboundAction\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-1-4', {
     name: 'Windows Firewall — Domain: Local firewall rules not merged',
@@ -1796,6 +1955,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Name \'AllowLocalPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-1-5', {
     name: 'Windows Firewall — Domain: Local connection security rules not merged',
@@ -1806,6 +1966,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\' -Name \'AllowLocalIPsecPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-1-6', {
     name: 'Windows Firewall — Domain: Log dropped packets enabled',
@@ -1816,6 +1977,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Name \'LogDroppedPackets\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-1-7', {
     name: 'Windows Firewall — Domain: Log successful connections enabled',
@@ -1826,6 +1988,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Name \'LogSuccessfulConnections\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-1-8', {
     name: 'Windows Firewall — Domain: Log file path configured',
@@ -1836,6 +1999,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'System32',
     operator: 'contains',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Name \'LogFilePath\' -Value \'%SystemRoot%\\System32\\LogFiles\\Firewall\\domainfw.log\' -Type String',
   }),
   r('cis-l1-9-1-9', {
     name: 'Windows Firewall — Domain: Log file size limit >= 16384 KB',
@@ -1846,6 +2010,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 16384,
     operator: 'gt',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\DomainProfile\\Logging\' -Name \'LogFileSize\' -Value 16384 -Type DWord',
   }),
 
   // 9.2 Private Profile
@@ -1858,6 +2023,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Name \'EnableFirewall\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-2-2', {
     name: 'Windows Firewall — Private: Inbound connections blocked',
@@ -1868,6 +2034,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Name \'DefaultInboundAction\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-2-3', {
     name: 'Windows Firewall — Private: Outbound connections allowed',
@@ -1878,6 +2045,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Name \'DefaultOutboundAction\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-2-4', {
     name: 'Windows Firewall — Private: Local firewall rules not merged',
@@ -1888,6 +2056,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Name \'AllowLocalPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-2-5', {
     name: 'Windows Firewall — Private: Local connection security rules not merged',
@@ -1898,6 +2067,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\' -Name \'AllowLocalIPsecPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-2-6', {
     name: 'Windows Firewall — Private: Log dropped packets enabled',
@@ -1908,6 +2078,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Name \'LogDroppedPackets\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-2-7', {
     name: 'Windows Firewall — Private: Log successful connections enabled',
@@ -1918,6 +2089,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Name \'LogSuccessfulConnections\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-2-8', {
     name: 'Windows Firewall — Private: Log file size limit >= 16384 KB',
@@ -1928,6 +2100,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 16384,
     operator: 'gt',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PrivateProfile\\Logging\' -Name \'LogFileSize\' -Value 16384 -Type DWord',
   }),
 
   // 9.3 Public Profile
@@ -1940,6 +2113,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'EnableFirewall\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-3-2', {
     name: 'Windows Firewall — Public: Inbound connections blocked',
@@ -1950,6 +2124,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'DefaultInboundAction\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-3-3', {
     name: 'Windows Firewall — Public: Outbound connections allowed',
@@ -1960,6 +2135,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'DefaultOutboundAction\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-3-4', {
     name: 'Windows Firewall — Public: Local firewall rules not merged',
@@ -1970,6 +2146,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'AllowLocalPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-3-5', {
     name: 'Windows Firewall — Public: Local connection security rules not merged',
@@ -1980,6 +2157,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'AllowLocalIPsecPolicyMerge\' -Value 0 -Type DWord',
   }),
   r('cis-l1-9-3-6', {
     name: 'Windows Firewall — Public: Log dropped packets enabled',
@@ -1990,6 +2168,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Name \'LogDroppedPackets\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-3-7', {
     name: 'Windows Firewall — Public: Log successful connections enabled',
@@ -2000,6 +2179,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Name \'LogSuccessfulConnections\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-3-8', {
     name: 'Windows Firewall — Public: Display notification disabled',
@@ -2010,6 +2190,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\' -Name \'DisableNotifications\' -Value 1 -Type DWord',
   }),
   r('cis-l1-9-3-9', {
     name: 'Windows Firewall — Public: Log file size limit >= 16384 KB',
@@ -2020,6 +2201,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 16384,
     operator: 'gt',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\PublicProfile\\Logging\' -Name \'LogFileSize\' -Value 16384 -Type DWord',
   }),
 
   // ─── SECTION 17 — Advanced Audit Policy Configuration ────────────────────────
@@ -2034,6 +2216,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Credential Validation" /success:enable /failure:enable',
   }),
   r('cis-l1-17-1-2', {
     name: 'Audit Kerberos Authentication Service: Success and Failure',
@@ -2044,6 +2227,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Kerberos Authentication Service" /success:enable /failure:enable',
   }),
   r('cis-l1-17-1-3', {
     name: 'Audit Kerberos Service Ticket Operations: Success and Failure',
@@ -2054,6 +2238,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable /failure:enable',
   }),
   r('cis-l1-17-1-4', {
     name: 'Audit Other Account Logon Events: Success and Failure',
@@ -2064,6 +2249,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other Account Logon Events" /success:enable /failure:enable',
   }),
 
   // 17.2 Account Management
@@ -2076,6 +2262,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Application Group Management" /success:enable /failure:enable',
   }),
   r('cis-l1-17-2-2', {
     name: 'Audit Computer Account Management: Success',
@@ -2086,6 +2273,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Computer Account Management" /success:enable /failure:disable',
   }),
   r('cis-l1-17-2-3', {
     name: 'Audit Distribution Group Management: Success',
@@ -2096,6 +2284,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'auditpol /set /subcategory:"Distribution Group Management" /success:enable /failure:disable',
   }),
   r('cis-l1-17-2-4', {
     name: 'Audit Other Account Management Events: Success',
@@ -2106,6 +2295,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other Account Management Events" /success:enable /failure:disable',
   }),
   r('cis-l1-17-2-5', {
     name: 'Audit Security Group Management: Success',
@@ -2116,6 +2306,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Security Group Management" /success:enable /failure:disable',
   }),
   r('cis-l1-17-2-6', {
     name: 'Audit User Account Management: Success and Failure',
@@ -2126,6 +2317,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
   }),
 
   // 17.3 Detailed Tracking
@@ -2138,6 +2330,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Plug and Play Events" /success:enable /failure:disable',
   }),
   r('cis-l1-17-3-2', {
     name: 'Audit Process Creation: Success',
@@ -2148,6 +2341,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Process Creation" /success:enable /failure:disable',
   }),
 
   // 17.4 DS Access
@@ -2160,6 +2354,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Directory Service Access" /success:disable /failure:enable',
   }),
   r('cis-l1-17-4-2', {
     name: 'Audit Directory Service Changes: Success',
@@ -2170,6 +2365,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Directory Service Changes" /success:enable /failure:disable',
   }),
 
   // 17.5 Logon/Logoff
@@ -2182,6 +2378,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Account Lockout" /success:disable /failure:enable',
   }),
   r('cis-l1-17-5-2', {
     name: 'Audit Group Membership: Success',
@@ -2192,6 +2389,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Group Membership" /success:enable /failure:disable',
   }),
   r('cis-l1-17-5-3', {
     name: 'Audit Logoff: Success',
@@ -2202,6 +2400,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Logoff" /success:enable /failure:disable',
   }),
   r('cis-l1-17-5-4', {
     name: 'Audit Logon: Success and Failure',
@@ -2212,6 +2411,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
   }),
   r('cis-l1-17-5-5', {
     name: 'Audit Other Logon/Logoff Events: Success and Failure',
@@ -2222,6 +2422,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other Logon/Logoff Events" /success:enable /failure:enable',
   }),
   r('cis-l1-17-5-6', {
     name: 'Audit Special Logon: Success',
@@ -2232,6 +2433,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Special Logon" /success:enable /failure:disable',
   }),
 
   // 17.6 Object Access
@@ -2244,6 +2446,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Detailed File Share" /success:disable /failure:enable',
   }),
   r('cis-l1-17-6-2', {
     name: 'Audit File Share: Success and Failure',
@@ -2254,6 +2457,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"File Share" /success:enable /failure:enable',
   }),
   r('cis-l1-17-6-3', {
     name: 'Audit Other Object Access Events: Success and Failure',
@@ -2264,6 +2468,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other Object Access Events" /success:enable /failure:enable',
   }),
   r('cis-l1-17-6-4', {
     name: 'Audit Removable Storage: Success and Failure',
@@ -2274,6 +2479,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Removable Storage" /success:enable /failure:enable',
   }),
 
   // 17.7 Policy Change
@@ -2286,6 +2492,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Audit Policy Change" /success:enable /failure:enable',
   }),
   r('cis-l1-17-7-2', {
     name: 'Audit Authentication Policy Change: Success',
@@ -2296,6 +2503,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Authentication Policy Change" /success:enable /failure:disable',
   }),
   r('cis-l1-17-7-3', {
     name: 'Audit Authorization Policy Change: Success',
@@ -2306,6 +2514,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Authorization Policy Change" /success:enable /failure:disable',
   }),
   r('cis-l1-17-7-4', {
     name: 'Audit MPSSVC Rule-Level Policy Change: Success and Failure',
@@ -2316,6 +2525,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"MPSSVC Rule-Level Policy Change" /success:enable /failure:enable',
   }),
   r('cis-l1-17-7-5', {
     name: 'Audit Other Policy Change Events: Failure',
@@ -2326,6 +2536,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other Policy Change Events" /success:disable /failure:enable',
   }),
 
   // 17.8 Privilege Use
@@ -2338,6 +2549,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable',
   }),
 
   // 17.9 System
@@ -2350,6 +2562,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"IPsec Driver" /success:enable /failure:enable',
   }),
   r('cis-l1-17-9-2', {
     name: 'Audit Other System Events: Success and Failure',
@@ -2360,6 +2573,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'auditpol /set /subcategory:"Other System Events" /success:enable /failure:enable',
   }),
   r('cis-l1-17-9-3', {
     name: 'Audit Security State Change: Success',
@@ -2370,6 +2584,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"Security State Change" /success:enable /failure:disable',
   }),
   r('cis-l1-17-9-4', {
     name: 'Audit Security System Extension: Success',
@@ -2380,6 +2595,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success',
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'auditpol /set /subcategory:"Security System Extension" /success:enable /failure:disable',
   }),
   r('cis-l1-17-9-5', {
     name: 'Audit System Integrity: Success and Failure',
@@ -2390,6 +2606,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'Success and Failure',
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'auditpol /set /subcategory:"System Integrity" /success:enable /failure:enable',
   }),
 
   // ─── SECTION 18 — Administrative Templates (Computer) ────────────────────────
@@ -2404,6 +2621,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization\' -Name \'NoLockScreenCamera\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-1-1-2', {
     name: 'Prevent enabling lock screen slide show',
@@ -2414,6 +2632,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization\' -Name \'NoLockScreenSlideshow\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-1-2-2', {
     name: 'Allow users to enable online speech recognition services: disabled',
@@ -2424,6 +2643,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\InputPersonalization\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\InputPersonalization\' -Name \'AllowInputPersonalization\' -Value 0 -Type DWord',
   }),
 
   // 18.3 MSS Settings
@@ -2436,6 +2656,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'AutoAdminLogon\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-3-2', {
     name: 'MSS: DisableIPSourceRouting IPv6 — Highest protection',
@@ -2446,6 +2667,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters\' -Name \'DisableIPSourceRouting\' -Value 2 -Type DWord',
   }),
   r('cis-l1-18-3-3', {
     name: 'MSS: DisableIPSourceRouting IPv4 — Highest protection',
@@ -2456,6 +2678,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Name \'DisableIPSourceRouting\' -Value 2 -Type DWord',
   }),
   r('cis-l1-18-3-4', {
     name: 'MSS: EnableICMPRedirect disabled',
@@ -2466,6 +2689,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Name \'EnableICMPRedirect\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-3-5', {
     name: 'MSS: NoNameReleaseOnDemand enabled',
@@ -2476,6 +2700,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters\' -Name \'NoNameReleaseOnDemand\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-3-6', {
     name: 'MSS: PerformRouterDiscovery disabled',
@@ -2486,6 +2711,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\' -Name \'PerformRouterDiscovery\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-3-7', {
     name: 'MSS: SafeDllSearchMode enabled',
@@ -2496,6 +2722,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\' -Name \'SafeDllSearchMode\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-3-8', {
     name: 'MSS: ScreenSaverGracePeriod <= 5 seconds',
@@ -2506,6 +2733,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 5,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\' -Name \'ScreenSaverGracePeriod\' -Value 5 -Type DWord',
   }),
   r('cis-l1-18-3-9', {
     name: 'MSS: Security event log WarningLevel <= 90%',
@@ -2516,6 +2744,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 90,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Eventlog\\Security\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Eventlog\\Security\' -Name \'WarningLevel\' -Value 90 -Type DWord',
   }),
 
   // 18.4 Network
@@ -2528,6 +2757,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient\' -Name \'EnableMulticast\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-4-2', {
     name: 'Enable Font Providers: disabled',
@@ -2538,6 +2768,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnableFontProviders\' -Value 0 -Type DWord',
   }),
 
   // 18.5 Network Settings
@@ -2550,6 +2781,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Name \'NC_AllowNetBridge_NLA\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-5-2', {
     name: 'Prohibit use of Internet Connection Sharing',
@@ -2560,6 +2792,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Name \'NC_ShowSharedAccessUI\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-5-3', {
     name: 'Require domain users to elevate when setting a network location',
@@ -2570,6 +2803,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Name \'NC_StdDomainUserSetLocation\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-5-4', {
     name: 'Hardened UNC paths: NETLOGON — RequireMutualAuthentication=1',
@@ -2580,6 +2814,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'RequireMutualAuthentication=1',
     operator: 'contains',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths\' -Name \'\\\\\\\\*\\\\NETLOGON\' -Value \'RequireMutualAuthentication=1,RequireIntegrity=1\' -Type String',
   }),
   r('cis-l1-18-5-5', {
     name: 'Hardened UNC paths: SYSVOL — RequireMutualAuthentication=1',
@@ -2590,6 +2825,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 'RequireMutualAuthentication=1',
     operator: 'contains',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\NetworkProvider\\HardenedPaths\' -Name \'\\\\\\\\*\\\\SYSVOL\' -Value \'RequireMutualAuthentication=1,RequireIntegrity=1\' -Type String',
   }),
   r('cis-l1-18-5-6', {
     name: 'Prohibit connection to non-domain networks when connected to domain',
@@ -2600,6 +2836,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WcmSvc\\GroupPolicy\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WcmSvc\\GroupPolicy\' -Name \'fBlockNonDomain\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-5-7', {
     name: 'Turn off Microsoft Peer-to-Peer Networking Services',
@@ -2610,6 +2847,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Peernet\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Peernet\' -Name \'Disabled\' -Value 1 -Type DWord',
   }),
 
   // 18.6 Printers
@@ -2622,6 +2860,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Printers\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Printers\' -Name \'RegisterSpoolerRemoteRpcEndPoint\' -Value 2 -Type DWord',
   }),
 
   // 18.8 System
@@ -2634,6 +2873,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\EarlyLaunch\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\EarlyLaunch\' -Name \'DriverLoadPolicy\' -Value 3 -Type DWord',
   }),
   r('cis-l1-18-8-2', {
     name: 'Registry policy processing: do not allow background processing',
@@ -2644,6 +2884,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}\' -Name \'NoBackgroundPolicy\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-8-3', {
     name: 'Registry policy processing: process even if not changed',
@@ -2654,6 +2895,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Group Policy\\{35378EAC-683F-11D2-A89A-00C04FBBCFA2}\' -Name \'NoGPOListChanges\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-8-4', {
     name: 'Turn off background refresh of Group Policy: disabled',
@@ -2664,6 +2906,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'DisableBkGndGroupPolicy\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-8-5', {
     name: 'Turn off access to all Windows Update features: disabled',
@@ -2674,6 +2917,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\' -Name \'DisableWindowsUpdateAccess\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-8-6', {
     name: 'Configure Solicited Remote Assistance: disabled',
@@ -2684,6 +2928,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'fAllowToGetHelp\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-8-7', {
     name: 'Configure Offer Remote Assistance: disabled',
@@ -2694,6 +2939,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'fAllowUnsolicited\' -Value 0 -Type DWord',
   }),
 
   // 18.8 Virtualization Based Security / Device Guard
@@ -2706,6 +2952,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'EnableVirtualizationBasedSecurity\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-9', {
     name: 'VBS: Select Platform Security Level — Secure Boot and DMA (3)',
@@ -2716,6 +2963,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'RequirePlatformSecurityFeatures\' -Value 3 -Type DWord',
   }),
   r('cis-l1-18-8-10', {
     name: 'VBS: Virtualization Based Protection of Code Integrity: enabled with UEFI lock',
@@ -2726,6 +2974,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'HypervisorEnforcedCodeIntegrity\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-11', {
     name: 'VBS: Require UEFI Memory Attributes Table: enabled',
@@ -2736,6 +2985,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'HVCIMATRequired\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-12', {
     name: 'VBS: Credential Guard Configuration: enabled with UEFI lock',
@@ -2746,6 +2996,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'LsaCfgFlags\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-13', {
     name: 'VBS: Secure Launch Configuration: enabled',
@@ -2756,6 +3007,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'ConfigureSystemGuardLaunch\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-14', {
     name: 'VBS: Kernel-mode HW-Enforced Stack Protection: enforcement mode (2)',
@@ -2766,6 +3018,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeviceGuard\' -Name \'ConfigureKernelShadowStacksLaunch\' -Value 2 -Type DWord',
   }),
 
   // 18.8 RPC
@@ -2778,6 +3031,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Rpc\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Rpc\' -Name \'RestrictRemoteClients\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-8-16', {
     name: 'RPC Endpoint Mapper Client Authentication: enabled',
@@ -2788,6 +3042,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Rpc\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Rpc\' -Name \'EnableAuthEpResolution\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Windows Components — various
@@ -2800,6 +3055,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'MSAOptional\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-2', {
     name: 'Disallow Autoplay for non-volume devices',
@@ -2810,6 +3066,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Name \'NoAutoplayfornonVolume\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-3', {
     name: 'Set default behavior for AutoRun: Do not execute autorun commands',
@@ -2820,6 +3077,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoAutorun\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-4', {
     name: 'Turn off AutoPlay: All drives (255)',
@@ -2830,6 +3088,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 255,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoDriveTypeAutoRun\' -Value 255 -Type DWord',
   }),
   r('cis-l1-18-9-5', {
     name: 'Do not display the password reveal button',
@@ -2840,6 +3099,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredUI\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredUI\' -Name \'DisablePasswordReveal\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-6', {
     name: 'Enumerate administrator accounts on elevation: disabled',
@@ -2850,6 +3110,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\CredUI\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\CredUI\' -Name \'EnumerateAdministrators\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-7', {
     name: 'Allow Diagnostic Data: Send required diagnostic data only (<=1)',
@@ -2860,6 +3121,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'AllowTelemetry\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-8', {
     name: 'Configure Authenticated Proxy for Connected User Experience: disabled',
@@ -2870,6 +3132,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'DisableEnterpriseAuthProxy\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-9', {
     name: 'Disable OneSettings downloads: enabled',
@@ -2880,6 +3143,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'DisableOneSettingsDownloads\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-10', {
     name: 'Do not show feedback notifications: enabled',
@@ -2890,6 +3154,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'DoNotShowFeedbackNotifications\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-11', {
     name: 'Toggle user control over Insider builds: disabled',
@@ -2900,6 +3165,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\' -Name \'AllowBuildPreview\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-12', {
     name: 'Application event log size >= 32768 KB',
@@ -2910,6 +3176,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 32768,
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Application\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Application\' -Name \'MaxSize\' -Value 32768 -Type DWord',
   }),
   r('cis-l1-18-9-13', {
     name: 'Security event log size >= 196608 KB',
@@ -2920,6 +3187,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 196608,
     operator: 'gt',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Security\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Security\' -Name \'MaxSize\' -Value 196608 -Type DWord',
   }),
   r('cis-l1-18-9-14', {
     name: 'Setup event log size >= 32768 KB',
@@ -2930,6 +3198,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 32768,
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Setup\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\Setup\' -Name \'MaxSize\' -Value 32768 -Type DWord',
   }),
   r('cis-l1-18-9-15', {
     name: 'System event log size >= 32768 KB',
@@ -2940,6 +3209,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 32768,
     operator: 'gt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\EventLog\\System\' -Name \'MaxSize\' -Value 32768 -Type DWord',
   }),
   r('cis-l1-18-9-16', {
     name: 'Turn off Data Execution Prevention for Explorer: disabled',
@@ -2950,6 +3220,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Name \'NoDataExecutionPrevention\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-17', {
     name: 'Turn off heap termination on corruption: disabled',
@@ -2960,6 +3231,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer\' -Name \'NoHeapTerminationOnCorruption\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-18', {
     name: 'Turn off shell protocol protected mode: disabled',
@@ -2970,6 +3242,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'PreXPSP2ShellProtocolBehavior\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-19', {
     name: 'Configure Windows Defender SmartScreen for Explorer: Warn and prevent bypass',
@@ -2980,6 +3253,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnableSmartScreen\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-20', {
     name: 'Allow widgets: disabled',
@@ -2990,6 +3264,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh\' -Name \'AllowNewsAndInterests\' -Value 0 -Type DWord',
   }),
 
   // 18.9 Microsoft Defender Antivirus
@@ -3002,6 +3277,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\' -Name \'DisableAntiSpyware\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-22', {
     name: 'Configure Block at First Sight: enabled',
@@ -3012,6 +3288,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Spynet\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Spynet\' -Name \'DisableBlockAtFirstSeen\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-23', {
     name: 'Enable file hash computation feature: enabled',
@@ -3022,6 +3299,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\MpEngine\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\MpEngine\' -Name \'EnableFileHashComputation\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-24', {
     name: 'Scan all downloaded files and attachments: enabled',
@@ -3032,6 +3310,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Name \'DisableIOAVProtection\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-25', {
     name: 'Turn off real-time protection: disabled',
@@ -3042,6 +3321,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Name \'DisableRealtimeMonitoring\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-26', {
     name: 'Turn on behavior monitoring: enabled',
@@ -3052,6 +3332,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Name \'DisableBehaviorMonitoring\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-27', {
     name: 'Turn on script scanning: enabled',
@@ -3062,6 +3343,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\' -Name \'DisableScriptScanning\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-28', {
     name: 'Prevent users from modifying Exploit Protection settings: enabled',
@@ -3072,6 +3354,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\' -Name \'DisallowExploitProtectionOverride\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-29', {
     name: 'Prevent the usage of OneDrive for file storage: enabled',
@@ -3082,6 +3365,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive\' -Name \'DisableFileSyncNGSC\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Remote Desktop / Terminal Services
@@ -3094,6 +3378,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'DisablePasswordSaving\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-31', {
     name: 'RDS: Do not allow drive redirection',
@@ -3104,6 +3389,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'fDisableCdm\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-32', {
     name: 'RDS: Always prompt for password upon connection',
@@ -3114,6 +3400,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'fPromptForPassword\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-33', {
     name: 'RDS: Require use of specific security layer — SSL (2)',
@@ -3124,6 +3411,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'SecurityLayer\' -Value 2 -Type DWord',
   }),
   r('cis-l1-18-9-34', {
     name: 'RDS: Require user authentication for NLA',
@@ -3134,6 +3422,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'UserAuthentication\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-35', {
     name: 'RDS: Set client connection encryption level — High (3)',
@@ -3144,6 +3433,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'MinEncryptionLevel\' -Value 3 -Type DWord',
   }),
   r('cis-l1-18-9-36', {
     name: 'RDS: Set time limit for disconnected sessions <= 60000 ms',
@@ -3154,6 +3444,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 60000,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services\' -Name \'MaxDisconnectionTime\' -Value 60000 -Type DWord',
   }),
 
   // 18.9 Search / Cortana
@@ -3166,6 +3457,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Name \'AllowCloudSearch\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-38', {
     name: 'Allow Cortana: disabled',
@@ -3176,6 +3468,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Name \'AllowCortana\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-39', {
     name: 'Allow Cortana above lock screen: disabled',
@@ -3186,6 +3479,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Name \'AllowCortanaAboveLock\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-40', {
     name: 'Allow search and Cortana to use location: disabled',
@@ -3196,6 +3490,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search\' -Name \'AllowSearchToUseLocation\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-41', {
     name: 'Allow Windows Spotlight: disabled',
@@ -3206,6 +3501,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent\' -Name \'DisableWindowsSpotlightFeatures\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-42', {
     name: 'Turn off the Store application: enabled',
@@ -3216,6 +3512,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsStore\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\WindowsStore\' -Name \'RemoveWindowsStore\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-43', {
     name: 'Prevent users from sharing files within their profile',
@@ -3226,6 +3523,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Network Connections\' -Name \'NC_ShowSharedAccessUI\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-44', {
     name: 'Allow user control over installs: disabled',
@@ -3236,6 +3534,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Name \'EnableUserControl\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-45', {
     name: 'Always install with elevated privileges (Windows Installer): disabled',
@@ -3246,6 +3545,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Name \'AlwaysInstallElevated\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-46', {
     name: 'Enable MPR notifications for the system: disabled',
@@ -3256,6 +3556,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'EnableMPR\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-47', {
     name: 'Sign-in last interactive user after system-initiated restart: disabled',
@@ -3266,6 +3567,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\' -Name \'DisableAutomaticRestartSignOn\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-48', {
     name: 'Turn on PowerShell Script Block Logging: enabled',
@@ -3276,6 +3578,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\' -Name \'EnableScriptBlockLogging\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-49', {
     name: 'Turn on PowerShell Transcription: enabled',
@@ -3286,6 +3589,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription\' -Name \'EnableTranscripting\' -Value 1 -Type DWord',
   }),
 
   // 18.9 WinRM
@@ -3298,6 +3602,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Name \'AllowBasic\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-51', {
     name: 'WinRM Client: Allow unencrypted traffic disabled',
@@ -3308,6 +3613,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Name \'AllowUnencryptedTraffic\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-52', {
     name: 'WinRM Client: Disallow Digest authentication',
@@ -3318,6 +3624,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client\' -Name \'AllowDigest\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-53', {
     name: 'WinRM Service: Allow Basic authentication disabled',
@@ -3328,6 +3635,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Name \'AllowBasic\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-54', {
     name: 'WinRM Service: Allow remote server management disabled',
@@ -3338,6 +3646,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Name \'AllowAutoConfig\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-55', {
     name: 'WinRM Service: Allow unencrypted traffic disabled',
@@ -3348,6 +3657,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Name \'AllowUnencryptedTraffic\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-56', {
     name: 'WinRM Service: Disallow WinRM from storing RunAs credentials',
@@ -3358,6 +3668,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\' -Name \'DisableRunAs\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-57', {
     name: 'Allow Remote Shell Access: disabled',
@@ -3368,6 +3679,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\\WinRS\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service\\WinRS\' -Name \'AllowRemoteShellAccess\' -Value 0 -Type DWord',
   }),
 
   // 18.9 Windows Update for Business
@@ -3380,6 +3692,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Name \'NoAutoUpdate\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-59', {
     name: 'Configure Automatic Updates: Auto download and schedule (4)',
@@ -3390,6 +3703,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 4,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU\' -Name \'AUOptions\' -Value 4 -Type DWord',
   }),
   r('cis-l1-18-9-60', {
     name: 'Remove access to Pause Updates: enabled',
@@ -3400,6 +3714,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\' -Name \'SetDisablePauseUXAccess\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Credential Delegation
@@ -3412,6 +3727,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\CredSSP\\Parameters\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\CredSSP\\Parameters\' -Name \'AllowEncryptionOracle\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-62', {
     name: 'Remote host allows delegation of non-exportable credentials: enabled',
@@ -3422,6 +3738,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation\' -Name \'AllowProtectedCreds\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Process Creation / Audit
@@ -3434,6 +3751,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit\' -Name \'ProcessCreationIncludeCmdLine_Enabled\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Logon / Accounts
@@ -3446,6 +3764,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'BlockUserFromShowingAccountDetailsOnSignin\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-66', {
     name: 'Do not display network selection UI: enabled',
@@ -3456,6 +3775,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'DontDisplayNetworkSelectionUI\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-67', {
     name: 'Do not enumerate connected users on domain-joined computers: enabled',
@@ -3466,6 +3786,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'DontEnumerateConnectedUsers\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-68', {
     name: 'Enumerate local users on domain-joined computers: disabled',
@@ -3476,6 +3797,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'EnumerateLocalUsers\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-69', {
     name: 'Turn off app notifications on the lock screen: enabled',
@@ -3486,6 +3808,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'DisableLockScreenAppNotifications\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-70', {
     name: 'Turn off picture password sign-in: enabled',
@@ -3496,6 +3819,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'BlockDomainPicturePassword\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-71', {
     name: 'Turn on convenience PIN sign-in: disabled',
@@ -3506,6 +3830,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\' -Name \'AllowDomainPINLogon\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-72', {
     name: 'Require a password when waking (on battery): enabled',
@@ -3516,6 +3841,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Power\\PowerSettings\\0e796bdb-100d-47d6-a2d5-f7d2daa51f51\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Power\\PowerSettings\\0e796bdb-100d-47d6-a2d5-f7d2daa51f51\' -Name \'DCSettingIndex\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-73', {
     name: 'Require a password when waking (plugged in): enabled',
@@ -3526,6 +3852,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Power\\PowerSettings\\0e796bdb-100d-47d6-a2d5-f7d2daa51f51\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Power\\PowerSettings\\0e796bdb-100d-47d6-a2d5-f7d2daa51f51\' -Name \'ACSettingIndex\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Wi-Fi
@@ -3538,6 +3865,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Microsoft\\WcmSvc\\wifinetworkmanager\\config\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Microsoft\\WcmSvc\\wifinetworkmanager\\config\' -Name \'AutoConnectAllowedOEM\' -Value 0 -Type DWord',
   }),
   r('cis-l1-18-9-75', {
     name: 'Prohibit connecting to non-domain wireless profiles when on domain: enabled',
@@ -3548,6 +3876,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Wireless\\GPTWirelessPolicy\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Wireless\\GPTWirelessPolicy\' -Name \'BlockNonDomain\' -Value 1 -Type DWord',
   }),
 
   // 18.9 Advertising / Privacy
@@ -3560,6 +3889,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo\' -Name \'DisabledByGroupPolicy\' -Value 1 -Type DWord',
   }),
   r('cis-l1-18-9-77', {
     name: 'Allow Windows NTP Client: enabled',
@@ -3570,6 +3900,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\W32time\\TimeProviders\\NtpClient\' -Force | Out-Null; Set-ItemProperty -Path \'HKLM:\\SOFTWARE\\Policies\\Microsoft\\W32time\\TimeProviders\\NtpClient\' -Name \'Enabled\' -Value 1 -Type DWord',
   }),
 
   // ─── SECTION 19 — Administrative Templates (User Configuration) ───────────────
@@ -3583,6 +3914,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Name \'ScreenSaveActive\' -Value 1 -Type DWord',
   }),
   r('cis-l1-19-1-2', {
     name: 'Password protect the screen saver: enabled',
@@ -3593,6 +3925,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Name \'ScreenSaverIsSecure\' -Value 1 -Type DWord',
   }),
   r('cis-l1-19-1-3', {
     name: 'Screen saver timeout <= 900 seconds',
@@ -3603,6 +3936,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 900,
     operator: 'lt',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop\' -Name \'ScreenSaveTimeOut\' -Value 900 -Type DWord',
   }),
   r('cis-l1-19-5-1', {
     name: 'Turn off Help and Support Center Did You Know content: enabled',
@@ -3613,6 +3947,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'low',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Assistance\\Client\\1.0\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Assistance\\Client\\1.0\' -Name \'NoImplicitFeedback\' -Value 1 -Type DWord',
   }),
   r('cis-l1-19-6-1', {
     name: 'Prevent users from sharing files within their profile: enabled',
@@ -3623,6 +3958,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\' -Name \'NoInplaceSharing\' -Value 1 -Type DWord',
   }),
   r('cis-l1-19-7-1', {
     name: 'Do not preserve zone information in file attachments: disabled (SaveZoneInformation=2)',
@@ -3633,6 +3969,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 2,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Attachments\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Attachments\' -Name \'SaveZoneInformation\' -Value 2 -Type DWord',
   }),
   r('cis-l1-19-7-2', {
     name: 'Notify antivirus programs when opening attachments: enabled (3)',
@@ -3643,6 +3980,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 3,
     operator: 'eq',
     severity: 'high',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Attachments\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Attachments\' -Name \'ScanWithAntiVirus\' -Value 3 -Type DWord',
   }),
   r('cis-l1-19-7-3', {
     name: 'Always install with elevated privileges (user): disabled',
@@ -3653,6 +3991,7 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 0,
     operator: 'eq',
     severity: 'critical',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer\' -Name \'AlwaysInstallElevated\' -Value 0 -Type DWord',
   }),
   r('cis-l1-19-7-4', {
     name: 'Prevent Codec Download (Windows Media Player): enabled',
@@ -3663,5 +4002,6 @@ export const cisWindowsL1Rules: ComplianceRule[] = [
     expected: 1,
     operator: 'eq',
     severity: 'moderate',
+    remediationScript: 'New-Item -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\WindowsMediaPlayer\' -Force | Out-Null; Set-ItemProperty -Path \'HKCU:\\SOFTWARE\\Policies\\Microsoft\\WindowsMediaPlayer\' -Name \'PreventCodecDownload\' -Value 1 -Type DWord',
   }),
 ];
