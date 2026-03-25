@@ -17,7 +17,8 @@ class ComplianceService {
     return {
       id: row.id, uuid: row.uuid, tenantId: row.tenant_id,
       name: row.name, description: row.description,
-      framework: row.framework, targetType: row.target_type, targetId: row.target_id,
+      framework: row.framework, targetType: row.target_type,
+      targetIds: Array.isArray(row.target_ids) ? row.target_ids : (typeof row.target_ids === 'string' ? JSON.parse(row.target_ids) : []),
       rules: row.rules || [], enabled: row.enabled,
       createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
     };
@@ -48,7 +49,8 @@ class ComplianceService {
     const [row] = await db('compliance_policies').insert({
       tenant_id: tenantId, name: data.name, description: data.description,
       framework: data.framework || 'custom',
-      target_type: data.targetType || 'all', target_id: data.targetId,
+      target_type: data.targetType || 'all',
+      target_ids: JSON.stringify(data.targetIds || []),
       rules: JSON.stringify(data.rules || []),
       enabled: data.enabled !== false, created_by: data.createdBy,
     }).returning('*');
@@ -62,7 +64,7 @@ class ComplianceService {
     if (data.rules !== undefined) updates.rules = JSON.stringify(data.rules);
     if (data.enabled !== undefined) updates.enabled = data.enabled;
     if (data.targetType !== undefined) updates.target_type = data.targetType;
-    if (data.targetId !== undefined) updates.target_id = data.targetId;
+    if (data.targetIds !== undefined) updates.target_ids = JSON.stringify(data.targetIds);
     await db('compliance_policies').where({ id, tenant_id: tenantId }).update(updates);
     return this.getPolicyById(id, tenantId);
   }
@@ -333,10 +335,19 @@ class ComplianceService {
     const policy = await this.getPolicyById(policyId, tenantId);
     if (!policy) throw new Error('Policy not found');
 
-    // Find matching rules with remediationScript
-    const rulesToRemediate = policy.rules.filter(
-      r => ruleIds.includes(r.id) && r.remediationScript
-    );
+    // Find matching rules with remediationScript (fallback to preset if policy rule lacks it)
+    const presetRules = this.getPresets().flatMap(p => p.rules);
+    const rulesToRemediate = ruleIds.map(id => {
+      const policyRule = policy.rules.find(r => r.id === id);
+      if (policyRule?.remediationScript) return policyRule;
+      // Fallback: enrich from preset
+      const presetRule = presetRules.find(r => r.id === id);
+      if (presetRule?.remediationScript && policyRule) {
+        return { ...policyRule, remediationScript: presetRule.remediationScript };
+      }
+      if (presetRule?.remediationScript) return presetRule;
+      return null;
+    }).filter((r): r is NonNullable<typeof r> => !!r && !!r.remediationScript);
     if (rulesToRemediate.length === 0) throw new Error('No remediable rules found');
 
     // Enqueue one command per rule (keeps granular ACK tracking)

@@ -665,8 +665,8 @@ export interface CompliancePolicy {
   name: string;
   description: string | null;
   framework: ComplianceFramework;
-  targetType: 'device' | 'group' | 'all';
-  targetId: number | null;
+  targetType: 'group' | 'all';
+  targetIds: number[];
   rules: ComplianceRule[];
   enabled: boolean;
   createdBy: number | null;

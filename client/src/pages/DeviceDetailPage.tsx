@@ -1105,6 +1105,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 function ComplianceTab({ deviceId }: { deviceId: number }) {
   const [results, setResults]   = useState<ComplianceResult[]>([]);
   const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
+  const [presets, setPresets]   = useState<import('@obliance/shared').CompliancePreset[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -1114,12 +1115,14 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   const load = async () => {
     setIsLoading(true);
     try {
-      const [resultData, policyList] = await Promise.all([
+      const [resultData, policyList, presetList] = await Promise.all([
         complianceApi.listResults({ deviceId }),
         complianceApi.listPolicies(),
+        complianceApi.listPresets(),
       ]);
       setResults(resultData.items);
       setPolicies(policyList);
+      setPresets(presetList);
     } catch {
       toast.error('Failed to load compliance');
     } finally {
@@ -1136,6 +1139,17 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   const isRuleIgnored = (policyId: number, ruleId: string) =>
     ignoredRules[policyId]?.includes(ruleId) ?? false;
 
+  const getRemediationScript = (policyId: number, ruleId: string): string | undefined => {
+    const policy = policies.find(p => p.id === policyId);
+    const policyRule = policy?.rules.find(r => r.id === ruleId);
+    if (policyRule?.remediationScript) return policyRule.remediationScript;
+    for (const preset of presets) {
+      const presetRule = preset.rules.find(r => r.id === ruleId);
+      if (presetRule?.remediationScript) return presetRule.remediationScript;
+    }
+    return undefined;
+  };
+
   const handleRemediate = async (policyId: number, ruleIds: string[]) => {
     const key = ruleIds.map(id => `${policyId}:${id}`);
     setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
@@ -1150,12 +1164,10 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
   };
 
   const handleRemediateAll = async (result: ComplianceResult) => {
-    const policy = policies.find(p => p.id === result.policyId);
-    if (!policy) return;
     const failingRuleIds = result.results
       .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId))
       .map(rr => rr.ruleId)
-      .filter(id => policy.rules.find(r => r.id === id)?.remediationScript);
+      .filter(id => getRemediationScript(result.policyId, id));
     if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
     await handleRemediate(result.policyId, failingRuleIds);
   };
@@ -1307,6 +1319,16 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
+                  {failCount > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                      title="Remediate all failing rules"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      Fix All
+                    </button>
+                  )}
                   <button
                     onClick={(e) => handleExport(e, result)}
                     title="Exporter le rapport CSV"
@@ -1349,7 +1371,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                 const policy = policies.find(p => p.id === result.policyId);
                 const remediableFailCount = result.results.filter(rr =>
                   rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId)
-                  && policy?.rules.find(r => r.id === rr.ruleId)?.remediationScript
+                  && getRemediationScript(result.policyId, rr.ruleId)
                 ).length;
                 return (
                   <div>
@@ -1368,7 +1390,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
                       {result.results.map((rr) => {
                         const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
                         const ignored = isRuleIgnored(result.policyId, rr.ruleId);
-                        const hasRemediation = !!ruleInfo?.remediationScript;
+                        const hasRemediation = !!getRemediationScript(result.policyId, rr.ruleId);
                         const isRemediating = remediatingRules.has(`${result.policyId}:${rr.ruleId}`);
                         return (
                           <div key={rr.ruleId} className={clsx('flex items-start gap-3 px-4 py-3', ignored && 'opacity-50')}>
