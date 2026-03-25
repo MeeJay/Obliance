@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
-import { useDeviceStore } from '@/store/deviceStore';
 import { useGroupStore } from '@/store/groupStore';
 import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
@@ -69,7 +68,6 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const { getDeviceList, fetchDevices } = useDeviceStore();
   const { fetchGroups } = useGroupStore();
 
   const load = useCallback(async () => {
@@ -89,7 +87,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetchDevices(); fetchGroups(); }, [fetchDevices, fetchGroups]);
+  useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
   const handleOpenCreate = () => {
     setForm(defaultForm);
@@ -177,7 +175,6 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
     }
   };
 
-  const devices = getDeviceList();
 
 
   return (
@@ -244,16 +241,21 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Target Type</label>
-              <select
-                value={form.targetType}
-                onChange={(e) => setForm({ ...form, targetType: e.target.value as ScheduleTargetType, targetIds: [] })}
-                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-              >
-                <option value="all">All devices</option>
-                <option value="group">Device group</option>
-                <option value="device">Specific device</option>
-              </select>
+              <label className="text-xs font-medium text-text-muted uppercase">Target</label>
+              <div className="flex gap-2">
+                {(['all', 'group'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setForm({ ...form, targetType: t, targetIds: [] })}
+                    className={clsx(
+                      'flex-1 py-2 text-sm rounded-lg border transition-colors',
+                      form.targetType === t ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                    )}
+                  >
+                    {t === 'all' ? 'All devices' : 'By group'}
+                  </button>
+                ))}
+              </div>
             </div>
             {form.targetType === 'group' && (
               <div className="space-y-1">
@@ -262,19 +264,6 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                   selectedIds={form.targetIds}
                   onChange={(ids) => setForm({ ...form, targetIds: ids })}
                 />
-              </div>
-            )}
-            {form.targetType === 'device' && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Devices</label>
-                <select
-                  multiple
-                  value={form.targetIds.map(String)}
-                  onChange={(e) => setForm({ ...form, targetIds: Array.from(e.target.selectedOptions, (o) => parseInt(o.value, 10)) })}
-                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent min-h-[120px]"
-                >
-                  {devices.map((d) => <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>)}
-                </select>
               </div>
             )}
             <div className="space-y-1">

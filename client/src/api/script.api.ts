@@ -9,6 +9,10 @@ export const scriptApi = {
     const res = await apiClient.get<ApiResponse<ScriptCategory[]>>('/scripts/categories');
     return res.data.data ?? [];
   },
+  async createCategory(name: string): Promise<ScriptCategory> {
+    const res = await apiClient.post<ApiResponse<ScriptCategory>>('/scripts/categories', { name });
+    return res.data.data!;
+  },
 
   // Scripts
   async list(params?: { categoryId?: number; platform?: string; search?: string }): Promise<Script[]> {

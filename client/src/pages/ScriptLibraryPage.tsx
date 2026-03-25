@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime } from '@obliance/shared';
@@ -59,13 +59,13 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
   const [categories, setCategories] = useState<ScriptCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<ScriptFormData>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const { fetchDevices } = useDeviceStore();
 
@@ -73,7 +73,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     setIsLoading(true);
     try {
       const [scriptList, catList] = await Promise.all([
-        scriptApi.list({ categoryId: selectedCategory ?? undefined, platform: selectedPlatform || undefined, search: search || undefined }),
+        scriptApi.list({ platform: selectedPlatform || undefined, search: search || undefined }),
         scriptApi.listCategories(),
       ]);
       setScripts(scriptList);
@@ -83,7 +83,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCategory, selectedPlatform, search]);
+  }, [selectedPlatform, search]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { fetchDevices(); }, [fetchDevices]);
@@ -167,19 +167,48 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     setIsCreating(false);
   };
 
+  const toggleCategoryCollapse = (key: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  // Group scripts by category
+  const catMap = new Map(categories.map((c) => [c.id, c.name]));
+  const grouped = new Map<string, { catId: number | null; scripts: Script[] }>();
+  for (const s of scripts) {
+    const key = s.categoryId ? (catMap.get(s.categoryId) ?? 'Uncategorized') : 'Uncategorized';
+    const catId = s.categoryId ?? null;
+    if (!grouped.has(key)) grouped.set(key, { catId, scripts: [] });
+    grouped.get(key)!.scripts.push(s);
+  }
+  // Sort: named categories first (alphabetical), then Uncategorized
+  const sortedGroups = [...grouped.entries()].sort(([a], [b]) => {
+    if (a === 'Uncategorized') return 1;
+    if (b === 'Uncategorized') return -1;
+    return a.localeCompare(b);
+  });
+
   return (
     <div className={embedded ? 'flex overflow-hidden rounded-xl border border-border' : 'flex h-full overflow-hidden'}>
-      {/* Left panel: category filter + list */}
+      {/* Left panel: filter + categorized list */}
       <div className="w-72 shrink-0 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold text-text-primary">Scripts</h1>
-            <button
-              onClick={handleStartCreate}
-              className="p-1.5 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            <div className="flex gap-1">
+              <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary rounded-lg transition-colors">
+                <RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+              </button>
+              <button
+                onClick={handleStartCreate}
+                className="p-1.5 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
@@ -200,27 +229,8 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
           </select>
         </div>
 
-        {/* Categories */}
-        <div className="p-2 border-b border-border">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={clsx('w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors', selectedCategory === null ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
-          >
-            All scripts
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={clsx('w-full text-left px-3 py-1.5 text-sm rounded-lg transition-colors', selectedCategory === cat.id ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Script list */}
-        <div className="flex-1 overflow-y-auto p-2">
+        {/* Script list grouped by category (drawers) */}
+        <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-24">
               <RefreshCw className="w-4 h-4 animate-spin text-text-muted" />
@@ -228,26 +238,49 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
           ) : scripts.length === 0 ? (
             <p className="text-center text-text-muted text-sm py-8">No scripts found</p>
           ) : (
-            scripts.map((script) => (
-              <button
-                key={script.id}
-                onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
-                className={clsx(
-                  'w-full text-left p-3 rounded-lg transition-colors mb-1',
-                  selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
-                )}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                  <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
+            sortedGroups.map(([catName, { scripts: catScripts }]) => {
+              const isCollapsed = collapsedCategories.has(catName);
+              return (
+                <div key={catName}>
+                  <button
+                    onClick={() => toggleCategoryCollapse(catName)}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left border-b border-border bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
+                  >
+                    {isCollapsed
+                      ? <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
+                      : <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+                    }
+                    <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                    <span className="text-xs font-semibold text-text-primary uppercase tracking-wide flex-1 truncate">{catName}</span>
+                    <span className="text-[10px] text-text-muted shrink-0">{catScripts.length}</span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="p-1.5">
+                      {catScripts.map((script) => (
+                        <button
+                          key={script.id}
+                          onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
+                          className={clsx(
+                            'w-full text-left p-2.5 rounded-lg transition-colors mb-0.5',
+                            selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
+                          )}
+                        >
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                            <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
+                            <span>{PLATFORM_LABELS[script.platform]}</span>
+                            <span>·</span>
+                            <span>{RUNTIME_LABELS[script.runtime]}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-text-muted">
-                  <span>{PLATFORM_LABELS[script.platform]}</span>
-                  <span>·</span>
-                  <span>{RUNTIME_LABELS[script.runtime]}</span>
-                </div>
-              </button>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -336,14 +369,12 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">Category</label>
-                <select
-                  value={form.categoryId ?? ''}
-                  onChange={(e) => setForm({ ...form, categoryId: e.target.value ? parseInt(e.target.value, 10) : null })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">No category</option>
-                  {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
+                <CategoryCombobox
+                  categories={categories}
+                  value={form.categoryId}
+                  onChange={(catId) => setForm({ ...form, categoryId: catId })}
+                  onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
+                />
               </div>
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-medium text-text-muted uppercase">Tags (comma-separated)</label>
@@ -462,6 +493,112 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Category Combobox with search + inline create ──
+
+function CategoryCombobox({
+  categories,
+  value,
+  onChange,
+  onCategoryCreated,
+}: {
+  categories: ScriptCategory[];
+  value: number | null;
+  onChange: (catId: number | null) => void;
+  onCategoryCreated: (cat: ScriptCategory) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedName = categories.find((c) => c.id === value)?.name ?? '';
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const filtered = categories.filter((c) =>
+    c.name.toLowerCase().includes(query.toLowerCase())
+  );
+  const exactMatch = categories.some((c) => c.name.toLowerCase() === query.trim().toLowerCase());
+
+  const handleCreate = async () => {
+    if (!query.trim() || creating) return;
+    setCreating(true);
+    try {
+      const cat = await scriptApi.createCategory(query.trim());
+      onCategoryCreated(cat);
+      onChange(cat.id);
+      setQuery('');
+      setOpen(false);
+    } catch {
+      toast.error('Failed to create category');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
+        className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-left text-text-primary hover:border-accent/50 transition-colors focus:outline-none focus:border-accent"
+      >
+        {selectedName || <span className="text-text-muted">No category</span>}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 w-full bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2">
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search or create..."
+              className="w-full px-2.5 py-1.5 text-sm bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && query.trim() && !exactMatch) { e.preventDefault(); handleCreate(); }
+              }}
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === null && 'text-accent')}
+            >
+              No category
+            </button>
+            {filtered.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => { onChange(cat.id); setOpen(false); }}
+                className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === cat.id && 'text-accent font-medium')}
+              >
+                {cat.name}
+              </button>
+            ))}
+            {query.trim() && !exactMatch && (
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-accent/5 transition-colors border-t border-border"
+              >
+                {creating ? 'Creating...' : `+ Create "${query.trim()}"`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

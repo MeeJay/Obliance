@@ -28,6 +28,16 @@ router.get('/categories', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/scripts/categories
+router.post('/categories', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+    const category = await scriptService.createCategory(req.tenantId!, name.trim());
+    res.status(201).json({ data: category });
+  } catch (err) { next(err); }
+});
+
 // GET /api/scripts/:id
 router.get('/:id', async (req, res, next) => {
   try {

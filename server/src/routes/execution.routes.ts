@@ -128,9 +128,37 @@ router.get('/batches/:batchId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+function rowToExecution(r: any) {
+  const snapshot = typeof r.script_snapshot === 'string' ? JSON.parse(r.script_snapshot) : (r.script_snapshot ?? {});
+  return {
+    id: r.id,
+    tenantId: r.tenant_id,
+    scriptId: r.script_id,
+    deviceId: r.device_id,
+    scheduleId: r.schedule_id,
+    batchId: r.batch_id,
+    commandQueueId: r.command_queue_id,
+    scriptSnapshot: snapshot,
+    parameterValues: typeof r.parameter_values === 'string' ? JSON.parse(r.parameter_values) : (r.parameter_values ?? {}),
+    status: r.status,
+    triggeredBy: r.triggered_by,
+    triggeredByUserId: r.triggered_by_user_id,
+    triggeredAt: r.triggered_at,
+    sentAt: r.sent_at,
+    startedAt: r.started_at,
+    finishedAt: r.finished_at,
+    exitCode: r.exit_code,
+    stdout: r.stdout,
+    stderr: r.stderr,
+    isCatchup: r.is_catchup,
+    catchupForAt: r.catchup_for_at,
+    createdAt: r.created_at,
+  };
+}
+
 router.get('/', async (req, res, next) => {
   try {
-    const { deviceId, scheduleId, status } = req.query as any;
+    const { deviceId, scheduleId, status, pageSize } = req.query as any;
     let q = db('script_executions').where({ tenant_id: req.tenantId! });
     if (deviceId) q = q.where({ device_id: parseInt(deviceId) });
     if (scheduleId) q = q.where({ schedule_id: parseInt(scheduleId) });
@@ -140,13 +168,14 @@ router.get('/', async (req, res, next) => {
     if (req.session.role !== 'admin') {
       const visibleIds = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
       if (Array.isArray(visibleIds)) {
-        if (visibleIds.length === 0) return res.json([]);
+        if (visibleIds.length === 0) return res.json({ data: { items: [], total: 0 } });
         q = q.whereIn('device_id', visibleIds);
       }
     }
 
-    const rows = await q.orderBy('triggered_at', 'desc').limit(200);
-    res.json(rows);
+    const limit = pageSize ? parseInt(pageSize) : 200;
+    const rows = await q.orderBy('triggered_at', 'desc').limit(limit);
+    res.json({ data: { items: rows.map(rowToExecution), total: rows.length } });
   } catch (err) { next(err); }
 });
 
@@ -155,13 +184,12 @@ router.get('/:id', async (req, res, next) => {
     const row = await db('script_executions').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
     if (!row) return res.status(404).json({ error: 'Execution not found' });
 
-    // Permission check: user must have read access to the device
     if (req.session.role !== 'admin') {
       const canRead = await permissionService.canReadDevice(req.session.userId!, row.device_id, false);
       if (!canRead) throw new AppError(403, 'Insufficient permissions');
     }
 
-    res.json(row);
+    res.json({ data: rowToExecution(row) });
   } catch (err) { next(err); }
 });
 

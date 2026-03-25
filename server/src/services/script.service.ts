@@ -168,6 +168,18 @@ class ScriptService {
       createdAt: r.created_at, updatedAt: r.updated_at,
     }));
   }
+
+  async createCategory(tenantId: number, name: string): Promise<ScriptCategory> {
+    const [row] = await db('script_categories').insert({
+      tenant_id: tenantId,
+      name,
+    }).returning('*');
+    return {
+      id: row.id, tenantId: row.tenant_id, name: row.name,
+      icon: row.icon, color: row.color, sortOrder: row.sort_order,
+      createdAt: row.created_at, updatedAt: row.updated_at,
+    };
+  }
 }
 
 export const scriptService = new ScriptService();

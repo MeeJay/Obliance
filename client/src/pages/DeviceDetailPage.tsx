@@ -7,7 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight,
+  ArrowLeftRight, CalendarClock,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -25,7 +25,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
-import type { Device, HardwareInventory, SoftwareEntry, ScriptExecution, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
@@ -466,85 +466,200 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
 // ─── Scripts Tab ──────────────────────────────────────────────────────────────
 
 function ScriptsTab({ deviceId }: { deviceId: number }) {
+  type SubTab = 'schedule' | 'run' | 'history';
+  const [subTab, setSubTab] = useState<SubTab>('history');
+
+  const subTabs: Array<{ id: SubTab; label: string; icon: React.ReactNode }> = [
+    { id: 'history', label: 'History', icon: <History className="w-3.5 h-3.5" /> },
+    { id: 'run', label: 'Run', icon: <Play className="w-3.5 h-3.5" /> },
+    { id: 'schedule', label: 'Schedule', icon: <CalendarClock className="w-3.5 h-3.5" /> },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-0.5 border border-border w-fit">
+        {subTabs.map((st) => (
+          <button
+            key={st.id}
+            onClick={() => setSubTab(st.id)}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+              subTab === st.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+            )}
+          >
+            {st.icon}
+            {st.label}
+          </button>
+        ))}
+      </div>
+      {subTab === 'history' && <DeviceScriptHistory deviceId={deviceId} />}
+      {subTab === 'run' && <DeviceScriptRun deviceId={deviceId} />}
+      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} />}
+    </div>
+  );
+}
+
+function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
   const [executions, setExecutions] = useState<ScriptExecution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const result = await scriptApi.listExecutions({ deviceId, pageSize: 20 });
-        setExecutions(result.items);
-      } catch {
-        toast.error('Failed to load executions');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    setIsLoading(true);
+    scriptApi.listExecutions({ deviceId, pageSize: 50 }).then((r) => setExecutions(r.items)).catch(() => {}).finally(() => setIsLoading(false));
   }, [deviceId]);
 
   const STATUS_COLORS: Record<string, string> = {
-    success: 'text-green-400',
-    failure: 'text-red-400',
-    running: 'text-blue-400',
-    pending: 'text-yellow-400',
-    timeout: 'text-orange-400',
-    cancelled: 'text-gray-400',
-    skipped: 'text-gray-400',
-    sent: 'text-blue-400',
+    success: 'text-green-400', failure: 'text-red-400', running: 'text-blue-400',
+    pending: 'text-yellow-400', timeout: 'text-orange-400', cancelled: 'text-gray-400',
+    skipped: 'text-gray-400', sent: 'text-blue-400',
   };
 
   if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
 
+  if (executions.length === 0) return (
+    <div className="p-12 text-center text-text-muted">
+      <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
+      <p>No script executions yet</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-1">
+      {executions.map((ex) => {
+        const duration = ex.finishedAt && ex.startedAt
+          ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
+          : null;
+        const isExpanded = expandedId === ex.id;
+        return (
+          <div key={ex.id} className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpandedId(isExpanded ? null : ex.id)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
+            >
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+              <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
+              <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
+              <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
+              <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
+              {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
+            </button>
+            {isExpanded && (
+              <div className="border-t border-border p-3 space-y-2 bg-bg-tertiary/50">
+                {ex.stdout && (
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stdout</p>
+                    <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
+                  </div>
+                )}
+                {ex.stderr && (
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stderr</p>
+                    <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
+                  </div>
+                )}
+                {!ex.stdout && !ex.stderr && <p className="text-xs text-text-muted">No output</p>}
+                {ex.exitCode !== null && <p className="text-xs text-text-muted">Exit code: {ex.exitCode}</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DeviceScriptRun({ deviceId }: { deviceId: number }) {
+  const [scripts, setScripts] = useState<Script[]>([]);
+  const [scriptId, setScriptId] = useState<number | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => { scriptApi.list().then(setScripts).catch(() => {}); }, []);
+
+  const handleRun = async () => {
+    if (!scriptId) return;
+    setIsRunning(true);
+    try {
+      await scriptApi.executeNow(scriptId, { deviceIds: [deviceId] });
+      toast.success('Script dispatched');
+    } catch {
+      toast.error('Failed to execute script');
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-md">
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-text-muted uppercase">Script</label>
+        <select
+          value={scriptId ?? ''}
+          onChange={(e) => setScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
+          className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">Select a script...</option>
+          {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <button
+        onClick={handleRun}
+        disabled={isRunning || !scriptId}
+        className={clsx(
+          'flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium transition-colors',
+          isRunning || !scriptId ? 'bg-bg-tertiary text-text-muted cursor-not-allowed' : 'bg-accent text-white hover:bg-accent/80',
+        )}
+      >
+        {isRunning ? <><Loader2 className="w-4 h-4 animate-spin" /> Running...</> : <><Play className="w-4 h-4" /> Execute now</>}
+      </button>
+      <p className="text-xs text-text-muted">The script will be executed on this device. Check History for results.</p>
+    </div>
+  );
+}
+
+function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
+  const [scripts, setScripts] = useState<Script[]>([]);
+  const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([scriptApi.list(), scriptApi.listSchedules()]).then(([s, sch]) => {
+      setScripts(s);
+      // Filter schedules that target this device (targetType=device and includes this deviceId)
+      setSchedules(sch.filter((sc) => sc.targetType === 'device' && (sc.targetIds ?? []).includes(deviceId)));
+    }).catch(() => {}).finally(() => setIsLoading(false));
+  }, [deviceId]);
+
+  if (isLoading) return <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>;
+
+  const scriptMap = new Map(scripts.map((s) => [s.id, s.name]));
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{executions.length} recent executions</p>
-        <Link to="/schedules?tab=scripts" className="text-sm text-accent hover:text-accent/80">Script library →</Link>
+        <p className="text-sm text-text-muted">{schedules.length} schedule(s) targeting this device</p>
+        <Link to="/schedules" className="text-sm text-accent hover:text-accent/80">Manage schedules →</Link>
       </div>
-      {executions.length === 0 ? (
-        <div className="p-12 text-center text-text-muted">
-          <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>No script executions yet</p>
+      {schedules.length === 0 ? (
+        <div className="p-8 text-center text-text-muted">
+          <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No schedules target this specific device.</p>
+          <p className="text-xs mt-1">Group and global schedules also apply — manage them in the Schedules module.</p>
         </div>
       ) : (
-        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Script</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Trigger</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Started</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Duration</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {executions.map((ex) => {
-                const duration = ex.finishedAt && ex.startedAt
-                  ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
-                  : null;
-                return (
-                  <tr key={ex.id} className="hover:bg-bg-tertiary transition-colors">
-                    <td className="px-4 py-2 text-sm text-text-primary">{ex.scriptSnapshot.name}</td>
-                    <td className="px-4 py-2">
-                      <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>
-                        {ex.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell">{ex.triggeredBy}</td>
-                    <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell">
-                      {ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">
-                      {duration !== null ? `${duration}s` : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {schedules.map((sch) => (
+            <div key={sch.id} className="bg-bg-secondary border border-border rounded-lg px-4 py-3 flex items-center gap-3">
+              <CalendarClock className="w-4 h-4 text-text-muted shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">{sch.name}</p>
+                <p className="text-xs text-text-muted">{scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}</p>
+              </div>
+              <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', sch.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
+                {sch.enabled ? 'Active' : 'Paused'}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
