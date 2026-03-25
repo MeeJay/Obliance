@@ -352,27 +352,54 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
             <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
               <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />BitLocker</h4>
               <div className="space-y-3">
-                {hardware.bitlocker.map((vol) => (
-                  <div key={vol.driveLetter} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
-                      <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium',
-                        vol.status === 'FullyEncrypted' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-                        vol.status === 'FullyDecrypted' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
-                        'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
-                      )}>{vol.status}</span>
-                    </div>
-                    {vol.recoveryKeys.length > 0 && (
-                      <div className="space-y-0.5">
-                        {vol.recoveryKeys.map((key, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
-                          </div>
-                        ))}
+                {hardware.bitlocker.map((vol) => {
+                  const isInProgress = vol.status === 'EncryptionInProgress' || vol.status === 'DecryptionInProgress';
+                  const statusLabel = vol.status === 'FullyEncrypted' ? 'Encrypted' :
+                    vol.status === 'FullyDecrypted' ? 'Decrypted' :
+                    vol.status === 'EncryptionInProgress' ? 'Encrypting…' :
+                    vol.status === 'DecryptionInProgress' ? 'Decrypting…' :
+                    vol.status === 'EncryptionPaused' ? 'Encryption paused' :
+                    vol.status === 'DecryptionPaused' ? 'Decryption paused' :
+                    vol.status;
+                  const statusColor = vol.status === 'FullyEncrypted' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+                    vol.status === 'FullyDecrypted' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+                    isInProgress ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' :
+                    'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+                  return (
+                    <div key={vol.driveLetter} className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
+                        <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusColor)}>
+                          {statusLabel}
+                        </span>
+                        {vol.protectionStatus && vol.protectionStatus !== 'Unknown' && (
+                          <span className={clsx('text-[10px] px-1.5 py-0.5 rounded border',
+                            vol.protectionStatus === 'On' ? 'text-green-400 border-green-400/30' : 'text-orange-400 border-orange-400/30'
+                          )}>
+                            Protection {vol.protectionStatus}
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {isInProgress && vol.encryptionPercentage != null && (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 max-w-48 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${vol.encryptionPercentage}%` }} />
+                          </div>
+                          <span className="text-xs text-blue-400 font-medium tabular-nums">{vol.encryptionPercentage}%</span>
+                        </div>
+                      )}
+                      {vol.recoveryKeys.length > 0 && (
+                        <div className="space-y-0.5">
+                          {vol.recoveryKeys.map((key, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -265,7 +265,7 @@ export const hipaaRules: ComplianceRule[] = [
     remediationScript: "New-Item -Path 'HKCU:\\Control Panel\\Desktop' -Force | Out-Null; Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'ScreenSaveTimeOut' -Value '900'",
   }),
   r('hipaa-312-a-2-iv', {
-    name: 'Chiffrement des ePHI — BitLocker actif sur le lecteur système [§164.312(a)(2)(iv)]',
+    name: 'Chiffrement des ePHI — BitLocker actif sur tous les lecteurs [§164.312(a)(2)(iv)]',
     category: 'Technical Safeguards',
     checkType: 'command',
     targetPlatform: 'windows',

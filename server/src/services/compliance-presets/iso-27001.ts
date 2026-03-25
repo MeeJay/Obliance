@@ -391,7 +391,7 @@ export const iso27001Rules: ComplianceRule[] = [
 
   // A.6.6 - Confidentialité et accords de non-divulgation
   r('iso-A6-005', {
-    name: 'Confidentialité — Chiffrement BitLocker du lecteur système activé [A.6.6]',
+    name: 'Confidentialité — Chiffrement BitLocker activé sur tous les lecteurs [A.6.6]',
     category: 'Contrôles Humains',
     checkType: 'command',
     targetPlatform: 'windows',
@@ -458,7 +458,7 @@ export const iso27001Rules: ComplianceRule[] = [
 
   // A.7.2 - Contrôles d'entrée physique
   r('iso-A7-002', {
-    name: 'Entrée physique — BitLocker sur le lecteur système activé [A.7.2]',
+    name: 'Entrée physique — BitLocker activé sur tous les lecteurs [A.7.2]',
     category: 'Contrôles Physiques',
     checkType: 'command',
     targetPlatform: 'windows',
@@ -544,7 +544,7 @@ export const iso27001Rules: ComplianceRule[] = [
 
   // A.7.9 - Sécurité des actifs hors site
   r('iso-A7-009', {
-    name: 'Actifs hors site — BitLocker activé sur le lecteur OS [A.7.9]',
+    name: 'Actifs hors site — BitLocker activé sur tous les lecteurs [A.7.9]',
     category: 'Contrôles Physiques',
     checkType: 'command',
     targetPlatform: 'windows',
@@ -646,7 +646,7 @@ export const iso27001Rules: ComplianceRule[] = [
     remediationScript: "Set-MpPreference -DisableRealtimeMonitoring $false",
   }),
   r('iso-A8-003', {
-    name: 'Endpoint — BitLocker activé sur le lecteur système [A.8.1]',
+    name: 'Endpoint — BitLocker activé sur tous les lecteurs [A.8.1]',
     category: 'Contrôles Technologiques',
     checkType: 'command',
     targetPlatform: 'windows',

@@ -654,7 +654,7 @@ export const soc2Rules: ComplianceRule[] = [
     remediationScript: "Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name 'AuditBaseObjects' -Value 1 -Type DWord",
   }),
   r('soc2-C1-2', {
-    name: 'Données confidentielles chiffrées au repos — BitLocker actif [C1.2]',
+    name: 'Données confidentielles chiffrées au repos — BitLocker actif sur tous les lecteurs [C1.2]',
     category: 'Confidentiality',
     checkType: 'command',
     targetPlatform: 'windows',
@@ -758,7 +758,7 @@ export const soc2Rules: ComplianceRule[] = [
   // ─── Contrôles de sécurité Windows additionnels SOC2 ─────────────────────────
 
   r('soc2-sec-1', {
-    name: 'Chiffrement BitLocker — activé [SOC2 Security]',
+    name: 'Chiffrement BitLocker — activé sur tous les lecteurs [SOC2 Security]',
     category: 'Security',
     checkType: 'command',
     targetPlatform: 'windows',

@@ -772,7 +772,9 @@ export interface BiosInfo {
 
 export interface BitLockerVolume {
   driveLetter: string;
-  status: string;
+  status: string;              // FullyEncrypted, FullyDecrypted, EncryptionInProgress, DecryptionInProgress, etc.
+  protectionStatus: string;    // On, Off, Unknown
+  encryptionPercentage: number; // 0-100
   recoveryKeys: string[];
 }
 

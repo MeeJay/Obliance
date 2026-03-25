@@ -256,7 +256,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
   // ─── EXIGENCE 3 — Protection des données de compte stockées ──────────────────
 
   r('pci-3-5-1', {
-    name: 'BitLocker — chiffrement du lecteur système activé (Req 3.5.1)',
+    name: 'BitLocker — chiffrement activé sur tous les lecteurs (Req 3.5.1)',
     category: 'Stored Account Data Protection',
     checkType: 'command',
     targetPlatform: 'windows',

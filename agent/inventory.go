@@ -75,9 +75,11 @@ type BiosInfo struct {
 }
 
 type BitLockerVolume struct {
-	DriveLetter   string   `json:"driveLetter"`
-	Status        string   `json:"status"`        // Fully Encrypted, Fully Decrypted, etc.
-	RecoveryKeys  []string `json:"recoveryKeys"`
+	DriveLetter          string   `json:"driveLetter"`
+	Status               string   `json:"status"`               // FullyEncrypted, FullyDecrypted, EncryptionInProgress, DecryptionInProgress, etc.
+	ProtectionStatus     string   `json:"protectionStatus"`     // On, Off, Unknown
+	EncryptionPercentage int      `json:"encryptionPercentage"` // 0-100
+	RecoveryKeys         []string `json:"recoveryKeys"`
 }
 
 type SoftwareEntry struct {
@@ -918,9 +920,11 @@ foreach ($v in $vols) {
     }
   }
   $result += [PSCustomObject]@{
-    driveLetter  = $v.MountPoint
-    status       = $v.VolumeStatus.ToString()
-    recoveryKeys = $keys
+    driveLetter          = $v.MountPoint
+    status               = $v.VolumeStatus.ToString()
+    protectionStatus     = $v.ProtectionStatus.ToString()
+    encryptionPercentage = $v.EncryptionPercentage
+    recoveryKeys         = $keys
   }
 }
 $result | ConvertTo-Json -Compress`,

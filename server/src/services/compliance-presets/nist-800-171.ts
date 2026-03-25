@@ -305,7 +305,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
 
   // 3.1.18-20 - Contrôler les appareils mobiles / chiffrement / CUI
   r('nist-AC-025', {
-    name: 'Contrôle d\'accès — BitLocker activé sur le lecteur système [3.1.18]',
+    name: 'Contrôle d\'accès — BitLocker activé sur tous les lecteurs [3.1.18]',
     category: 'Contrôle d\'accès',
     checkType: 'command',
     targetPlatform: 'windows',
@@ -828,7 +828,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
   // =========================================================================
 
   r('nist-MP-001', {
-    name: 'Protection des supports — BitLocker activé sur le lecteur OS [3.8.1]',
+    name: 'Protection des supports — BitLocker activé sur tous les lecteurs [3.8.1]',
     category: 'Protection des Supports',
     checkType: 'command',
     targetPlatform: 'windows',
