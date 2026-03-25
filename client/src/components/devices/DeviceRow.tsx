@@ -83,7 +83,6 @@ export const DeviceRow = memo(function DeviceRow({
     device.osArch,
   ].filter(Boolean).join(' ');
 
-  const checkboxPl = mode === 'admin' ? 'pl-0' : 'pl-0';
   const line2Offset = mode === 'admin' ? 'pl-[68px]' : 'pl-[40px]';
 
   const handleCheckbox = (e: MouseEvent) => {
@@ -152,10 +151,10 @@ export const DeviceRow = memo(function DeviceRow({
         )}
 
         {device.rebootPending && (
-          <RotateCcw className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" title="Reboot pending" />
+          <span title="Reboot pending"><RotateCcw className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" /></span>
         )}
         {device.privacyModeEnabled && (
-          <ShieldOff className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" title="Privacy mode enabled" />
+          <span title="Privacy mode"><ShieldOff className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" /></span>
         )}
 
         <div className="flex-1" />
