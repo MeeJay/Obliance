@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
 import { groupsApi } from '@/api/groups.api';
+import { useAuthStore } from '@/store/authStore';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useDeviceStore } from '@/store/deviceStore';
 import type {
@@ -285,6 +286,7 @@ const defaultPolicyForm: PolicyFormData = {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
+  const { isAdmin } = useAuthStore();
   const deviceMap = useDeviceStore(s => s.devices);
   const devices = Array.from(deviceMap.values());
   const [activeTab, setActiveTab] = useState<Tab>('results');
@@ -541,9 +543,31 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
           <h1 className="text-2xl font-bold text-text-primary">{t('compliance.title')}</h1>
           <p className="text-sm text-text-muted mt-0.5">{t('compliance.description')}</p>
         </div>
-        <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
-          <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin() && (
+            <button
+              onClick={async () => {
+                try {
+                  const n = await complianceApi.syncPresets();
+                  if (n > 0) {
+                    toast.success(`${n} policy(ies) synced with latest presets`);
+                    await load();
+                  } else {
+                    toast.success('All policies already up to date');
+                  }
+                } catch { toast.error('Sync failed'); }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors"
+              title="Sync existing policies with latest built-in preset rules"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Sync presets
+            </button>
+          )}
+          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+          </button>
+        </div>
       </div>}
 
       {/* Summary cards */}

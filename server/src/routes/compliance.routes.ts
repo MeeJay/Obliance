@@ -221,6 +221,14 @@ router.get('/ignored/:deviceId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /compliance/sync-presets — force sync preset rules to existing policies
+router.post('/sync-presets', requireRole('admin'), async (_req, res, next) => {
+  try {
+    const synced = await complianceService.syncPresetsToExistingPolicies();
+    res.json({ data: { synced } });
+  } catch (err) { next(err); }
+});
+
 // GET /compliance/presets — built-in preset policies (static, no DB)
 router.get('/presets', async (_req, res, next) => {
   try {

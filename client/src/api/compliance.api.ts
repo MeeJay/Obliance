@@ -46,4 +46,8 @@ export const complianceApi = {
     const res = await apiClient.get<ApiResponse<Record<number, string[]>>>(`/compliance/ignored/${deviceId}`);
     return res.data.data ?? {};
   },
+  async syncPresets(): Promise<number> {
+    const res = await apiClient.post<ApiResponse<{ synced: number }>>('/compliance/sync-presets');
+    return res.data.data?.synced ?? 0;
+  },
 };

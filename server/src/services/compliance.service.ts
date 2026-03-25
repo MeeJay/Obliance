@@ -234,6 +234,59 @@ class ComplianceService {
     return result;
   }
 
+  // ─── Sync presets → existing policies ─────────────────────────────────────
+  /**
+   * Auto-sync: for each policy whose rules match a built-in preset (by rule ID overlap),
+   * update the rules to the latest preset version. This ensures fixes to check scripts,
+   * remediation scripts, audit GUIDs, etc. propagate to existing policies without
+   * requiring the user to delete and recreate them.
+   */
+  async syncPresetsToExistingPolicies() {
+    const presets = this.getPresets();
+    const presetMap = new Map(presets.map(p => [p.id, p]));
+    // Build a reverse index: ruleId prefix → preset (e.g. "wsb-" → windows-security-baseline)
+    const prefixToPreset = new Map<string, typeof presets[0]>();
+    for (const preset of presets) {
+      if (preset.rules.length > 0) {
+        const firstId = preset.rules[0].id;
+        const prefix = firstId.replace(/\d+$/, '');
+        prefixToPreset.set(prefix, preset);
+      }
+    }
+
+    const allPolicies = await db('compliance_policies').select('*');
+    let synced = 0;
+
+    for (const row of allPolicies) {
+      const rules = typeof row.rules === 'string' ? JSON.parse(row.rules) : (row.rules || []);
+      if (!rules.length) continue;
+
+      // Detect which preset this policy is based on by checking rule ID prefix
+      const firstId = rules[0]?.id;
+      if (!firstId) continue;
+      const prefix = firstId.replace(/\d+$/, '');
+      const matchingPreset = prefixToPreset.get(prefix);
+      if (!matchingPreset) continue;
+
+      // Check if update is needed (compare rule count or any rule's target/remediationScript)
+      const presetRules = matchingPreset.rules;
+      const needsSync = rules.length !== presetRules.length ||
+        rules.some((r: any, i: number) => {
+          const pr = presetRules.find((p: any) => p.id === r.id);
+          return pr && (pr.target !== r.target || pr.remediationScript !== r.remediationScript);
+        });
+
+      if (needsSync) {
+        await db('compliance_policies').where({ id: row.id }).update({
+          rules: JSON.stringify(presetRules),
+          updated_at: new Date(),
+        });
+        synced++;
+      }
+    }
+    return synced;
+  }
+
   // ─── Built-in presets ─────────────────────────────────────────────────────
   getPresets(): CompliancePreset[] {
     const r = (id: string, opts: Omit<import('@obliance/shared').ComplianceRule, 'id' | 'autoRemediateScriptId'>): import('@obliance/shared').ComplianceRule =>
