@@ -30,7 +30,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '11',
     operator: 'lt',
     severity: 'high',
-    remediationScript: 'net accounts /lockoutthreshold:10',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'LockoutBadCount\\s*=\\s*\\d+\',\'LockoutBadCount = 10\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
 
   // 3.1.2 - Limiter l'accès aux types de transactions et fonctions autorisés
@@ -154,7 +154,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '6',
     operator: 'lt',
     severity: 'high',
-    remediationScript: 'net accounts /lockoutthreshold:5',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'LockoutBadCount\\s*=\\s*\\d+\',\'LockoutBadCount = 5\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
 
   // 3.1.9 - Afficher les avis de confidentialité et de sécurité
@@ -355,7 +355,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: 'True',
     operator: 'eq',
     severity: 'low',
-    remediationScript: 'auditpol /set /subcategory:"Other Logon/Logoff Events" /success:enable /failure:enable',
+    remediationScript: 'auditpol /set /subcategory:"{0CCE921C-69AE-11D9-BED3-505054503030}" /success:enable /failure:enable',
   }),
   r('nist-AT-002', {
     name: 'Sensibilisation — Journalisation des blocs de script PowerShell activée [3.2.2]',
@@ -389,33 +389,33 @@ export const nistSP800171Rules: ComplianceRule[] = [
     category: 'Audit et Responsabilité',
     checkType: 'command',
     targetPlatform: 'windows',
-    target: '(auditpol /get /subcategory:"Logon" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    target: '(auditpol /get /subcategory:"{0CCE9215-69AE-11D9-BED3-505054503030}" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
-    remediationScript: 'auditpol /set /subcategory:"Logon" /success:enable /failure:enable',
+    remediationScript: 'auditpol /set /subcategory:"{0CCE9215-69AE-11D9-BED3-505054503030}" /success:enable /failure:enable',
   }),
   r('nist-AU-002', {
     name: 'Audit — Audit d\'accès au système de fichiers activé [3.3.1]',
     category: 'Audit et Responsabilité',
     checkType: 'command',
     targetPlatform: 'windows',
-    target: '(auditpol /get /subcategory:"File System" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    target: '(auditpol /get /subcategory:"{0CCE921D-69AE-11D9-BED3-505054503030}" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
     severity: 'moderate',
-    remediationScript: 'auditpol /set /subcategory:"File System" /success:enable /failure:enable',
+    remediationScript: 'auditpol /set /subcategory:"{0CCE921D-69AE-11D9-BED3-505054503030}" /success:enable /failure:enable',
   }),
   r('nist-AU-003', {
     name: 'Audit — Audit de la gestion des comptes utilisateurs activé [3.3.1]',
     category: 'Audit et Responsabilité',
     checkType: 'command',
     targetPlatform: 'windows',
-    target: '(auditpol /get /subcategory:"User Account Management" /r | ConvertFrom-Csv)."Inclusion Setting"',
+    target: '(auditpol /get /subcategory:"{0CCE9235-69AE-11D9-BED3-505054503030}" /r | ConvertFrom-Csv)."Inclusion Setting"',
     expected: 'Success',
     operator: 'contains',
     severity: 'high',
-    remediationScript: 'auditpol /set /subcategory:"User Account Management" /success:enable /failure:enable',
+    remediationScript: 'auditpol /set /subcategory:"{0CCE9235-69AE-11D9-BED3-505054503030}" /success:enable /failure:enable',
   }),
   r('nist-AU-004', {
     name: 'Audit — Ligne de commande incluse dans les événements de création de processus [3.3.2]',
@@ -645,7 +645,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '14',
     operator: 'gt',
     severity: 'high',
-    remediationScript: 'net accounts /minpwlen:14',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'MinimumPasswordLength\\s*=\\s*\\d+\',\'MinimumPasswordLength = 14\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
   r('nist-IA-004', {
     name: 'Identification — Credential Guard (virtualisation) activé [3.5.3]',
@@ -689,7 +689,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '23',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: 'net accounts /uniquepw:24',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'PasswordHistorySize\\s*=\\s*\\d+\',\'PasswordHistorySize = 24\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
   r('nist-IA-008', {
     name: 'Identification — Âge maximal du mot de passe ≤ 60 jours [3.5.6]',
@@ -700,7 +700,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '61',
     operator: 'lt',
     severity: 'moderate',
-    remediationScript: 'net accounts /maxpwage:60',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'MaximumPasswordAge\\s*=\\s*\\d+\',\'MaximumPasswordAge = 60\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
   r('nist-IA-009', {
     name: 'Identification — Âge minimal du mot de passe ≥ 1 jour [3.5.6]',
@@ -711,7 +711,7 @@ export const nistSP800171Rules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'low',
-    remediationScript: 'net accounts /minpwage:1',
+    remediationScript: 'secedit /export /cfg "$env:TEMP\\secpol_rem.cfg"; (Get-Content "$env:TEMP\\secpol_rem.cfg") -replace \'MinimumPasswordAge\\s*=\\s*\\d+\',\'MinimumPasswordAge = 1\' | Set-Content "$env:TEMP\\secpol_rem.cfg"; secedit /configure /db "$env:TEMP\\secpol_rem.sdb" /cfg "$env:TEMP\\secpol_rem.cfg" /areas SECURITYPOLICY; Remove-Item "$env:TEMP\\secpol_rem.cfg","$env:TEMP\\secpol_rem.sdb" -ErrorAction SilentlyContinue',
   }),
   r('nist-IA-010', {
     name: 'Identification — WDigest désactivé (pas de stockage en clair) [3.5.7]',

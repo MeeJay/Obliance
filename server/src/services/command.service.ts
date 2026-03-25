@@ -215,15 +215,28 @@ class CommandService {
     }
   }
 
-  async getCommands(tenantId: number, filters?: { deviceId?: number; status?: string }) {
-    let q = db('command_queue')
+  async getCommands(tenantId: number, filters?: { deviceId?: number; status?: string; page?: number; limit?: number }) {
+    const limit = filters?.limit ?? 50;
+    const page = filters?.page ?? 1;
+
+    let baseQ = db('command_queue').where({ 'command_queue.tenant_id': tenantId });
+    if (filters?.deviceId) baseQ = baseQ.where({ 'command_queue.device_id': filters.deviceId });
+    if (filters?.status) baseQ = baseQ.where({ 'command_queue.status': filters.status });
+
+    const countResult = await baseQ.clone().count('command_queue.id as count').first();
+    const total = parseInt(String((countResult as any)?.count ?? 0));
+
+    let q = baseQ
       .select('command_queue.*', db.raw("COALESCE(u.display_name, u.username, u.email) as created_by_name"))
       .leftJoin('users as u', 'command_queue.created_by', 'u.id')
-      .where({ 'command_queue.tenant_id': tenantId });
-    if (filters?.deviceId) q = q.where({ 'command_queue.device_id': filters.deviceId });
-    if (filters?.status) q = q.where({ 'command_queue.status': filters.status });
-    const rows = await q.orderBy('command_queue.created_at', 'desc').limit(100);
-    return rows.map(this.rowToCommand.bind(this));
+      .orderBy('command_queue.created_at', 'desc');
+
+    if (limit > 0) {
+      q = q.limit(limit).offset((page - 1) * limit);
+    }
+
+    const rows = await q;
+    return { items: rows.map(this.rowToCommand.bind(this)), total };
   }
 
   async cancelCommand(id: string, tenantId: number) {

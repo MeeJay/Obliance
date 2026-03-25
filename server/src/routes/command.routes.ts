@@ -75,7 +75,7 @@ router.post('/', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const { deviceId, status } = req.query as any;
+    const { deviceId, status, page, limit } = req.query as any;
 
     // Non-admins: if deviceId specified, check read access; otherwise filter to visible devices
     if (req.session.role !== 'admin' && deviceId) {
@@ -83,8 +83,11 @@ router.get('/', async (req, res, next) => {
       if (!canRead) return next(new AppError(403, 'Insufficient permissions'));
     }
 
-    const commands = await commandService.getCommands(req.tenantId!, {
-      deviceId: deviceId ? parseInt(deviceId) : undefined, status,
+    const result = await commandService.getCommands(req.tenantId!, {
+      deviceId: deviceId ? parseInt(deviceId) : undefined,
+      status,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
     });
 
     // Filter results to visible devices for non-admins
@@ -92,12 +95,12 @@ router.get('/', async (req, res, next) => {
       const visible = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
       if (visible !== 'all') {
         const visibleSet = new Set(visible);
-        const filtered = commands.filter((c: any) => visibleSet.has(c.deviceId));
+        const filtered = result.items.filter((c: any) => visibleSet.has(c.deviceId));
         return res.json({ data: { items: filtered, total: filtered.length } });
       }
     }
 
-    res.json({ data: { items: commands, total: commands.length } });
+    res.json({ data: result });
   } catch (err) { next(err); }
 });
 

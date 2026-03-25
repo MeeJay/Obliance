@@ -757,14 +757,38 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 
 	switch runtime.GOOS {
 	case "windows":
+		// Return both StartType and Status so rules can match either:
+		// "Disabled", "Manual", "Automatic" (StartType) or "Running", "Stopped" (Status)
 		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
 			"-Command",
-			fmt.Sprintf(`$s=Get-Service -Name '%s' -ErrorAction SilentlyContinue; if($s){$s.StartType}else{'not_found'}`, rule.Target),
+			fmt.Sprintf(`$s=Get-Service -Name '%s' -ErrorAction SilentlyContinue; if($s){"$($s.StartType)|$($s.Status)"}else{'not_found'}`, rule.Target),
 		).Output()
 		if err != nil || strings.TrimSpace(string(out)) == "" {
 			actualStatus = "not_found"
 		} else {
-			actualStatus = strings.TrimSpace(string(out))
+			raw := strings.TrimSpace(string(out))
+			if raw == "not_found" {
+				actualStatus = "not_found"
+			} else {
+				// Format: "Disabled|Stopped" or "Automatic|Running"
+				parts := strings.SplitN(raw, "|", 2)
+				startType := parts[0]
+				status := ""
+				if len(parts) > 1 {
+					status = parts[1]
+				}
+				// Match against expected: if expected is a StartType keyword, use StartType; otherwise use Status
+				exp := strings.TrimSpace(fmt.Sprintf("%v", rule.Expected))
+				switch exp {
+				case "Disabled", "Manual", "Automatic":
+					actualStatus = startType
+				case "Running", "Stopped":
+					actualStatus = status
+				default:
+					// Default to StartType for backward compat
+					actualStatus = startType
+				}
+			}
 		}
 	case "linux":
 		out, _ := exec.CommandContext(ctx, "systemctl", "is-active", rule.Target).Output()

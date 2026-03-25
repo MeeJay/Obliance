@@ -2527,15 +2527,22 @@ type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' 
 function CommandsTab({ deviceId }: { deviceId: number }) {
   const socket = getSocket();
   const [commands, setCommands] = useState<Command[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<CmdFilter>('all');
   const [cancelling, setCancelling] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     setIsLoading(true);
     try {
-      const result = await commandApi.list(deviceId);
+      const result = await commandApi.list(deviceId, {
+        page,
+        limit: pageSize > 0 ? pageSize : undefined, // 0 = all
+      });
       setCommands(result.items);
+      setTotalCount(result.total);
     } catch {
       toast.error('Failed to load tasks');
     } finally {
@@ -2543,7 +2550,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
     }
   };
 
-  useEffect(() => { load(); }, [deviceId]);
+  useEffect(() => { load(); }, [deviceId, page, pageSize]);
 
   // Real-time: update or prepend commands as they change
   useEffect(() => {
@@ -2765,6 +2772,45 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalCount > 0 && (
+        <div className="flex items-center justify-between gap-4 text-xs text-text-muted">
+          <div className="flex items-center gap-2">
+            <span>Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(parseInt(e.target.value)); setPage(1); }}
+              className="px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary text-xs focus:outline-none focus:border-accent"
+            >
+              {[20, 50, 100, 200, 500].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+              <option value={0}>All</option>
+            </select>
+            <span>of {totalCount} tasks</span>
+          </div>
+          {pageSize > 0 && Math.ceil(totalCount / pageSize) > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-2 py-1 rounded border border-border hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+              >
+                ←
+              </button>
+              <span className="px-2">{page} / {Math.ceil(totalCount / pageSize)}</span>
+              <button
+                onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                disabled={page >= Math.ceil(totalCount / pageSize)}
+                className="px-2 py-1 rounded border border-border hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
