@@ -13,7 +13,7 @@ type Tab = 'active' | 'history';
 
 const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; description: string }> = {
   oblireach:  { label: 'Oblireach',  color: 'text-sky-400   bg-sky-400/10   border-sky-400/30',       description: 'Native screen streaming (recommended)' },
-  rdp:        { label: 'RDP',        color: 'text-purple-400 bg-purple-400/10 border-purple-400/30',   description: 'Remote Desktop Protocol (Windows)' },
+  rdp:        { label: 'RDP',        color: 'text-rose-400 bg-rose-400/10 border-rose-400/30',   description: 'Remote Desktop Protocol (Windows)' },
   ssh:        { label: 'SSH',        color: 'text-green-400 bg-green-400/10 border-green-400/30',      description: 'Secure Shell terminal' },
   cmd:        { label: 'CMD',        color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',   description: 'Windows Command Prompt' },
   powershell: { label: 'PowerShell', color: 'text-cyan-400  bg-cyan-400/10  border-cyan-400/30',       description: 'Windows PowerShell terminal' },

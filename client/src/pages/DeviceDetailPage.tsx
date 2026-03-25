@@ -105,7 +105,7 @@ function OverviewTab({ device }: { device: Device }) {
       {/* Quick info cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+          <Clock className="w-4 h-4 text-rose-400 shrink-0" />
           <div className="min-w-0">
             <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Seen</p>
             <p className="text-xs text-text-primary font-medium truncate">

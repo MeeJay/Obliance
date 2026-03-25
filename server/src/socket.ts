@@ -15,7 +15,13 @@ let io: SocketIOServer;
 export function createSocketServer(server: HttpServer): SocketIOServer {
   io = new SocketIOServer(server, {
     cors: {
-      origin: config.clientOrigin,
+      // Reflect the request origin instead of a fixed string.
+      // In production, nginx proxies everything (same-origin from the browser)
+      // but WebSocket upgrades always send the Origin header (RFC 6455), so a
+      // fixed CLIENT_ORIGIN that doesn't include the port (e.g. "http://localhost"
+      // vs "http://localhost:3003") silently breaks the handshake.
+      // Auth is enforced by the io.use() middleware below, not by CORS.
+      origin: true,
       credentials: true,
     },
     transports: ['websocket', 'polling'],

@@ -490,7 +490,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
             <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
               <span>Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}</span>
               {selectedScript.isBuiltin && <span className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-text-muted">Built-in</span>}
-              {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/30 rounded text-purple-400">Available in Reach</span>}
+              {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400">Available in Reach</span>}
             </div>
           </div>
         ) : (

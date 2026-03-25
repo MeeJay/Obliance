@@ -109,7 +109,7 @@ const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> =
 
 const KIND_CFG: Record<EventKind, { color: string; bg: string; label: string; Icon: React.ElementType }> = {
   task:   { color: 'text-blue-400',    bg: 'bg-blue-400/10',    label: 'Task',   Icon: Terminal },
-  script: { color: 'text-purple-400',  bg: 'bg-purple-400/10',  label: 'Script', Icon: Code2 },
+  script: { color: 'text-rose-400',  bg: 'bg-rose-400/10',  label: 'Script', Icon: Code2 },
   update: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', label: 'Update', Icon: Package },
 };
 

@@ -55,7 +55,8 @@ export function connectSocket(userId: number, tenantId?: number): Socket {
     setStatus('disconnected');
   });
 
-  socket.on('connect_error', () => {
+  socket.on('connect_error', (err) => {
+    console.warn('Socket connect_error:', err.message);
     setStatus('disconnected');
   });
 

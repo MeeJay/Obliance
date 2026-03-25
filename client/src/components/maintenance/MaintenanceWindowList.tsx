@@ -66,7 +66,7 @@ function StatusPip({ active, isActiveNow, expired }: { active: boolean; isActive
 function SourceBadge({ source, sourceName }: { source: MaintenanceWindow['source']; sourceName?: string }) {
   if (source === 'global') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20 shrink-0">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 shrink-0">
         <Globe size={9} />
         GLOBAL
       </span>
@@ -430,7 +430,7 @@ function FlatList({
             </span>
             <StatusPip active={w.active ?? true} isActiveNow={w.isActiveNow} expired={exp} />
             {w.scopeType === 'global' && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20 shrink-0">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 shrink-0">
                 <Globe size={9} />
                 GLOBAL
               </span>

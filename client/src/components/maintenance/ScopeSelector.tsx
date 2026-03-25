@@ -294,13 +294,13 @@ export function ScopeSelector({ defaultScopeType, defaultScopeId, onChange }: Pr
         className={cn(
           'w-full flex items-center gap-2.5 px-3 py-2 rounded-md border text-sm font-medium transition-all',
           sel.global
-            ? 'bg-purple-600/20 border-purple-500/40 text-purple-300'
-            : 'bg-bg-tertiary border-border text-text-secondary hover:border-purple-500/30 hover:text-text-primary',
+            ? 'bg-rose-600/20 border-rose-500/40 text-rose-300'
+            : 'bg-bg-tertiary border-border text-text-secondary hover:border-rose-500/30 hover:text-text-primary',
         )}
       >
-        <Globe size={14} className={sel.global ? 'text-purple-400' : 'text-text-muted'} />
+        <Globe size={14} className={sel.global ? 'text-rose-400' : 'text-text-muted'} />
         <span className="flex-1 text-left">{t('maintenance.scopeGlobalBtn')}</span>
-        {sel.global && <Check size={13} className="text-purple-400 shrink-0" />}
+        {sel.global && <Check size={13} className="text-rose-400 shrink-0" />}
       </button>
 
       {/* ── Devices column ────────────────────────────────────────────────── */}

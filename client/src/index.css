@@ -8,21 +8,21 @@
    (e.g. bg-accent/30) works: Tailwind emits  rgb(var(--c-X) / 0.3)
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* ── Modern UI (default) — fond très sombre, teinte violette ultra-subtile ── */
+/* ── Modern UI (default) — fond très sombre, teinte rouge ultra-subtile ──── */
 :root,
 [data-theme="modern"] {
-  --c-bg-primary:            12 10 18;
-  --c-bg-secondary:          19 16 27;
-  --c-bg-tertiary:           26 22 37;
-  --c-bg-hover:              33 28 45;
-  --c-bg-active:             40 35 55;
+  --c-bg-primary:            14 11 12;
+  --c-bg-secondary:          22 17 18;
+  --c-bg-tertiary:           30 24 25;
+  --c-bg-hover:              40 32 33;
+  --c-bg-active:             50 38 40;
 
-  --c-border:                54 48 72;
-  --c-border-light:          69 62 90;
+  --c-border:                62 50 52;
+  --c-border-light:          78 64 66;
 
-  --c-text-primary:          228 224 242;
-  --c-text-secondary:        140 133 158;
-  --c-text-muted:            107 101 122;
+  --c-text-primary:          235 228 228;
+  --c-text-secondary:        148 136 138;
+  --c-text-muted:            112 102 104;
 
   --c-status-up:             46 160 67;
   --c-status-up-bg:          10 36 20;
@@ -31,9 +31,9 @@
   --c-status-pending:        210 153 34;
   --c-status-pending-bg:     42 30 14;
   --c-status-maintenance:    148 163 184;
-  --c-status-maintenance-bg: 24 28 42;
-  --c-status-paused:         107 101 122;
-  --c-status-paused-bg:      26 22 37;
+  --c-status-maintenance-bg: 24 26 30;
+  --c-status-paused:         112 102 104;
+  --c-status-paused-bg:      30 24 25;
 
   --c-accent:                194 0 27;
   --c-accent-hover:          224 30 55;
@@ -63,7 +63,7 @@
   --c-status-pending:        255 190 0;
   --c-status-pending-bg:     30 20 0;
   --c-status-maintenance:    148 163 184;
-  --c-status-maintenance-bg: 16 20 38;
+  --c-status-maintenance-bg: 20 22 26;
   --c-status-paused:         114 88 52;
   --c-status-paused-bg:      20 13 6;
 
@@ -92,23 +92,23 @@
   height: 1px;
   background: radial-gradient(
     ellipse 70% 100% at 50% 100%,
-    rgb(168 128 255 / 0.9) 0%,
-    rgb(168 128 255 / 0.4) 40%,
+    rgb(194 0 27 / 0.9) 0%,
+    rgb(194 0 27 / 0.4) 40%,
     transparent 70%
   );
   pointer-events: none;
 }
 
-/* ── Active nav item — barre lilas + fond teinté + glow icône ───────────────── */
+/* ── Active nav item — barre rouge + fond teinté + glow icône ──────────────── */
 [data-theme="neon"] .bg-bg-active {
-  background-color: rgb(168 128 255 / 0.12) !important;
-  box-shadow: inset 3px 0 0 rgb(168 128 255 / 1), inset 0 0 12px rgb(168 128 255 / 0.08);
+  background-color: rgb(194 0 27 / 0.12) !important;
+  box-shadow: inset 3px 0 0 rgb(194 0 27 / 1), inset 0 0 12px rgb(194 0 27 / 0.08);
 }
 [data-theme="neon"] .bg-bg-active .text-text-primary {
-  color: rgb(168 128 255 / 1) !important;
+  color: rgb(194 0 27 / 1) !important;
 }
 [data-theme="neon"] .bg-bg-active svg {
-  color: rgb(168 128 255 / 1) !important;
+  color: rgb(194 0 27 / 1) !important;
 }
 
 /* ── Accent & primary text — no glow ───────────────────────────────────────── */

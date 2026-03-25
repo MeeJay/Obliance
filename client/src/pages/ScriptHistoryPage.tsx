@@ -43,7 +43,7 @@ function TriggerBadge({ batch }: { batch: ExecutionBatch }) {
   return (
     <span className={clsx(
       'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border font-medium',
-      isSchedule ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' : 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+      isSchedule ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' : 'text-rose-400 bg-rose-400/10 border-rose-400/30',
     )}>
       {isSchedule ? <CalendarClock className="w-3 h-3" /> : <User className="w-3 h-3" />}
       {isSchedule ? (batch.scheduleName ?? 'Schedule') : (batch.triggeredByUsername ?? 'Manual')}

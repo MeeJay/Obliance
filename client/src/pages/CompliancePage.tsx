@@ -695,7 +695,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                           <span className={clsx(
                             'text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ml-1',
                             preset.framework === 'CIS' ? 'bg-blue-400/20 text-blue-400' :
-                            preset.framework === 'NIST' ? 'bg-purple-400/20 text-purple-400' :
+                            preset.framework === 'NIST' ? 'bg-teal-400/20 text-teal-400' :
                             preset.framework === 'ISO27001' ? 'bg-green-400/20 text-green-400' :
                             preset.framework === 'PCI_DSS' ? 'bg-orange-400/20 text-orange-400' :
                             preset.framework === 'HIPAA' ? 'bg-pink-400/20 text-pink-400' :
@@ -884,7 +884,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                           <span className={clsx(
                             'text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ml-1',
                             preset.framework === 'CIS' ? 'bg-blue-400/20 text-blue-400' :
-                            preset.framework === 'NIST' ? 'bg-purple-400/20 text-purple-400' :
+                            preset.framework === 'NIST' ? 'bg-teal-400/20 text-teal-400' :
                             preset.framework === 'ISO27001' ? 'bg-green-400/20 text-green-400' :
                             preset.framework === 'PCI_DSS' ? 'bg-orange-400/20 text-orange-400' :
                             preset.framework === 'HIPAA' ? 'bg-pink-400/20 text-pink-400' :

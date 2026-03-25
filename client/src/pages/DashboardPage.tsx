@@ -248,7 +248,7 @@ export function DashboardPage() {
         <StatCard icon={WifiOff} label="Offline" value={s?.offline ?? 0} color="bg-gray-500/20 text-gray-400" to="/devices?status=offline" />
         <StatCard icon={AlertTriangle} label="Warning" value={s?.warning ?? 0} color="bg-yellow-500/20 text-yellow-400" to="/devices?status=warning" />
         <StatCard icon={AlertCircle} label="Critical" value={s?.critical ?? 0} color="bg-red-500/20 text-red-400" to="/devices?status=critical" />
-        <StatCard icon={Clock} label="Pending" value={s?.pending ?? 0} color="bg-purple-500/20 text-purple-400" to="/admin/devices" />
+        <StatCard icon={Clock} label="Pending" value={s?.pending ?? 0} color="bg-rose-500/20 text-rose-400" to="/admin/devices" />
       </div>
 
       {/* Quick stats row */}

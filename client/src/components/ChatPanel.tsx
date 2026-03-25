@@ -53,13 +53,13 @@ function getInitials(name: string) {
   return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// Default operator avatar SVG (purple person icon)
+// Default operator avatar SVG (red person icon)
 function OperatorAvatar({ avatarUrl, size = 28 }: { avatarUrl?: string | null; size?: number }) {
   if (avatarUrl) {
     return <img src={avatarUrl} alt="" className="rounded-full object-cover" style={{ width: size, height: size }} />;
   }
   return (
-    <div className="rounded-full bg-[#6366f1] flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+    <div className="rounded-full bg-[#c2001b] flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <svg className="text-white" style={{ width: size * 0.55, height: size * 0.55 }} fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
       </svg>
@@ -252,7 +252,7 @@ export function ChatPanel({
   if (isMinimized) {
     return (
       <button onClick={() => setIsMinimized(false)}
-        className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-[#6366f1] shadow-lg shadow-purple-500/30 flex items-center justify-center hover:scale-105 transition-transform">
+        className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-[#c2001b] shadow-lg shadow-red-500/30 flex items-center justify-center hover:scale-105 transition-transform">
         <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
       </button>
     );
@@ -261,14 +261,14 @@ export function ChatPanel({
   return (
     <div
       className="flex flex-col h-full overflow-hidden"
-      style={{ width: 380, background: 'linear-gradient(180deg, #0f0d2e 0%, #1a1640 100%)' }}
+      style={{ width: 380, background: 'linear-gradient(180deg, #1a0a0c 0%, #200d10 100%)' }}
       onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
     >
       {isDragging && (
-        <div className="absolute inset-0 z-10 bg-[#6366f1]/20 border-2 border-dashed border-[#6366f1] flex items-center justify-center rounded-2xl">
-          <span className="text-[#6366f1] font-medium">Drop file to send</span>
+        <div className="absolute inset-0 z-10 bg-[#c2001b]/20 border-2 border-dashed border-[#c2001b] flex items-center justify-center rounded-2xl">
+          <span className="text-[#c2001b] font-medium">Drop file to send</span>
         </div>
       )}
 
@@ -302,7 +302,7 @@ export function ChatPanel({
             <div key={i}>
               {showTimestamp && (
                 <div className="text-center py-2">
-                  <span className="text-[10px] text-[#6366f1]/60 bg-[#6366f1]/10 px-3 py-1 rounded-full">
+                  <span className="text-[10px] text-[#c2001b]/60 bg-[#c2001b]/10 px-3 py-1 rounded-full">
                     {new Date(msg.timestamp).toLocaleDateString([], { weekday: 'long' })}, {formatTime(msg.timestamp)}
                   </span>
                 </div>
@@ -316,12 +316,12 @@ export function ChatPanel({
                   {isOp && <OperatorAvatar avatarUrl={operatorAvatar} size={28} />}
                   <div className={clsx(
                     'max-w-[75%] px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed',
-                    isOp ? 'bg-[#6366f1] text-white rounded-bl-md' : 'bg-[#2d2760] text-white rounded-br-md'
+                    isOp ? 'bg-[#c2001b] text-white rounded-bl-md' : 'bg-[#3a1015] text-white rounded-br-md'
                   )}>
                     {msg.text}
                   </div>
                   {!isOp && (
-                    <div className="w-7 h-7 rounded-full bg-[#4338ca] flex items-center justify-center shrink-0 mt-auto text-[10px] font-bold text-white">
+                    <div className="w-7 h-7 rounded-full bg-[#8b0012] flex items-center justify-center shrink-0 mt-auto text-[10px] font-bold text-white">
                       {getInitials(msg.sender)}
                     </div>
                   )}
@@ -334,7 +334,7 @@ export function ChatPanel({
         {isTyping && (
           <div className="flex gap-2 items-end">
             <OperatorAvatar avatarUrl={operatorAvatar} size={28} />
-            <div className="bg-[#6366f1] px-4 py-2.5 rounded-2xl rounded-bl-md">
+            <div className="bg-[#c2001b] px-4 py-2.5 rounded-2xl rounded-bl-md">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -349,14 +349,14 @@ export function ChatPanel({
 
       {/* ── Request Remote Control dialog ── */}
       {showRequestDialog && (
-        <div className="px-4 py-3 border-t border-white/5 bg-[#1e1a4a] space-y-2">
+        <div className="px-4 py-3 border-t border-white/5 bg-[#250a0e] space-y-2">
           <p className="text-[11px] text-gray-400">Custom message (optional):</p>
           <input value={requestMessage} onChange={e => setRequestMessage(e.target.value)}
             placeholder="e.g., I need to check your settings..."
-            className="w-full px-3 py-2 text-xs bg-[#0f0d2e] border border-white/10 rounded-lg text-white placeholder-gray-500" />
+            className="w-full px-3 py-2 text-xs bg-[#1a0a0c] border border-white/10 rounded-lg text-white placeholder-gray-500" />
           <div className="flex gap-2">
             <button onClick={handleRequestRemote}
-              className="flex-1 px-3 py-2 text-xs bg-[#6366f1] text-white rounded-lg hover:bg-[#5558e6] transition-colors font-medium">
+              className="flex-1 px-3 py-2 text-xs bg-[#c2001b] text-white rounded-lg hover:bg-[#a80018] transition-colors font-medium">
               Send Request
             </button>
             <button onClick={() => setShowRequestDialog(false)}
@@ -371,7 +371,7 @@ export function ChatPanel({
       <div className="shrink-0 px-4 py-3 space-y-2">
         {canSend && !remoteRequested && !showRequestDialog && !userClosed && (
           <button onClick={() => setShowRequestDialog(true)}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] bg-[#6366f1]/10 text-[#818cf8] border border-[#6366f1]/20 rounded-xl hover:bg-[#6366f1]/20 transition-colors font-medium">
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] bg-[#c2001b]/10 text-[#e84050] border border-[#c2001b]/20 rounded-xl hover:bg-[#c2001b]/20 transition-colors font-medium">
             <Shield className="w-3.5 h-3.5" />
             Request Remote Control
           </button>
@@ -380,7 +380,7 @@ export function ChatPanel({
           <div className="text-[11px] text-center text-yellow-400/80 py-1">Waiting for user response...</div>
         )}
         {uploadProgress && (
-          <div className="text-[11px] text-center text-[#818cf8] py-1 animate-pulse">{uploadProgress}</div>
+          <div className="text-[11px] text-center text-[#e84050] py-1 animate-pulse">{uploadProgress}</div>
         )}
 
         {/* User closed banner */}
@@ -396,7 +396,7 @@ export function ChatPanel({
             {/* Language selector for admin templates */}
             {adminTemplates.length > 0 && (
               <select value={templateLang} onChange={e => setTemplateLang(e.target.value)}
-                className="w-full px-2 py-1 text-[11px] bg-[#0f0d2e] border border-white/10 rounded-lg text-gray-300 mb-1">
+                className="w-full px-2 py-1 text-[11px] bg-[#1a0a0c] border border-white/10 rounded-lg text-gray-300 mb-1">
                 {templateLanguages.map(l => (
                   <option key={l.code} value={l.code}>{l.name}</option>
                 ))}
@@ -407,7 +407,7 @@ export function ChatPanel({
             )}
             {personalQuickReplies.map((t, i) => (
               <button key={`p-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
-                className="w-full text-left px-3 py-1.5 text-[11px] bg-white/5 text-gray-300 rounded-lg hover:bg-[#6366f1]/15 hover:text-white truncate transition-colors">
+                className="w-full text-left px-3 py-1.5 text-[11px] bg-white/5 text-gray-300 rounded-lg hover:bg-[#c2001b]/15 hover:text-white truncate transition-colors">
                 {t}
               </button>
             ))}
@@ -416,7 +416,7 @@ export function ChatPanel({
             )}
             {adminRepliesInLang.map((t, i) => (
               <button key={`t-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
-                className="w-full text-left px-3 py-1.5 text-[11px] bg-[#6366f1]/10 text-gray-300 rounded-lg hover:bg-[#6366f1]/20 hover:text-white truncate transition-colors">
+                className="w-full text-left px-3 py-1.5 text-[11px] bg-[#c2001b]/10 text-gray-300 rounded-lg hover:bg-[#c2001b]/20 hover:text-white truncate transition-colors">
                 {t}
               </button>
             ))}
@@ -429,7 +429,7 @@ export function ChatPanel({
         {/* Input area */}
         <div className="flex items-center gap-2 bg-[#1a1640] border border-white/10 rounded-2xl px-3 py-1.5">
           <button onClick={() => setShowTemplates(v => !v)} title="Quick replies"
-            className="text-gray-500 hover:text-[#818cf8] transition-colors text-xs font-mono">/</button>
+            className="text-gray-500 hover:text-[#e84050] transition-colors text-xs font-mono">/</button>
           <input
             ref={inputRef}
             value={input}
@@ -442,11 +442,11 @@ export function ChatPanel({
           <input ref={fileInputRef} type="file" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSend(f); e.target.value = ''; }} />
           <button onClick={() => fileInputRef.current?.click()} disabled={!canSend}
-            className="text-gray-500 hover:text-[#818cf8] transition-colors disabled:opacity-30">
+            className="text-gray-500 hover:text-[#e84050] transition-colors disabled:opacity-30">
             <Paperclip className="w-4 h-4" />
           </button>
           <button onClick={handleSend} disabled={!canSend || !input.trim()}
-            className="w-8 h-8 rounded-xl bg-[#6366f1] flex items-center justify-center hover:bg-[#5558e6] disabled:opacity-30 transition-colors shrink-0">
+            className="w-8 h-8 rounded-xl bg-[#c2001b] flex items-center justify-center hover:bg-[#a80018] disabled:opacity-30 transition-colors shrink-0">
             <Send className="w-3.5 h-3.5 text-white" />
           </button>
         </div>

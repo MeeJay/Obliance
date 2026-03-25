@@ -10,7 +10,7 @@ interface ThemePickerProps {
 /* ─── SVG mini-dashboard previews ─────────────────────────────────────────── */
 
 function ModernPreviewSvg() {
-  // Modern UI : fond très sombre, teinte violette ultra-subtile, accent violet doux
+  // Modern UI : fond très sombre, teinte rouge ultra-subtile
   return (
     <svg viewBox="0 0 280 170" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-md">
       {/* Page background */}
@@ -90,13 +90,13 @@ function ModernPreviewSvg() {
       <rect x="78" y="143" width="90" height="3" rx="2" fill="#1a1725" />
       <rect x="78" y="143" width="55" height="3" rx="2" fill="#c2001b" opacity="0.85" />
       <rect x="175" y="143" width="88" height="3" rx="2" fill="#1a1725" />
-      <rect x="175" y="143" width="40" height="3" rx="2" fill="#7c3aed" opacity="0.85" />
+      <rect x="175" y="143" width="40" height="3" rx="2" fill="#c2001b" opacity="0.85" />
     </svg>
   );
 }
 
 function NeonPreviewSvg() {
-  // Neon UI : violet électrique avec effets de glow
+  // Neon UI : rouge électrique avec effets de glow
   return (
     <svg viewBox="0 0 280 170" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-md">
       <defs>
@@ -114,14 +114,14 @@ function NeonPreviewSvg() {
         </filter>
       </defs>
 
-      {/* Page background — near-black with violet tint */}
+      {/* Page background — near-black with rouge tint */}
       <rect width="280" height="170" fill="#07050c" rx="6" />
 
       {/* Sidebar */}
       <rect x="0" y="0" width="60" height="170" fill="#0c0914" rx="6" />
       <rect x="60" y="0" width="1" height="#342355" />
       <line x1="60" y1="0" x2="60" y2="170" stroke="#342355" strokeWidth="1" />
-      {/* Sidebar logo — neon violet */}
+      {/* Sidebar logo — neon rouge */}
       <rect x="10" y="12" width="16" height="16" rx="3" fill="#c2001b" opacity="0.9" filter="url(#glow-red)" />
       <rect x="31" y="15" width="22" height="5" rx="2" fill="#9b80c8" />
       {/* Sidebar nav items */}
