@@ -6,7 +6,8 @@ import {
   Wrench, EyeOff, Eye, ChevronRight, Check, Minus, FolderOpen,
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
-import { groupsApi, type DeviceGroupTreeNode } from '@/api/groups.api';
+import { groupsApi } from '@/api/groups.api';
+import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useDeviceStore } from '@/store/deviceStore';
 import type {
   CompliancePolicy, CompliancePreset, ComplianceResult,
@@ -714,7 +715,6 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                 </div>
 
                 {expanded && result.results.length > 0 && (() => {
-                  const policy = policies.find(p => p.id === result.policyId);
                   const remediableFailCount = result.results.filter(rr =>
                     rr.status === 'fail' && !isRuleIgnored(result.deviceId, result.policyId, rr.ruleId)
                     && getRemediationScript(result.policyId, rr.ruleId)
@@ -1261,7 +1261,7 @@ function PolicyGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: nu
           </span>
           <span className="text-text-muted text-[10px] shrink-0">{count}</span>
         </div>
-        {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
+        {hasChildren && isExpanded && node.children.map((c: DeviceGroupTreeNode) => renderNode(c, depth + 1))}
       </div>
     );
   };

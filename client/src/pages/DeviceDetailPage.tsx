@@ -1368,7 +1368,6 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 
               {/* Expanded: per-rule breakdown */}
               {isExpanded && (() => {
-                const policy = policies.find(p => p.id === result.policyId);
                 const remediableFailCount = result.results.filter(rr =>
                   rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId)
                   && getRemediationScript(result.policyId, rr.ruleId)
