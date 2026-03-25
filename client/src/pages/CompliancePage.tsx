@@ -274,13 +274,14 @@ interface PolicyFormData {
   framework: ComplianceFramework;
   targetType: 'group' | 'all';
   targetIds: number[];
+  targetPlatform: 'windows' | 'linux' | 'macos' | 'all';
   enabled: boolean;
   rules: RuleFormData[];
 }
 
 const defaultPolicyForm: PolicyFormData = {
   name: '', description: '', framework: 'CIS', targetType: 'all', targetIds: [],
-  enabled: true, rules: [],
+  targetPlatform: 'all', enabled: true, rules: [],
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -367,6 +368,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
       framework: policy.framework,
       targetType: policy.targetType,
       targetIds: policy.targetIds ?? [],
+      targetPlatform: policy.targetPlatform ?? 'all',
       enabled: policy.enabled,
       rules: (policy.rules ?? []).map(r => ({ ...r, autoRemediateScriptId: null })),
     });
@@ -382,6 +384,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
       name: f.name || preset.name,
       description: f.description || preset.description,
       framework: preset.framework,
+      targetPlatform: preset.targetPlatform ?? 'all',
       rules: preset.rules.map(r => ({ ...r, autoRemediateScriptId: null })),
     }));
     setShowPresets(false);
@@ -398,6 +401,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
         framework: form.framework,
         targetType: form.targetType,
         targetIds: form.targetIds,
+        targetPlatform: form.targetPlatform,
         rules: form.rules,
         enabled: form.enabled,
         tenantId: 0,

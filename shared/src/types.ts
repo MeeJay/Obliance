@@ -667,6 +667,7 @@ export interface CompliancePolicy {
   framework: ComplianceFramework;
   targetType: 'group' | 'all';
   targetIds: number[];
+  targetPlatform: 'windows' | 'linux' | 'macos' | 'all';
   rules: ComplianceRule[];
   enabled: boolean;
   createdBy: number | null;

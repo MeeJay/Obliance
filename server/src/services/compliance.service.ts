@@ -19,6 +19,7 @@ class ComplianceService {
       name: row.name, description: row.description,
       framework: row.framework, targetType: row.target_type,
       targetIds: Array.isArray(row.target_ids) ? row.target_ids : (typeof row.target_ids === 'string' ? JSON.parse(row.target_ids) : []),
+      targetPlatform: row.target_platform || 'all',
       rules: row.rules || [], enabled: row.enabled,
       createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
     };
@@ -51,6 +52,7 @@ class ComplianceService {
       framework: data.framework || 'custom',
       target_type: data.targetType || 'all',
       target_ids: JSON.stringify(data.targetIds || []),
+      target_platform: data.targetPlatform || 'all',
       rules: JSON.stringify(data.rules || []),
       enabled: data.enabled !== false, created_by: data.createdBy,
     }).returning('*');
@@ -65,6 +67,7 @@ class ComplianceService {
     if (data.enabled !== undefined) updates.enabled = data.enabled;
     if (data.targetType !== undefined) updates.target_type = data.targetType;
     if (data.targetIds !== undefined) updates.target_ids = JSON.stringify(data.targetIds);
+    if (data.targetPlatform !== undefined) updates.target_platform = data.targetPlatform;
     await db('compliance_policies').where({ id, tenant_id: tenantId }).update(updates);
     return this.getPolicyById(id, tenantId);
   }
@@ -167,10 +170,14 @@ class ComplianceService {
       const policy = this.rowToPolicy(row);
       if (!policy.rules?.length) continue;
 
-      // Resolve target devices
+      // Resolve target devices — filter by platform
       let deviceQuery = db('devices')
         .where({ tenant_id: policy.tenantId, approval_status: 'approved' })
         .whereIn('status', ['online', 'warning', 'critical']);
+
+      if (policy.targetPlatform && policy.targetPlatform !== 'all') {
+        deviceQuery = deviceQuery.where({ os_type: policy.targetPlatform });
+      }
 
       if (policy.targetType === 'group' && policy.targetIds.length > 0) {
         // Get all devices in these groups + descendants
@@ -277,10 +284,15 @@ class ComplianceService {
         });
 
       if (needsSync) {
-        await db('compliance_policies').where({ id: row.id }).update({
+        const syncUpdate: any = {
           rules: JSON.stringify(presetRules),
           updated_at: new Date(),
-        });
+        };
+        // Also sync targetPlatform from preset if not set
+        if (matchingPreset.targetPlatform && (!row.target_platform || row.target_platform === 'all')) {
+          syncUpdate.target_platform = matchingPreset.targetPlatform;
+        }
+        await db('compliance_policies').where({ id: row.id }).update(syncUpdate);
         synced++;
       }
     }
