@@ -264,7 +264,7 @@ export const pciDSSv4Rules: ComplianceRule[] = [
     expected: 'On',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: 'Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }',
+    remediationScript: `Get-BitLockerVolume -EA SilentlyContinue | Where-Object { $_.ProtectionStatus -ne 'On' -and $_.VolumeType -ne 'Unknown' } | ForEach-Object { Enable-BitLocker -MountPoint $_.MountPoint -EncryptionMethod XtsAes256 -RecoveryPasswordProtector -SkipHardwareTest -EA SilentlyContinue }`,
   }),
   r('pci-3-5-1-1', {
     name: 'BitLocker — méthode de chiffrement AES 256 bits (Req 3.5.1.1)',
