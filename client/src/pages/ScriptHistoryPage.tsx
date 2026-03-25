@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, X } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import type { ExecutionBatch } from '@obliance/shared';
 import { clsx } from 'clsx';
@@ -57,6 +57,7 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
   const [batchDevices, setBatchDevices] = useState<Map<string, BatchDevice[]>>(new Map());
   const [loadingBatch, setLoadingBatch] = useState<string | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<BatchDevice | null>(null);
+  const [fullscreenOutput, setFullscreenOutput] = useState<{ title: string; content: string; type: 'stdout' | 'stderr' } | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -216,13 +217,23 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
                             <div className="flex-1 overflow-y-auto p-3 space-y-3">
                               {selectedDevice.stdout && (
                                 <div>
-                                  <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stdout</p>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
+                                    <button onClick={() => setFullscreenOutput({ title: `${selectedDevice.hostname} — stdout`, content: selectedDevice.stdout!, type: 'stdout' })} className="p-0.5 text-text-muted hover:text-text-primary transition-colors" title="Fullscreen">
+                                      <Maximize2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                   <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{selectedDevice.stdout}</pre>
                                 </div>
                               )}
                               {selectedDevice.stderr && (
                                 <div>
-                                  <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stderr</p>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
+                                    <button onClick={() => setFullscreenOutput({ title: `${selectedDevice.hostname} — stderr`, content: selectedDevice.stderr!, type: 'stderr' })} className="p-0.5 text-text-muted hover:text-text-primary transition-colors" title="Fullscreen">
+                                      <Maximize2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                   <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{selectedDevice.stderr}</pre>
                                 </div>
                               )}
@@ -244,6 +255,27 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
             );
           })}
         </div>
+      )}
+
+      {/* Fullscreen output modal */}
+      {fullscreenOutput && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
+          <div className="fixed inset-4 z-50 bg-bg-primary border border-border rounded-xl flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
+              <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <pre className={clsx(
+              'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+              fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
+            )}>
+              {fullscreenOutput.content}
+            </pre>
+          </div>
+        </>
       )}
     </div>
   );

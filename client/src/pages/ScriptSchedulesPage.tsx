@@ -7,6 +7,13 @@ import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode } 
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
+/** Convert an ISO/UTC date string to a local datetime-local input value */
+function toLocalDatetimeString(isoString: string): string {
+  const d = new Date(isoString);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface ScheduleFormData {
   name: string;
   description: string;
@@ -104,7 +111,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       targetIds: schedule.targetIds ?? [],
       scheduleMode: schedule.cronExpression ? 'cron' : 'once',
       cronExpression: schedule.cronExpression ?? '0 2 * * *',
-      fireOnceAt: schedule.fireOnceAt ? schedule.fireOnceAt.slice(0, 16) : '',
+      fireOnceAt: schedule.fireOnceAt ? toLocalDatetimeString(schedule.fireOnceAt) : '',
       timezone: schedule.timezone,
       catchupEnabled: schedule.catchupEnabled,
       catchupMax: schedule.catchupMax,

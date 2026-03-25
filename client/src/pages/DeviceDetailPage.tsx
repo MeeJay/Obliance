@@ -465,7 +465,7 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
 
 // ─── Scripts Tab ──────────────────────────────────────────────────────────────
 
-function ScriptsTab({ deviceId }: { deviceId: number }) {
+function ScriptsTab({ deviceId, groupId }: { deviceId: number; groupId?: number | null }) {
   type SubTab = 'schedule' | 'run' | 'history';
   const [subTab, setSubTab] = useState<SubTab>('history');
 
@@ -494,7 +494,7 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
       </div>
       {subTab === 'history' && <DeviceScriptHistory deviceId={deviceId} />}
       {subTab === 'run' && <DeviceScriptRun deviceId={deviceId} />}
-      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} />}
+      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} groupId={groupId} />}
     </div>
   );
 }
@@ -670,34 +670,123 @@ function DeviceScriptRun({ deviceId }: { deviceId: number }) {
   );
 }
 
-function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
+function DeviceScriptSchedule({ deviceId, groupId }: { deviceId: number; groupId?: number | null }) {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [formScriptId, setFormScriptId] = useState<number | null>(null);
+  const [formMode, setFormMode] = useState<'cron' | 'once'>('cron');
+  const [formCron, setFormCron] = useState('0 2 * * *');
+  const [formOnceAt, setFormOnceAt] = useState('');
+  const [formName, setFormName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    Promise.all([scriptApi.list(), scriptApi.listSchedules()]).then(([s, sch]) => {
+  const load = () => {
+    setIsLoading(true);
+    Promise.all([scriptApi.list(), scriptApi.listSchedulesForDevice(deviceId)]).then(([s, sch]) => {
       setScripts(s);
-      // Filter schedules that target this device (targetType=device and includes this deviceId)
-      setSchedules(sch.filter((sc) => sc.targetType === 'device' && (sc.targetIds ?? []).includes(deviceId)));
+      setSchedules(sch);
     }).catch(() => {}).finally(() => setIsLoading(false));
-  }, [deviceId]);
+  };
+
+  useEffect(() => { load(); }, [deviceId]);
+
+  const handleCreate = async () => {
+    if (!formScriptId || !formName.trim()) { toast.error('Name and script are required'); return; }
+    if (formMode === 'once' && (!formOnceAt || new Date(formOnceAt) <= new Date())) { toast.error('Select a future date'); return; }
+    setIsSaving(true);
+    try {
+      await scriptApi.createSchedule({
+        name: formName,
+        description: null,
+        scriptId: formScriptId,
+        targetType: 'device',
+        targetIds: [deviceId],
+        cronExpression: formMode === 'cron' ? formCron : null,
+        fireOnceAt: formMode === 'once' ? new Date(formOnceAt).toISOString() : null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        parameterValues: {},
+        catchupEnabled: false,
+        catchupMax: 3,
+        runConditions: [],
+        enabled: true,
+        tenantId: 0,
+      } as any);
+      toast.success('Schedule created');
+      setShowForm(false);
+      setFormName('');
+      setFormScriptId(null);
+      load();
+    } catch {
+      toast.error('Failed to create schedule');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) return <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>;
 
   const scriptMap = new Map(scripts.map((s) => [s.id, s.name]));
 
+  const TARGET_LABELS: Record<string, string> = { all: 'All devices', group: 'Group', device: 'This device' };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{schedules.length} schedule(s) targeting this device</p>
-        <Link to="/schedules" className="text-sm text-accent hover:text-accent/80">Manage schedules →</Link>
+        <p className="text-sm text-text-muted">{schedules.length} schedule(s) apply to this device</p>
+        <div className="flex gap-2">
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
+            <Plus className="w-3.5 h-3.5" /> New
+          </button>
+          <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
-      {schedules.length === 0 ? (
+
+      {/* Inline create form */}
+      {showForm && (
+        <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted uppercase">Name</label>
+              <input value={formName} onChange={(e) => setFormName(e.target.value)}
+                className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" placeholder="Schedule name" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-text-muted uppercase">Script</label>
+              <select value={formScriptId ?? ''} onChange={(e) => setFormScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent">
+                <option value="">Select...</option>
+                {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setFormMode('cron')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted')}>Recurring</button>
+            <button onClick={() => setFormMode('once')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'once' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted')}>One-time</button>
+          </div>
+          {formMode === 'cron' ? (
+            <input value={formCron} onChange={(e) => setFormCron(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono" placeholder="0 2 * * *" />
+          ) : (
+            <input type="datetime-local" value={formOnceAt} min={new Date().toISOString().slice(0, 16)} onChange={(e) => setFormOnceAt(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+          )}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary border border-border rounded-lg transition-colors">Cancel</button>
+            <button onClick={handleCreate} disabled={isSaving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors">
+              {isSaving ? 'Creating...' : 'Create'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {schedules.length === 0 && !showForm ? (
         <div className="p-8 text-center text-text-muted">
           <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No schedules target this specific device.</p>
-          <p className="text-xs mt-1">Group and global schedules also apply — manage them in the Schedules module.</p>
+          <p className="text-sm">No schedules apply to this device yet.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -706,7 +795,10 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
               <CalendarClock className="w-4 h-4 text-text-muted shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary">{sch.name}</p>
-                <p className="text-xs text-text-muted">{scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}</p>
+                <p className="text-xs text-text-muted">
+                  {scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}
+                  <span className="ml-2 text-text-muted/60">{TARGET_LABELS[sch.targetType] ?? sch.targetType}</span>
+                </p>
               </div>
               <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', sch.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
                 {sch.enabled ? 'Active' : 'Paused'}
@@ -3723,7 +3815,7 @@ export function DeviceDetailPage() {
       <div>
         {activeTab === 'overview' && <OverviewTab device={device} />}
         {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
-        {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
+        {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} groupId={device.groupId} />}
         {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
         {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
         {activeTab === 'remote' && <RemoteTab device={device} />}

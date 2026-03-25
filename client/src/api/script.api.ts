@@ -59,6 +59,10 @@ export const scriptApi = {
   async deleteSchedule(id: number): Promise<void> {
     await apiClient.delete(`/schedules/${id}`);
   },
+  async listSchedulesForDevice(deviceId: number): Promise<ScriptSchedule[]> {
+    const res = await apiClient.get<ApiResponse<ScriptSchedule[]>>(`/schedules/for-device/${deviceId}`);
+    return res.data.data ?? [];
+  },
 
   // Executions
   async listExecutions(params?: { deviceId?: number; scriptId?: number; scheduleId?: number; status?: string; page?: number; pageSize?: number }): Promise<{ items: ScriptExecution[]; total: number }> {

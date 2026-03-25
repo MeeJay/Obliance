@@ -18,18 +18,19 @@ type ApprovalFilter = '' | 'approved' | 'pending' | 'refused' | 'suspended';
 
 interface DeviceTableProps {
   mode: 'monitoring' | 'admin';
+  initialStatusFilter?: string;
 }
 
 const PAGE_SIZE = 100;
 
-export function DeviceTable({ mode }: DeviceTableProps) {
+export function DeviceTable({ mode, initialStatusFilter }: DeviceTableProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAdmin } = useAuthStore();
 
   // Filters
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter ?? '');
   const [osFilter, setOsFilter] = useState('');
   const [groupId, setGroupId] = useState<number | null>(null);
   const [groupBreadcrumb, setGroupBreadcrumb] = useState<string[]>([]);
