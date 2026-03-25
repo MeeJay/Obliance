@@ -118,6 +118,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
     if (!form.scriptId) { toast.error('Script is required'); return; }
     if (form.scheduleMode === 'once' && !form.fireOnceAt) { toast.error('Fire date is required'); return; }
+    if (form.scheduleMode === 'once' && new Date(form.fireOnceAt) <= new Date()) { toast.error('Fire date must be in the future'); return; }
 
     setIsSaving(true);
     try {
@@ -310,6 +311,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 <input
                   type="datetime-local"
                   value={form.fireOnceAt}
+                  min={new Date().toISOString().slice(0, 16)}
                   onChange={(e) => setForm({ ...form, fireOnceAt: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
                 />
