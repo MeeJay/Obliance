@@ -465,7 +465,7 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
 
 // ─── Scripts Tab ──────────────────────────────────────────────────────────────
 
-function ScriptsTab({ deviceId, groupId }: { deviceId: number; groupId?: number | null }) {
+function ScriptsTab({ deviceId }: { deviceId: number }) {
   type SubTab = 'schedule' | 'run' | 'history';
   const [subTab, setSubTab] = useState<SubTab>('history');
 
@@ -494,7 +494,7 @@ function ScriptsTab({ deviceId, groupId }: { deviceId: number; groupId?: number 
       </div>
       {subTab === 'history' && <DeviceScriptHistory deviceId={deviceId} />}
       {subTab === 'run' && <DeviceScriptRun deviceId={deviceId} />}
-      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} groupId={groupId} />}
+      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} />}
     </div>
   );
 }
@@ -670,7 +670,7 @@ function DeviceScriptRun({ deviceId }: { deviceId: number }) {
   );
 }
 
-function DeviceScriptSchedule({ deviceId, groupId }: { deviceId: number; groupId?: number | null }) {
+function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -3815,7 +3815,7 @@ export function DeviceDetailPage() {
       <div>
         {activeTab === 'overview' && <OverviewTab device={device} />}
         {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
-        {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} groupId={device.groupId} />}
+        {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
         {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
         {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
         {activeTab === 'remote' && <RemoteTab device={device} />}
