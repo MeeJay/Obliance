@@ -7,7 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, Save, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock,
+  ArrowLeftRight, CalendarClock, Maximize2,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -503,11 +503,14 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
   const [executions, setExecutions] = useState<ScriptExecution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [fullscreenOutput, setFullscreenOutput] = useState<{ title: string; content: string; type: 'stdout' | 'stderr' } | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     setIsLoading(true);
     scriptApi.listExecutions({ deviceId, pageSize: 50 }).then((r) => setExecutions(r.items)).catch(() => {}).finally(() => setIsLoading(false));
-  }, [deviceId]);
+  };
+
+  useEffect(() => { load(); }, [deviceId]);
 
   const STATUS_COLORS: Record<string, string> = {
     success: 'text-green-400', failure: 'text-red-400', running: 'text-blue-400',
@@ -515,57 +518,107 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
     skipped: 'text-gray-400', sent: 'text-blue-400',
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
-
-  if (executions.length === 0) return (
-    <div className="p-12 text-center text-text-muted">
-      <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
-      <p>No script executions yet</p>
-    </div>
-  );
+  if (isLoading && executions.length === 0) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
 
   return (
-    <div className="space-y-1">
-      {executions.map((ex) => {
-        const duration = ex.finishedAt && ex.startedAt
-          ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
-          : null;
-        const isExpanded = expandedId === ex.id;
-        return (
-          <div key={ex.id} className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setExpandedId(isExpanded ? null : ex.id)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
-            >
-              {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
-              <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
-              <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
-              <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
-              <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
-              {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
-            </button>
-            {isExpanded && (
-              <div className="border-t border-border p-3 space-y-2 bg-bg-tertiary/50">
-                {ex.stdout && (
-                  <div>
-                    <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stdout</p>
-                    <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
-                  </div>
-                )}
-                {ex.stderr && (
-                  <div>
-                    <p className="text-[10px] text-text-muted uppercase font-medium mb-1">stderr</p>
-                    <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
-                  </div>
-                )}
-                {!ex.stdout && !ex.stderr && <p className="text-xs text-text-muted">No output</p>}
-                {ex.exitCode !== null && <p className="text-xs text-text-muted">Exit code: {ex.exitCode}</p>}
-              </div>
-            )}
+    <>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-text-muted">{executions.length} executions</p>
+          <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+          </button>
+        </div>
+
+        {executions.length === 0 ? (
+          <div className="p-12 text-center text-text-muted">
+            <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p>No script executions yet</p>
           </div>
-        );
-      })}
-    </div>
+        ) : (
+          <div className="space-y-1">
+            {executions.map((ex) => {
+              const duration = ex.finishedAt && ex.startedAt
+                ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
+                : null;
+              const isExpanded = expandedId === ex.id;
+              return (
+                <div key={ex.id} className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : ex.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
+                  >
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+                    <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
+                    <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
+                    <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
+                    <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
+                    {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-border p-3 space-y-2 bg-bg-tertiary/50">
+                      {ex.stdout && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
+                            <button
+                              onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stdout`, content: ex.stdout!, type: 'stdout' })}
+                              className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
+                              title="Fullscreen"
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
+                        </div>
+                      )}
+                      {ex.stderr && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
+                            <button
+                              onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stderr`, content: ex.stderr!, type: 'stderr' })}
+                              className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
+                              title="Fullscreen"
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
+                        </div>
+                      )}
+                      {!ex.stdout && !ex.stderr && <p className="text-xs text-text-muted">No output</p>}
+                      {ex.exitCode !== null && <p className="text-xs text-text-muted">Exit code: {ex.exitCode}</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Fullscreen output modal */}
+      {fullscreenOutput && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
+          <div className="fixed inset-4 z-50 bg-bg-primary border border-border rounded-xl flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
+              <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <pre className={clsx(
+              'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+              fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
+            )}>
+              {fullscreenOutput.content}
+            </pre>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
