@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -1562,86 +1562,96 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
     complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
   });
   const [saving, setSaving] = useState(false);
+  const formRef = useRef(form);
+  formRef.current = form;
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
+
+  // Auto-save: called on blur (text inputs) or immediately (toggles/selects)
+  const autoSave = useCallback(() => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      const f = formRef.current;
+      setSaving(true);
+      try {
+        const base = device.displayConfig ?? emptyDisplayConfig();
+        const displayConfig: Device['displayConfig'] = {
+          ...base,
+          hideCpu: f.hideCpu, hideMemory: f.hideMemory, hideDisk: f.hideDisk,
+          hideNetwork: f.hideNetwork, hideTemps: f.hideTemps, hideGpu: f.hideGpu,
+          cpu:    { ...(base.cpu    ?? { hiddenCores: [], hiddenCharts: [], tempSensor: null }), groupCoreThreads: f.cpuGroupCoreThreads },
+          ram:    { ...(base.ram    ?? { hideUsed: false, hideFree: false, hiddenCharts: [] }), hideSwap: f.ramHideSwap },
+          drives: { ...(base.drives ?? { hiddenMounts: [], renames: {} }), combineReadWrite: f.driveCombineReadWrite },
+          network:{ ...(base.network?? { hiddenInterfaces: [], renames: {} }), combineInOut: f.networkCombineInOut },
+        };
+        await deviceApi.update(device.id, {
+          displayName: f.displayName || undefined,
+          description: f.description || undefined,
+          tags: f.tags, customFields: f.customFields,
+          overrideGroupSettings: f.overrideGroupSettings,
+          pushIntervalSeconds: f.overrideGroupSettings ? (f.pushIntervalSeconds ?? null) : null,
+          scanIntervalSeconds: f.overrideGroupSettings ? (f.scanIntervalSeconds ?? null) : null,
+          maxMissedPushes: f.maxMissedPushes,
+          notificationTypes: { online: f.notifOnline, offline: f.notifOffline, warning: f.notifWarning, critical: f.notifCritical, update: f.notifUpdate },
+          displayConfig, sensorDisplayNames: f.sensorDisplayNames,
+          complianceRemediationEnabled: f.complianceRemediationEnabled,
+        });
+        onSaved();
+      } catch {
+        toast.error('Failed to save settings');
+      } finally {
+        setSaving(false);
+      }
+    }, 300);
+  }, [device, onSaved]);
+
+  // For toggles: set + auto-save immediately
+  const setAndSave = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+    // Need a microtask so formRef picks up the new value
+    setTimeout(() => autoSave(), 0);
+  };
 
   // Tags
   const addTag = () => {
     const t = form.tagInput.trim();
     if (!t || form.tags.includes(t)) return;
-    set('tags', [...form.tags, t]);
-    set('tagInput', '');
+    setForm(prev => ({ ...prev, tags: [...prev.tags, t], tagInput: '' }));
+    setTimeout(() => autoSave(), 0);
   };
-  const removeTag = (t: string) => set('tags', form.tags.filter(x => x !== t));
+  const removeTag = (t: string) => {
+    setForm(prev => ({ ...prev, tags: prev.tags.filter(x => x !== t) }));
+    setTimeout(() => autoSave(), 0);
+  };
 
   // Custom fields
   const addCf = () => {
     const k = form.cfKey.trim(), v = form.cfValue.trim();
     if (!k) return;
-    set('customFields', { ...form.customFields, [k]: v });
-    set('cfKey', ''); set('cfValue', '');
+    setForm(prev => ({ ...prev, customFields: { ...prev.customFields, [k]: v }, cfKey: '', cfValue: '' }));
+    setTimeout(() => autoSave(), 0);
   };
   const removeCf = (k: string) => {
-    const next = { ...form.customFields }; delete next[k]; set('customFields', next);
+    setForm(prev => { const next = { ...prev.customFields }; delete next[k]; return { ...prev, customFields: next }; });
+    setTimeout(() => autoSave(), 0);
   };
 
   // Sensor renames
   const addSensor = () => {
     const k = form.sensorKey.trim(), v = form.sensorValue.trim();
     if (!k) return;
-    set('sensorDisplayNames', { ...form.sensorDisplayNames, [k]: v });
-    set('sensorKey', ''); set('sensorValue', '');
+    setForm(prev => ({ ...prev, sensorDisplayNames: { ...prev.sensorDisplayNames, [k]: v }, sensorKey: '', sensorValue: '' }));
+    setTimeout(() => autoSave(), 0);
   };
   const removeSensor = (k: string) => {
-    const next = { ...form.sensorDisplayNames }; delete next[k]; set('sensorDisplayNames', next);
+    setForm(prev => { const next = { ...prev.sensorDisplayNames }; delete next[k]; return { ...prev, sensorDisplayNames: next }; });
+    setTimeout(() => autoSave(), 0);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const base = device.displayConfig ?? emptyDisplayConfig();
-      const displayConfig: Device['displayConfig'] = {
-        ...base,
-        hideCpu:     form.hideCpu,
-        hideMemory:  form.hideMemory,
-        hideDisk:    form.hideDisk,
-        hideNetwork: form.hideNetwork,
-        hideTemps:   form.hideTemps,
-        hideGpu:     form.hideGpu,
-        cpu:    { ...(base.cpu    ?? { hiddenCores: [], hiddenCharts: [], tempSensor: null }), groupCoreThreads: form.cpuGroupCoreThreads },
-        ram:    { ...(base.ram    ?? { hideUsed: false, hideFree: false, hiddenCharts: [] }), hideSwap: form.ramHideSwap },
-        drives: { ...(base.drives ?? { hiddenMounts: [], renames: {} }), combineReadWrite: form.driveCombineReadWrite },
-        network:{ ...(base.network?? { hiddenInterfaces: [], renames: {} }), combineInOut: form.networkCombineInOut },
-      };
-      await deviceApi.update(device.id, {
-        displayName:   form.displayName || undefined,
-        description:   form.description || undefined,
-        tags:          form.tags,
-        customFields:  form.customFields,
-        overrideGroupSettings: form.overrideGroupSettings,
-        pushIntervalSeconds:   form.overrideGroupSettings ? (form.pushIntervalSeconds ?? null) : null,
-        scanIntervalSeconds:   form.overrideGroupSettings ? (form.scanIntervalSeconds ?? null) : null,
-        maxMissedPushes:       form.maxMissedPushes,
-        notificationTypes: {
-          online:   form.notifOnline,
-          offline:  form.notifOffline,
-          warning:  form.notifWarning,
-          critical: form.notifCritical,
-          update:   form.notifUpdate,
-        },
-        displayConfig,
-        sensorDisplayNames: form.sensorDisplayNames,
-        complianceRemediationEnabled: form.complianceRemediationEnabled,
-      });
-      toast.success('Settings saved');
-      onSaved();
-    } catch {
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
+  // handleSave kept as alias for autoSave (for any remaining references)
+  const handleSave = () => autoSave();
 
   const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
   const cardCls  = 'p-5 bg-bg-secondary border border-border rounded-xl space-y-4';
@@ -1657,12 +1667,12 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
           <label className="block">
             <span className="text-xs text-text-muted mb-1 block">Display name</span>
             <input type="text" value={form.displayName} onChange={e => set('displayName', e.target.value)}
-              placeholder={device.hostname} className={inputCls} />
+              onBlur={autoSave} placeholder={device.hostname} className={inputCls} />
           </label>
           <label className="block">
             <span className="text-xs text-text-muted mb-1 block">Description</span>
             <textarea value={form.description} onChange={e => set('description', e.target.value)}
-              rows={2} className={`${inputCls} resize-none`} />
+              onBlur={autoSave} rows={2} className={`${inputCls} resize-none`} />
           </label>
         </div>
       </div>
@@ -1723,7 +1733,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         <h3 className={headCls}>Monitoring</h3>
         <ToggleRow label="Override group settings"
           description="Apply per-device values instead of group / global defaults"
-          value={form.overrideGroupSettings} onChange={v => set('overrideGroupSettings', v)} />
+          value={form.overrideGroupSettings} onChange={v => setAndSave('overrideGroupSettings', v)} />
         {form.overrideGroupSettings && (
           <div className="space-y-3 pt-3 border-t border-border">
             <label className="block">
@@ -1731,21 +1741,21 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
               <input type="number" min={1} max={3600}
                 value={form.pushIntervalSeconds ?? ''}
                 onChange={e => set('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
-                placeholder="60" className={inputCls} />
+                onBlur={autoSave} placeholder="60" className={inputCls} />
             </label>
             <label className="block">
               <span className="text-xs text-text-muted mb-1 block">Scan interval (seconds) — 0 = disabled</span>
               <input type="number" min={0} max={86400}
                 value={form.scanIntervalSeconds ?? ''}
                 onChange={e => set('scanIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
-                placeholder="Inherit from group/global" className={inputCls} />
+                onBlur={autoSave} placeholder="Inherit from group/global" className={inputCls} />
             </label>
             <label className="block">
               <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
               <input type="number" min={1} max={30}
                 value={form.maxMissedPushes}
                 onChange={e => set('maxMissedPushes', parseInt(e.target.value) || 3)}
-                className={inputCls} />
+                onBlur={autoSave} className={inputCls} />
             </label>
           </div>
         )}
@@ -1755,11 +1765,11 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
       <div className={cardCls}>
         <h3 className={headCls}>Notifications</h3>
         <div className="space-y-3">
-          <ToggleRow label="Device comes online"  value={form.notifOnline}   onChange={v => set('notifOnline', v)} />
-          <ToggleRow label="Device goes offline"  value={form.notifOffline}  onChange={v => set('notifOffline', v)} />
-          <ToggleRow label="Warning state"        value={form.notifWarning}  onChange={v => set('notifWarning', v)} />
-          <ToggleRow label="Critical state"       value={form.notifCritical} onChange={v => set('notifCritical', v)} />
-          <ToggleRow label="Updates available"    value={form.notifUpdate}   onChange={v => set('notifUpdate', v)} />
+          <ToggleRow label="Device comes online"  value={form.notifOnline}   onChange={v => setAndSave('notifOnline', v)} />
+          <ToggleRow label="Device goes offline"  value={form.notifOffline}  onChange={v => setAndSave('notifOffline', v)} />
+          <ToggleRow label="Warning state"        value={form.notifWarning}  onChange={v => setAndSave('notifWarning', v)} />
+          <ToggleRow label="Critical state"       value={form.notifCritical} onChange={v => setAndSave('notifCritical', v)} />
+          <ToggleRow label="Updates available"    value={form.notifUpdate}   onChange={v => setAndSave('notifUpdate', v)} />
         </div>
       </div>
 
@@ -1771,37 +1781,37 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         <div className="space-y-3">
           <p className="text-xs font-semibold text-text-muted uppercase tracking-wide pt-1">Section visibility</p>
           <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-            <ToggleRow label="Hide CPU"     value={form.hideCpu}     onChange={v => set('hideCpu', v)} />
-            <ToggleRow label="Hide Memory"  value={form.hideMemory}  onChange={v => set('hideMemory', v)} />
-            <ToggleRow label="Hide Disk"    value={form.hideDisk}    onChange={v => set('hideDisk', v)} />
-            <ToggleRow label="Hide Network" value={form.hideNetwork} onChange={v => set('hideNetwork', v)} />
-            <ToggleRow label="Hide Temps"   value={form.hideTemps}   onChange={v => set('hideTemps', v)} />
-            <ToggleRow label="Hide GPU"     value={form.hideGpu}     onChange={v => set('hideGpu', v)} />
+            <ToggleRow label="Hide CPU"     value={form.hideCpu}     onChange={v => setAndSave('hideCpu', v)} />
+            <ToggleRow label="Hide Memory"  value={form.hideMemory}  onChange={v => setAndSave('hideMemory', v)} />
+            <ToggleRow label="Hide Disk"    value={form.hideDisk}    onChange={v => setAndSave('hideDisk', v)} />
+            <ToggleRow label="Hide Network" value={form.hideNetwork} onChange={v => setAndSave('hideNetwork', v)} />
+            <ToggleRow label="Hide Temps"   value={form.hideTemps}   onChange={v => setAndSave('hideTemps', v)} />
+            <ToggleRow label="Hide GPU"     value={form.hideGpu}     onChange={v => setAndSave('hideGpu', v)} />
           </div>
 
           <div className="pt-2 border-t border-border space-y-3">
             <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">CPU</p>
             <ToggleRow label="Group core threads" description="Pair hyper-threaded cores together in charts"
-              value={form.cpuGroupCoreThreads} onChange={v => set('cpuGroupCoreThreads', v)} />
+              value={form.cpuGroupCoreThreads} onChange={v => setAndSave('cpuGroupCoreThreads', v)} />
           </div>
 
           <div className="pt-2 border-t border-border space-y-3">
             <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">RAM</p>
-            <ToggleRow label="Hide swap" value={form.ramHideSwap} onChange={v => set('ramHideSwap', v)} />
+            <ToggleRow label="Hide swap" value={form.ramHideSwap} onChange={v => setAndSave('ramHideSwap', v)} />
           </div>
 
           <div className="pt-2 border-t border-border space-y-3">
             <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Drives</p>
             <ToggleRow label="Combine read/write chart"
               description="Show a single combined I/O chart instead of separate read and write"
-              value={form.driveCombineReadWrite} onChange={v => set('driveCombineReadWrite', v)} />
+              value={form.driveCombineReadWrite} onChange={v => setAndSave('driveCombineReadWrite', v)} />
           </div>
 
           <div className="pt-2 border-t border-border space-y-3">
             <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Network</p>
             <ToggleRow label="Combine in/out chart"
               description="Show a single combined bandwidth chart instead of separate upload and download"
-              value={form.networkCombineInOut} onChange={v => set('networkCombineInOut', v)} />
+              value={form.networkCombineInOut} onChange={v => setAndSave('networkCombineInOut', v)} />
           </div>
         </div>
       </div>
@@ -1841,7 +1851,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         <ToggleRow label="Auto-remediation"
           description="Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off)."
           value={form.complianceRemediationEnabled}
-          onChange={v => set('complianceRemediationEnabled', v)} />
+          onChange={v => setAndSave('complianceRemediationEnabled', v)} />
         {!form.complianceRemediationEnabled && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1850,14 +1860,13 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         )}
       </div>
 
-      {/* ── Save ── */}
-      <div className="flex justify-end">
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save settings
-        </button>
-      </div>
+      {/* ── Auto-save indicator ── */}
+      {saving && (
+        <div className="flex items-center gap-2 justify-end text-xs text-text-muted">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Saving…
+        </div>
+      )}
 
       {/* ── Danger Zone ── */}
       {adminMode && (
@@ -3668,9 +3677,9 @@ export function DeviceDetailPage() {
         </div>
       )}
 
-      {/* Chat panel — slides in from the right */}
+      {/* Chat panel — floating bottom-right */}
       {chatOpen && (
-        <div className="fixed right-0 top-0 bottom-0 z-[60] shadow-2xl">
+        <div className="fixed right-4 bottom-4 z-[60] shadow-2xl rounded-2xl overflow-hidden" style={{ maxHeight: 'calc(100vh - 100px)' }}>
           <ChatPanel
             deviceUuid={device.uuid}
             sessionId={chatSessionId}
