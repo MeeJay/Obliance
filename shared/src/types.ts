@@ -834,6 +834,17 @@ export interface BiosInfo {
   date: string | null;
 }
 
+export interface TpmInfo {
+  present: boolean;
+  manufacturerName?: string;
+  version?: string;
+  specVersion?: string;
+  status?: string;
+  activated?: boolean;
+  enabled?: boolean;
+  owned?: boolean;
+}
+
 export interface BitLockerVolume {
   driveLetter: string;
   status: string;              // FullyEncrypted, FullyDecrypted, EncryptionInProgress, DecryptionInProgress, etc.
@@ -870,6 +881,7 @@ export interface HardwareInventory {
   gpu: GpuInfo[];
   motherboard: MotherboardInfo;
   bios: BiosInfo;
+  tpm?: TpmInfo;
   os?: OSDetailsInfo;
   battery?: BatteryHealth;
   bitlocker?: BitLockerVolume[];

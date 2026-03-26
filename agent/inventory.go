@@ -68,6 +68,17 @@ type MotherboardInfo struct {
 	Serial       string `json:"serial,omitempty"`
 }
 
+type TpmInfo struct {
+	Present          bool   `json:"present"`
+	ManufacturerName string `json:"manufacturerName,omitempty"`
+	Version          string `json:"version,omitempty"`     // "2.0", "1.2"
+	SpecVersion      string `json:"specVersion,omitempty"` // "2.0, 0, 1.59"
+	Status           string `json:"status,omitempty"`      // Ready, NotReady, Disabled
+	Activated        bool   `json:"activated"`
+	Enabled          bool   `json:"enabled"`
+	Owned            bool   `json:"owned"`
+}
+
 type BiosInfo struct {
 	Vendor  string `json:"vendor,omitempty"`
 	Version string `json:"version,omitempty"`
@@ -119,6 +130,7 @@ type InventoryData struct {
 	GPU         []GpuInfo              `json:"gpu"`
 	Motherboard MotherboardInfo        `json:"motherboard"`
 	BIOS        BiosInfo               `json:"bios"`
+	TPM         *TpmInfo               `json:"tpm,omitempty"`
 	OS          OSDetails              `json:"os"`
 	Battery     *BatteryInfo           `json:"battery,omitempty"`
 	Software    []SoftwareEntry        `json:"software,omitempty"`
@@ -318,6 +330,23 @@ if ($bat) {
   }
 }
 
+# TPM
+$tpm = try { Get-CimInstance -Namespace root/cimv2/Security/MicrosoftTpm -ClassName Win32_Tpm -ErrorAction Stop | Select-Object -First 1 } catch { $null }
+if ($tpm) {
+  $result['tpm'] = @{
+    present          = $true
+    manufacturerName = if($tpm.ManufacturerIdTxt){$tpm.ManufacturerIdTxt}else{''}
+    version          = if($tpm.PhysicalPresenceVersionInfo){$tpm.PhysicalPresenceVersionInfo}else{''}
+    specVersion      = if($tpm.SpecVersion){$tpm.SpecVersion}else{''}
+    status           = if($tpm.IsActivated_InitialValue -and $tpm.IsEnabled_InitialValue){'Ready'}elseif($tpm.IsEnabled_InitialValue){'NotReady'}else{'Disabled'}
+    activated        = [bool]$tpm.IsActivated_InitialValue
+    enabled          = [bool]$tpm.IsEnabled_InitialValue
+    owned            = [bool]$tpm.IsOwned_InitialValue
+  }
+} else {
+  $result['tpm'] = @{ present = $false }
+}
+
 $result | ConvertTo-Json -Depth 5 -Compress`
 
 	out, err := runPS(script)
@@ -432,6 +461,31 @@ $result | ConvertTo-Json -Depth 5 -Compress`
 			Version: stringField(bios, "version"),
 			Date:    stringField(bios, "date"),
 		}
+	}
+
+	// TPM
+	if tpm, ok := raw["tpm"].(map[string]interface{}); ok {
+		present := false
+		if v, ok := tpm["present"].(bool); ok {
+			present = v
+		}
+		info := &TpmInfo{Present: present}
+		if present {
+			info.ManufacturerName = stringField(tpm, "manufacturerName")
+			info.Version = stringField(tpm, "version")
+			info.SpecVersion = stringField(tpm, "specVersion")
+			info.Status = stringField(tpm, "status")
+			if v, ok := tpm["activated"].(bool); ok {
+				info.Activated = v
+			}
+			if v, ok := tpm["enabled"].(bool); ok {
+				info.Enabled = v
+			}
+			if v, ok := tpm["owned"].(bool); ok {
+				info.Owned = v
+			}
+		}
+		inv.TPM = info
 	}
 
 	// OS Details

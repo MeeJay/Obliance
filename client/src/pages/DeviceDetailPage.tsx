@@ -411,6 +411,10 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
                   ['Revision', hardware.motherboard?.version ?? null],
                   ['BIOS', hardware.bios?.vendor ? `${hardware.bios.vendor}${hardware.bios.version ? ` · ${hardware.bios.version}` : ''}` : null],
                   ['BIOS Date', hardware.bios?.date ?? null],
+                  ['Serial', hardware.motherboard?.serial ?? null],
+                  ['TPM', hardware.tpm?.present
+                    ? `${hardware.tpm.version || hardware.tpm.specVersion || 'Present'} — ${hardware.tpm.status ?? 'Unknown'}${hardware.tpm.manufacturerName ? ` (${hardware.tpm.manufacturerName})` : ''}`
+                    : hardware.tpm ? 'Not present' : null],
                 ].filter(([, v]) => v).map(([k, v]) => (
                   <div key={k as string} className="flex justify-between text-sm">
                     <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
