@@ -527,7 +527,9 @@ export interface ScriptSchedule {
   lastRunAt: string | null;
   nextRunAt: string | null;
   createdBy: number | null;
+  createdByName?: string | null;
   updatedBy: number | null;
+  updatedByName?: string | null;
   createdAt: string;
   updatedAt: string;
   script?: Script;

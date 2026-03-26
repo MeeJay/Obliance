@@ -33,10 +33,21 @@ function rowToSchedule(row: any) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const rows = await db('script_schedules')
-      .where({ tenant_id: req.tenantId! })
-      .orderBy('name');
-    res.json({ data: rows.map(rowToSchedule) });
+    const rows = await db('script_schedules as ss')
+      .leftJoin('users as uc', 'uc.id', 'ss.created_by')
+      .leftJoin('users as uu', 'uu.id', 'ss.updated_by')
+      .where({ 'ss.tenant_id': req.tenantId! })
+      .select(
+        'ss.*',
+        db.raw("COALESCE(uc.display_name, uc.username) as created_by_name"),
+        db.raw("COALESCE(uu.display_name, uu.username) as updated_by_name"),
+      )
+      .orderBy('ss.name');
+    res.json({ data: rows.map((row: any) => ({
+      ...rowToSchedule(row),
+      createdByName: row.created_by_name ?? null,
+      updatedByName: row.updated_by_name ?? null,
+    })) });
   } catch (err) { next(err); }
 });
 
@@ -70,7 +81,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 
 router.patch('/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    const updates: any = { updated_at: new Date() };
+    const updates: any = { updated_at: new Date(), updated_by: req.session.userId };
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
     if (req.body.cronExpression !== undefined) updates.cron_expression = req.body.cronExpression;

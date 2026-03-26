@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus } from 'lucide-react';
+import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
@@ -460,6 +460,17 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                         <Clock className="w-3 h-3" />
                         {schedule.cronExpression ?? 'One-time'}
                       </span>
+                      {schedule.createdByName && (
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {schedule.createdByName}
+                        </span>
+                      )}
+                      {schedule.updatedByName && schedule.updatedBy !== schedule.createdBy && (
+                        <span className="text-text-muted/60">
+                          (edited by {schedule.updatedByName})
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
