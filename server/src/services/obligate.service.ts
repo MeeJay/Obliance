@@ -204,13 +204,14 @@ export const obligateService = {
 
       const { success, data } = await res.json() as { success: boolean; data?: {
         preferredTheme?: string; toastEnabled?: boolean; toastPosition?: string;
-        preferredLanguage?: string; anonymousMode?: boolean;
+        preferredLanguage?: string; anonymousMode?: boolean; profilePhotoUrl?: string | null;
       } };
       if (!success || !data) return;
 
-      // Sync language column
+      // Sync language + avatar columns
       const colUpdate: Record<string, unknown> = {};
       if (data.preferredLanguage) colUpdate.preferred_language = data.preferredLanguage;
+      if (data.profilePhotoUrl !== undefined) colUpdate.avatar = data.profilePhotoUrl;
       if (Object.keys(colUpdate).length > 0) {
         await db('users').where({ id: localUserId }).update(colUpdate);
       }

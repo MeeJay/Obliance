@@ -89,6 +89,7 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
   if (assertion.preferences) {
     const prefUpdate: Record<string, unknown> = {};
     if (assertion.preferences.preferredLanguage) prefUpdate.preferred_language = assertion.preferences.preferredLanguage;
+    if (assertion.preferences.profilePhotoUrl !== undefined) prefUpdate.avatar = assertion.preferences.profilePhotoUrl;
     if (Object.keys(prefUpdate).length > 0) {
       await db('users').where({ id: localUserId }).update(prefUpdate);
     }

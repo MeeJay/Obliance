@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor, CheckSquare, Square } from 'lucide-react';
+import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor, CheckSquare, Square, ChevronRight, Check, Minus, FolderOpen } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
+import { groupsApi } from '@/api/groups.api';
+import type { DeviceGroupTreeNode } from '@obliance/shared';
 import type { UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
@@ -28,8 +30,9 @@ const REBOOT_OPTIONS: { value: RebootBehavior; label: string }[] = [
 interface PolicyFormData {
   name: string;
   description: string;
-  targetType: 'device' | 'group' | 'all';
+  targetType: 'group' | 'all';
   targetId: number | null;
+  targetIds: number[];
   autoApproveCritical: boolean;
   autoApproveSecurity: boolean;
   autoApproveOptional: boolean;
@@ -47,6 +50,7 @@ const defaultPolicyForm: PolicyFormData = {
   description: '',
   targetType: 'all',
   targetId: null,
+  targetIds: [],
   autoApproveCritical: false,
   autoApproveSecurity: false,
   autoApproveOptional: false,
@@ -188,8 +192,9 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
     setPolicyForm({
       name: policy.name,
       description: policy.description ?? '',
-      targetType: policy.targetType,
+      targetType: policy.targetType === 'device' ? 'all' : policy.targetType as 'all' | 'group',
       targetId: policy.targetId,
+      targetIds: policy.targetId ? [policy.targetId] : [],
       autoApproveCritical: policy.autoApproveCritical,
       autoApproveSecurity: policy.autoApproveSecurity,
       autoApproveOptional: policy.autoApproveOptional,
@@ -213,7 +218,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
         name: policyForm.name,
         description: policyForm.description || null,
         targetType: policyForm.targetType,
-        targetId: policyForm.targetId,
+        targetId: policyForm.targetType === 'group' && policyForm.targetIds.length > 0 ? policyForm.targetIds[0] : null,
         autoApproveCritical: policyForm.autoApproveCritical,
         autoApproveSecurity: policyForm.autoApproveSecurity,
         autoApproveOptional: policyForm.autoApproveOptional,
@@ -543,16 +548,27 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.target')}</label>
-                  <select
-                    value={policyForm.targetType}
-                    onChange={(e) => setPolicyForm({ ...policyForm, targetType: e.target.value as 'device' | 'group' | 'all' })}
-                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                  >
-                    <option value="all">{t('updates.policy.allDevices')}</option>
-                    <option value="group">{t('updates.policy.deviceGroup')}</option>
-                    <option value="device">{t('updates.policy.specificDevice')}</option>
-                  </select>
+                  <div className="flex gap-2">
+                    {(['all', 'group'] as const).map((tt) => (
+                      <button key={tt} type="button"
+                        onClick={() => setPolicyForm({ ...policyForm, targetType: tt, targetIds: [] })}
+                        className={clsx('flex-1 py-2 text-sm rounded-lg border transition-colors',
+                          policyForm.targetType === tt ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                        )}>
+                        {tt === 'all' ? t('updates.policy.allDevices') : t('updates.policy.deviceGroup')}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                {policyForm.targetType === 'group' && (
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-medium text-text-muted uppercase">Groups</label>
+                    <UpdatePolicyGroupTree
+                      selectedIds={policyForm.targetIds}
+                      onChange={(ids) => setPolicyForm({ ...policyForm, targetIds: ids })}
+                    />
+                  </div>
+                )}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.installWindowStart')}</label>
                   <input
@@ -687,6 +703,99 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Group Tree Multi-Select for Update Policies ──────────────────────────────
+
+function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    groupsApi.tree().then((t) => {
+      setTree(t);
+      const all = new Set<number>();
+      const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
+      walk(t);
+      setExpanded(all);
+    }).catch(() => {});
+  }, []);
+
+  const getDescendantIds = (node: DeviceGroupTreeNode): number[] => {
+    const ids: number[] = [];
+    for (const c of node.children) { ids.push(c.id, ...getDescendantIds(c)); }
+    return ids;
+  };
+
+  const selected = new Set(selectedIds);
+
+  const getCheckState = (node: DeviceGroupTreeNode): 'all' | 'some' | 'none' => {
+    const descendants = getDescendantIds(node);
+    const selfSelected = selected.has(node.id);
+    if (descendants.length === 0) return selfSelected ? 'all' : 'none';
+    const allIds = [node.id, ...descendants];
+    const selectedCount = allIds.filter(id => selected.has(id)).length;
+    if (selectedCount === allIds.length) return 'all';
+    if (selectedCount > 0) return 'some';
+    return 'none';
+  };
+
+  const toggleNode = (node: DeviceGroupTreeNode) => {
+    const descendants = getDescendantIds(node);
+    const allIds = [node.id, ...descendants];
+    const state = getCheckState(node);
+    let next: Set<number>;
+    if (state === 'all') {
+      next = new Set(selectedIds.filter(id => !allIds.includes(id)));
+    } else {
+      next = new Set([...selectedIds, ...allIds]);
+    }
+    onChange(Array.from(next));
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpanded(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
+  const renderNode = (node: DeviceGroupTreeNode, depth: number): React.ReactNode => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = expanded.has(node.id);
+    const state = getCheckState(node);
+    const count = node.total ?? node.deviceCount ?? 0;
+
+    return (
+      <div key={node.id}>
+        <div className={clsx('flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover', state === 'all' && 'bg-accent/5')}
+          style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}>
+          <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
+            className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}>
+            <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+          </button>
+          <button type="button" onClick={() => toggleNode(node)}
+            className={clsx('w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+              state === 'all' ? 'bg-accent border-accent text-white' :
+              state === 'some' ? 'bg-accent/30 border-accent text-white' :
+              'border-border hover:border-accent/50')}>
+            {state === 'all' && <Check className="w-3 h-3" />}
+            {state === 'some' && <Minus className="w-3 h-3" />}
+          </button>
+          <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', state !== 'none' ? 'text-accent' : 'text-text-muted')} />
+          <span className={clsx('flex-1 text-sm truncate cursor-pointer', state !== 'none' ? 'text-text-primary font-medium' : 'text-text-primary')}
+            onClick={() => toggleNode(node)}>{node.name}</span>
+          <span className="text-text-muted text-[10px] shrink-0">{count}</span>
+        </div>
+        {hasChildren && isExpanded && node.children.map((c: DeviceGroupTreeNode) => renderNode(c, depth + 1))}
+      </div>
+    );
+  };
+
+  if (tree.length === 0) return <p className="text-sm text-text-muted py-2">No groups available</p>;
+
+  return (
+    <div className="rounded-lg border border-border bg-bg-tertiary max-h-60 overflow-y-auto py-1">
+      {tree.map(n => renderNode(n, 0))}
     </div>
   );
 }
