@@ -4,6 +4,7 @@ import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
 import { clsx } from 'clsx';
+import { anonymize, anonymizeIp } from '@/utils/anonymize';
 
 interface DeviceRowProps {
   device: Device;
@@ -133,8 +134,8 @@ export const DeviceRow = memo(function DeviceRow({
 
         <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted flex-shrink-0" />
 
-        <span className="text-sm font-semibold text-text-primary truncate max-w-[200px]" title={displayLabel}>
-          {displayLabel}
+        <span className="text-sm font-semibold text-text-primary truncate max-w-[200px]" title={anonymize(displayLabel)}>
+          {anonymize(displayLabel)}
         </span>
 
         {visibleTags.map((tag) => (
@@ -185,7 +186,7 @@ export const DeviceRow = memo(function DeviceRow({
 
       {/* Line 2 */}
       <div className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset)}>
-        <span className="font-mono truncate max-w-[120px]">{device.ipLocal || device.ipPublic || '\u2014'}</span>
+        <span className="font-mono truncate max-w-[120px]">{anonymizeIp(device.ipLocal || device.ipPublic) || '\u2014'}</span>
         <span className="text-text-muted/50">&middot;</span>
         <span className="truncate max-w-[180px]">{osFullText || '\u2014'}</span>
         <span className="text-text-muted/50">&middot;</span>
@@ -198,7 +199,7 @@ export const DeviceRow = memo(function DeviceRow({
               onClick={handleGroupClick}
               className="hover:text-accent transition-colors"
             >
-              {device.groupName}
+              {anonymize(device.groupName)}
             </button>
           ) : (
             <span>{'\u2014'}</span>
@@ -207,14 +208,14 @@ export const DeviceRow = memo(function DeviceRow({
         <span className="text-text-muted/50">&middot;</span>
         <span className="inline-flex items-center gap-1">
           <User className="w-3 h-3" />
-          <span className="truncate max-w-[100px]">{device.lastLoggedInUser || '\u2014'}</span>
+          <span className="truncate max-w-[100px]">{anonymize(device.lastLoggedInUser) || '\u2014'}</span>
         </span>
         {device.geoCity && (
           <>
             <span className="text-text-muted/50">&middot;</span>
             <span className="inline-flex items-center gap-1">
               <MapPin className="w-3 h-3" />
-              <span className="truncate max-w-[120px]">{device.geoCity}{device.geoCountry ? `, ${device.geoCountry}` : ''}</span>
+              <span className="truncate max-w-[120px]">{anonymize(device.geoCity)}{device.geoCountry ? `, ${anonymize(device.geoCountry)}` : ''}</span>
             </span>
           </>
         )}
