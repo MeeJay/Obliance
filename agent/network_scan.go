@@ -1266,7 +1266,6 @@ var ouiDB = map[string]ouiEntry{
 	"00:08:21": {"Cisco", "network"},
 	"00:08:2F": {"Cisco", "network"},
 	"00:08:30": {"Cisco", "network"},
-	"00:08:31": {"Cisco", "network"},
 	"00:08:7C": {"Cisco", "network"},
 	"00:08:7D": {"Cisco", "network"},
 	"00:08:A3": {"Cisco", "network"},
