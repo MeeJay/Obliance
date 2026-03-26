@@ -3,7 +3,7 @@ import { X, Send, Shield, Paperclip, Minus, Volume2, VolumeX, MessageCircle } fr
 import { clsx } from 'clsx';
 import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
-import { useChatStore, type ChatSession, type ChatMessage } from '@/store/chatStore';
+import { useChatStore, type ChatSession } from '@/store/chatStore';
 
 // ── Audio ──────────────────────────────────────────────────────────────────────
 let audioCtx: AudioContext | null = null;
