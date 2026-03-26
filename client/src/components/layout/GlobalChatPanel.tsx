@@ -84,7 +84,6 @@ function ChatTabContent({ session }: { session: ChatSession }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const store = useChatStore;
-  const soundEnabled = useChatStore(s => s.soundEnabled);
   // Reactive auth reads (re-render when avatar/name change)
   const operatorAvatar = useAuthStore(s => s.user?.avatar ?? null);
   const operatorName = useAuthStore(s => s.user?.displayName || s.user?.username || 'Operator');
