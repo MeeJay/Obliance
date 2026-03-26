@@ -67,6 +67,13 @@ router.post('/policies', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.patch('/policies/:id', requireRole('admin'), async (req, res, next) => {
+  try {
+    const policy = await updateService.updatePolicy(parseInt(req.params.id), req.tenantId!, req.body);
+    res.json({ data: policy });
+  } catch (err) { next(err); }
+});
+
 router.delete('/policies/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await updateService.deletePolicy(parseInt(req.params.id), req.tenantId!);

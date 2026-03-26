@@ -211,6 +211,30 @@ class UpdateService {
     return this.rowToPolicy(row);
   }
 
+  async updatePolicy(id: number, tenantId: number, data: Partial<UpdatePolicy>) {
+    const updates: Record<string, any> = { updated_at: new Date() };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.description !== undefined) updates.description = data.description;
+    if (data.targetType !== undefined) updates.target_type = data.targetType;
+    if (data.targetId !== undefined) updates.target_id = data.targetId;
+    if (data.autoApproveCritical !== undefined) updates.auto_approve_critical = data.autoApproveCritical;
+    if (data.autoApproveSecurity !== undefined) updates.auto_approve_security = data.autoApproveSecurity;
+    if (data.autoApproveOptional !== undefined) updates.auto_approve_optional = data.autoApproveOptional;
+    if (data.approvalRequired !== undefined) updates.approval_required = data.approvalRequired;
+    if (data.installWindowStart !== undefined) updates.install_window_start = data.installWindowStart;
+    if (data.installWindowEnd !== undefined) updates.install_window_end = data.installWindowEnd;
+    if (data.installWindowDays !== undefined) updates.install_window_days = JSON.stringify(data.installWindowDays);
+    if (data.timezone !== undefined) updates.timezone = data.timezone;
+    if (data.rebootBehavior !== undefined) updates.reboot_behavior = data.rebootBehavior;
+    if (data.rebootDelayMinutes !== undefined) updates.reboot_delay_minutes = data.rebootDelayMinutes;
+    if (data.excludedUpdateIds !== undefined) updates.excluded_update_ids = JSON.stringify(data.excludedUpdateIds);
+    if (data.excludedCategories !== undefined) updates.excluded_categories = JSON.stringify(data.excludedCategories);
+    if (data.enabled !== undefined) updates.enabled = data.enabled;
+    const [row] = await db('update_policies').where({ id, tenant_id: tenantId }).update(updates).returning('*');
+    if (!row) throw Object.assign(new Error('Policy not found'), { status: 404 });
+    return this.rowToPolicy(row);
+  }
+
   async deletePolicy(id: number, tenantId: number) {
     await db('update_policies').where({ id, tenant_id: tenantId }).delete();
   }
