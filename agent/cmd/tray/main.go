@@ -78,12 +78,19 @@ func readAgentVersion() string {
 }
 
 func readOblireachVersion() string {
-	// Try to read version from Oblireach agent config
-	var reachDir string
+	// Oblireach stores its data in ProgramData\OblireachAgent (Windows)
+	// or /etc/oblireach-agent (Linux/macOS).
+	var reachDataDir, reachBinDir string
 	if runtime.GOOS == "windows" {
-		reachDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
+		programData := os.Getenv("PROGRAMDATA")
+		if programData == "" {
+			programData = `C:\ProgramData`
+		}
+		reachDataDir = filepath.Join(programData, "OblireachAgent")
+		reachBinDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
 	} else {
-		reachDir = "/etc/oblireach-agent"
+		reachDataDir = "/etc/oblireach-agent"
+		reachBinDir = "/etc/oblireach-agent"
 	}
 
 	// Check if the binary exists
@@ -91,27 +98,22 @@ func readOblireachVersion() string {
 	if runtime.GOOS == "windows" {
 		exeName = "oblireach-agent.exe"
 	}
-	exePath := filepath.Join(reachDir, exeName)
-	if _, err := os.Stat(exePath); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(reachBinDir, exeName)); os.IsNotExist(err) {
 		return "" // not installed
 	}
 
-	// Try to read version from config.json
-	cfgPath := filepath.Join(reachDir, "config.json")
-	if data, err := os.ReadFile(cfgPath); err == nil {
-		var cfg struct {
-			AgentVersion string `json:"agentVersion"`
-		}
-		json.Unmarshal(data, &cfg)
-		if cfg.AgentVersion != "" {
-			return cfg.AgentVersion
+	// Primary: read version.txt written by the agent on startup
+	if data, err := os.ReadFile(filepath.Join(reachDataDir, "version.txt")); err == nil {
+		v := strings.TrimSpace(string(data))
+		if v != "" && v != "dev" {
+			return v
 		}
 	}
 
-	// Fallback: try to get version from the binary
-	if out, err := exec.Command(exePath, "--version").Output(); err == nil {
-		v := strings.TrimSpace(string(out))
-		if v != "" {
+	// Fallback: read VERSION file next to the binary (MSI installs it)
+	if data, err := os.ReadFile(filepath.Join(reachBinDir, "VERSION")); err == nil {
+		v := strings.TrimSpace(string(data))
+		if v != "" && v != "dev" {
 			return v
 		}
 	}
