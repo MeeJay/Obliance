@@ -402,9 +402,9 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
             </div>
           )}
           {/* Motherboard & BIOS */}
-          {(hardware.motherboard?.manufacturer || hardware.motherboard?.model || hardware.bios?.vendor) && (
+          {(hardware.motherboard?.manufacturer || hardware.motherboard?.model || hardware.bios?.vendor || hardware.tpm) && (
             <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><CircuitBoard className="w-4 h-4" />Motherboard & BIOS</h4>
+              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><CircuitBoard className="w-4 h-4" />Motherboard, BIOS & TPM</h4>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
                 {[
                   ['Board', [hardware.motherboard?.manufacturer, hardware.motherboard?.model].filter(Boolean).join(' ') || null],
