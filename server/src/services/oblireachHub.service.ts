@@ -126,6 +126,8 @@ class ObliReachHubService {
           const action = msg.payload?.action;
           if (action === 'user_closed') {
             try { getIO().to(`chat:${msg.chatId}`).emit('chat:closed', { chatId: msg.chatId }); } catch {}
+          } else if (action === 'typing') {
+            try { getIO().to(`chat:${msg.chatId}`).emit('chat:typing', { chatId: msg.chatId }); } catch {}
           } else if (action === 'allow_remote' || action === 'deny_remote') {
             try {
               getIO().to(`chat:${msg.chatId}`).emit('chat:remote_response', {

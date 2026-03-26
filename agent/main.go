@@ -376,11 +376,13 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	vbsPath := filepath.Join(os.TempDir(), "obliance-msi-update.vbs")
 
 	// Batch script with:
 	//  - 5s initial wait (service needs time to fully stop)
 	//  - Retry loop for error 1618 (another msiexec in progress)
 	//  - Fallback: restart old service if MSI fails entirely
+	//  - Cleans up the VBS wrapper at the end
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
 			"timeout /t 5 /nobreak >nul\r\n"+
@@ -400,19 +402,28 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 			")\r\n"+
 			"del /q \"%s\"\r\n"+
 			"schtasks /delete /tn OblianceUpdate /f >nul 2>&1\r\n"+
+			"del /q \"%s\"\r\n"+
 			"del /q \"%%~f0\"\r\n",
-		msiPath, serverURL, apiKey, logPath, msiPath)
+		msiPath, serverURL, apiKey, logPath, msiPath, vbsPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
 
-	// Use a scheduled task to run the script — survives service stop,
+	// VBS wrapper — launches the batch script with hidden window (0 = vbHide)
+	vbs := fmt.Sprintf(
+		"CreateObject(\"WScript.Shell\").Run \"%s\", 0, False\r\n",
+		scriptPath)
+	if err := os.WriteFile(vbsPath, []byte(vbs), 0644); err != nil {
+		return fmt.Errorf("write VBS wrapper: %w", err)
+	}
+
+	// Use a scheduled task to run the VBS wrapper — survives service stop,
 	// unlike a child process which the SCM may kill when the service exits.
 	// Delete any stale task first.
 	exec.Command("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
 	if err := exec.Command("schtasks",
 		"/create", "/tn", "OblianceUpdate",
-		"/tr", scriptPath,
+		"/tr", "wscript.exe \""+vbsPath+"\"",
 		"/sc", "once",
 		"/st", "00:00",
 		"/ru", "SYSTEM",

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Send, Shield, Paperclip, Minus, Volume2, VolumeX, MessageCircle } from 'lucide-react';
+import { X, Send, Shield, Paperclip, Minus, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore, type ChatSession } from '@/store/chatStore';
 
-// ── Audio ──────────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 let audioCtx: AudioContext | null = null;
 function playNotificationSound() {
   try {
@@ -30,6 +31,28 @@ function getInitials(name: string) {
   return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
+/** Encode an ArrayBuffer to base64 without blowing the call stack (chunked). */
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += 8192) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)));
+  }
+  return btoa(chunks.join(''));
+}
+
+const TEMPLATE_LANGUAGES = [
+  { code: 'en', name: 'English' }, { code: 'fr', name: 'Français' },
+  { code: 'es', name: 'Español' }, { code: 'de', name: 'Deutsch' },
+  { code: 'pt', name: 'Português' }, { code: 'zh', name: '中文' },
+  { code: 'ja', name: '日本語' }, { code: 'ko', name: '한국어' },
+  { code: 'ru', name: 'Русский' }, { code: 'ar', name: 'العربية' },
+  { code: 'it', name: 'Italiano' }, { code: 'nl', name: 'Nederlands' },
+  { code: 'pl', name: 'Polski' }, { code: 'tr', name: 'Türkçe' },
+  { code: 'sv', name: 'Svenska' }, { code: 'da', name: 'Dansk' },
+  { code: 'cs', name: 'Čeština' }, { code: 'uk', name: 'Українська' },
+];
+
 // ── Operator avatar ────────────────────────────────────────────────────────────
 function OperatorAvatar({ avatarUrl, size = 28 }: { avatarUrl?: string | null; size?: number }) {
   if (avatarUrl) {
@@ -52,6 +75,9 @@ function ChatTabContent({ session }: { session: ChatSession }) {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
   const [remoteRequested, setRemoteRequested] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateLang, setTemplateLang] = useState(() => useAuthStore.getState().user?.preferredLanguage || 'en');
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,10 +85,41 @@ function ChatTabContent({ session }: { session: ChatSession }) {
 
   const store = useChatStore;
   const soundEnabled = useChatStore(s => s.soundEnabled);
-  const operatorAvatar = useAuthStore.getState().user?.avatar || null;
-  const operatorName = useAuthStore.getState().user?.displayName || useAuthStore.getState().user?.username || 'Operator';
+  // Reactive auth reads (re-render when avatar/name change)
+  const operatorAvatar = useAuthStore(s => s.user?.avatar ?? null);
+  const operatorName = useAuthStore(s => s.user?.displayName || s.user?.username || 'Operator');
+
+  // Quick reply templates (loaded once)
+  const [quickReplyTemplates, setQuickReplyTemplates] = useState<Array<{ id: number; translations: Record<string, string> }>>([]);
+  const personalQuickReplies = useAuthStore(s => s.user?.preferences?.quickReplies ?? []) as string[];
+  useEffect(() => {
+    import('@/api/quickReplyTemplates.api').then(({ quickReplyTemplatesApi }) => {
+      quickReplyTemplatesApi.list().then(setQuickReplyTemplates).catch(() => {});
+    });
+  }, []);
+  const adminRepliesInLang = quickReplyTemplates.map(t => t.translations[templateLang]).filter(Boolean);
+  const allQuickReplies = [...personalQuickReplies, ...adminRepliesInLang];
 
   const { key, deviceUuid, chatId, messages, isConnected, userClosed, sessionId } = session;
+
+  // Auto-reset typing indicator after 3s of silence
+  const typingTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (!isTyping) return;
+    typingTimer.current = setTimeout(() => setIsTyping(false), 3000);
+    return () => clearTimeout(typingTimer.current);
+  }, [isTyping]);
+
+  // Emit typing to agent (debounced — max once per 2s)
+  const lastTypingEmit = useRef(0);
+  const emitTyping = useCallback(() => {
+    if (!chatId) return;
+    const now = Date.now();
+    if (now - lastTypingEmit.current < 2000) return;
+    lastTypingEmit.current = now;
+    const socket = getSocket();
+    if (socket) socket.emit('chat:typing', { chatId });
+  }, [chatId]);
 
   // Scroll on new messages
   useEffect(() => {
@@ -89,6 +146,9 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     });
     const timeout = setTimeout(() => {
       if (!chatIdRef.current) {
+        // Dedup: don't add timeout msg if "Failed to open" already present
+        const msgs = store.getState().sessions.find(s => s.key === key)?.messages ?? [];
+        if (msgs.some(m => m.text.includes('Failed to open'))) return;
         store.getState().addMessage(key, {
           sender: 'System', text: 'Chat connection timed out.',
           timestamp: Date.now(), isSystem: true,
@@ -108,7 +168,8 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     const onMessage = (data: { chatId: string; sender: string; message: string; timestamp: number }) => {
       if (data.chatId !== chatId) return;
       store.getState().addMessage(key, { sender: data.sender, text: data.message, timestamp: data.timestamp });
-      if (soundEnabled) playNotificationSound();
+      if (store.getState().soundEnabled) playNotificationSound();
+      setIsTyping(false);
       if (store.getState().sessions.find(s => s.key === key)?.userClosed) {
         store.getState().setUserClosed(key, false);
       }
@@ -130,13 +191,23 @@ function ChatTabContent({ session }: { session: ChatSession }) {
         text: data.allowed ? 'Remote control access granted.' : 'Remote control access denied.',
         timestamp: Date.now(), isSystem: true,
       });
+      // Trigger ObliReach session when user grants remote access
+      if (data.allowed) {
+        store.getState().onRemoteAccessGranted?.(key);
+      }
+    };
+
+    const onTyping = (data: { chatId: string }) => {
+      if (data.chatId !== chatId) return;
+      setIsTyping(true);
     };
 
     socket.on('chat:message', onMessage);
     socket.on('chat:closed', onClosed);
     socket.on('chat:remote_response', onRemoteResponse);
-    return () => { socket.off('chat:message', onMessage); socket.off('chat:closed', onClosed); socket.off('chat:remote_response', onRemoteResponse); };
-  }, [chatId, key, soundEnabled]);
+    socket.on('chat:typing', onTyping);
+    return () => { socket.off('chat:message', onMessage); socket.off('chat:closed', onClosed); socket.off('chat:remote_response', onRemoteResponse); socket.off('chat:typing', onTyping); };
+  }, [chatId, key]);
 
   const handleSend = useCallback(() => {
     if (!input.trim() || !chatId) return;
@@ -157,7 +228,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     setUploadProgress(`Sending ${file.name}...`);
     try {
       const buf = await file.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const b64 = arrayBufferToBase64(buf);
       const socket = getSocket();
       if (socket) {
         socket.emit('chat:file', { chatId, fileName: file.name, fileSize: file.size, fileData: b64 });
@@ -187,7 +258,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
 
   return (
     <div
-      className="flex flex-col flex-1 overflow-hidden"
+      className="flex flex-col flex-1 overflow-hidden relative"
       onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
@@ -235,6 +306,21 @@ function ChatTabContent({ session }: { session: ChatSession }) {
             </div>
           );
         })}
+
+        {/* Typing indicator */}
+        {isTyping && (
+          <div className="flex gap-2 items-end">
+            <OperatorAvatar avatarUrl={operatorAvatar} size={28} />
+            <div className="bg-accent px-4 py-2.5 rounded-2xl rounded-bl-md">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -279,12 +365,49 @@ function ChatTabContent({ session }: { session: ChatSession }) {
           </div>
         )}
 
+        {/* Quick replies */}
+        {showTemplates && (
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {quickReplyTemplates.length > 0 && (
+              <select value={templateLang} onChange={e => setTemplateLang(e.target.value)}
+                className="w-full px-2 py-1 text-[11px] bg-bg-primary border border-border rounded-lg text-text-secondary mb-1">
+                {TEMPLATE_LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>{l.name}</option>
+                ))}
+              </select>
+            )}
+            {personalQuickReplies.length > 0 && (
+              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1">Personal</div>
+            )}
+            {personalQuickReplies.map((t, i) => (
+              <button key={`p-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
+                className="w-full text-left px-3 py-1.5 text-[11px] bg-bg-hover text-text-secondary rounded-lg hover:bg-accent/15 hover:text-text-primary truncate transition-colors">
+                {t}
+              </button>
+            ))}
+            {adminRepliesInLang.length > 0 && (
+              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1 pt-1">Templates</div>
+            )}
+            {adminRepliesInLang.map((t, i) => (
+              <button key={`t-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
+                className="w-full text-left px-3 py-1.5 text-[11px] bg-accent/10 text-text-secondary rounded-lg hover:bg-accent/20 hover:text-text-primary truncate transition-colors">
+                {t}
+              </button>
+            ))}
+            {allQuickReplies.length === 0 && (
+              <div className="text-[11px] text-text-muted text-center py-2 italic">No quick replies configured</div>
+            )}
+          </div>
+        )}
+
         {/* Input */}
         <div className="flex items-center gap-2 bg-bg-primary border border-border rounded-2xl px-3 py-1.5">
+          <button onClick={() => setShowTemplates(v => !v)} title="Quick replies"
+            className="text-text-muted hover:text-accent transition-colors text-xs font-mono">/</button>
           <input
             ref={inputRef}
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => { setInput(e.target.value); emitTyping(); }}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder={canSend ? 'Votre message...' : 'Chat disconnected'}
             disabled={!canSend}
@@ -308,11 +431,13 @@ function ChatTabContent({ session }: { session: ChatSession }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function GlobalChatPanel() {
-  const { sessions, activeKey, isOpen, isMinimized, soundEnabled } = useChatStore();
-  const { setActiveTab, closeTab, setMinimized, toggleOpen, toggleSound, clearUnread } = useChatStore();
+  const { sessions, activeKey, isOpen, isMinimized } = useChatStore();
+  const { setActiveTab, closeTab, setMinimized, toggleOpen, clearUnread } = useChatStore();
 
   const activeSession = sessions.find(s => s.key === activeKey) ?? null;
   const totalUnread = sessions.reduce((sum, s) => sum + s.unread, 0);
+  // Reactive avatar read
+  const operatorAvatar = useAuthStore(s => s.user?.avatar ?? null);
 
   // Clear unread when tab becomes active
   useEffect(() => {
@@ -341,27 +466,60 @@ export function GlobalChatPanel() {
     );
   }
 
+  const handleCloseTab = (key: string, chatId: string | null) => {
+    const socket = getSocket();
+    if (socket && chatId) socket.emit('chat:close', { chatId });
+    closeTab(key);
+  };
+
   return (
     <div
       className="fixed right-4 bottom-4 z-[60] flex flex-col bg-bg-secondary border border-border rounded-2xl shadow-2xl overflow-hidden"
       style={{ width: 400, maxHeight: 'calc(100vh - 100px)', height: 620 }}
     >
-      {/* Tab bar + controls */}
-      <div className="flex items-center border-b border-border shrink-0">
-        {/* Tabs */}
-        <div className="flex-1 flex items-center overflow-x-auto gap-0 min-w-0">
+      {/* ── Header — "Discussion avec {deviceName}" ── */}
+      <div className="flex items-center gap-3 px-4 py-3 shrink-0 border-b border-border">
+        <OperatorAvatar avatarUrl={operatorAvatar} size={40} />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-text-primary truncate">
+            Discussion avec {activeSession?.deviceName ?? '...'}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={clsx('w-2 h-2 rounded-full',
+              activeSession?.isConnected && !activeSession?.userClosed ? 'bg-green-400'
+                : activeSession?.userClosed ? 'bg-yellow-400' : 'bg-gray-500'
+            )} />
+            <span className="text-[11px] text-text-muted">
+              {activeSession?.isConnected && !activeSession?.userClosed ? 'En ligne'
+                : activeSession?.userClosed ? 'User disconnected' : 'Hors ligne'}
+            </span>
+          </div>
+        </div>
+        <button onClick={() => setMinimized(true)} className="p-1.5 text-text-muted hover:text-text-primary transition-colors">
+          <Minus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => { if (activeSession) handleCloseTab(activeSession.key, activeSession.chatId); }}
+          className="p-1.5 text-text-muted hover:text-red-400 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* ── Tabs (only if multiple sessions) ── */}
+      {sessions.length > 1 && (
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border shrink-0 overflow-x-auto bg-bg-tertiary/30">
           {sessions.map(s => (
             <button
               key={s.key}
               onClick={() => { setActiveTab(s.key); clearUnread(s.key); }}
               className={clsx(
-                'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors shrink-0 max-w-[160px]',
+                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg transition-colors shrink-0 max-w-[140px]',
                 s.key === activeKey
-                  ? 'border-accent text-text-primary bg-bg-tertiary/50'
-                  : 'border-transparent text-text-muted hover:text-text-primary hover:bg-bg-hover',
+                  ? 'bg-accent/15 text-accent border border-accent/30'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-hover border border-transparent',
               )}
             >
-              {/* Connection dot */}
               <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0',
                 s.isConnected && !s.userClosed ? 'bg-green-400' : s.userClosed ? 'bg-yellow-400' : 'bg-gray-500'
               )} />
@@ -371,29 +529,18 @@ export function GlobalChatPanel() {
                   {s.unread > 9 ? '9+' : s.unread}
                 </span>
               )}
-              {/* Close tab */}
               <span
-                onClick={e => { e.stopPropagation(); const socket = getSocket(); if (socket && s.chatId) socket.emit('chat:close', { chatId: s.chatId }); closeTab(s.key); }}
-                className="ml-0.5 p-0.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary"
+                onClick={e => { e.stopPropagation(); handleCloseTab(s.key, s.chatId); }}
+                className="p-0.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary"
               >
-                <X className="w-3 h-3" />
+                <X className="w-2.5 h-2.5" />
               </span>
             </button>
           ))}
         </div>
+      )}
 
-        {/* Controls */}
-        <div className="flex items-center gap-1 px-2 shrink-0">
-          <button onClick={toggleSound} className="p-1.5 text-text-muted hover:text-text-primary transition-colors" title={soundEnabled ? 'Mute' : 'Unmute'}>
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-          </button>
-          <button onClick={() => setMinimized(true)} className="p-1.5 text-text-muted hover:text-text-primary transition-colors">
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Active tab content */}
+      {/* ── Active tab content ── */}
       {activeSession ? (
         <ChatTabContent key={activeSession.key} session={activeSession} />
       ) : (

@@ -125,6 +125,9 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
     });
 
     // ── Chat (with tenant isolation) ────────────────────────────────────────
+    // Track chatId → deviceUuid so messages go to the right device, not all.
+    const chatDeviceMap = new Map<string, string>();
+
     socket.on('chat:open', async (payload: { deviceUuid: string; sessionId?: number; operatorName: string }, ack?: (res: any) => void) => {
       if (!payload?.deviceUuid || !tenantId) return;
       const chatId = crypto.randomBytes(8).toString('hex');
@@ -149,6 +152,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
       const delivered = oblireachHub.push(device.uuid, cmd);
       if (!delivered) { ack?.({ error: 'agent offline' }); return; }
 
+      chatDeviceMap.set(chatId, device.uuid);
       socket.join(`chat:${chatId}`);
       ack?.({ chatId });
       logger.info({ chatId, deviceUuid: payload.deviceUuid }, 'Chat session opened');
@@ -156,6 +160,8 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
 
     socket.on('chat:message', async (payload: { chatId: string; message: string; operatorName?: string }) => {
       if (!payload?.chatId || !payload?.message) return;
+      const targetUuid = chatDeviceMap.get(payload.chatId);
+      if (!targetUuid) return;
       const cmd = {
         type: 'chat_message',
         id: `cmsg_${Date.now()}`,
@@ -166,8 +172,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
           timestamp: Date.now(),
         },
       };
-      // Broadcast scoped to tenant
-      oblireachHub.broadcastCommandToTenant(tenantId, cmd);
+      oblireachHub.push(targetUuid, cmd);
       // Persist to DB
       try {
         await db('chat_messages').insert({
@@ -182,25 +187,44 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
 
     socket.on('chat:close', (payload: { chatId: string }) => {
       if (!payload?.chatId) return;
-      oblireachHub.broadcastCommandToTenant(tenantId, {
-        type: 'close_chat',
-        id: `cclose_${Date.now()}`,
-        payload: { chatId: payload.chatId },
-      });
+      const targetUuid = chatDeviceMap.get(payload.chatId);
+      if (targetUuid) {
+        oblireachHub.push(targetUuid, {
+          type: 'close_chat',
+          id: `cclose_${Date.now()}`,
+          payload: { chatId: payload.chatId },
+        });
+      }
+      chatDeviceMap.delete(payload.chatId);
     });
 
     socket.on('chat:file', (payload: { chatId: string; fileName: string; fileSize: number; fileData: string }) => {
       if (!payload?.chatId || !payload?.fileData) return;
-      oblireachHub.broadcastCommandToTenant(tenantId, {
+      const targetUuid = chatDeviceMap.get(payload.chatId);
+      if (!targetUuid) return;
+      oblireachHub.push(targetUuid, {
         type: 'chat_file',
         id: `cfile_${Date.now()}`,
         payload: { chatId: payload.chatId, fileName: payload.fileName, fileSize: payload.fileSize, fileData: payload.fileData },
       });
     });
 
+    socket.on('chat:typing', (payload: { chatId: string }) => {
+      if (!payload?.chatId) return;
+      const targetUuid = chatDeviceMap.get(payload.chatId);
+      if (!targetUuid) return;
+      oblireachHub.push(targetUuid, {
+        type: 'chat_typing',
+        id: `ctyp_${Date.now()}`,
+        payload: { chatId: payload.chatId },
+      });
+    });
+
     socket.on('chat:request_remote', (payload: { chatId: string; message?: string }) => {
       if (!payload?.chatId) return;
-      oblireachHub.broadcastCommandToTenant(tenantId, {
+      const targetUuid = chatDeviceMap.get(payload.chatId);
+      if (!targetUuid) return;
+      oblireachHub.push(targetUuid, {
         type: 'request_remote',
         id: `creq_${Date.now()}`,
         payload: { chatId: payload.chatId, message: payload.message || '' },

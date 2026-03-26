@@ -3611,6 +3611,15 @@ export function DeviceDetailPage() {
   const [chatSessionPickerOpen, setChatSessionPickerOpen] = useState(false);
   const chatIsOpen = useChatStore(s => s.isOpen && s.sessions.length > 0);
 
+  // Register remote-access callback so chat can trigger ObliReach
+  useEffect(() => {
+    useChatStore.getState().setOnRemoteAccessGranted(() => {
+      handleHeaderRemote('oblireach');
+    });
+    return () => { useChatStore.getState().setOnRemoteAccessGranted(null); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
   // null = loading, false = not installed, true = installed+online

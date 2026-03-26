@@ -283,15 +283,15 @@ class ComplianceService {
           return pr && (pr.target !== r.target || pr.remediationScript !== r.remediationScript);
         });
 
-      if (needsSync) {
-        const syncUpdate: any = {
-          rules: JSON.stringify(presetRules),
-          updated_at: new Date(),
-        };
-        // Also sync targetPlatform from preset if not set
-        if (matchingPreset.targetPlatform && (!row.target_platform || row.target_platform === 'all')) {
-          syncUpdate.target_platform = matchingPreset.targetPlatform;
-        }
+      // Sync targetPlatform independently of rule changes
+      const needsPlatformSync = matchingPreset.targetPlatform &&
+        matchingPreset.targetPlatform !== 'all' &&
+        (!row.target_platform || row.target_platform === 'all');
+
+      if (needsSync || needsPlatformSync) {
+        const syncUpdate: any = { updated_at: new Date() };
+        if (needsSync) syncUpdate.rules = JSON.stringify(presetRules);
+        if (needsPlatformSync) syncUpdate.target_platform = matchingPreset.targetPlatform;
         await db('compliance_policies').where({ id: row.id }).update(syncUpdate);
         synced++;
       }

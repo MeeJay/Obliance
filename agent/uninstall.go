@@ -136,7 +136,14 @@ func handleWindowsUninstall(serverURL, apiKey string) error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write uninstall batch: %w", err)
 	}
-	return exec.Command("cmd", "/c", scriptPath).Start()
+
+	// VBS wrapper — run the batch script with hidden window (0 = vbHide)
+	vbsPath := filepath.Join(os.TempDir(), "obliance-uninstall.vbs")
+	vbs := fmt.Sprintf("CreateObject(\"WScript.Shell\").Run \"%s\", 0, False\r\n", scriptPath)
+	if err := os.WriteFile(vbsPath, []byte(vbs), 0644); err != nil {
+		return fmt.Errorf("write uninstall VBS wrapper: %w", err)
+	}
+	return exec.Command("wscript.exe", vbsPath).Start()
 }
 
 // ── Linux ─────────────────────────────────────────────────────────────────────

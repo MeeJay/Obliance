@@ -46,6 +46,10 @@ interface ChatState {
   addMessage: (key: string, msg: ChatMessage) => void;
   clearUnread: (key: string) => void;
 
+  /** Callback when remote access is granted via chat (set by DeviceDetailPage) */
+  onRemoteAccessGranted: ((key: string) => void) | null;
+  setOnRemoteAccessGranted: (cb: ((key: string) => void) | null) => void;
+
   /** Close everything */
   closeAll: () => void;
 }
@@ -57,6 +61,8 @@ function makeKey(deviceUuid: string, sessionId?: number): string {
 export const useChatStore = create<ChatState>((set, get) => ({
   sessions: [],
   activeKey: null,
+  onRemoteAccessGranted: null,
+  setOnRemoteAccessGranted: (cb) => set({ onRemoteAccessGranted: cb }),
   isOpen: false,
   isMinimized: false,
   soundEnabled: true,
