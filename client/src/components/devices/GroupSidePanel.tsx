@@ -6,6 +6,7 @@ import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { clsx } from 'clsx';
+import { anonymize } from '@/utils/anonymize';
 
 interface GroupSidePanelProps {
   groupId: number | null;
@@ -121,7 +122,7 @@ function TreeNode({
           className={clsx('shrink-0', isSelected || isAncestor ? 'text-accent' : 'text-text-muted')}
         />
 
-        <span className="truncate text-text-primary">{node.name}</span>
+        <span className="truncate text-text-primary">{anonymize(node.name)}</span>
 
         <span className="ml-auto shrink-0 text-xs text-text-muted">{count}</span>
       </button>

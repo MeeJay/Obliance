@@ -156,7 +156,7 @@ export const DeviceRow = memo(function DeviceRow({
           <span title="Reboot pending"><RotateCcw className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" /></span>
         )}
         {device.privacyModeEnabled && (
-          <span title="Privacy mode"><ShieldOff className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" /></span>
+          <span title="Privacy mode"><ShieldOff className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" /></span>
         )}
 
         <div className="flex-1" />

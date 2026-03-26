@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { anonymize } from '@/utils/anonymize';
 
 type ApprovalFilter = '' | 'approved' | 'pending' | 'refused' | 'suspended';
 type SortField = 'name' | 'status' | 'os' | 'lastSeen' | 'version' | 'group';
@@ -359,7 +360,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
                   <div key={gName}>
                     <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border sticky top-0 z-10">
                       <FolderOpen className="w-3.5 h-3.5 text-accent" />
-                      <span className="text-xs font-semibold text-text-primary">{gName}</span>
+                      <span className="text-xs font-semibold text-text-primary">{anonymize(gName)}</span>
                       <span className="text-[10px] text-text-muted">({gDevices.length})</span>
                     </div>
                     {gDevices.map(device => (
