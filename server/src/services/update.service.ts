@@ -294,10 +294,10 @@ class UpdateService {
   /**
    * Returns the list of devices affected by a specific update title.
    */
-  async getUpdateDevices(tenantId: number, updateUid: string, status = 'available') {
+  async getUpdateDevices(tenantId: number, updateUid: string) {
     const rows = await db('device_updates as du')
       .join('devices as d', 'd.id', 'du.device_id')
-      .where({ 'du.tenant_id': tenantId, 'du.update_uid': updateUid, 'du.status': status })
+      .where({ 'du.tenant_id': tenantId, 'du.update_uid': updateUid })
       .select(
         'du.id', 'du.device_id', 'du.status',
         db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
