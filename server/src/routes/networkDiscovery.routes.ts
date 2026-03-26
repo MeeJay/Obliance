@@ -19,7 +19,7 @@ router.get('/', async (req, res, next) => {
       limit: limit ? parseInt(limit as string, 10) : undefined,
     });
 
-    res.json(result);
+    res.json({ data: { items: result.data, total: result.total } });
   } catch (err) {
     next(err);
   }
@@ -30,7 +30,7 @@ router.get('/', async (req, res, next) => {
 router.get('/stats', async (req, res, next) => {
   try {
     const stats = await networkDiscoveryService.getStats(req.tenantId!);
-    res.json(stats);
+    res.json({ data: stats });
   } catch (err) {
     next(err);
   }

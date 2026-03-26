@@ -55,9 +55,9 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
         networkDiscoveryApi.list(params),
         networkDiscoveryApi.getStats(),
       ]);
-      setItems(listRes.items);
-      setTotal(listRes.total);
-      setStats(statsRes);
+      setItems(listRes.items ?? []);
+      setTotal(listRes.total ?? 0);
+      setStats(statsRes ?? { total: 0, managed: 0, unmanaged: 0, byType: {} });
     } catch {
       toast.error(t('common.error'));
     } finally {
@@ -107,10 +107,10 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const filteredItems = search.trim()
-    ? items.filter(d =>
+    ? (items ?? []).filter(d =>
         (d.hostname ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        d.ip.toLowerCase().includes(search.toLowerCase()))
-    : items;
+        (d.ip ?? '').toLowerCase().includes(search.toLowerCase()))
+    : (items ?? []);
 
   const formatDate = (s: string) => {
     try { return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -148,13 +148,13 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
         <div className="p-3 bg-bg-secondary border border-border rounded-lg">
           <p className="text-xs text-text-muted">{t('discovery.byType') || 'By Type'}</p>
           <div className="flex flex-wrap gap-2 mt-1">
-            {Object.entries(stats.byType).map(([type, count]) => (
+            {Object.entries(stats.byType ?? {}).map(([type, count]) => (
               <span key={type} className="inline-flex items-center gap-1 text-xs text-text-muted">
                 <TypeIcon type={type} />
                 {count}
               </span>
             ))}
-            {Object.keys(stats.byType).length === 0 && <span className="text-xs text-text-muted">--</span>}
+            {Object.keys(stats.byType ?? {}).length === 0 && <span className="text-xs text-text-muted">--</span>}
           </div>
         </div>
       </div>

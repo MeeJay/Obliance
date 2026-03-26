@@ -127,6 +127,8 @@ export function ChatPanel({
   }, [messages]);
 
   // Open chat session
+  const chatIdRef = useRef(chatId);
+  chatIdRef.current = chatId;
   useEffect(() => {
     const socket = getSocket();
     if (!socket || chatId) return;
@@ -143,7 +145,7 @@ export function ChatPanel({
       }
     });
     const timeout = setTimeout(() => {
-      if (!chatId) {
+      if (!chatIdRef.current) {
         setMessages(prev => {
           if (prev.some(m => m.text.includes('Failed to open'))) return prev;
           return [...prev, { sender: 'System', text: 'Chat connection timed out.', timestamp: Date.now(), isSystem: true }];

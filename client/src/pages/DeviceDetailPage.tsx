@@ -4050,27 +4050,31 @@ export function DeviceDetailPage() {
               <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
                 {/* Chat — always next to Remote */}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (chatOpen) {
                       setChatOpen(false);
                       return;
                     }
                     // If Reach is active, use the same session
                     if (headerRemoteOpen && headerRemoteSession) {
-                      // The remote session's WTS ID might be in the session picker state
-                      // Just open chat — the remote session's target is already set
                       setChatOpen(true);
                       return;
                     }
-                    // If multiple WTS sessions available, show picker
-                    if (headerOrSessions && headerOrSessions.length > 1) {
-                      setChatSessionPickerOpen(true);
-                    } else if (headerOrSessions && headerOrSessions.length === 1) {
-                      setChatSessionId(headerOrSessions[0].id);
-                      setChatOpen(true);
-                    } else {
-                      setChatOpen(true);
+                    // Fetch fresh sessions for THIS device before opening chat
+                    try {
+                      const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
+                      if (sessions.length > 1) {
+                        setHeaderOrSessions(sessions);
+                        setChatSessionPickerOpen(true);
+                        return;
+                      }
+                      if (sessions.length === 1) {
+                        setChatSessionId(sessions[0].id);
+                      }
+                    } catch {
+                      // Fall through — open chat without session selection
                     }
+                    setChatOpen(true);
                   }}
                   disabled={device.status !== 'online'}
                   title="Chat with user"
