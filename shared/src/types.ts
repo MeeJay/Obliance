@@ -826,6 +826,7 @@ export interface MotherboardInfo {
   manufacturer: string | null;
   model: string | null;
   version: string | null;
+  serial: string | null;
 }
 
 export interface BiosInfo {
