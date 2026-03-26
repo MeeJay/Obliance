@@ -133,9 +133,7 @@ func PostUpdates(updates []UpdateInfo, rebootPending bool, cfg *Config) error {
 func scanWindowsUpdates() ([]UpdateInfo, bool, error) {
 	// Primary: PSWindowsUpdate module (must be pre-installed).
 	// Falls back to COM API below if unavailable.
-	const psScript = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-$OutputEncoding = [System.Text.UTF8Encoding]::new()
-$ErrorActionPreference='SilentlyContinue'
+	const psScript = `$ErrorActionPreference='SilentlyContinue'
 $usedModule = $false
 $mod = Get-Module -ListAvailable PSWindowsUpdate -ErrorAction SilentlyContinue
 if ($mod) {
@@ -169,9 +167,7 @@ if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Aut
   "REBOOT_PENDING"
 }`
 
-	out, err := exec.Command("powershell.exe",
-		"-NoProfile", "-NonInteractive", "-Command", psScript,
-	).Output()
+	out, err := runPS(psScript)
 	if err != nil {
 		// Don't fail the entire scan — WU may be unavailable but winget/choco still work
 		log.Printf("Windows Update scan failed (continuing with package managers): %v", err)

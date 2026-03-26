@@ -320,9 +320,7 @@ if ($bat) {
 
 $result | ConvertTo-Json -Depth 5 -Compress`
 
-	out, err := exec.Command("powershell.exe",
-		"-NoProfile", "-NonInteractive", "-Command", script,
-	).Output()
+	out, err := runPS(script)
 	if err != nil {
 		return fmt.Errorf("powershell inventory: %w", err)
 	}
@@ -906,10 +904,7 @@ func scanDarwinInventory(inv *InventoryData) error {
 // Uses manage-bde which requires admin privileges (agent runs as SYSTEM).
 func scanBitLocker() []BitLockerVolume {
 	// List all BitLocker-capable volumes
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-		`[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-$OutputEncoding = [System.Text.UTF8Encoding]::new()
-$vols = Get-BitLockerVolume -ErrorAction SilentlyContinue
+	out, err := runPS(`$vols = Get-BitLockerVolume -ErrorAction SilentlyContinue
 if (-not $vols) { exit 0 }
 $result = @()
 foreach ($v in $vols) {
@@ -927,8 +922,7 @@ foreach ($v in $vols) {
     recoveryKeys         = $keys
   }
 }
-$result | ConvertTo-Json -Compress`,
-	).Output()
+$result | ConvertTo-Json -Compress`)
 	if err != nil {
 		return nil
 	}
@@ -979,9 +973,7 @@ $apps | ForEach-Object {
   Write-Output $line
 }`
 
-	out, err := exec.Command("powershell.exe",
-		"-NoProfile", "-NonInteractive", "-Command", script,
-	).Output()
+	out, err := runPS(script)
 	if err != nil {
 		log.Printf("Software scan (registry) error: %v", err)
 		return nil
@@ -1199,7 +1191,7 @@ func parseSpeedString(s string) int {
 }
 
 func stringField(m map[string]interface{}, key string) string {
-	if v, ok := m[key]; ok {
+	if v, ok := m[key]; ok && v != nil {
 		if s, ok := v.(string); ok {
 			return s
 		}

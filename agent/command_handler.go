@@ -796,7 +796,7 @@ func evalCommand(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", rule.Target)
+		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psUTF8Prefix+rule.Target)
 	} else {
 		cmd = exec.CommandContext(ctx, "sh", "-c", rule.Target)
 	}
@@ -830,10 +830,9 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	case "windows":
 		// Return both StartType and Status so rules can match either:
 		// "Disabled", "Manual", "Automatic" (StartType) or "Running", "Stopped" (Status)
-		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
-			"-Command",
+		out, err := runPSContext(ctx,
 			fmt.Sprintf(`$s=Get-Service -Name '%s' -ErrorAction SilentlyContinue; if($s){"$($s.StartType)|$($s.Status)"}else{'not_found'}`, rule.Target),
-		).Output()
+		)
 		if err != nil || strings.TrimSpace(string(out)) == "" {
 			actualStatus = "not_found"
 		} else {

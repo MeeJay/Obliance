@@ -372,9 +372,7 @@ $vramTotalMB=try{[math]::Round(((Get-Counter '\GPU Local Adapter Memory(*)\Local
 $gpus=Get-WmiObject Win32_VideoController|Where-Object{$_.PNPDeviceID -match '^PCI'}
 foreach($g in $gpus){$vt=if($vramTotalMB -gt 0){$vramTotalMB}else{[math]::Round($g.AdapterRAM/1MB,0)};Write-Output "$($g.Caption)|$util|$vramUsedMB|$vt|$copy|$venc|$vdec"}`
 
-	out, err := exec.Command("powershell.exe",
-		"-NoProfile", "-NonInteractive", "-Command", script,
-	).Output()
+	out, err := runPS(script)
 	if err != nil {
 		return nil
 	}
