@@ -1502,6 +1502,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleCheckCompliance(cmd)
 	case "remediate_rule":
 		return d.handleRemediateRule(cmd)
+	case "scan_network":
+		return d.handleScanNetwork(cmd)
 	case "list_wts_sessions":
 		return d.handleListWtsSessions(cmd)
 	case "list_processes":
