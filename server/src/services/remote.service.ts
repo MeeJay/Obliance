@@ -175,11 +175,25 @@ class RemoteService {
   }
 
   async getSessions(tenantId: number, filters?: { deviceId?: number; status?: string }) {
-    let q = db('remote_sessions').where({ tenant_id: tenantId });
-    if (filters?.deviceId) q = q.where({ device_id: filters.deviceId });
-    if (filters?.status) q = q.where({ status: filters.status });
-    const rows = await q.orderBy('started_at', 'desc').limit(100);
-    return rows.map(this.rowToSession.bind(this));
+    let q = db('remote_sessions as rs')
+      .leftJoin('users as u', 'u.id', 'rs.started_by')
+      .where({ 'rs.tenant_id': tenantId });
+    if (filters?.deviceId) q = q.where({ 'rs.device_id': filters.deviceId });
+    if (filters?.status) q = q.where({ 'rs.status': filters.status });
+    const rows = await q
+      .select('rs.*', 'u.username as started_by_username', 'u.display_name as started_by_display_name')
+      .orderBy('rs.started_at', 'desc').limit(100);
+    return rows.map((row: any) => {
+      const session = this.rowToSession(row);
+      if (row.started_by_username || row.started_by_display_name) {
+        session.startedByUser = {
+          id: row.started_by,
+          username: row.started_by_username,
+          displayName: row.started_by_display_name,
+        };
+      }
+      return session;
+    });
   }
 
   // Called when agent WebSocket connects for a session.

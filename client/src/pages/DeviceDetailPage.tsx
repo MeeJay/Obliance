@@ -1232,7 +1232,9 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
                     update.status === 'pending_reboot' ? 'text-orange-400' :
                     update.status === 'installed' ? 'text-blue-400' :
                     update.status === 'failed' ? 'text-red-400' : '',
-                  )}>{STATUS_LABEL[update.status] ?? update.status}</span></p>
+                  )}>{STATUS_LABEL[update.status] ?? update.status}</span>{update.status === 'installed' && update.installedAt && (
+                    <span className="text-text-muted"> · {new Date(update.installedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  )}</p>
                 </div>
                 {update.status === 'available' && (
                   <button
@@ -2655,6 +2657,9 @@ function RemoteTab({ device }: { device: Device }) {
                     </span>
                   </div>
                   <p className="text-xs text-text-muted mt-0.5">
+                    {session.startedByUser && (
+                      <span className="text-text-primary">{session.startedByUser.displayName || session.startedByUser.username} · </span>
+                    )}
                     {new Date(session.startedAt).toLocaleString()}
                     {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
                   </p>

@@ -342,12 +342,25 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             )}
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Timezone</label>
-              <input
+              <select
                 value={form.timezone}
                 onChange={(e) => setForm({ ...form, timezone: e.target.value })}
                 className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                placeholder="e.g. Europe/Paris"
-              />
+              >
+                {(typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [
+                  'UTC','Europe/Paris','Europe/London','Europe/Berlin','Europe/Rome','Europe/Madrid',
+                  'Europe/Brussels','Europe/Amsterdam','Europe/Zurich','Europe/Vienna','Europe/Warsaw',
+                  'Europe/Prague','Europe/Stockholm','Europe/Copenhagen','Europe/Helsinki','Europe/Oslo',
+                  'Europe/Lisbon','Europe/Dublin','Europe/Athens','Europe/Bucharest','Europe/Istanbul',
+                  'Europe/Moscow','Europe/Kiev','America/New_York','America/Chicago','America/Denver',
+                  'America/Los_Angeles','America/Toronto','America/Vancouver','America/Mexico_City',
+                  'America/Sao_Paulo','America/Argentina/Buenos_Aires','America/Bogota','America/Lima',
+                  'Asia/Tokyo','Asia/Shanghai','Asia/Hong_Kong','Asia/Seoul','Asia/Singapore',
+                  'Asia/Dubai','Asia/Kolkata','Asia/Bangkok','Asia/Jakarta','Asia/Taipei',
+                  'Australia/Sydney','Australia/Melbourne','Pacific/Auckland','Africa/Cairo',
+                  'Africa/Johannesburg','Africa/Lagos','Africa/Casablanca',
+                ]).map(tz => <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>)}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Description</label>
