@@ -51,9 +51,19 @@ function filterTree(nodes: DeviceGroupTreeNode[], query: string): DeviceGroupTre
   }, []);
 }
 
+/** Recursively count all devices in a tree (fallback if server doesn't accumulate) */
+function countDevicesRecursive(node: DeviceGroupTreeNode): number {
+  const self = node.total ?? node.deviceCount ?? 0;
+  if (self > 0) return self; // server already accumulated
+  // Fallback: sum direct count + children
+  let total = node.deviceCount ?? 0;
+  for (const child of node.children) total += countDevicesRecursive(child);
+  return total;
+}
+
 /** Compute total device count across all root nodes */
 function totalDeviceCount(nodes: DeviceGroupTreeNode[]): number {
-  return nodes.reduce((sum, n) => sum + (n.deviceCount ?? n.total ?? 0), 0);
+  return nodes.reduce((sum, n) => sum + countDevicesRecursive(n), 0);
 }
 
 function TreeNode({
@@ -75,7 +85,7 @@ function TreeNode({
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedIds.has(node.id);
   const isAncestor = hasSelectedDescendant(node, selectedGroupId);
-  const count = node.deviceCount ?? node.total ?? 0;
+  const count = countDevicesRecursive(node);
 
   return (
     <>
@@ -215,7 +225,8 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   }, []);
 
   const filteredTree = useMemo(() => filterTree(tree, search), [tree, search]);
-  const total = useMemo(() => totalDeviceCount(tree), [tree]);
+  const treeTotal = useMemo(() => totalDeviceCount(tree), [tree]);
+  const total = fleet.total > 0 ? fleet.total : treeTotal;
 
   // Collapsed state: thin vertical bar
   if (collapsed) {

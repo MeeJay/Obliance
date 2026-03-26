@@ -41,6 +41,7 @@ function MiniBar({ label, value }: { label: string; value: number | undefined })
   const hasValue = value != null;
   return (
     <div className="flex items-center gap-1">
+      <span className="text-[10px] text-text-muted/60 w-6 text-right">{label}</span>
       <span className="text-[10px] text-text-muted w-6 text-right tabular-nums">
         {hasValue ? `${Math.round(pct)}%` : '\u2014'}
       </span>
