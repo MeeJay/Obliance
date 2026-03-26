@@ -20,7 +20,7 @@ import { licenseApi } from '@/api/license.api';
 import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
-import { ChatPanel } from '@/components/ChatPanel';
+import { useChatStore } from '@/store/chatStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
@@ -3607,21 +3607,9 @@ export function DeviceDetailPage() {
     return () => clearInterval(t);
   }, [_uninstallAt, _isPendingUninstall]);
 
-  // Chat state (shared across RemoteTab and header)
-  const [chatOpen, setChatOpen]         = useState(false);
-  const [chatMessages, setChatMessages] = useState<import('@/components/ChatPanel').ChatMessage[]>([]);
-  const [chatId, setChatId]             = useState<string | null>(null);
-  const [chatSessionId, setChatSessionId] = useState<number | undefined>(undefined);
-  const [chatSoundEnabled, setChatSoundEnabled] = useState(true);
+  // Chat — now uses global store (persists across page navigation)
   const [chatSessionPickerOpen, setChatSessionPickerOpen] = useState(false);
-  const [quickReplyTemplates, setQuickReplyTemplates] = useState<Array<{ id: number; translations: Record<string, string> }>>([]);
-
-  // Fetch admin quick reply templates once
-  useEffect(() => {
-    import('@/api/quickReplyTemplates.api').then(({ quickReplyTemplatesApi }) => {
-      quickReplyTemplatesApi.list().then(setQuickReplyTemplates).catch(() => {});
-    });
-  }, []);
+  const chatIsOpen = useChatStore(s => s.isOpen && s.sessions.length > 0);
 
   // Quick-action state (header buttons — visible on every tab)
   const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
@@ -3855,10 +3843,14 @@ export function DeviceDetailPage() {
           sessionToken={headerRemoteSession?.sessionToken ?? null}
           deviceName={anonymize(device.displayName || device.hostname)}
           preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
-          onChatToggle={() => setChatOpen(o => !o)}
-          chatOpen={chatOpen}
-          chatSoundEnabled={chatSoundEnabled}
-          onChatSoundToggle={() => setChatSoundEnabled(v => !v)}
+          onChatToggle={() => {
+            const cs = useChatStore.getState();
+            if (cs.isOpen && cs.sessions.length > 0) cs.toggleOpen();
+            else cs.openChat(device.uuid, device.displayName || device.hostname);
+          }}
+          chatOpen={chatIsOpen}
+          chatSoundEnabled={useChatStore.getState().soundEnabled}
+          onChatSoundToggle={() => useChatStore.getState().toggleSound()}
           onClose={async () => {
             if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
             setHeaderRemoteOpen(false);
@@ -3884,9 +3876,8 @@ export function DeviceDetailPage() {
             <div className="p-3 space-y-1 max-h-60 overflow-y-auto">
               {headerOrSessions.map((s) => (
                 <button key={s.id} onClick={() => {
-                  setChatSessionId(s.id);
                   setChatSessionPickerOpen(false);
-                  setChatOpen(true);
+                  useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, s.id);
                 }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left">
                   <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
@@ -3906,26 +3897,6 @@ export function DeviceDetailPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Chat panel — floating bottom-right */}
-      {chatOpen && (
-        <div className="fixed right-4 bottom-4 z-[60] shadow-2xl rounded-2xl overflow-hidden" style={{ maxHeight: 'calc(100vh - 100px)' }}>
-          <ChatPanel
-            deviceUuid={device.uuid}
-            sessionId={chatSessionId}
-            operatorName={useAuthStore.getState().user?.displayName || useAuthStore.getState().user?.username || 'Operator'}
-            onClose={() => { setChatOpen(false); setChatId(null); setChatMessages([]); setChatSessionId(undefined); }}
-            onRemoteAccessGranted={() => { handleHeaderRemote('oblireach'); }}
-            messages={chatMessages}
-            setMessages={setChatMessages}
-            chatId={chatId}
-            setChatId={setChatId}
-            soundEnabled={chatSoundEnabled}
-            personalQuickReplies={useAuthStore.getState().user?.preferences?.quickReplies || []}
-            adminTemplates={quickReplyTemplates}
-          />
         </div>
       )}
       {/* WTS Session picker — header remote button (RDS with multiple sessions) */}
@@ -4060,13 +4031,13 @@ export function DeviceDetailPage() {
                 {/* Chat — always next to Remote */}
                 <button
                   onClick={async () => {
-                    if (chatOpen) {
-                      setChatOpen(false);
+                    if (chatIsOpen) {
+                      useChatStore.getState().toggleOpen();
                       return;
                     }
                     // If Reach is active, use the same session
                     if (headerRemoteOpen && headerRemoteSession) {
-                      setChatOpen(true);
+                      useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
                       return;
                     }
                     // Fetch fresh sessions for THIS device before opening chat
@@ -4078,12 +4049,13 @@ export function DeviceDetailPage() {
                         return;
                       }
                       if (sessions.length === 1) {
-                        setChatSessionId(sessions[0].id);
+                        useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, sessions[0].id);
+                        return;
                       }
                     } catch {
                       // Fall through — open chat without session selection
                     }
-                    setChatOpen(true);
+                    useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
                   }}
                   disabled={device.status !== 'online'}
                   title="Chat with user"

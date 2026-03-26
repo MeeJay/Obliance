@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { DesktopUpdateBanner } from './DesktopUpdateBanner';
 import { LiveAlerts } from './LiveAlerts';
 import { GlobalAddAgentModal } from './GlobalAddAgentModal';
+import { GlobalChatPanel } from './GlobalChatPanel';
 import { useUiStore } from '@/store/uiStore';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/utils/cn';
@@ -157,6 +158,9 @@ export function AppLayout() {
 
       {/* Global Add Agent modal (triggered from sidebar / dashboard) */}
       <GlobalAddAgentModal />
+
+      {/* Global persistent chat (multi-tab, survives page navigation) */}
+      <GlobalChatPanel />
     </div>
   );
 }
