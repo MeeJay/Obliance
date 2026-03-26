@@ -55,7 +55,12 @@
     "password": "Mot de passe",
     "email": "E-mail",
     "username": "Identifiant",
-    "override": "Remplacer"
+    "override": "Remplacer",
+    "all": "Tous",
+    "results": "résultats",
+    "page": "Page",
+    "confirmDelete": "Êtes-vous sûr ?",
+    "deleted": "Supprimé"
   },
   "status": {
     "up": "EN LIGNE",
@@ -100,7 +105,8 @@
     "navigation": "Navigation",
     "addAgent": "Ajouter un agent",
     "policies": "Politiques",
-    "supervision": "Supervision"
+    "supervision": "Supervision",
+    "discovery": "Découverte"
   },
   "login": {
     "title": "Tableau de bord de surveillance",
@@ -478,7 +484,10 @@
       "pauseAll": "Tout mettre en pause",
       "resumeAll": "Tout reprendre",
       "clearData": "Effacer les données"
-    }
+    },
+    "allDevices": "Tous les appareils",
+    "title": "Groupes",
+    "searchPlaceholder": "Rechercher un groupe..."
   },
   "notifications": {
     "title": "Notifications",
@@ -1488,5 +1497,83 @@
     "tabRemote": "Sessions distantes",
     "tabHistory": "Historique",
     "tabReports": "Rapports"
+  },
+  "discovery": {
+    "title": "Découverte réseau",
+    "subtitle": "Appareils découverts sur votre réseau par les scans agents",
+    "totalDiscovered": "Découverts",
+    "managed": "Gérés",
+    "unmanaged": "Non gérés",
+    "byType": "Par type",
+    "hostname": "Nom d'hôte",
+    "vendor": "Fabricant",
+    "type": "Type",
+    "ports": "Ports",
+    "firstSeen": "Première vue",
+    "lastSeen": "Dernière vue",
+    "status": "Statut",
+    "scanNow": "Scanner maintenant",
+    "selectAgent": "Sélectionner l'agent pour le scan",
+    "noOnlineAgents": "Aucun agent en ligne disponible",
+    "scanDispatched": "Scan réseau lancé",
+    "noResults": "Aucun appareil découvert. Lancez un scan depuis un agent en ligne.",
+    "searchPlaceholder": "Rechercher IP ou nom...",
+    "subnetPlaceholder": "Filtrer par sous-réseau..."
+  },
+  "patchReport": {
+    "title": "Rapport de correctifs",
+    "tabLabel": "Rapport correctifs",
+    "fleetCompliance": "Conformité des correctifs",
+    "fullyPatched": "{patched} / {total} appareils à jour",
+    "noData": "Aucune donnée de correctifs",
+    "group": "Groupe",
+    "devices": "Appareils",
+    "patched": "À jour",
+    "compliance": "Conformité",
+    "update": "Mise à jour",
+    "severity": "Sévérité",
+    "ungrouped": "Sans groupe"
+  },
+  "asset": {
+    "title": "Gestion des actifs",
+    "purchaseDate": "Date d'achat",
+    "warrantyExpiry": "Fin de garantie",
+    "warrantyVendor": "Fournisseur de garantie",
+    "warrantyVendorPlaceholder": "Dell, HP, Lenovo...",
+    "expectedLifetime": "Durée de vie prévue (années)",
+    "warranty": "Garantie",
+    "warrantyActive": "Active",
+    "warrantyExpired": "Expirée",
+    "warrantyUnknown": "Inconnue",
+    "deviceAge": "Âge de l'appareil",
+    "years": "{count} ans",
+    "lifecycle": "Cycle de vie",
+    "lifecycleActive": "Actif",
+    "lifecycleAging": "Vieillissant",
+    "lifecycleEndOfLife": "Fin de vie",
+    "lifecycleRetired": "Retiré",
+    "lifecycleUnknown": "Inconnu"
+  },
+  "device": {
+    "notes": "Notes",
+    "notesPlaceholder": "Ajouter des notes sur cet appareil...",
+    "location": "Localisation"
+  },
+  "licenses": {
+    "title": "Licences",
+    "addLicense": "+ Ajouter une licence",
+    "softwareName": "Nom du logiciel",
+    "licenseKey": "Clé de licence",
+    "licenseType": "Type de licence",
+    "seats": "Postes",
+    "expiryDate": "Date d'expiration",
+    "vendor": "Fournisseur",
+    "notes": "Notes",
+    "noLicenses": "Aucune licence enregistrée",
+    "perDevice": "Par appareil",
+    "perUser": "Par utilisateur",
+    "volume": "Volume",
+    "subscription": "Abonnement",
+    "other": "Autre"
   }
 }

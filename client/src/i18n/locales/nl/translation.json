@@ -55,7 +55,12 @@
     "password": "Wachtwoord",
     "email": "E-mail",
     "username": "Gebruikersnaam",
-    "override": "Overschrijven"
+    "override": "Overschrijven",
+    "all": "All",
+    "results": "results",
+    "page": "Page",
+    "confirmDelete": "Are you sure?",
+    "deleted": "Deleted"
   },
   "status": {
     "up": "ONLINE",
@@ -100,7 +105,8 @@
     "policies": "Policies",
     "supervision": "Supervision",
     "pinSidebar": "Pin sidebar",
-    "floatSidebar": "Float sidebar"
+    "floatSidebar": "Float sidebar",
+    "discovery": "Discovery"
   },
   "login": {
     "title": "Monitoring Dashboard",
@@ -1267,7 +1273,10 @@
       "pauseAll": "Pause All",
       "resumeAll": "Resume All",
       "clearData": "Clear Data"
-    }
+    },
+    "allDevices": "All Devices",
+    "title": "Groups",
+    "searchPlaceholder": "Search groups..."
   },
   "notifications": {
     "title": "Notifications",
@@ -1488,5 +1497,83 @@
       "remembersUrl": "Remembers your server URL",
       "alwaysUpToDate": "Always up-to-date — no rebuilds needed"
     }
+  },
+  "discovery": {
+    "title": "Network Discovery",
+    "subtitle": "Devices discovered on your network by agent scans",
+    "totalDiscovered": "Discovered",
+    "managed": "Managed",
+    "unmanaged": "Unmanaged",
+    "byType": "By Type",
+    "hostname": "Hostname",
+    "vendor": "Vendor",
+    "type": "Type",
+    "ports": "Ports",
+    "firstSeen": "First Seen",
+    "lastSeen": "Last Seen",
+    "status": "Status",
+    "scanNow": "Scan Now",
+    "selectAgent": "Select agent to scan from",
+    "noOnlineAgents": "No online agents available",
+    "scanDispatched": "Network scan dispatched",
+    "noResults": "No discovered devices yet. Run a scan from an online agent.",
+    "searchPlaceholder": "Search IP or hostname...",
+    "subnetPlaceholder": "Filter by subnet..."
+  },
+  "patchReport": {
+    "title": "Patch Report",
+    "tabLabel": "Patch Report",
+    "fleetCompliance": "Fleet Patch Compliance",
+    "fullyPatched": "{patched} / {total} devices fully patched",
+    "noData": "No patch data available",
+    "group": "Group",
+    "devices": "Devices",
+    "patched": "Patched",
+    "compliance": "Compliance",
+    "update": "Update",
+    "severity": "Severity",
+    "ungrouped": "Ungrouped"
+  },
+  "asset": {
+    "title": "Asset Management",
+    "purchaseDate": "Purchase Date",
+    "warrantyExpiry": "Warranty Expiry",
+    "warrantyVendor": "Warranty Vendor",
+    "warrantyVendorPlaceholder": "Dell, HP, Lenovo...",
+    "expectedLifetime": "Expected Lifetime (years)",
+    "warranty": "Warranty",
+    "warrantyActive": "Active",
+    "warrantyExpired": "Expired",
+    "warrantyUnknown": "Unknown",
+    "deviceAge": "Device Age",
+    "years": "{count} years",
+    "lifecycle": "Lifecycle",
+    "lifecycleActive": "Active",
+    "lifecycleAging": "Aging",
+    "lifecycleEndOfLife": "End of Life",
+    "lifecycleRetired": "Retired",
+    "lifecycleUnknown": "Unknown"
+  },
+  "device": {
+    "notes": "Notes",
+    "notesPlaceholder": "Add notes about this device...",
+    "location": "Location"
+  },
+  "licenses": {
+    "title": "Licenses",
+    "addLicense": "+ Add License",
+    "softwareName": "Software Name",
+    "licenseKey": "License Key",
+    "licenseType": "License Type",
+    "seats": "Seats",
+    "expiryDate": "Expiry Date",
+    "vendor": "Vendor",
+    "notes": "Notes",
+    "noLicenses": "No licenses recorded",
+    "perDevice": "Per Device",
+    "perUser": "Per User",
+    "volume": "Volume",
+    "subscription": "Subscription",
+    "other": "Other"
   }
 }
