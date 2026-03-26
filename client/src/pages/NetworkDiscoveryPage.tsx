@@ -241,8 +241,8 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-accent/10 rounded-lg transition-colors text-left"
                   >
                     <Monitor className="w-4 h-4 text-text-muted flex-shrink-0" />
-                    <span className="truncate">{d.hostname || d.ip || `#${d.id}`}</span>
-                    {d.ip && <span className="text-xs text-text-muted ml-auto flex-shrink-0">{d.ip}</span>}
+                    <span className="truncate">{d.hostname || d.ipLocal || `#${d.id}`}</span>
+                    {d.ipLocal && <span className="text-xs text-text-muted ml-auto flex-shrink-0">{d.ipLocal}</span>}
                   </button>
                 ))}
               </div>
