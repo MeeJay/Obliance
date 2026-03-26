@@ -189,7 +189,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="space-y-3">
       {/* Approval quick filters (admin mode) */}
       {mode === 'admin' && (
         <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -335,7 +335,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
           <p className="font-medium text-text-primary mb-1">{t('devices.noDevices')}</p>
         </div>
       ) : (
-        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden flex-1 min-h-0">
+        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
           {/* Select all header */}
           {isAdmin() && (
             <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-tertiary/50">
@@ -345,7 +345,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               </span>
             </div>
           )}
-          <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+          <div>
             {(() => {
               // Group devices by groupName when filtering by a parent group
               if (groupId && devices.some(d => d.groupId !== groupId)) {

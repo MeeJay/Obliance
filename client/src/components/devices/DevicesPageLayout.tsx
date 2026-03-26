@@ -11,7 +11,7 @@ export function DevicesPageLayout({ mode, initialStatusFilter }: DevicesPageLayo
   const [groupId, setGroupId] = useState<number | null>(null);
 
   return (
-    <div className="flex h-full gap-0">
+    <div className="flex gap-0">
       <GroupSidePanel
         groupId={groupId}
         onGroupChange={setGroupId}
