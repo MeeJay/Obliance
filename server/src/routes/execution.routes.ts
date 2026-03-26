@@ -196,6 +196,12 @@ router.get('/:id', async (req, res, next) => {
 // Cancel a pending execution (not yet sent to agent)
 router.post('/:id/cancel', async (req, res, next) => {
   try {
+    const exec = await db('script_executions').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
+    if (!exec) return res.status(404).json({ error: 'Execution not found' });
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, exec.device_id, false);
+      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+    }
     await db('script_executions')
       .where({ id: req.params.id, tenant_id: req.tenantId!, status: 'pending' })
       .update({ status: 'cancelled', updated_at: new Date() });
@@ -211,7 +217,10 @@ router.post('/:id/stop', async (req, res, next) => {
       .whereIn('status', ['running', 'sent'])
       .first();
     if (!exec) return res.status(404).json({ error: 'No running execution found' });
-
+    if (req.session.role !== 'admin') {
+      const canWrite = await permissionService.canWriteDevice(req.session.userId!, exec.device_id, false);
+      if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+    }
     if (!exec.command_queue_id) return res.status(400).json({ error: 'No linked command' });
 
     // Enqueue a cancel_script command to the device

@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { DeviceUpdate, UpdatePolicy } from '@obliance/shared';
+import type { DeviceUpdate, UpdatePolicy, PatchComplianceReport } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -81,6 +81,10 @@ export const updateApi = {
   async bulkRetryTitles(updateUids: string[]): Promise<{ retried: number }> {
     const res = await apiClient.post<ApiResponse<{ retried: number }>>('/updates/bulk-retry-titles', { updateUids });
     return res.data.data ?? { retried: 0 };
+  },
+  async getComplianceReport(groupId?: number): Promise<PatchComplianceReport> {
+    const res = await apiClient.get<ApiResponse<PatchComplianceReport>>('/updates/compliance-report', { params: groupId ? { groupId } : {} });
+    return res.data.data ?? { totalDevices: 0, fullyPatchedDevices: 0, fullyPatchedPercent: 0, bySeverity: [], byGroup: [], byUpdate: [] };
   },
 };
 

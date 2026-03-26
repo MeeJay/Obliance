@@ -106,6 +106,13 @@ router.get('/', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
   try {
+    if (req.session.role !== 'admin') {
+      const cmd = await db('command_queue').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
+      if (cmd) {
+        const canWrite = await permissionService.canWriteDevice(req.session.userId!, cmd.device_id, false);
+        if (!canWrite) return next(new AppError(403, 'Insufficient permissions'));
+      }
+    }
     await commandService.cancelCommand(req.params.id, req.tenantId!);
     res.status(204).send();
   } catch (err) { next(err); }

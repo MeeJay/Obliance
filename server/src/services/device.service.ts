@@ -84,6 +84,17 @@ class DeviceService {
       sensorDisplayNames: row.sensor_display_names || {},
       notificationTypes: row.notification_types || {},
       latestMetrics: row.latest_metrics || {},
+      geoLat: row.geo_lat ? parseFloat(row.geo_lat) : null,
+      geoLng: row.geo_lng ? parseFloat(row.geo_lng) : null,
+      geoCity: row.geo_city ?? null,
+      geoCountry: row.geo_country ?? null,
+      geoRegion: row.geo_region ?? null,
+      purchaseDate: row.purchase_date ?? null,
+      warrantyExpiry: row.warranty_expiry ?? null,
+      warrantyVendor: row.warranty_vendor ?? null,
+      warrantyStatus: row.warranty_status ?? 'unknown',
+      expectedLifetimeYears: row.expected_lifetime_years ?? null,
+      lifecycleStatus: row.lifecycle_status ?? 'unknown',
       uninstallAt: row.uninstall_at ? new Date(row.uninstall_at).toISOString() : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -186,6 +197,12 @@ class DeviceService {
     overrideGroupSettings: boolean;
     maxMissedPushes: number;
     complianceRemediationEnabled: boolean;
+    purchaseDate: string | null;
+    warrantyExpiry: string | null;
+    warrantyVendor: string | null;
+    warrantyStatus: string | null;
+    expectedLifetimeYears: number | null;
+    lifecycleStatus: string | null;
   }>) {
     const updates: any = { updated_at: new Date() };
     if (data.displayName !== undefined) updates.display_name = data.displayName;
@@ -201,6 +218,12 @@ class DeviceService {
     if (data.overrideGroupSettings !== undefined) updates.override_group_settings = data.overrideGroupSettings;
     if (data.maxMissedPushes !== undefined) updates.max_missed_pushes = data.maxMissedPushes;
     if (data.complianceRemediationEnabled !== undefined) updates.compliance_remediation_enabled = data.complianceRemediationEnabled;
+    if (data.purchaseDate !== undefined) updates.purchase_date = data.purchaseDate;
+    if (data.warrantyExpiry !== undefined) updates.warranty_expiry = data.warrantyExpiry;
+    if (data.warrantyVendor !== undefined) updates.warranty_vendor = data.warrantyVendor;
+    if (data.warrantyStatus !== undefined) updates.warranty_status = data.warrantyStatus;
+    if (data.expectedLifetimeYears !== undefined) updates.expected_lifetime_years = data.expectedLifetimeYears;
+    if (data.lifecycleStatus !== undefined) updates.lifecycle_status = data.lifecycleStatus;
 
     await db('devices').where({ id, tenant_id: tenantId }).update(updates);
     const updated = await this.getDeviceById(id, tenantId);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Key, Plus, Trash2, Copy, ChevronRight, RefreshCw, FolderOpen, Edit,
+  Key, Plus, Trash2, Copy, ChevronRight, RefreshCw, FolderOpen, Edit, Wifi,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -9,17 +9,18 @@ import { groupsApi } from '@/api/groups.api';
 import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
 import { DevicesPageLayout } from '@/components/devices/DevicesPageLayout';
 import { GroupManagePage } from './GroupManagePage';
+import { NetworkDiscoveryPage } from './NetworkDiscoveryPage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'agents' | 'groups' | 'keys';
+type Tab = 'agents' | 'groups' | 'keys' | 'discovery';
 
 export function AdminDevicesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const [tab, setTab] = useState<Tab>(['groups', 'keys'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
+  const [tab, setTab] = useState<Tab>(['groups', 'keys', 'discovery'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // ── API Keys state ─────────────────────────────────────────────────────────
@@ -110,16 +111,17 @@ export function AdminDevicesPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-        {(['agents', 'groups', 'keys'] as Tab[]).map((t2) => (
+        {(['agents', 'groups', 'keys', 'discovery'] as Tab[]).map((t2) => (
           <button
             key={t2}
             onClick={() => setTab(t2)}
             className={clsx(
-              'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1.5',
               tab === t2 ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
             )}
           >
-            {t2 === 'agents' ? t('agents.tabAgents') : t2 === 'groups' ? t('agents.tabGroups') : t('devices.tabApiKeys')}
+            {t2 === 'discovery' && <Wifi className="w-3.5 h-3.5" />}
+            {t2 === 'agents' ? t('agents.tabAgents') : t2 === 'groups' ? t('agents.tabGroups') : t2 === 'keys' ? t('devices.tabApiKeys') : (t('nav.discovery') || 'Discovery')}
           </button>
         ))}
       </div>
@@ -264,6 +266,9 @@ export function AdminDevicesPage() {
           )}
         </div>
       )}
+
+      {/* Tab: Discovery */}
+      {tab === 'discovery' && <NetworkDiscoveryPage embedded />}
 
       {showAddModal && <AddDeviceModal onClose={() => setShowAddModal(false)} />}
     </div>

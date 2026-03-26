@@ -165,6 +165,19 @@ export interface Device {
   lastRebootAt: string | null;
   rebootPending: boolean;
   timezone: string | null;
+  // Geolocation (resolved from ipPublic)
+  geoLat: number | null;
+  geoLng: number | null;
+  geoCity: string | null;
+  geoCountry: string | null;
+  geoRegion: string | null;
+  // Asset management
+  purchaseDate: string | null;
+  warrantyExpiry: string | null;
+  warrantyVendor: string | null;
+  warrantyStatus: 'active' | 'expired' | 'unknown';
+  expectedLifetimeYears: number | null;
+  lifecycleStatus: 'active' | 'aging' | 'end_of_life' | 'retired' | 'unknown';
   // Metadata
   tags: string[];
   customFields: Record<string, string>;
@@ -175,6 +188,54 @@ export interface Device {
   uninstallAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ─── LICENSES ────────────────────────────────────────────────────────────────
+
+export interface DeviceLicense {
+  id: number;
+  deviceId: number;
+  tenantId: number;
+  softwareName: string;
+  licenseKey: string | null;
+  licenseType: 'per_device' | 'per_user' | 'volume' | 'subscription' | 'other' | null;
+  seats: number | null;
+  expiryDate: string | null;
+  vendor: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── NETWORK DISCOVERY ───────────────────────────────────────────────────────
+
+export interface DiscoveredDevice {
+  id: number;
+  tenantId: number;
+  discoveredByDeviceId: number;
+  ip: string;
+  mac: string | null;
+  hostname: string | null;
+  ports: number[];
+  ouiVendor: string | null;
+  osGuess: string | null;
+  deviceType: 'pc' | 'server' | 'printer' | 'iot' | 'network' | 'unknown';
+  isManaged: boolean;
+  managedDeviceId: number | null;
+  subnet: string | null;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+// ─── PATCH COMPLIANCE ────────────────────────────────────────────────────────
+
+export interface PatchComplianceReport {
+  totalDevices: number;
+  fullyPatchedDevices: number;
+  fullyPatchedPercent: number;
+  bySeverity: Array<{ severity: string; total: number; patched: number; percent: number }>;
+  byGroup: Array<{ groupId: number | null; groupName: string | null; total: number; patched: number; percent: number }>;
+  byUpdate: Array<{ updateUid: string; title: string; severity: string; totalDevices: number; patchedDevices: number; percent: number }>;
 }
 
 export interface DeviceDisplayConfig {
@@ -284,7 +345,8 @@ export type CommandType =
   | 'delete_file'
   | 'download_file'
   | 'upload_file'
-  | 'remediate_rule';
+  | 'remediate_rule'
+  | 'scan_network';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

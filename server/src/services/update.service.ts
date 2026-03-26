@@ -402,6 +402,116 @@ class UpdateService {
     }
   }
 
+  // ─── Patch Compliance Report ─────────────────────────────────────────────
+  async getPatchComplianceReport(tenantId: number, groupId?: number) {
+    const pendingStatuses = ['available', 'approved', 'pending_install', 'installing', 'failed'];
+
+    // Base device query: approved, not pending_uninstall
+    let deviceQ = db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' });
+    if (groupId) deviceQ = deviceQ.where({ group_id: groupId });
+
+    const allDevices = await deviceQ.select('id', 'group_id');
+    const totalDevices = allDevices.length;
+    if (totalDevices === 0) {
+      return {
+        totalDevices: 0, fullyPatchedDevices: 0, fullyPatchedPercent: 0,
+        bySeverity: [], byGroup: [], byUpdate: [],
+      };
+    }
+
+    const deviceIds = allDevices.map((d: any) => d.id);
+
+    // Devices with at least one pending update
+    const devicesWithPending = await db('device_updates')
+      .where({ tenant_id: tenantId })
+      .whereIn('device_id', deviceIds)
+      .whereIn('status', pendingStatuses)
+      .distinct('device_id')
+      .pluck('device_id');
+
+    const pendingSet = new Set(devicesWithPending);
+    const fullyPatchedDevices = totalDevices - pendingSet.size;
+    const fullyPatchedPercent = totalDevices > 0 ? Math.round((fullyPatchedDevices / totalDevices) * 10000) / 100 : 0;
+
+    // bySeverity: for each severity, count devices with 0 pending of that severity
+    const severityRows = await db('device_updates')
+      .where({ tenant_id: tenantId })
+      .whereIn('device_id', deviceIds)
+      .whereIn('status', pendingStatuses)
+      .select('severity')
+      .count('* as total')
+      .countDistinct('device_id as affected_devices')
+      .groupBy('severity');
+
+    const bySeverity = severityRows.map((r: any) => {
+      const affected = parseInt(r.affected_devices);
+      const patched = totalDevices - affected;
+      return {
+        severity: r.severity,
+        total: totalDevices,
+        patched,
+        percent: Math.round((patched / totalDevices) * 10000) / 100,
+      };
+    });
+
+    // byGroup: aggregate per group
+    const groupMap = new Map<number | null, number[]>();
+    for (const d of allDevices) {
+      const gid = d.group_id ?? null;
+      if (!groupMap.has(gid)) groupMap.set(gid, []);
+      groupMap.get(gid)!.push(d.id);
+    }
+
+    const groupIds = [...groupMap.keys()].filter((id): id is number => id !== null);
+    const groupNames = new Map<number | null, string | null>();
+    groupNames.set(null, null);
+    if (groupIds.length > 0) {
+      const groups = await db('device_groups').whereIn('id', groupIds).select('id', 'name');
+      for (const g of groups) groupNames.set(g.id, g.name);
+    }
+
+    const byGroup: Array<{ groupId: number | null; groupName: string | null; total: number; patched: number; percent: number }> = [];
+    for (const [gid, dids] of groupMap) {
+      const total = dids.length;
+      const patched = dids.filter(id => !pendingSet.has(id)).length;
+      byGroup.push({
+        groupId: gid,
+        groupName: groupNames.get(gid) ?? null,
+        total,
+        patched,
+        percent: total > 0 ? Math.round((patched / total) * 10000) / 100 : 0,
+      });
+    }
+
+    // byUpdate: top 50 updates by gap (most unpatched first)
+    const updateRows = await db('device_updates')
+      .where({ tenant_id: tenantId })
+      .whereIn('device_id', deviceIds)
+      .whereIn('status', pendingStatuses)
+      .select(
+        'update_uid',
+        db.raw('MIN(title) as title'),
+        db.raw('MIN(severity) as severity'),
+        db.raw('COUNT(DISTINCT device_id)::int as affected_devices'),
+      )
+      .groupBy('update_uid')
+      .orderBy('affected_devices', 'desc')
+      .limit(50);
+
+    const byUpdate = updateRows.map((r: any) => ({
+      updateUid: r.update_uid,
+      title: r.title,
+      severity: r.severity,
+      totalDevices,
+      patchedDevices: totalDevices - parseInt(r.affected_devices),
+      percent: Math.round(((totalDevices - parseInt(r.affected_devices)) / totalDevices) * 10000) / 100,
+    }));
+
+    return { totalDevices, fullyPatchedDevices, fullyPatchedPercent, bySeverity, byGroup, byUpdate };
+  }
+
   // Update statistics for tenant dashboard
   async getUpdateStats(tenantId: number) {
     const stats = await db('device_updates')

@@ -218,6 +218,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "upload_file":
 		result, execErr = d.handleUploadFile(cmd)
 
+	case "scan_network":
+		result, execErr = d.handleScanNetwork(cmd)
+
 	case "disable_privacy_mode":
 		if err := SetPrivacyMode(false, "remote"); err != nil {
 			execErr = err

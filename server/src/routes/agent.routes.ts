@@ -14,9 +14,11 @@ import {
   agentInstallerWindows,
   agentInstallerWindowsMsi,
 } from '../controllers/agent.controller';
+import { geolocationService } from '../services/geolocation.service';
 import { inventoryService } from '../services/inventory.service';
 import { updateService } from '../services/update.service';
 import { complianceService } from '../services/compliance.service';
+import { networkDiscoveryService } from '../services/networkDiscovery.service';
 import { SocketEvents } from '@obliance/shared';
 import { getIO } from '../socket';
 
@@ -145,6 +147,12 @@ router.post('/push', agentAuth, async (req, res, next) => {
         timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),
       });
+
+      // Geolocate if public IP changed
+      if (ipPublic && ipPublic !== device.ip_public) {
+        geolocationService.updateDeviceGeo(device.id, ipPublic).catch(() => {});
+      }
+
       device = await db('devices').where({ id: device.id }).first();
     }
 
@@ -353,6 +361,28 @@ router.post('/compliance', agentAuth, async (req, res, next) => {
     } catch {}
 
     res.json({ ok: true, stored: true, id: stored.id });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/network-scan
+// Called by the agent after a scan_network command completes.
+// Upserts discovered network hosts into discovered_devices.
+router.post('/network-scan', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    await networkDiscoveryService.processScanResults(tenantId, device.id, req.body.results || []);
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

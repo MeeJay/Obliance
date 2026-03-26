@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { updateService } from '../services/update.service';
-import { requireDeviceWriteParam } from '../middleware/rbac';
+import { requireDeviceWriteParam, requireRole } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 
@@ -34,6 +34,16 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/compliance-report', async (req, res, next) => {
+  try {
+    const { groupId } = req.query as any;
+    const report = await updateService.getPatchComplianceReport(
+      req.tenantId!, groupId ? parseInt(groupId) : undefined
+    );
+    res.json({ data: report });
+  } catch (err) { next(err); }
+});
+
 router.get('/stats', async (req, res, next) => {
   try {
     const stats = await updateService.getUpdateStats(req.tenantId!);
@@ -48,7 +58,7 @@ router.get('/policies', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/policies', async (req, res, next) => {
+router.post('/policies', requireRole('admin'), async (req, res, next) => {
   try {
     const policy = await updateService.createPolicy(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -57,7 +67,7 @@ router.post('/policies', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/policies/:id', async (req, res, next) => {
+router.delete('/policies/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await updateService.deletePolicy(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
@@ -98,7 +108,7 @@ router.post('/device/:deviceId/retry/:updateId', requireDeviceWriteParam('device
 });
 
 // POST /updates/bulk-retry — retry all failed updates for a given title across all devices
-router.post('/bulk-retry', async (req, res, next) => {
+router.post('/bulk-retry', requireRole('admin'), async (req, res, next) => {
   try {
     const { updateUid } = req.body as { updateUid: string };
     if (!updateUid) return res.status(400).json({ error: 'updateUid required' });
@@ -118,7 +128,7 @@ router.post('/bulk-retry', async (req, res, next) => {
 });
 
 // POST /updates/bulk-retry-titles — retry all failed updates for multiple titles
-router.post('/bulk-retry-titles', async (req, res, next) => {
+router.post('/bulk-retry-titles', requireRole('admin'), async (req, res, next) => {
   try {
     const { updateUids } = req.body as { updateUids: string[] };
     if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
@@ -183,7 +193,7 @@ router.get('/aggregated/:updateUid/devices', async (req, res, next) => {
 });
 
 // POST /updates/bulk-approve — approve all instances of an update title
-router.post('/bulk-approve', async (req, res, next) => {
+router.post('/bulk-approve', requireRole('admin'), async (req, res, next) => {
   try {
     const { updateUid, groupId } = req.body as { updateUid: string; groupId?: number };
     if (!updateUid) return res.status(400).json({ error: 'updateUid required' });
@@ -195,7 +205,7 @@ router.post('/bulk-approve', async (req, res, next) => {
 });
 
 // POST /updates/bulk-approve-titles — approve multiple update titles at once
-router.post('/bulk-approve-titles', async (req, res, next) => {
+router.post('/bulk-approve-titles', requireRole('admin'), async (req, res, next) => {
   try {
     const { updateUids, groupId } = req.body as { updateUids: string[]; groupId?: number };
     if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
@@ -208,7 +218,7 @@ router.post('/bulk-approve-titles', async (req, res, next) => {
 });
 
 // POST /updates/bulk-deploy — deploy all approved updates across all affected devices
-router.post('/bulk-deploy', async (req, res, next) => {
+router.post('/bulk-deploy', requireRole('admin'), async (req, res, next) => {
   try {
     const deviceIds = await db('device_updates')
       .where({ tenant_id: req.tenantId!, status: 'approved' })
@@ -225,7 +235,7 @@ router.post('/bulk-deploy', async (req, res, next) => {
 });
 
 // POST /updates/bulk-approve-and-deploy — approve selected titles then deploy them
-router.post('/bulk-approve-and-deploy', async (req, res, next) => {
+router.post('/bulk-approve-and-deploy', requireRole('admin'), async (req, res, next) => {
   try {
     const { updateUids, groupId } = req.body as { updateUids: string[]; groupId?: number };
     if (!updateUids?.length) return res.status(400).json({ error: 'updateUids required' });
@@ -254,7 +264,7 @@ router.post('/bulk-approve-and-deploy', async (req, res, next) => {
 });
 
 // POST /updates/bulk-approve-severity — approve all updates of given severities
-router.post('/bulk-approve-severity', async (req, res, next) => {
+router.post('/bulk-approve-severity', requireRole('admin'), async (req, res, next) => {
   try {
     const { severities, groupId } = req.body as { severities: string[]; groupId?: number };
     if (!severities?.length) return res.status(400).json({ error: 'severities required' });

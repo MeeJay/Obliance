@@ -1,5 +1,5 @@
 import { memo, type MouseEvent } from 'react';
-import { Eye, FolderOpen, User, RotateCcw, ShieldOff } from 'lucide-react';
+import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
@@ -209,6 +209,15 @@ export const DeviceRow = memo(function DeviceRow({
           <User className="w-3 h-3" />
           <span className="truncate max-w-[100px]">{device.lastLoggedInUser || '\u2014'}</span>
         </span>
+        {device.geoCity && (
+          <>
+            <span className="text-text-muted/50">&middot;</span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              <span className="truncate max-w-[120px]">{device.geoCity}{device.geoCountry ? `, ${device.geoCountry}` : ''}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

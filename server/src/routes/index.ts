@@ -35,10 +35,12 @@ import agentAdminRoutes from './agentAdmin.routes';
 import oblianceRoutes from './obliance.routes';
 import systemRoutes from './system.routes';
 import obliReachAgentRoutes, { obliReachDevicesRouter } from './oblireach-agent.routes';
+import licenseRoutes from './license.routes';
 import quickReplyTemplatesRoutes from './quickReplyTemplates.routes';
 import reachRoutes from './reach.routes';
 import processRoutes from './process.routes';
 import fileRoutes from './file.routes';
+import networkDiscoveryRoutes from './networkDiscovery.routes';
 
 const router = Router();
 
@@ -85,7 +87,9 @@ tenantRouter.use('/oblireach/devices', obliReachDevicesRouter);
 tenantRouter.use('/reach',           reachRoutes);        // Oblireach desktop client API
 tenantRouter.use('/processes',      processRoutes);
 tenantRouter.use('/files',          fileRoutes); // /api/files/:deviceId/files/*
+tenantRouter.use('/licenses',    licenseRoutes);
 tenantRouter.use('/quick-reply-templates', quickReplyTemplatesRoutes);
+tenantRouter.use('/network-discovery', networkDiscoveryRoutes);
 
 router.use('/', tenantRouter);
 

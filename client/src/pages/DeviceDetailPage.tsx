@@ -16,6 +16,7 @@ import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
+import { licenseApi } from '@/api/license.api';
 import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
@@ -25,7 +26,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
-import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
@@ -50,8 +51,22 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ device }: { device: Device }) {
+function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void }) {
   const metrics = device.latestMetrics;
+  const [notes, setNotes] = useState(device.description ?? '');
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+
+  // Sync when device prop changes
+  useEffect(() => { setNotes(device.description ?? ''); }, [device.description]);
+
+  const saveNotes = useCallback(async () => {
+    if (notesRef.current === (device.description ?? '')) return;
+    try {
+      await deviceApi.update(device.id, { description: notesRef.current || undefined });
+      onSaved();
+    } catch { toast.error('Failed to save notes'); }
+  }, [device.id, device.description, onSaved]);
 
   return (
     <div className="space-y-6">
@@ -84,6 +99,7 @@ function OverviewTab({ device }: { device: Device }) {
               ['Public IP', anonymizeIp(device.ipPublic) || '—'],
               ['MAC Address', anonymizeMac(device.macAddress) || '—'],
               ['Timezone', device.timezone ?? '—'],
+              ['Location', device.geoCity ? `${device.geoCity}, ${device.geoRegion ?? ''} ${device.geoCountry ?? ''}`.trim() : '—'],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
                 <dt className="text-text-muted">{k}</dt>
@@ -91,6 +107,18 @@ function OverviewTab({ device }: { device: Device }) {
               </div>
             ))}
           </dl>
+        </div>
+        {/* Notes */}
+        <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
+          <h4 className="text-sm font-semibold text-text-muted mb-2">Notes</h4>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            onBlur={saveNotes}
+            rows={3}
+            placeholder="Add notes about this device..."
+            className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary resize-y focus:outline-none focus:border-accent"
+          />
         </div>
       </div>
 
@@ -151,6 +179,44 @@ function OverviewTab({ device }: { device: Device }) {
         </div>
       </div>
 
+      {/* Asset Management */}
+      <div className="p-4 bg-bg-secondary border border-border rounded-xl">
+        <h4 className="text-sm font-semibold text-text-muted mb-3">Asset Management</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <span className="text-[10px] text-text-muted uppercase block mb-1">Purchase Date</span>
+            <span className="text-sm text-text-primary">{device.purchaseDate ? new Date(device.purchaseDate).toLocaleDateString() : '—'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-text-muted uppercase block mb-1">Warranty</span>
+            <span className={clsx('text-sm font-medium',
+              device.warrantyStatus === 'active' ? 'text-green-400' :
+              device.warrantyStatus === 'expired' ? 'text-red-400' : 'text-text-muted'
+            )}>
+              {device.warrantyStatus === 'active' ? 'Active' : device.warrantyStatus === 'expired' ? 'Expired' : 'Unknown'}
+              {device.warrantyExpiry && ` (${new Date(device.warrantyExpiry).toLocaleDateString()})`}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-text-muted uppercase block mb-1">Device Age</span>
+            <span className="text-sm text-text-primary">
+              {device.purchaseDate ? `${Math.floor((Date.now() - new Date(device.purchaseDate).getTime()) / (365.25 * 86400000))} years` : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-text-muted uppercase block mb-1">Lifecycle</span>
+            <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium',
+              device.lifecycleStatus === 'active' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+              device.lifecycleStatus === 'aging' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' :
+              device.lifecycleStatus === 'end_of_life' ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+              'text-text-muted bg-bg-tertiary border-border'
+            )}>
+              {device.lifecycleStatus ?? 'Unknown'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Tags */}
       {device.tags && device.tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -174,6 +240,14 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
   const [softwareSearch, setSoftwareSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<'hardware' | 'software'>('hardware');
+  const [licenses, setLicenses] = useState<DeviceLicense[]>([]);
+  const [showLicenseForm, setShowLicenseForm] = useState(false);
+  const [licenseForm, setLicenseForm] = useState({ softwareName: '', licenseKey: '', licenseType: 'per_device' as string, vendor: '', expiryDate: '', notes: '' });
+
+  const loadLicenses = useCallback(() => {
+    licenseApi.listForDevice(deviceId).then(setLicenses).catch(() => {});
+  }, [deviceId]);
+  useEffect(() => { loadLicenses(); }, [loadLicenses]);
 
   useEffect(() => {
     const load = async () => {
@@ -486,6 +560,91 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
       {activeSection === 'hardware' && !hardware && (
         <p className="text-text-muted text-center py-8">No inventory data. Click "Scan now" to collect hardware info.</p>
       )}
+
+      {/* Licenses */}
+      <div className="p-4 bg-bg-secondary border border-border rounded-xl">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-text-muted">Licenses</h4>
+          <button onClick={() => setShowLicenseForm(!showLicenseForm)} className="text-xs text-accent hover:underline">
+            + Add License
+          </button>
+        </div>
+        {showLicenseForm && (
+          <div className="space-y-2 mb-3 p-3 bg-bg-tertiary rounded-lg">
+            <input type="text" placeholder="Software name" value={licenseForm.softwareName}
+              onChange={e => setLicenseForm(f => ({ ...f, softwareName: e.target.value }))}
+              className="w-full px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+            <input type="text" placeholder="License key" value={licenseForm.licenseKey}
+              onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))}
+              className="w-full px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+            <div className="grid grid-cols-2 gap-2">
+              <select value={licenseForm.licenseType}
+                onChange={e => setLicenseForm(f => ({ ...f, licenseType: e.target.value }))}
+                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent">
+                <option value="per_device">Per Device</option>
+                <option value="per_user">Per User</option>
+                <option value="volume">Volume</option>
+                <option value="subscription">Subscription</option>
+                <option value="other">Other</option>
+              </select>
+              <input type="text" placeholder="Vendor" value={licenseForm.vendor}
+                onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))}
+                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" placeholder="Expiry date" value={licenseForm.expiryDate}
+                onChange={e => setLicenseForm(f => ({ ...f, expiryDate: e.target.value }))}
+                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+              <input type="text" placeholder="Notes" value={licenseForm.notes}
+                onChange={e => setLicenseForm(f => ({ ...f, notes: e.target.value }))}
+                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setShowLicenseForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">Cancel</button>
+              <button onClick={async () => {
+                if (!licenseForm.softwareName.trim()) return;
+                try {
+                  await licenseApi.create(deviceId, {
+                    softwareName: licenseForm.softwareName,
+                    licenseKey: licenseForm.licenseKey || null,
+                    licenseType: (licenseForm.licenseType || null) as DeviceLicense['licenseType'],
+                    vendor: licenseForm.vendor || null,
+                    expiryDate: licenseForm.expiryDate || null,
+                    notes: licenseForm.notes || null,
+                  });
+                  setLicenseForm({ softwareName: '', licenseKey: '', licenseType: 'per_device', vendor: '', expiryDate: '', notes: '' });
+                  setShowLicenseForm(false);
+                  loadLicenses();
+                } catch { toast.error('Failed to add license'); }
+              }} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90">Save</button>
+            </div>
+          </div>
+        )}
+        {licenses.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead><tr className="text-xs text-text-muted border-b border-border">
+              <th className="text-left py-1">Software</th>
+              <th className="text-left py-1">Key</th>
+              <th className="text-left py-1">Type</th>
+              <th className="text-left py-1">Expiry</th>
+              <th className="w-8"></th>
+            </tr></thead>
+            <tbody>{licenses.map(lic => (
+              <tr key={lic.id} className="border-b border-border">
+                <td className="py-1.5 text-text-primary">{lic.softwareName}</td>
+                <td className="py-1.5 font-mono text-text-muted">{lic.licenseKey ? '••••' + lic.licenseKey.slice(-4) : '—'}</td>
+                <td className="py-1.5 text-text-muted">{lic.licenseType ?? '—'}</td>
+                <td className="py-1.5 text-text-muted">{lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : '—'}</td>
+                <td><button onClick={async () => {
+                  try { await licenseApi.remove(lic.id); loadLicenses(); } catch { toast.error('Failed to delete license'); }
+                }} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : (
+          <p className="text-xs text-text-muted">No licenses recorded</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -1587,6 +1746,11 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
     sensorValue: '',
     // Compliance
     complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
+    // Asset Management
+    purchaseDate: device.purchaseDate ?? '',
+    warrantyExpiry: device.warrantyExpiry ?? '',
+    warrantyVendor: device.warrantyVendor ?? '',
+    expectedLifetimeYears: device.expectedLifetimeYears ?? null as number | null,
   });
   const [saving, setSaving] = useState(false);
   const formRef = useRef(form);
@@ -1624,6 +1788,10 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
           notificationTypes: { online: f.notifOnline, offline: f.notifOffline, warning: f.notifWarning, critical: f.notifCritical, update: f.notifUpdate },
           displayConfig, sensorDisplayNames: f.sensorDisplayNames,
           complianceRemediationEnabled: f.complianceRemediationEnabled,
+          purchaseDate: f.purchaseDate || null,
+          warrantyExpiry: f.warrantyExpiry || null,
+          warrantyVendor: f.warrantyVendor || null,
+          expectedLifetimeYears: f.expectedLifetimeYears,
         });
         onSaved();
       } catch {
@@ -1699,6 +1867,34 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
             <span className="text-xs text-text-muted mb-1 block">Description</span>
             <textarea value={form.description} onChange={e => set('description', e.target.value)}
               onBlur={autoSave} rows={2} className={`${inputCls} resize-none`} />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Asset Management ── */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Asset Management</h3>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Purchase date</span>
+            <input type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)}
+              onBlur={autoSave} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Warranty expiry</span>
+            <input type="date" value={form.warrantyExpiry} onChange={e => set('warrantyExpiry', e.target.value)}
+              onBlur={autoSave} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Warranty vendor</span>
+            <input type="text" value={form.warrantyVendor} onChange={e => set('warrantyVendor', e.target.value)}
+              onBlur={autoSave} placeholder="Dell, HP, Lenovo..." className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="text-xs text-text-muted mb-1 block">Expected lifetime (years)</span>
+            <input type="number" min={1} max={20} value={form.expectedLifetimeYears ?? ''}
+              onChange={e => set('expectedLifetimeYears', e.target.value ? parseInt(e.target.value) : null)}
+              onBlur={autoSave} className={inputCls} />
           </label>
         </div>
       </div>
@@ -2545,6 +2741,7 @@ const COMMAND_LABELS: Record<string, string> = {
   delete_file: 'Delete File',
   download_file: 'Download File',
   upload_file: 'Upload File',
+  scan_network: 'Network Scan',
 };
 
 const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
@@ -4062,7 +4259,7 @@ export function DeviceDetailPage() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 'overview' && <OverviewTab device={device} />}
+        {activeTab === 'overview' && <OverviewTab device={device} onSaved={() => fetchDevice(deviceId)} />}
         {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
         {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
         {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
