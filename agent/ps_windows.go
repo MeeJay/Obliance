@@ -7,8 +7,6 @@ import (
 	"os/exec"
 )
 
-const psUTF8Prefix = "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();$OutputEncoding=[System.Text.UTF8Encoding]::new();"
-
 // runPS executes a PowerShell script with UTF-8 output encoding forced.
 // This prevents garbled accented characters (e.g. "réseau" → "r�seau")
 // on non-English Windows where the default console encoding is CP850/CP1252.
