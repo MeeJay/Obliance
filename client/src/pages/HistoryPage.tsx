@@ -186,11 +186,9 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
     };
     if (!socket) return;
     socket.on('COMMAND_UPDATED', onCmd);
-    socket.on('COMMAND_RESULT', onCmd);
     socket.on('EXECUTION_UPDATED', onExec);
     return () => {
       socket.off('COMMAND_UPDATED', onCmd);
-      socket.off('COMMAND_RESULT', onCmd);
       socket.off('EXECUTION_UPDATED', onExec);
     };
   }, [socket]);

@@ -117,7 +117,7 @@ export interface DeviceGroupTreeNode extends DeviceGroup {
 
 // ─── DEVICES ─────────────────────────────────────────────────────────────────
 
-export type DeviceStatus = 'pending' | 'online' | 'offline' | 'maintenance' | 'warning' | 'critical' | 'suspended' | 'pending_uninstall';
+export type DeviceStatus = 'pending' | 'online' | 'offline' | 'maintenance' | 'warning' | 'critical' | 'suspended' | 'pending_uninstall' | 'updating' | 'update_error';
 export type OsType = 'windows' | 'macos' | 'linux' | 'other';
 export type ApprovalStatus = 'pending' | 'approved' | 'refused';
 

@@ -1061,10 +1061,8 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
         load();
       }
     };
-    socket.on(SocketEvents.COMMAND_RESULT, onCmd);
     socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
     return () => {
-      socket.off(SocketEvents.COMMAND_RESULT, onCmd);
       socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
     };
   }, [deviceId]);
@@ -2385,11 +2383,9 @@ function RemoteTab({ device }: { device: Device }) {
           }
         };
         const socket = getSocket();
-        socket?.on('COMMAND_RESULT', onResult);
         socket?.on('COMMAND_UPDATED', onResult);
         // Cleanup after 10s
         setTimeout(() => {
-          socket?.off('COMMAND_RESULT', onResult);
           socket?.off('COMMAND_UPDATED', onResult);
         }, 10_000);
       } catch {
@@ -2809,10 +2805,8 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
     };
     if (!socket) return;
     socket.on('COMMAND_UPDATED', onUpdate);
-    socket.on('COMMAND_RESULT', onUpdate);
     return () => {
       socket.off('COMMAND_UPDATED', onUpdate);
-      socket.off('COMMAND_RESULT', onUpdate);
     };
   }, [deviceId, socket]);
 
@@ -3128,11 +3122,9 @@ function ServicesTab({ device }: { device: Device }) {
     };
 
     socket.on(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
-    socket.on('COMMAND_RESULT', onCmd);
     socket.on('COMMAND_UPDATED', onCmd);
     return () => {
       socket.off(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
-      socket.off('COMMAND_RESULT', onCmd);
       socket.off('COMMAND_UPDATED', onCmd);
     };
   }, [device.id]);
@@ -3367,13 +3359,11 @@ function ProcessesTab({ device }: { device: Device }) {
     };
 
     socket.on(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
-    socket.on('COMMAND_RESULT', onCmd);
     socket.on('COMMAND_UPDATED', onCmd);
 
     return () => {
       socket.emit(SocketEvents.PROCESS_UNSUBSCRIBE, { deviceId: device.id });
       socket.off(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
-      socket.off('COMMAND_RESULT', onCmd);
       socket.off('COMMAND_UPDATED', onCmd);
       setConnected(false);
     };
@@ -4040,8 +4030,20 @@ export function DeviceDetailPage() {
                 {/* Chat — always next to Remote */}
                 <button
                   onClick={async () => {
-                    if (chatIsOpen) {
-                      useChatStore.getState().toggleOpen();
+                    // If a chat for THIS device is already open, toggle visibility
+                    const cs = useChatStore.getState();
+                    const thisDeviceOpen = cs.sessions.some(s => s.deviceUuid === device.uuid);
+                    if (thisDeviceOpen && cs.isOpen) {
+                      // Switch to its tab (in case another tab is active)
+                      const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
+                      if (tab && tab.key !== cs.activeKey) { cs.setActiveTab(tab.key); return; }
+                      cs.toggleOpen();
+                      return;
+                    }
+                    if (thisDeviceOpen && !cs.isOpen) {
+                      const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
+                      if (tab) cs.setActiveTab(tab.key);
+                      cs.toggleOpen();
                       return;
                     }
                     // If Reach is active, use the same session

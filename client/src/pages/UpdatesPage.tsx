@@ -118,8 +118,8 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
     const onCmd = (cmd: Command) => {
       if (cmd.type === 'scan_updates' && cmd.status === 'success') load();
     };
-    socket.on(SocketEvents.COMMAND_RESULT, onCmd);
-    return () => { socket.off(SocketEvents.COMMAND_RESULT, onCmd); };
+    socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
+    return () => { socket.off(SocketEvents.COMMAND_UPDATED, onCmd); };
   }, [load]);
 
   // Expand a row to show affected devices

@@ -178,6 +178,31 @@ router.post('/push', agentAuth, async (req, res, next) => {
   }
 });
 
+// POST /api/agent/notifying-update
+// Agent calls this right before applying an update. Sets status to 'updating'
+// with a 10-min timeout — after which checkOfflineDevices transitions to 'update_error'.
+router.post('/notifying-update', agentAuth, async (req, res) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) { res.status(400).json({ error: 'X-Device-UUID header required' }); return; }
+    const tenantId = req.agentTenantId!;
+    const device = await deviceService.getDeviceByUuid(deviceUuid, tenantId);
+    if (!device) { res.status(404).json({ error: 'Device not found' }); return; }
+    await db('devices').where({ id: device.id, tenant_id: tenantId }).update({
+      status: 'updating',
+      update_started_at: new Date(),
+      updated_at: new Date(),
+    });
+    // Notify UI
+    try { getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId: device.id, status: 'updating' }); } catch {}
+    logger.info({ deviceId: device.id, uuid: deviceUuid }, 'Device entering update mode (10min timeout)');
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, 'notifying-update error');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/agent/commands
 // Lightweight command poll — agent checks for pending tasks at its own
 // task_retrieve_delay_seconds rate, without sending metrics.

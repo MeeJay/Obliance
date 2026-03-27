@@ -529,7 +529,7 @@ class DeviceService {
     await db('devices')
       .where({ id: deviceId })
       .whereNot({ status: 'pending_uninstall' })
-      .update({ status: 'online' });
+      .update({ status: 'online', update_started_at: null });
 
     // Emit real-time metrics update
     if (this.io) {
@@ -687,6 +687,32 @@ class DeviceService {
           }
 
           logger.info({ deviceId: device.id, hostname: device.hostname }, 'Device went offline');
+        }
+      }
+
+      // Transition 'updating' devices to 'update_error' after 10 min
+      const UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
+      const updatingDevices = await db('devices')
+        .where({ status: 'updating' })
+        .whereNotNull('update_started_at');
+
+      for (const device of updatingDevices) {
+        const elapsed = Date.now() - new Date(device.update_started_at).getTime();
+        if (elapsed > UPDATE_TIMEOUT_MS) {
+          await db('devices').where({ id: device.id }).update({
+            status: 'update_error',
+            update_started_at: null,
+            updated_at: new Date(),
+          });
+
+          if (this.io) {
+            this.io.to(`tenant:${device.tenant_id}`).emit(SocketEvents.DEVICE_UPDATED, {
+              deviceId: device.id,
+              status: 'update_error',
+            });
+          }
+
+          logger.warn({ deviceId: device.id, hostname: device.hostname }, 'Device update timed out — marked update_error');
         }
       }
     } catch (err) {

@@ -162,7 +162,6 @@ function ChatTabContent({ session }: { session: ChatSession }) {
   useEffect(() => {
     const socket = getSocket();
     if (!socket || !chatId) return;
-    socket.emit('join', `chat:${chatId}`);
 
     const onMessage = (data: { chatId: string; sender: string; message: string; timestamp: number }) => {
       if (data.chatId !== chatId) return;
