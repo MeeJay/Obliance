@@ -1,5 +1,7 @@
 Elastic License 2.0 (ELv2)
 
+Copyright 2024–2026 MeeJay (Obli* ecosystem)
+
 URL: https://www.elastic.co/licensing/elastic-license
 
 ## Acceptance
@@ -8,7 +10,7 @@ By using the software, you agree to all of the terms and conditions below.
 
 ## Copyright License
 
-The licensor grants you a non-exclusive, royalty-free, worldwide, non-sublicensable, non-transferable license to use, copy, distribute, make available, and prepare derivative works of the software, in each case subject to the limitations and conditions below.
+The licensor grants you a non-exclusive, royalty-free, worldwide, non-sublicensable, non-transferable license to use, copy, distribute, make available, and prepare derivative works of the software, in each case subject to the limitations below.
 
 ## Limitations
 
@@ -44,6 +46,32 @@ As far as the law allows, the software comes as is, without any warranty or cond
 
 The **licensor** is the entity offering these terms, and the **software** is the software the licensor makes available under these terms, including any portion of it.
 
-**you** refers to the individual or entity agreeing to these terms.
+**You** refers to the individual or entity agreeing to these terms.
 
-**your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization. **control** means ownership of substantially all the assets of an entity, or the power to direct the management and policies of an entity.
+**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization. **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise. Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the software under these terms.
+
+**Use** means anything you do with the software requiring one of your licenses.
+
+---
+
+## Clarifications specific to the obli.tools ecosystem
+
+The following clarifications are provided for guidance and do not modify the license terms above.
+
+**Internal use, including commercial.** Organizations of any size may deploy, configure and operate the software on their own infrastructure for their own purposes, without restriction.
+
+**Consulting, deployment and managed operations.** IT service providers may deploy the software on a client's infrastructure, provide configuration, training, support, and ongoing managed operations. Billing for human expertise and time spent is permitted.
+
+**Hosting the infrastructure.** Hosting providers may sell compute, storage and network resources on which the software runs, as long as the billing is for infrastructure resources and not for access to the software's features.
+
+**Community add-ons.** Third parties may develop, distribute and sell plugins, modules, integrations and extensions that interact with the software.
+
+**What is not permitted.** Offering the software itself — or any substantial subset of its functionality — as a hosted or managed service where the value proposition to the end user is access to the software rather than human expertise or infrastructure resources. In other words: if the tool is the product being sold, that requires a separate commercial agreement with the licensor.
+
+---
+
+## Third-Party Notices
+
+All npm and Go module dependencies are governed by their respective licenses (predominantly MIT and BSD). A full list can be generated with `npm ls --all` (Node.js) or `go list -m all` (Go agent).
