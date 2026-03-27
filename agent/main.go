@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -411,7 +410,7 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	exePath := `C:\Program Files\OblianceAgent\obliance-agent.exe`
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
-			"timeout /t 5 /nobreak >nul\r\n"+
+			"ping -n 6 127.0.0.1 >nul\r\n"+
 			"set RETRIES=0\r\n"+
 			":RETRY\r\n"+
 			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
@@ -419,11 +418,11 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 			"if %%MSI_EXIT%%==1618 (\r\n"+
 			"  set /a RETRIES+=1\r\n"+
 			"  if %%RETRIES%% LSS 5 (\r\n"+
-			"    timeout /t 30 /nobreak >nul\r\n"+
+			"    ping -n 31 127.0.0.1 >nul\r\n"+
 			"    goto RETRY\r\n"+
 			"  )\r\n"+
 			")\r\n"+
-			"timeout /t 5 /nobreak >nul\r\n"+
+			"ping -n 6 127.0.0.1 >nul\r\n"+
 			"sc query OblianceAgent >nul 2>&1\r\n"+
 			"if %%ERRORLEVEL%% NEQ 0 (\r\n"+
 			"  if exist \"%s\" (\r\n"+
@@ -453,8 +452,8 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	// Use a scheduled task to run the VBS wrapper — survives service stop,
 	// unlike a child process which the SCM may kill when the service exits.
 	// Delete any stale task first.
-	exec.Command("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
-	if err := exec.Command("schtasks",
+	newCmd("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
+	if err := newCmd("schtasks",
 		"/create", "/tn", "OblianceUpdate",
 		"/tr", "wscript.exe \""+vbsPath+"\"",
 		"/sc", "once",
@@ -465,7 +464,7 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	).Run(); err != nil {
 		return fmt.Errorf("schtasks create: %w", err)
 	}
-	if err := exec.Command("schtasks", "/run", "/tn", "OblianceUpdate").Run(); err != nil {
+	if err := newCmd("schtasks", "/run", "/tn", "OblianceUpdate").Run(); err != nil {
 		return fmt.Errorf("schtasks run: %w", err)
 	}
 	return nil

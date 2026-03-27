@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os/exec"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ import (
 // Returns "" if neither method works or the UUID is all zeros.
 func readMachineUUID() string {
 	// Primary: PowerShell Get-CimInstance Win32_ComputerSystemProduct
-	out, err := exec.Command(
+	out, err := newCmd(
 		"powershell", "-NoProfile", "-NonInteractive", "-Command",
 		"(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID",
 	).Output()
@@ -24,7 +23,7 @@ func readMachineUUID() string {
 	}
 
 	// Fallback: wmic csproduct get UUID /value  →  "UUID=XXXX-..."
-	out, err = exec.Command("wmic", "csproduct", "get", "UUID", "/value").Output()
+	out, err = newCmd("wmic", "csproduct", "get", "UUID", "/value").Output()
 	if err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			line = strings.TrimSpace(line)

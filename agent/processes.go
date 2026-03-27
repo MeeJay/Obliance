@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -61,9 +60,9 @@ func (d *CommandDispatcher) handleKillProcess(cmd AgentCommand) (interface{}, er
 
 func killProcess(pid int) error {
 	if runtime.GOOS == "windows" {
-		return exec.Command("taskkill", "/F", "/PID", strconv.Itoa(pid)).Run()
+		return newCmd("taskkill", "/F", "/PID", strconv.Itoa(pid)).Run()
 	}
-	return exec.Command("kill", "-9", strconv.Itoa(pid)).Run()
+	return newCmd("kill", "-9", strconv.Itoa(pid)).Run()
 }
 
 // collectProcesses returns the list of running processes.
@@ -80,7 +79,7 @@ func collectProcesses() ([]ProcessInfo, error) {
 }
 
 func collectProcessesTasklist() ([]ProcessInfo, error) {
-	out, err := exec.Command("tasklist", "/V", "/FO", "CSV", "/NH").Output()
+	out, err := newCmd("tasklist", "/V", "/FO", "CSV", "/NH").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func parseCSVLine(line string) []string {
 
 func collectProcessesLinux() ([]ProcessInfo, error) {
 	// ps -eo pid,comm,%cpu,rss,user,args --no-headers
-	out, err := exec.Command("ps", "-eo", "pid,comm,%cpu,rss,user,args", "--no-headers").Output()
+	out, err := newCmd("ps", "-eo", "pid,comm,%cpu,rss,user,args", "--no-headers").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +157,10 @@ func collectProcessesLinux() ([]ProcessInfo, error) {
 
 func collectProcessesDarwin() ([]ProcessInfo, error) {
 	// macOS ps doesn't support --no-headers but supports -o without headers using =
-	out, err := exec.Command("ps", "-A", "-o", "pid=,comm=,%cpu=,rss=,user=,args=").Output()
+	out, err := newCmd("ps", "-A", "-o", "pid=,comm=,%cpu=,rss=,user=,args=").Output()
 	if err != nil {
 		// Fallback: standard ps
-		out, err = exec.Command("ps", "-A", "-o", "pid,comm,%cpu,rss,user,args").Output()
+		out, err = newCmd("ps", "-A", "-o", "pid,comm,%cpu,rss,user,args").Output()
 		if err != nil {
 			return nil, err
 		}

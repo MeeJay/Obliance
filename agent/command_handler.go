@@ -599,7 +599,7 @@ func detectThirdPartySecurity() (string, string) {
 	var avName, fwName string
 
 	// Detect third-party AntiVirus
-	avOut, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+	avOut, err := newCmdContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 		`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -EA SilentlyContinue | Where-Object { $_.displayName -notmatch 'Windows Defender|Microsoft Defender' } | Select-Object -First 1 -ExpandProperty displayName`,
 	).Output()
 	if err == nil {
@@ -610,7 +610,7 @@ func detectThirdPartySecurity() (string, string) {
 	}
 
 	// Detect third-party Firewall
-	fwOut, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+	fwOut, err := newCmdContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 		`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName FirewallProduct -EA SilentlyContinue | Where-Object { $_.displayName -notmatch 'Windows' } | Select-Object -First 1 -ExpandProperty displayName`,
 	).Output()
 	if err == nil {
@@ -697,7 +697,7 @@ func evalRegistry(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleRes
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "reg", "query", keyPath, "/v", valueName).Output()
+	out, err := newCmdContext(ctx, "reg", "query", keyPath, "/v", valueName).Output()
 	if err != nil {
 		if rule.Operator == "not_exists" {
 			r.Status = "pass"
@@ -799,9 +799,9 @@ func evalCommand(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psUTF8Prefix+rule.Target)
+		cmd = newCmdContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psUTF8Prefix+rule.Target)
 	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", rule.Target)
+		cmd = newCmdContext(ctx, "sh", "-c", rule.Target)
 	}
 	out, err := cmd.Output()
 	if err != nil {
@@ -864,10 +864,10 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 			}
 		}
 	case "linux":
-		out, _ := exec.CommandContext(ctx, "systemctl", "is-active", rule.Target).Output()
+		out, _ := newCmdContext(ctx, "systemctl", "is-active", rule.Target).Output()
 		actualStatus = strings.TrimSpace(string(out))
 	default: // macos / darwin
-		out, err := exec.CommandContext(ctx, "launchctl", "print", rule.Target).Output()
+		out, err := newCmdContext(ctx, "launchctl", "print", rule.Target).Output()
 		if err != nil {
 			actualStatus = "not_found"
 		} else if strings.Contains(string(out), "state = running") {
@@ -907,7 +907,7 @@ func evalProcess(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	var running bool
 	switch runtime.GOOS {
 	case "windows":
-		out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
+		out, err := newCmdContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
 			"-Command",
 			fmt.Sprintf(`(Get-Process -Name '%s' -ErrorAction SilentlyContinue | Measure-Object).Count`, rule.Target),
 		).Output()
@@ -917,7 +917,7 @@ func evalProcess(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 			running = n > 0
 		}
 	default:
-		out, err := exec.CommandContext(ctx, "pgrep", "-x", rule.Target).Output()
+		out, err := newCmdContext(ctx, "pgrep", "-x", rule.Target).Output()
 		running = err == nil && len(strings.TrimSpace(string(out))) > 0
 	}
 
@@ -959,7 +959,7 @@ func evalEventLog(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleRes
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps).Output()
+	out, err := newCmdContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps).Output()
 	if err != nil {
 		r.Status = "error"
 		r.ActualValue = err.Error()
@@ -1045,7 +1045,7 @@ func boolStatus(b bool) string {
 func checkFirewallStatus() string {
 	switch runtime.GOOS {
 	case "windows":
-		out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive",
+		out, err := newCmd("powershell.exe", "-NoProfile", "-NonInteractive",
 			"-Command",
 			`(Get-NetFirewallProfile | Where-Object {$_.Enabled -eq $true} | Measure-Object).Count`).Output()
 		if err == nil && len(out) > 0 {
@@ -1054,19 +1054,19 @@ func checkFirewallStatus() string {
 		return "unknown"
 	case "linux":
 		if _, err := exec.LookPath("ufw"); err == nil {
-			out, _ := exec.Command("ufw", "status").Output()
+			out, _ := newCmd("ufw", "status").Output()
 			if strings.Contains(string(out), "active") {
 				return "ufw:active"
 			}
 			return "ufw:inactive"
 		}
 		if _, err := exec.LookPath("firewalld"); err == nil {
-			out, _ := exec.Command("firewall-cmd", "--state").Output()
+			out, _ := newCmd("firewall-cmd", "--state").Output()
 			return "firewalld:" + strings.TrimSpace(string(out))
 		}
 		return "unknown"
 	case "darwin":
-		out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
+		out, err := newCmd("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
 		if err == nil {
 			return strings.TrimSpace(string(out))
 		}
@@ -1160,14 +1160,14 @@ func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {
 
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("shutdown", "/r", "/t", fmt.Sprintf("%d", delaySecs)).Start()
+		return newCmd("shutdown", "/r", "/t", fmt.Sprintf("%d", delaySecs)).Start()
 	case "linux", "darwin":
 		// `shutdown -r +N` uses N minutes; convert seconds to minutes (minimum 1).
 		delayMin := delaySecs / 60
 		if delayMin < 1 {
 			delayMin = 1
 		}
-		return exec.Command("shutdown", "-r", fmt.Sprintf("+%d", delayMin)).Start()
+		return newCmd("shutdown", "-r", fmt.Sprintf("+%d", delayMin)).Start()
 	default:
 		return fmt.Errorf("reboot: unsupported platform %s", runtime.GOOS)
 	}
@@ -1185,13 +1185,13 @@ func (d *CommandDispatcher) handleShutdown(cmd AgentCommand) error {
 
 	switch runtime.GOOS {
 	case "windows":
-		return exec.Command("shutdown", "/s", "/t", fmt.Sprintf("%d", delaySecs)).Start()
+		return newCmd("shutdown", "/s", "/t", fmt.Sprintf("%d", delaySecs)).Start()
 	case "linux", "darwin":
 		delayMin := delaySecs / 60
 		if delayMin < 1 {
 			delayMin = 1
 		}
-		return exec.Command("shutdown", "-h", fmt.Sprintf("+%d", delayMin)).Start()
+		return newCmd("shutdown", "-h", fmt.Sprintf("+%d", delayMin)).Start()
 	default:
 		return fmt.Errorf("shutdown: unsupported platform %s", runtime.GOOS)
 	}
@@ -1212,7 +1212,7 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		ctx60, cancel60 := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel60()
 		// Win32_Service via CIM: returns string State/StartMode + StartName (run-as account).
-		out, err := exec.CommandContext(ctx60, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		out, err := newCmdContext(ctx60, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 			`Get-CimInstance -ClassName Win32_Service | Select-Object Name,DisplayName,State,StartMode,StartName | ConvertTo-Json -Compress`).Output()
 		if err != nil {
 			return nil, fmt.Errorf("list_services: powershell failed: %w", err)
@@ -1253,7 +1253,7 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
 	case "linux":
-		out, err := exec.Command("systemctl", "list-units", "--type=service",
+		out, err := newCmd("systemctl", "list-units", "--type=service",
 			"--all", "--no-pager", "--output=json").Output()
 		if err != nil {
 			// Fallback for older systemd without JSON support — return empty list.
@@ -1281,7 +1281,7 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 				unitNames[i] = s.Name
 			}
 			args := append([]string{"show", "--property=Id,User"}, unitNames...)
-			showOut, showErr := exec.Command("systemctl", args...).Output()
+			showOut, showErr := newCmd("systemctl", args...).Output()
 			if showErr == nil {
 				// Output: "Id=unit.service\nUser=username\n\nId=...\nUser=...\n"
 				userMap := make(map[string]string)
@@ -1311,7 +1311,7 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
 	case "darwin":
-		out, err := exec.Command("launchctl", "list").Output()
+		out, err := newCmd("launchctl", "list").Output()
 		if err != nil {
 			return nil, fmt.Errorf("list_services: launchctl failed: %w", err)
 		}
@@ -1328,7 +1328,7 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 			if pidStr != "-" {
 				status = "running"
 				// Resolve the user from the running PID.
-				psOut, psErr := exec.Command("ps", "-p", pidStr, "-o", "user=").Output()
+				psOut, psErr := newCmd("ps", "-p", pidStr, "-o", "user=").Output()
 				if psErr == nil {
 					runAsUser = strings.TrimSpace(string(psOut))
 				}
@@ -1350,7 +1350,7 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 
 	switch runtime.GOOS {
 	case "windows":
-		out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		out, err := newCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 			fmt.Sprintf(`Restart-Service -Name '%s' -Force -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
 		if err != nil {
 			return nil, fmt.Errorf("restart_service: %w", err)
@@ -1358,7 +1358,7 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
-		out, err := exec.Command("systemctl", "restart", name).CombinedOutput()
+		out, err := newCmd("systemctl", "restart", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("restart_service: systemctl restart %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
@@ -1366,7 +1366,7 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 
 	case "darwin":
 		// Attempt launchctl kickstart then stop+start as fallback.
-		out, err := exec.Command("launchctl", "kickstart", "-k", name).CombinedOutput()
+		out, err := newCmd("launchctl", "kickstart", "-k", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("restart_service: launchctl kickstart %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
@@ -1388,7 +1388,7 @@ func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, e
 	case "windows":
 		ctxW, cancelW := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancelW()
-		out, err := exec.CommandContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		out, err := newCmdContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 			fmt.Sprintf(`Start-Service -Name '%s' -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
 		if err != nil {
 			return nil, fmt.Errorf("start_service: %w", err)
@@ -1396,14 +1396,14 @@ func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, e
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
-		out, err := exec.Command("systemctl", "start", name).CombinedOutput()
+		out, err := newCmd("systemctl", "start", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("start_service: systemctl start %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
 		return map[string]string{"name": name, "status": "started"}, nil
 
 	case "darwin":
-		out, err := exec.Command("launchctl", "start", name).CombinedOutput()
+		out, err := newCmd("launchctl", "start", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("start_service: launchctl start %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
@@ -1424,7 +1424,7 @@ func (d *CommandDispatcher) handleStopService(cmd AgentCommand) (interface{}, er
 	case "windows":
 		ctxW, cancelW := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancelW()
-		out, err := exec.CommandContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		out, err := newCmdContext(ctxW, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 			fmt.Sprintf(`Stop-Service -Name '%s' -Force -PassThru | Select-Object Name,Status | ConvertTo-Json -Compress`, name)).Output()
 		if err != nil {
 			return nil, fmt.Errorf("stop_service: %w", err)
@@ -1432,14 +1432,14 @@ func (d *CommandDispatcher) handleStopService(cmd AgentCommand) (interface{}, er
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
-		out, err := exec.Command("systemctl", "stop", name).CombinedOutput()
+		out, err := newCmd("systemctl", "stop", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("stop_service: systemctl stop %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
 		return map[string]string{"name": name, "status": "stopped"}, nil
 
 	case "darwin":
-		out, err := exec.Command("launchctl", "stop", name).CombinedOutput()
+		out, err := newCmd("launchctl", "stop", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("stop_service: launchctl stop %s failed: %s", name, strings.TrimSpace(string(out)))
 		}
@@ -1461,7 +1461,7 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 			// the SCM does NOT trigger recovery/restart actions.
 			// Use PowerShell Restart-Service to properly stop then restart via SCM.
 			log.Printf("Restarting OblianceAgent service via PowerShell...")
-			_ = exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			_ = newCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
 				"Restart-Service -Name OblianceAgent -Force").Start()
 			// The SCM stop signal will eventually terminate this process.
 			// Sleep as a safety fallback in case Restart-Service doesn't kill us.
@@ -1562,7 +1562,7 @@ func (d *CommandDispatcher) makeConfig() *Config {
 		ServerURL:  d.serverURL,
 	}
 }
-
+
 // collectAndPostServices runs list_services and immediately POSTs the result.
 // Called by the service watcher goroutine and after start/stop/restart actions.
 func (d *CommandDispatcher) collectAndPostServices() {

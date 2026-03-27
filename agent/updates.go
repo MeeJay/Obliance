@@ -259,7 +259,7 @@ func scanWingetUpdates() []UpdateInfo {
 	// --include-unknown: include apps without a known source version
 	// --accept-source-agreements: non-interactive
 	// --disable-interactivity: suppress progress bars (winget ≥1.5)
-	cmd := exec.Command(wingetPath,
+	cmd := newCmd(wingetPath,
 		"upgrade", "--include-unknown",
 		"--accept-source-agreements",
 		"--disable-interactivity",
@@ -362,7 +362,7 @@ func scanChocolateyUpdates() []UpdateInfo {
 
 	// -r = machine-readable pipe-separated output; --ignore-unfound = don't fail
 	// on packages that have no remote source.
-	out, err := exec.Command(chocoPath, "outdated", "-r", "--ignore-unfound").Output()
+	out, err := newCmd(chocoPath, "outdated", "-r", "--ignore-unfound").Output()
 	if err != nil {
 		return nil
 	}
@@ -467,7 +467,7 @@ if ($mod) {
   $installer.Install()
 }`, kbID, strings.TrimPrefix(strings.ToUpper(kbID), "KB"))
 
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd := newCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("install update %s: %w\n%s", updateUID, err, string(out))
@@ -479,7 +479,7 @@ if ($mod) {
 func installChocolateyUpdate(pkgName string) error {
 	// Strip "choco-" prefix if present (added by scan)
 	pkg := strings.TrimPrefix(pkgName, "choco-")
-	cmd := exec.Command("choco", "upgrade", pkg, "-y", "--no-progress")
+	cmd := newCmd("choco", "upgrade", pkg, "-y", "--no-progress")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("choco upgrade %s: %w\n%s", pkg, err, string(out))
@@ -489,7 +489,7 @@ func installChocolateyUpdate(pkgName string) error {
 }
 
 func installWingetUpdate(pkgID string) error {
-	cmd := exec.Command("winget", "upgrade", "--id", pkgID,
+	cmd := newCmd("winget", "upgrade", "--id", pkgID,
 		"--accept-source-agreements", "--accept-package-agreements",
 		"--silent", "--disable-interactivity")
 	out, err := cmd.CombinedOutput()
@@ -518,9 +518,9 @@ func scanLinuxUpdates() ([]UpdateInfo, error) {
 
 func scanAptUpdates(aptPath string) ([]UpdateInfo, error) {
 	// Update package lists first (non-fatal if it fails in restricted envs).
-	_ = exec.Command(aptPath, "-qq", "update").Run()
+	_ = newCmd(aptPath, "-qq", "update").Run()
 
-	out, err := exec.Command(aptPath, "list", "--upgradable", "-qq").Output()
+	out, err := newCmd(aptPath, "list", "--upgradable", "-qq").Output()
 	if err != nil {
 		return nil, fmt.Errorf("apt list --upgradable: %w", err)
 	}
@@ -555,7 +555,7 @@ func scanAptUpdates(aptPath string) ([]UpdateInfo, error) {
 }
 
 func scanDnfUpdates(dnfPath string) ([]UpdateInfo, error) {
-	out, err := exec.Command(dnfPath, "check-update", "--quiet").Output()
+	out, err := newCmd(dnfPath, "check-update", "--quiet").Output()
 	// dnf check-update returns exit code 100 when updates are available — not an error.
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 100 {
@@ -566,7 +566,7 @@ func scanDnfUpdates(dnfPath string) ([]UpdateInfo, error) {
 }
 
 func scanYumUpdates(yumPath string) ([]UpdateInfo, error) {
-	out, err := exec.Command(yumPath, "check-update", "--quiet").Output()
+	out, err := newCmd(yumPath, "check-update", "--quiet").Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 100 {
 			return nil, fmt.Errorf("yum check-update: %w", err)
@@ -609,7 +609,7 @@ func parseDnfOutput(output, source string) []UpdateInfo {
 func installLinuxUpdate(updateUID string) error {
 	// Try apt first, then dnf/yum.
 	if aptPath, err := exec.LookPath("apt"); err == nil {
-		cmd := exec.Command(aptPath, "-y", "install", "--only-upgrade", updateUID)
+		cmd := newCmd(aptPath, "-y", "install", "--only-upgrade", updateUID)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("apt install %s: %w\n%s", updateUID, err, string(out))
@@ -618,7 +618,7 @@ func installLinuxUpdate(updateUID string) error {
 	}
 	for _, mgr := range []string{"dnf", "yum"} {
 		if mgrPath, err := exec.LookPath(mgr); err == nil {
-			cmd := exec.Command(mgrPath, "-y", "update", updateUID)
+			cmd := newCmd(mgrPath, "-y", "update", updateUID)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("%s update %s: %w\n%s", mgr, updateUID, err, string(out))
@@ -636,7 +636,7 @@ func installLinuxUpdatesBatch(uids []string) error {
 	// Try apt first — pass all packages in a single invocation
 	if aptPath, err := exec.LookPath("apt"); err == nil {
 		args := append([]string{"-y", "install", "--only-upgrade"}, uids...)
-		cmd := exec.Command(aptPath, args...)
+		cmd := newCmd(aptPath, args...)
 		cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -648,7 +648,7 @@ func installLinuxUpdatesBatch(uids []string) error {
 	for _, mgr := range []string{"dnf", "yum"} {
 		if mgrPath, err := exec.LookPath(mgr); err == nil {
 			args := append([]string{"-y", "update"}, uids...)
-			cmd := exec.Command(mgrPath, args...)
+			cmd := newCmd(mgrPath, args...)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("%s batch update: %w\n%s", mgr, err, string(out))
@@ -662,7 +662,7 @@ func installLinuxUpdatesBatch(uids []string) error {
 // ── macOS ─────────────────────────────────────────────────────────────────────
 
 func scanDarwinUpdates() ([]UpdateInfo, error) {
-	out, err := exec.Command("softwareupdate", "-l").Output()
+	out, err := newCmd("softwareupdate", "-l").Output()
 	if err != nil {
 		return nil, fmt.Errorf("softwareupdate -l: %w", err)
 	}
@@ -709,7 +709,7 @@ func parseSoftwareupdateOutput(output string) []UpdateInfo {
 }
 
 func installDarwinUpdate(updateUID string) error {
-	cmd := exec.Command("softwareupdate", "-i", updateUID)
+	cmd := newCmd("softwareupdate", "-i", updateUID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("softwareupdate -i %s: %w\n%s", updateUID, err, string(out))

@@ -118,7 +118,7 @@ func ExecuteScript(cmd ScriptCommand) (*ScriptResult, error) {
 		defer unregisterRunningScript(cmd.ID)
 	}
 
-	execCmd := exec.CommandContext(ctx, execArgs[0], execArgs[1:]...)
+	execCmd := newCmdContext(ctx, execArgs[0], execArgs[1:]...)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	execCmd.Stdout = &stdoutBuf

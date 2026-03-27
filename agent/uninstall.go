@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -143,7 +142,7 @@ func handleWindowsUninstall(serverURL, apiKey string) error {
 	if err := os.WriteFile(vbsPath, []byte(vbs), 0644); err != nil {
 		return fmt.Errorf("write uninstall VBS wrapper: %w", err)
 	}
-	return exec.Command("wscript.exe", vbsPath).Start()
+	return newCmd("wscript.exe", vbsPath).Start()
 }
 
 // ── Linux ─────────────────────────────────────────────────────────────────────
@@ -162,7 +161,7 @@ func handleLinuxUninstall() error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("write uninstall script: %w", err)
 	}
-	return exec.Command("sh", scriptPath).Start()
+	return newCmd("sh", scriptPath).Start()
 }
 
 // ── macOS ─────────────────────────────────────────────────────────────────────
@@ -182,7 +181,7 @@ func handleDarwinUninstall() error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("write uninstall script: %w", err)
 	}
-	return exec.Command("sh", scriptPath).Start()
+	return newCmd("sh", scriptPath).Start()
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────

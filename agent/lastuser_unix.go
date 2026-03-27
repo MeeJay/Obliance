@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -13,7 +12,7 @@ func getLastLoggedInUser() string {
 	switch runtime.GOOS {
 	case "darwin":
 		// macOS: use stat on /dev/console
-		out, err := exec.Command("stat", "-f", "%Su", "/dev/console").Output()
+		out, err := newCmd("stat", "-f", "%Su", "/dev/console").Output()
 		if err == nil {
 			if u := strings.TrimSpace(string(out)); u != "" && u != "root" {
 				return u
@@ -21,7 +20,7 @@ func getLastLoggedInUser() string {
 		}
 	}
 	// Linux / fallback: parse `who` or `last`
-	out, err := exec.Command("who").Output()
+	out, err := newCmd("who").Output()
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		if len(lines) > 0 && lines[0] != "" {
@@ -32,7 +31,7 @@ func getLastLoggedInUser() string {
 		}
 	}
 	// Fallback to `last -1`
-	out, err = exec.Command("last", "-1", "-w").Output()
+	out, err = newCmd("last", "-1", "-w").Output()
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		if len(lines) > 0 {

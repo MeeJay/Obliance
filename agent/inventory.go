@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -519,27 +518,27 @@ $result | ConvertTo-Json -Depth 5 -Compress`
 
 func scanLinuxInventory(inv *InventoryData) error {
 	// CPU from /proc/cpuinfo
-	if out, err := exec.Command("cat", "/proc/cpuinfo").Output(); err == nil {
+	if out, err := newCmd("cat", "/proc/cpuinfo").Output(); err == nil {
 		inv.CPU = parseLinuxCPUInfo(string(out))
 	}
 
 	// Memory from /proc/meminfo
-	if out, err := exec.Command("cat", "/proc/meminfo").Output(); err == nil {
+	if out, err := newCmd("cat", "/proc/meminfo").Output(); err == nil {
 		inv.Memory = parseLinuxMemInfo(string(out))
 	}
 
 	// Disks via lsblk JSON
-	if out, err := exec.Command("lsblk", "-J", "-o", "NAME,MODEL,SERIAL,TYPE,SIZE,TRAN,MOUNTPOINT").Output(); err == nil {
+	if out, err := newCmd("lsblk", "-J", "-o", "NAME,MODEL,SERIAL,TYPE,SIZE,TRAN,MOUNTPOINT").Output(); err == nil {
 		inv.Disks = parseLinuxLsblk(out)
 	}
 
 	// Network interfaces via ip command
-	if out, err := exec.Command("ip", "-j", "addr").Output(); err == nil {
+	if out, err := newCmd("ip", "-j", "addr").Output(); err == nil {
 		inv.Network = parseLinuxIPAddr(out)
 	}
 
 	// GPU via lspci
-	if out, err := exec.Command("lspci").Output(); err == nil {
+	if out, err := newCmd("lspci").Output(); err == nil {
 		inv.GPU = parseLinuxGPU(string(out))
 	}
 
@@ -687,7 +686,7 @@ func parseLinuxGPU(lspciOutput string) []GpuInfo {
 
 func readLinuxDMI() MotherboardInfo {
 	read := func(path string) string {
-		out, err := exec.Command("cat", path).Output()
+		out, err := newCmd("cat", path).Output()
 		if err != nil {
 			return ""
 		}
@@ -703,7 +702,7 @@ func readLinuxDMI() MotherboardInfo {
 
 func readLinuxBIOS() BiosInfo {
 	read := func(path string) string {
-		out, err := exec.Command("cat", path).Output()
+		out, err := newCmd("cat", path).Output()
 		if err != nil {
 			return ""
 		}
@@ -719,7 +718,7 @@ func readLinuxBIOS() BiosInfo {
 func collectLinuxOSDetails() OSDetails {
 	od := OSDetails{}
 	// /etc/os-release has PRETTY_NAME, VERSION_ID, VERSION
-	if out, err := exec.Command("cat", "/etc/os-release").Output(); err == nil {
+	if out, err := newCmd("cat", "/etc/os-release").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) != 2 {
@@ -737,7 +736,7 @@ func collectLinuxOSDetails() OSDetails {
 		}
 	}
 	if od.BuildNumber == "" {
-		if out, err := exec.Command("uname", "-r").Output(); err == nil {
+		if out, err := newCmd("uname", "-r").Output(); err == nil {
 			od.BuildNumber = strings.TrimSpace(string(out))
 		}
 	}
@@ -800,7 +799,7 @@ func scanDarwinInventory(inv *InventoryData) error {
 		"SPDisplaysDataType",
 	}
 
-	out, err := exec.Command("system_profiler", append([]string{"-json"}, types...)...).Output()
+	out, err := newCmd("system_profiler", append([]string{"-json"}, types...)...).Output()
 	if err != nil {
 		return fmt.Errorf("system_profiler: %w", err)
 	}
@@ -905,7 +904,7 @@ func scanDarwinInventory(inv *InventoryData) error {
 	}
 
 	// OS Details via sw_vers
-	if out, err := exec.Command("sw_vers").Output(); err == nil {
+	if out, err := newCmd("sw_vers").Output(); err == nil {
 		od := OSDetails{}
 		for _, line := range strings.Split(string(out), "\n") {
 			parts := strings.SplitN(line, ":", 2)
@@ -926,7 +925,7 @@ func scanDarwinInventory(inv *InventoryData) error {
 	}
 
 	// Battery via system_profiler SPPowerDataType
-	if out, err := exec.Command("system_profiler", "-json", "SPPowerDataType").Output(); err == nil {
+	if out, err := newCmd("system_profiler", "-json", "SPPowerDataType").Output(); err == nil {
 		var pw map[string][]map[string]interface{}
 		if json.Unmarshal(out, &pw) == nil {
 			for _, item := range pw["SPPowerDataType"] {
@@ -1067,7 +1066,7 @@ func scanLinuxSoftware() []SoftwareEntry {
 	var entries []SoftwareEntry
 
 	// dpkg (Debian/Ubuntu)
-	if out, err := exec.Command("dpkg-query", "-W", "-f=${Package}|${Version}|${Maintainer}\n").Output(); err == nil {
+	if out, err := newCmd("dpkg-query", "-W", "-f=${Package}|${Version}|${Maintainer}\n").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			parts := strings.SplitN(strings.TrimSpace(line), "|", 3)
 			if len(parts) >= 2 && parts[0] != "" {
@@ -1083,7 +1082,7 @@ func scanLinuxSoftware() []SoftwareEntry {
 
 	// rpm (RHEL/CentOS/Fedora)
 	if len(entries) == 0 {
-		if out, err := exec.Command("rpm", "-qa", "--queryformat", "%{NAME}|%{VERSION}|%{VENDOR}\n").Output(); err == nil {
+		if out, err := newCmd("rpm", "-qa", "--queryformat", "%{NAME}|%{VERSION}|%{VENDOR}\n").Output(); err == nil {
 			for _, line := range strings.Split(string(out), "\n") {
 				parts := strings.SplitN(strings.TrimSpace(line), "|", 3)
 				if len(parts) >= 2 && parts[0] != "" {
@@ -1099,7 +1098,7 @@ func scanLinuxSoftware() []SoftwareEntry {
 	}
 
 	// flatpak
-	if out, err := exec.Command("flatpak", "list", "--app", "--columns=application,version,origin").Output(); err == nil {
+	if out, err := newCmd("flatpak", "list", "--app", "--columns=application,version,origin").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			parts := strings.Fields(line)
 			if len(parts) >= 1 {
@@ -1114,7 +1113,7 @@ func scanLinuxSoftware() []SoftwareEntry {
 	}
 
 	// snap
-	if out, err := exec.Command("snap", "list").Output(); err == nil {
+	if out, err := newCmd("snap", "list").Output(); err == nil {
 		lines := strings.Split(string(out), "\n")
 		for _, line := range lines[1:] { // skip header
 			parts := strings.Fields(line)
@@ -1135,7 +1134,7 @@ func scanDarwinSoftware() []SoftwareEntry {
 	var entries []SoftwareEntry
 
 	// Applications from /Applications
-	if out, err := exec.Command("ls", "/Applications").Output(); err == nil {
+	if out, err := newCmd("ls", "/Applications").Output(); err == nil {
 		for _, app := range strings.Split(string(out), "\n") {
 			app = strings.TrimSpace(app)
 			if strings.HasSuffix(app, ".app") {
@@ -1146,7 +1145,7 @@ func scanDarwinSoftware() []SoftwareEntry {
 	}
 
 	// Homebrew
-	if out, err := exec.Command("brew", "list", "--versions").Output(); err == nil {
+	if out, err := newCmd("brew", "list", "--versions").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			parts := strings.Fields(strings.TrimSpace(line))
 			if len(parts) >= 2 {
@@ -1161,7 +1160,7 @@ func scanDarwinSoftware() []SoftwareEntry {
 	}
 
 	// mas (Mac App Store)
-	if out, err := exec.Command("mas", "list").Output(); err == nil {
+	if out, err := newCmd("mas", "list").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" {

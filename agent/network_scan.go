@@ -155,7 +155,7 @@ func arpScanWindows(subnet string) []DiscoveredHost {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "arp", "-a").Output()
+	out, err := newCmdContext(ctx, "arp", "-a").Output()
 	if err != nil {
 		log.Printf("scan_network: arp -a failed: %v", err)
 		return nil
@@ -200,10 +200,10 @@ func arpScanLinux(subnet string) []DiscoveredHost {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "ip", "neigh", "show").Output()
+	out, err := newCmdContext(ctx, "ip", "neigh", "show").Output()
 	if err != nil {
 		// Fallback to arp -an
-		out, err = exec.CommandContext(ctx, "arp", "-an").Output()
+		out, err = newCmdContext(ctx, "arp", "-an").Output()
 		if err != nil {
 			log.Printf("scan_network: ip neigh / arp -an failed: %v", err)
 			return nil
@@ -264,7 +264,7 @@ func arpScanDarwin(subnet string) []DiscoveredHost {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "arp", "-an").Output()
+	out, err := newCmdContext(ctx, "arp", "-an").Output()
 	if err != nil {
 		log.Printf("scan_network: arp -an failed: %v", err)
 		return nil
@@ -340,9 +340,9 @@ func pingHost(ip string) {
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.CommandContext(ctx, "ping", "-n", "1", "-w", "500", ip)
+		cmd = newCmdContext(ctx, "ping", "-n", "1", "-w", "500", ip)
 	default:
-		cmd = exec.CommandContext(ctx, "ping", "-c", "1", "-W", "1", ip)
+		cmd = newCmdContext(ctx, "ping", "-c", "1", "-W", "1", ip)
 	}
 	_ = cmd.Run()
 }

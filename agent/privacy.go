@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -176,8 +175,8 @@ func stopObliReachService() {
 		return
 	}
 	// Stop the service and disable auto-start so it stays down across reboots.
-	_ = exec.Command("sc", "stop", "ObliReachAgent").Run()
-	if err := exec.Command("sc", "config", "ObliReachAgent", "start=", "disabled").Run(); err != nil {
+	_ = newCmd("sc", "stop", "ObliReachAgent").Run()
+	if err := newCmd("sc", "config", "ObliReachAgent", "start=", "disabled").Run(); err != nil {
 		log.Printf("privacy: failed to disable ObliReachAgent: %v", err)
 	}
 }
@@ -187,15 +186,15 @@ func startObliReachService() {
 		return
 	}
 	// Only act if the service is registered (Oblireach was installed).
-	out, err := exec.Command("sc", "query", "ObliReachAgent").Output()
+	out, err := newCmd("sc", "query", "ObliReachAgent").Output()
 	if err != nil || len(out) == 0 {
 		return // service not installed
 	}
 	// Re-enable auto-start, then start.
-	if err := exec.Command("sc", "config", "ObliReachAgent", "start=", "auto").Run(); err != nil {
+	if err := newCmd("sc", "config", "ObliReachAgent", "start=", "auto").Run(); err != nil {
 		log.Printf("privacy: failed to re-enable ObliReachAgent: %v", err)
 	}
-	if err := exec.Command("sc", "start", "ObliReachAgent").Run(); err != nil {
+	if err := newCmd("sc", "start", "ObliReachAgent").Run(); err != nil {
 		log.Printf("privacy: failed to start ObliReachAgent: %v", err)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"log"
 	"math"
 	"net"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -185,7 +184,7 @@ func collectGPUs() []GPUMetrics {
 // VRAM is reported as unified memory (Apple Silicon has no dedicated VRAM).
 func collectAppleGPU() []GPUMetrics {
 	// Identify chip via sysctl (fast, no subprocess on many macOS versions)
-	chipOut, err := exec.Command("sysctl", "-n", "machdep.cpu.brand_string").Output()
+	chipOut, err := newCmd("sysctl", "-n", "machdep.cpu.brand_string").Output()
 	if err != nil {
 		return nil
 	}
@@ -221,7 +220,7 @@ func collectAppleGPU() []GPUMetrics {
 // appleGPUUtilization reads "Device Utilization %" from the AGXAccelerator
 // ioreg entry. This works without root on macOS 12+ for Apple Silicon.
 func appleGPUUtilization() float64 {
-	out, err := exec.Command("ioreg", "-r", "-c", "AGXAccelerator", "-w", "0").Output()
+	out, err := newCmd("ioreg", "-r", "-c", "AGXAccelerator", "-w", "0").Output()
 	if err != nil {
 		return 0
 	}
@@ -262,7 +261,7 @@ func collectNvidiaGPUs() []GPUMetrics {
 		)
 	}
 	for _, p := range paths {
-		out, err := exec.Command(p,
+		out, err := newCmd(p,
 			"--query-gpu=name,utilization.gpu,memory.used,memory.total,utilization.encoder,utilization.decoder",
 			"--format=csv,noheader,nounits",
 		).Output()
@@ -317,7 +316,7 @@ func parseNvidiaSMI(raw string) []GPUMetrics {
 
 // collectAMDLinuxGPUs queries rocm-smi (AMD ROCm driver, Linux only).
 func collectAMDLinuxGPUs() []GPUMetrics {
-	out, err := exec.Command("rocm-smi",
+	out, err := newCmd("rocm-smi",
 		"--showuse", "--showmeminfo", "vram", "--csv",
 	).Output()
 	if err != nil {
@@ -425,7 +424,7 @@ foreach($g in $gpus){$vt=if($vramTotalMB -gt 0){$vramTotalMB}else{[math]::Round(
 // Used as a fallback when gopsutil cpu.Percent fails (requires CGO on darwin/arm64,
 // but the agent is cross-compiled with CGO_ENABLED=0).
 func getCPUPercentDarwin() (float64, bool) {
-	out, err := exec.Command("top", "-l", "2", "-n", "0").Output()
+	out, err := newCmd("top", "-l", "2", "-n", "0").Output()
 	if err != nil {
 		return 0, false
 	}

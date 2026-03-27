@@ -32,7 +32,7 @@ func newShellSession(cols, rows uint16, shellCmd string, _ int) (shellSession, e
 		}
 		shArgs = []string{"--login"}
 	}
-	cmd := exec.Command(sh, shArgs...)
+	cmd := newCmd(sh, shArgs...)
 	// Build env: inherit parent, strip any TMOUT (bash idle-logout) that would
 	// silently kill the session after N seconds of inactivity, then append ours.
 	baseEnv := os.Environ()

@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -111,7 +110,7 @@ func (d *CommandDispatcher) installObliReachMSI(cmd AgentCommand) (interface{}, 
 	log.Printf("Command %s: MSI downloaded to %s, running msiexec", cmd.ID, tmpPath)
 
 	// /quiet = silent, /norestart = no reboot, log to temp file for debug
-	msiCmd := exec.Command("msiexec.exe",
+	msiCmd := newCmd("msiexec.exe",
 		"/i", tmpPath,
 		"SERVERURL="+d.serverURL,
 		"APIKEY="+d.apiKey,
@@ -184,12 +183,12 @@ func obliReachLaunchWindows(binaryPath string, args []string) error {
 	binPath := `"` + binaryPath + `" ` + joinArgs(args)
 
 	// Stop + delete any existing instance first (ignore errors).
-	_ = exec.Command("sc", "stop", "ObliReachAgent").Run()
-	_ = exec.Command("sc", "delete", "ObliReachAgent").Run()
+	_ = newCmd("sc", "stop", "ObliReachAgent").Run()
+	_ = newCmd("sc", "delete", "ObliReachAgent").Run()
 
 	// Create the service running as LocalSystem (= SYSTEM account).
 	// This grants WTSQueryUserToken privilege needed for cross-session capture.
-	createCmd := exec.Command(
+	createCmd := newCmd(
 		"sc", "create", "ObliReachAgent",
 		"binPath=", binPath,
 		"DisplayName=", "Oblireach Remote Agent",
@@ -202,7 +201,7 @@ func obliReachLaunchWindows(binaryPath string, args []string) error {
 	}
 
 	// Start the service immediately.
-	if err := exec.Command("sc", "start", "ObliReachAgent").Run(); err != nil {
+	if err := newCmd("sc", "start", "ObliReachAgent").Run(); err != nil {
 		log.Printf("install_oblireach: sc start failed (non-fatal): %v", err)
 	}
 
@@ -210,7 +209,7 @@ func obliReachLaunchWindows(binaryPath string, args []string) error {
 }
 
 func obliReachLaunchUnix(binaryPath string, args []string) error {
-	cmd := exec.Command(binaryPath, args...)
+	cmd := newCmd(binaryPath, args...)
 	cmd.SysProcAttr = detachedProc()
 	return cmd.Start()
 }

@@ -5,7 +5,6 @@ package main
 import (
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -69,7 +68,7 @@ func ensureTrayRunning() {
 }
 
 func isTrayRunning() bool {
-	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq obliance-tray.exe", "/FO", "CSV", "/NH").Output()
+	out, err := newCmd("tasklist", "/FI", "IMAGENAME eq obliance-tray.exe", "/FO", "CSV", "/NH").Output()
 	if err != nil {
 		return false
 	}

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -13,7 +12,7 @@ var ioregUUIDRe = regexp.MustCompile(`"IOPlatformUUID"\s*=\s*"([0-9A-Fa-f\-]+)"`
 // readMachineUUID returns the IOPlatformUUID of this macOS machine.
 // This is the same UUID exposed by System Information → Hardware Overview.
 func readMachineUUID() string {
-	out, err := exec.Command("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
+	out, err := newCmd("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
 	if err != nil {
 		return ""
 	}

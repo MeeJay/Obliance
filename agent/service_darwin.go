@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -111,9 +110,9 @@ func installLaunchdService(urlArg, keyArg string) {
 
 	// ── 4. Load daemon ──────────────────────────────────────────────────────
 	// Unload first in case an old version is running
-	_ = exec.Command("launchctl", "unload", launchdPlist).Run()
+	_ = newCmd("launchctl", "unload", launchdPlist).Run()
 
-	if err := exec.Command("launchctl", "load", launchdPlist).Run(); err != nil {
+	if err := newCmd("launchctl", "load", launchdPlist).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "launchctl load failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -128,7 +127,7 @@ func installLaunchdService(urlArg, keyArg string) {
 // uninstallLaunchdService stops and removes the launchd daemon.
 func uninstallLaunchdService() {
 	fmt.Println("Unloading launchd daemon…")
-	if err := exec.Command("launchctl", "unload", launchdPlist).Run(); err != nil {
+	if err := newCmd("launchctl", "unload", launchdPlist).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: launchctl unload: %v\n", err)
 	}
 
