@@ -1,6 +1,6 @@
 {
   "name": "@obliance/server",
-  "version": "4.6.16",
+  "version": "4.6.17",
   "private": true,
   "main": "dist/src/index.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "@obliance/shared": "*",
     "@types/node-cron": "^3.0.11",
     "@types/ssh2": "^1.15.5",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "connect-pg-simple": "^9.0.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -42,7 +42,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",

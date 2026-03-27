@@ -230,7 +230,7 @@ async function main() {
 async function ensureDefaultAdmin() {
   const existing = await db('users').where({ username: config.defaultAdminUsername }).first();
   if (!existing) {
-    const bcrypt = await import('bcrypt');
+    const bcrypt = await import('bcryptjs');
     const hash = await bcrypt.hash(config.defaultAdminPassword, 10);
     const [user] = await db('users').insert({
       username: config.defaultAdminUsername,
