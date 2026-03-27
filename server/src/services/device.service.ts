@@ -518,6 +518,10 @@ class DeviceService {
   async handlePush(deviceId: number, tenantId: number, push: AgentPushRequest): Promise<AgentPushResponse> {
     const now = new Date();
 
+    // Capture previous status to detect transitions (e.g. updating/update_error → online)
+    const prev = await db('devices').where({ id: deviceId }).select('status').first();
+    const prevStatus = prev?.status as string | undefined;
+
     // Update last seen, metrics, agent version — but never override pending_uninstall status
     await db('devices').where({ id: deviceId }).update({
       last_seen_at: now,
@@ -537,6 +541,10 @@ class DeviceService {
         deviceId,
         metrics: push.metrics,
       });
+      // Notify UI of status change (e.g. update_error → online, offline → online)
+      if (prevStatus && prevStatus !== 'online' && prevStatus !== 'pending_uninstall') {
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
+      }
     }
 
     // Get device config (resolve group settings)

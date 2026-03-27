@@ -405,8 +405,10 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	// Batch script with:
 	//  - 5s initial wait (service needs time to fully stop)
 	//  - Retry loop for error 1618 (another msiexec in progress)
-	//  - Fallback: restart old service if MSI fails entirely
+	//  - Recovery: if service disappeared (partial MajorUpgrade), recreate it
+	//  - Final check: ensure service is running regardless of MSI exit code
 	//  - Cleans up the VBS wrapper at the end
+	exePath := `C:\Program Files\OblianceAgent\obliance-agent.exe`
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
 			"timeout /t 5 /nobreak >nul\r\n"+
@@ -421,14 +423,21 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 			"    goto RETRY\r\n"+
 			"  )\r\n"+
 			")\r\n"+
-			"if not %%MSI_EXIT%%==0 (\r\n"+
-			"  net start OblianceAgent >nul 2>&1\r\n"+
+			"timeout /t 5 /nobreak >nul\r\n"+
+			"sc query OblianceAgent >nul 2>&1\r\n"+
+			"if %%ERRORLEVEL%% NEQ 0 (\r\n"+
+			"  if exist \"%s\" (\r\n"+
+			"    sc create OblianceAgent binPath= \"\\\"%s\\\"\" start= auto obj= LocalSystem\r\n"+
+			"    sc description OblianceAgent \"Obliance Monitoring Agent\"\r\n"+
+			"    sc failure OblianceAgent reset= 86400 actions= restart/60000/restart/60000/restart/60000\r\n"+
+			"  )\r\n"+
 			")\r\n"+
+			"net start OblianceAgent >nul 2>&1\r\n"+
 			"del /q \"%s\"\r\n"+
 			"schtasks /delete /tn OblianceUpdate /f >nul 2>&1\r\n"+
 			"del /q \"%s\"\r\n"+
 			"del /q \"%%~f0\"\r\n",
-		msiPath, serverURL, apiKey, logPath, msiPath, vbsPath)
+		msiPath, serverURL, apiKey, logPath, exePath, exePath, msiPath, vbsPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
