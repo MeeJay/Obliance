@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -237,6 +238,14 @@ func verifyFileSHA256(filePath, expectedHash string) bool {
 	return actual == expectedHash
 }
 
+// updateMu prevents concurrent auto-update attempts. Multiple goroutines
+// (checkForUpdate, commandPoller, push) may call applyUpdateIfNewer at the
+// same time; without this guard they race on the same temp files and schtasks
+// entry, causing one goroutine to delete the MSI that the other's batch
+// script needs — silently breaking the update.
+var updateMu sync.Mutex
+var updateInProgress bool
+
 // applyUpdateIfNewer downloads and applies an update when remoteVersion is
 // strictly newer than the running agentVersion. Safe to call from push()
 // (periodic) and checkForUpdate (startup) — exits/restarts if an update is
@@ -245,6 +254,21 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 	if !isStrictlyNewer(remoteVersion, agentVersion) {
 		return
 	}
+
+	updateMu.Lock()
+	if updateInProgress {
+		updateMu.Unlock()
+		return
+	}
+	updateInProgress = true
+	updateMu.Unlock()
+
+	// Reset flag on failure so the next push cycle can retry.
+	defer func() {
+		updateMu.Lock()
+		updateInProgress = false
+		updateMu.Unlock()
+	}()
 
 	log.Printf("Auto-update: new version available %s → %s, downloading...", agentVersion, remoteVersion)
 
@@ -486,6 +510,12 @@ func mainLoop(cfg *Config) {
 	// instead of waiting for the next poll cycle (up to 60 s).
 	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
 
+	// Check for a newer version before starting the command poller.
+	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).
+	// On Windows: writes %TEMP%\obliance-update.bat, exits; batch stops service,
+	//             moves new exe in place, restarts service.
+	checkForUpdate(cfg)
+
 	// Start the dedicated command-poll goroutine — fallback for when the
 	// command channel is temporarily down.  Polls GET /api/agent/commands
 	// at cfg.TaskRetrieveDelaySec rate (default 10 s, admin-configurable).
@@ -534,12 +564,6 @@ func mainLoop(cfg *Config) {
 			time.Sleep(watchInterval)
 		}
 	}()
-
-	// Check for a newer version before entering the main loop.
-	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).
-	// On Windows: writes %TEMP%\obliance-update.bat, exits; batch stops service,
-	//             moves new exe in place, restarts service.
-	checkForUpdate(cfg)
 
 	for {
 		now := time.Now().UnixMilli()
