@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "온라인",
+    "offline": "오프라인",
+    "warning": "경고",
+    "critical": "심각",
+    "pending": "대기 중",
+    "maintenance": "유지보수",
+    "suspended": "일시중지",
+    "pendingUninstall": "제거 대기 중",
+    "updating": "업데이트 중",
+    "updateError": "업데이트 오류",
+    "refused": "거부됨"
+  },
+  "chat": {
+    "discussionWith": "{{name}}와(과) 채팅",
+    "online": "온라인",
+    "offline": "오프라인",
+    "userDisconnected": "사용자 연결 해제",
+    "noActiveChat": "활성 채팅 없음",
+    "messagePlaceholder": "메시지...",
+    "disconnected": "채팅 끊김",
+    "failedToOpen": "채팅 열기 실패: {{error}}",
+    "agentOffline": "에이전트 오프라인",
+    "connectionTimeout": "채팅 연결 시간 초과.",
+    "userClosedChat": "사용자가 채팅을 닫았습니다. 계속 메시지를 보낼 수 있습니다 — 채팅이 사용자 화면에서 다시 열립니다.",
+    "remoteGranted": "원격 액세스가 승인되었습니다.",
+    "remoteDenied": "원격 액세스가 거부되었습니다.",
+    "remoteRequestSent": "원격 제어 요청이 전송되었습니다.",
+    "waitingResponse": "사용자 응답 대기 중...",
+    "userDisconnectedHint": "사용자 연결 해제 — 메시지를 보내면 사용자 화면에서 채팅이 다시 열립니다",
+    "fileTooLarge": "파일이 너무 큽니다 (최대 5 MB)",
+    "failedSendFile": "파일 전송 실패",
+    "dropToSend": "파일을 놓아 전송",
+    "requestRemote": "원격 제어 요청",
+    "sendRequest": "요청 보내기",
+    "customMessage": "사용자 정의 메시지 (선택):",
+    "customMessagePlaceholder": "예: 설정을 확인해야 합니다...",
+    "quickReplies": "빠른 답장",
+    "personal": "개인",
+    "templates": "템플릿",
+    "noQuickReplies": "빠른 답장이 구성되지 않았습니다",
+    "viewDevice": "기기 보기"
+  },
+  "groupPanel": {
+    "title": "그룹",
+    "allDevices": "모든 기기",
+    "filterPlaceholder": "그룹 필터...",
+    "expand": "그룹 패널 펼치기",
+    "collapse": "그룹 패널 접기"
+  },
+  "sort": {
+    "name": "이름",
+    "status": "상태",
+    "lastSeen": "마지막 확인",
+    "os": "OS",
+    "version": "버전",
+    "group": "그룹"
   }
 }

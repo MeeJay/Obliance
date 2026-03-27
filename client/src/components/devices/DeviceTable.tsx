@@ -178,10 +178,10 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   };
 
   const STATUS_CHIPS = [
-    { key: 'online', label: 'Online', color: 'bg-green-400' },
-    { key: 'offline', label: 'Offline', color: 'bg-gray-400' },
-    { key: 'warning', label: 'Warning', color: 'bg-yellow-400' },
-    { key: 'critical', label: 'Critical', color: 'bg-red-400' },
+    { key: 'online', label: t('deviceStatus.online'), color: 'bg-green-400' },
+    { key: 'offline', label: t('deviceStatus.offline'), color: 'bg-gray-400' },
+    { key: 'warning', label: t('deviceStatus.warning'), color: 'bg-yellow-400' },
+    { key: 'critical', label: t('deviceStatus.critical'), color: 'bg-red-400' },
   ];
   const OS_CHIPS = [
     { key: 'windows', label: 'Windows' },
@@ -225,12 +225,12 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             {sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
             <select value={sortBy} onChange={e => { setSortBy(e.target.value as SortField); }} onClick={e => e.stopPropagation()}
               className="bg-transparent text-xs focus:outline-none cursor-pointer">
-              <option value="name">Name</option>
-              <option value="status">Status</option>
-              <option value="lastSeen">Last seen</option>
-              <option value="os">OS</option>
-              <option value="version">Version</option>
-              <option value="group">Group</option>
+              <option value="name">{t('sort.name')}</option>
+              <option value="status">{t('sort.status')}</option>
+              <option value="lastSeen">{t('sort.lastSeen')}</option>
+              <option value="os">{t('sort.os')}</option>
+              <option value="version">{t('sort.version')}</option>
+              <option value="group">{t('sort.group')}</option>
             </select>
           </button>
           <select value={pageSize} onChange={e => setPageSize(parseInt(e.target.value))}

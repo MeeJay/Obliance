@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "В сети",
+    "offline": "Не в сети",
+    "warning": "Предупреждение",
+    "critical": "Критический",
+    "pending": "Ожидание",
+    "maintenance": "Обслуживание",
+    "suspended": "Приостановлен",
+    "pendingUninstall": "Ожидание удаления",
+    "updating": "Обновление",
+    "updateError": "Ошибка обновления",
+    "refused": "Отклонён"
+  },
+  "chat": {
+    "discussionWith": "Чат с {{name}}",
+    "online": "В сети",
+    "offline": "Не в сети",
+    "userDisconnected": "Пользователь отключён",
+    "noActiveChat": "Нет активного чата",
+    "messagePlaceholder": "Ваше сообщение...",
+    "disconnected": "Чат отключён",
+    "failedToOpen": "Не удалось открыть чат: {{error}}",
+    "agentOffline": "агент офлайн",
+    "connectionTimeout": "Тайм-аут подключения чата.",
+    "userClosedChat": "Пользователь закрыл чат. Вы можете продолжить отправку сообщений — чат откроется снова на его экране.",
+    "remoteGranted": "Удалённый доступ предоставлен.",
+    "remoteDenied": "Удалённый доступ отклонён.",
+    "remoteRequestSent": "Запрос на удалённое управление отправлен.",
+    "waitingResponse": "Ожидание ответа пользователя...",
+    "userDisconnectedHint": "Пользователь отключён — ваше сообщение откроет чат снова на его экране",
+    "fileTooLarge": "Файл слишком большой (макс. 5 МБ)",
+    "failedSendFile": "Не удалось отправить файл",
+    "dropToSend": "Перетащите файл для отправки",
+    "requestRemote": "Запросить удалённое управление",
+    "sendRequest": "Отправить запрос",
+    "customMessage": "Пользовательское сообщение (необязательно):",
+    "customMessagePlaceholder": "напр.: Мне нужно проверить ваши настройки...",
+    "quickReplies": "Быстрые ответы",
+    "personal": "Личные",
+    "templates": "Шаблоны",
+    "noQuickReplies": "Быстрые ответы не настроены",
+    "viewDevice": "Просмотр устройства"
+  },
+  "groupPanel": {
+    "title": "Группы",
+    "allDevices": "Все устройства",
+    "filterPlaceholder": "Фильтр групп...",
+    "expand": "Развернуть панель групп",
+    "collapse": "Свернуть панель групп"
+  },
+  "sort": {
+    "name": "Имя",
+    "status": "Статус",
+    "lastSeen": "Последний раз виден",
+    "os": "ОС",
+    "version": "Версия",
+    "group": "Группа"
   }
 }

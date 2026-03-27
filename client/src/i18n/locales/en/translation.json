@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Warning",
+    "critical": "Critical",
+    "pending": "Pending",
+    "maintenance": "Maintenance",
+    "suspended": "Suspended",
+    "pendingUninstall": "Pending uninstall",
+    "updating": "Updating",
+    "updateError": "Update Error",
+    "refused": "Refused"
+  },
+  "chat": {
+    "discussionWith": "Discussion with {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "User disconnected",
+    "noActiveChat": "No active chat",
+    "messagePlaceholder": "Your message...",
+    "disconnected": "Chat disconnected",
+    "failedToOpen": "Failed to open chat: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Chat connection timed out.",
+    "userClosedChat": "The user has closed the chat. You can still send messages — the chat will reopen on their screen.",
+    "remoteGranted": "Remote control access granted.",
+    "remoteDenied": "Remote control access denied.",
+    "remoteRequestSent": "Remote control request sent.",
+    "waitingResponse": "Waiting for user response...",
+    "userDisconnectedHint": "User disconnected — your message will reopen the chat on their screen",
+    "fileTooLarge": "File too large (max 5 MB)",
+    "failedSendFile": "Failed to send file",
+    "dropToSend": "Drop file to send",
+    "requestRemote": "Request Remote Control",
+    "sendRequest": "Send Request",
+    "customMessage": "Custom message (optional):",
+    "customMessagePlaceholder": "e.g., I need to check your settings...",
+    "quickReplies": "Quick replies",
+    "personal": "Personal",
+    "templates": "Templates",
+    "noQuickReplies": "No quick replies configured",
+    "viewDevice": "View device"
+  },
+  "groupPanel": {
+    "title": "Groups",
+    "allDevices": "All Devices",
+    "filterPlaceholder": "Filter groups...",
+    "expand": "Expand groups panel",
+    "collapse": "Collapse groups panel"
+  },
+  "sort": {
+    "name": "Name",
+    "status": "Status",
+    "lastSeen": "Last seen",
+    "os": "OS",
+    "version": "Version",
+    "group": "Group"
   }
 }

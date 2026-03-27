@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Warnung",
+    "critical": "Kritisch",
+    "pending": "Ausstehend",
+    "maintenance": "Wartung",
+    "suspended": "Gesperrt",
+    "pendingUninstall": "Deinstallation ausstehend",
+    "updating": "Aktualisierung",
+    "updateError": "Update-Fehler",
+    "refused": "Abgelehnt"
+  },
+  "chat": {
+    "discussionWith": "Chat mit {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Benutzer getrennt",
+    "noActiveChat": "Kein aktiver Chat",
+    "messagePlaceholder": "Ihre Nachricht...",
+    "disconnected": "Chat getrennt",
+    "failedToOpen": "Chat konnte nicht geöffnet werden: {{error}}",
+    "agentOffline": "Agent offline",
+    "connectionTimeout": "Chat-Verbindungs-Timeout.",
+    "userClosedChat": "Der Benutzer hat den Chat geschlossen. Sie können weiterhin Nachrichten senden — der Chat wird auf seinem Bildschirm wieder geöffnet.",
+    "remoteGranted": "Fernzugriff gewährt.",
+    "remoteDenied": "Fernzugriff verweigert.",
+    "remoteRequestSent": "Fernsteuerungsanfrage gesendet.",
+    "waitingResponse": "Warte auf Benutzerantwort...",
+    "userDisconnectedHint": "Benutzer getrennt — Ihre Nachricht öffnet den Chat auf seinem Bildschirm wieder",
+    "fileTooLarge": "Datei zu groß (max. 5 MB)",
+    "failedSendFile": "Datei konnte nicht gesendet werden",
+    "dropToSend": "Datei zum Senden ablegen",
+    "requestRemote": "Fernsteuerung anfordern",
+    "sendRequest": "Anfrage senden",
+    "customMessage": "Benutzerdefinierte Nachricht (optional):",
+    "customMessagePlaceholder": "z.B. Ich muss Ihre Einstellungen überprüfen...",
+    "quickReplies": "Schnellantworten",
+    "personal": "Persönlich",
+    "templates": "Vorlagen",
+    "noQuickReplies": "Keine Schnellantworten konfiguriert",
+    "viewDevice": "Gerät anzeigen"
+  },
+  "groupPanel": {
+    "title": "Gruppen",
+    "allDevices": "Alle Geräte",
+    "filterPlaceholder": "Gruppen filtern...",
+    "expand": "Gruppenbereich erweitern",
+    "collapse": "Gruppenbereich reduzieren"
+  },
+  "sort": {
+    "name": "Name",
+    "status": "Status",
+    "lastSeen": "Zuletzt gesehen",
+    "os": "BS",
+    "version": "Version",
+    "group": "Gruppe"
   }
 }

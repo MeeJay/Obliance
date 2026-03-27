@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Varování",
+    "critical": "Kritický",
+    "pending": "Čekající",
+    "maintenance": "Údržba",
+    "suspended": "Pozastaveno",
+    "pendingUninstall": "Čeká na odinstalování",
+    "updating": "Aktualizuje se",
+    "updateError": "Chyba aktualizace",
+    "refused": "Odmítnuto"
+  },
+  "chat": {
+    "discussionWith": "Chat s {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Uživatel odpojen",
+    "noActiveChat": "Žádný aktivní chat",
+    "messagePlaceholder": "Vaše zpráva...",
+    "disconnected": "Chat odpojen",
+    "failedToOpen": "Nepodařilo se otevřít chat: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Časový limit připojení chatu.",
+    "userClosedChat": "Uživatel zavřel chat. Stále můžete posílat zprávy — chat se znovu otevře na jeho obrazovce.",
+    "remoteGranted": "Vzdálený přístup povolen.",
+    "remoteDenied": "Vzdálený přístup zamítnut.",
+    "remoteRequestSent": "Žádost o vzdálené ovládání odeslána.",
+    "waitingResponse": "Čekání na odpověď uživatele...",
+    "userDisconnectedHint": "Uživatel odpojen — vaše zpráva znovu otevře chat na jeho obrazovce",
+    "fileTooLarge": "Soubor je příliš velký (max 5 MB)",
+    "failedSendFile": "Nepodařilo se odeslat soubor",
+    "dropToSend": "Přetáhněte soubor pro odeslání",
+    "requestRemote": "Požádat o vzdálené ovládání",
+    "sendRequest": "Odeslat žádost",
+    "customMessage": "Vlastní zpráva (volitelné):",
+    "customMessagePlaceholder": "např.: Potřebuji zkontrolovat vaše nastavení...",
+    "quickReplies": "Rychlé odpovědi",
+    "personal": "Osobní",
+    "templates": "Šablony",
+    "noQuickReplies": "Žádné rychlé odpovědi nakonfigurovány",
+    "viewDevice": "Zobrazit zařízení"
+  },
+  "groupPanel": {
+    "title": "Skupiny",
+    "allDevices": "Všechna zařízení",
+    "filterPlaceholder": "Filtrovat skupiny...",
+    "expand": "Rozbalit panel skupin",
+    "collapse": "Sbalit panel skupin"
+  },
+  "sort": {
+    "name": "Název",
+    "status": "Stav",
+    "lastSeen": "Naposledy viděn",
+    "os": "OS",
+    "version": "Verze",
+    "group": "Skupina"
   }
 }

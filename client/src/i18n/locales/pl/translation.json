@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Ostrzeżenie",
+    "critical": "Krytyczny",
+    "pending": "Oczekujący",
+    "maintenance": "Konserwacja",
+    "suspended": "Zawieszony",
+    "pendingUninstall": "Oczekuje na odinstalowanie",
+    "updating": "Aktualizacja",
+    "updateError": "Błąd aktualizacji",
+    "refused": "Odrzucony"
+  },
+  "chat": {
+    "discussionWith": "Czat z {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Użytkownik rozłączony",
+    "noActiveChat": "Brak aktywnego czatu",
+    "messagePlaceholder": "Twoja wiadomość...",
+    "disconnected": "Czat rozłączony",
+    "failedToOpen": "Nie udało się otworzyć czatu: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Przekroczono czas połączenia czatu.",
+    "userClosedChat": "Użytkownik zamknął czat. Nadal możesz wysyłać wiadomości — czat otworzy się ponownie na jego ekranie.",
+    "remoteGranted": "Dostęp zdalny przyznany.",
+    "remoteDenied": "Dostęp zdalny odrzucony.",
+    "remoteRequestSent": "Prośba o zdalny dostęp wysłana.",
+    "waitingResponse": "Oczekiwanie na odpowiedź użytkownika...",
+    "userDisconnectedHint": "Użytkownik rozłączony — Twoja wiadomość ponownie otworzy czat na jego ekranie",
+    "fileTooLarge": "Plik za duży (maks. 5 MB)",
+    "failedSendFile": "Nie udało się wysłać pliku",
+    "dropToSend": "Upuść plik, aby wysłać",
+    "requestRemote": "Poproś o zdalny dostęp",
+    "sendRequest": "Wyślij prośbę",
+    "customMessage": "Niestandardowa wiadomość (opcjonalnie):",
+    "customMessagePlaceholder": "np.: Muszę sprawdzić ustawienia...",
+    "quickReplies": "Szybkie odpowiedzi",
+    "personal": "Osobiste",
+    "templates": "Szablony",
+    "noQuickReplies": "Brak skonfigurowanych szybkich odpowiedzi",
+    "viewDevice": "Zobacz urządzenie"
+  },
+  "groupPanel": {
+    "title": "Grupy",
+    "allDevices": "Wszystkie urządzenia",
+    "filterPlaceholder": "Filtruj grupy...",
+    "expand": "Rozwiń panel grup",
+    "collapse": "Zwiń panel grup"
+  },
+  "sort": {
+    "name": "Nazwa",
+    "status": "Status",
+    "lastSeen": "Ostatnio widziany",
+    "os": "SO",
+    "version": "Wersja",
+    "group": "Grupa"
   }
 }

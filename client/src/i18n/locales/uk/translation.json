@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "В мережі",
+    "offline": "Не в мережі",
+    "warning": "Попередження",
+    "critical": "Критичний",
+    "pending": "Очікує",
+    "maintenance": "Обслуговування",
+    "suspended": "Призупинено",
+    "pendingUninstall": "Очікує видалення",
+    "updating": "Оновлення",
+    "updateError": "Помилка оновлення",
+    "refused": "Відхилено"
+  },
+  "chat": {
+    "discussionWith": "Чат з {{name}}",
+    "online": "В мережі",
+    "offline": "Не в мережі",
+    "userDisconnected": "Користувач від'єднаний",
+    "noActiveChat": "Немає активного чату",
+    "messagePlaceholder": "Ваше повідомлення...",
+    "disconnected": "Чат від'єднано",
+    "failedToOpen": "Не вдалося відкрити чат: {{error}}",
+    "agentOffline": "агент офлайн",
+    "connectionTimeout": "Тайм-аут з'єднання чату.",
+    "userClosedChat": "Користувач закрив чат. Ви можете продовжувати надсилати повідомлення — чат знову відкриється на його екрані.",
+    "remoteGranted": "Віддалений доступ надано.",
+    "remoteDenied": "Віддалений доступ відхилено.",
+    "remoteRequestSent": "Запит на віддалене керування надіслано.",
+    "waitingResponse": "Очікування відповіді користувача...",
+    "userDisconnectedHint": "Користувач від'єднаний — ваше повідомлення знову відкриє чат на його екрані",
+    "fileTooLarge": "Файл завеликий (макс. 5 МБ)",
+    "failedSendFile": "Не вдалося надіслати файл",
+    "dropToSend": "Перетягніть файл для надсилання",
+    "requestRemote": "Запитати віддалене керування",
+    "sendRequest": "Надіслати запит",
+    "customMessage": "Власне повідомлення (необов'язково):",
+    "customMessagePlaceholder": "напр.: Мені потрібно перевірити ваші налаштування...",
+    "quickReplies": "Швидкі відповіді",
+    "personal": "Особисті",
+    "templates": "Шаблони",
+    "noQuickReplies": "Швидкі відповіді не налаштовані",
+    "viewDevice": "Переглянути пристрій"
+  },
+  "groupPanel": {
+    "title": "Групи",
+    "allDevices": "Усі пристрої",
+    "filterPlaceholder": "Фільтр груп...",
+    "expand": "Розгорнути панель груп",
+    "collapse": "Згорнути панель груп"
+  },
+  "sort": {
+    "name": "Назва",
+    "status": "Статус",
+    "lastSeen": "Останній раз бачений",
+    "os": "ОС",
+    "version": "Версія",
+    "group": "Група"
   }
 }

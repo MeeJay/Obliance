@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Çevrimiçi",
+    "offline": "Çevrimdışı",
+    "warning": "Uyarı",
+    "critical": "Kritik",
+    "pending": "Beklemede",
+    "maintenance": "Bakım",
+    "suspended": "Askıya alındı",
+    "pendingUninstall": "Kaldırma bekliyor",
+    "updating": "Güncelleniyor",
+    "updateError": "Güncelleme hatası",
+    "refused": "Reddedildi"
+  },
+  "chat": {
+    "discussionWith": "{{name}} ile sohbet",
+    "online": "Çevrimiçi",
+    "offline": "Çevrimdışı",
+    "userDisconnected": "Kullanıcı bağlantısı kesildi",
+    "noActiveChat": "Aktif sohbet yok",
+    "messagePlaceholder": "Mesajınız...",
+    "disconnected": "Sohbet bağlantısı kesildi",
+    "failedToOpen": "Sohbet açılamadı: {{error}}",
+    "agentOffline": "ajan çevrimdışı",
+    "connectionTimeout": "Sohbet bağlantısı zaman aşımına uğradı.",
+    "userClosedChat": "Kullanıcı sohbeti kapattı. Hâlâ mesaj gönderebilirsiniz — sohbet kullanıcının ekranında yeniden açılacaktır.",
+    "remoteGranted": "Uzak erişim izni verildi.",
+    "remoteDenied": "Uzak erişim reddedildi.",
+    "remoteRequestSent": "Uzak kontrol isteği gönderildi.",
+    "waitingResponse": "Kullanıcı yanıtı bekleniyor...",
+    "userDisconnectedHint": "Kullanıcı bağlantısı kesildi — mesajınız sohbeti ekranında yeniden açacaktır",
+    "fileTooLarge": "Dosya çok büyük (maks. 5 MB)",
+    "failedSendFile": "Dosya gönderilemedi",
+    "dropToSend": "Göndermek için dosyayı bırakın",
+    "requestRemote": "Uzak kontrol iste",
+    "sendRequest": "İstek gönder",
+    "customMessage": "Özel mesaj (isteğe bağlı):",
+    "customMessagePlaceholder": "ör.: Ayarlarınızı kontrol etmem gerekiyor...",
+    "quickReplies": "Hızlı yanıtlar",
+    "personal": "Kişisel",
+    "templates": "Şablonlar",
+    "noQuickReplies": "Hızlı yanıt yapılandırılmadı",
+    "viewDevice": "Cihazı görüntüle"
+  },
+  "groupPanel": {
+    "title": "Gruplar",
+    "allDevices": "Tüm cihazlar",
+    "filterPlaceholder": "Grupları filtrele...",
+    "expand": "Grup panelini genişlet",
+    "collapse": "Grup panelini daralt"
+  },
+  "sort": {
+    "name": "Ad",
+    "status": "Durum",
+    "lastSeen": "Son görülme",
+    "os": "İS",
+    "version": "Sürüm",
+    "group": "Grup"
   }
 }

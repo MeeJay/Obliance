@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Send, Shield, Paperclip, Minus, MessageCircle } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore, type ChatSession } from '@/store/chatStore';
@@ -69,6 +70,7 @@ function OperatorAvatar({ avatarUrl, size = 28 }: { avatarUrl?: string | null; s
 
 // ── Single tab content ─────────────────────────────────────────────────────────
 function ChatTabContent({ session }: { session: ChatSession }) {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -138,7 +140,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
         socket.emit('join', `chat:${res.chatId}`);
       } else {
         store.getState().addMessage(key, {
-          sender: 'System', text: `Failed to open chat: ${res?.error || 'agent offline'}`,
+          sender: 'System', text: t('chat.failedToOpen', { error: res?.error || t('chat.agentOffline') }),
           timestamp: Date.now(), isSystem: true,
         });
       }
@@ -149,7 +151,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
         const msgs = store.getState().sessions.find(s => s.key === key)?.messages ?? [];
         if (msgs.some(m => m.text.includes('Failed to open'))) return;
         store.getState().addMessage(key, {
-          sender: 'System', text: 'Chat connection timed out.',
+          sender: 'System', text: t('chat.connectionTimeout'),
           timestamp: Date.now(), isSystem: true,
         });
       }
@@ -176,7 +178,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
       if (data.chatId !== chatId) return;
       store.getState().addMessage(key, {
         sender: 'System',
-        text: 'The user has closed the chat. You can still send messages — the chat will reopen on their screen.',
+        text: t('chat.userClosedChat'),
         timestamp: Date.now(), isSystem: true,
       });
       store.getState().setUserClosed(key, true);
@@ -186,7 +188,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
       setRemoteRequested(false);
       store.getState().addMessage(key, {
         sender: 'System',
-        text: data.allowed ? 'Remote control access granted.' : 'Remote control access denied.',
+        text: data.allowed ? t('chat.remoteGranted') : t('chat.remoteDenied'),
         timestamp: Date.now(), isSystem: true,
       });
       // Trigger ObliReach session when user grants remote access
@@ -220,7 +222,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
   const handleFileSend = useCallback(async (file: File) => {
     if (!chatId || (!isConnected && !userClosed)) return;
     if (file.size > 5 * 1024 * 1024) {
-      store.getState().addMessage(key, { sender: 'System', text: 'File too large (max 5 MB)', timestamp: Date.now(), isSystem: true });
+      store.getState().addMessage(key, { sender: 'System', text: t('chat.fileTooLarge'), timestamp: Date.now(), isSystem: true });
       return;
     }
     setUploadProgress(`Sending ${file.name}...`);
@@ -233,7 +235,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
         store.getState().addMessage(key, { sender: operatorName, text: `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, timestamp: Date.now() });
       }
     } catch {
-      store.getState().addMessage(key, { sender: 'System', text: 'Failed to send file', timestamp: Date.now(), isSystem: true });
+      store.getState().addMessage(key, { sender: 'System', text: t('chat.failedSendFile'), timestamp: Date.now(), isSystem: true });
     } finally { setUploadProgress(null); }
   }, [chatId, isConnected, userClosed, key, operatorName]);
 
@@ -249,7 +251,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     socket.emit('chat:request_remote', { chatId, message: requestMessage });
     setRemoteRequested(true);
     setShowRequestDialog(false);
-    store.getState().addMessage(key, { sender: 'System', text: 'Remote control request sent.', timestamp: Date.now(), isSystem: true });
+    store.getState().addMessage(key, { sender: 'System', text: t('chat.remoteRequestSent'), timestamp: Date.now(), isSystem: true });
   }, [chatId, requestMessage, key]);
 
   const canSend = isConnected || userClosed;
@@ -263,7 +265,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     >
       {isDragging && (
         <div className="absolute inset-0 z-10 bg-accent/20 border-2 border-dashed border-accent flex items-center justify-center rounded-2xl">
-          <span className="text-accent font-medium">Drop file to send</span>
+          <span className="text-accent font-medium">{t('chat.dropToSend')}</span>
         </div>
       )}
 
@@ -325,18 +327,18 @@ function ChatTabContent({ session }: { session: ChatSession }) {
       {/* Request remote dialog */}
       {showRequestDialog && (
         <div className="px-4 py-3 border-t border-border bg-bg-tertiary space-y-2">
-          <p className="text-[11px] text-text-muted">Custom message (optional):</p>
+          <p className="text-[11px] text-text-muted">{t('chat.customMessage')}</p>
           <input value={requestMessage} onChange={e => setRequestMessage(e.target.value)}
-            placeholder="e.g., I need to check your settings..."
+            placeholder={t('chat.customMessagePlaceholder')}
             className="w-full px-3 py-2 text-xs bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted" />
           <div className="flex gap-2">
             <button onClick={handleRequestRemote}
               className="flex-1 px-3 py-2 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors font-medium">
-              Send Request
+              {t('chat.sendRequest')}
             </button>
             <button onClick={() => setShowRequestDialog(false)}
               className="px-3 py-2 text-xs bg-bg-hover text-text-secondary rounded-lg hover:text-text-primary transition-colors">
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -348,18 +350,18 @@ function ChatTabContent({ session }: { session: ChatSession }) {
           <button onClick={() => setShowRequestDialog(true)}
             className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] bg-accent/10 text-accent border border-accent/20 rounded-xl hover:bg-accent/20 transition-colors font-medium">
             <Shield className="w-3.5 h-3.5" />
-            Request Remote Control
+            {t('chat.requestRemote')}
           </button>
         )}
         {remoteRequested && (
-          <div className="text-[11px] text-center text-yellow-400/80 py-1">Waiting for user response...</div>
+          <div className="text-[11px] text-center text-yellow-400/80 py-1">{t('chat.waitingResponse')}</div>
         )}
         {uploadProgress && (
           <div className="text-[11px] text-center text-accent py-1 animate-pulse">{uploadProgress}</div>
         )}
         {userClosed && (
           <div className="text-[10px] text-center text-yellow-400/60 py-0.5">
-            User disconnected — your message will reopen the chat on their screen
+            {t('chat.userDisconnectedHint')}
           </div>
         )}
 
@@ -375,7 +377,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
               </select>
             )}
             {personalQuickReplies.length > 0 && (
-              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1">Personal</div>
+              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1">{t('chat.personal')}</div>
             )}
             {personalQuickReplies.map((t, i) => (
               <button key={`p-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
@@ -384,7 +386,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
               </button>
             ))}
             {adminRepliesInLang.length > 0 && (
-              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1 pt-1">Templates</div>
+              <div className="text-[9px] text-text-muted uppercase tracking-wider px-1 pt-1">{t('chat.templates')}</div>
             )}
             {adminRepliesInLang.map((t, i) => (
               <button key={`t-${i}`} onClick={() => { setInput(t); setShowTemplates(false); inputRef.current?.focus(); }}
@@ -393,21 +395,21 @@ function ChatTabContent({ session }: { session: ChatSession }) {
               </button>
             ))}
             {allQuickReplies.length === 0 && (
-              <div className="text-[11px] text-text-muted text-center py-2 italic">No quick replies configured</div>
+              <div className="text-[11px] text-text-muted text-center py-2 italic">{t('chat.noQuickReplies')}</div>
             )}
           </div>
         )}
 
         {/* Input */}
         <div className="flex items-center gap-2 bg-bg-primary border border-border rounded-2xl px-3 py-1.5">
-          <button onClick={() => setShowTemplates(v => !v)} title="Quick replies"
+          <button onClick={() => setShowTemplates(v => !v)} title={t('chat.quickReplies')}
             className="text-text-muted hover:text-accent transition-colors text-xs font-mono">/</button>
           <input
             ref={inputRef}
             value={input}
             onChange={e => { setInput(e.target.value); emitTyping(); }}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder={canSend ? 'Votre message...' : 'Chat disconnected'}
+            placeholder={canSend ? t('chat.messagePlaceholder') : t('chat.disconnected')}
             disabled={!canSend}
             className="flex-1 bg-transparent text-[13px] text-text-primary placeholder-text-muted outline-none disabled:opacity-40"
           />
@@ -429,6 +431,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function GlobalChatPanel() {
+  const { t } = useTranslation();
   const { sessions, activeKey, isOpen, isMinimized } = useChatStore();
   const { setActiveTab, closeTab, setMinimized, toggleOpen, clearUnread } = useChatStore();
 
@@ -480,7 +483,7 @@ export function GlobalChatPanel() {
         <OperatorAvatar avatarUrl={operatorAvatar} size={40} />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-text-primary truncate">
-            Discussion avec {activeSession?.deviceName ?? '...'}
+            {t('chat.discussionWith', { name: activeSession?.deviceName ?? '...' })}
           </div>
           <div className="flex items-center gap-1.5">
             <span className={clsx('w-2 h-2 rounded-full',
@@ -488,8 +491,8 @@ export function GlobalChatPanel() {
                 : activeSession?.userClosed ? 'bg-yellow-400' : 'bg-gray-500'
             )} />
             <span className="text-[11px] text-text-muted">
-              {activeSession?.isConnected && !activeSession?.userClosed ? 'En ligne'
-                : activeSession?.userClosed ? 'User disconnected' : 'Hors ligne'}
+              {activeSession?.isConnected && !activeSession?.userClosed ? t('chat.online')
+                : activeSession?.userClosed ? t('chat.userDisconnected') : t('chat.offline')}
             </span>
           </div>
         </div>
@@ -543,7 +546,7 @@ export function GlobalChatPanel() {
         <ChatTabContent key={activeSession.key} session={activeSession} />
       ) : (
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-          No active chat
+          {t('chat.noActiveChat')}
         </div>
       )}
     </div>

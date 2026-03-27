@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Attenzione",
+    "critical": "Critico",
+    "pending": "In attesa",
+    "maintenance": "Manutenzione",
+    "suspended": "Sospeso",
+    "pendingUninstall": "Disinstallazione in attesa",
+    "updating": "Aggiornamento",
+    "updateError": "Errore aggiornamento",
+    "refused": "Rifiutato"
+  },
+  "chat": {
+    "discussionWith": "Chat con {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Utente disconnesso",
+    "noActiveChat": "Nessuna chat attiva",
+    "messagePlaceholder": "Il tuo messaggio...",
+    "disconnected": "Chat disconnessa",
+    "failedToOpen": "Impossibile aprire la chat: {{error}}",
+    "agentOffline": "agente offline",
+    "connectionTimeout": "Timeout connessione chat.",
+    "userClosedChat": "L'utente ha chiuso la chat. Puoi ancora inviare messaggi — la chat si riaprirà sul suo schermo.",
+    "remoteGranted": "Accesso remoto concesso.",
+    "remoteDenied": "Accesso remoto negato.",
+    "remoteRequestSent": "Richiesta di controllo remoto inviata.",
+    "waitingResponse": "In attesa della risposta dell'utente...",
+    "userDisconnectedHint": "Utente disconnesso — il tuo messaggio riaprirà la chat sul suo schermo",
+    "fileTooLarge": "File troppo grande (max 5 MB)",
+    "failedSendFile": "Invio del file non riuscito",
+    "dropToSend": "Rilascia il file per inviarlo",
+    "requestRemote": "Richiedi controllo remoto",
+    "sendRequest": "Invia richiesta",
+    "customMessage": "Messaggio personalizzato (opzionale):",
+    "customMessagePlaceholder": "es.: Devo controllare le tue impostazioni...",
+    "quickReplies": "Risposte rapide",
+    "personal": "Personale",
+    "templates": "Modelli",
+    "noQuickReplies": "Nessuna risposta rapida configurata",
+    "viewDevice": "Visualizza dispositivo"
+  },
+  "groupPanel": {
+    "title": "Gruppi",
+    "allDevices": "Tutti i dispositivi",
+    "filterPlaceholder": "Filtra gruppi...",
+    "expand": "Espandi pannello gruppi",
+    "collapse": "Comprimi pannello gruppi"
+  },
+  "sort": {
+    "name": "Nome",
+    "status": "Stato",
+    "lastSeen": "Visto per ultimo",
+    "os": "SO",
+    "version": "Versione",
+    "group": "Gruppo"
   }
 }

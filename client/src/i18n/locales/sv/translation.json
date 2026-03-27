@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Varning",
+    "critical": "Kritisk",
+    "pending": "Väntande",
+    "maintenance": "Underhåll",
+    "suspended": "Pausad",
+    "pendingUninstall": "Avinstallation väntar",
+    "updating": "Uppdaterar",
+    "updateError": "Uppdateringsfel",
+    "refused": "Nekad"
+  },
+  "chat": {
+    "discussionWith": "Chatt med {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Användare frånkopplad",
+    "noActiveChat": "Ingen aktiv chatt",
+    "messagePlaceholder": "Ditt meddelande...",
+    "disconnected": "Chatt frånkopplad",
+    "failedToOpen": "Kunde inte öppna chatten: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Chattanslutning tog för lång tid.",
+    "userClosedChat": "Användaren har stängt chatten. Du kan fortfarande skicka meddelanden — chatten öppnas igen på deras skärm.",
+    "remoteGranted": "Fjärråtkomst beviljad.",
+    "remoteDenied": "Fjärråtkomst nekad.",
+    "remoteRequestSent": "Fjärrstyrningsbegäran skickad.",
+    "waitingResponse": "Väntar på användarsvar...",
+    "userDisconnectedHint": "Användare frånkopplad — ditt meddelande öppnar chatten igen på deras skärm",
+    "fileTooLarge": "Filen är för stor (max 5 MB)",
+    "failedSendFile": "Kunde inte skicka filen",
+    "dropToSend": "Släpp filen för att skicka",
+    "requestRemote": "Begär fjärrstyrning",
+    "sendRequest": "Skicka begäran",
+    "customMessage": "Anpassat meddelande (valfritt):",
+    "customMessagePlaceholder": "t.ex.: Jag behöver kontrollera dina inställningar...",
+    "quickReplies": "Snabbsvar",
+    "personal": "Personligt",
+    "templates": "Mallar",
+    "noQuickReplies": "Inga snabbsvar konfigurerade",
+    "viewDevice": "Visa enhet"
+  },
+  "groupPanel": {
+    "title": "Grupper",
+    "allDevices": "Alla enheter",
+    "filterPlaceholder": "Filtrera grupper...",
+    "expand": "Expandera grupppanelen",
+    "collapse": "Minimera grupppanelen"
+  },
+  "sort": {
+    "name": "Namn",
+    "status": "Status",
+    "lastSeen": "Senast sedd",
+    "os": "OS",
+    "version": "Version",
+    "group": "Grupp"
   }
 }

@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "在线",
+    "offline": "离线",
+    "warning": "警告",
+    "critical": "严重",
+    "pending": "待处理",
+    "maintenance": "维护",
+    "suspended": "已暂停",
+    "pendingUninstall": "等待卸载",
+    "updating": "更新中",
+    "updateError": "更新错误",
+    "refused": "已拒绝"
+  },
+  "chat": {
+    "discussionWith": "与 {{name}} 聊天",
+    "online": "在线",
+    "offline": "离线",
+    "userDisconnected": "用户已断开",
+    "noActiveChat": "无活跃聊天",
+    "messagePlaceholder": "您的消息...",
+    "disconnected": "聊天已断开",
+    "failedToOpen": "打开聊天失败: {{error}}",
+    "agentOffline": "代理离线",
+    "connectionTimeout": "聊天连接超时。",
+    "userClosedChat": "用户已关闭聊天。您仍然可以发送消息 — 聊天将在用户屏幕上重新打开。",
+    "remoteGranted": "远程控制访问已授予。",
+    "remoteDenied": "远程控制访问被拒绝。",
+    "remoteRequestSent": "远程控制请求已发送。",
+    "waitingResponse": "等待用户响应...",
+    "userDisconnectedHint": "用户已断开 — 您的消息将在用户屏幕上重新打开聊天",
+    "fileTooLarge": "文件太大（最大 5 MB）",
+    "failedSendFile": "发送文件失败",
+    "dropToSend": "拖放文件以发送",
+    "requestRemote": "请求远程控制",
+    "sendRequest": "发送请求",
+    "customMessage": "自定义消息（可选）：",
+    "customMessagePlaceholder": "例如：我需要检查您的设置...",
+    "quickReplies": "快捷回复",
+    "personal": "个人",
+    "templates": "模板",
+    "noQuickReplies": "未配置快捷回复",
+    "viewDevice": "查看设备"
+  },
+  "groupPanel": {
+    "title": "分组",
+    "allDevices": "所有设备",
+    "filterPlaceholder": "筛选分组...",
+    "expand": "展开分组面板",
+    "collapse": "收起分组面板"
+  },
+  "sort": {
+    "name": "名称",
+    "status": "状态",
+    "lastSeen": "最后在线",
+    "os": "操作系统",
+    "version": "版本",
+    "group": "分组"
   }
 }

@@ -6,6 +6,7 @@ import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 
 interface GroupSidePanelProps {
@@ -157,6 +158,7 @@ function collectIds(nodes: DeviceGroupTreeNode[]): number[] {
 }
 
 export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSidePanelProps) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
   const [fleet, setFleet] = useState<FleetCounts>({ online: 0, offline: 0, warning: 0, critical: 0, total: 0 });
@@ -242,7 +244,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
           type="button"
           onClick={() => setCollapsed(false)}
           className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary"
-          title="Expand groups panel"
+          title={t('groupPanel.expand')}
         >
           <PanelLeftOpen size={18} />
         </button>
@@ -259,12 +261,12 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <h3 className="text-sm font-semibold text-text-primary">Groups</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t('groupPanel.title')}</h3>
         <button
           type="button"
           onClick={() => setCollapsed(true)}
           className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary"
-          title="Collapse groups panel"
+          title={t('groupPanel.collapse')}
         >
           <PanelLeftClose size={16} />
         </button>
@@ -306,7 +308,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter groups..."
+            placeholder={t('groupPanel.filterPlaceholder')}
             className="w-full rounded-md border border-border bg-bg-secondary py-1 pl-7 pr-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
           />
         </div>
@@ -325,7 +327,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
           )}
         >
           <Monitor size={15} className={clsx('shrink-0', groupId === null ? 'text-accent' : 'text-text-muted')} />
-          <span className="text-text-primary">All Devices</span>
+          <span className="text-text-primary">{t('groupPanel.allDevices')}</span>
           <span className="ml-auto text-xs text-text-muted">{total}</span>
         </button>
 

@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "オンライン",
+    "offline": "オフライン",
+    "warning": "警告",
+    "critical": "重大",
+    "pending": "保留中",
+    "maintenance": "メンテナンス",
+    "suspended": "一時停止",
+    "pendingUninstall": "アンインストール待ち",
+    "updating": "更新中",
+    "updateError": "更新エラー",
+    "refused": "拒否"
+  },
+  "chat": {
+    "discussionWith": "{{name}} とのチャット",
+    "online": "オンライン",
+    "offline": "オフライン",
+    "userDisconnected": "ユーザー切断",
+    "noActiveChat": "アクティブなチャットなし",
+    "messagePlaceholder": "メッセージ...",
+    "disconnected": "チャット切断",
+    "failedToOpen": "チャットを開けませんでした: {{error}}",
+    "agentOffline": "エージェントオフライン",
+    "connectionTimeout": "チャット接続タイムアウト。",
+    "userClosedChat": "ユーザーがチャットを閉じました。メッセージの送信は引き続き可能です — チャットはユーザーの画面で再度開きます。",
+    "remoteGranted": "リモートアクセスが許可されました。",
+    "remoteDenied": "リモートアクセスが拒否されました。",
+    "remoteRequestSent": "リモートコントロールリクエストが送信されました。",
+    "waitingResponse": "ユーザーの応答を待っています...",
+    "userDisconnectedHint": "ユーザー切断 — メッセージを送信するとユーザーの画面でチャットが再開されます",
+    "fileTooLarge": "ファイルが大きすぎます（最大 5 MB）",
+    "failedSendFile": "ファイルの送信に失敗しました",
+    "dropToSend": "ファイルをドロップして送信",
+    "requestRemote": "リモートコントロールをリクエスト",
+    "sendRequest": "リクエストを送信",
+    "customMessage": "カスタムメッセージ（任意）:",
+    "customMessagePlaceholder": "例: 設定を確認する必要があります...",
+    "quickReplies": "クイック返信",
+    "personal": "個人",
+    "templates": "テンプレート",
+    "noQuickReplies": "クイック返信が設定されていません",
+    "viewDevice": "デバイスを表示"
+  },
+  "groupPanel": {
+    "title": "グループ",
+    "allDevices": "すべてのデバイス",
+    "filterPlaceholder": "グループを検索...",
+    "expand": "グループパネルを展開",
+    "collapse": "グループパネルを折りたたむ"
+  },
+  "sort": {
+    "name": "名前",
+    "status": "ステータス",
+    "lastSeen": "最終確認",
+    "os": "OS",
+    "version": "バージョン",
+    "group": "グループ"
   }
 }

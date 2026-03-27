@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Waarschuwing",
+    "critical": "Kritiek",
+    "pending": "In afwachting",
+    "maintenance": "Onderhoud",
+    "suspended": "Opgeschort",
+    "pendingUninstall": "Verwijdering in afwachting",
+    "updating": "Bijwerken",
+    "updateError": "Update-fout",
+    "refused": "Geweigerd"
+  },
+  "chat": {
+    "discussionWith": "Chat met {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Gebruiker losgekoppeld",
+    "noActiveChat": "Geen actieve chat",
+    "messagePlaceholder": "Uw bericht...",
+    "disconnected": "Chat losgekoppeld",
+    "failedToOpen": "Kan chat niet openen: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Chat verbinding time-out.",
+    "userClosedChat": "De gebruiker heeft de chat gesloten. U kunt nog steeds berichten sturen — de chat wordt opnieuw geopend op hun scherm.",
+    "remoteGranted": "Externe toegang verleend.",
+    "remoteDenied": "Externe toegang geweigerd.",
+    "remoteRequestSent": "Verzoek voor externe controle verzonden.",
+    "waitingResponse": "Wachten op reactie van gebruiker...",
+    "userDisconnectedHint": "Gebruiker losgekoppeld — uw bericht opent de chat opnieuw op hun scherm",
+    "fileTooLarge": "Bestand te groot (max 5 MB)",
+    "failedSendFile": "Kan bestand niet verzenden",
+    "dropToSend": "Laat het bestand vallen om te verzenden",
+    "requestRemote": "Externe controle aanvragen",
+    "sendRequest": "Verzoek verzenden",
+    "customMessage": "Aangepast bericht (optioneel):",
+    "customMessagePlaceholder": "bijv.: Ik moet uw instellingen controleren...",
+    "quickReplies": "Snelle antwoorden",
+    "personal": "Persoonlijk",
+    "templates": "Sjablonen",
+    "noQuickReplies": "Geen snelle antwoorden geconfigureerd",
+    "viewDevice": "Apparaat bekijken"
+  },
+  "groupPanel": {
+    "title": "Groepen",
+    "allDevices": "Alle apparaten",
+    "filterPlaceholder": "Groepen filteren...",
+    "expand": "Groepenpaneel uitvouwen",
+    "collapse": "Groepenpaneel inklappen"
+  },
+  "sort": {
+    "name": "Naam",
+    "status": "Status",
+    "lastSeen": "Laatst gezien",
+    "os": "OS",
+    "version": "Versie",
+    "group": "Groep"
   }
 }

@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "Online",
+    "offline": "Offline",
+    "warning": "Advarsel",
+    "critical": "Kritisk",
+    "pending": "Ventende",
+    "maintenance": "Vedligehold",
+    "suspended": "Suspenderet",
+    "pendingUninstall": "Afinstallation venter",
+    "updating": "Opdaterer",
+    "updateError": "Opdateringsfejl",
+    "refused": "Afvist"
+  },
+  "chat": {
+    "discussionWith": "Chat med {{name}}",
+    "online": "Online",
+    "offline": "Offline",
+    "userDisconnected": "Bruger afbrudt",
+    "noActiveChat": "Ingen aktiv chat",
+    "messagePlaceholder": "Din besked...",
+    "disconnected": "Chat afbrudt",
+    "failedToOpen": "Kunne ikke åbne chat: {{error}}",
+    "agentOffline": "agent offline",
+    "connectionTimeout": "Chat forbindelse timeout.",
+    "userClosedChat": "Brugeren har lukket chatten. Du kan stadig sende beskeder — chatten åbnes igen på deres skærm.",
+    "remoteGranted": "Fjernadgang bevilget.",
+    "remoteDenied": "Fjernadgang nægtet.",
+    "remoteRequestSent": "Fjernstyring anmodning sendt.",
+    "waitingResponse": "Venter på brugersvar...",
+    "userDisconnectedHint": "Bruger afbrudt — din besked åbner chatten igen på deres skærm",
+    "fileTooLarge": "Filen er for stor (maks. 5 MB)",
+    "failedSendFile": "Kunne ikke sende filen",
+    "dropToSend": "Slip filen for at sende",
+    "requestRemote": "Anmod fjernstyring",
+    "sendRequest": "Send anmodning",
+    "customMessage": "Brugerdefineret besked (valgfri):",
+    "customMessagePlaceholder": "f.eks.: Jeg skal tjekke dine indstillinger...",
+    "quickReplies": "Hurtige svar",
+    "personal": "Personlig",
+    "templates": "Skabeloner",
+    "noQuickReplies": "Ingen hurtige svar konfigureret",
+    "viewDevice": "Vis enhed"
+  },
+  "groupPanel": {
+    "title": "Grupper",
+    "allDevices": "Alle enheder",
+    "filterPlaceholder": "Filtrer grupper...",
+    "expand": "Udvid gruppepanelet",
+    "collapse": "Sammenfold gruppepanelet"
+  },
+  "sort": {
+    "name": "Navn",
+    "status": "Status",
+    "lastSeen": "Sidst set",
+    "os": "OS",
+    "version": "Version",
+    "group": "Gruppe"
   }
 }

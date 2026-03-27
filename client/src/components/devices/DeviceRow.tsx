@@ -4,6 +4,7 @@ import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp } from '@/utils/anonymize';
 
 interface DeviceRowProps {
@@ -68,6 +69,7 @@ export const DeviceRow = memo(function DeviceRow({
   onNavigate,
   onGroupClick,
 }: DeviceRowProps) {
+  const { t } = useTranslation();
   const metrics = device.latestMetrics;
   const cpuPct = metrics?.cpu?.percent;
   const ramPct = metrics?.memory?.percent;
@@ -178,7 +180,7 @@ export const DeviceRow = memo(function DeviceRow({
         <button
           onClick={handleEye}
           className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors flex-shrink-0"
-          title="View device"
+          title={t('chat.viewDevice')}
         >
           <Eye className="w-4 h-4" />
         </button>

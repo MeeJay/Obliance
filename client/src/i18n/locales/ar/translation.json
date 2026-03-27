@@ -1575,5 +1575,63 @@
     "volume": "Volume",
     "subscription": "Subscription",
     "other": "Other"
+  },
+  "deviceStatus": {
+    "online": "متصل",
+    "offline": "غير متصل",
+    "warning": "تحذير",
+    "critical": "حرج",
+    "pending": "معلق",
+    "maintenance": "صيانة",
+    "suspended": "معلق",
+    "pendingUninstall": "إزالة التثبيت معلقة",
+    "updating": "جارٍ التحديث",
+    "updateError": "خطأ في التحديث",
+    "refused": "مرفوض"
+  },
+  "chat": {
+    "discussionWith": "محادثة مع {{name}}",
+    "online": "متصل",
+    "offline": "غير متصل",
+    "userDisconnected": "المستخدم غير متصل",
+    "noActiveChat": "لا محادثة نشطة",
+    "messagePlaceholder": "رسالتك...",
+    "disconnected": "الدردشة غير متصلة",
+    "failedToOpen": "فشل فتح المحادثة: {{error}}",
+    "agentOffline": "الوكيل غير متصل",
+    "connectionTimeout": "انتهت مهلة الاتصال بالمحادثة.",
+    "userClosedChat": "أغلق المستخدم المحادثة. لا يزال بإمكانك إرسال رسائل — ستُعاد فتح المحادثة على شاشته.",
+    "remoteGranted": "تم منح الوصول عن بعد.",
+    "remoteDenied": "تم رفض الوصول عن بعد.",
+    "remoteRequestSent": "تم إرسال طلب التحكم عن بعد.",
+    "waitingResponse": "في انتظار رد المستخدم...",
+    "userDisconnectedHint": "المستخدم غير متصل — ستفتح رسالتك المحادثة مجددًا على شاشته",
+    "fileTooLarge": "الملف كبير جدًا (الحد الأقصى 5 ميجابايت)",
+    "failedSendFile": "فشل إرسال الملف",
+    "dropToSend": "أسقط الملف للإرسال",
+    "requestRemote": "طلب التحكم عن بعد",
+    "sendRequest": "إرسال الطلب",
+    "customMessage": "رسالة مخصصة (اختياري):",
+    "customMessagePlaceholder": "مثال: أحتاج إلى التحقق من إعداداتك...",
+    "quickReplies": "ردود سريعة",
+    "personal": "شخصي",
+    "templates": "قوالب",
+    "noQuickReplies": "لم يتم تكوين ردود سريعة",
+    "viewDevice": "عرض الجهاز"
+  },
+  "groupPanel": {
+    "title": "مجموعات",
+    "allDevices": "جميع الأجهزة",
+    "filterPlaceholder": "تصفية المجموعات...",
+    "expand": "توسيع لوحة المجموعات",
+    "collapse": "طي لوحة المجموعات"
+  },
+  "sort": {
+    "name": "الاسم",
+    "status": "الحالة",
+    "lastSeen": "آخر ظهور",
+    "os": "نظام التشغيل",
+    "version": "الإصدار",
+    "group": "مجموعة"
   }
 }
