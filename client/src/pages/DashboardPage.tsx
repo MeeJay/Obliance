@@ -29,7 +29,7 @@ function StatCard({ icon: Icon, label, value, color, to }: { icon: any; label: s
 }
 
 function ComplianceBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-xs text-text-muted">—</span>;
+  if (score === null || isNaN(score)) return <span className="text-xs text-text-muted">—</span>;
   const color = score >= 80 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400';
   const bg = score >= 80 ? 'bg-green-400/10' : score >= 50 ? 'bg-yellow-400/10' : 'bg-red-400/10';
   return (
@@ -289,7 +289,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {s.complianceScore !== null && (
+          {s.complianceScore !== null && !isNaN(s.complianceScore) && (
             <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
               <div className={`p-3 rounded-lg ${s.complianceScore >= 80 ? 'bg-green-500/20 text-green-400' : s.complianceScore >= 50 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
                 <ShieldCheck className="w-5 h-5" />
