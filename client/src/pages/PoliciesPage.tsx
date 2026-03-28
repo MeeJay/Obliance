@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Package, ShieldCheck, BarChart3, Loader2 } from 'lucide-react';
 import { UpdatesPage } from './UpdatesPage';
@@ -119,7 +120,9 @@ function PatchReportTab() {
 
 export function PoliciesPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('updates');
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab) || 'updates';
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'updates', label: t('policies.tabUpdates'), icon: <Package size={16} /> },

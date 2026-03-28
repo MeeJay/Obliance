@@ -1477,7 +1477,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
         <div className="p-12 text-center text-text-muted">
           <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No compliance checks run yet</p>
-          <Link to="/policies" className="mt-2 inline-block text-sm text-accent">Configure policies →</Link>
+          <Link to="/policies?tab=compliance" className="mt-2 inline-block text-sm text-accent">Configure policies →</Link>
         </div>
       ) : (
         results.map((result) => {
