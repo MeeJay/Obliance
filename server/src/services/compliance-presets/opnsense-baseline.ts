@@ -16,7 +16,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'critical',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-002', {
@@ -28,7 +28,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-003', {
@@ -40,7 +40,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-004', {
@@ -52,7 +52,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-005', {
@@ -64,7 +64,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── FIREWALL ────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'critical',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-011', {
@@ -90,7 +90,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-012', {
@@ -102,7 +102,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-013', {
@@ -114,7 +114,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-014', {
@@ -126,7 +126,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── UPDATES & PACKAGES ──────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: 'true',
     operator: 'eq',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── SERVICES ────────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── AUTHENTICATION ──────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'critical',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-041', {
@@ -240,7 +240,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-042', {
@@ -252,7 +252,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-043', {
@@ -264,7 +264,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── BACKUP ──────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'high',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-051', {
@@ -290,7 +290,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   r('opn-052', {
@@ -302,7 +302,7 @@ export const opnsenseBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'gt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
 ];

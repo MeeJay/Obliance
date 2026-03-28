@@ -29,7 +29,7 @@ const FRAMEWORK_LABELS: Record<ComplianceFramework, string> = {
 
 const CHECK_TYPES: ComplianceCheckType[] = ['registry', 'file', 'command', 'service', 'event_log', 'process', 'policy'];
 const OPERATORS: ComplianceOperator[] = ['eq', 'neq', 'contains', 'not_contains', 'exists', 'not_exists', 'gt', 'lt', 'regex'];
-const PLATFORMS: ScriptPlatform[] = ['all', 'windows', 'linux', 'macos'];
+const PLATFORMS: ScriptPlatform[] = ['all', 'windows', 'linux', 'macos', 'freebsd'];
 const SEVERITIES: CheckSeverity[] = ['optional', 'low', 'moderate', 'high', 'critical'];
 
 const SEVERITY_COLOR: Record<CheckSeverity, string> = {
@@ -274,7 +274,7 @@ interface PolicyFormData {
   framework: ComplianceFramework;
   targetType: 'group' | 'all';
   targetIds: number[];
-  targetPlatform: 'windows' | 'linux' | 'macos' | 'all';
+  targetPlatform: 'windows' | 'linux' | 'macos' | 'freebsd' | 'all';
   enabled: boolean;
   rules: RuleFormData[];
 }

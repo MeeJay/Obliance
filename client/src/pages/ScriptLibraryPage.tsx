@@ -10,6 +10,7 @@ const PLATFORM_LABELS: Record<ScriptPlatform, string> = {
   windows: 'Windows',
   macos: 'macOS',
   linux: 'Linux',
+  freebsd: 'FreeBSD',
   all: 'All platforms',
 };
 

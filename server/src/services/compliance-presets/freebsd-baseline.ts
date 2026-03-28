@@ -188,7 +188,7 @@ export const freebsdBaselineRules: ComplianceRule[] = [
     expected: '0',
     operator: 'eq',
     severity: 'critical',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── SERVICES ─────────────────────────────────────────────────────────────────
@@ -286,9 +286,9 @@ export const freebsdBaselineRules: ComplianceRule[] = [
     targetPlatform: 'freebsd',
     target: "find / -xdev \\( -perm -4000 -o -perm -2000 \\) -type f 2>/dev/null | wc -l | tr -d ' '",
     expected: '50',
-    operator: 'lte',
+    operator: 'lt',
     severity: 'moderate',
-    remediationScript: null,
+    remediationScript: undefined,
   }),
 
   // ── UPDATES ──────────────────────────────────────────────────────────────────
