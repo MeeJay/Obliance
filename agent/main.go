@@ -88,6 +88,20 @@ func setupConfig(urlArg, keyArg string) *Config {
 		if regErr == nil {
 			cfg = regCfg
 		}
+	} else {
+		// config.json exists — but registry values (written by MSI) take
+		// precedence for ServerURL and APIKey so that reinstalling the MSI
+		// with new parameters actually switches the agent over.
+		if regCfg, regErr := loadConfigFromRegistry(); regErr == nil {
+			if regCfg.ServerURL != "" && regCfg.ServerURL != cfg.ServerURL {
+				log.Printf("Registry override: ServerURL %s → %s", cfg.ServerURL, regCfg.ServerURL)
+				cfg.ServerURL = regCfg.ServerURL
+			}
+			if regCfg.APIKey != "" && regCfg.APIKey != cfg.APIKey {
+				log.Printf("Registry override: APIKey changed")
+				cfg.APIKey = regCfg.APIKey
+			}
+		}
 	}
 
 	if cfg == nil {
