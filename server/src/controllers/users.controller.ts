@@ -53,10 +53,16 @@ export const usersController = {
       const id = parseInt(req.params.id, 10);
       const data = req.body as UpdateUserInput;
 
+      // Block modifications for SSO users
+      const targetUser = await userService.getById(id);
+      if (!targetUser) throw new AppError(404, 'User not found');
+      if (targetUser.foreignSource === 'obligate') {
+        throw new AppError(400, 'Cannot modify SSO user — manage from Obligate');
+      }
+
       // Prevent demoting the last admin
       if (data.role === 'user' || data.isActive === false) {
-        const currentUser = await userService.getById(id);
-        if (currentUser?.role === 'admin') {
+        if (targetUser.role === 'admin') {
           const allUsers = await userService.getAll();
           const activeAdmins = allUsers.filter((u) => u.role === 'admin' && u.isActive && u.id !== id);
           if (activeAdmins.length === 0) {
@@ -81,6 +87,13 @@ export const usersController = {
   async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+
+      // Block password changes for SSO users
+      const targetUser = await userService.getById(id);
+      if (targetUser?.foreignSource === 'obligate') {
+        throw new AppError(400, 'Cannot modify SSO user — manage from Obligate');
+      }
+
       const data = req.body as ChangePasswordInput;
       const success = await userService.changePassword(id, data.password);
       if (!success) throw new AppError(404, 'User not found');
@@ -99,7 +112,12 @@ export const usersController = {
         throw new AppError(400, 'Cannot delete your own account');
       }
 
+      // Block deletion for SSO users
       const user = await userService.getById(id);
+      if (user?.foreignSource === 'obligate') {
+        throw new AppError(400, 'Cannot delete SSO user — manage from Obligate');
+      }
+
       if (user?.role === 'admin') {
         const allUsers = await userService.getAll();
         const activeAdmins = allUsers.filter((u) => u.role === 'admin' && u.isActive && u.id !== id);

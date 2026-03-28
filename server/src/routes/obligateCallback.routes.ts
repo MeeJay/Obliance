@@ -29,22 +29,12 @@ setInterval(() => {
  */
 async function provisionObligateUser(assertion: import('../services/obligate.service').ObligateUserAssertion, req: any): Promise<number> {
   let localUserId: number;
+  let needsProvision = false;
 
   if (assertion.linkedLocalUserId) {
-    localUserId = assertion.linkedLocalUserId;
-    await db('users').where({ id: localUserId }).update({
-      role: assertion.role === 'admin' ? 'admin' : 'user',
-      email: assertion.email,
-      display_name: assertion.displayName,
-      updated_at: new Date(),
-    });
-  } else {
-    const existingLink = await db('sso_foreign_users')
-      .where({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId })
-      .first() as { local_user_id: number } | undefined;
-
-    if (existingLink) {
-      localUserId = existingLink.local_user_id;
+    const existingUser = await db('users').where({ id: assertion.linkedLocalUserId }).first();
+    if (existingUser) {
+      localUserId = assertion.linkedLocalUserId;
       await db('users').where({ id: localUserId }).update({
         role: assertion.role === 'admin' ? 'admin' : 'user',
         email: assertion.email,
@@ -52,39 +42,69 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
         updated_at: new Date(),
       });
     } else {
-      // SSO users skip local enrollment — mark as fully enrolled immediately
-      const [newUser] = await db('users')
-        .insert({
-          username: `og_${assertion.username}`,
-          display_name: assertion.displayName || assertion.username,
-          email: assertion.email,
-          role: assertion.role === 'admin' ? 'admin' : 'user',
-          is_active: true,
-          foreign_source: 'obligate',
-          foreign_id: assertion.obligateUserId,
-          enrollment_version: 999,
-        })
-        .returning('id') as Array<{ id: number }>;
-      localUserId = newUser.id;
-
-      await db('sso_foreign_users').insert({
-        foreign_source: 'obligate',
-        foreign_user_id: assertion.obligateUserId,
-        local_user_id: localUserId,
-      });
-
-      for (const t of assertion.tenants) {
-        const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
-        if (tenant) {
-          await db('user_tenants')
-            .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
-            .onConflict(['user_id', 'tenant_id'])
-            .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
-        }
-      }
-
-      obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
+      logger.warn(`Obligate linkedLocalUserId ${assertion.linkedLocalUserId} no longer exists — will re-provision`);
+      obligateService.reportProvision(assertion.obligateUserId, 0).catch(() => {});
+      needsProvision = true;
+      localUserId = 0;
     }
+  } else {
+    const existingLink = await db('sso_foreign_users')
+      .where({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId })
+      .first() as { local_user_id: number } | undefined;
+
+    if (existingLink) {
+      const existingUser = await db('users').where({ id: existingLink.local_user_id }).first();
+      if (existingUser) {
+        localUserId = existingLink.local_user_id;
+        await db('users').where({ id: localUserId }).update({
+          role: assertion.role === 'admin' ? 'admin' : 'user',
+          email: assertion.email,
+          display_name: assertion.displayName,
+          updated_at: new Date(),
+        });
+      } else {
+        logger.warn(`sso_foreign_users points to deleted user ${existingLink.local_user_id} — cleaning up and re-provisioning`);
+        await db('sso_foreign_users').where({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId }).del();
+        needsProvision = true;
+        localUserId = 0;
+      }
+    } else {
+      needsProvision = true;
+      localUserId = 0;
+    }
+  }
+
+  if (needsProvision) {
+    const [newUser] = await db('users')
+      .insert({
+        username: `og_${assertion.username}`,
+        display_name: assertion.displayName || assertion.username,
+        email: assertion.email,
+        role: assertion.role === 'admin' ? 'admin' : 'user',
+        is_active: true,
+        foreign_source: 'obligate',
+        foreign_id: assertion.obligateUserId,
+        enrollment_version: 999,
+      })
+      .returning('id') as Array<{ id: number }>;
+    localUserId = newUser.id;
+
+    await db('sso_foreign_users')
+      .insert({ foreign_source: 'obligate', foreign_user_id: assertion.obligateUserId, local_user_id: localUserId })
+      .onConflict(['foreign_source', 'foreign_user_id'])
+      .merge({ local_user_id: localUserId });
+
+    for (const t of assertion.tenants) {
+      const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
+      if (tenant) {
+        await db('user_tenants')
+          .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
+          .onConflict(['user_id', 'tenant_id'])
+          .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
+      }
+    }
+
+    obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
   }
 
   // Sync preferences
@@ -506,6 +526,56 @@ router.post('/sso-desktop-complete', async (req, res) => {
   } catch (err) {
     logger.error(err, 'sso-desktop-complete error');
     res.status(500).json({ success: false, error: 'Internal error' });
+  }
+});
+
+/**
+ * POST /api/auth/sso-user-sync
+ * Called by Obligate (Bearer auth) when an SSO user is deactivated, reactivated, deleted, or role-changed.
+ */
+router.post('/sso-user-sync', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ success: false }); return; }
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.apiKey || authHeader.slice(7) !== raw.apiKey) { res.status(401).json({ success: false }); return; }
+
+    const { remoteUserId, action, role } = req.body as {
+      obligateUserId: number; obligateUsername: string; remoteUserId: number;
+      action: 'deactivate' | 'reactivate' | 'delete' | 'update-role'; role?: string;
+    };
+
+    if (!remoteUserId || !action) { res.status(400).json({ success: false, error: 'Missing fields' }); return; }
+
+    const user = await db('users').where({ id: remoteUserId }).first();
+    if (!user) { res.json({ success: true }); return; }
+
+    switch (action) {
+      case 'deactivate':
+        await db('users').where({ id: remoteUserId }).update({ is_active: false, updated_at: new Date() });
+        logger.info(`SSO sync: deactivated user #${remoteUserId}`);
+        break;
+      case 'reactivate':
+        await db('users').where({ id: remoteUserId }).update({ is_active: true, updated_at: new Date() });
+        logger.info(`SSO sync: reactivated user #${remoteUserId}`);
+        break;
+      case 'delete':
+        await db('sso_foreign_users').where({ local_user_id: remoteUserId }).del();
+        await db('users').where({ id: remoteUserId }).del();
+        logger.info(`SSO sync: deleted user #${remoteUserId}`);
+        break;
+      case 'update-role':
+        if (role) {
+          await db('users').where({ id: remoteUserId }).update({ role: role === 'admin' ? 'admin' : 'user', updated_at: new Date() });
+          logger.info(`SSO sync: updated role of user #${remoteUserId} to ${role}`);
+        }
+        break;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(err, 'sso-user-sync error');
+    res.status(500).json({ success: false, error: 'Sync failed' });
   }
 });
 
