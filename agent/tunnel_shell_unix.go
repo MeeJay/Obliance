@@ -29,8 +29,11 @@ func newShellSession(cols, rows uint16, shellCmd string, _ int) (shellSession, e
 		sh = "/bin/bash"
 		if _, err := exec.LookPath(sh); err != nil {
 			sh = "/bin/sh"
+			// /bin/sh on FreeBSD does not support --login, use -l
+			shArgs = []string{"-l"}
+		} else {
+			shArgs = []string{"--login"}
 		}
-		shArgs = []string{"--login"}
 	}
 	cmd := newCmd(sh, shArgs...)
 	// Build env: inherit parent, strip any TMOUT (bash idle-logout) that would

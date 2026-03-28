@@ -444,7 +444,7 @@ export interface AgentCommand {
 
 // ─── SCRIPTS ─────────────────────────────────────────────────────────────────
 
-export type ScriptPlatform = 'windows' | 'macos' | 'linux' | 'all';
+export type ScriptPlatform = 'windows' | 'macos' | 'linux' | 'freebsd' | 'all';
 export type ScriptRuntime = 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh' | 'sh' | 'python' | 'python3' | 'perl' | 'ruby';
 export type ScriptParameterType = 'string' | 'number' | 'boolean' | 'secret' | 'select' | 'multiselect';
 
@@ -732,7 +732,7 @@ export interface CompliancePolicy {
   framework: ComplianceFramework;
   targetType: 'group' | 'all';
   targetIds: number[];
-  targetPlatform: 'windows' | 'linux' | 'macos' | 'all';
+  targetPlatform: 'windows' | 'linux' | 'macos' | 'freebsd' | 'all';
   rules: ComplianceRule[];
   enabled: boolean;
   createdBy: number | null;

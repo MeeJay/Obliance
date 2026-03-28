@@ -179,12 +179,19 @@ func collectProcessesDarwin() ([]ProcessInfo, error) {
 // ── FreeBSD ─────────────────────────────────────────────────────────────
 
 func collectProcessesFreeBSD() ([]ProcessInfo, error) {
-	// FreeBSD ps supports = suffix for headerless output like macOS
-	out, err := newCmd("ps", "-ax", "-o", "pid=,comm=,%cpu=,rss=,user=,args=").Output()
+	// FreeBSD ps: use separate -o flags and skip the header line.
+	// The "=" suffix to suppress headers is unreliable across FreeBSD versions.
+	out, err := newCmd("ps", "-ax", "-o", "pid", "-o", "comm", "-o", "%cpu", "-o", "rss", "-o", "user", "-o", "args").Output()
 	if err != nil {
 		return nil, err
 	}
-	return parsePsOutput(string(out)), nil
+	// Skip the first line (header)
+	raw := strings.TrimSpace(string(out))
+	idx := strings.Index(raw, "\n")
+	if idx < 0 {
+		return nil, nil
+	}
+	return parsePsOutput(raw[idx+1:]), nil
 }
 
 // parsePsOutput parses `ps -eo pid,comm,%cpu,rss,user,args` output.

@@ -11,6 +11,8 @@ import { hipaaRules } from './compliance-presets/hipaa';
 import { soc2Rules } from './compliance-presets/soc2';
 import { cisWindowsL1Rules } from './compliance-presets/cis-windows-l1';
 import { windowsPerformanceRules } from './compliance-presets/windows-performance';
+import { opnsenseBaselineRules } from './compliance-presets/opnsense-baseline';
+import { freebsdBaselineRules } from './compliance-presets/freebsd-baseline';
 
 class ComplianceService {
   rowToPolicy(row: any): CompliancePolicy {
@@ -403,6 +405,26 @@ class ComplianceService {
         framework: 'custom',
         targetPlatform: 'windows',
         rules: windowsPerformanceRules,
+      },
+
+      // ── OPNsense Security Baseline ────────────────────────────────────────
+      {
+        id: 'opnsense-security-baseline',
+        name: 'OPNsense Security Baseline',
+        description: `Contrôles de sécurité pour appliances OPNsense (FreeBSD). ${opnsenseBaselineRules.length} contrôles couvrant pare-feu, services, authentification, mises à jour et sauvegarde.`,
+        framework: 'custom',
+        targetPlatform: 'freebsd',
+        rules: opnsenseBaselineRules,
+      },
+
+      // ── FreeBSD Security Baseline ────────────────────────────────────────
+      {
+        id: 'freebsd-security-baseline',
+        name: 'FreeBSD Security Baseline',
+        description: `Contrôles essentiels pour serveurs FreeBSD. ${freebsdBaselineRules.length} contrôles couvrant système de fichiers, authentification, réseau (PF), services, permissions et mises à jour.`,
+        framework: 'custom',
+        targetPlatform: 'freebsd',
+        rules: freebsdBaselineRules,
       },
     ];
   }
