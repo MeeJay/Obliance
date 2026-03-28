@@ -589,7 +589,7 @@ export function AdminUsersPage() {
                           {user.role === 'admin' ? <><Shield size={10} className="inline mr-0.5" />{t('users.roleAdmin')}</> : t('users.roleUser')}
                         </span>
                         {user.foreignSource === 'obligate' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#1e1b4b]/60 border border-[#4338ca]/40 px-1.5 py-0.5 text-[10px] font-medium text-[#a5b4fc]">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#D3AB52]/15 border border-[#D3AB52]/40 px-1.5 py-0.5 text-[10px] font-medium text-[#D3AB52]">
                             SSO
                           </span>
                         )}

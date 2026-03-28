@@ -52,6 +52,7 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
         updated_at: new Date(),
       });
     } else {
+      // SSO users skip local enrollment — mark as fully enrolled immediately
       const [newUser] = await db('users')
         .insert({
           username: `og_${assertion.username}`,
@@ -61,6 +62,7 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
           is_active: true,
           foreign_source: 'obligate',
           foreign_id: assertion.obligateUserId,
+          enrollment_version: 999,
         })
         .returning('id') as Array<{ id: number }>;
       localUserId = newUser.id;
