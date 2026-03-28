@@ -117,6 +117,7 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'obliance-agent-linux-arm64':     'obliance-agent-linux-arm64',
   'obliance-agent-darwin-amd64':    'obliance-agent-darwin-amd64',
   'obliance-agent-darwin-arm64':    'obliance-agent-darwin-arm64',
+  'obliance-agent-freebsd-amd64':  'obliance-agent-freebsd-amd64',
   // Oblireach agent (remote desktop streaming)
   'oblireach-agent.msi':            'oblireach-agent.msi',
   'oblireach-agent.exe':            'oblireach-agent.exe',
@@ -216,6 +217,28 @@ export function agentInstallerMacos(req: Request, res: Response): void {
 
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="install-macos.sh"');
+  res.send(script);
+}
+
+export function agentInstallerFreebsd(req: Request, res: Response): void {
+  const apiKey = req.query.key as string | undefined;
+
+  const scriptPath = path.resolve(__dirname, '../../../../agent/installer/install-freebsd.sh');
+  if (!fs.existsSync(scriptPath)) {
+    res.status(404).json({ error: 'FreeBSD installer not available' });
+    return;
+  }
+
+  let script = fs.readFileSync(scriptPath, 'utf-8');
+
+  const serverUrl = `${req.protocol}://${req.get('host')}`;
+  script = script.replace('__SERVER_URL__', serverUrl);
+  if (apiKey) {
+    script = script.replace('__API_KEY__', apiKey);
+  }
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="install-freebsd.sh"');
   res.send(script);
 }
 

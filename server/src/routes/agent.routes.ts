@@ -13,6 +13,7 @@ import {
   agentInstallerMacos,
   agentInstallerWindows,
   agentInstallerWindowsMsi,
+  agentInstallerFreebsd,
 } from '../controllers/agent.controller';
 import { geolocationService } from '../services/geolocation.service';
 import { inventoryService } from '../services/inventory.service';
@@ -33,6 +34,7 @@ router.get('/download/:filename',  agentDownload);
 router.get('/installer/linux',     agentInstallerLinux);
 router.get('/installer/macos',     agentInstallerMacos);
 router.get('/installer/windows',   agentInstallerWindows);
+router.get('/installer/freebsd',   agentInstallerFreebsd);
 // Convenience URL matching Obliview pattern: /api/agent/installer/windows.msi
 router.get('/installer/windows.msi', agentInstallerWindowsMsi);
 
@@ -101,6 +103,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
       if (p === 'windows') return 'windows';
       if (p === 'darwin') return 'macos';
       if (p === 'linux') return 'linux';
+      if (p === 'freebsd') return 'freebsd';
       return 'other';
     }
 

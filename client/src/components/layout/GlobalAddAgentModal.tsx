@@ -24,7 +24,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-type OsTab = 'windows' | 'linux' | 'macos';
+type OsTab = 'windows' | 'linux' | 'macos' | 'freebsd';
 
 export function GlobalAddAgentModal() {
   const { t } = useTranslation();
@@ -51,11 +51,13 @@ export function GlobalAddAgentModal() {
   const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
   const windowsCmd = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
+  const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
   const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
     { id: 'windows', label: 'Windows', icon: <Monitor size={14} /> },
     { id: 'linux', label: 'Linux', icon: <Terminal size={14} /> },
     { id: 'macos', label: 'macOS', icon: <Apple size={14} /> },
+    { id: 'freebsd', label: 'FreeBSD', icon: <Terminal size={14} /> },
   ];
 
   return (
@@ -165,6 +167,15 @@ export function GlobalAddAgentModal() {
                         <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
                           <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{macosCmd}</code>
                           <CopyButton text={macosCmd} />
+                        </div>
+                      </div>
+                    )}
+                    {osTab === 'freebsd' && (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-text-muted">{t('addAgent.freebsdHint')}</p>
+                        <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
+                          <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{freebsdCmd}</code>
+                          <CopyButton text={freebsdCmd} />
                         </div>
                       </div>
                     )}

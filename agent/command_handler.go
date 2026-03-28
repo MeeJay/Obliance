@@ -866,6 +866,20 @@ func evalService(rule ComplianceRule, r ComplianceRuleResult) ComplianceRuleResu
 	case "linux":
 		out, _ := newCmdContext(ctx, "systemctl", "is-active", rule.Target).Output()
 		actualStatus = strings.TrimSpace(string(out))
+	case "freebsd":
+		out, err := newCmdContext(ctx, "service", rule.Target, "status").CombinedOutput()
+		if err != nil {
+			actualStatus = "stopped"
+		} else {
+			s := strings.ToLower(string(out))
+			if strings.Contains(s, "is running") {
+				actualStatus = "running"
+			} else if strings.Contains(s, "is not running") {
+				actualStatus = "stopped"
+			} else {
+				actualStatus = "stopped"
+			}
+		}
 	default: // macos / darwin
 		out, err := newCmdContext(ctx, "launchctl", "print", rule.Target).Output()
 		if err != nil {
@@ -1071,6 +1085,16 @@ func checkFirewallStatus() string {
 			return strings.TrimSpace(string(out))
 		}
 		return "unknown"
+	case "freebsd":
+		out, err := newCmd("pfctl", "-s", "info").CombinedOutput()
+		if err != nil {
+			return "unknown"
+		}
+		s := string(out)
+		if strings.Contains(s, "Status: Enabled") {
+			return "pf:active"
+		}
+		return "pf:inactive"
 	default:
 		return "unknown"
 	}
@@ -1161,7 +1185,7 @@ func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {
 	switch runtime.GOOS {
 	case "windows":
 		return newCmd("shutdown", "/r", "/t", fmt.Sprintf("%d", delaySecs)).Start()
-	case "linux", "darwin":
+	case "linux", "darwin", "freebsd":
 		// `shutdown -r +N` uses N minutes; convert seconds to minutes (minimum 1).
 		delayMin := delaySecs / 60
 		if delayMin < 1 {
@@ -1186,7 +1210,7 @@ func (d *CommandDispatcher) handleShutdown(cmd AgentCommand) error {
 	switch runtime.GOOS {
 	case "windows":
 		return newCmd("shutdown", "/s", "/t", fmt.Sprintf("%d", delaySecs)).Start()
-	case "linux", "darwin":
+	case "linux", "darwin", "freebsd":
 		delayMin := delaySecs / 60
 		if delayMin < 1 {
 			delayMin = 1
@@ -1337,6 +1361,33 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		}
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
+	case "freebsd":
+		// List enabled services via `service -e`, then check status of each.
+		out, err := newCmd("service", "-e").Output()
+		if err != nil {
+			return nil, fmt.Errorf("list_services: service -e failed: %w", err)
+		}
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		services := make([]ServiceInfo, 0, len(lines))
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			// `service -e` returns full paths like /etc/rc.d/sshd; extract base name.
+			name := line
+			if idx := strings.LastIndex(line, "/"); idx >= 0 {
+				name = line[idx+1:]
+			}
+			status := "stopped"
+			statusOut, statusErr := newCmd("service", name, "status").CombinedOutput()
+			if statusErr == nil && strings.Contains(strings.ToLower(string(statusOut)), "is running") {
+				status = "running"
+			}
+			services = append(services, ServiceInfo{Name: name, Status: status})
+		}
+		return map[string]interface{}{"services": services, "count": len(services)}, nil
+
 	default:
 		return nil, fmt.Errorf("list_services: unsupported platform %s", runtime.GOOS)
 	}
@@ -1369,6 +1420,13 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 		out, err := newCmd("launchctl", "kickstart", "-k", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("restart_service: launchctl kickstart %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "restarted"}, nil
+
+	case "freebsd":
+		out, err := newCmd("service", name, "restart").CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("restart_service: service %s restart failed: %s", name, strings.TrimSpace(string(out)))
 		}
 		return map[string]string{"name": name, "status": "restarted"}, nil
 
@@ -1409,6 +1467,13 @@ func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, e
 		}
 		return map[string]string{"name": name, "status": "started"}, nil
 
+	case "freebsd":
+		out, err := newCmd("service", name, "start").CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("start_service: service %s start failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "started"}, nil
+
 	default:
 		return nil, fmt.Errorf("start_service: unsupported platform %s", runtime.GOOS)
 	}
@@ -1445,6 +1510,13 @@ func (d *CommandDispatcher) handleStopService(cmd AgentCommand) (interface{}, er
 		}
 		return map[string]string{"name": name, "status": "stopped"}, nil
 
+	case "freebsd":
+		out, err := newCmd("service", name, "stop").CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("stop_service: service %s stop failed: %s", name, strings.TrimSpace(string(out)))
+		}
+		return map[string]string{"name": name, "status": "stopped"}, nil
+
 	default:
 		return nil, fmt.Errorf("stop_service: unsupported platform %s", runtime.GOOS)
 	}
@@ -1465,6 +1537,11 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 				"Restart-Service -Name OblianceAgent -Force").Start()
 			// The SCM stop signal will eventually terminate this process.
 			// Sleep as a safety fallback in case Restart-Service doesn't kill us.
+			time.Sleep(10 * time.Second)
+			os.Exit(0)
+		case "freebsd":
+			log.Printf("Restarting obliance_agent service via service command...")
+			_ = newCmd("service", "obliance_agent", "restart").Start()
 			time.Sleep(10 * time.Second)
 			os.Exit(0)
 		default:
@@ -1562,7 +1639,7 @@ func (d *CommandDispatcher) makeConfig() *Config {
 		ServerURL:  d.serverURL,
 	}
 }
-
+
 // collectAndPostServices runs list_services and immediately POSTs the result.
 // Called by the service watcher goroutine and after start/stop/restart actions.
 func (d *CommandDispatcher) collectAndPostServices() {

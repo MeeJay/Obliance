@@ -73,6 +73,8 @@ func collectProcesses() ([]ProcessInfo, error) {
 		return collectProcessesWindows()
 	case "darwin":
 		return collectProcessesDarwin()
+	case "freebsd":
+		return collectProcessesFreeBSD()
 	default:
 		return collectProcessesLinux()
 	}
@@ -170,6 +172,17 @@ func collectProcessesDarwin() ([]ProcessInfo, error) {
 			return parsePsOutput(strings.Join(lines[1:], "\n")), nil
 		}
 		return []ProcessInfo{}, nil
+	}
+	return parsePsOutput(string(out)), nil
+}
+
+// ── FreeBSD ─────────────────────────────────────────────────────────────
+
+func collectProcessesFreeBSD() ([]ProcessInfo, error) {
+	// FreeBSD ps supports = suffix for headerless output like macOS
+	out, err := newCmd("ps", "-ax", "-o", "pid=,comm=,%cpu=,rss=,user=,args=").Output()
+	if err != nil {
+		return nil, err
 	}
 	return parsePsOutput(string(out)), nil
 }

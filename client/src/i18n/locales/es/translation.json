@@ -1271,7 +1271,8 @@
     "chooseKey": "Seleccione una clave API...",
     "windowsHint": "Ejecutar en PowerShell como administrador",
     "linuxHint": "Ejecutar en terminal (root o sudo)",
-    "macosHint": "Ejecutar en terminal (Apple Silicon & Intel)"
+    "macosHint": "Ejecutar en terminal (Apple Silicon & Intel)",
+    "freebsdHint": "Ejecutar en un shell root en FreeBSD / OPNsense:"
   },
   "about": {
     "title": "Acerca de",

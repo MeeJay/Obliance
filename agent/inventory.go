@@ -155,6 +155,8 @@ func ScanInventory() (*InventoryData, error) {
 		err = scanLinuxInventory(inv)
 	case "darwin":
 		err = scanDarwinInventory(inv)
+	case "freebsd":
+		err = scanFreeBSDInventory(inv)
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -951,6 +953,192 @@ func scanDarwinInventory(inv *InventoryData) error {
 	return nil
 }
 
+// ── FreeBSD ──────────────────────────────────────────────────────────────────
+
+func scanFreeBSDInventory(inv *InventoryData) error {
+	// CPU via sysctl
+	inv.CPU = CpuInfo{Architecture: runtime.GOARCH}
+	if out, err := newCmd("sysctl", "-n", "hw.model").Output(); err == nil {
+		inv.CPU.Model = strings.TrimSpace(string(out))
+	}
+	if out, err := newCmd("sysctl", "-n", "hw.ncpu").Output(); err == nil {
+		var n int
+		fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &n)
+		inv.CPU.Threads = n
+		inv.CPU.Cores = n // FreeBSD doesn't easily distinguish cores vs threads via sysctl
+	}
+
+	// Memory via sysctl hw.physmem (bytes)
+	if out, err := newCmd("sysctl", "-n", "hw.physmem").Output(); err == nil {
+		var memBytes uint64
+		fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &memBytes)
+		inv.Memory.TotalMB = memBytes / (1024 * 1024)
+	}
+
+	// Disks via sysctl kern.disks + diskinfo
+	inv.Disks = collectFreeBSDDisks()
+
+	// Network interfaces via ifconfig
+	if out, err := newCmd("ifconfig").Output(); err == nil {
+		inv.Network = parseFreeBSDIfconfig(string(out))
+	}
+
+	// GPU — skip (FreeBSD servers typically don't have GPUs)
+	inv.GPU = nil
+
+	// Motherboard via kenv
+	inv.Motherboard = readFreeBSDMotherboard()
+
+	// BIOS via kenv
+	inv.BIOS = readFreeBSDBIOS()
+
+	// OS Details
+	inv.OS = collectFreeBSDOSDetails()
+
+	// Battery — nil (FreeBSD servers)
+	inv.Battery = nil
+
+	return nil
+}
+
+func collectFreeBSDDisks() []DiskInfo {
+	out, err := newCmd("sysctl", "-n", "kern.disks").Output()
+	if err != nil {
+		return nil
+	}
+	diskNames := strings.Fields(strings.TrimSpace(string(out)))
+	var disks []DiskInfo
+	for _, name := range diskNames {
+		di := DiskInfo{Model: name}
+		// diskinfo returns: <device> <sectorsize> <size_in_bytes> <sectors>
+		if info, err := newCmd("diskinfo", name).Output(); err == nil {
+			fields := strings.Fields(strings.TrimSpace(string(info)))
+			if len(fields) >= 3 {
+				var sizeBytes int64
+				fmt.Sscanf(fields[2], "%d", &sizeBytes)
+				di.SizeBytes = sizeBytes
+			}
+		}
+		dtype := classifyDisk("", "", name)
+		if strings.HasPrefix(name, "nvd") || strings.HasPrefix(name, "nda") {
+			dtype = "NVMe"
+		} else if strings.HasPrefix(name, "ada") {
+			dtype = "SSD" // ATA direct-access (could be HDD too, best guess)
+		} else if strings.HasPrefix(name, "da") {
+			dtype = "HDD"
+		}
+		di.Type = dtype
+		disks = append(disks, di)
+	}
+	return disks
+}
+
+func parseFreeBSDIfconfig(data string) []NetworkInfo {
+	var result []NetworkInfo
+	var current *NetworkInfo
+	for _, line := range strings.Split(data, "\n") {
+		if len(line) > 0 && line[0] != '\t' && line[0] != ' ' {
+			// New interface line, e.g. "em0: flags=8843<UP,BROADCAST,..."
+			if current != nil && current.Name != "lo0" {
+				result = append(result, *current)
+			}
+			parts := strings.SplitN(line, ":", 2)
+			current = &NetworkInfo{Name: strings.TrimSpace(parts[0])}
+		} else if current != nil {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "ether ") {
+				current.MACAddress = strings.TrimPrefix(trimmed, "ether ")
+			} else if strings.HasPrefix(trimmed, "inet ") {
+				fields := strings.Fields(trimmed)
+				if len(fields) >= 2 {
+					current.Addresses = append(current.Addresses, fields[1])
+				}
+			} else if strings.HasPrefix(trimmed, "inet6 ") {
+				fields := strings.Fields(trimmed)
+				if len(fields) >= 2 {
+					addr := fields[1]
+					// Remove %scope suffix if present
+					if idx := strings.Index(addr, "%"); idx >= 0 {
+						addr = addr[:idx]
+					}
+					current.Addresses = append(current.Addresses, addr)
+				}
+			}
+		}
+	}
+	if current != nil && current.Name != "lo0" {
+		result = append(result, *current)
+	}
+	return result
+}
+
+func readFreeBSDMotherboard() MotherboardInfo {
+	kenv := func(key string) string {
+		out, err := newCmd("kenv", key).Output()
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(out))
+	}
+	return MotherboardInfo{
+		Manufacturer: kenv("smbios.planar.maker"),
+		Product:      kenv("smbios.planar.product"),
+		Version:      kenv("smbios.planar.version"),
+		Serial:       kenv("smbios.planar.serial"),
+	}
+}
+
+func readFreeBSDBIOS() BiosInfo {
+	kenv := func(key string) string {
+		out, err := newCmd("kenv", key).Output()
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(out))
+	}
+	return BiosInfo{
+		Vendor:  kenv("smbios.bios.vendor"),
+		Version: kenv("smbios.bios.version"),
+		Date:    kenv("smbios.bios.reldate"),
+	}
+}
+
+func collectFreeBSDOSDetails() OSDetails {
+	od := OSDetails{}
+	// freebsd-version gives the userland version
+	if out, err := newCmd("freebsd-version").Output(); err == nil {
+		ver := strings.TrimSpace(string(out))
+		od.Edition = "FreeBSD " + ver
+		od.DisplayVersion = ver
+	}
+	// uname -r for kernel build
+	if out, err := newCmd("uname", "-r").Output(); err == nil {
+		od.BuildNumber = strings.TrimSpace(string(out))
+	}
+	return od
+}
+
+func scanFreeBSDSoftware() []SoftwareEntry {
+	var entries []SoftwareEntry
+
+	// pkg query for installed packages: name|version|maintainer
+	if out, err := newCmd("pkg", "query", "%n|%v|%m").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			parts := strings.SplitN(strings.TrimSpace(line), "|", 3)
+			if len(parts) >= 2 && parts[0] != "" {
+				entries = append(entries, SoftwareEntry{
+					Name:      parts[0],
+					Version:   parts[1],
+					Publisher: safeGet(parts, 2),
+					Source:    "pkg",
+				})
+			}
+		}
+	}
+
+	return entries
+}
+
 // ── Software scanning ─────────────────────────────────────────────────────────
 
 // scanBitLocker retrieves BitLocker status and recovery keys for all volumes.
@@ -1006,6 +1194,8 @@ func scanInstalledSoftware() []SoftwareEntry {
 		return scanLinuxSoftware()
 	case "darwin":
 		return scanDarwinSoftware()
+	case "freebsd":
+		return scanFreeBSDSoftware()
 	}
 	return nil
 }

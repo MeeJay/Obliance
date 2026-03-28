@@ -48,6 +48,9 @@ func ScanUpdates() ([]UpdateInfo, bool, error) {
 	case "darwin":
 		updates, err := scanDarwinUpdates()
 		return updates, false, err
+	case "freebsd":
+		updates, err := scanFreeBSDUpdates()
+		return updates, false, err
 	default:
 		return nil, false, fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -62,6 +65,8 @@ func InstallUpdate(updateUID, source string) error {
 		return installLinuxUpdate(updateUID)
 	case "darwin":
 		return installDarwinUpdate(updateUID)
+	case "freebsd":
+		return installFreeBSDUpdate(updateUID)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -88,6 +93,8 @@ func InstallUpdatesBatch(uids []string, source string) error {
 			}
 		}
 		return nil
+	case "freebsd":
+		return installFreeBSDUpdatesBatch(uids)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -715,6 +722,76 @@ func installDarwinUpdate(updateUID string) error {
 		return fmt.Errorf("softwareupdate -i %s: %w\n%s", updateUID, err, string(out))
 	}
 	log.Printf("Update %s installed: %s", updateUID, strings.TrimSpace(string(out)))
+	return nil
+}
+
+// ── FreeBSD ──────────────────────────────────────────────────────────────────
+
+func scanFreeBSDUpdates() ([]UpdateInfo, error) {
+	pkgPath, err := exec.LookPath("pkg")
+	if err != nil {
+		return nil, fmt.Errorf("pkg not found: %w", err)
+	}
+
+	out, err := newCmd(pkgPath, "upgrade", "-n").Output()
+	if err != nil {
+		// pkg upgrade -n returns exit code 1 when no updates are available
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("pkg upgrade -n: %w", err)
+	}
+
+	var updates []UpdateInfo
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Format: "package: oldver -> newver"
+		arrowIdx := strings.Index(line, " -> ")
+		if arrowIdx < 0 {
+			continue
+		}
+		colonIdx := strings.Index(line, ":")
+		if colonIdx < 0 || colonIdx >= arrowIdx {
+			continue
+		}
+		pkgName := strings.TrimSpace(line[:colonIdx])
+		newVersion := strings.TrimSpace(line[arrowIdx+4:])
+		if pkgName == "" || newVersion == "" {
+			continue
+		}
+		updates = append(updates, UpdateInfo{
+			UpdateUID: pkgName,
+			Title:     fmt.Sprintf("%s %s", pkgName, newVersion),
+			Severity:  "moderate",
+			Source:    "pkg",
+		})
+	}
+	return updates, nil
+}
+
+func installFreeBSDUpdate(updateUID string) error {
+	cmd := newCmd("pkg", "install", "-y", updateUID)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pkg install %s: %w\n%s", updateUID, err, string(out))
+	}
+	log.Printf("FreeBSD update %s installed: %s", updateUID, strings.TrimSpace(string(out)))
+	return nil
+}
+
+func installFreeBSDUpdatesBatch(uids []string) error {
+	if len(uids) == 0 {
+		return nil
+	}
+	args := append([]string{"install", "-y"}, uids...)
+	cmd := newCmd("pkg", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pkg batch install: %w\n%s", err, string(out))
+	}
 	return nil
 }
 

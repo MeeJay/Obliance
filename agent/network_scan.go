@@ -141,6 +141,8 @@ func arpScan(subnet string) []DiscoveredHost {
 		return arpScanLinux(subnet)
 	case "darwin":
 		return arpScanDarwin(subnet)
+	case "freebsd":
+		return arpScanFreeBSD(subnet)
 	default:
 		log.Printf("scan_network: unsupported OS %s for ARP scan", runtime.GOOS)
 		return nil
@@ -312,6 +314,21 @@ func parseArpDarwin(output, subnet string) []DiscoveredHost {
 		})
 	}
 	return hosts
+}
+
+// arpScanFreeBSD uses ping sweep + "arp -an" on FreeBSD (same format as macOS).
+func arpScanFreeBSD(subnet string) []DiscoveredHost {
+	ips := subnetIPs(subnet)
+	pingSweep(ips)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := newCmdContext(ctx, "arp", "-an").Output()
+	if err != nil {
+		log.Printf("scan_network: arp -an failed: %v", err)
+		return nil
+	}
+	return parseArpDarwin(string(out), subnet) // FreeBSD arp -an uses the same format as macOS
 }
 
 // ── Ping sweep ───────────────────────────────────────────────────────────────

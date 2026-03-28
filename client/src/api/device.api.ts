@@ -112,7 +112,7 @@ export const deviceApi = {
   },
 
   // Installer URLs
-  getInstallerUrl(platform: 'linux' | 'windows' | 'macos', apiKey: string): string {
+  getInstallerUrl(platform: 'linux' | 'windows' | 'macos' | 'freebsd', apiKey: string): string {
     return `${window.location.origin}/api/agent/installer/${platform}?key=${encodeURIComponent(apiKey)}`;
   },
 };

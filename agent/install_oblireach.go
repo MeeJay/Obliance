@@ -136,6 +136,8 @@ func obliReachBinaryName() string {
 			return "oblireach-agent-darwin-arm64"
 		}
 		return "oblireach-agent-darwin-amd64"
+	case "freebsd":
+		return "oblireach-agent-freebsd-amd64"
 	default: // linux
 		return "oblireach-agent-linux-amd64"
 	}

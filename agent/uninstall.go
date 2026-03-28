@@ -43,6 +43,8 @@ func (d *CommandDispatcher) handleUninstallAgent() error {
 			err = handleLinuxUninstall()
 		case "darwin":
 			err = handleDarwinUninstall()
+		case "freebsd":
+			err = handleFreeBSDUninstall()
 		default:
 			log.Printf("Uninstall: unsupported platform %q", runtime.GOOS)
 			return
@@ -103,6 +105,8 @@ func handleUninstallCommand(cfg *Config) {
 		uninstallErr = handleLinuxUninstall()
 	case "darwin":
 		uninstallErr = handleDarwinUninstall()
+	case "freebsd":
+		uninstallErr = handleFreeBSDUninstall()
 	default:
 		log.Printf("Uninstall not supported on %s", runtime.GOOS)
 		return
@@ -176,6 +180,24 @@ func handleDarwinUninstall() error {
 		"launchctl unload " + plist + " 2>/dev/null || true\n" +
 		"rm -f " + plist + "\n" +
 		"rm -f " + binary + "\n" +
+		"rm -f \"$0\"\n"
+
+	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
+		return fmt.Errorf("write uninstall script: %w", err)
+	}
+	return newCmd("sh", scriptPath).Start()
+}
+
+// ── FreeBSD ──────────────────────────────────────────────────────────────────
+
+func handleFreeBSDUninstall() error {
+	scriptPath := "/tmp/obliance-uninstall.sh"
+	script := "#!/bin/sh\n" +
+		"sleep 2\n" +
+		"service obliance-agent stop 2>/dev/null || true\n" +
+		"rm -f /usr/local/etc/rc.d/obliance-agent\n" +
+		"rm -f /usr/local/etc/rc.conf.d/obliance_agent\n" +
+		"rm -rf /opt/obliance-agent/\n" +
 		"rm -f \"$0\"\n"
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {

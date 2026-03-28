@@ -1,4 +1,4 @@
-import { Monitor, Apple, Terminal } from 'lucide-react';
+import { Monitor, Apple, Terminal, Shield } from 'lucide-react';
 import type { OsType } from '@obliance/shared';
 
 interface Props {
@@ -11,6 +11,7 @@ export function OsIcon({ osType, className = 'w-4 h-4' }: Props) {
     case 'windows': return <Monitor className={className} />;
     case 'macos': return <Apple className={className} />;
     case 'linux': return <Terminal className={className} />;
+    case 'freebsd': return <Shield className={className} />;
     default: return <Monitor className={className} />;
   }
 }

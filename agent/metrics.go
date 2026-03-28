@@ -555,6 +555,14 @@ func collectMetrics() Metrics {
 					continue
 				}
 			}
+			if runtime.GOOS == "freebsd" {
+				fs := p.Fstype
+				if fs == "devfs" || fs == "fdescfs" || fs == "procfs" ||
+					fs == "linprocfs" || fs == "linsysfs" || fs == "tmpfs" ||
+					fs == "nullfs" {
+					continue
+				}
+			}
 			if runtime.GOOS == "darwin" {
 				fs := p.Fstype
 				mp := p.Mountpoint

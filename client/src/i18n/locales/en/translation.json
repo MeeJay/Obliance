@@ -1460,7 +1460,8 @@
     "chooseKey": "Select an API key...",
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
-    "macosHint": "Run in terminal (Apple Silicon & Intel)"
+    "macosHint": "Run in terminal (Apple Silicon & Intel)",
+    "freebsdHint": "Run in a root shell on FreeBSD / OPNsense:"
   },
   "about": {
     "title": "About",

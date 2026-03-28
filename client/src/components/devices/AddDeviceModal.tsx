@@ -10,9 +10,9 @@ interface Props {
   onClose: () => void;
 }
 
-type Platform = 'linux' | 'macosSilicon' | 'macosIntel' | 'windows';
+type Platform = 'linux' | 'macosSilicon' | 'macosIntel' | 'windows' | 'freebsd';
 
-const PLATFORMS: Platform[] = ['linux', 'macosSilicon', 'macosIntel', 'windows'];
+const PLATFORMS: Platform[] = ['linux', 'macosSilicon', 'macosIntel', 'windows', 'freebsd'];
 
 function buildCommand(platform: Platform, origin: string, apiKey: string): string {
   switch (platform) {
@@ -24,6 +24,8 @@ function buildCommand(platform: Platform, origin: string, apiKey: string): strin
       return `sudo bash -c "$(curl -fsSL '${origin}/api/agent/installer/macos?key=${apiKey}')"`;
     case 'windows':
       return `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${apiKey}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m`;
+    case 'freebsd':
+      return `fetch -qo - "${origin}/api/agent/installer/freebsd?key=${apiKey}" | sh`;
   }
 }
 

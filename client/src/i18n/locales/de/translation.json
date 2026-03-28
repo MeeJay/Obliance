@@ -1143,7 +1143,8 @@
     "chooseKey": "API-Schlüssel auswählen...",
     "windowsHint": "In PowerShell als Administrator ausführen",
     "linuxHint": "Im Terminal ausführen (root oder sudo)",
-    "macosHint": "Im Terminal ausführen (Apple Silicon & Intel)"
+    "macosHint": "Im Terminal ausführen (Apple Silicon & Intel)",
+    "freebsdHint": "In einer Root-Shell auf FreeBSD / OPNsense ausführen:"
   },
   "about": {
     "title": "Über",

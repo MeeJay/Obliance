@@ -1143,7 +1143,8 @@
     "chooseKey": "Select an API key...",
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
-    "macosHint": "Run in terminal (Apple Silicon & Intel)"
+    "macosHint": "Run in terminal (Apple Silicon & Intel)",
+    "freebsdHint": "FreeBSD / OPNsense üzerinde root kabuğunda çalıştırın:"
   },
   "about": {
     "title": "Hakkında",
