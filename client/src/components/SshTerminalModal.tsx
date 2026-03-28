@@ -86,6 +86,8 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
     };
 
     ws.onmessage = (ev) => {
+      // Skip JSON control messages from the relay (e.g. {"type":"paired"})
+      if (typeof ev.data === 'string' && ev.data.startsWith('{')) return;
       const data = ev.data instanceof ArrayBuffer
         ? new Uint8Array(ev.data)
         : ev.data;
