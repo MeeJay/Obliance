@@ -23,7 +23,7 @@ function buildCommand(platform: Platform, origin: string, apiKey: string): strin
     case 'macosIntel':
       return `sudo bash -c "$(curl -fsSL '${origin}/api/agent/installer/macos?key=${apiKey}')"`;
     case 'windows':
-      return `irm "${origin}/api/agent/installer/windows?key=${apiKey}" -OutFile "$env:TEMP\\obliance-install.ps1"; & "$env:TEMP\\obliance-install.ps1"`;
+      return `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${apiKey}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m`;
   }
 }
 

@@ -37,11 +37,12 @@ import { Input } from '@/components/common/Input';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { NotificationsPage } from './NotificationsPage';
+import { PermissionSetsTab } from '@/components/PermissionSetsTab';
 
 type PermissionLevel = 'ro' | 'rw';
 type PermissionScope = 'group' | 'device';
 
-type Tab = 'users' | 'teams' | 'notifications';
+type Tab = 'users' | 'teams' | 'notifications' | 'permissionSets';
 type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
 type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
@@ -517,10 +518,24 @@ export function AdminUsersPage() {
             >
               {t('users.tabNotifications')}
             </button>
+            <button
+              onClick={() => setTab('permissionSets')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                tab === 'permissionSets'
+                  ? 'bg-accent text-white'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <Shield size={14} className="inline mr-1.5" />
+              {t('users.tabPermissionSets', 'Permissions')}
+            </button>
           </div>
 
           {/* ── Notifications Tab ── */}
           {tab === 'notifications' && <NotificationsPage embedded />}
+
+          {/* ── Permission Sets Tab ── */}
+          {tab === 'permissionSets' && <PermissionSetsTab />}
 
           {/* ── Users Tab ── */}
           {tab === 'users' && (

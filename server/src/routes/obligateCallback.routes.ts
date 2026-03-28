@@ -4,6 +4,7 @@ import { db } from '../db';
 import { obligateService } from '../services/obligate.service';
 import { tenantService } from '../services/tenant.service';
 import { appConfigService } from '../services/appConfig.service';
+import { permissionSetService } from '../services/permissionSet.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -294,12 +295,16 @@ router.get('/app-info', async (req, res) => {
       .select('id', 'name', 'slug')
       .orderBy('name') as Array<{ id: number; name: string; slug: string }>;
 
+    // Fetch permission sets
+    const permissionSets = await permissionSetService.getAll();
+
     res.json({
       success: true,
       data: {
         roles: ['admin', 'user'],
         teams: teams.map(t => ({ id: t.id, name: t.name, tenantSlug: t.tenant_slug, tenantName: t.tenant_name })),
         tenants: tenants.map(t => ({ slug: t.slug, name: t.name })),
+        permissionSets,
       },
     });
   } catch (err) {

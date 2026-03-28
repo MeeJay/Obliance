@@ -299,7 +299,7 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 
 	if runtime.GOOS == "windows" {
 		// Save MSI to a temp path — it does not need to be next to the exe.
-		msiPath := filepath.Join(os.TempDir(), "obliance-agent-update.msi")
+		msiPath := filepath.Join(os.TempDir(), "obliance-agent.msi")
 		f, err := os.OpenFile(msiPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			log.Printf("Auto-update: cannot write MSI temp file: %v", err)

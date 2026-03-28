@@ -41,6 +41,7 @@ import reachRoutes from './reach.routes';
 import processRoutes from './process.routes';
 import fileRoutes from './file.routes';
 import networkDiscoveryRoutes from './networkDiscovery.routes';
+import permissionSetsRoutes from './permissionSets.routes';
 
 const router = Router();
 
@@ -90,6 +91,7 @@ tenantRouter.use('/files',          fileRoutes); // /api/files/:deviceId/files/*
 tenantRouter.use('/licenses',    licenseRoutes);
 tenantRouter.use('/quick-reply-templates', quickReplyTemplatesRoutes);
 tenantRouter.use('/network-discovery', networkDiscoveryRoutes);
+tenantRouter.use('/permission-sets', permissionSetsRoutes);
 
 router.use('/', tenantRouter);
 
