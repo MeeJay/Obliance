@@ -423,3 +423,8 @@ Set `DATABASE_URL` in your `.env` to point at your existing PostgreSQL instance.
 | **Desktop app** | Go (systray) |
 | **Browser checks** | Playwright (headless Chromium) |
 | **Monorepo** | npm workspaces (`shared/`, `server/`, `client/`) |
+
+
+> **An experiment with Claude Code**
+>
+> This project was built as an experiment to see how far Claude Code could be pushed as a development tool. Claude was used as a coding assistant throughout the entire development process.
