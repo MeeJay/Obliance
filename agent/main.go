@@ -399,14 +399,12 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
-	vbsPath := filepath.Join(os.TempDir(), "obliance-msi-update.vbs")
 
 	// Batch script with:
 	//  - 5s initial wait (service needs time to fully stop)
 	//  - Retry loop for error 1618 (another msiexec in progress)
 	//  - Recovery: if service disappeared (partial MajorUpgrade), recreate it
 	//  - Final check: ensure service is running regardless of MSI exit code
-	//  - Cleans up the VBS wrapper at the end
 	exePath := `C:\Program Files\OblianceAgent\obliance-agent.exe`
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
@@ -434,28 +432,22 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 			"net start OblianceAgent >nul 2>&1\r\n"+
 			"del /q \"%s\"\r\n"+
 			"schtasks /delete /tn OblianceUpdate /f >nul 2>&1\r\n"+
-			"del /q \"%s\"\r\n"+
 			"del /q \"%%~f0\"\r\n",
-		msiPath, serverURL, apiKey, logPath, exePath, exePath, msiPath, vbsPath)
+		msiPath, serverURL, apiKey, logPath, exePath, exePath, msiPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
 
-	// VBS wrapper — launches the batch script with hidden window (0 = vbHide)
-	vbs := fmt.Sprintf(
-		"CreateObject(\"WScript.Shell\").Run \"%s\", 0, False\r\n",
-		scriptPath)
-	if err := os.WriteFile(vbsPath, []byte(vbs), 0644); err != nil {
-		return fmt.Errorf("write VBS wrapper: %w", err)
-	}
-
-	// Use a scheduled task to run the VBS wrapper — survives service stop,
-	// unlike a child process which the SCM may kill when the service exits.
+	// Use a scheduled task to run the batch script directly via cmd.exe.
+	// Previous approach used a VBS wrapper (wscript.exe → .vbs → .bat) to
+	// hide the console window, but AV software (Bitdefender, etc.) commonly
+	// blocks VBS scripts launched by scheduled tasks as suspicious behavior.
+	// Running as SYSTEM with no interactive desktop means no visible window anyway.
 	// Delete any stale task first.
 	newCmd("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
 	if err := newCmd("schtasks",
 		"/create", "/tn", "OblianceUpdate",
-		"/tr", "wscript.exe \""+vbsPath+"\"",
+		"/tr", "cmd.exe /c \""+scriptPath+"\"",
 		"/sc", "once",
 		"/st", "00:00",
 		"/ru", "SYSTEM",
