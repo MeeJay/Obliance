@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "Efter OS",
+    "activeSessions": "Aktive sessioner",
+    "upcomingSchedules": "Planlagt (24 t)",
+    "staleDevices": "Inaktive (72 t)"
   },
   "monitors": {
     "new": "Tilføj monitor",

@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "Podle OS",
+    "activeSessions": "Aktivní relace",
+    "upcomingSchedules": "Naplánováno (24 h)",
+    "staleDevices": "Neaktivní (72 h)"
   },
   "monitors": {
     "new": "Přidat monitor",

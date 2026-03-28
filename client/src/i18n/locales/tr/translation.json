@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "İS'ye göre",
+    "activeSessions": "Aktif oturumlar",
+    "upcomingSchedules": "Planlanmış (24s)",
+    "staleDevices": "Ulaşılamayan (72s)"
   },
   "monitors": {
     "new": "Monitör ekle",

@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "按操作系统",
+    "activeSessions": "活跃会话",
+    "upcomingSchedules": "计划 (24小时)",
+    "staleDevices": "失联 (72小时)"
   },
   "monitors": {
     "new": "添加监控器",

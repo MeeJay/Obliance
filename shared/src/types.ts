@@ -1217,6 +1217,10 @@ export interface FleetSummary {
   agentUpToDate: number;
   agentOutdated: number;
   latestAgentVersion: string;
+  osByType: { windows: number; macos: number; linux: number; other: number };
+  activeRemoteSessions: number;
+  upcomingSchedules: number;
+  staleDevices: number;
 }
 
 // ─── AUTH & USERS ─────────────────────────────────────────────────────────────

@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "За ОС",
+    "activeSessions": "Активні сеанси",
+    "upcomingSchedules": "Заплановано (24г)",
+    "staleDevices": "Неактивні (72г)"
   },
   "monitors": {
     "new": "Додати монітор",

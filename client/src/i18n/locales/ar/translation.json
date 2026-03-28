@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "حسب نظام التشغيل",
+    "activeSessions": "جلسات نشطة",
+    "upcomingSchedules": "مجدولة (24 س)",
+    "staleDevices": "غير مرئية (72 س)"
   },
   "monitors": {
     "new": "إضافة مراقب",

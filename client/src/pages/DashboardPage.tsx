@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Monitor, Wifi, WifiOff, AlertTriangle, AlertCircle, Clock, RefreshCw,
   ArrowRight, Package, ShieldCheck, ArrowUpCircle,
-  FolderOpen, Users, Activity,
+  FolderOpen, Users, Activity, ScreenShare, CalendarClock, Ghost,
 } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
 import { deviceApi, type GroupStats } from '@/api/device.api';
@@ -253,19 +253,18 @@ export function DashboardPage() {
 
       {/* Quick stats row */}
       {s && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors">
             <div className="p-3 rounded-lg bg-orange-500/20 text-orange-400">
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-text-primary">{s.pendingUpdates}</p>
+              <p className="text-2xl font-bold text-text-primary">{s.pendingUpdates}</p>
               <p className="text-sm text-text-muted">{t('dashboard.pendingUpdates')}</p>
             </div>
-            <Link to="/policies?tab=updates" className="ml-auto text-sm text-accent hover:text-accent/80">{t('dashboard.manage')} →</Link>
           </div>
 
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
+          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors">
             <div className={`p-3 rounded-lg ${s.agentOutdated === 0 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
               <ArrowUpCircle className="w-5 h-5" />
             </div>
@@ -275,18 +274,71 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {s.complianceScore !== null && !isNaN(s.complianceScore) && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${s.complianceScore >= 80 ? 'bg-green-500/20 text-green-400' : s.complianceScore >= 50 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
-                <ShieldCheck className="w-5 h-5" />
+          {/* OS breakdown */}
+          <div className="p-4 bg-bg-secondary border border-border rounded-xl hover:border-accent/50 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+                <Monitor className="w-4 h-4" />
+              </div>
+              <p className="text-sm text-text-muted">{t('dashboard.osByType')}</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                <span className="text-text-muted">Win</span>
+                <span className="font-semibold text-text-primary">{s.osByType?.windows ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-text-muted">Mac</span>
+                <span className="font-semibold text-text-primary">{s.osByType?.macos ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-orange-400" />
+                <span className="text-text-muted">Linux</span>
+                <span className="font-semibold text-text-primary">{s.osByType?.linux ?? 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Active remote sessions */}
+          <Link to="/admin/supervision">
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
+              <div className={`p-3 rounded-lg ${(s.activeRemoteSessions ?? 0) > 0 ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                <ScreenShare className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xl font-bold text-text-primary">{s.complianceScore.toFixed(0)}%</p>
-                <p className="text-sm text-text-muted">{t('dashboard.complianceScore')}</p>
+                <p className="text-2xl font-bold text-text-primary">{s.activeRemoteSessions ?? 0}</p>
+                <p className="text-sm text-text-muted">{t('dashboard.activeSessions')}</p>
               </div>
-              <Link to="/compliance" className="ml-auto text-sm text-accent hover:text-accent/80">{t('dashboard.view')} →</Link>
             </div>
-          )}
+          </Link>
+
+          {/* Upcoming schedules (24h) */}
+          <Link to="/schedules">
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
+              <div className={`p-3 rounded-lg ${(s.upcomingSchedules ?? 0) > 0 ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                <CalendarClock className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-text-primary">{s.upcomingSchedules ?? 0}</p>
+                <p className="text-sm text-text-muted">{t('dashboard.upcomingSchedules')}</p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Stale devices (72h) */}
+          <Link to="/devices?status=offline">
+            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
+              <div className={`p-3 rounded-lg ${(s.staleDevices ?? 0) > 0 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                <Ghost className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-text-primary">{s.staleDevices ?? 0}</p>
+                <p className="text-sm text-text-muted">{t('dashboard.staleDevices')}</p>
+              </div>
+            </div>
+          </Link>
         </div>
       )}
 

@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "Per OS",
+    "activeSessions": "Aktiva sessioner",
+    "upcomingSchedules": "Schemalagda (24t)",
+    "staleDevices": "Inaktiva (72t)"
   },
   "monitors": {
     "new": "Lägg till monitor",

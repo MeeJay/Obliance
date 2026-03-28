@@ -773,6 +773,46 @@ class DeviceService {
     const vCounts: Record<string, number> = {};
     for (const r of versionRows) vCounts[r.vstat] = parseInt(r.count);
 
+    // OS breakdown
+    const osRows = await db('devices')
+      .where({ tenant_id: tenantId })
+      .select(db.raw('os_type, count(*) as count'))
+      .groupBy('os_type');
+    const osByType = { windows: 0, macos: 0, linux: 0, other: 0 };
+    for (const r of osRows) {
+      const key = r.os_type as keyof typeof osByType;
+      osByType[key] = (osByType[key] || 0) + parseInt(r.count);
+    }
+
+    // Active remote sessions
+    const activeRemoteSessions = await db('remote_sessions')
+      .where({ tenant_id: tenantId })
+      .whereIn('status', ['waiting', 'connecting', 'active'])
+      .count('id as count')
+      .first()
+      .then(r => parseInt(String((r as any)?.count ?? 0)));
+
+    // Upcoming schedules (next 24h)
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const upcomingSchedules = await db('script_schedules')
+      .where({ tenant_id: tenantId, enabled: true })
+      .where('next_run_at', '>', now)
+      .where('next_run_at', '<=', in24h)
+      .count('id as count')
+      .first()
+      .then(r => parseInt(String((r as any)?.count ?? 0)));
+
+    // Stale devices (no contact in 72h)
+    const staleThreshold = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+    const staleDevices = await db('devices')
+      .where({ tenant_id: tenantId })
+      .whereNotIn('status', ['pending', 'suspended', 'pending_uninstall'])
+      .where('last_seen_at', '<', staleThreshold)
+      .count('id as count')
+      .first()
+      .then(r => parseInt(String((r as any)?.count ?? 0)));
+
     return {
       total: Object.values(counts).reduce((a, b) => a + b, 0),
       online: counts.online || 0,
@@ -786,6 +826,10 @@ class DeviceService {
       agentUpToDate: vCounts.uptodate || 0,
       agentOutdated: vCounts.outdated || 0,
       latestAgentVersion: latestVersion,
+      osByType,
+      activeRemoteSessions,
+      upcomingSchedules,
+      staleDevices,
     };
   }
 }

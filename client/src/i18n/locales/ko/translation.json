@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "OS별",
+    "activeSessions": "활성 세션",
+    "upcomingSchedules": "예정 (24시간)",
+    "staleDevices": "미응답 (72시간)"
   },
   "monitors": {
     "new": "모니터 추가",

@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "Per OS",
+    "activeSessions": "Sessioni attive",
+    "upcomingSchedules": "Pianificati (24h)",
+    "staleDevices": "Inattivi (72h)"
   },
   "monitors": {
     "new": "Aggiungi monitor",

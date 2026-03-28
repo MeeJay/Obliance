@@ -256,7 +256,11 @@
     "noGroups": "No groups configured yet",
     "ungrouped": "Ungrouped",
     "devices": "devices",
-    "availability": "Availability"
+    "availability": "Availability",
+    "osByType": "OS別",
+    "activeSessions": "アクティブセッション",
+    "upcomingSchedules": "予定 (24時間)",
+    "staleDevices": "未応答 (72時間)"
   },
   "monitors": {
     "new": "モニターを追加",
