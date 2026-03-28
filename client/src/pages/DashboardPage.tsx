@@ -269,23 +269,9 @@ export function DashboardPage() {
             <div className={`p-3 rounded-lg ${s.agentOutdated === 0 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
               <ArrowUpCircle className="w-5 h-5" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-green-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {s.agentUpToDate}
-                </span>
-                {s.agentOutdated > 0 && (
-                  <span className="text-sm font-medium text-yellow-400 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    {s.agentOutdated}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-text-muted">
-                Agent v{s.latestAgentVersion}
-                {s.agentOutdated > 0 ? ` · ${s.agentOutdated} outdated` : ` · ${t('dashboard.allUpToDate')}`}
-              </p>
+            <div>
+              <p className="text-xl font-bold text-text-primary">{s.agentUpToDate}<span className="text-sm font-normal text-text-muted">/{s.agentUpToDate + s.agentOutdated}</span></p>
+              <p className="text-sm text-text-muted">Agent v{s.latestAgentVersion}</p>
             </div>
           </div>
 
