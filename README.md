@@ -1,33 +1,34 @@
 # Obliance
 
-Self-hosted Remote Monitoring & Management platform. Monitor endpoints, collect real-time system metrics, run scripts, manage updates, browse remote filesystems, take remote control, and automate remediation — across multi-tenant workspaces with full RBAC, in one command.
+Self-hosted Remote Monitoring & Management platform. Deploy lightweight agents on Windows, Linux and macOS endpoints, collect real-time system metrics, run scripts, manage updates and compliance, browse remote filesystems, take remote control, and automate fleet operations — across multi-tenant workspaces with full RBAC.
 
 ---
 
 ## Features at a Glance
 
-- **Endpoint agent** — Windows/Linux/macOS, CPU, memory, disk, network, temperature, GPU metrics
-- **13 service check types** — HTTP, Ping, TCP, DNS, SSL, SMTP, Docker, Game Server, Push, Script, JSON API, Browser, Value Watcher
-- **Script library** — run scripts on demand or on schedule across devices
+- **Endpoint agent** — Go binary for Windows/Linux/macOS with CPU, memory, disk, network, temperature, GPU metrics
+- **Script library** — run scripts on demand or on schedule across devices, with parameters and multi-runtime support
 - **Remote sessions** — SSH, CMD, PowerShell terminals from the browser (SYSTEM or user session)
-- **ObliReach** — real-time H.264 screen streaming (built-in, no VNC dependency)
-- **File Explorer** — browse, upload, download, rename, delete files on remote devices with full audit trail
+- **ObliReach** — real-time screen streaming (H.264, H.265, VP9, AV1, JPEG) with full input relay
+- **File Explorer** — browse, upload, download, rename, delete files on remote devices with audit trail
 - **Process Manager** — real-time process list, CPU/memory per process, kill processes
 - **Service Manager** — start, stop, restart Windows/Linux services
-- **Update management** — track and push OS updates across the fleet
-- **Compliance engine** — preset & custom compliance checks with severity levels and fleet scoring
-- **Automated remediation** — 5 action types triggered on state changes
+- **Update management** — detect, approve, and deploy OS updates across the fleet (Windows Update, apt, yum, brew, winget, chocolatey)
+- **Compliance engine** — 10 built-in presets (CIS, NIST, ISO 27001, PCI DSS, HIPAA, SOC 2...) + custom policies with auto-remediation
+- **Hardware & software inventory** — full asset scan with history and retention policies
+- **Network discovery** — IP scanning, device classification, managed/unmanaged tracking
+- **Reporting** — fleet, compliance, scripts, updates, software reports in JSON, CSV, PDF, Excel, HTML
 - **10 notification channels** — Telegram, Discord, Slack, Teams, SMTP, Webhook, Gotify, Ntfy, Pushover, Free Mobile
 - **Multi-tenant workspaces** — isolated tenants with per-workspace roles
-- **Teams & RBAC** — read-only / read-write per group or device
+- **Teams & RBAC** — read-only / read-write per group or device, with granular capabilities
 - **Maintenance windows** — one-time or recurring, scope-based, suppresses alerts
 - **2FA** — TOTP authenticator apps + Email OTP
+- **SSO** — federated login via Obligate
 - **Privacy mode** — per-device toggle that blocks remote access, file explorer, process listing, and script execution
 - **Import / Export** — full config backup as JSON with conflict resolution
 - **18 UI languages**
-- **Real-time** — Socket.io live updates and live alert toasts
-- **Desktop tray app** — Windows & macOS, multi-tenant tab bar, auto-update
-- **Fleet dashboard** — agent version tracking, update status, compliance score at a glance
+- **Real-time** — Socket.io live updates and alert toasts
+- **Agent tray icon** — Windows systray with connection status, privacy toggle, and version info
 
 ---
 
@@ -54,15 +55,15 @@ A lightweight Go binary deployed on managed endpoints. Pushes metrics to the ser
 - Group-level default thresholds with per-device override toggle
 - Push interval (seconds) — group default or device-specific
 - Heartbeat monitoring (alert if agent stops pushing)
-- Display config: hide/show sections, custom labels, chart preferences
 - Sensor display name renaming
 
 **Fleet management**
 - Approval workflow (auto or manual)
 - Suspend / resume without deletion
 - Bulk approve, suspend, or uninstall
-- Auto-delete 10 minutes after uninstall command
+- Auto-delete after uninstall command
 - Agent version tracking — dashboard shows up-to-date vs outdated agents
+- API keys with optional default group assignment
 
 ---
 
@@ -76,7 +77,7 @@ Open a full interactive terminal on any managed device directly from the browser
 - **Linux / macOS**: bash or sh via PTY
 - **Session context**: launch as SYSTEM or in a specific logged-in user's session (WTS session picker)
 - **Resize**: terminal auto-resizes to match the browser window
-- WebSocket relay with 15-second keepalive (proxy-safe)
+- WebSocket relay with keepalive (proxy-safe)
 
 ### ObliReach — Remote Desktop
 
@@ -89,16 +90,17 @@ Real-time screen streaming built into the agent — no VNC server required.
 - Full input relay: keyboard, mouse (move, click, scroll)
 - Block remote user input (lock keyboard/mouse on the remote side)
 - Adaptive quality based on network conditions
+- RDP tunnel support
 
 ### File Explorer
 
 Browse and manage files on remote devices from the browser.
 
 - Navigate directories with breadcrumb path (drives on Windows, / on Unix)
-- Upload files via drag & drop (up to 50 MB)
+- Upload files via drag & drop
 - Download files with one click
 - Create folders, rename, delete with confirmation
-- **Audit trail**: all dangerous operations (create, rename, delete, upload) are logged
+- **Audit trail**: all operations (create, rename, delete, upload) are logged
 - **WebSocket-based**: instant response, no command queue overhead
 - Disabled in Privacy Mode
 
@@ -109,7 +111,7 @@ Real-time process monitoring via native Win32 APIs (no WMI overhead).
 - Process list with PID, name, CPU %, memory, user
 - CPU % calculated from `GetProcessTimes` deltas (Windows) or `/proc` (Linux)
 - Kill processes remotely
-- WebSocket subscription: live updates while the tab is open, auto-stops on tab switch
+- WebSocket subscription: live updates while the tab is open
 
 ### Service Manager
 
@@ -119,37 +121,86 @@ Real-time process monitoring via native Win32 APIs (no WMI overhead).
 
 ---
 
-## Service Checks
+## Script Library & Scheduling
 
-Monitor external services and infrastructure alongside your managed endpoints.
+Manage and execute scripts across your fleet.
 
-| Type | Description |
-|------|-------------|
-| **HTTP(S)** | URL check with keyword matching, status code validation, custom headers & body |
-| **Ping** | ICMP round-trip with response time tracking |
-| **TCP Port** | Raw TCP connectivity to any host:port |
-| **DNS** | Record lookup validation (A, AAAA, CNAME, MX, TXT…) |
-| **SSL Certificate** | Certificate expiry with configurable warning threshold |
-| **SMTP** | SMTP server availability check |
-| **Docker Container** | Container running/stopped status via Docker socket |
-| **Game Server** | Availability & player count via GameDig (Minecraft, CS2, Valheim, 300+ games) |
-| **Push / Heartbeat** | Passive — external systems POST to a token URL, Obliance alerts if they stop |
-| **Script** | Run a shell command, validate exit code |
-| **JSON API** | Fetch a JSON endpoint, extract a value via JSONPath, validate it |
-| **Browser** | Headless Playwright check — renders JS, waits for selectors, optional screenshot on failure |
-| **Value Watcher** | Numeric value monitoring with operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `between`, `changed` |
+- **Multi-platform**: Windows, macOS, Linux, or cross-platform scripts
+- **Multi-runtime**: PowerShell, Bash, Python, Perl, Ruby, and more
+- **Parameterized scripts**: define typed parameters (string, number, boolean, secret, select, multiselect) filled at execution time
+- **Immediate execution**: run on one device, a group, or the entire fleet
+- **Scheduled execution**: cron-based or one-time schedules with timezone support
+- **Catch-up execution**: automatically runs missed schedules when offline devices come back online
+- **Execution history**: stdout, stderr, exit codes, duration per device
+- **Status tracking**: pending, sent, running, success, failure, timeout, skipped, cancelled
+- Script cloning for quick variations
+
+---
+
+## Update Management
+
+Track and deploy OS and package updates across the fleet.
+
+- **Multi-source detection**: Windows Update, apt, yum, dnf, pacman, brew, Chocolatey, WinGet
+- **Severity classification**: critical, important, moderate, optional
+- **Approval workflow**: available → approved → pending install → installed / failed
+- **Update policies**: scheduled automatic installation with configurable rules
+- **Reboot handling**: automatic reboot management after update deployment
+- **Retry mechanism**: automatic retry for failed updates with bulk retry support
+- **Update statistics**: fleet-wide update compliance reporting
 
 ---
 
 ## Compliance Engine
 
-Define compliance checks and monitor your fleet's adherence.
+Define compliance policies and monitor your fleet's adherence.
 
-- **Built-in presets**: Windows Baseline, Windows Performance, macOS Baseline, Linux Baseline
-- **Custom checks**: define your own rules per device or group
+- **10 built-in presets**: CIS Windows L1, Windows Baseline, Windows Performance, Linux Baseline, macOS Baseline, NIST 800-171, ISO 27001, PCI DSS v4, HIPAA, SOC 2
+- **Custom policies**: define your own rules with flexible check types
+- **Check types**: registry (Windows), file, command execution, service, event log, process, policy (GPO)
+- **Operators**: eq, neq, contains, not_contains, exists, not_exists, gt, lt, regex
 - **Severity levels**: optional, low, moderate, high, critical
-- **Fleet compliance score** on the dashboard
+- **Auto-remediation**: attach scripts to rules — automatically executed on compliance failures
+- **Fleet compliance score** on the dashboard (0–100%)
 - Per-device compliance tab with pass/fail details
+
+---
+
+## Hardware & Software Inventory
+
+Full asset visibility across the fleet.
+
+- **Hardware**: CPU, memory, disks, network interfaces, GPU, motherboard, BIOS
+- **Software**: installed applications with version, publisher, install location
+- **Multi-source detection**: registry, dpkg, rpm, pacman, brew, WinGet, Chocolatey, snap, flatpak
+- **BitLocker**: recovery key collection for encrypted volumes (Windows)
+- **History tracking**: hardware change detection over time
+- **Retention policies**: configurable inventory data retention period
+- **Asset fields**: purchase date, warranty status, warranty expiry per device
+
+---
+
+## Network Discovery
+
+Discover devices on your network segments.
+
+- IP range scanning with subnet filtering
+- Device type classification (managed / unmanaged)
+- Discovered devices list with filtering
+- Discovery statistics on the dashboard
+
+---
+
+## Reporting
+
+Generate fleet reports on demand or on schedule.
+
+- **Formats**: JSON, CSV, PDF, Excel, HTML
+- **Report types**: fleet overview, compliance, scripts, updates, software inventory, custom
+- **Scope selection**: tenant-wide, group, or device
+- **Section customization**: pick which sections to include
+- **Scheduled reports**: cron-based automatic generation
+- **Report expiration**: configurable output retention
 
 ---
 
@@ -163,36 +214,14 @@ Bind channels at **global**, **group**, or **device** level with **merge**, **re
 | **Discord** | Webhook URL |
 | **Slack** | Incoming webhook |
 | **Microsoft Teams** | Webhook URL |
-| **Email (SMTP)** | Custom SMTP server or platform SMTP |
+| **Email (SMTP)** | Custom SMTP server |
 | **Webhook** | Generic HTTP — GET / POST / PUT / PATCH, custom headers |
 | **Gotify** | Self-hosted push (server URL + token) |
 | **Ntfy** | Self-hosted or ntfy.sh push |
 | **Pushover** | Mobile push via Pushover app |
 | **Free Mobile** | SMS via French mobile operator API |
 
-**Group notification mode** — receive one alert when the first item in a group goes down, one recovery when all are back up.
-
 Test messages can be sent directly from the UI to validate channel configuration.
-
----
-
-## Remediation System
-
-Automatically react to state changes with configurable actions.
-
-| Action | Description |
-|--------|-------------|
-| **Generic Webhook** | HTTP request (GET / POST / PUT / PATCH) to any endpoint |
-| **N8N Workflow** | Trigger an N8N automation workflow |
-| **Custom Script** | Run a shell script on the Obliance server |
-| **Docker Restart** | Restart a Docker container by name |
-| **SSH Command** | Execute a remote command over SSH (password or key auth) |
-
-- Trigger on: **down**, **up**, or **both**
-- Configurable cooldown between executions
-- Scope-based binding with merge / replace / exclude inheritance
-- AES-256-GCM encryption for SSH credentials
-- Full execution history: status, output, error, duration
 
 ---
 
@@ -201,7 +230,7 @@ Automatically react to state changes with configurable actions.
 Per-device privacy toggle that blocks all intrusive remote operations.
 
 - Blocks: remote sessions, file explorer, process listing, script execution
-- Can be enabled locally by the device user (tray app or CLI)
+- Can be enabled locally by the device user (tray app)
 - Admin can force-disable remotely
 - Privacy lock: make the config file read-only to prevent remote override
 - When enabled: stops ObliReach service and disables auto-start
@@ -212,11 +241,10 @@ Per-device privacy toggle that blocks all intrusive remote operations.
 
 Create isolated workspaces (tenants) within a single Obliance instance.
 
-- Each workspace has its own devices, groups, teams, notification channels, settings, and remediation actions
+- Each workspace has its own devices, groups, teams, notification channels, and settings
 - Users can belong to multiple workspaces with independent **admin** or **member** roles
 - Platform admins have cross-workspace visibility and can manage all tenants
 - Workspace switching from the UI without re-login
-- Notification channels can be shared across workspaces
 
 ---
 
@@ -225,6 +253,7 @@ Create isolated workspaces (tenants) within a single Obliance instance.
 - Create **teams** per workspace
 - Assign users to teams
 - Grant teams **read-only** (RO) or **read-write** (RW) access per group or device
+- **Granular capabilities**: execute scripts, remote access, file explorer, power actions (reboot/shutdown)
 - Access cascades through the group hierarchy — assign a group and all children are covered
 - `canCreate` flag per team: allows non-admins to create devices and groups
 - Platform admins always have full access to their workspace
@@ -233,13 +262,13 @@ Create isolated workspaces (tenants) within a single Obliance instance.
 
 ## Hierarchical Groups
 
-Organize devices and service checks into nested groups with unlimited depth using a **closure table** for efficient queries.
+Organize devices into nested groups with unlimited depth using a **closure table** for efficient queries.
 
 - Settings cascade: configure once at a parent group, override where needed
 - Notification channels cascade with merge / replace / exclude modes
 - **General groups** are visible to all users regardless of team permissions
 - Drag-and-drop reordering
-- Group notification mode for aggregate alerting
+- Recursive device listing in group detail views
 
 ---
 
@@ -249,22 +278,34 @@ Organize devices and service checks into nested groups with unlimited depth usin
 |-------|-------|
 | Global | Applies to everything in the workspace |
 | Group | Applies to the group and all subgroups |
-| Device / Check | Item-specific override |
+| Device | Item-specific override |
 
-Deleting a setting at any scope reverts it to the inherited value from the parent. Settings include: check interval, timeout, retry interval, max retries, heartbeat monitoring (agents), push interval (agents).
+Deleting a setting at any scope reverts it to the inherited value from the parent. Settings include: push interval, alert thresholds, heartbeat monitoring, and more.
 
 ---
 
 ## Maintenance Windows
 
-Suppress alerts and exclude downtime from statistics during planned maintenance.
+Suppress alerts during planned maintenance.
 
 - **One-time** windows (auto-deleted after expiry) or **recurring** (daily / weekly)
-- Scope: global, group, device, or service check
+- Scope: global, group, or device
 - Scope inheritance — set a window on a group and it applies to all children
-- Records shown in blue during maintenance in device timelines
-- Notifications and remediations are suppressed
-- Uptime % and response time averages exclude maintenance periods
+- Notifications are suppressed during maintenance
+- Timezone support
+
+---
+
+## Command Queue
+
+Push-based command delivery system for agent control.
+
+- **Command types**: run_script, install_update, scan_inventory, scan_updates, check_compliance, open_remote_tunnel, close_remote_tunnel, reboot, shutdown, install_software, uninstall_software, disable_privacy_mode, uninstall_agent, restart_agent
+- **Priority levels**: low, normal, high, urgent
+- **Real-time delivery** via WebSocket when agent is online
+- **HTTP polling fallback** for agents behind restrictive firewalls
+- Command status tracking with result capture (exit code, stdout, stderr)
+- Command expiration and retry logic
 
 ---
 
@@ -274,7 +315,7 @@ Track who did what across the platform.
 
 - **Command history**: every task (script, update, remote session) is logged with user, status, duration, and result
 - **File explorer audit**: create, rename, delete, upload operations are logged with user, path, and timestamp
-- **Tasks tab**: shows which user triggered each command with computed execution duration
+- **Remote session log**: session type, initiator, duration, and notes
 
 ---
 
@@ -283,13 +324,22 @@ Track who did what across the platform.
 - **TOTP** — any authenticator app (Google Authenticator, Authy, 1Password, etc.)
 - **Email OTP** — one-time code sent via SMTP
 - Optional system-wide enforcement (all users must enroll 2FA)
-- Setup available during enrollment wizard or from the profile page
+
+---
+
+## SSO — Obligate
+
+Federated authentication via **Obligate**, a companion SSO platform.
+
+- OAuth authorize → code exchange → local user provisioning
+- SSO users prefixed `og_` (e.g. `og_john.doe`)
+- Configurable from admin settings
 
 ---
 
 ## Enrollment Wizard
 
-New users are guided through a 4-step wizard on first login:
+New users are guided through a setup wizard on first login:
 
 1. **Language** — pick from 18 supported languages
 2. **Profile** — display name, email address
@@ -302,7 +352,7 @@ New users are guided through a 4-step wizard on first login:
 
 Full configuration backup and restore as JSON.
 
-**Exportable sections:** device groups, devices, service checks, settings, notification channels, teams, remediation actions, remediation bindings.
+**Exportable sections:** device groups, devices, settings, notification channels, teams.
 
 **Conflict resolution strategies** (when a UUID matches an existing record):
 - **Update** — overwrite the existing record
@@ -317,39 +367,33 @@ Export and import are scoped to the **active workspace** — cross-tenant data i
 
 Real-time status-change notifications delivered via Socket.io without polling.
 
-- Floating toast notifications (bottom-right stack, 1-minute auto-dismiss)
-- Top-center banner showing the latest alert (10-second auto-dismiss)
-- Click to navigate directly to the affected device or check
+- Floating toast notifications (bottom-right stack, auto-dismiss)
+- Top-center banner showing the latest alert
+- Click to navigate directly to the affected device
 - Per-workspace filtering — only see alerts relevant to your current tenant
-- Desktop app: unread badge per workspace tab, optional auto-switch to the alerting workspace
 
 ---
 
 ## Dashboard
 
 - Live status updates via Socket.io — no manual refresh needed
-- Fleet overview: online/offline/warning/critical counts
-- Agent version tracking: up-to-date vs outdated agent count with latest version number
+- Fleet overview: online / offline / warning / critical counts
+- Agent version tracking: up-to-date vs outdated agent count
 - Pending OS updates count
-- Fleet compliance score
-- Per-item status: `UP`, `DOWN`, `ALERT`, `PAUSED`, `PENDING`, `MAINTENANCE`, `SSL_WARNING`, `SSL_EXPIRED`, `OFFLINE`
-- 24-hour uptime %, average/min/max response time
-- Group-level aggregated status (number of items down, in alert, pending, etc.)
-- Bulk operations: multi-select, pause/resume, delete, edit
+- Fleet compliance score (0–100%)
+- Group-level aggregated statistics with hierarchical display
+- Bulk operations: multi-select, approve, suspend, delete
 
 ---
 
-## Desktop App
+## Agent Tray Icon
 
-A lightweight system tray application (Go) for quick access without keeping a browser tab open.
+System tray application (Go) running alongside the agent service on managed endpoints.
 
-- **Windows** (MSI installer) and **macOS** (DMG)
-- Per-workspace tab bar — switch between tenants
-- Unread alert badge per tab
-- **Auto-cycle mode** — rotate through workspaces every N seconds
-- **Follow alerts mode** — automatically switch to the workspace that just received an alert
-- Auto-update with in-tray update prompt
-- Starts minimized to tray, opens on click
+- **Windows only** (built with `-H windowsgui`, launched via `CreateProcessAsUser` in each user session)
+- Shows agent version and connection status
+- Toggle privacy mode on/off
+- Auto-started via registry key, re-launched every 60 seconds by the agent service
 
 ---
 
@@ -358,7 +402,8 @@ A lightweight system tray application (Go) for quick access without keeping a br
 - Create, edit, disable, and delete users
 - Platform roles: **admin** (full access) or **user** (team-based access)
 - Per-user workspace assignment with **admin** or **member** role per workspace
-- Password reset via email token (1-hour expiry)
+- Password reset via email token
+- User avatar (profile photo)
 - Admin safeguards: cannot delete or demote the last active admin
 
 ---
@@ -367,7 +412,7 @@ A lightweight system tray application (Go) for quick access without keeping a br
 
 18 UI languages with full translation coverage:
 
-English · French · Spanish · German · Portuguese (BR) · Chinese (Simplified) · Japanese · Korean · Russian · Arabic · Italian · Dutch · Polish · Turkish · Swedish · Danish · Czech · Ukrainian
+English - French - Spanish - German - Portuguese (BR) - Chinese (Simplified) - Japanese - Korean - Russian - Arabic - Italian - Dutch - Polish - Turkish - Swedish - Danish - Czech - Ukrainian
 
 Language is saved per user and applied immediately without page reload.
 
@@ -407,7 +452,6 @@ Set `DATABASE_URL` in your `.env` to point at your existing PostgreSQL instance.
 | `APP_NAME` | Prefix for notification messages | `Obliance` |
 | `DEFAULT_ADMIN_USERNAME` | Admin account created on first run | `admin` |
 | `DEFAULT_ADMIN_PASSWORD` | Admin password on first run | `admin123` |
-| `MIN_CHECK_INTERVAL` | Minimum allowed check interval (seconds) | `10` |
 
 ---
 
@@ -415,13 +459,12 @@ Set `DATABASE_URL` in your `.env` to point at your existing PostgreSQL instance.
 
 | Layer | Technology |
 |-------|-----------|
-| **Server** | Node.js 24 LTS, TypeScript, Express |
+| **Server** | Node.js, TypeScript, Express |
 | **Database** | PostgreSQL 16, Knex (migrations + query builder) |
 | **Real-time** | Socket.io |
-| **Client** | React 18, Vite, Tailwind CSS, Zustand |
+| **Client** | React, Vite, Tailwind CSS, Zustand |
 | **Agent** | Go (cross-platform binary) |
-| **Desktop app** | Go (systray) |
-| **Browser checks** | Playwright (headless Chromium) |
+| **Tray icon** | Go (systray, Windows) |
 | **Monorepo** | npm workspaces (`shared/`, `server/`, `client/`) |
 
 

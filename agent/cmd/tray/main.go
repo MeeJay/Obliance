@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -125,7 +124,7 @@ func isAgentServiceRunning() bool {
 	if runtime.GOOS != "windows" {
 		return false
 	}
-	out, err := exec.Command("sc", "query", "OblianceAgent").Output()
+	out, err := hiddenCmd("sc", "query", "OblianceAgent").Output()
 	if err != nil {
 		return false
 	}
@@ -156,7 +155,7 @@ $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Obliance Agent").Show($toast)
 `, escapeXML(title), escapeXML(message))
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd := hiddenCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
 	cmd.Run()
 }
 
