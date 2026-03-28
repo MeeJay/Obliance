@@ -2,19 +2,32 @@
 
 package main
 
-import "os"
+import (
+	"log"
+	"os"
+	"time"
 
-// restartWithNewBinary on Windows simply exits — the restart is handled by the
-// detached batch script written by applyWindowsMSIUpdate():
+	"golang.org/x/sys/windows/svc"
+)
+
+// restartWithNewBinary on Windows signals the SCM handler to perform a clean
+// service stop. This prevents the SCM from treating the exit as a crash and
+// triggering failure-recovery restarts that race with msiexec.
 //
-//  1. Old exe downloads  obliance-agent.msi  to %TEMP%
-//  2. Old exe writes %TEMP%\obliance-msi-update.bat  and launches it detached
-//  3. Old exe calls restartWithNewBinary() → os.Exit(0)   (service stops)
-//  4. Batch waits 2 s, then runs:
-//       msiexec /i obliance-agent.msi /quiet /norestart SERVERURL=... APIKEY=...
-//     MSI stop the service (already stopped), overwrites obliance-agent.exe,
-//     runs deferred custom actions (PawnIO driver etc.), starts the service.
-//  5. Batch cleans up the .msi and itself.
+// In interactive (non-service) mode, falls back to os.Exit(0).
 func restartWithNewBinary(_ string) {
+	isService, _ := svc.IsWindowsService()
+	if !isService {
+		os.Exit(0)
+	}
+
+	// Signal Execute() to return cleanly → SCM reports SERVICE_STOPPED.
+	close(stopServiceCh)
+
+	// Block until the process exits via svc.Run returning.
+	// Safety timeout: if something goes wrong, force exit after 30s.
+	log.Printf("Auto-update: waiting for clean service stop...")
+	time.Sleep(30 * time.Second)
+	log.Printf("Auto-update: clean stop timed out, forcing exit")
 	os.Exit(0)
 }
