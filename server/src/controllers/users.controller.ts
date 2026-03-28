@@ -178,7 +178,7 @@ export const usersController = {
   async setTenants(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
-      const targetUser = await userService.getUserById(id);
+      const targetUser = await userService.getById(id);
       if (targetUser?.foreignSource === 'obligate') {
         throw new AppError(400, 'Cannot modify SSO user tenant access — manage from Obligate');
       }
