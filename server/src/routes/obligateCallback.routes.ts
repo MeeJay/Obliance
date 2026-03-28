@@ -94,17 +94,32 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
       .onConflict(['foreign_source', 'foreign_user_id'])
       .merge({ local_user_id: localUserId });
 
-    for (const t of assertion.tenants) {
-      const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
-      if (tenant) {
-        await db('user_tenants')
-          .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
-          .onConflict(['user_id', 'tenant_id'])
-          .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
+    obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
+  }
+
+  // Sync tenants + capabilities from Obligate (every SSO login, not just first provision)
+  for (const t of assertion.tenants) {
+    const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
+    if (tenant) {
+      await db('user_tenants')
+        .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
+        .onConflict(['user_id', 'tenant_id'])
+        .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
+
+      // Sync capabilities to team_permissions for all teams the user is in for this tenant
+      if (t.capabilities?.length) {
+        const userTeamIds = await db('team_memberships')
+          .join('user_teams', 'user_teams.id', 'team_memberships.team_id')
+          .where({ 'team_memberships.user_id': localUserId, 'user_teams.tenant_id': tenant.id })
+          .pluck('team_memberships.team_id') as number[];
+
+        for (const teamId of userTeamIds) {
+          await db('team_permissions')
+            .where({ team_id: teamId })
+            .update({ capabilities: JSON.stringify(t.capabilities) });
+        }
       }
     }
-
-    obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
   }
 
   // Sync preferences

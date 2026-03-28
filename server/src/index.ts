@@ -210,6 +210,8 @@ async function main() {
 
     // Sync preference schemas with Obligate (non-blocking)
     obligateService.syncPreferenceSchemas().catch(() => {});
+    // Sync capability schemas with Obligate (non-blocking)
+    obligateService.syncCapabilitySchemas().catch(() => {});
   });
 
   // Graceful shutdown

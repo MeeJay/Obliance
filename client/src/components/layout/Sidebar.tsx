@@ -35,7 +35,6 @@ import { anonymize } from '@/utils/anonymize';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
-import { useTenantStore } from '@/store/tenantStore';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { getSocket } from '@/socket/socketClient';
@@ -291,7 +290,6 @@ export function Sidebar() {
   const location = useLocation();
   const { user, isAdmin } = useAuthStore();
   const { sidebarFloating, toggleSidebarFloating, openAddAgentModal } = useUiStore();
-  const { tenants, currentTenantId, setCurrentTenant } = useTenantStore();
 
   const admin = isAdmin();
 
@@ -635,24 +633,6 @@ export function Sidebar() {
             </nav>
           )}
         </>
-      )}
-
-      {/* Tenant switcher (multi-tenant) */}
-      {tenants.length > 1 && (
-        <div className="border-t border-border px-3 py-2">
-          <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-1 block">
-            Tenant
-          </label>
-          <select
-            value={currentTenantId ?? ''}
-            onChange={e => setCurrentTenant(Number(e.target.value))}
-            className="w-full rounded-md border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            {tenants.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </div>
       )}
 
       {/* User section */}

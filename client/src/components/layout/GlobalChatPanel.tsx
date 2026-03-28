@@ -213,7 +213,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
     if (!input.trim() || !chatId) return;
     const socket = getSocket();
     if (!socket) return;
-    store.getState().addMessage(key, { sender: operatorName, text: input.trim(), timestamp: Date.now() });
+    store.getState().addMessage(key, { sender: operatorName, text: input.trim(), timestamp: Date.now(), isOperator: true });
     socket.emit('chat:message', { chatId, message: input.trim(), operatorName });
     setInput('');
     inputRef.current?.focus();
@@ -232,7 +232,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
       const socket = getSocket();
       if (socket) {
         socket.emit('chat:file', { chatId, fileName: file.name, fileSize: file.size, fileData: b64 });
-        store.getState().addMessage(key, { sender: operatorName, text: `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, timestamp: Date.now() });
+        store.getState().addMessage(key, { sender: operatorName, text: `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, timestamp: Date.now(), isOperator: true });
       }
     } catch {
       store.getState().addMessage(key, { sender: 'System', text: t('chat.failedSendFile'), timestamp: Date.now(), isSystem: true });
@@ -272,7 +272,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 scrollbar-thin scrollbar-thumb-white/10">
         {messages.map((msg, i) => {
-          const isOp = msg.sender === operatorName;
+          const isOp = !!msg.isOperator;
           const showTimestamp = i === 0 || (msg.timestamp - messages[i - 1].timestamp > 300_000);
           return (
             <div key={i}>
@@ -307,15 +307,14 @@ function ChatTabContent({ session }: { session: ChatSession }) {
           );
         })}
 
-        {/* Typing indicator */}
+        {/* Typing indicator (device is typing → right side) */}
         {isTyping && (
-          <div className="flex gap-2 items-end">
-            <OperatorAvatar avatarUrl={operatorAvatar} size={28} />
-            <div className="bg-accent px-4 py-2.5 rounded-2xl rounded-bl-md">
+          <div className="flex gap-2 items-end justify-end">
+            <div className="bg-bg-tertiary px-4 py-2.5 rounded-2xl rounded-br-md">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 bg-text-muted/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-text-muted/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-text-muted/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>

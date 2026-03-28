@@ -125,8 +125,10 @@ export function ObliReachViewer({
   const [isRecording, setIsRecording]   = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true); // enabled by default when available
   const [hasAudio, setHasAudio]         = useState(false);
-  const audioCtxRef  = useRef<AudioContext | null>(null);
-  const audioRateRef = useRef(48000);
+  const audioCtxRef      = useRef<AudioContext | null>(null);
+  const audioRateRef     = useRef(48000);
+  const audioEnabledRef  = useRef(audioEnabled);
+  useEffect(() => { audioEnabledRef.current = audioEnabled; }, [audioEnabled]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunks   = useRef<Blob[]>([]);
   const codecLabel: Record<string,string> = { h264: 'H.264', h265: 'H.265', vp9: 'VP9', av1: 'AV1', jpeg: 'JPEG' };
@@ -257,7 +259,7 @@ export function ObliReachViewer({
       const view = new Uint8Array(buf);
       const frameType = view[0];
 
-      if (frameType === 0x06 && audioEnabled) {
+      if (frameType === 0x06 && audioEnabledRef.current) {
         // Audio frame — PCM 16-bit mono LE
         if (!audioCtxRef.current) {
           try { audioCtxRef.current = new AudioContext({ sampleRate: audioRateRef.current }); } catch {}

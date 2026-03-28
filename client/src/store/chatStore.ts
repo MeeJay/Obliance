@@ -5,6 +5,7 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   isSystem?: boolean;
+  isOperator?: boolean;
 }
 
 export interface ChatSession {

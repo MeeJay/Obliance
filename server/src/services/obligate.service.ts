@@ -8,8 +8,9 @@ export interface ObligateUserAssertion {
   email: string | null;
   displayName: string | null;
   role: string;
-  tenants: Array<{ slug: string; role: string }>;
+  tenants: Array<{ slug: string; role: string; capabilities?: string[] }>;
   teams: string[];
+  capabilities?: string[];
   authSource: 'local' | 'ldap';
   linkedLocalUserId: number | null;
   preferences?: {
@@ -135,6 +136,40 @@ export const obligateService = {
       }
     } catch (err) {
       logger.warn(err, 'Obligate: schema sync failed');
+    }
+  },
+
+  /**
+   * Register app capability schemas with Obligate.
+   */
+  async syncCapabilitySchemas(): Promise<void> {
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.url || !raw.apiKey) return;
+
+    const schemas = [
+      { key: 'monitor', label: 'Monitor', sortOrder: 0 },
+      { key: 'execute', label: 'Execute Commands', sortOrder: 1 },
+      { key: 'remote', label: 'Remote Access', sortOrder: 2 },
+      { key: 'files', label: 'File Management', sortOrder: 3 },
+      { key: 'power', label: 'Power Control', sortOrder: 4 },
+    ];
+
+    try {
+      const res = await fetch(`${raw.url}/api/apps/sync-capability-schemas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${raw.apiKey}`,
+        },
+        body: JSON.stringify({ schemas }),
+      });
+      if (res.ok) {
+        logger.info('Obligate: capability schemas synced');
+      } else {
+        logger.warn(`Obligate: capability schema sync failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      logger.warn(err, 'Obligate: capability schema sync failed');
     }
   },
 
