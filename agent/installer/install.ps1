@@ -1,5 +1,5 @@
 # Obliance Agent Installer for Windows
-# Usage: irm "https://your-server/api/agent/installer/windows?key=<apikey>" | iex
+# Usage: irm "https://your-server/api/agent/installer/windows?key=<apikey>" -OutFile "$env:TEMP\obliance-install.ps1"; & "$env:TEMP\obliance-install.ps1"
 
 $ServerUrl = "__SERVER_URL__"
 $ApiKey    = "__API_KEY__"

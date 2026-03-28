@@ -50,7 +50,7 @@ export function GlobalAddAgentModal() {
   const origin = window.location.origin;
   const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
-  const windowsCmd = selectedKey ? `irm "${origin}/api/agent/installer/windows?key=${selectedKey.key}" | iex` : '';
+  const windowsCmd = selectedKey ? `irm "${origin}/api/agent/installer/windows?key=${selectedKey.key}" -OutFile "$env:TEMP\\obliance-install.ps1"; & "$env:TEMP\\obliance-install.ps1"` : '';
 
   const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
     { id: 'windows', label: 'Windows', icon: <Monitor size={14} /> },

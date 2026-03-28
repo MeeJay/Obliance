@@ -398,7 +398,9 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 // are populated even when config.json already exists (belt-and-suspenders).
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
-	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	// Write the update script inside the agent install dir (not %TEMP%) to avoid
+	// SIGMA rule "Scheduled Task with Batch Script in Suspicious Location".
+	scriptPath := `C:\Program Files\OblianceAgent\obliance-msi-update.bat`
 
 	// Batch script with:
 	//  - 5s initial wait (service needs time to fully stop)
@@ -438,16 +440,14 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
 
-	// Use a scheduled task to run the batch script directly via cmd.exe.
-	// Previous approach used a VBS wrapper (wscript.exe → .vbs → .bat) to
-	// hide the console window, but AV software (Bitdefender, etc.) commonly
-	// blocks VBS scripts launched by scheduled tasks as suspicious behavior.
-	// Running as SYSTEM with no interactive desktop means no visible window anyway.
+	// Use a scheduled task to run the batch script directly (no cmd.exe /c wrapper)
+	// from the agent install dir to avoid EDR/SIGMA rules flagging bat execution
+	// from TEMP directories or cmd.exe wrappers in scheduled tasks.
 	// Delete any stale task first.
 	newCmd("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
 	if err := newCmd("schtasks",
 		"/create", "/tn", "OblianceUpdate",
-		"/tr", "cmd.exe /c \""+scriptPath+"\"",
+		"/tr", scriptPath,
 		"/sc", "once",
 		"/st", "00:00",
 		"/ru", "SYSTEM",

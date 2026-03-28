@@ -23,7 +23,7 @@ function buildCommand(platform: Platform, origin: string, apiKey: string): strin
     case 'macosIntel':
       return `sudo bash -c "$(curl -fsSL '${origin}/api/agent/installer/macos?key=${apiKey}')"`;
     case 'windows':
-      return `irm "${origin}/api/agent/installer/windows?key=${apiKey}" | iex`;
+      return `irm "${origin}/api/agent/installer/windows?key=${apiKey}" -OutFile "$env:TEMP\\obliance-install.ps1"; & "$env:TEMP\\obliance-install.ps1"`;
   }
 }
 
