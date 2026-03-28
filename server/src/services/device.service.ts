@@ -663,7 +663,7 @@ class DeviceService {
     const setting = await db('settings')
       .where({ tenant_id: tenantId, scope: 'global', key: 'autoApproveDevices' })
       .first();
-    if (setting) return setting.value === true || setting.value === 'true';
+    if (setting) return setting.value === true || setting.value === 'true' || setting.value === 1;
     const appConfig = await db('app_config').where({ key: 'agent_auto_approve' }).first();
     return appConfig?.value === 'true';
   }
