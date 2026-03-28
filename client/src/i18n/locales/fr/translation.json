@@ -1112,7 +1112,8 @@
       "approved": "{{count}} appareils approuvés",
       "deleted": "{{count}} appareils supprimés",
       "dispatched": "{{count}} commandes envoyées",
-      "confirmDelete": "Supprimer les appareils sélectionnés ? Action irréversible."
+      "confirmDelete": "Supprimer les appareils sélectionnés ? Action irréversible.",
+      "uninstall": "Désinstaller l'agent"
     },
     "actions": {
       "view": "Voir",

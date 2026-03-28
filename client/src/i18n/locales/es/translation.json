@@ -923,7 +923,8 @@
       "approved": "{{count}} dispositivos aprobados",
       "deleted": "{{count}} dispositivos eliminados",
       "dispatched": "{{count}} comandos enviados",
-      "confirmDelete": "¿Eliminar dispositivos seleccionados? Irreversible."
+      "confirmDelete": "¿Eliminar dispositivos seleccionados? Irreversible.",
+      "uninstall": "Desinstalar agente"
     },
     "actions": {
       "view": "View",

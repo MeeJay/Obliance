@@ -624,7 +624,8 @@
       "approved": "{{count}} devices approved",
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
-      "confirmDelete": "Delete selected devices? This cannot be undone."
+      "confirmDelete": "Delete selected devices? This cannot be undone.",
+      "uninstall": "Odinstaluj agenta"
     },
     "actions": {
       "view": "View",

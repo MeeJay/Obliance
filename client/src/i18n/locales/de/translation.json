@@ -624,7 +624,8 @@
       "approved": "{{count}} Geräte genehmigt",
       "deleted": "{{count}} Geräte gelöscht",
       "dispatched": "{{count}} Befehle gesendet",
-      "confirmDelete": "Ausgewählte Geräte löschen? Nicht rückgängig."
+      "confirmDelete": "Ausgewählte Geräte löschen? Nicht rückgängig.",
+      "uninstall": "Agent deinstallieren"
     },
     "actions": {
       "view": "View",
