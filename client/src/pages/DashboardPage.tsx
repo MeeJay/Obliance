@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Monitor, Wifi, WifiOff, AlertTriangle, AlertCircle, Clock, RefreshCw,
-  ArrowRight, Package, ShieldCheck, CheckCircle2, ArrowUpCircle,
+  ArrowRight, Package, ShieldCheck, ArrowUpCircle,
   FolderOpen, Users, Activity,
 } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
