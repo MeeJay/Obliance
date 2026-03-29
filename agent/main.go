@@ -461,7 +461,7 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	newCmd("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
 	if err := newCmd("schtasks",
 		"/create", "/tn", "OblianceUpdate",
-		"/tr", scriptPath,
+		"/tr", `cmd.exe /c "`+scriptPath+`"`,
 		"/sc", "once",
 		"/st", "00:00",
 		"/ru", "SYSTEM",
