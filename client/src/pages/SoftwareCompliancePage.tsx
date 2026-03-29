@@ -73,6 +73,8 @@ interface EntryFormData {
   installSource: SoftwareInstallSource | '';
   installId: string;
   installScript: string;
+  msiUrl: string;
+  msiParams: string;
   fromInventory?: boolean;
 }
 
@@ -86,6 +88,8 @@ function makeEmptyEntry(): EntryFormData {
     installSource: '',
     installId: '',
     installScript: '',
+    msiUrl: '',
+    msiParams: '/quiet /norestart',
   };
 }
 
@@ -109,6 +113,8 @@ function makeEntryFromKnownApp(app: KnownSoftwareApp): EntryFormData {
     installSource,
     installId,
     installScript: '',
+    msiUrl: '',
+    msiParams: '/quiet /norestart',
     fromInventory: true,
   };
 }
@@ -572,7 +578,7 @@ function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: numb
 
 export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
-  const { isAdmin } = useAuthStore();
+  const { isAdmin: _isAdmin } = useAuthStore();
   const deviceMap = useDeviceStore(s => s.devices);
   const devices = Array.from(deviceMap.values());
   const [activeTab, setActiveTab] = useState<Tab>('results');
@@ -649,6 +655,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
         installSource: e.installSource ?? '',
         installId: e.installId ?? '',
         installScript: e.installScript ?? '',
+        msiUrl: e.msiUrl ?? '',
+        msiParams: e.msiParams ?? '/quiet /norestart',
       })),
     });
     setEditingList(list);
@@ -669,6 +677,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
         installSource: (e.installSource || null) as SoftwareInstallSource | null,
         installId: e.installId || null,
         installScript: e.installScript || null,
+        msiUrl: e.msiUrl || null,
+        msiParams: e.msiParams || null,
         sortOrder: i,
       }));
       const payload = {
