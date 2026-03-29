@@ -31,6 +31,10 @@ func (s *agentSvc) Execute(_ []string, r <-chan svc.ChangeRequest, status chan<-
 
 	status <- svc.Status{State: svc.StartPending}
 
+	// Ensure service recovery is configured (restart on failure).
+	// Covers agents installed before the MSI included this CustomAction.
+	ensureServiceRecovery()
+
 	cfg := setupConfig(*s.urlFlag, *s.keyFlag)
 
 	// Signal SERVICE_RUNNING — the MSI (ServiceControl Wait="yes") unblocks here.
@@ -60,6 +64,14 @@ func (s *agentSvc) Execute(_ []string, r <-chan svc.ChangeRequest, status chan<-
 			}
 		}
 	}
+}
+
+// ensureServiceRecovery configures the SCM to auto-restart the service on
+// failure. Idempotent — safe to call on every boot. This is a one-liner via
+// sc.exe so existing agents get recovery without needing a fresh MSI install.
+func ensureServiceRecovery() {
+	_ = newCmd("sc", "failure", "OblianceAgent",
+		"reset=", "86400", "actions=", "restart/30000/restart/60000/restart/120000").Run()
 }
 
 // runAsService detects Windows service mode and runs the SCM handler.

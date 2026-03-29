@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -476,13 +477,17 @@ if ($mod) {
   $null = $downloader.Download()
   $installer = $session.CreateUpdateInstaller()
   $installer.Updates = $toInstall
-  $installer.ForceQuiet = $true
-  $installer.AllowSourcePrompts = $false
+  try { $installer.ForceQuiet = $true } catch {}
+  try { $installer.AllowSourcePrompts = $false } catch {}
   $installer.Install()
 }`, kbID, strings.TrimPrefix(strings.ToUpper(kbID), "KB"))
 
-	cmd := newCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	out, err := cmd.CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	out, err := runInstallCmd(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("install update %s: timed out after 30 minutes", updateUID)
+	}
 	if err != nil {
 		return fmt.Errorf("install update %s: %w\n%s", updateUID, err, string(out))
 	}
@@ -493,8 +498,12 @@ if ($mod) {
 func installChocolateyUpdate(pkgName string) error {
 	// Strip "choco-" prefix if present (added by scan)
 	pkg := strings.TrimPrefix(pkgName, "choco-")
-	cmd := newCmd("choco", "upgrade", pkg, "-y", "--no-progress")
-	out, err := cmd.CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	out, err := runInstallCmd(ctx, "choco", "upgrade", pkg, "-y", "--no-progress")
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("choco upgrade %s: timed out after 15 minutes", pkg)
+	}
 	if err != nil {
 		return fmt.Errorf("choco upgrade %s: %w\n%s", pkg, err, string(out))
 	}
@@ -503,10 +512,14 @@ func installChocolateyUpdate(pkgName string) error {
 }
 
 func installWingetUpdate(pkgID string) error {
-	cmd := newCmd("winget", "upgrade", "--id", pkgID,
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	out, err := runInstallCmd(ctx, "winget", "upgrade", "--id", pkgID,
 		"--accept-source-agreements", "--accept-package-agreements",
 		"--silent", "--disable-interactivity")
-	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("winget upgrade %s: timed out after 15 minutes", pkgID)
+	}
 	if err != nil {
 		return fmt.Errorf("winget upgrade %s: %w\n%s", pkgID, err, string(out))
 	}
