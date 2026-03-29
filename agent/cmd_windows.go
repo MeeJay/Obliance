@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	kernel32              = syscall.NewLazyDLL("kernel32.dll")
+	// kernel32 is declared in tunnel_shell_windows.go
 	procCreateJobObject   = kernel32.NewProc("CreateJobObjectW")
 	procSetInformationJob = kernel32.NewProc("SetInformationJobObject")
 	procAssignProcess     = kernel32.NewProc("AssignProcessToJobObject")
