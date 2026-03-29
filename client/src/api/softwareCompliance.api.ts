@@ -27,8 +27,8 @@ export const softwareComplianceApi = {
     return res.data.data ?? { items: [], total: 0 };
   },
   async getDeviceResults(deviceId: number): Promise<SoftwareComplianceResult[]> {
-    const res = await apiClient.get<ApiResponse<SoftwareComplianceResult[]>>(`/software-compliance/results/device/${deviceId}`);
-    return res.data.data ?? [];
+    const res = await apiClient.get<ApiResponse<{ items: SoftwareComplianceResult[]; total: number }>>(`/software-compliance/results/device/${deviceId}`);
+    return res.data.data?.items ?? [];
   },
   async triggerCheck(deviceId: number, listId?: number): Promise<void> {
     await apiClient.post('/software-compliance/check', { deviceId, listId });
