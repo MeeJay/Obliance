@@ -1,8 +1,22 @@
-# Obliance
+<p align="center">
+  <img src="client/public/logo.svg" alt="Obliance" height="80">
+</p>
 
-Self-hosted Remote Monitoring & Management platform. Deploy lightweight agents on Windows, Linux and macOS endpoints, collect real-time system metrics, run scripts, manage updates and compliance, browse remote filesystems, take remote control, and automate fleet operations — across multi-tenant workspaces with full RBAC.
+<h3 align="center">Self-hosted Remote Monitoring & Management</h3>
+
+<p align="center">
+  Endpoint agents, scripts, updates, compliance, remote access, fleet automation.
+  <br>
+  Part of the <a href="https://obli.tools"><strong>obli.tools</strong></a> ecosystem.
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="100%">
+</p>
 
 ---
+
+Obliance deploys lightweight agents on Windows, Linux and macOS endpoints to collect real-time system metrics, run scripts, manage updates and compliance, browse remote filesystems, take remote control, and automate fleet operations — across multi-tenant workspaces with full RBAC.
 
 ## Features at a Glance
 
@@ -29,6 +43,33 @@ Self-hosted Remote Monitoring & Management platform. Deploy lightweight agents o
 - **18 UI languages**
 - **Real-time** — Socket.io live updates and alert toasts
 - **Agent tray icon** — Windows systray with connection status, privacy toggle, and version info
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/device-overview.png" alt="Device Overview"><br><sub><b>Device Overview</b> — System info, live metrics, asset fields</sub></td>
+    <td><img src="docs/screenshots/device-inventory.png" alt="Inventory"><br><sub><b>Hardware Inventory</b> — CPU, disks, GPU, network, BIOS</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/compliance.png" alt="Compliance"><br><sub><b>Compliance</b> — CIS/NIST/ISO presets, pass/fail per rule</sub></td>
+    <td><img src="docs/screenshots/updates.png" alt="Updates"><br><sub><b>Updates</b> — OS update detection & deployment</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/services.png" alt="Services"><br><sub><b>Services</b> — Start/stop/restart remote services</sub></td>
+    <td><img src="docs/screenshots/processes.png" alt="Processes"><br><sub><b>Processes</b> — Live process list with CPU/memory</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/scripts.png" alt="Script Library"><br><sub><b>Script Library</b> — Multi-platform scripts with parameters</sub></td>
+    <td><img src="docs/screenshots/schedules.png" alt="Schedules"><br><sub><b>Schedules</b> — Cron-based script automation</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/agents.png" alt="Agents"><br><sub><b>Agents</b> — Fleet management & approval</sub></td>
+    <td><img src="docs/screenshots/tasks.png" alt="Tasks"><br><sub><b>Tasks</b> — Execution history with status tracking</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -471,3 +512,7 @@ Set `DATABASE_URL` in your `.env` to point at your existing PostgreSQL instance.
 > **An experiment with Claude Code**
 >
 > This project was built as an experiment to see how far Claude Code could be pushed as a development tool. Claude was used as a coding assistant throughout the entire development process.
+
+<p align="center">
+  <a href="https://obli.tools">obli.tools</a>
+</p>
