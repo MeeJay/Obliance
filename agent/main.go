@@ -504,7 +504,8 @@ func mainLoop(cfg *Config) {
 	log.Printf("Server: %s", cfg.ServerURL)
 	log.Printf("Device UUID: %s", cfg.DeviceUUID)
 
-
+	// Kill orphaned processes from previous runs (e.g. stuck WUA COM installers).
+	cleanupOrphanedProcesses()
 
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()

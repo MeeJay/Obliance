@@ -157,6 +157,7 @@ if ($mod) {
 if (-not $usedModule) {
   # COM API fallback — pending (not installed) updates
   $session = New-Object -ComObject Microsoft.Update.Session
+  $session.ClientApplicationID = 'OblianceAgent'
   $searcher = $session.CreateUpdateSearcher()
   try { $result = $searcher.Search("IsInstalled=0 and Type='Software'") } catch { $result = $null }
   if ($result) {
@@ -459,11 +460,15 @@ if ($mod) {
   Install-WindowsUpdate -KBArticleID '%s' -AcceptAll -IgnoreReboot -Confirm:$false
 } else {
   $session = New-Object -ComObject Microsoft.Update.Session
+  $session.ClientApplicationID = 'OblianceAgent'
   $searcher = $session.CreateUpdateSearcher()
   $result = $searcher.Search("IsInstalled=0 and Type='Software'")
   $toInstall = New-Object -ComObject Microsoft.Update.UpdateColl
   foreach ($u in $result.Updates) {
-    if ($u.KBArticleIDs -contains '%s') { $null = $toInstall.Add($u) }
+    if ($u.KBArticleIDs -contains '%s') {
+      if ($u.EulaAccepted -eq $false) { $u.AcceptEula() }
+      $null = $toInstall.Add($u)
+    }
   }
   if ($toInstall.Count -eq 0) { Write-Error 'Update not found'; exit 1 }
   $downloader = $session.CreateUpdateDownloader()
@@ -471,6 +476,8 @@ if ($mod) {
   $null = $downloader.Download()
   $installer = $session.CreateUpdateInstaller()
   $installer.Updates = $toInstall
+  $installer.ForceQuiet = $true
+  $installer.AllowSourcePrompts = $false
   $installer.Install()
 }`, kbID, strings.TrimPrefix(strings.ToUpper(kbID), "KB"))
 
