@@ -543,7 +543,14 @@ func mainLoop(cfg *Config) {
 			continue
 		}
 
-		push(cfg)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("PANIC in push loop: %v", r)
+				}
+			}()
+			push(cfg)
+		}()
 		time.Sleep(time.Duration(cfg.CheckIntervalSeconds) * time.Second)
 	}
 }

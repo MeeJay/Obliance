@@ -59,8 +59,11 @@ func (s *agentSvc) Execute(_ []string, r <-chan svc.ChangeRequest, status chan<-
 // failure. Idempotent — safe to call on every boot. This is a one-liner via
 // sc.exe so existing agents get recovery without needing a fresh MSI install.
 func ensureServiceRecovery() {
+	// reset=0 → never reset the failure counter, so restarts are infinite.
+	// Three actions required by sc.exe; all restart after 10 seconds.
+	// After the third failure Windows loops back to the last action (10 s).
 	_ = newCmd("sc", "failure", "OblianceAgent",
-		"reset=", "86400", "actions=", "restart/30000/restart/60000/restart/120000").Run()
+		"reset=", "0", "actions=", "restart/10000/restart/10000/restart/10000").Run()
 }
 
 // runAsService detects Windows service mode and runs the SCM handler.
