@@ -10,11 +10,6 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
-// stopServiceCh is closed by restartWithNewBinary to request a clean service
-// stop via the SCM (instead of os.Exit which the SCM treats as a crash and
-// triggers failure-recovery restarts that race with msiexec).
-var stopServiceCh = make(chan struct{})
-
 type agentSvc struct {
 	urlFlag *string
 	keyFlag *string
@@ -46,22 +41,16 @@ func (s *agentSvc) Execute(_ []string, r <-chan svc.ChangeRequest, status chan<-
 	// Run main loop in background goroutine
 	go mainLoop(cfg)
 
-	// Wait for stop/shutdown command from SCM or internal stop request
+	// Wait for stop/shutdown command from SCM
 	for {
-		select {
-		case <-stopServiceCh:
-			log.Printf("Obliance Agent stopping for auto-update...")
+		c := <-r
+		switch c.Cmd {
+		case svc.Stop, svc.Shutdown:
+			log.Printf("Obliance Agent stopping...")
 			status <- svc.Status{State: svc.StopPending}
 			return false, 0
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Stop, svc.Shutdown:
-				log.Printf("Obliance Agent stopping...")
-				status <- svc.Status{State: svc.StopPending}
-				return false, 0
-			case svc.Interrogate:
-				status <- c.CurrentStatus
-			}
+		case svc.Interrogate:
+			status <- c.CurrentStatus
 		}
 	}
 }

@@ -253,9 +253,9 @@ func verifyFileSHA256(filePath, expectedHash string) bool {
 
 // updateMu prevents concurrent auto-update attempts. Multiple goroutines
 // (checkForUpdate, commandPoller, push) may call applyUpdateIfNewer at the
-// same time; without this guard they race on the same temp files and schtasks
-// entry, causing one goroutine to delete the MSI that the other's batch
-// script needs — silently breaking the update.
+// same time; without this guard they race on the same temp files, causing one
+// goroutine to delete the MSI that the other's batch script needs — silently
+// breaking the update.
 var updateMu sync.Mutex
 var updateInProgress bool
 
@@ -412,68 +412,19 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 // are populated even when config.json already exists (belt-and-suspenders).
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
-	// Write the update script inside the agent install dir (not %TEMP%) to avoid
-	// SIGMA rule "Scheduled Task with Batch Script in Suspicious Location".
-	scriptPath := `C:\Program Files\OblianceAgent\obliance-msi-update.bat`
-
-	// Batch script with:
-	//  - 5s initial wait (service needs time to fully stop)
-	//  - Retry loop for error 1618 (another msiexec in progress)
-	//  - Recovery: if service disappeared (partial MajorUpgrade), recreate it
-	//  - Final check: ensure service is running regardless of MSI exit code
-	exePath := `C:\Program Files\OblianceAgent\obliance-agent.exe`
+	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
-			"ping -n 6 127.0.0.1 >nul\r\n"+
-			"set RETRIES=0\r\n"+
-			":RETRY\r\n"+
+			"timeout /t 2 /nobreak >nul\r\n"+
 			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
-			"set MSI_EXIT=%%ERRORLEVEL%%\r\n"+
-			"if %%MSI_EXIT%%==1618 (\r\n"+
-			"  set /a RETRIES+=1\r\n"+
-			"  if %%RETRIES%% LSS 5 (\r\n"+
-			"    ping -n 31 127.0.0.1 >nul\r\n"+
-			"    goto RETRY\r\n"+
-			"  )\r\n"+
-			")\r\n"+
-			"ping -n 6 127.0.0.1 >nul\r\n"+
-			"sc query OblianceAgent >nul 2>&1\r\n"+
-			"if %%ERRORLEVEL%% NEQ 0 (\r\n"+
-			"  if exist \"%s\" (\r\n"+
-			"    sc create OblianceAgent binPath= \"\\\"%s\\\"\" start= auto obj= LocalSystem\r\n"+
-			"    sc description OblianceAgent \"Obliance Monitoring Agent\"\r\n"+
-			"    sc failure OblianceAgent reset= 86400 actions= restart/60000/restart/60000/restart/60000\r\n"+
-			"  )\r\n"+
-			")\r\n"+
-			"net start OblianceAgent >nul 2>&1\r\n"+
 			"del /q \"%s\"\r\n"+
-			"schtasks /delete /tn OblianceUpdate /f >nul 2>&1\r\n"+
 			"del /q \"%%~f0\"\r\n",
-		msiPath, serverURL, apiKey, logPath, exePath, exePath, msiPath)
+		msiPath, serverURL, apiKey, logPath, msiPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
-
-	// Use a scheduled task to run the batch script directly (no cmd.exe /c wrapper)
-	// from the agent install dir to avoid EDR/SIGMA rules flagging bat execution
-	// from TEMP directories or cmd.exe wrappers in scheduled tasks.
-	// Delete any stale task first.
-	newCmd("schtasks", "/delete", "/tn", "OblianceUpdate", "/f").Run()
-	if err := newCmd("schtasks",
-		"/create", "/tn", "OblianceUpdate",
-		"/tr", `cmd.exe /c "`+scriptPath+`"`,
-		"/sc", "once",
-		"/st", "00:00",
-		"/ru", "SYSTEM",
-		"/rl", "HIGHEST",
-		"/f",
-	).Run(); err != nil {
-		return fmt.Errorf("schtasks create: %w", err)
-	}
-	if err := newCmd("schtasks", "/run", "/tn", "OblianceUpdate").Run(); err != nil {
-		return fmt.Errorf("schtasks run: %w", err)
-	}
-	return nil
+	// Start the batch script detached; it will outlive the current service process.
+	return newCmd("cmd", "/c", scriptPath).Start()
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
