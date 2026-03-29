@@ -28,6 +28,7 @@ export const SocketEvents = {
   // Compliance events
   COMPLIANCE_RESULT:      'COMPLIANCE_RESULT',        // compliance check completed
   COMPLIANCE_SCORE_CHANGED: 'COMPLIANCE_SCORE_CHANGED',
+  SOFTWARE_COMPLIANCE_RESULT: 'SOFTWARE_COMPLIANCE_RESULT',
 
   // Remote access events
   REMOTE_SESSION_UPDATED: 'REMOTE_SESSION_UPDATED',  // session status changed

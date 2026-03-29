@@ -16,6 +16,7 @@ import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
 import { complianceApi } from '@/api/compliance.api';
+import { softwareComplianceApi } from '@/api/softwareCompliance.api';
 import { licenseApi } from '@/api/license.api';
 import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { SshTerminalModal } from '@/components/SshTerminalModal';
@@ -26,7 +27,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
-import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
@@ -1443,6 +1444,78 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
     URL.revokeObjectURL(url);
   };
 
+  // ── Software Compliance ─────────────────────────────────────────────────────
+  const [swResults, setSwResults] = useState<SoftwareComplianceResult[]>([]);
+  const [swLoading, setSwLoading] = useState(true);
+  const [swTriggering, setSwTriggering] = useState(false);
+  const [swExpandedIds, setSwExpandedIds] = useState<Set<number>>(new Set());
+  const [swRemediating, setSwRemediating] = useState<Set<string>>(new Set());
+
+  const loadSwResults = useCallback(async () => {
+    setSwLoading(true);
+    try {
+      const data = await softwareComplianceApi.getDeviceResults(deviceId);
+      setSwResults(data);
+    } catch {
+      // silent
+    } finally {
+      setSwLoading(false);
+    }
+  }, [deviceId]);
+
+  useEffect(() => { loadSwResults(); }, [loadSwResults]);
+
+  const handleSwTriggerCheck = async () => {
+    setSwTriggering(true);
+    try {
+      await softwareComplianceApi.triggerCheck(deviceId);
+      toast.success('Software compliance check triggered');
+    } catch {
+      toast.error('Failed to trigger software compliance check');
+    } finally {
+      setSwTriggering(false);
+    }
+  };
+
+  const handleSwRemediate = async (listId: number, entryIds: number[]) => {
+    const keys = entryIds.map(id => `${listId}:${id}`);
+    setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.add(k)); return s; });
+    try {
+      await softwareComplianceApi.remediate(deviceId, listId, entryIds);
+      toast.success(`Remediation sent for ${entryIds.length} entry(ies)`);
+    } catch {
+      toast.error('Failed to send remediation');
+    } finally {
+      setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.delete(k)); return s; });
+    }
+  };
+
+  const handleSwRemediateAll = async (result: SoftwareComplianceResult) => {
+    const failingIds = result.results
+      .filter(er => er.status === 'non_compliant')
+      .map(er => er.entryId);
+    if (failingIds.length === 0) { toast.error('No remediable entries'); return; }
+    await handleSwRemediate(result.listId, failingIds);
+  };
+
+  const toggleSwExpand = (id: number) => {
+    setSwExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const swEntryStatusIcon = (status: SoftwareComplianceEntryResult['status']) => {
+    switch (status) {
+      case 'compliant': return <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />;
+      case 'non_compliant': return <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
+      case 'remediated': return <RefreshCw className="w-4 h-4 text-yellow-400 shrink-0" />;
+      case 'remediation_failed': return <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />;
+      default: return <MinusCircle className="w-4 h-4 text-text-muted shrink-0" />;
+    }
+  };
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-48">
       <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
@@ -1477,7 +1550,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
         <div className="p-12 text-center text-text-muted">
           <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No compliance checks run yet</p>
-          <Link to="/policies?tab=compliance" className="mt-2 inline-block text-sm text-accent">Configure policies →</Link>
+          <Link to="/policies?tab=compliance" className="mt-2 inline-block text-sm text-accent">Configure policies &rarr;</Link>
         </div>
       ) : (
         results.map((result) => {
@@ -1667,6 +1740,187 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
           );
         })
       )}
+
+      {/* ── Software Compliance Section ── */}
+      <div className="border-t border-border pt-4 mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider">Software Compliance</p>
+          <div className="flex gap-2">
+            <button
+              onClick={loadSwResults}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+            >
+              <RefreshCw className={clsx('w-3 h-3', swLoading && 'animate-spin')} />
+              Refresh
+            </button>
+            <button
+              onClick={handleSwTriggerCheck}
+              disabled={swTriggering}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+            >
+              {swTriggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              Run Check
+            </button>
+          </div>
+        </div>
+
+        {swLoading ? (
+          <div className="flex items-center justify-center h-24">
+            <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+          </div>
+        ) : swResults.length === 0 ? (
+          <div className="p-8 text-center text-text-muted">
+            <ShieldCheck className="w-6 h-6 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No software compliance checks run yet</p>
+            <Link to="/policies?tab=software" className="mt-2 inline-block text-sm text-accent">Configure software lists &rarr;</Link>
+          </div>
+        ) : swResults.map((result) => {
+          const isExpanded = swExpandedIds.has(result.id);
+          const compliantCount = result.results.filter(r => r.status === 'compliant').length;
+          const nonCompliantCount = result.results.filter(r => r.status === 'non_compliant').length;
+
+          return (
+            <div key={result.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden mb-2">
+              <div
+                onClick={() => toggleSwExpand(result.id)}
+                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  {isExpanded
+                    ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+                  }
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-text-primary">
+                        {result.list?.name ?? `List #${result.listId}`}
+                      </p>
+                      {result.list && (
+                        <span className={clsx(
+                          'text-xs px-2 py-0.5 rounded-full border font-medium',
+                          result.list.listType === 'whitelist'
+                            ? 'text-green-400 bg-green-400/10 border-green-400/30'
+                            : 'text-red-400 bg-red-400/10 border-red-400/30',
+                        )}>
+                          {result.list.listType}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {new Date(result.checkedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  {nonCompliantCount > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                      title="Remediate all non-compliant entries"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      Fix All
+                    </button>
+                  )}
+                  <div className="flex gap-3 text-xs">
+                    {compliantCount > 0 && <span className="text-green-400">{compliantCount} ok</span>}
+                    {nonCompliantCount > 0 && <span className="text-red-400">{nonCompliantCount} fail</span>}
+                  </div>
+                  <div className={clsx(
+                    'text-lg font-bold tabular-nums',
+                    result.complianceScore >= 80 ? 'text-green-400'
+                    : result.complianceScore >= 50 ? 'text-yellow-400'
+                    : 'text-red-400'
+                  )}>
+                    {result.complianceScore.toFixed(0)}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Score bar */}
+              <div className="h-1 bg-bg-primary">
+                <div
+                  className={clsx(
+                    'h-full transition-all',
+                    result.complianceScore >= 80 ? 'bg-green-400'
+                    : result.complianceScore >= 50 ? 'bg-yellow-400'
+                    : 'bg-red-400'
+                  )}
+                  style={{ width: `${result.complianceScore}%` }}
+                />
+              </div>
+
+              {/* Expanded: per-entry breakdown */}
+              {isExpanded && (
+                <div>
+                  {nonCompliantCount > 0 && (
+                    <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-bg-tertiary/80">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        Remediate all ({nonCompliantCount})
+                      </button>
+                    </div>
+                  )}
+                  <div className="divide-y divide-border">
+                    {result.results.map((er) => {
+                      const isRemediating = swRemediating.has(`${result.listId}:${er.entryId}`);
+                      return (
+                        <div key={er.entryId} className="flex items-start gap-3 px-4 py-3">
+                          <div className="mt-0.5">
+                            {swEntryStatusIcon(er.status)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-text-primary">{er.entryName}</span>
+                            {er.matchedSoftware && (
+                              <p className="text-xs text-text-muted mt-0.5">
+                                matched: <span className="font-mono">{er.matchedSoftware}</span>
+                                {er.matchedVersion && <span className="ml-1">v{er.matchedVersion}</span>}
+                              </p>
+                            )}
+                            {er.detail && (
+                              <p className="text-xs text-text-muted/60 mt-0.5">{er.detail}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                            {er.remediationTriggered && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                remediated
+                              </span>
+                            )}
+                            <span className={clsx(
+                              'text-xs font-medium capitalize',
+                              er.status === 'compliant' ? 'text-green-400'
+                              : er.status === 'non_compliant' ? 'text-red-400'
+                              : er.status === 'remediated' ? 'text-yellow-400'
+                              : er.status === 'remediation_failed' ? 'text-orange-400'
+                              : 'text-text-muted'
+                            )}>
+                              {er.status.replace('_', ' ')}
+                            </span>
+                            {er.status === 'non_compliant' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSwRemediate(result.listId, [er.entryId]); }}
+                                disabled={isRemediating}
+                                className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
+                                title="Remediate"
+                              >
+                                <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

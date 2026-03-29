@@ -205,6 +205,12 @@ async function main() {
   setTimeout(() => complianceService.runScheduledChecks(COMPLIANCE_INTERVAL).catch(() => {}), 60_000); // first run 1 min after startup
   setInterval(() => complianceService.runScheduledChecks(COMPLIANCE_INTERVAL).catch(() => {}), COMPLIANCE_INTERVAL);
 
+  // Scheduled software compliance checks — every 6h, same pattern
+  const { softwareComplianceService } = require('./services/softwareCompliance.service');
+  const SW_COMPLIANCE_INTERVAL = 6 * 60 * 60 * 1000;
+  setTimeout(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), 90_000); // first run 1.5 min after startup
+  setInterval(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), SW_COMPLIANCE_INTERVAL);
+
   server.listen(config.port, () => {
     logger.info({ port: config.port, env: config.nodeEnv }, `Obliance RMM started`);
 

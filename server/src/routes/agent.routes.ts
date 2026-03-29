@@ -19,6 +19,7 @@ import { geolocationService } from '../services/geolocation.service';
 import { inventoryService } from '../services/inventory.service';
 import { updateService } from '../services/update.service';
 import { complianceService } from '../services/compliance.service';
+import { softwareComplianceService } from '../services/softwareCompliance.service';
 import { networkDiscoveryService } from '../services/networkDiscovery.service';
 import { SocketEvents } from '@obliance/shared';
 import { getIO } from '../socket';
@@ -386,6 +387,49 @@ router.post('/compliance', agentAuth, async (req, res, next) => {
     // Emit real-time update
     try {
       getIO().to(`tenant:${tenantId}`).emit(SocketEvents.COMPLIANCE_RESULT, stored);
+    } catch {}
+
+    res.json({ ok: true, stored: true, id: stored.id });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/software-compliance
+// Called by the agent after evaluating software compliance for a list.
+// Stores entry-level results in software_compliance_results and emits a socket event.
+router.post('/software-compliance', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices')
+      .where({ uuid: deviceUuid, tenant_id: tenantId })
+      .first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { listId, results, score } = req.body as {
+      listId?: number;
+      results: any[];
+      score: number;
+    };
+
+    if (!listId) {
+      return res.json({ ok: true, stored: false, reason: 'no_list_id' });
+    }
+    if (!Array.isArray(results)) {
+      return res.status(400).json({ error: 'results must be an array' });
+    }
+
+    const stored = await softwareComplianceService.storeResults(
+      device.id, tenantId, Number(listId), results, score,
+    );
+
+    // Emit real-time update
+    try {
+      getIO().to(`tenant:${tenantId}`).emit(SocketEvents.SOFTWARE_COMPLIANCE_RESULT, stored);
     } catch {}
 
     res.json({ ok: true, stored: true, id: stored.id });

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Package, ShieldCheck, BarChart3, Loader2 } from 'lucide-react';
+import { Package, ShieldCheck, BarChart3, Loader2, ListChecks } from 'lucide-react';
 import { UpdatesPage } from './UpdatesPage';
 import { CompliancePage } from './CompliancePage';
+import { SoftwareCompliancePage } from './SoftwareCompliancePage';
 import { updateApi } from '@/api/update.api';
 import type { PatchComplianceReport } from '@obliance/shared';
 import { clsx } from 'clsx';
 
-type Tab = 'updates' | 'compliance' | 'patchReport';
+type Tab = 'updates' | 'compliance' | 'software' | 'patchReport';
 
 // ─── Patch Report Tab ────────────────────────────────────────────────────────
 
@@ -127,6 +128,7 @@ export function PoliciesPage() {
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'updates', label: t('policies.tabUpdates'), icon: <Package size={16} /> },
     { id: 'compliance', label: t('policies.tabCompliance'), icon: <ShieldCheck size={16} /> },
+    { id: 'software', label: t('policies.tabSoftware'), icon: <ListChecks size={16} /> },
     { id: 'patchReport', label: 'Patch Report', icon: <BarChart3 size={16} /> },
   ];
 
@@ -150,6 +152,7 @@ export function PoliciesPage() {
       </div>
       {tab === 'updates' && <UpdatesPage embedded />}
       {tab === 'compliance' && <CompliancePage embedded />}
+      {tab === 'software' && <SoftwareCompliancePage embedded />}
       {tab === 'patchReport' && <PatchReportTab />}
     </div>
   );

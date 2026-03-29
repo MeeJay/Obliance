@@ -221,6 +221,13 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "scan_network":
 		result, execErr = d.handleScanNetwork(cmd)
 
+	case "check_software_compliance":
+		result, execErr = d.handleCheckSoftwareCompliance(cmd)
+	case "install_software":
+		result, execErr = d.handleInstallSoftware(cmd)
+	case "uninstall_software":
+		result, execErr = d.handleUninstallSoftware(cmd)
+
 	case "disable_privacy_mode":
 		if err := SetPrivacyMode(false, "remote"); err != nil {
 			execErr = err

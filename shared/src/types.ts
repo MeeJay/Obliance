@@ -346,7 +346,8 @@ export type CommandType =
   | 'download_file'
   | 'upload_file'
   | 'remediate_rule'
-  | 'scan_network';
+  | 'scan_network'
+  | 'check_software_compliance';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -762,6 +763,80 @@ export interface ComplianceResult {
   checkedAt: string;
   createdAt: string;
   policy?: Pick<CompliancePolicy, 'id' | 'name' | 'framework'>;
+}
+
+// ─── SOFTWARE COMPLIANCE ────────────────────────────────────────────────────
+
+export type SoftwareListType = 'whitelist' | 'blacklist';
+export type SoftwareMatchType = 'exact' | 'contains' | 'regex';
+export type SoftwareInstallSource = 'winget' | 'choco' | 'apt' | 'dnf' | 'brew' | 'pkg' | 'msi' | 'custom';
+
+export interface SoftwareComplianceEntry {
+  id: number;
+  listId: number;
+  name: string;
+  matchType: SoftwareMatchType;
+  publisher: string | null;
+  minVersion: string | null;
+  maxVersion: string | null;
+  installSource: SoftwareInstallSource | null;
+  installId: string | null;
+  installScript: string | null;
+  msiUrl: string | null;
+  msiParams: string | null;
+  sortOrder: number;
+}
+
+export interface SoftwareComplianceList {
+  id: number;
+  uuid: string;
+  tenantId: number;
+  name: string;
+  description: string | null;
+  listType: SoftwareListType;
+  targetType: 'group' | 'all';
+  targetIds: number[];
+  targetPlatform: 'windows' | 'linux' | 'macos' | 'freebsd' | 'all';
+  autoRemediate: boolean;
+  enabled: boolean;
+  entries: SoftwareComplianceEntry[];
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SoftwareComplianceEntryResult {
+  entryId: number;
+  entryName: string;
+  status: 'compliant' | 'non_compliant' | 'remediated' | 'remediation_failed' | 'error';
+  matchedSoftware: string | null;
+  matchedVersion: string | null;
+  remediationTriggered: boolean;
+  detail: string | null;
+  checkedAt: string;
+}
+
+export interface SoftwareComplianceResult {
+  id: number;
+  deviceId: number;
+  deviceName: string | null;
+  listId: number;
+  tenantId: number;
+  results: SoftwareComplianceEntryResult[];
+  complianceScore: number;
+  checkedAt: string;
+  createdAt: string;
+  list?: Pick<SoftwareComplianceList, 'id' | 'name' | 'listType'>;
+}
+
+export interface KnownSoftwareApp {
+  name: string;
+  publisher: string | null;
+  source: string;
+  packageId: string | null;
+  osType: string;
+  deviceCount: number;
+  latestVersion: string | null;
 }
 
 // ─── REMOTE SESSIONS ─────────────────────────────────────────────────────────
