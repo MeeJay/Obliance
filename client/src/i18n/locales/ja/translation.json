@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "リポジトリ",
+    "addSource": "ソースを追加",
+    "dragDrop": "ファイルをドラッグ＆ドロップするか、参照をクリック",
+    "browse": "参照",
+    "uploading": "アップロード中...",
+    "packageUploaded": "パッケージがアップロードされました",
+    "packageDeleted": "パッケージが削除されました",
+    "confirmDeletePackage": "このパッケージをリポジトリから削除しますか？",
+    "noPackages": "パッケージはまだアップロードされていません"
   }
 }

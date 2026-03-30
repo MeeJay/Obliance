@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Репозиторій",
+    "addSource": "Додати джерело",
+    "dragDrop": "Перетягніть файл або натисніть Огляд",
+    "browse": "Огляд",
+    "uploading": "Завантаження...",
+    "packageUploaded": "Пакет завантажено",
+    "packageDeleted": "Пакет видалено",
+    "confirmDeletePackage": "Видалити цей пакет з репозиторію?",
+    "noPackages": "Пакети ще не завантажені"
   }
 }

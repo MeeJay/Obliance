@@ -1778,6 +1778,15 @@
     "moveUp": "Monter",
     "moveDown": "Descendre",
     "msiUrl": "URL ou chemin MSI",
-    "msiParams": "Parametres MSI"
+    "msiParams": "Parametres MSI",
+    "tabRepository": "Dépôt",
+    "addSource": "Ajouter une source",
+    "dragDrop": "Glissez-déposez un fichier ou cliquez sur Parcourir",
+    "browse": "Parcourir",
+    "uploading": "Envoi en cours...",
+    "packageUploaded": "Paquet envoyé",
+    "packageDeleted": "Paquet supprimé",
+    "confirmDeletePackage": "Supprimer ce paquet du dépôt ?",
+    "noPackages": "Aucun paquet envoyé pour le moment"
   }
 }

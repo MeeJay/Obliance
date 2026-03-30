@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Repozytorium",
+    "addSource": "Dodaj źródło",
+    "dragDrop": "Przeciągnij i upuść plik lub kliknij Przeglądaj",
+    "browse": "Przeglądaj",
+    "uploading": "Przesyłanie...",
+    "packageUploaded": "Pakiet przesłany",
+    "packageDeleted": "Pakiet usunięty",
+    "confirmDeletePackage": "Usunąć ten pakiet z repozytorium?",
+    "noPackages": "Nie przesłano jeszcze żadnych pakietów"
   }
 }

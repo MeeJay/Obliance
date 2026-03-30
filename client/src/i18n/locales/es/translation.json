@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Repositorio",
+    "addSource": "Agregar fuente",
+    "dragDrop": "Arrastra y suelta un archivo o haz clic en Examinar",
+    "browse": "Examinar",
+    "uploading": "Subiendo...",
+    "packageUploaded": "Paquete subido",
+    "packageDeleted": "Paquete eliminado",
+    "confirmDeletePackage": "¿Eliminar este paquete del repositorio?",
+    "noPackages": "Aún no se han subido paquetes"
   }
 }

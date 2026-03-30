@@ -18,6 +18,17 @@ import (
 
 // ── Software compliance types ────────────────────────────────────────────────
 
+type SoftwareEntrySourceConfig struct {
+	PackageManager  string `json:"packageManager"`
+	PackageId       string `json:"packageId"`
+	MsiUrl          string `json:"msiUrl"`
+	RepoPackageId   int    `json:"repoPackageId,omitempty"`
+	RepoPackageUuid string `json:"repoPackageUuid,omitempty"`
+	InstallScript   string `json:"installScript"`
+	MsiParams       string `json:"msiParams"`
+	PlatformScope   string `json:"platformScope"`
+}
+
 type SoftwareComplianceEntry struct {
 	ID            int    `json:"id"`
 	Name          string `json:"name"`
@@ -30,6 +41,7 @@ type SoftwareComplianceEntry struct {
 	InstallScript string `json:"installScript"`
 	MsiUrl        string `json:"msiUrl"`
 	MsiParams     string `json:"msiParams"`
+	Sources       []SoftwareEntrySourceConfig `json:"sources,omitempty"`
 }
 
 type SoftwareComplianceEntryResult struct {
@@ -41,6 +53,61 @@ type SoftwareComplianceEntryResult struct {
 	RemediationTriggered bool   `json:"remediationTriggered"`
 	Detail               string `json:"detail,omitempty"`
 	CheckedAt            string `json:"checkedAt"`
+}
+
+// ── Multi-source platform matching ──────────────────────────────────────────
+
+// selectMatchingSource returns the first source whose platformScope matches the
+// current OS / distro family, or nil if none match.
+func selectMatchingSource(sources []SoftwareEntrySourceConfig) *SoftwareEntrySourceConfig {
+	family := getDistroFamily()
+	for i := range sources {
+		s := &sources[i]
+		switch s.PlatformScope {
+		case "any":
+			return s
+		case "windows":
+			if runtime.GOOS == "windows" {
+				return s
+			}
+		case "macos":
+			if runtime.GOOS == "darwin" {
+				return s
+			}
+		case "freebsd":
+			if runtime.GOOS == "freebsd" {
+				return s
+			}
+		case "rhel":
+			if family == "rhel" || family == "centos" {
+				return s
+			}
+		default:
+			// Direct match on distro family (e.g. "debian" == "debian", "fedora" == "fedora").
+			if s.PlatformScope == family {
+				return s
+			}
+		}
+	}
+	return nil
+}
+
+// entryFromSource builds a backward-compatible SoftwareComplianceEntry from a
+// matched source config, preserving the original entry's matching fields.
+func entryFromSource(base SoftwareComplianceEntry, src *SoftwareEntrySourceConfig) SoftwareComplianceEntry {
+	return SoftwareComplianceEntry{
+		ID:            base.ID,
+		Name:          base.Name,
+		MatchType:     base.MatchType,
+		Publisher:     base.Publisher,
+		MinVersion:    base.MinVersion,
+		MaxVersion:    base.MaxVersion,
+		InstallSource: src.PackageManager,
+		InstallID:     src.PackageId,
+		InstallScript: src.InstallScript,
+		MsiUrl:        src.MsiUrl,
+		MsiParams:     src.MsiParams,
+	}
 }
 
 // ── Command handlers ─────────────────────────────────────────────────────────
@@ -87,6 +154,19 @@ func (d *CommandDispatcher) handleCheckSoftwareCompliance(cmd AgentCommand) (int
 
 		matched, matchedName, matchedVersion := matchSoftwareEntry(entry, software)
 
+		// Resolve the effective entry for remediation: use multi-source if available.
+		effectiveEntry := entry
+		hasSource := hasInstallInfo(entry)
+		if len(entry.Sources) > 0 {
+			if src := selectMatchingSource(entry.Sources); src != nil {
+				effectiveEntry = entryFromSource(entry, src)
+				hasSource = hasInstallInfo(effectiveEntry)
+			} else {
+				// No matching source for this platform — cannot remediate.
+				hasSource = false
+			}
+		}
+
 		if listType == "whitelist" {
 			// Whitelist: software MUST be present.
 			if matched {
@@ -97,9 +177,9 @@ func (d *CommandDispatcher) handleCheckSoftwareCompliance(cmd AgentCommand) (int
 				r.Status = "non_compliant"
 				r.Detail = "required software not found"
 				// Auto-remediate: install the missing software.
-				if autoRemediate && hasInstallInfo(entry) {
-					log.Printf("Software compliance: auto-installing %s (source=%s, id=%s)", entry.Name, entry.InstallSource, entry.InstallID)
-					if err := installSoftwarePackage(entry); err != nil {
+				if autoRemediate && hasSource {
+					log.Printf("Software compliance: auto-installing %s (source=%s, id=%s)", entry.Name, effectiveEntry.InstallSource, effectiveEntry.InstallID)
+					if err := installSoftwarePackage(effectiveEntry); err != nil {
 						log.Printf("Software compliance: install %s failed: %v", entry.Name, err)
 						r.Status = "remediation_failed"
 						r.Detail = fmt.Sprintf("install failed: %v", err)
@@ -120,9 +200,9 @@ func (d *CommandDispatcher) handleCheckSoftwareCompliance(cmd AgentCommand) (int
 				r.MatchedVersion = matchedVersion
 				r.Detail = "prohibited software found"
 				// Auto-remediate: uninstall the unwanted software.
-				if autoRemediate && hasInstallInfo(entry) {
-					log.Printf("Software compliance: auto-uninstalling %s (source=%s, id=%s)", entry.Name, entry.InstallSource, entry.InstallID)
-					if err := uninstallSoftwarePackage(entry); err != nil {
+				if autoRemediate && hasSource {
+					log.Printf("Software compliance: auto-uninstalling %s (source=%s, id=%s)", entry.Name, effectiveEntry.InstallSource, effectiveEntry.InstallID)
+					if err := uninstallSoftwarePackage(effectiveEntry); err != nil {
 						log.Printf("Software compliance: uninstall %s failed: %v", entry.Name, err)
 						r.Status = "remediation_failed"
 						r.Detail = fmt.Sprintf("uninstall failed: %v", err)
@@ -168,20 +248,54 @@ func (d *CommandDispatcher) handleInstallSoftware(cmd AgentCommand) (interface{}
 	if cmd.Payload == nil {
 		return nil, fmt.Errorf("no payload")
 	}
-	source, _ := cmd.Payload["source"].(string)
-	packageId, _ := cmd.Payload["packageId"].(string)
-	script, _ := cmd.Payload["script"].(string)
 
-	msiUrl, _ := cmd.Payload["msiUrl"].(string)
-	msiParams, _ := cmd.Payload["msiParams"].(string)
-
-	entry := SoftwareComplianceEntry{
-		InstallSource: source,
-		InstallID:     packageId,
-		InstallScript: script,
-		MsiUrl:        msiUrl,
-		MsiParams:     msiParams,
+	// Check for multi-source payload first.
+	var sources []SoftwareEntrySourceConfig
+	if sourcesRaw, ok := cmd.Payload["sources"]; ok {
+		rawBytes, err := json.Marshal(sourcesRaw)
+		if err == nil {
+			_ = json.Unmarshal(rawBytes, &sources)
+		}
 	}
+
+	var entry SoftwareComplianceEntry
+	if len(sources) > 0 {
+		src := selectMatchingSource(sources)
+		if src == nil {
+			return nil, fmt.Errorf("no matching source for this platform (distro=%s, os=%s)", getDistroFamily(), runtime.GOOS)
+		}
+		entry = SoftwareComplianceEntry{
+			InstallSource: src.PackageManager,
+			InstallID:     src.PackageId,
+			InstallScript: src.InstallScript,
+			MsiUrl:        src.MsiUrl,
+			MsiParams:     src.MsiParams,
+		}
+		// Handle repo package download for MSI source.
+		if src.RepoPackageUuid != "" && src.PackageManager == "msi" {
+			cfg := d.makeConfig()
+			downloadedPath, err := downloadRepoPackage(cfg, src.RepoPackageUuid)
+			if err != nil {
+				return nil, fmt.Errorf("repo package download failed: %w", err)
+			}
+			entry.MsiUrl = downloadedPath
+		}
+	} else {
+		source, _ := cmd.Payload["source"].(string)
+		packageId, _ := cmd.Payload["packageId"].(string)
+		script, _ := cmd.Payload["script"].(string)
+		msiUrl, _ := cmd.Payload["msiUrl"].(string)
+		msiParams, _ := cmd.Payload["msiParams"].(string)
+
+		entry = SoftwareComplianceEntry{
+			InstallSource: source,
+			InstallID:     packageId,
+			InstallScript: script,
+			MsiUrl:        msiUrl,
+			MsiParams:     msiParams,
+		}
+	}
+
 	if err := installSoftwarePackage(entry); err != nil {
 		return nil, fmt.Errorf("install failed: %w", err)
 	}
@@ -192,20 +306,45 @@ func (d *CommandDispatcher) handleUninstallSoftware(cmd AgentCommand) (interface
 	if cmd.Payload == nil {
 		return nil, fmt.Errorf("no payload")
 	}
-	source, _ := cmd.Payload["source"].(string)
-	packageId, _ := cmd.Payload["packageId"].(string)
-	script, _ := cmd.Payload["script"].(string)
 
-	msiUrl, _ := cmd.Payload["msiUrl"].(string)
-	msiParams, _ := cmd.Payload["msiParams"].(string)
-
-	entry := SoftwareComplianceEntry{
-		InstallSource: source,
-		InstallID:     packageId,
-		InstallScript: script,
-		MsiUrl:        msiUrl,
-		MsiParams:     msiParams,
+	// Check for multi-source payload first.
+	var sources []SoftwareEntrySourceConfig
+	if sourcesRaw, ok := cmd.Payload["sources"]; ok {
+		rawBytes, err := json.Marshal(sourcesRaw)
+		if err == nil {
+			_ = json.Unmarshal(rawBytes, &sources)
+		}
 	}
+
+	var entry SoftwareComplianceEntry
+	if len(sources) > 0 {
+		src := selectMatchingSource(sources)
+		if src == nil {
+			return nil, fmt.Errorf("no matching source for this platform (distro=%s, os=%s)", getDistroFamily(), runtime.GOOS)
+		}
+		entry = SoftwareComplianceEntry{
+			InstallSource: src.PackageManager,
+			InstallID:     src.PackageId,
+			InstallScript: src.InstallScript,
+			MsiUrl:        src.MsiUrl,
+			MsiParams:     src.MsiParams,
+		}
+	} else {
+		source, _ := cmd.Payload["source"].(string)
+		packageId, _ := cmd.Payload["packageId"].(string)
+		script, _ := cmd.Payload["script"].(string)
+		msiUrl, _ := cmd.Payload["msiUrl"].(string)
+		msiParams, _ := cmd.Payload["msiParams"].(string)
+
+		entry = SoftwareComplianceEntry{
+			InstallSource: source,
+			InstallID:     packageId,
+			InstallScript: script,
+			MsiUrl:        msiUrl,
+			MsiParams:     msiParams,
+		}
+	}
+
 	if err := uninstallSoftwarePackage(entry); err != nil {
 		return nil, fmt.Errorf("uninstall failed: %w", err)
 	}
@@ -335,6 +474,21 @@ func installSoftwarePackage(entry SoftwareComplianceEntry) error {
 			return fmt.Errorf("pkg install requires installId")
 		}
 		out, err = runInstallCmd(ctx, "pkg", "install", "-y", entry.InstallID)
+	case "yum":
+		if entry.InstallID == "" {
+			return fmt.Errorf("yum install requires installId")
+		}
+		out, err = runInstallCmd(ctx, "yum", "install", "-y", entry.InstallID)
+	case "snap":
+		if entry.InstallID == "" {
+			return fmt.Errorf("snap install requires installId")
+		}
+		out, err = runInstallCmd(ctx, "snap", "install", entry.InstallID)
+	case "flatpak":
+		if entry.InstallID == "" {
+			return fmt.Errorf("flatpak install requires installId")
+		}
+		out, err = runInstallCmd(ctx, "flatpak", "install", "-y", "flathub", entry.InstallID)
 	case "msi":
 		return installMsiPackage(entry.MsiUrl, entry.MsiParams)
 	case "custom":
@@ -394,6 +548,21 @@ func uninstallSoftwarePackage(entry SoftwareComplianceEntry) error {
 			return fmt.Errorf("pkg remove requires installId")
 		}
 		out, err = runInstallCmd(ctx, "pkg", "remove", "-y", entry.InstallID)
+	case "yum":
+		if entry.InstallID == "" {
+			return fmt.Errorf("yum remove requires installId")
+		}
+		out, err = runInstallCmd(ctx, "yum", "remove", "-y", entry.InstallID)
+	case "snap":
+		if entry.InstallID == "" {
+			return fmt.Errorf("snap remove requires installId")
+		}
+		out, err = runInstallCmd(ctx, "snap", "remove", entry.InstallID)
+	case "flatpak":
+		if entry.InstallID == "" {
+			return fmt.Errorf("flatpak uninstall requires installId")
+		}
+		out, err = runInstallCmd(ctx, "flatpak", "uninstall", "-y", entry.InstallID)
 	case "msi":
 		return uninstallMsiPackage(entry.MsiUrl, entry.MsiParams)
 	case "custom":
@@ -502,6 +671,46 @@ func runCustomScript(ctx context.Context, script string) ([]byte, error) {
 	default:
 		return runInstallCmd(ctx, "bash", "-c", script)
 	}
+}
+
+// ── Repo package download ────────────────────────────────────────────────────
+
+// downloadRepoPackage downloads a software repo package from the server using
+// agent API key authentication. Returns the local path to the downloaded file.
+func downloadRepoPackage(cfg *Config, repoPackageUuid string) (string, error) {
+	url := cfg.ServerURL + "/api/agent/software-repo/" + repoPackageUuid
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("X-API-Key", cfg.APIKey)
+	req.Header.Set("X-Device-UUID", cfg.DeviceUUID)
+
+	client := &http.Client{Timeout: 30 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("download: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("download: server returned %d", resp.StatusCode)
+	}
+
+	tmpPath := filepath.Join(os.TempDir(), "obliance-repo-"+repoPackageUuid+".msi")
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	_, err = io.Copy(f, resp.Body)
+	f.Close()
+	if err != nil {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("write temp file: %w", err)
+	}
+
+	log.Printf("Downloaded repo package %s to %s", repoPackageUuid, tmpPath)
+	return tmpPath, nil
 }
 
 // ── Server reporting ─────────────────────────────────────────────────────────

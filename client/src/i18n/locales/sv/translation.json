@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Förråd",
+    "addSource": "Lägg till källa",
+    "dragDrop": "Dra och släpp en fil eller klicka på Bläddra",
+    "browse": "Bläddra",
+    "uploading": "Laddar upp...",
+    "packageUploaded": "Paket uppladdat",
+    "packageDeleted": "Paket borttaget",
+    "confirmDeletePackage": "Ta bort detta paket från förrådet?",
+    "noPackages": "Inga paket uppladdade ännu"
   }
 }

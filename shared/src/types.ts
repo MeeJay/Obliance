@@ -769,7 +769,36 @@ export interface ComplianceResult {
 
 export type SoftwareListType = 'whitelist' | 'blacklist';
 export type SoftwareMatchType = 'exact' | 'contains' | 'regex';
-export type SoftwareInstallSource = 'winget' | 'choco' | 'apt' | 'dnf' | 'brew' | 'pkg' | 'msi' | 'custom';
+export type SoftwareInstallSource = 'winget' | 'choco' | 'apt' | 'yum' | 'dnf' | 'brew' | 'pkg' | 'snap' | 'flatpak' | 'msi' | 'custom';
+export type DistroScope = 'windows' | 'macos' | 'debian' | 'rhel' | 'fedora' | 'arch' | 'suse' | 'freebsd' | 'any';
+
+export interface SoftwareEntrySourceConfig {
+  id?: number;
+  entryId?: number;
+  packageManager: SoftwareInstallSource;
+  packageId: string | null;
+  msiUrl: string | null;
+  repoPackageId: number | null;
+  repoPackageUuid?: string | null;
+  installScript: string | null;
+  msiParams: string | null;
+  platformScope: DistroScope;
+  sortOrder: number;
+}
+
+export interface SoftwareRepoPackage {
+  id: number;
+  uuid: string;
+  tenantId: number;
+  filename: string;
+  displayName: string | null;
+  fileSize: number;
+  fileHash: string;
+  mimeType: string | null;
+  platform: 'windows' | 'linux' | 'macos';
+  uploadedBy: number | null;
+  createdAt: string;
+}
 
 export interface SoftwareComplianceEntry {
   id: number;
@@ -779,13 +808,27 @@ export interface SoftwareComplianceEntry {
   publisher: string | null;
   minVersion: string | null;
   maxVersion: string | null;
+  /** @deprecated Use sources[] instead */
   installSource: SoftwareInstallSource | null;
+  /** @deprecated Use sources[] instead */
   installId: string | null;
+  /** @deprecated Use sources[] instead */
   installScript: string | null;
+  /** @deprecated Use sources[] instead */
   msiUrl: string | null;
+  /** @deprecated Use sources[] instead */
   msiParams: string | null;
   sortOrder: number;
+  sources: SoftwareEntrySourceConfig[];
 }
+
+/** Maps package managers to OS/distro families they can target */
+export const PACKAGE_MANAGER_PLATFORM: Record<SoftwareInstallSource, DistroScope> = {
+  winget: 'windows', choco: 'windows', msi: 'windows',
+  apt: 'debian', yum: 'rhel', dnf: 'fedora',
+  brew: 'macos', pkg: 'freebsd',
+  snap: 'any', flatpak: 'any', custom: 'any',
+};
 
 export interface SoftwareComplianceList {
   id: number;

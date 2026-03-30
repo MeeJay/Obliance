@@ -90,8 +90,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
       macAddress?: string;
       privacyMode?: boolean;
       lastLoggedInUser?: string;
+      distroFamily?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, lastLoggedInUser } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, lastLoggedInUser, distroFamily } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -147,6 +148,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         mac_address: macAddress || device.mac_address,
         privacy_mode_enabled: typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled,
         last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
+        os_distro: distroFamily || device.os_distro,
         last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
         timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),
@@ -455,6 +457,18 @@ router.post('/network-scan', agentAuth, async (req, res, next) => {
 
     await networkDiscoveryService.processScanResults(tenantId, device.id, req.body.results || []);
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/agent/software-repo/:uuid — agent downloads an internal repo package ──
+router.get('/software-repo/:uuid', agentAuth, async (req, res, next) => {
+  try {
+    const { softwareRepoService } = await import('../services/softwareRepo.service');
+    const result = await softwareRepoService.getFilePath(req.params.uuid);
+    if (!result) return res.status(404).json({ error: 'Package not found' });
+    res.set('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.set('Content-Type', result.mimeType);
+    res.sendFile(result.filePath);
   } catch (err) { next(err); }
 });
 

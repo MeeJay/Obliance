@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "المستودع",
+    "addSource": "إضافة مصدر",
+    "dragDrop": "اسحب وأفلت ملفًا أو انقر على تصفح",
+    "browse": "تصفح",
+    "uploading": "جارٍ الرفع...",
+    "packageUploaded": "تم رفع الحزمة",
+    "packageDeleted": "تم حذف الحزمة",
+    "confirmDeletePackage": "حذف هذه الحزمة من المستودع؟",
+    "noPackages": "لم يتم رفع أي حزم بعد"
   }
 }

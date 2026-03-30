@@ -1,12 +1,12 @@
 import { db } from '../db';
 import { commandService } from './command.service';
-import type { SoftwareComplianceList, SoftwareComplianceEntry, SoftwareComplianceResult, SoftwareComplianceEntryResult, KnownSoftwareApp } from '@obliance/shared';
+import type { SoftwareComplianceList, SoftwareComplianceEntry, SoftwareComplianceResult, SoftwareComplianceEntryResult, KnownSoftwareApp, SoftwareEntrySourceConfig } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getIO } from '../socket';
 
 class SoftwareComplianceService {
   // ─── Row mappers ──────────────────────────────────────────────────────────
-  rowToList(row: any, entries: any[] = []): SoftwareComplianceList {
+  rowToList(row: any): SoftwareComplianceList {
     return {
       id: row.id, uuid: row.uuid, tenantId: row.tenant_id,
       name: row.name, description: row.description,
@@ -16,12 +16,12 @@ class SoftwareComplianceService {
       targetPlatform: row.target_platform || 'all',
       autoRemediate: row.auto_remediate,
       enabled: row.enabled,
-      entries: entries.map(this.rowToEntry),
+      entries: [],
       createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
     };
   }
 
-  rowToEntry(row: any): SoftwareComplianceEntry {
+  rowToEntry(row: any, sources: SoftwareEntrySourceConfig[] = []): SoftwareComplianceEntry {
     return {
       id: row.id, listId: row.list_id,
       name: row.name, matchType: row.match_type,
@@ -30,7 +30,40 @@ class SoftwareComplianceService {
       installId: row.install_id, installScript: row.install_script,
       msiUrl: row.msi_url ?? null, msiParams: row.msi_params ?? null,
       sortOrder: row.sort_order,
+      sources,
     };
+  }
+
+  rowToSource(row: any): SoftwareEntrySourceConfig {
+    return {
+      id: row.id, entryId: row.entry_id,
+      packageManager: row.package_manager,
+      packageId: row.package_id ?? null,
+      msiUrl: row.msi_url ?? null,
+      repoPackageId: row.repo_package_id ?? null,
+      repoPackageUuid: row.repo_package_uuid ?? null,
+      installScript: row.install_script ?? null,
+      msiParams: row.msi_params ?? null,
+      platformScope: row.platform_scope,
+      sortOrder: row.sort_order ?? 0,
+    };
+  }
+
+  /** Load sources for a set of entry IDs, optionally joining repo package UUID */
+  private async loadSources(entryIds: number[], trx?: any): Promise<Record<number, SoftwareEntrySourceConfig[]>> {
+    if (!entryIds.length) return {};
+    const q = (trx || db)('software_compliance_entry_sources as s')
+      .leftJoin('software_repo_packages as rp', 'rp.id', 's.repo_package_id')
+      .whereIn('s.entry_id', entryIds)
+      .orderBy('s.sort_order')
+      .select('s.*', 'rp.uuid as repo_package_uuid');
+    const rows = await q;
+    const map: Record<number, SoftwareEntrySourceConfig[]> = {};
+    for (const r of rows) {
+      if (!map[r.entry_id]) map[r.entry_id] = [];
+      map[r.entry_id].push(this.rowToSource(r));
+    }
+    return map;
   }
 
   rowToResult(row: any): SoftwareComplianceResult {
@@ -50,19 +83,26 @@ class SoftwareComplianceService {
     const entries = listIds.length
       ? await db('software_compliance_entries').whereIn('list_id', listIds).orderBy('sort_order')
       : [];
-    const entriesByList: Record<number, any[]> = {};
+    const entryIds = entries.map((e: any) => e.id);
+    const sourcesMap = await this.loadSources(entryIds);
+    const entriesByList: Record<number, SoftwareComplianceEntry[]> = {};
     for (const e of entries) {
       if (!entriesByList[e.list_id]) entriesByList[e.list_id] = [];
-      entriesByList[e.list_id].push(e);
+      entriesByList[e.list_id].push(this.rowToEntry(e, sourcesMap[e.id] || []));
     }
-    return rows.map((r: any) => this.rowToList(r, entriesByList[r.id] || []));
+    return rows.map((r: any) => ({ ...this.rowToList(r), entries: entriesByList[r.id] || [] }));
   }
 
   async getListById(id: number, tenantId: number): Promise<SoftwareComplianceList | null> {
     const row = await db('software_compliance_lists').where({ id, tenant_id: tenantId }).first();
     if (!row) return null;
     const entries = await db('software_compliance_entries').where({ list_id: id }).orderBy('sort_order');
-    return this.rowToList(row, entries);
+    const entryIds = entries.map((e: any) => e.id);
+    const sourcesMap = await this.loadSources(entryIds);
+    return {
+      ...this.rowToList(row),
+      entries: entries.map((e: any) => this.rowToEntry(e, sourcesMap[e.id] || [])),
+    };
   }
 
   async createList(
@@ -85,7 +125,7 @@ class SoftwareComplianceService {
         created_by: data.createdBy,
       }).returning('*');
 
-      const entries: any[] = [];
+      const resultEntries: SoftwareComplianceEntry[] = [];
       if (data.entries?.length) {
         const entryRows = data.entries.map((e: any, i: number) => ({
           list_id: row.id, name: e.name,
@@ -93,18 +133,40 @@ class SoftwareComplianceService {
           publisher: e.publisher || null,
           min_version: e.minVersion || null,
           max_version: e.maxVersion || null,
-          install_source: e.installSource || null,
-          install_id: e.installId || null,
-          install_script: e.installScript || null,
-          msi_url: e.msiUrl || null,
-          msi_params: e.msiParams || null,
+          install_source: e.sources?.[0]?.packageManager || e.installSource || null,
+          install_id: e.sources?.[0]?.packageId || e.installId || null,
+          install_script: e.sources?.[0]?.installScript || e.installScript || null,
+          msi_url: e.sources?.[0]?.msiUrl || e.msiUrl || null,
+          msi_params: e.sources?.[0]?.msiParams || e.msiParams || null,
           sort_order: e.sortOrder ?? i,
         }));
         const inserted = await trx('software_compliance_entries').insert(entryRows).returning('*');
-        entries.push(...inserted);
+
+        // Persist sources for each entry
+        for (let idx = 0; idx < inserted.length; idx++) {
+          const entryRow = inserted[idx];
+          const srcData = data.entries[idx].sources as any[] | undefined;
+          const sources: SoftwareEntrySourceConfig[] = [];
+          if (srcData?.length) {
+            const srcRows = srcData.map((s: any, si: number) => ({
+              entry_id: entryRow.id,
+              package_manager: s.packageManager,
+              package_id: s.packageId || null,
+              msi_url: s.msiUrl || null,
+              repo_package_id: s.repoPackageId || null,
+              install_script: s.installScript || null,
+              msi_params: s.msiParams || null,
+              platform_scope: s.platformScope || 'any',
+              sort_order: s.sortOrder ?? si,
+            }));
+            const insertedSrcs = await trx('software_compliance_entry_sources').insert(srcRows).returning('*');
+            sources.push(...insertedSrcs.map(this.rowToSource));
+          }
+          resultEntries.push(this.rowToEntry(entryRow, sources));
+        }
       }
 
-      return this.rowToList(row, entries);
+      return { ...this.rowToList(row), entries: resultEntries };
     });
   }
 
@@ -130,6 +192,7 @@ class SoftwareComplianceService {
       await trx('software_compliance_lists').where({ id, tenant_id: tenantId }).update(updates);
 
       if (data.entries !== undefined) {
+        // Cascade delete handles sources via FK ON DELETE CASCADE
         await trx('software_compliance_entries').where({ list_id: id }).delete();
         if (data.entries.length) {
           const entryRows = data.entries.map((e: any, i: number) => ({
@@ -138,21 +201,46 @@ class SoftwareComplianceService {
             publisher: e.publisher || null,
             min_version: e.minVersion || null,
             max_version: e.maxVersion || null,
-            install_source: e.installSource || null,
-            install_id: e.installId || null,
-            install_script: e.installScript || null,
-            msi_url: e.msiUrl || null,
-            msi_params: e.msiParams || null,
+            install_source: e.sources?.[0]?.packageManager || e.installSource || null,
+            install_id: e.sources?.[0]?.packageId || e.installId || null,
+            install_script: e.sources?.[0]?.installScript || e.installScript || null,
+            msi_url: e.sources?.[0]?.msiUrl || e.msiUrl || null,
+            msi_params: e.sources?.[0]?.msiParams || e.msiParams || null,
             sort_order: e.sortOrder ?? i,
           }));
-          await trx('software_compliance_entries').insert(entryRows);
+          const inserted = await trx('software_compliance_entries').insert(entryRows).returning('*');
+
+          // Persist sources
+          for (let idx = 0; idx < inserted.length; idx++) {
+            const entryRow = inserted[idx];
+            const srcData = data.entries[idx].sources as any[] | undefined;
+            if (srcData?.length) {
+              const srcRows = srcData.map((s: any, si: number) => ({
+                entry_id: entryRow.id,
+                package_manager: s.packageManager,
+                package_id: s.packageId || null,
+                msi_url: s.msiUrl || null,
+                repo_package_id: s.repoPackageId || null,
+                install_script: s.installScript || null,
+                msi_params: s.msiParams || null,
+                platform_scope: s.platformScope || 'any',
+                sort_order: s.sortOrder ?? si,
+              }));
+              await trx('software_compliance_entry_sources').insert(srcRows);
+            }
+          }
         }
       }
 
       const row = await trx('software_compliance_lists').where({ id, tenant_id: tenantId }).first();
       if (!row) return null;
       const entries = await trx('software_compliance_entries').where({ list_id: id }).orderBy('sort_order');
-      return this.rowToList(row, entries);
+      const entryIds = entries.map((e: any) => e.id);
+      const sourcesMap = await this.loadSources(entryIds, trx);
+      return {
+        ...this.rowToList(row),
+        entries: entries.map((e: any) => this.rowToEntry(e, sourcesMap[e.id] || [])),
+      };
     });
   }
 
@@ -265,9 +353,12 @@ class SoftwareComplianceService {
         deviceId, tenantId, type: cmdType as any,
         payload: {
           listId, entryId: entry.id, entryName: entry.name,
+          // Legacy fields for backward compat with older agents
           installSource: entry.installSource, installId: entry.installId,
           installScript: entry.installScript,
           msiUrl: entry.msiUrl, msiParams: entry.msiParams,
+          // New multi-source array
+          sources: entry.sources,
         },
         priority: 'low', expiresInSeconds: 300, createdBy,
       })
@@ -322,9 +413,12 @@ class SoftwareComplianceService {
 
     for (const row of lists) {
       const list = this.rowToList(row);
-      // Load entries for the list
-      const entries = await db('software_compliance_entries').where({ list_id: row.id }).orderBy('sort_order');
-      if (!entries.length) continue;
+      // Load entries + sources for the list
+      const entryRows = await db('software_compliance_entries').where({ list_id: row.id }).orderBy('sort_order');
+      if (!entryRows.length) continue;
+      const entryIds = entryRows.map((e: any) => e.id);
+      const sourcesMap = await this.loadSources(entryIds);
+      const entries = entryRows.map((e: any) => this.rowToEntry(e, sourcesMap[e.id] || []));
 
       // Resolve target devices — filter by platform
       let deviceQuery = db('devices')
@@ -361,7 +455,7 @@ class SoftwareComplianceService {
             type: 'check_software_compliance',
             payload: {
               listId: list.id, listType: list.listType,
-              entries: entries.map(this.rowToEntry),
+              entries,
               autoRemediate: list.autoRemediate,
             },
             priority: 'low', expiresInSeconds: 600, createdBy: list.createdBy ?? 0,

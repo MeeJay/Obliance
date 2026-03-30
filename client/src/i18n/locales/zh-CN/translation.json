@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "软件仓库",
+    "addSource": "添加来源",
+    "dragDrop": "拖放文件或点击浏览",
+    "browse": "浏览",
+    "uploading": "上传中...",
+    "packageUploaded": "软件包已上传",
+    "packageDeleted": "软件包已删除",
+    "confirmDeletePackage": "从仓库中删除此软件包？",
+    "noPackages": "尚未上传任何软件包"
   }
 }

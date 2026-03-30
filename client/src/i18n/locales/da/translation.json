@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Lager",
+    "addSource": "Tilføj kilde",
+    "dragDrop": "Træk og slip en fil eller klik på Gennemse",
+    "browse": "Gennemse",
+    "uploading": "Uploader...",
+    "packageUploaded": "Pakke uploadet",
+    "packageDeleted": "Pakke slettet",
+    "confirmDeletePackage": "Slet denne pakke fra lageret?",
+    "noPackages": "Ingen pakker uploadet endnu"
   }
 }

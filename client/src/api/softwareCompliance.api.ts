@@ -1,7 +1,27 @@
 import apiClient from './client';
-import type { SoftwareComplianceList, SoftwareComplianceResult, KnownSoftwareApp } from '@obliance/shared';
+import type { SoftwareComplianceList, SoftwareComplianceResult, KnownSoftwareApp, SoftwareRepoPackage } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
+
+export const softwareRepoApi = {
+  async list(): Promise<SoftwareRepoPackage[]> {
+    const res = await apiClient.get<ApiResponse<SoftwareRepoPackage[]>>('/software-repo/packages');
+    return res.data.data ?? [];
+  },
+  async upload(file: File, platform: string, displayName?: string): Promise<SoftwareRepoPackage> {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('platform', platform);
+    if (displayName) fd.append('displayName', displayName);
+    const res = await apiClient.post<ApiResponse<SoftwareRepoPackage>>('/software-repo/packages', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data!;
+  },
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/software-repo/packages/${id}`);
+  },
+};
 
 export const softwareComplianceApi = {
   async listLists(): Promise<SoftwareComplianceList[]> {

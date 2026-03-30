@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "저장소",
+    "addSource": "소스 추가",
+    "dragDrop": "파일을 끌어다 놓거나 찾아보기를 클릭하세요",
+    "browse": "찾아보기",
+    "uploading": "업로드 중...",
+    "packageUploaded": "패키지 업로드됨",
+    "packageDeleted": "패키지 삭제됨",
+    "confirmDeletePackage": "이 패키지를 저장소에서 삭제하시겠습니까?",
+    "noPackages": "아직 업로드된 패키지가 없습니다"
   }
 }

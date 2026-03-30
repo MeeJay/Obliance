@@ -1778,6 +1778,15 @@
     "moveUp": "Move up",
     "moveDown": "Move down",
     "msiUrl": "MSI URL or path",
-    "msiParams": "MSI parameters"
+    "msiParams": "MSI parameters",
+    "tabRepository": "Repository",
+    "addSource": "Add source",
+    "dragDrop": "Drag & drop a file or click Browse",
+    "browse": "Browse",
+    "uploading": "Uploading...",
+    "packageUploaded": "Package uploaded",
+    "packageDeleted": "Package deleted",
+    "confirmDeletePackage": "Delete this package from the repository?",
+    "noPackages": "No packages uploaded yet"
   }
 }

@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +26,7 @@ type pushBody struct {
 	MACAddress       string       `json:"macAddress,omitempty"`
 	PrivacyMode      bool         `json:"privacyMode"`
 	LastLoggedInUser string       `json:"lastLoggedInUser,omitempty"`
+	DistroFamily     string       `json:"distroFamily,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -50,6 +55,86 @@ type pushResponse struct {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
+// ── Distro family detection ──────────────────────────────────────────────────
+
+var (
+	cachedDistroFamily string
+	distroFamilyOnce   sync.Once
+)
+
+// getDistroFamily returns a normalized distribution family string.
+// The value is computed once and cached for the lifetime of the process.
+func getDistroFamily() string {
+	distroFamilyOnce.Do(func() {
+		cachedDistroFamily = detectDistroFamily()
+	})
+	return cachedDistroFamily
+}
+
+func detectDistroFamily() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "windows"
+	case "darwin":
+		return "macos"
+	case "freebsd":
+		return "freebsd"
+	case "linux":
+		return detectLinuxDistroFamily()
+	default:
+		return runtime.GOOS
+	}
+}
+
+func detectLinuxDistroFamily() string {
+	f, err := os.Open("/etc/os-release")
+	if err != nil {
+		return "linux"
+	}
+	defer f.Close()
+
+	var distroID string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "ID=") {
+			distroID = strings.Trim(strings.TrimPrefix(line, "ID="), "\"")
+			break
+		}
+	}
+	if distroID == "" {
+		return "linux"
+	}
+
+	// Map known distro IDs to normalized families.
+	familyMap := map[string]string{
+		"ubuntu":               "debian",
+		"debian":               "debian",
+		"linuxmint":            "debian",
+		"pop":                  "debian",
+		"elementary":           "debian",
+		"raspbian":             "debian",
+		"centos":               "rhel",
+		"rhel":                 "rhel",
+		"rocky":                "rhel",
+		"alma":                 "rhel",
+		"oracle":               "rhel",
+		"fedora":               "fedora",
+		"arch":                 "arch",
+		"manjaro":              "arch",
+		"endeavouros":          "arch",
+		"opensuse":             "suse",
+		"suse":                 "suse",
+		"opensuse-leap":        "suse",
+		"opensuse-tumbleweed":  "suse",
+	}
+
+	if family, ok := familyMap[distroID]; ok {
+		return family
+	}
+	return distroID
+}
+
 // dispatcher is the package-level command dispatcher shared by mainLoop and push.
 var dispatcher *CommandDispatcher
 
@@ -75,6 +160,7 @@ func push(cfg *Config) {
 		MACAddress:       macAddress,
 		PrivacyMode:      IsPrivacyMode(),
 		LastLoggedInUser: getLastLoggedInUser(),
+		DistroFamily:     getDistroFamily(),
 	}
 
 	data, err := json.Marshal(body)

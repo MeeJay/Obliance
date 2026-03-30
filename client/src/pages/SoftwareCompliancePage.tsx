@@ -4,9 +4,9 @@ import {
   CheckCircle, XCircle, AlertTriangle, Activity, X,
   Monitor, Wrench, ShieldCheck, ShieldX, ShieldAlert,
   ToggleLeft, ToggleRight, ChevronRight, Check, Minus, FolderOpen,
-  ArrowUp, ArrowDown, Search, Package,
+  ArrowUp, ArrowDown, Search, Package, Upload, HardDrive,
 } from 'lucide-react';
-import { softwareComplianceApi } from '@/api/softwareCompliance.api';
+import { softwareComplianceApi, softwareRepoApi } from '@/api/softwareCompliance.api';
 import { groupsApi } from '@/api/groups.api';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -15,15 +15,17 @@ import type {
   SoftwareComplianceResult, SoftwareComplianceEntryResult,
   SoftwareMatchType, SoftwareInstallSource, SoftwareListType,
   DeviceGroupTreeNode, KnownSoftwareApp,
+  SoftwareEntrySourceConfig, SoftwareRepoPackage, DistroScope,
 } from '@obliance/shared';
+import { PACKAGE_MANAGER_PLATFORM } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 
-type Tab = 'results' | 'lists';
+type Tab = 'results' | 'lists' | 'repository';
 
 const MATCH_TYPES: SoftwareMatchType[] = ['exact', 'contains', 'regex'];
-const INSTALL_SOURCES: SoftwareInstallSource[] = ['winget', 'choco', 'apt', 'dnf', 'brew', 'pkg', 'msi', 'custom'];
+const INSTALL_SOURCES: SoftwareInstallSource[] = ['winget', 'choco', 'apt', 'yum', 'dnf', 'brew', 'pkg', 'snap', 'flatpak', 'msi', 'custom'];
 const PLATFORMS = ['all', 'windows', 'linux', 'macos', 'freebsd'] as const;
 
 function scoreColor(score: number): string {
@@ -64,45 +66,94 @@ function entryStatusColor(status: SoftwareComplianceEntryResult['status']) {
 
 // ── Entry editor card ────────────────────────────────────────────────────────
 
+interface SourceFormData {
+  packageManager: SoftwareInstallSource | '';
+  packageId: string;
+  msiUrl: string;
+  repoPackageId: number | null;
+  installScript: string;
+  msiParams: string;
+  platformScope: DistroScope;
+}
+
 interface EntryFormData {
   name: string;
   matchType: SoftwareMatchType;
   publisher: string;
   minVersion: string;
   maxVersion: string;
-  installSource: SoftwareInstallSource | '';
-  installId: string;
-  installScript: string;
-  msiUrl: string;
-  msiParams: string;
+  sources: SourceFormData[];
   fromInventory?: boolean;
 }
 
+function makeEmptySource(): SourceFormData {
+  return { packageManager: '', packageId: '', msiUrl: '', repoPackageId: null, installScript: '', msiParams: '/quiet /norestart', platformScope: 'any' };
+}
+
 function makeEmptyEntry(): EntryFormData {
-  return {
-    name: '',
-    matchType: 'contains',
-    publisher: '',
-    minVersion: '',
-    maxVersion: '',
-    installSource: '',
-    installId: '',
-    installScript: '',
-    msiUrl: '',
-    msiParams: '/quiet /norestart',
-  };
+  return { name: '', matchType: 'contains', publisher: '', minVersion: '', maxVersion: '', sources: [] };
+}
+
+/** Small OS/distro icon badges for entry cards */
+const PLATFORM_ICONS: Record<string, { label: string; color: string }> = {
+  windows: { label: 'Win', color: 'bg-blue-400/10 text-blue-400 border-blue-400/20' },
+  macos: { label: 'Mac', color: 'bg-gray-400/10 text-gray-300 border-gray-400/20' },
+  debian: { label: 'Deb', color: 'bg-red-400/10 text-red-400 border-red-400/20' },
+  rhel: { label: 'RHEL', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
+  fedora: { label: 'Fed', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  arch: { label: 'Arch', color: 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20' },
+  suse: { label: 'SUSE', color: 'bg-green-400/10 text-green-400 border-green-400/20' },
+  freebsd: { label: 'BSD', color: 'bg-red-400/10 text-red-400 border-red-400/20' },
+};
+
+function PlatformBadges({ sources }: { sources: SourceFormData[] }) {
+  const seen = new Set<string>();
+  for (const s of sources) {
+    if (!s.packageManager) continue;
+    const scope = s.platformScope !== 'any' ? s.platformScope : PACKAGE_MANAGER_PLATFORM[s.packageManager];
+    if (scope && scope !== 'any') seen.add(scope);
+  }
+  if (seen.size === 0) return null;
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from(seen).map(p => {
+        const icon = PLATFORM_ICONS[p];
+        if (!icon) return null;
+        return (
+          <span key={p} className={clsx('text-[9px] px-1 py-0.5 rounded border font-medium', icon.color)}>
+            {icon.label}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function makeEntryFromKnownApp(app: KnownSoftwareApp): EntryFormData {
-  let installSource: SoftwareInstallSource | '' = '';
-  let installId = '';
+  let pm: SoftwareInstallSource | '' = '';
   const src = (app.source ?? '').toLowerCase();
-  if (src === 'winget') { installSource = 'winget'; installId = app.packageId ?? ''; }
-  else if (src === 'chocolatey' || src === 'choco') { installSource = 'choco'; installId = app.packageId ?? ''; }
-  else if (src === 'dpkg' || src === 'apt') { installSource = 'apt'; installId = app.packageId ?? ''; }
-  else if (src === 'rpm' || src === 'dnf') { installSource = 'dnf'; installId = app.packageId ?? ''; }
-  else if (src === 'brew' || src === 'homebrew') { installSource = 'brew'; installId = app.packageId ?? ''; }
-  else if (src === 'pkg') { installSource = 'pkg'; installId = app.packageId ?? ''; }
+  if (src === 'winget') pm = 'winget';
+  else if (src === 'chocolatey' || src === 'choco') pm = 'choco';
+  else if (src === 'dpkg' || src === 'apt') pm = 'apt';
+  else if (src === 'rpm' || src === 'dnf') pm = 'dnf';
+  else if (src === 'yum') pm = 'yum';
+  else if (src === 'brew' || src === 'homebrew') pm = 'brew';
+  else if (src === 'pkg') pm = 'pkg';
+  else if (src === 'snap') pm = 'snap';
+  else if (src === 'flatpak') pm = 'flatpak';
+
+  const sources: SourceFormData[] = [];
+  if (pm) {
+    sources.push({
+      packageManager: pm,
+      packageId: app.packageId ?? '',
+      msiUrl: '',
+      repoPackageId: null,
+      installScript: '',
+      msiParams: '/quiet /norestart',
+      platformScope: PACKAGE_MANAGER_PLATFORM[pm] ?? 'any',
+    });
+  }
 
   return {
     name: app.name,
@@ -110,11 +161,7 @@ function makeEntryFromKnownApp(app: KnownSoftwareApp): EntryFormData {
     publisher: app.publisher ?? '',
     minVersion: '',
     maxVersion: '',
-    installSource,
-    installId,
-    installScript: '',
-    msiUrl: '',
-    msiParams: '/quiet /norestart',
+    sources,
     fromInventory: true,
   };
 }
@@ -158,6 +205,7 @@ function EntryEditorCard({
           placeholder="e.g. Google Chrome"
           className="flex-1 px-2 py-1 text-sm bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent min-w-0"
         />
+        <PlatformBadges sources={entry.sources} />
         {entry.fromInventory && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 border border-blue-400/20 shrink-0 whitespace-nowrap">
             {t('softwareCompliance.fromInventoryBadge')}
@@ -248,79 +296,90 @@ function EntryEditorCard({
             </div>
           </div>
 
-          {/* Install / Uninstall section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {/* Install Source */}
-            <div className="space-y-0.5">
-              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                {installLabel}
-              </label>
-              <select
-                value={entry.installSource}
-                onChange={e => set({ installSource: e.target.value as SoftwareInstallSource | '', installId: '', installScript: '' })}
-                className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+          {/* ── Sources (multi-package-manager) ─── */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">{installLabel}</label>
+              <button
+                type="button"
+                onClick={() => set({ sources: [...entry.sources, makeEmptySource()] })}
+                className="text-[10px] text-accent hover:text-accent-hover transition-colors flex items-center gap-0.5"
               >
-                <option value="">{t('softwareCompliance.noSource')}</option>
-                {INSTALL_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+                <Plus className="w-3 h-3" /> {t('softwareCompliance.addSource')}
+              </button>
             </div>
-            {/* Package ID — for winget/choco/apt/dnf/brew/pkg */}
-            {entry.installSource && entry.installSource !== 'custom' && entry.installSource !== 'msi' && (
-              <div className="space-y-0.5">
-                <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                  {t('softwareCompliance.packageId')}
-                </label>
-                <input
-                  value={entry.installId}
-                  onChange={e => set({ installId: e.target.value })}
-                  placeholder="e.g. Google.Chrome"
-                  className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent"
-                />
-              </div>
+            {entry.sources.length === 0 && (
+              <p className="text-xs text-text-muted italic py-1">{t('softwareCompliance.noSource')}</p>
             )}
-            {/* MSI fields */}
-            {entry.installSource === 'msi' && (
-              <>
-                <div className="space-y-0.5">
-                  <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                    {t('softwareCompliance.msiUrl')}
-                  </label>
-                  <input
-                    value={entry.installId}
-                    onChange={e => set({ installId: e.target.value })}
-                    placeholder="https://... or \\\\server\\share\\app.msi"
-                    className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent"
-                  />
+            {entry.sources.map((src, si) => {
+              const updateSrc = (patch: Partial<SourceFormData>) => {
+                const next = [...entry.sources];
+                next[si] = { ...next[si], ...patch };
+                // Auto-set platformScope when changing package manager
+                if (patch.packageManager && patch.packageManager !== src.packageManager) {
+                  next[si].platformScope = PACKAGE_MANAGER_PLATFORM[patch.packageManager as SoftwareInstallSource] ?? 'any';
+                }
+                set({ sources: next });
+              };
+              const removeSrc = () => set({ sources: entry.sources.filter((_, i) => i !== si) });
+              const scopeIcon = PLATFORM_ICONS[src.platformScope];
+              return (
+                <div key={si} className="flex items-start gap-1.5 p-2 rounded bg-bg-secondary/50 border border-border/50">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                    {/* Package Manager */}
+                    <select
+                      value={src.packageManager}
+                      onChange={e => updateSrc({ packageManager: e.target.value as SoftwareInstallSource | '', packageId: '', installScript: '' })}
+                      className="px-2 py-1 text-xs bg-bg-secondary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      <option value="">—</option>
+                      {INSTALL_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {/* Package ID */}
+                    {src.packageManager && src.packageManager !== 'custom' && src.packageManager !== 'msi' && (
+                      <input
+                        value={src.packageId}
+                        onChange={e => updateSrc({ packageId: e.target.value })}
+                        placeholder="Package ID"
+                        className="px-2 py-1 text-xs bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent"
+                      />
+                    )}
+                    {/* MSI URL */}
+                    {src.packageManager === 'msi' && (
+                      <input
+                        value={src.msiUrl}
+                        onChange={e => updateSrc({ msiUrl: e.target.value })}
+                        placeholder="URL, UNC path, or select from repo"
+                        className="px-2 py-1 text-xs bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent"
+                      />
+                    )}
+                    {/* Platform scope badge */}
+                    {scopeIcon && (
+                      <span className={clsx('text-[9px] px-1.5 py-1 rounded border font-medium self-center w-fit', scopeIcon.color)}>
+                        {scopeIcon.label}
+                      </span>
+                    )}
+                  </div>
+                  <button onClick={removeSrc} className="p-0.5 text-text-muted hover:text-red-400 transition-colors shrink-0 mt-0.5">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="space-y-0.5">
-                  <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                    {t('softwareCompliance.msiParams')}
-                  </label>
-                  <input
-                    value={entry.installScript || '/quiet /norestart'}
-                    onChange={e => set({ installScript: e.target.value })}
-                    placeholder="/quiet /norestart"
-                    className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-          {/* Custom Script — shown when source is custom */}
-          {entry.installSource === 'custom' && (
-            <div className="space-y-0.5">
-              <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                {t('softwareCompliance.customScript')}
-              </label>
+              );
+            })}
+            {/* Inline custom script for any source that is 'custom' */}
+            {entry.sources.some(s => s.packageManager === 'custom') && (
               <textarea
-                value={entry.installScript}
-                onChange={e => set({ installScript: e.target.value })}
+                value={entry.sources.find(s => s.packageManager === 'custom')?.installScript ?? ''}
+                onChange={e => {
+                  const next = entry.sources.map(s => s.packageManager === 'custom' ? { ...s, installScript: e.target.value } : s);
+                  set({ sources: next });
+                }}
                 placeholder="PowerShell or Bash script..."
                 rows={2}
-                className="w-full px-2 py-1.5 text-sm bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent resize-y"
+                className="w-full px-2 py-1.5 text-xs bg-bg-secondary border border-border rounded font-mono text-text-primary focus:outline-none focus:border-accent resize-y"
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -364,13 +423,46 @@ function KnownAppsModal({
     ? apps.filter(a => a.name.toLowerCase().includes(search.toLowerCase()) || (a.publisher ?? '').toLowerCase().includes(search.toLowerCase()))
     : apps;
 
+  // Group by OS when platform is 'all'
+  const isAll = platform === 'all';
+  const sections = isAll
+    ? (['windows', 'linux', 'macos', 'freebsd'] as const).map(os => ({
+        os,
+        label: os === 'windows' ? 'Windows' : os === 'linux' ? 'Linux' : os === 'macos' ? 'macOS' : 'FreeBSD',
+        apps: filtered.filter(a => a.osType === os),
+      })).filter(s => s.apps.length > 0)
+    : [{ os: platform, label: '', apps: filtered }];
+
+  const renderApp = (app: KnownSoftwareApp, i: number) => (
+    <button
+      key={`${app.name}-${app.source}-${i}`}
+      onClick={() => { onSelect(app); onClose(); }}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-secondary transition-colors text-left group"
+    >
+      <Package className="w-4 h-4 text-text-muted shrink-0 group-hover:text-accent transition-colors" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-text-primary truncate">{app.name}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          {app.publisher && <span className="text-xs text-text-muted truncate">{app.publisher}</span>}
+          {app.source && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary border border-border text-text-muted shrink-0">
+              {app.source}
+            </span>
+          )}
+        </div>
+      </div>
+      <span className="text-xs text-text-muted shrink-0">
+        {t('softwareCompliance.installedOn', { count: app.deviceCount })}
+      </span>
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         className="bg-bg-primary border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Modal header */}
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h3 className="text-sm font-semibold text-text-primary">{t('softwareCompliance.fromInventory')}</h3>
           <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
@@ -378,7 +470,6 @@ function KnownAppsModal({
           </button>
         </div>
 
-        {/* Search */}
         <div className="px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary border border-border rounded-lg">
             <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
@@ -392,7 +483,6 @@ function KnownAppsModal({
           </div>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto p-2 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -405,30 +495,16 @@ function KnownAppsModal({
             </div>
           ) : (
             <div className="space-y-1">
-              {filtered.map((app, i) => (
-                <button
-                  key={`${app.name}-${app.source}-${i}`}
-                  onClick={() => { onSelect(app); onClose(); }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-secondary transition-colors text-left group"
-                >
-                  <Package className="w-4 h-4 text-text-muted shrink-0 group-hover:text-accent transition-colors" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{app.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {app.publisher && (
-                        <span className="text-xs text-text-muted truncate">{app.publisher}</span>
-                      )}
-                      {app.source && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary border border-border text-text-muted shrink-0">
-                          {app.source}
-                        </span>
-                      )}
+              {sections.map(section => (
+                <div key={section.os}>
+                  {isAll && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 mt-2 first:mt-0">
+                      <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{section.label}</span>
+                      <span className="text-[10px] text-text-muted">({section.apps.length})</span>
                     </div>
-                  </div>
-                  <span className="text-xs text-text-muted shrink-0">
-                    {t('softwareCompliance.installedOn', { count: app.deviceCount })}
-                  </span>
-                </button>
+                  )}
+                  {section.apps.map((app, i) => renderApp(app, i))}
+                </div>
               ))}
             </div>
           )}
@@ -652,11 +728,15 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
         publisher: e.publisher ?? '',
         minVersion: e.minVersion ?? '',
         maxVersion: e.maxVersion ?? '',
-        installSource: e.installSource ?? '',
-        installId: e.installId ?? '',
-        installScript: e.installScript ?? '',
-        msiUrl: e.msiUrl ?? '',
-        msiParams: e.msiParams ?? '/quiet /norestart',
+        sources: (e.sources ?? []).map(s => ({
+          packageManager: s.packageManager || '' as SoftwareInstallSource | '',
+          packageId: s.packageId ?? '',
+          msiUrl: s.msiUrl ?? '',
+          repoPackageId: s.repoPackageId ?? null,
+          installScript: s.installScript ?? '',
+          msiParams: s.msiParams ?? '/quiet /norestart',
+          platformScope: s.platformScope ?? 'any' as DistroScope,
+        })),
       })),
     });
     setEditingList(list);
@@ -668,18 +748,29 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
     if (!form.name.trim()) { toast.error(t('softwareCompliance.nameRequired')); return; }
     setIsSaving(true);
     try {
-      const entries: Omit<SoftwareComplianceEntry, 'id' | 'listId'>[] = form.entries.map((e, i) => ({
+      const entries = form.entries.map((e, i) => ({
         name: e.name,
         matchType: e.matchType,
         publisher: e.publisher || null,
         minVersion: e.minVersion || null,
         maxVersion: e.maxVersion || null,
-        installSource: (e.installSource || null) as SoftwareInstallSource | null,
-        installId: e.installId || null,
-        installScript: e.installScript || null,
-        msiUrl: e.msiUrl || null,
-        msiParams: e.msiParams || null,
+        // Legacy fields from first source for backward compat
+        installSource: (e.sources[0]?.packageManager || null) as SoftwareInstallSource | null,
+        installId: e.sources[0]?.packageId || null,
+        installScript: e.sources[0]?.installScript || null,
+        msiUrl: e.sources[0]?.msiUrl || null,
+        msiParams: e.sources[0]?.msiParams || null,
         sortOrder: i,
+        sources: e.sources.filter(s => s.packageManager).map((s, si) => ({
+          packageManager: s.packageManager,
+          packageId: s.packageId || null,
+          msiUrl: s.msiUrl || null,
+          repoPackageId: s.repoPackageId,
+          installScript: s.installScript || null,
+          msiParams: s.msiParams || null,
+          platformScope: s.platformScope,
+          sortOrder: si,
+        })),
       }));
       const payload = {
         name: form.name,
@@ -859,7 +950,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
       {/* Tabs + filter */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-          {(['results', 'lists'] as Tab[]).map((tab) => (
+          {(['results', 'lists', 'repository'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -868,7 +959,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
                 activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
               )}
             >
-              {tab === 'results' ? t('softwareCompliance.tabResults') : t('softwareCompliance.tabLists')}
+              {tab === 'results' ? t('softwareCompliance.tabResults') : tab === 'lists' ? t('softwareCompliance.tabLists') : t('softwareCompliance.tabRepository')}
             </button>
           ))}
         </div>
@@ -1353,6 +1444,129 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Repository tab ───────────────────────────────────────────────── */}
+      {activeTab === 'repository' && <RepoTab />}
+    </div>
+  );
+}
+
+// ── Repository Tab Component ────────────────────────────────────────────────
+function RepoTab() {
+  const { t } = useTranslation();
+  const [packages, setPackages] = useState<SoftwareRepoPackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadPlatform, setUploadPlatform] = useState<'windows' | 'linux' | 'macos'>('windows');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadPackages = useCallback(async () => {
+    setLoading(true);
+    try { setPackages(await softwareRepoApi.list()); }
+    catch { toast.error('Failed to load packages'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadPackages(); }, [loadPackages]);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      await softwareRepoApi.upload(file, uploadPlatform);
+      toast.success(t('softwareCompliance.packageUploaded'));
+      await loadPackages();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Upload failed');
+    } finally { setUploading(false); }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleUpload(file);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm(t('softwareCompliance.confirmDeletePackage'))) return;
+    try {
+      await softwareRepoApi.delete(id);
+      toast.success(t('softwareCompliance.packageDeleted'));
+      await loadPackages();
+    } catch { toast.error('Delete failed'); }
+  };
+
+  const platformLabel = (p: string) => p === 'windows' ? 'Windows' : p === 'linux' ? 'Linux' : p === 'macos' ? 'macOS' : p;
+
+  return (
+    <div className="space-y-4">
+      {/* Upload area */}
+      <div
+        className={clsx(
+          'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
+          dragOver ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/40',
+        )}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        <Upload className="w-8 h-8 mx-auto mb-2 text-text-muted" />
+        <p className="text-sm text-text-primary font-medium mb-1">{t('softwareCompliance.dragDrop')}</p>
+        <p className="text-xs text-text-muted mb-3">.msi, .exe, .deb, .rpm, .pkg, .dmg</p>
+        <div className="flex items-center justify-center gap-2">
+          <select
+            value={uploadPlatform}
+            onChange={e => setUploadPlatform(e.target.value as any)}
+            className="px-2 py-1.5 text-xs bg-bg-secondary border border-border rounded text-text-primary"
+          >
+            <option value="windows">Windows</option>
+            <option value="linux">Linux</option>
+            <option value="macos">macOS</option>
+          </select>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50"
+          >
+            {uploading ? t('softwareCompliance.uploading') : t('softwareCompliance.browse')}
+          </button>
+          <input ref={fileInputRef} type="file" accept=".msi,.exe,.deb,.rpm,.pkg,.dmg" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+        </div>
+      </div>
+
+      {/* Package list */}
+      {loading ? (
+        <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>
+      ) : packages.length === 0 ? (
+        <div className="text-center py-12 text-text-muted">
+          <HardDrive className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">{t('softwareCompliance.noPackages')}</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {packages.map(pkg => {
+            const pi = PLATFORM_ICONS[pkg.platform === 'linux' ? 'debian' : pkg.platform];
+            return (
+              <div key={pkg.id} className="flex items-center gap-3 px-4 py-3 bg-bg-secondary border border-border rounded-lg">
+                <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">{pkg.displayName || pkg.filename}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-text-muted">{(pkg.fileSize / 1024 / 1024).toFixed(1)} MB</span>
+                    {pi && <span className={clsx('text-[9px] px-1 py-0.5 rounded border font-medium', pi.color)}>{platformLabel(pkg.platform)}</span>}
+                    <span className="text-xs text-text-muted">{new Date(pkg.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <button onClick={() => handleDelete(pkg.id)}
+                  className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

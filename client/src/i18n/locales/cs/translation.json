@@ -1766,6 +1766,15 @@
     "types": {
       "whitelist": "Whitelist",
       "blacklist": "Blacklist"
-    }
+    },
+    "tabRepository": "Úložiště",
+    "addSource": "Přidat zdroj",
+    "dragDrop": "Přetáhněte soubor nebo klikněte na Procházet",
+    "browse": "Procházet",
+    "uploading": "Nahrávání...",
+    "packageUploaded": "Balíček nahrán",
+    "packageDeleted": "Balíček smazán",
+    "confirmDeletePackage": "Smazat tento balíček z úložiště?",
+    "noPackages": "Zatím nebyly nahrány žádné balíčky"
   }
 }
