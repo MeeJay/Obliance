@@ -11,11 +11,11 @@ import { groupsApi } from '@/api/groups.api';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import type {
-  SoftwareComplianceList, SoftwareComplianceEntry,
+  SoftwareComplianceList,
   SoftwareComplianceResult, SoftwareComplianceEntryResult,
   SoftwareMatchType, SoftwareInstallSource, SoftwareListType,
   DeviceGroupTreeNode, KnownSoftwareApp,
-  SoftwareEntrySourceConfig, SoftwareRepoPackage, DistroScope,
+  SoftwareRepoPackage, DistroScope,
 } from '@obliance/shared';
 import { PACKAGE_MANAGER_PLATFORM } from '@obliance/shared';
 import toast from 'react-hot-toast';
