@@ -415,10 +415,10 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 onChange={(e) => setForm({ ...form, assertPass: e.target.checked })}
                 className="rounded"
               />
-              <span className="text-sm text-text-primary">{t('schedules.assertPass')}</span>
+              <span className="text-sm text-text-primary">Assert pass</span>
             </label>
             {form.assertPass && (
-              <p className="text-xs text-orange-400/80 ml-6">{t('schedules.assertPassHelp')}</p>
+              <p className="text-xs text-orange-400/80 ml-6">If the script exits with a non-zero code, the device will show a "Schedule Error" status and a notification will be sent.</p>
             )}
           </div>
         </div>
@@ -531,7 +531,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                         {schedule.catchupEnabled ? `Yes (max ${schedule.catchupMax})` : 'No'}
                         {schedule.assertPass && (
                           <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-orange-400/10 text-orange-400 border border-orange-400/20">
-                            {t('schedules.assertPassBadge')}
+                            Assert
                           </span>
                         )}
                       </p>
