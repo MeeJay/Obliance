@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "运行",
-    "tabHistory": "历史"
+    "tabHistory": "历史",
+    "assertPass": "要求成功",
+    "assertPassHelp": "如果脚本以非零退出码结束，设备将显示\"计划错误\"状态并发送通知。",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "等待卸载",
     "updating": "更新中",
     "updateError": "更新错误",
-    "refused": "已拒绝"
+    "refused": "已拒绝",
+    "scheduleError": "计划错误"
   },
   "chat": {
     "discussionWith": "与 {{name}} 聊天",

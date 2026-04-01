@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Kör",
-    "tabHistory": "Historik"
+    "tabHistory": "Historik",
+    "assertPass": "Kräv framgång",
+    "assertPassHelp": "Om skriptet avslutas med en felkod visas \"Schemafel\" på enheten och en avisering skickas.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Avinstallation väntar",
     "updating": "Uppdaterar",
     "updateError": "Uppdateringsfel",
-    "refused": "Nekad"
+    "refused": "Nekad",
+    "scheduleError": "Schemafel"
   },
   "chat": {
     "discussionWith": "Chatt med {{name}}",

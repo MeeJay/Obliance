@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Esegui",
-    "tabHistory": "Cronologia"
+    "tabHistory": "Cronologia",
+    "assertPass": "Richiedi successo",
+    "assertPassHelp": "Se lo script termina con un codice di errore, il dispositivo mostrerà \"Errore pianificazione\" e verrà inviata una notifica.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Disinstallazione in attesa",
     "updating": "Aggiornamento",
     "updateError": "Errore aggiornamento",
-    "refused": "Rifiutato"
+    "refused": "Rifiutato",
+    "scheduleError": "Errore pianificazione"
   },
   "chat": {
     "discussionWith": "Chat con {{name}}",

@@ -230,6 +230,76 @@ class CommandService {
               : new Date(),
             finished_at: new Date(),
           });
+
+          // ── Schedule Assert Pass: alert / recovery ──────────────────────
+          try {
+            const exec = await db('script_executions').where({ id: row.source_id }).first();
+            if (exec?.schedule_id) {
+              const schedule = await db('script_schedules').where({ id: exec.schedule_id }).first();
+              if (schedule?.assert_pass) {
+                const device = await db('devices').where({ id: deviceId }).first();
+                if (execStatus === 'failure' || execStatus === 'timeout') {
+                  // Set schedule alert on the device
+                  const alertData = {
+                    scheduleId: schedule.id,
+                    scheduleName: schedule.name,
+                    exitCode: result?.exitCode ?? -1,
+                    stderr: (result?.stderr ?? result?.error ?? '').slice(0, 2000),
+                    failedAt: new Date().toISOString(),
+                  };
+                  await db('devices').where({ id: deviceId }).update({
+                    schedule_alert: JSON.stringify(alertData),
+                    updated_at: new Date(),
+                  });
+                  // Send alert notification
+                  try {
+                    const { notificationService } = await import('./notification.service');
+                    const deviceName = device?.display_name || device?.hostname || `Device #${deviceId}`;
+                    const msg = `Schedule "${schedule.name}" failed on ${deviceName} (exit code ${alertData.exitCode})`;
+                    const detail = alertData.stderr ? `\n${alertData.stderr.slice(0, 500)}` : '';
+                    await notificationService.sendForAgent(deviceId, device?.tenant_id, 'warning', msg + detail);
+                  } catch {}
+                  // Emit socket event
+                  try {
+                    const { getIO } = await import('../socket');
+                    const { SocketEvents } = await import('@obliance/shared');
+                    getIO().to(`tenant:${device?.tenant_id}`).emit(SocketEvents.DEVICE_UPDATED, {
+                      id: deviceId, scheduleAlert: alertData,
+                    });
+                  } catch {}
+                } else if (execStatus === 'success' && device?.schedule_alert) {
+                  // Check if this is the same schedule that set the alert
+                  const currentAlert = typeof device.schedule_alert === 'string'
+                    ? JSON.parse(device.schedule_alert)
+                    : device.schedule_alert;
+                  if (currentAlert?.scheduleId === schedule.id) {
+                    // Clear the alert — recovery
+                    await db('devices').where({ id: deviceId }).update({
+                      schedule_alert: null,
+                      updated_at: new Date(),
+                    });
+                    // Send recovery notification
+                    try {
+                      const { notificationService } = await import('./notification.service');
+                      const deviceName = device?.display_name || device?.hostname || `Device #${deviceId}`;
+                      const msg = `Schedule "${schedule.name}" recovered on ${deviceName}`;
+                      await notificationService.sendForAgent(deviceId, device?.tenant_id, 'online', msg);
+                    } catch {}
+                    // Emit socket event
+                    try {
+                      const { getIO } = await import('../socket');
+                      const { SocketEvents } = await import('@obliance/shared');
+                      getIO().to(`tenant:${device?.tenant_id}`).emit(SocketEvents.DEVICE_UPDATED, {
+                        id: deviceId, scheduleAlert: null,
+                      });
+                    } catch {}
+                  }
+                }
+              }
+            }
+          } catch (alertErr) {
+            logger.error(alertErr, 'Failed to process schedule assert_pass');
+          }
         } catch (execErr) {
           logger.error(execErr, 'Failed to update script_execution from ack');
         }

@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
-import type { ApprovalStatus, DeviceStatus } from '@obliance/shared';
+import type { ApprovalStatus, DeviceStatus, ScheduleAlert } from '@obliance/shared';
 
 const STATUS_CONFIG: Record<DeviceStatus, { i18nKey: string; color: string; dot: string }> = {
   online:            { i18nKey: 'deviceStatus.online',           color: 'text-green-400 bg-green-400/10 border-green-400/30',     dot: 'bg-green-400' },
@@ -18,24 +18,40 @@ const STATUS_CONFIG: Record<DeviceStatus, { i18nKey: string; color: string; dot:
 interface Props {
   status: DeviceStatus;
   approvalStatus?: ApprovalStatus;
+  scheduleAlert?: ScheduleAlert | null;
   size?: 'sm' | 'md';
   showDot?: boolean;
 }
 
-export function DeviceStatusBadge({ status, approvalStatus, size = 'md', showDot = true }: Props) {
+export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size = 'md', showDot = true }: Props) {
   const { t } = useTranslation();
   const isRefused = approvalStatus === 'refused';
   const cfg = isRefused
     ? { i18nKey: 'deviceStatus.refused', color: 'text-red-400 bg-red-400/10 border-red-400/30', dot: 'bg-red-400' }
     : STATUS_CONFIG[status] ?? STATUS_CONFIG.offline;
   return (
-    <span className={clsx(
-      'inline-flex items-center gap-1.5 font-medium border rounded-full',
-      size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-xs px-2.5 py-1',
-      cfg.color,
-    )}>
-      {showDot && <span className={clsx('rounded-full', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2', cfg.dot)} />}
-      {t(cfg.i18nKey)}
+    <span className="inline-flex items-center gap-1.5">
+      <span className={clsx(
+        'inline-flex items-center gap-1.5 font-medium border rounded-full',
+        size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-xs px-2.5 py-1',
+        cfg.color,
+      )}>
+        {showDot && <span className={clsx('rounded-full', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2', cfg.dot)} />}
+        {t(cfg.i18nKey)}
+      </span>
+      {scheduleAlert && (
+        <span
+          className={clsx(
+            'inline-flex items-center gap-1 font-medium border rounded-full',
+            size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5',
+            'text-orange-400 bg-orange-400/10 border-orange-400/30',
+          )}
+          title={`${scheduleAlert.scheduleName}: exit ${scheduleAlert.exitCode}${scheduleAlert.stderr ? '\n' + scheduleAlert.stderr.slice(0, 200) : ''}`}
+        >
+          <span className={clsx('rounded-full bg-orange-400 animate-pulse', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2')} />
+          {t('deviceStatus.scheduleError')}
+        </span>
+      )}
     </span>
   );
 }

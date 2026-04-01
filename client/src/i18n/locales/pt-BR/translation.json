@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Executar",
-    "tabHistory": "Histórico"
+    "tabHistory": "Histórico",
+    "assertPass": "Exigir sucesso",
+    "assertPassHelp": "Se o script terminar com um código de erro, o dispositivo mostrará \"Erro de agendamento\" e uma notificação será enviada.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Desinstalação pendente",
     "updating": "Atualizando",
     "updateError": "Erro de atualização",
-    "refused": "Recusado"
+    "refused": "Recusado",
+    "scheduleError": "Erro de agendamento"
   },
   "chat": {
     "discussionWith": "Chat com {{name}}",

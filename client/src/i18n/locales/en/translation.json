@@ -1491,7 +1491,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Run",
-    "tabHistory": "History"
+    "tabHistory": "History",
+    "assertPass": "Assert pass",
+    "assertPassHelp": "If the script exits with a non-zero code, the device will show a \"Schedule Error\" status and a notification will be sent.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Pending uninstall",
     "updating": "Updating",
     "updateError": "Update Error",
-    "refused": "Refused"
+    "refused": "Refused",
+    "scheduleError": "Schedule Error"
   },
   "chat": {
     "discussionWith": "Discussion with {{name}}",

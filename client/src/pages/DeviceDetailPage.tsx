@@ -4204,7 +4204,7 @@ export function DeviceDetailPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
             <h1 className="text-2xl font-bold text-text-primary truncate">{anonymize(device.displayName || device.hostname)}</h1>
-            <DeviceStatusBadge status={device.status} />
+            <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
                 <Shield className="w-3 h-3" />

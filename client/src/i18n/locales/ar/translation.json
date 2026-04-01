@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "تشغيل",
-    "tabHistory": "السجل"
+    "tabHistory": "السجل",
+    "assertPass": "تأكيد النجاح",
+    "assertPassHelp": "إذا انتهى السكريبت بكود خروج غير صفري، سيعرض الجهاز حالة \"خطأ في الجدول\" وسيتم إرسال إشعار.",
+    "assertPassBadge": "تأكيد"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "إزالة التثبيت معلقة",
     "updating": "جارٍ التحديث",
     "updateError": "خطأ في التحديث",
-    "refused": "مرفوض"
+    "refused": "مرفوض",
+    "scheduleError": "خطأ في الجدول"
   },
   "chat": {
     "discussionWith": "محادثة مع {{name}}",

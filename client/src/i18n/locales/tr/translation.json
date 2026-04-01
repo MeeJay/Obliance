@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Çalıştır",
-    "tabHistory": "Geçmiş"
+    "tabHistory": "Geçmiş",
+    "assertPass": "Başarı zorunlu",
+    "assertPassHelp": "Betik sıfır olmayan bir çıkış koduyla biterse, cihaz \"Zamanlama hatası\" gösterir ve bildirim gönderilir.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Kaldırma bekliyor",
     "updating": "Güncelleniyor",
     "updateError": "Güncelleme hatası",
-    "refused": "Reddedildi"
+    "refused": "Reddedildi",
+    "scheduleError": "Zamanlama hatası"
   },
   "chat": {
     "discussionWith": "{{name}} ile sohbet",

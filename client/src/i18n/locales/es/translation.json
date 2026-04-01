@@ -1302,7 +1302,10 @@
     "tabSchedules": "Programaciones",
     "tabScripts": "Scripts",
     "tabRun": "Ejecutar",
-    "tabHistory": "Historial"
+    "tabHistory": "Historial",
+    "assertPass": "Exigir éxito",
+    "assertPassHelp": "Si el script termina con un código de error, el dispositivo mostrará \"Error de programación\" y se enviará una notificación.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Políticas",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Desinstalación pendiente",
     "updating": "Actualizando",
     "updateError": "Error de actualización",
-    "refused": "Rechazado"
+    "refused": "Rechazado",
+    "scheduleError": "Error de programación"
   },
   "chat": {
     "discussionWith": "Chat con {{name}}",

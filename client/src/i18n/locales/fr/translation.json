@@ -1491,7 +1491,10 @@
     "tabSchedules": "Planifications",
     "tabScripts": "Scripts",
     "tabRun": "Exécuter",
-    "tabHistory": "Historique"
+    "tabHistory": "Historique",
+    "assertPass": "Exiger le succès",
+    "assertPassHelp": "Si le script se termine avec un code de sortie non nul, l'appareil affichera \"Erreur planification\" et une notification sera envoyée.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Politiques",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Désinstallation en cours",
     "updating": "Mise à jour",
     "updateError": "Erreur MAJ",
-    "refused": "Refusé"
+    "refused": "Refusé",
+    "scheduleError": "Erreur planification"
   },
   "chat": {
     "discussionWith": "Discussion avec {{name}}",

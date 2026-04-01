@@ -171,7 +171,7 @@ export const DeviceRow = memo(function DeviceRow({
           </div>
         )}
 
-        <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} size="sm" />
+        <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} scheduleAlert={device.scheduleAlert} size="sm" />
 
         <span className={clsx('text-xs flex-shrink-0 tabular-nums w-8 text-right', lastSeen.color)}>
           {lastSeen.text}

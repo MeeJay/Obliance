@@ -21,6 +21,7 @@ function rowToSchedule(row: any) {
     catchupEnabled: row.catchup_enabled,
     catchupMax: row.catchup_max,
     runConditions: typeof row.run_conditions === 'string' ? JSON.parse(row.run_conditions) : (row.run_conditions ?? []),
+    assertPass: row.assert_pass ?? false,
     enabled: row.enabled,
     lastRunAt: row.last_run_at,
     nextRunAt: row.next_run_at,
@@ -72,6 +73,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       catchup_enabled: req.body.catchupEnabled !== false,
       catchup_max: req.body.catchupMax || 3,
       run_conditions: JSON.stringify(req.body.runConditions || []),
+      assert_pass: req.body.assertPass ?? false,
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
@@ -86,6 +88,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
     if (req.body.cronExpression !== undefined) updates.cron_expression = req.body.cronExpression;
     if (req.body.catchupEnabled !== undefined) updates.catchup_enabled = req.body.catchupEnabled;
+    if (req.body.assertPass !== undefined) updates.assert_pass = req.body.assertPass;
     if (req.body.targetType !== undefined) updates.target_type = req.body.targetType;
     if (req.body.targetIds !== undefined) updates.target_ids = JSON.stringify(req.body.targetIds);
     if (req.body.scriptId !== undefined) updates.script_id = req.body.scriptId;

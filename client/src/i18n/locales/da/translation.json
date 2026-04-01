@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Kør",
-    "tabHistory": "Historik"
+    "tabHistory": "Historik",
+    "assertPass": "Kræv succes",
+    "assertPassHelp": "Hvis scriptet afsluttes med en fejlkode, vil enheden vise \"Planlægningsfejl\" og en notifikation sendes.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Afinstallation venter",
     "updating": "Opdaterer",
     "updateError": "Opdateringsfejl",
-    "refused": "Afvist"
+    "refused": "Afvist",
+    "scheduleError": "Planlægningsfejl"
   },
   "chat": {
     "discussionWith": "Chat med {{name}}",

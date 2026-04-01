@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Запуск",
-    "tabHistory": "Історія"
+    "tabHistory": "Історія",
+    "assertPass": "Вимагати успіх",
+    "assertPassHelp": "Якщо скрипт завершиться з ненульовим кодом, пристрій покаже \"Помилка розкладу\" і буде надіслано сповіщення.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Очікує видалення",
     "updating": "Оновлення",
     "updateError": "Помилка оновлення",
-    "refused": "Відхилено"
+    "refused": "Відхилено",
+    "scheduleError": "Помилка розкладу"
   },
   "chat": {
     "discussionWith": "Чат з {{name}}",

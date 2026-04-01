@@ -26,6 +26,7 @@ interface ScheduleFormData {
   timezone: string;
   catchupEnabled: boolean;
   catchupMax: number;
+  assertPass: boolean;
   enabled: boolean;
 }
 
@@ -41,6 +42,7 @@ const defaultForm: ScheduleFormData = {
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   catchupEnabled: false,
   catchupMax: 3,
+  assertPass: false,
   enabled: true,
 };
 
@@ -115,6 +117,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       timezone: schedule.timezone,
       catchupEnabled: schedule.catchupEnabled,
       catchupMax: schedule.catchupMax,
+      assertPass: schedule.assertPass ?? false,
       enabled: schedule.enabled,
     });
     setEditingSchedule(schedule);
@@ -140,6 +143,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         timezone: form.timezone,
         catchupEnabled: form.catchupEnabled,
         catchupMax: form.catchupMax,
+        assertPass: form.assertPass,
         enabled: form.enabled,
         parameterValues: {},
         runConditions: [],
@@ -404,6 +408,18 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 />
               </div>
             )}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.assertPass}
+                onChange={(e) => setForm({ ...form, assertPass: e.target.checked })}
+                className="rounded"
+              />
+              <span className="text-sm text-text-primary">{t('schedules.assertPass')}</span>
+            </label>
+            {form.assertPass && (
+              <p className="text-xs text-orange-400/80 ml-6">{t('schedules.assertPassHelp')}</p>
+            )}
           </div>
         </div>
       )}
@@ -511,7 +527,14 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                     </div>
                     <div>
                       <p className="text-xs text-text-muted uppercase font-medium mb-0.5">Catchup</p>
-                      <p className="text-sm text-text-primary">{schedule.catchupEnabled ? `Yes (max ${schedule.catchupMax})` : 'No'}</p>
+                      <p className="text-sm text-text-primary">
+                        {schedule.catchupEnabled ? `Yes (max ${schedule.catchupMax})` : 'No'}
+                        {schedule.assertPass && (
+                          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-orange-400/10 text-orange-400 border border-orange-400/20">
+                            {t('schedules.assertPassBadge')}
+                          </span>
+                        )}
+                      </p>
                     </div>
                     {schedule.description && (
                       <div className="md:col-span-4">

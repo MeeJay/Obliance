@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Uruchom",
-    "tabHistory": "Historia"
+    "tabHistory": "Historia",
+    "assertPass": "Wymagaj powodzenia",
+    "assertPassHelp": "Jeśli skrypt zakończy się kodem błędu, urządzenie pokaże \"Błąd harmonogramu\" i zostanie wysłane powiadomienie.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Oczekuje na odinstalowanie",
     "updating": "Aktualizacja",
     "updateError": "Błąd aktualizacji",
-    "refused": "Odrzucony"
+    "refused": "Odrzucony",
+    "scheduleError": "Błąd harmonogramu"
   },
   "chat": {
     "discussionWith": "Czat z {{name}}",

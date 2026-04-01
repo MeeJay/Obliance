@@ -95,6 +95,7 @@ class DeviceService {
       warrantyStatus: row.warranty_status ?? 'unknown',
       expectedLifetimeYears: row.expected_lifetime_years ?? null,
       lifecycleStatus: row.lifecycle_status ?? 'unknown',
+      scheduleAlert: row.schedule_alert ? (typeof row.schedule_alert === 'string' ? JSON.parse(row.schedule_alert) : row.schedule_alert) : null,
       uninstallAt: row.uninstall_at ? new Date(row.uninstall_at).toISOString() : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

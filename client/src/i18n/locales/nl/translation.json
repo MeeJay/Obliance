@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Uitvoeren",
-    "tabHistory": "Geschiedenis"
+    "tabHistory": "Geschiedenis",
+    "assertPass": "Succes vereist",
+    "assertPassHelp": "Als het script eindigt met een foutcode, toont het apparaat \"Planningsfout\" en wordt er een melding gestuurd.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Verwijdering in afwachting",
     "updating": "Bijwerken",
     "updateError": "Update-fout",
-    "refused": "Geweigerd"
+    "refused": "Geweigerd",
+    "scheduleError": "Planningsfout"
   },
   "chat": {
     "discussionWith": "Chat met {{name}}",

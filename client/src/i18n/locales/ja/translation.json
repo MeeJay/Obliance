@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "実行",
-    "tabHistory": "履歴"
+    "tabHistory": "履歴",
+    "assertPass": "成功を要求",
+    "assertPassHelp": "スクリプトがゼロ以外の終了コードで終了した場合、デバイスに「スケジュールエラー」が表示され、通知が送信されます。",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "アンインストール待ち",
     "updating": "更新中",
     "updateError": "更新エラー",
-    "refused": "拒否"
+    "refused": "拒否",
+    "scheduleError": "スケジュールエラー"
   },
   "chat": {
     "discussionWith": "{{name}} とのチャット",

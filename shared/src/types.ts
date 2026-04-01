@@ -185,9 +185,18 @@ export interface Device {
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
   latestMetrics: DeviceMetrics;
+  scheduleAlert: ScheduleAlert | null;
   uninstallAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleAlert {
+  scheduleId: number;
+  scheduleName: string;
+  exitCode: number;
+  stderr: string;
+  failedAt: string;
 }
 
 // ─── LICENSES ────────────────────────────────────────────────────────────────
@@ -524,6 +533,7 @@ export interface ScriptSchedule {
   catchupEnabled: boolean;
   catchupMax: number;
   runConditions: RunCondition[];
+  assertPass: boolean;
   enabled: boolean;
   lastRunAt: string | null;
   nextRunAt: string | null;

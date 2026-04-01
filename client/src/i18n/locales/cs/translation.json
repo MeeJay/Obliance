@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Spustit",
-    "tabHistory": "Historie"
+    "tabHistory": "Historie",
+    "assertPass": "Vyžadovat úspěch",
+    "assertPassHelp": "Pokud skript skončí s nenulovým kódem, zařízení zobrazí stav \"Chyba plánu\" a bude odesláno upozornění.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Čeká na odinstalování",
     "updating": "Aktualizuje se",
     "updateError": "Chyba aktualizace",
-    "refused": "Odmítnuto"
+    "refused": "Odmítnuto",
+    "scheduleError": "Chyba plánu"
   },
   "chat": {
     "discussionWith": "Chat s {{name}}",

@@ -1174,7 +1174,10 @@
     "tabSchedules": "Zeitpläne",
     "tabScripts": "Skripte",
     "tabRun": "Ausführen",
-    "tabHistory": "Verlauf"
+    "tabHistory": "Verlauf",
+    "assertPass": "Erfolg erzwingen",
+    "assertPassHelp": "Wenn das Skript mit einem Fehlercode endet, zeigt das Gerät \"Zeitplan-Fehler\" an und eine Benachrichtigung wird gesendet.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Richtlinien",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Deinstallation ausstehend",
     "updating": "Aktualisierung",
     "updateError": "Update-Fehler",
-    "refused": "Abgelehnt"
+    "refused": "Abgelehnt",
+    "scheduleError": "Zeitplan-Fehler"
   },
   "chat": {
     "discussionWith": "Chat mit {{name}}",

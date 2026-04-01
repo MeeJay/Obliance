@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "실행",
-    "tabHistory": "기록"
+    "tabHistory": "기록",
+    "assertPass": "성공 필수",
+    "assertPassHelp": "스크립트가 0이 아닌 종료 코드로 종료되면 장치에 \"스케줄 오류\" 상태가 표시되고 알림이 전송됩니다.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "제거 대기 중",
     "updating": "업데이트 중",
     "updateError": "업데이트 오류",
-    "refused": "거부됨"
+    "refused": "거부됨",
+    "scheduleError": "스케줄 오류"
   },
   "chat": {
     "discussionWith": "{{name}}와(과) 채팅",

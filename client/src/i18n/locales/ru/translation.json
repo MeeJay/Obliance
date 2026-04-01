@@ -1174,7 +1174,10 @@
     "tabSchedules": "Schedules",
     "tabScripts": "Scripts",
     "tabRun": "Запуск",
-    "tabHistory": "История"
+    "tabHistory": "История",
+    "assertPass": "Требовать успех",
+    "assertPassHelp": "Если скрипт завершится с ненулевым кодом, устройство покажет \"Ошибка расписания\" и будет отправлено уведомление.",
+    "assertPassBadge": "Assert"
   },
   "policies": {
     "title": "Policies",
@@ -1594,7 +1597,8 @@
     "pendingUninstall": "Ожидание удаления",
     "updating": "Обновление",
     "updateError": "Ошибка обновления",
-    "refused": "Отклонён"
+    "refused": "Отклонён",
+    "scheduleError": "Ошибка расписания"
   },
   "chat": {
     "discussionWith": "Чат с {{name}}",
