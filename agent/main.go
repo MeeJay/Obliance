@@ -480,6 +480,10 @@ func mainLoop(cfg *Config) {
 	// Kill orphaned processes from previous runs (e.g. stuck WUA COM installers).
 	cleanupOrphanedProcesses()
 
+	// Clear stale remote session file from a previous crash/restart.
+	_ = os.WriteFile(filepath.Join(configDir, "remote-session.json"),
+		[]byte(`{"active":false,"count":0}`), 0644)
+
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()
 	privacyStopCh := make(chan struct{})

@@ -15,15 +15,18 @@ import (
 )
 
 //go:embed icon_normal.ico
-var iconNormal []byte
+var iconNormal []byte // green — connected, all good
 
 //go:embed icon_privacy.ico
-var iconPrivacy []byte
+var iconPrivacy []byte // orange — privacy mode active
 
 //go:embed icon_disconnected.ico
-var iconDisconnected []byte
+var iconDisconnected []byte // grey — service not running
 
-// ── Privacy state (shared with agent service via file) ──────────────────────
+//go:embed icon_remote.ico
+var iconRemote []byte // red — ObliReach remote session active
+
+// ── State files (shared with agent service via ProgramData) ──────────────────
 
 type privacyState struct {
 	Enabled   bool   `json:"enabled"`
@@ -31,10 +34,18 @@ type privacyState struct {
 	ChangedBy string `json:"changedBy"`
 }
 
+type remoteSessionState struct {
+	Active    bool   `json:"active"`
+	Protocol  string `json:"protocol,omitempty"`
+	StartedAt string `json:"startedAt,omitempty"`
+	StartedBy string `json:"startedBy,omitempty"`
+}
+
 var (
-	configDir   string
-	privacyFile string
-	versionFile string
+	configDir         string
+	privacyFile       string
+	remoteSessionFile string
+	versionFile       string
 )
 
 func init() {
@@ -48,6 +59,7 @@ func init() {
 		configDir = "/etc/obliance-agent"
 	}
 	privacyFile = filepath.Join(configDir, "privacy.json")
+	remoteSessionFile = filepath.Join(configDir, "remote-session.json")
 	versionFile = filepath.Join(configDir, "config.json")
 }
 
@@ -71,6 +83,16 @@ func writePrivacy(enabled bool, by string) {
 	os.WriteFile(privacyFile, data, 0644)
 }
 
+func readRemoteSession() remoteSessionState {
+	data, err := os.ReadFile(remoteSessionFile)
+	if err != nil {
+		return remoteSessionState{}
+	}
+	var s remoteSessionState
+	json.Unmarshal(data, &s)
+	return s
+}
+
 func readAgentVersion() string {
 	data, err := os.ReadFile(versionFile)
 	if err != nil {
@@ -87,8 +109,6 @@ func readAgentVersion() string {
 }
 
 func readOblireachVersion() string {
-	// Oblireach stores its data in ProgramData\OblireachAgent (Windows)
-	// or /etc/oblireach-agent (Linux/macOS).
 	var reachDataDir, reachBinDir string
 	if runtime.GOOS == "windows" {
 		programData := os.Getenv("PROGRAMDATA")
@@ -102,16 +122,14 @@ func readOblireachVersion() string {
 		reachBinDir = "/etc/oblireach-agent"
 	}
 
-	// Check if the binary exists
 	exeName := "oblireach-agent"
 	if runtime.GOOS == "windows" {
 		exeName = "oblireach-agent.exe"
 	}
 	if _, err := os.Stat(filepath.Join(reachBinDir, exeName)); os.IsNotExist(err) {
-		return "" // not installed
+		return ""
 	}
 
-	// Primary: read version.txt written by the agent on startup
 	if data, err := os.ReadFile(filepath.Join(reachDataDir, "version.txt")); err == nil {
 		v := strings.TrimSpace(string(data))
 		if v != "" && v != "dev" {
@@ -119,7 +137,6 @@ func readOblireachVersion() string {
 		}
 	}
 
-	// Fallback: read VERSION file next to the binary (MSI installs it)
 	if data, err := os.ReadFile(filepath.Join(reachBinDir, "VERSION")); err == nil {
 		v := strings.TrimSpace(string(data))
 		if v != "" && v != "dev" {
@@ -146,7 +163,6 @@ func showToast(title, message string) {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	// Use PowerShell with Windows.UI.Notifications (built-in, no module needed).
 	script := fmt.Sprintf(`
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
@@ -186,9 +202,7 @@ var (
 )
 
 func main() {
-	// Single-instance guard: prevent multiple tray apps from running.
 	if !acquireSingleInstanceLock() {
-		// Another instance is already running — exit silently.
 		os.Exit(0)
 	}
 	systray.Run(onReady, onExit)
@@ -207,7 +221,6 @@ func onReady() {
 		mReachVersion := systray.AddMenuItem("Oblireach Agent v"+reachVersion, "")
 		mReachVersion.Disable()
 	} else {
-		// Binary exists but version unknown — check if installed at all
 		var reachDir string
 		if runtime.GOOS == "windows" {
 			reachDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
@@ -235,10 +248,8 @@ func onReady() {
 
 	mQuit := systray.AddMenuItem("Quit", "Close tray icon")
 
-	// Initial state
 	refreshState()
 
-	// Watch for file changes and menu clicks
 	go watchLoop()
 
 	go func() {
@@ -269,83 +280,146 @@ func isPrivacyLocked() bool {
 }
 
 func refreshState() {
-	state := readPrivacy()
+	privacy := readPrivacy()
 	locked := isPrivacyLocked()
 	running := isAgentServiceRunning()
+	remote := readRemoteSession()
 
-	// Icon priority: disconnected (grey) > privacy (orange) > normal (red)
-	if !running {
+	// Icon priority: remote (red) > disconnected (grey) > privacy (orange) > normal (green)
+	switch {
+	case remote.Active:
+		systray.SetIcon(iconRemote)
+		tooltip := "Obliance Agent — Remote session active"
+		if remote.Protocol != "" {
+			tooltip += " (" + remote.Protocol + ")"
+		}
+		systray.SetTooltip(tooltip)
+	case !running:
 		systray.SetIcon(iconDisconnected)
-	} else if state.Enabled {
+		systray.SetTooltip("Obliance Agent — Disconnected")
+	case privacy.Enabled:
 		systray.SetIcon(iconPrivacy)
-	} else {
+	default:
 		systray.SetIcon(iconNormal)
+		systray.SetTooltip("Obliance Agent")
 	}
 
-	if state.Enabled {
+	// Privacy tooltip (only set if not already overridden by remote/disconnected)
+	if !remote.Active && running && privacy.Enabled {
 		if locked {
 			systray.SetTooltip("Obliance Agent — Privacy Mode ON (locked)")
+		} else {
+			systray.SetTooltip("Obliance Agent — Privacy Mode ON")
+		}
+	}
+
+	// Privacy menu item
+	if privacy.Enabled {
+		if locked {
 			mPrivacy.SetTitle("Privacy Mode: ON  (locked)")
 			mPrivacy.Disable()
 		} else {
-			systray.SetTooltip("Obliance Agent — Privacy Mode ON")
 			mPrivacy.SetTitle("Privacy Mode: ON  (click to disable)")
 			mPrivacy.Enable()
 		}
 	} else {
 		if locked {
-			systray.SetTooltip("Obliance Agent — Privacy Mode OFF (locked)")
 			mPrivacy.SetTitle("Privacy Mode: OFF  (locked)")
 			mPrivacy.Disable()
 		} else {
-			systray.SetTooltip("Obliance Agent")
 			mPrivacy.SetTitle("Privacy Mode: OFF  (click to enable)")
 			mPrivacy.Enable()
 		}
 	}
 
-	if running {
+	// Status line
+	if remote.Active {
+		label := "Status: Remote session"
+		if remote.Protocol != "" {
+			label += " (" + remote.Protocol + ")"
+		}
+		mStatus.SetTitle(label)
+	} else if running {
 		mStatus.SetTitle("Status: Connected")
 	} else {
 		mStatus.SetTitle("Status: Disconnected")
 	}
 }
 
-// watchLoop polls privacy.json for changes (e.g., remote disable) and refreshes UI.
+// watchLoop polls state files for changes and refreshes UI every 2 seconds.
+// Service state (connected/disconnected) is checked every 10 seconds even
+// without file changes, since service start/stop doesn't touch any file.
 func watchLoop() {
-	var lastMod time.Time
-	var lastEnabled bool
+	var lastPrivacyMod time.Time
+	var lastRemoteMod time.Time
+	var lastPrivacyEnabled bool
+	var lastRemoteActive bool
+	var tickCount int
 
 	for {
 		time.Sleep(2 * time.Second)
+		tickCount++
 
-		info, err := os.Stat(privacyFile)
-		if err != nil {
+		changed := false
+
+		// Check privacy.json changes
+		if info, err := os.Stat(privacyFile); err == nil {
+			if !info.ModTime().Equal(lastPrivacyMod) {
+				lastPrivacyMod = info.ModTime()
+				changed = true
+			}
+		}
+
+		// Check remote-session.json changes
+		if info, err := os.Stat(remoteSessionFile); err == nil {
+			if !info.ModTime().Equal(lastRemoteMod) {
+				lastRemoteMod = info.ModTime()
+				changed = true
+			}
+		}
+
+		// Periodic refresh every ~10s to catch service state changes
+		if !changed && tickCount%5 == 0 {
+			changed = true
+		}
+
+		if !changed {
 			continue
 		}
-		if info.ModTime().Equal(lastMod) {
-			continue
-		}
-		lastMod = info.ModTime()
 
-		state := readPrivacy()
+		privacy := readPrivacy()
+		remote := readRemoteSession()
 		refreshState()
 
-		// If privacy was just disabled remotely, show a toast.
-		if lastEnabled && !state.Enabled && state.ChangedBy == "remote" {
+		// Toast: privacy disabled remotely
+		if lastPrivacyEnabled && !privacy.Enabled && privacy.ChangedBy == "remote" {
 			showToast("Obliance Agent", "Privacy mode has been disabled by your administrator.")
 		}
-		lastEnabled = state.Enabled
+		lastPrivacyEnabled = privacy.Enabled
+
+		// Toast: remote session started
+		if !lastRemoteActive && remote.Active {
+			msg := "A remote session has been started"
+			if remote.StartedBy != "" {
+				msg += " by " + remote.StartedBy
+			}
+			showToast("Obliance Agent", msg)
+		}
+		// Toast: remote session ended
+		if lastRemoteActive && !remote.Active {
+			showToast("Obliance Agent", "Remote session ended.")
+		}
+		lastRemoteActive = remote.Active
 	}
 }
 
 // Icons are embedded from .ico files via //go:embed directives at the top.
-// icon_normal.ico     = Obliance "O" logo (red gradient)
-// icon_privacy.ico    = Obliance "O" logo (orange)
-// icon_disconnected.ico = Obliance "O" logo (grey)
+// icon_normal.ico       = Obliance "O" logo (green)  — connected, all good
+// icon_privacy.ico      = Obliance "O" logo (orange) — privacy mode active
+// icon_disconnected.ico = Obliance "O" logo (grey)   — service not running
+// icon_remote.ico       = Obliance "O" logo (red)    — ObliReach remote session active
 
 func init() {
-	// Ensure log output goes somewhere visible on Windows.
 	logFile := filepath.Join(configDir, "tray.log")
 	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err == nil {

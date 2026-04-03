@@ -29,6 +29,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -65,12 +67,14 @@ func (r *tunnelRegistry) add(token string, ts *tunnelState) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.tunnels[token] = ts
+	r.writeRemoteSessionFile()
 }
 
 func (r *tunnelRegistry) remove(token string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.tunnels, token)
+	r.writeRemoteSessionFile()
 }
 
 func (r *tunnelRegistry) take(token string) (*tunnelState, bool) {
@@ -79,8 +83,21 @@ func (r *tunnelRegistry) take(token string) (*tunnelState, bool) {
 	ts, ok := r.tunnels[token]
 	if ok {
 		delete(r.tunnels, token)
+		r.writeRemoteSessionFile()
 	}
 	return ts, ok
+}
+
+// writeRemoteSessionFile updates ProgramData/OblianceAgent/remote-session.json
+// so the tray icon can reflect the current state. Caller must hold r.mu.
+func (r *tunnelRegistry) writeRemoteSessionFile() {
+	filePath := filepath.Join(configDir, "remote-session.json")
+	active := len(r.tunnels) > 0
+	data, _ := json.Marshal(map[string]interface{}{
+		"active": active,
+		"count":  len(r.tunnels),
+	})
+	_ = os.WriteFile(filePath, data, 0644)
 }
 
 func (r *tunnelRegistry) count() int {
