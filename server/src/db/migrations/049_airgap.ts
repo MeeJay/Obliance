@@ -1,6 +1,8 @@
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
+  await knex.raw(`ALTER TYPE command_type ADD VALUE IF NOT EXISTS 'enable_airgap'`);
+  await knex.raw(`ALTER TYPE command_type ADD VALUE IF NOT EXISTS 'disable_airgap'`);
   await knex.schema.alterTable('devices', (t) => {
     t.boolean('airgap_enabled').notNullable().defaultTo(false);
     t.timestamp('airgap_enabled_at', { useTz: true }).nullable();
