@@ -393,47 +393,41 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 		return // not reached; restartWithNewBinary always exits
 	}
 
-	// Windows: the detached batch script handles the restart via msiexec.
-	// Exit here so the exe file is unlocked before msiexec tries to overwrite it.
-	log.Printf("Auto-update: MSI update to v%s initiated — service will restart shortly...", remoteVersion)
-	restartWithNewBinary("") // Windows version ignores the argument and calls os.Exit(0)
+	// Windows: msiexec handles everything — it talks to the Windows Installer
+	// service (msiserver) which stops our service via SCM, replaces files,
+	// then restarts it. We do NOT exit — we let msiexec stop us gracefully.
+	log.Printf("Auto-update: MSI update to v%s initiated — msiexec will stop and restart the service", remoteVersion)
 }
 
-// applyWindowsMSIUpdate launches a detached batch script that runs msiexec
-// silently. The script is used instead of calling msiexec directly so that it
-// outlives the service process (the agent exits immediately after Start()).
+// applyWindowsMSIUpdate runs msiexec directly — no batch script, no detaching.
 //
-// msiexec /quiet handles the full install sequence:
-//  1. Stop the OblianceAgent service (WiX <ServiceControl Stop="both">)
-//  2. Overwrite obliance-agent.exe and any other packaged files
-//  3. Restart the OblianceAgent service with the new binary
+// msiexec /quiet delegates to the Windows Installer service (msiserver), which
+// is a separate system service. Even though we start msiexec.exe as a child
+// process, the real work is done server-side by msiserver. The sequence:
 //
-// SERVERURL and APIKEY are forwarded so that the service arguments in the MSI
-// are populated even when config.json already exists (belt-and-suspenders).
+//  1. msiexec.exe starts → hands off to msiserver
+//  2. msiserver stops OblianceAgent via SCM (WiX ServiceControl Stop="both")
+//  3. SCM sends stop signal to our service → we shut down gracefully
+//  4. Exe unlocked → msiserver replaces files
+//  5. msiserver starts the new OblianceAgent service
+//
+// We do NOT call os.Exit() — we let msiexec stop us via SCM. The caller
+// returns to the main loop; msiserver will stop us within seconds.
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
-	tmpDir := os.TempDir()
-	logPath := filepath.Join(tmpDir, "obliance-update.log")
-	scriptPath := filepath.Join(tmpDir, "obliance-msi-update.bat")
-	log.Printf("Auto-update: tmpDir=%s msiPath=%s scriptPath=%s", tmpDir, msiPath, scriptPath)
-	script := fmt.Sprintf(
-		"@echo off\r\n"+
-			"timeout /t 2 /nobreak >nul\r\n"+
-			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
-			"del /q \"%s\"\r\n"+
-			"del /q \"%%~f0\"\r\n",
-		msiPath, serverURL, apiKey, logPath, msiPath)
-	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
-		return fmt.Errorf("write MSI update script: %w", err)
+	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
+	log.Printf("Auto-update: launching msiexec directly (msiPath=%s logPath=%s)", msiPath, logPath)
+
+	cmd := newCmd("msiexec.exe",
+		"/i", msiPath,
+		"/quiet", "/norestart",
+		fmt.Sprintf(`SERVERURL="%s"`, serverURL),
+		fmt.Sprintf(`APIKEY="%s"`, apiKey),
+		"/l*v", logPath,
+	)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("msiexec start: %w", err)
 	}
-	log.Printf("Auto-update: batch script written, launching via WMI: %s", scriptPath)
-	// Launch via WMI (wmic process call create) so the batch runs as a
-	// completely independent process — not a child of this service. This
-	// avoids all job object / process tree issues on Windows Server 2022+.
-	wmic := newCmd("wmic", "process", "call", "create", fmt.Sprintf(`cmd /c "%s"`, scriptPath))
-	if out, err := wmic.CombinedOutput(); err != nil {
-		log.Printf("Auto-update: wmic failed: %v — output: %s", err, string(out))
-		return fmt.Errorf("wmic process call create: %w", err)
-	}
+	log.Printf("Auto-update: msiexec started (PID %d) — waiting for service stop via SCM", cmd.Process.Pid)
 	return nil
 }
 
