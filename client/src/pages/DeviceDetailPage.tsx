@@ -4195,6 +4195,17 @@ export function DeviceDetailPage() {
         </div>
       )}
 
+      {/* Airgap banner */}
+      {device.airgapEnabled && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-300">
+          <WifiOff className="w-5 h-5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">{t('airgap.bannerTitle')}</p>
+            <p className="text-xs text-blue-300/80 mt-0.5">{t('airgap.bannerMessage')}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-4">
         <Link to="/devices" className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5">
@@ -4259,21 +4270,28 @@ export function DeviceDetailPage() {
             )
           ) : (
             /* ── Approved/suspended device: show all actions ── */
-            <>
-              {crossAppLinks.map(link => (
-                <a
-                  key={link.appType}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`Open in ${link.name}`}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
-                  style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
-                >
-                  <ArrowLeftRight size={12} />
-                  {link.name}
-                </a>
-              ))}
+            <div className="flex flex-col items-end gap-2">
+              {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) ── */}
+              {crossAppLinks.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  {crossAppLinks.map(link => (
+                    <a
+                      key={link.appType}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open in ${link.name}`}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
+                      style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
+                    >
+                      <ArrowLeftRight size={12} />
+                      {link.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+              {/* ── Action bar ── */}
+              <div className="flex items-center gap-2">
               {/* ── Scan All ── */}
               <button
                 onClick={handleScanAll}
@@ -4284,6 +4302,41 @@ export function DeviceDetailPage() {
                 {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
                 Scan All
               </button>
+
+              {/* ── Airgap (admin only) ── */}
+              {isAdmin() && (
+                <button
+                  onClick={async () => {
+                    if (device.airgapEnabled) {
+                      setHeaderPending((p) => new Set(p).add('airgap'));
+                      try {
+                        await deviceApi.disableAirgap(device.id);
+                        toast.success(t('airgap.disabled'));
+                      } catch { toast.error(t('airgap.disableFailed')); }
+                      finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+                    } else {
+                      if (!confirm(t('airgap.enableConfirm'))) return;
+                      setHeaderPending((p) => new Set(p).add('airgap'));
+                      try {
+                        await deviceApi.enableAirgap(device.id);
+                        toast.success(t('airgap.enabled'));
+                      } catch { toast.error(t('airgap.enableFailed')); }
+                      finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+                    }
+                  }}
+                  disabled={headerPending.has('airgap')}
+                  title={device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
+                  className={clsx(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                    device.airgapEnabled
+                      ? "border-blue-400/50 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+                      : "border-border bg-bg-secondary text-text-muted hover:text-blue-400 hover:border-blue-400/50"
+                  )}
+                >
+                  {headerPending.has('airgap') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
+                  {device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
+                </button>
+              )}
 
               {/* ── Quick actions ── */}
               <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
@@ -4411,37 +4464,6 @@ export function DeviceDetailPage() {
                     </button>
                   </>
                 )}
-                {isAdmin() && (
-                  <>
-                    <div className="w-px h-5 bg-border" />
-                    <button
-                      onClick={async () => {
-                        if (device.airgapEnabled) {
-                          setHeaderPending((p) => new Set(p).add('airgap'));
-                          try {
-                            await deviceApi.disableAirgap(device.id);
-                            toast.success(t('airgap.disableSent'));
-                          } catch { toast.error(t('airgap.disableFailed')); }
-                          finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
-                        } else {
-                          if (!confirm(t('airgap.confirmEnable'))) return;
-                          setHeaderPending((p) => new Set(p).add('airgap'));
-                          try {
-                            await deviceApi.enableAirgap(device.id);
-                            toast.success(t('airgap.enableSent'));
-                          } catch { toast.error(t('airgap.enableFailed')); }
-                          finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
-                        }
-                      }}
-                      disabled={headerPending.has('airgap')}
-                      title={device.airgapEnabled ? t('airgap.disableTitle') : t('airgap.enableTitle')}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {headerPending.has('airgap') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
-                      {device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
-                    </button>
-                  </>
-                )}
                 <div className="w-px h-5 bg-border" />
                 <button
                   onClick={() => handleHeaderAction('restart_agent')}
@@ -4471,7 +4493,8 @@ export function DeviceDetailPage() {
                   Off
                 </button>
               </div>
-            </>
+              </div>{/* end action bar */}
+            </div>{/* end flex-col */}
           )}
 
           <button

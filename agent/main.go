@@ -65,6 +65,11 @@ func loadConfig() (*Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+	// Fix: previous MSI updates may have stored ServerURL/APIKey with literal
+	// double quotes (e.g., "\"https://...\"") due to over-quoting in the
+	// msiexec command line. Strip them so URLs are clean.
+	cfg.ServerURL = strings.Trim(cfg.ServerURL, `"`)
+	cfg.APIKey = strings.Trim(cfg.APIKey, `"`)
 	return &cfg, nil
 }
 
@@ -420,8 +425,8 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	cmd := newCmd("msiexec.exe",
 		"/i", msiPath,
 		"/quiet", "/norestart",
-		fmt.Sprintf(`SERVERURL="%s"`, serverURL),
-		fmt.Sprintf(`APIKEY="%s"`, apiKey),
+		"SERVERURL="+serverURL,
+		"APIKEY="+apiKey,
 		"/l*v", logPath,
 	)
 	if err := cmd.Start(); err != nil {

@@ -1790,6 +1790,8 @@
     "enabled": "Airgap command sent",
     "disabled": "Airgap disable command sent",
     "enableFailed": "Failed to enable airgap",
-    "disableFailed": "Failed to disable airgap"
+    "disableFailed": "Failed to disable airgap",
+    "bannerTitle": "AIRGAP — Device network-isolated",
+    "bannerMessage": "This device has been placed in Airgap mode for security incident investigation. Do not disable Airgap without prior verification from the security team."
   }
 }
