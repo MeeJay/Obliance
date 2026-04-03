@@ -61,16 +61,17 @@ func newCmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// newCmdDetached creates a fully detached child process that survives the
-// parent's exit. Used for the MSI update batch script which must keep running
-// after the agent service stops.
-func newCmdDetached(name string, args ...string) *exec.Cmd {
+// startDetachedProcess launches a process that survives the agent service
+// stopping. On Windows Server 2022+, services run inside an implicit job
+// object that kills all child processes on exit. CREATE_BREAKAWAY_FROM_JOB
+// detaches the child from that job so it keeps running after os.Exit(0).
+func startDetachedProcess(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
-		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000008, // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
+		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x01000000, // CREATE_BREAKAWAY_FROM_JOB
 	}
-	return cmd
+	return cmd.Start()
 }
 
 // newCmdContext wraps exec.CommandContext with the same hidden-window behavior.

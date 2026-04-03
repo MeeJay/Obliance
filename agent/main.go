@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -412,8 +411,10 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 // SERVERURL and APIKEY are forwarded so that the service arguments in the MSI
 // are populated even when config.json already exists (belt-and-suspenders).
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
-	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
-	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	tmpDir := os.TempDir()
+	logPath := filepath.Join(tmpDir, "obliance-update.log")
+	scriptPath := filepath.Join(tmpDir, "obliance-msi-update.bat")
+	log.Printf("Auto-update: tmpDir=%s msiPath=%s scriptPath=%s", tmpDir, msiPath, scriptPath)
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
 			"timeout /t 2 /nobreak >nul\r\n"+
@@ -424,7 +425,8 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
-	return exec.Command("cmd", "/c", scriptPath).Start()
+	log.Printf("Auto-update: batch script written, launching cmd /c %s", scriptPath)
+	return startDetachedProcess("cmd", "/c", scriptPath)
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
