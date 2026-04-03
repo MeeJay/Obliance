@@ -4493,8 +4493,8 @@ export function DeviceDetailPage() {
                   Off
                 </button>
               </div>
-              </div>{/* end action bar */}
-            </div>{/* end flex-col */}
+              </div>
+            </div>
           )}
 
           <button
