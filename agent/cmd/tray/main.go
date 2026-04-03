@@ -26,6 +26,9 @@ var iconDisconnected []byte // grey — service not running
 //go:embed icon_remote.ico
 var iconRemote []byte // red — ObliReach remote session active
 
+//go:embed icon_airgap.ico
+var iconAirgap []byte // blue — airgap mode (network isolated)
+
 // ── State files (shared with agent service via ProgramData) ──────────────────
 
 type privacyState struct {
@@ -41,10 +44,17 @@ type remoteSessionState struct {
 	StartedBy string `json:"startedBy,omitempty"`
 }
 
+type airgapState struct {
+	Enabled   bool   `json:"enabled"`
+	ChangedAt string `json:"changedAt"`
+	ChangedBy string `json:"changedBy"`
+}
+
 var (
 	configDir         string
 	privacyFile       string
 	remoteSessionFile string
+	airgapFile        string
 	versionFile       string
 )
 
@@ -60,6 +70,7 @@ func init() {
 	}
 	privacyFile = filepath.Join(configDir, "privacy.json")
 	remoteSessionFile = filepath.Join(configDir, "remote-session.json")
+	airgapFile = filepath.Join(configDir, "airgap.json")
 	versionFile = filepath.Join(configDir, "config.json")
 }
 
@@ -89,6 +100,16 @@ func readRemoteSession() remoteSessionState {
 		return remoteSessionState{}
 	}
 	var s remoteSessionState
+	json.Unmarshal(data, &s)
+	return s
+}
+
+func readAirgap() airgapState {
+	data, err := os.ReadFile(airgapFile)
+	if err != nil {
+		return airgapState{}
+	}
+	var s airgapState
 	json.Unmarshal(data, &s)
 	return s
 }
@@ -284,9 +305,13 @@ func refreshState() {
 	locked := isPrivacyLocked()
 	running := isAgentServiceRunning()
 	remote := readRemoteSession()
+	airgap := readAirgap()
 
-	// Icon priority: remote (red) > disconnected (grey) > privacy (orange) > normal (green)
+	// Icon priority: airgap (blue) > remote (red) > disconnected (grey) > privacy (orange) > normal (green)
 	switch {
+	case airgap.Enabled:
+		systray.SetIcon(iconAirgap)
+		systray.SetTooltip("Obliance Agent — AIRGAP (network isolated)")
 	case remote.Active:
 		systray.SetIcon(iconRemote)
 		tooltip := "Obliance Agent — Remote session active"
@@ -304,8 +329,8 @@ func refreshState() {
 		systray.SetTooltip("Obliance Agent")
 	}
 
-	// Privacy tooltip (only set if not already overridden by remote/disconnected)
-	if !remote.Active && running && privacy.Enabled {
+	// Privacy tooltip (only set if not already overridden)
+	if !airgap.Enabled && !remote.Active && running && privacy.Enabled {
 		if locked {
 			systray.SetTooltip("Obliance Agent — Privacy Mode ON (locked)")
 		} else {
@@ -333,7 +358,9 @@ func refreshState() {
 	}
 
 	// Status line
-	if remote.Active {
+	if airgap.Enabled {
+		mStatus.SetTitle("Status: AIRGAP — Network isolated")
+	} else if remote.Active {
 		label := "Status: Remote session"
 		if remote.Protocol != "" {
 			label += " (" + remote.Protocol + ")"
@@ -352,8 +379,10 @@ func refreshState() {
 func watchLoop() {
 	var lastPrivacyMod time.Time
 	var lastRemoteMod time.Time
+	var lastAirgapMod time.Time
 	var lastPrivacyEnabled bool
 	var lastRemoteActive bool
+	var lastAirgapEnabled bool
 	var tickCount int
 
 	for {
@@ -378,6 +407,14 @@ func watchLoop() {
 			}
 		}
 
+		// Check airgap.json changes
+		if info, err := os.Stat(airgapFile); err == nil {
+			if !info.ModTime().Equal(lastAirgapMod) {
+				lastAirgapMod = info.ModTime()
+				changed = true
+			}
+		}
+
 		// Periodic refresh every ~10s to catch service state changes
 		if !changed && tickCount%5 == 0 {
 			changed = true
@@ -389,6 +426,7 @@ func watchLoop() {
 
 		privacy := readPrivacy()
 		remote := readRemoteSession()
+		airgap := readAirgap()
 		refreshState()
 
 		// Toast: privacy disabled remotely
@@ -396,6 +434,15 @@ func watchLoop() {
 			showToast("Obliance Agent", "Privacy mode has been disabled by your administrator.")
 		}
 		lastPrivacyEnabled = privacy.Enabled
+
+		// Toast: airgap activated/deactivated
+		if !lastAirgapEnabled && airgap.Enabled {
+			showToast("Obliance Agent", "AIRGAP ENABLED — This device has been network-isolated by your administrator.")
+		}
+		if lastAirgapEnabled && !airgap.Enabled {
+			showToast("Obliance Agent", "Airgap disabled — Network access restored.")
+		}
+		lastAirgapEnabled = airgap.Enabled
 
 		// Toast: remote session started
 		if !lastRemoteActive && remote.Active {

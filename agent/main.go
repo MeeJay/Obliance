@@ -468,6 +468,7 @@ func mainLoop(cfg *Config) {
 
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()
+	loadAirgapState()
 	privacyStopCh := make(chan struct{})
 	go watchPrivacyFile(privacyStopCh)
 

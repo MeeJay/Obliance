@@ -235,6 +235,24 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 			result = map[string]string{"message": "privacy mode disabled"}
 		}
 
+	case "enable_airgap":
+		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
+		ips := make([]string, 0, len(serverIPs))
+		for _, v := range serverIPs {
+			if s, ok := v.(string); ok {
+				ips = append(ips, s)
+			}
+		}
+		execErr = SetAirgapMode(true, "remote", ips)
+		if execErr == nil {
+			result = map[string]string{"message": "airgap enabled"}
+		}
+	case "disable_airgap":
+		execErr = SetAirgapMode(false, "remote", nil)
+		if execErr == nil {
+			result = map[string]string{"message": "airgap disabled"}
+		}
+
 	default:
 		execErr = fmt.Errorf("unknown command type: %s", cmd.Type)
 	}
@@ -1629,6 +1647,23 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 			return nil, err
 		}
 		return map[string]string{"message": "privacy mode disabled"}, nil
+	case "enable_airgap":
+		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
+		ips := make([]string, 0, len(serverIPs))
+		for _, v := range serverIPs {
+			if s, ok := v.(string); ok {
+				ips = append(ips, s)
+			}
+		}
+		if err := SetAirgapMode(true, "remote", ips); err != nil {
+			return nil, err
+		}
+		return map[string]string{"message": "airgap enabled"}, nil
+	case "disable_airgap":
+		if err := SetAirgapMode(false, "remote", nil); err != nil {
+			return nil, err
+		}
+		return map[string]string{"message": "airgap disabled"}, nil
 	default:
 		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
 	}

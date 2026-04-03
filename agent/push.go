@@ -25,6 +25,7 @@ type pushBody struct {
 	IPLocal          string       `json:"ipLocal,omitempty"`
 	MACAddress       string       `json:"macAddress,omitempty"`
 	PrivacyMode      bool         `json:"privacyMode"`
+	AirgapMode       bool         `json:"airgapMode"`
 	LastLoggedInUser string       `json:"lastLoggedInUser,omitempty"`
 	DistroFamily     string       `json:"distroFamily,omitempty"`
 }
@@ -159,6 +160,7 @@ func push(cfg *Config) {
 		IPLocal:          ipLocal,
 		MACAddress:       macAddress,
 		PrivacyMode:      IsPrivacyMode(),
+		AirgapMode:       IsAirgapMode(),
 		LastLoggedInUser: getLastLoggedInUser(),
 		DistroFamily:     getDistroFamily(),
 	}

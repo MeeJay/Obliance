@@ -161,6 +161,8 @@ export interface Device {
   maxMissedPushes: number;
   complianceRemediationEnabled: boolean;
   privacyModeEnabled: boolean;
+  airgapEnabled: boolean;
+  airgapEnabledAt: string | null;
   lastLoggedInUser: string | null;
   lastRebootAt: string | null;
   rebootPending: boolean;
@@ -348,6 +350,8 @@ export type CommandType =
   | 'kill_process'
   | 'list_wts_sessions'
   | 'disable_privacy_mode'
+  | 'enable_airgap'
+  | 'disable_airgap'
   | 'list_directory'
   | 'create_directory'
   | 'rename_file'

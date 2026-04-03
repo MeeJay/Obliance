@@ -1,5 +1,5 @@
 import { memo, type MouseEvent } from 'react';
-import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin } from 'lucide-react';
+import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
@@ -159,6 +159,9 @@ export const DeviceRow = memo(function DeviceRow({
         )}
         {device.privacyModeEnabled && (
           <span title="Privacy mode"><ShieldOff className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" /></span>
+        )}
+        {device.airgapEnabled && (
+          <span title="Airgap"><WifiOff className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /></span>
         )}
 
         <div className="flex-1" />

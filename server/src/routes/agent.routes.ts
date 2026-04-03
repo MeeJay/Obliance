@@ -89,10 +89,11 @@ router.post('/push', agentAuth, async (req, res, next) => {
       ipLocal?: string;
       macAddress?: string;
       privacyMode?: boolean;
+      airgapMode?: boolean;
       lastLoggedInUser?: string;
       distroFamily?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, lastLoggedInUser, distroFamily } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily } = body;
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -147,6 +148,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         ip_local: ipLocal || device.ip_local,
         mac_address: macAddress || device.mac_address,
         privacy_mode_enabled: typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled,
+        airgap_enabled: typeof airgapMode === 'boolean' ? airgapMode : device.airgap_enabled,
         last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
         os_distro: distroFamily || device.os_distro,
         last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,

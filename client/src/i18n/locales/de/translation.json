@@ -1780,5 +1780,16 @@
     "packageDeleted": "Paket gelöscht",
     "confirmDeletePackage": "Dieses Paket aus dem Repository löschen?",
     "noPackages": "Noch keine Pakete hochgeladen"
+  },
+  "airgap": {
+    "badge": "Airgap",
+    "enable": "Enable Airgap",
+    "disable": "Disable Airgap",
+    "enableTitle": "Enable Airgap Mode",
+    "enableConfirm": "This will isolate this device from all network traffic except Obliance server communication. Continue?",
+    "enabled": "Airgap command sent",
+    "disabled": "Airgap disable command sent",
+    "enableFailed": "Failed to enable airgap",
+    "disableFailed": "Failed to disable airgap"
   }
 }

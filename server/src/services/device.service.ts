@@ -74,6 +74,8 @@ class DeviceService {
       maxMissedPushes: row.max_missed_pushes,
       complianceRemediationEnabled: row.compliance_remediation_enabled ?? true,
       privacyModeEnabled: row.privacy_mode_enabled ?? false,
+      airgapEnabled: row.airgap_enabled ?? false,
+      airgapEnabledAt: row.airgap_enabled_at ?? null,
       lastLoggedInUser: row.last_logged_in_user ?? null,
       lastRebootAt: row.last_reboot_at ?? null,
       rebootPending: row.reboot_pending ?? false,

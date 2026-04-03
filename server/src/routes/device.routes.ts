@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import dns from 'dns/promises';
 import { deviceService } from '../services/device.service';
 import { commandService } from '../services/command.service';
 import { requireRole, requireDeviceRead, requireDeviceWrite } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
+import { getIO } from '../socket';
+import { SocketEvents } from '@obliance/shared';
 
 const router = Router();
 
@@ -270,6 +273,68 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
       createdBy: req.session.userId,
     });
     res.json({ data: cmd });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/airgap/enable — enable airgap mode on device
+router.post('/:id/airgap/enable', requireRole('admin'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    const device = await deviceService.getDeviceById(id, req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    // Resolve server hostname to IPs so the agent knows which IPs to allow
+    const serverUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+    const hostname = new URL(serverUrl).hostname;
+    let serverIPs: string[] = [];
+    try { serverIPs.push(...await dns.resolve4(hostname)); } catch {}
+    try { serverIPs.push(...await dns.resolve6(hostname)); } catch {}
+
+    await commandService.enqueue({
+      deviceId: id,
+      tenantId: req.tenantId!,
+      type: 'enable_airgap' as any,
+      payload: { serverIPs },
+      priority: 'high',
+      expiresInSeconds: 300,
+      createdBy: req.session.userId,
+    });
+
+    await db('devices').where({ id, tenant_id: req.tenantId! }).update({
+      airgap_enabled: true,
+      airgap_enabled_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    getIO().to(`tenant:${req.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { id, airgapEnabled: true, airgapEnabledAt: new Date().toISOString() });
+    res.json({ data: { success: true } });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/airgap/disable — disable airgap mode on device
+router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    const device = await deviceService.getDeviceById(id, req.tenantId!);
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    await commandService.enqueue({
+      deviceId: id,
+      tenantId: req.tenantId!,
+      type: 'disable_airgap' as any,
+      priority: 'high',
+      expiresInSeconds: 300,
+      createdBy: req.session.userId,
+    });
+
+    await db('devices').where({ id, tenant_id: req.tenantId! }).update({
+      airgap_enabled: false,
+      airgap_enabled_at: null,
+      updated_at: new Date(),
+    });
+
+    getIO().to(`tenant:${req.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { id, airgapEnabled: false, airgapEnabledAt: null });
+    res.json({ data: { success: true } });
   } catch (err) { next(err); }
 });
 

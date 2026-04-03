@@ -4211,6 +4211,12 @@ export function DeviceDetailPage() {
                 {t('privacy.badge')}
               </span>
             )}
+            {device.airgapEnabled && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-400/30">
+                <WifiOff className="w-3 h-3" />
+                {t('airgap.badge')}
+              </span>
+            )}
           </div>
           <p className="text-sm text-text-muted mt-1">
             {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}
@@ -4402,6 +4408,37 @@ export function DeviceDetailPage() {
                     >
                       {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
                       {t('privacy.disable')}
+                    </button>
+                  </>
+                )}
+                {isAdmin() && (
+                  <>
+                    <div className="w-px h-5 bg-border" />
+                    <button
+                      onClick={async () => {
+                        if (device.airgapEnabled) {
+                          setHeaderPending((p) => new Set(p).add('airgap'));
+                          try {
+                            await deviceApi.disableAirgap(device.id);
+                            toast.success(t('airgap.disableSent'));
+                          } catch { toast.error(t('airgap.disableFailed')); }
+                          finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+                        } else {
+                          if (!confirm(t('airgap.confirmEnable'))) return;
+                          setHeaderPending((p) => new Set(p).add('airgap'));
+                          try {
+                            await deviceApi.enableAirgap(device.id);
+                            toast.success(t('airgap.enableSent'));
+                          } catch { toast.error(t('airgap.enableFailed')); }
+                          finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+                        }
+                      }}
+                      disabled={headerPending.has('airgap')}
+                      title={device.airgapEnabled ? t('airgap.disableTitle') : t('airgap.enableTitle')}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {headerPending.has('airgap') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
+                      {device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
                     </button>
                   </>
                 )}
