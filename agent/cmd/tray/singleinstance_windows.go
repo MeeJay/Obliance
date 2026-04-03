@@ -14,16 +14,14 @@ var (
 
 const errorAlreadyExists = 183
 
-// acquireSingleInstanceLock creates a named mutex.
-// Returns true if this is the first instance, false if another is already running.
+// acquireSingleInstanceLock creates a named mutex in the Local\ namespace
+// so each user session gets its own lock. This allows the tray to run once
+// per session (multiple sessions on a terminal server = multiple trays).
 func acquireSingleInstanceLock() bool {
-	name, _ := syscall.UTF16PtrFromString("Global\\OblianceTrayApp")
+	name, _ := syscall.UTF16PtrFromString("Local\\OblianceTrayApp")
 	handle, _, lastErr := procCreateMutexW.Call(0, 0, uintptr(unsafe.Pointer(name)))
 	if handle == 0 {
 		return false
 	}
-	// The third return value of Call() is the errno captured right after the
-	// syscall.  Using procGetLastError.Call() separately is unreliable because
-	// the Go runtime may issue intermediate syscalls that overwrite LastError.
 	return lastErr.(syscall.Errno) != errorAlreadyExists
 }
