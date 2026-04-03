@@ -61,6 +61,18 @@ func newCmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// newCmdDetached creates a fully detached child process that survives the
+// parent's exit. Used for the MSI update batch script which must keep running
+// after the agent service stops.
+func newCmdDetached(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000008, // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
+	}
+	return cmd
+}
+
 // newCmdContext wraps exec.CommandContext with the same hidden-window behavior.
 // When the context expires, Go kills the main process. For full child-tree
 // cleanup, use runCmdContextWithJobObject instead.

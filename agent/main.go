@@ -413,18 +413,40 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	logPath := filepath.Join(os.TempDir(), "obliance-update.log")
 	scriptPath := filepath.Join(os.TempDir(), "obliance-msi-update.bat")
+	// Retry loop: msiexec error 1618 means another installer is running (mutex).
+	// Wait 30s between retries, up to 5 attempts. Also retry on error 1603
+	// (fatal error during installation — can be transient on locked files).
 	script := fmt.Sprintf(
 		"@echo off\r\n"+
-			"timeout /t 2 /nobreak >nul\r\n"+
+			"timeout /t 5 /nobreak >nul\r\n"+
+			"set RETRIES=0\r\n"+
+			":retry\r\n"+
 			"msiexec /i \"%s\" /quiet /norestart SERVERURL=\"%s\" APIKEY=\"%s\" /l*v \"%s\"\r\n"+
+			"set EXITCODE=%%ERRORLEVEL%%\r\n"+
+			"if %%EXITCODE%% == 0 goto done\r\n"+
+			"if %%EXITCODE%% == 3010 goto done\r\n"+
+			"if %%RETRIES%% GEQ 5 goto done\r\n"+
+			"if %%EXITCODE%% == 1618 goto wait_retry\r\n"+
+			"if %%EXITCODE%% == 1603 goto wait_retry\r\n"+
+			"goto done\r\n"+
+			":wait_retry\r\n"+
+			"set /a RETRIES=%%RETRIES%%+1\r\n"+
+			"timeout /t 30 /nobreak >nul\r\n"+
+			"goto retry\r\n"+
+			":done\r\n"+
+			"if %%EXITCODE%% NEQ 0 if %%EXITCODE%% NEQ 3010 (\r\n"+
+			"  net start OblianceAgent >nul 2>&1\r\n"+
+			")\r\n"+
 			"del /q \"%s\"\r\n"+
 			"del /q \"%%~f0\"\r\n",
 		msiPath, serverURL, apiKey, logPath, msiPath)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
-	// Start the batch script detached; it will outlive the current service process.
-	return newCmd("cmd", "/c", scriptPath).Start()
+	// Start the batch script detached so it outlives the service process.
+	// Use newCmdDetached to ensure the child process is not killed when the
+	// parent service exits (CREATE_NEW_PROCESS_GROUP + DETACHED_PROCESS).
+	return newCmdDetached("cmd", "/c", "\""+scriptPath+"\"").Start()
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────

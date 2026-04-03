@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +13,15 @@ import (
 
 	"github.com/getlantern/systray"
 )
+
+//go:embed icon_normal.ico
+var iconNormal []byte
+
+//go:embed icon_privacy.ico
+var iconPrivacy []byte
+
+//go:embed icon_disconnected.ico
+var iconDisconnected []byte
 
 // ── Privacy state (shared with agent service via file) ──────────────────────
 
@@ -261,9 +271,18 @@ func isPrivacyLocked() bool {
 func refreshState() {
 	state := readPrivacy()
 	locked := isPrivacyLocked()
+	running := isAgentServiceRunning()
+
+	// Icon priority: disconnected (grey) > privacy (orange) > normal (red)
+	if !running {
+		systray.SetIcon(iconDisconnected)
+	} else if state.Enabled {
+		systray.SetIcon(iconPrivacy)
+	} else {
+		systray.SetIcon(iconNormal)
+	}
 
 	if state.Enabled {
-		systray.SetIcon(iconPrivacy)
 		if locked {
 			systray.SetTooltip("Obliance Agent — Privacy Mode ON (locked)")
 			mPrivacy.SetTitle("Privacy Mode: ON  (locked)")
@@ -274,7 +293,6 @@ func refreshState() {
 			mPrivacy.Enable()
 		}
 	} else {
-		systray.SetIcon(iconNormal)
 		if locked {
 			systray.SetTooltip("Obliance Agent — Privacy Mode OFF (locked)")
 			mPrivacy.SetTitle("Privacy Mode: OFF  (locked)")
@@ -286,7 +304,7 @@ func refreshState() {
 		}
 	}
 
-	if isAgentServiceRunning() {
+	if running {
 		mStatus.SetTitle("Status: Connected")
 	} else {
 		mStatus.SetTitle("Status: Disconnected")
@@ -321,97 +339,10 @@ func watchLoop() {
 	}
 }
 
-// ── Embedded icons ──────────────────────────────────────────────────────────
-// Minimal 16x16 ICO files. Green shield = normal, Orange shield = privacy.
-
-var iconNormal = generateICO(0x22, 0xC5, 0x5E)  // green
-var iconPrivacy = generateICO(0xF5, 0x9E, 0x0B) // orange
-
-// generateICO builds a minimal 16x16 32-bit ICO with a shield shape in the given color.
-func generateICO(r, g, b byte) []byte {
-	width, height := 16, 16
-
-	// ICO header (6 bytes) + 1 entry (16 bytes) + BMP header (40 bytes) + pixel data
-	headerSize := 6
-	entrySize := 16
-	bmpHeaderSize := 40
-	pixelDataSize := width * height * 4 // 32-bit BGRA
-	maskSize := ((width + 31) / 32) * 4 * height
-	imageSize := bmpHeaderSize + pixelDataSize + maskSize
-	fileSize := headerSize + entrySize + imageSize
-	dataOffset := headerSize + entrySize
-
-	buf := make([]byte, fileSize)
-
-	// ICO header
-	buf[0], buf[1] = 0, 0 // reserved
-	buf[2], buf[3] = 1, 0 // type = ICO
-	buf[4], buf[5] = 1, 0 // 1 image
-
-	// Directory entry
-	e := buf[6:]
-	e[0] = byte(width)  // width
-	e[1] = byte(height) // height
-	e[2] = 0            // color palette
-	e[3] = 0            // reserved
-	e[4], e[5] = 1, 0   // color planes
-	e[6], e[7] = 32, 0  // bits per pixel
-	putLE32(e[8:], uint32(imageSize))
-	putLE32(e[12:], uint32(dataOffset))
-
-	// BMP info header
-	h := buf[dataOffset:]
-	putLE32(h[0:], uint32(bmpHeaderSize))
-	putLE32(h[4:], uint32(width))
-	putLE32(h[8:], uint32(height*2)) // ICO doubles height
-	h[12], h[13] = 1, 0             // planes
-	h[14], h[15] = 32, 0            // bpp
-	putLE32(h[20:], uint32(pixelDataSize+maskSize))
-
-	// Pixel data (bottom-up BGRA)
-	pixels := buf[dataOffset+bmpHeaderSize:]
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			idx := (y*width + x) * 4
-			if isShieldPixel(x, height-1-y, width, height) {
-				pixels[idx+0] = b // B
-				pixels[idx+1] = g // G
-				pixels[idx+2] = r // R
-				pixels[idx+3] = 255
-			} else {
-				// transparent
-				pixels[idx+3] = 0
-			}
-		}
-	}
-
-	return buf
-}
-
-// isShieldPixel returns true if (x, y) falls inside a shield shape.
-func isShieldPixel(x, y, w, h int) bool {
-	cx := float64(w) / 2
-	// Shield: wider at top, narrows to point at bottom
-	row := float64(y)
-	maxRow := float64(h)
-
-	// Top half: rounded rectangle
-	if row < maxRow*0.6 {
-		halfW := cx * 0.75
-		return float64(x) >= cx-halfW && float64(x) < cx+halfW
-	}
-	// Bottom: triangle tapering to center
-	progress := (row - maxRow*0.6) / (maxRow * 0.4)
-	halfW := cx * 0.75 * (1.0 - progress)
-	return float64(x) >= cx-halfW && float64(x) < cx+halfW
-}
-
-func putLE32(b []byte, v uint32) {
-	b[0] = byte(v)
-	b[1] = byte(v >> 8)
-	b[2] = byte(v >> 16)
-	b[3] = byte(v >> 24)
-}
+// Icons are embedded from .ico files via //go:embed directives at the top.
+// icon_normal.ico     = Obliance "O" logo (red gradient)
+// icon_privacy.ico    = Obliance "O" logo (orange)
+// icon_disconnected.ico = Obliance "O" logo (grey)
 
 func init() {
 	// Ensure log output goes somewhere visible on Windows.

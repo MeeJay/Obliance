@@ -16,3 +16,8 @@ func newCmd(name string, args ...string) *exec.Cmd {
 func newCmdContext(ctx context.Context, name string, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, name, args...)
 }
+
+// newCmdDetached creates a detached child process (no-op on non-Windows).
+func newCmdDetached(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}
