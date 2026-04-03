@@ -425,8 +425,16 @@ func applyWindowsMSIUpdate(msiPath, serverURL, apiKey string) error {
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 		return fmt.Errorf("write MSI update script: %w", err)
 	}
-	log.Printf("Auto-update: batch script written, launching cmd /c %s", scriptPath)
-	return startDetachedProcess("cmd", "/c", scriptPath)
+	log.Printf("Auto-update: batch script written, launching via WMI: %s", scriptPath)
+	// Launch via WMI (wmic process call create) so the batch runs as a
+	// completely independent process — not a child of this service. This
+	// avoids all job object / process tree issues on Windows Server 2022+.
+	wmic := newCmd("wmic", "process", "call", "create", fmt.Sprintf(`cmd /c "%s"`, scriptPath))
+	if out, err := wmic.CombinedOutput(); err != nil {
+		log.Printf("Auto-update: wmic failed: %v — output: %s", err, string(out))
+		return fmt.Errorf("wmic process call create: %w", err)
+	}
+	return nil
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
