@@ -4,6 +4,43 @@ import { scenarioService } from '../services/scenario.service';
 
 const router = Router();
 
+// ── Routes with fixed paths MUST come before /:id ──
+
+// GET /runs/:runId — get run detail
+router.get('/runs/:runId', async (req, res, next) => {
+  try {
+    const run = await scenarioService.getRunById(req.params.runId, req.tenantId!);
+    if (!run) return res.status(404).json({ error: 'Run not found' });
+    res.json({ data: run });
+  } catch (err) { next(err); }
+});
+
+// POST /runs/:runId/cancel — cancel run
+router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) => {
+  try {
+    await scenarioService.cancelRun(req.params.runId, req.tenantId!);
+    res.json({ data: { success: true } });
+  } catch (err) { next(err); }
+});
+
+// GET /for-device/:deviceId — list scenarios targeting a device
+router.get('/for-device/:deviceId', async (req, res, next) => {
+  try {
+    const scenarios = await scenarioService.list(req.tenantId!);
+    res.json({ data: scenarios });
+  } catch (err) { next(err); }
+});
+
+// GET /for-device/:deviceId/runs — list runs for a device
+router.get('/for-device/:deviceId/runs', async (req, res, next) => {
+  try {
+    const runs = await scenarioService.listRuns(req.tenantId!, { deviceId: parseInt(req.params.deviceId) });
+    res.json({ data: runs });
+  } catch (err) { next(err); }
+});
+
+// ── CRUD routes ──
+
 // GET / — list scenarios
 router.get('/', async (req, res, next) => {
   try {
@@ -78,39 +115,6 @@ router.post('/:id/trigger', requireRole('admin'), async (req, res, next) => {
 router.get('/:id/runs', async (req, res, next) => {
   try {
     const runs = await scenarioService.listRuns(req.tenantId!, { scenarioId: parseInt(req.params.id) });
-    res.json({ data: runs });
-  } catch (err) { next(err); }
-});
-
-// GET /runs/:runId — get run detail
-router.get('/runs/:runId', async (req, res, next) => {
-  try {
-    const run = await scenarioService.getRunById(req.params.runId, req.tenantId!);
-    if (!run) return res.status(404).json({ error: 'Run not found' });
-    res.json({ data: run });
-  } catch (err) { next(err); }
-});
-
-// POST /runs/:runId/cancel — cancel run
-router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) => {
-  try {
-    await scenarioService.cancelRun(req.params.runId, req.tenantId!);
-    res.json({ data: { success: true } });
-  } catch (err) { next(err); }
-});
-
-// GET /for-device/:deviceId — list scenarios targeting a device
-router.get('/for-device/:deviceId', async (req, res, next) => {
-  try {
-    const scenarios = await scenarioService.list(req.tenantId!);
-    res.json({ data: scenarios });
-  } catch (err) { next(err); }
-});
-
-// GET /for-device/:deviceId/runs — list runs for a device
-router.get('/for-device/:deviceId/runs', async (req, res, next) => {
-  try {
-    const runs = await scenarioService.listRuns(req.tenantId!, { deviceId: parseInt(req.params.deviceId) });
     res.json({ data: runs });
   } catch (err) { next(err); }
 });

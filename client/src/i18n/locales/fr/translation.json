@@ -106,7 +106,8 @@
     "addAgent": "Ajouter un agent",
     "policies": "Politiques",
     "supervision": "Supervision",
-    "discovery": "Découverte"
+    "discovery": "Découverte",
+    "automations": "Automations"
   },
   "login": {
     "title": "Tableau de bord de surveillance",

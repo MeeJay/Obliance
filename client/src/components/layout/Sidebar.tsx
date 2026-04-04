@@ -440,7 +440,7 @@ export function Sidebar() {
   const mainNavItems: NavItem[] = [
     { label: t('nav.dashboard'),   path: '/',           icon: <LayoutDashboard size={18} /> },
     { label: t('nav.devices'),     path: '/devices',    icon: <Monitor size={18} /> },
-    { label: t('nav.schedules'),   path: '/schedules',  icon: <CalendarClock size={18} /> },
+    { label: t('nav.automations', 'Automations'), path: '/schedules', icon: <CalendarClock size={18} /> },
     { label: t('nav.policies'),    path: '/policies',   icon: <ShieldCheck size={18} /> },
   ];
 

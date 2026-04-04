@@ -106,7 +106,8 @@
     "supervision": "Supervisión",
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
-    "discovery": "Discovery"
+    "discovery": "Discovery",
+    "automations": "Automations"
   },
   "login": {
     "title": "Panel de monitorización",

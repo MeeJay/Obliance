@@ -106,7 +106,8 @@
     "supervision": "Supervision",
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
-    "discovery": "Discovery"
+    "discovery": "Discovery",
+    "automations": "Automations"
   },
   "login": {
     "title": "监控仪表板",

@@ -106,7 +106,8 @@
     "addAgent": "Add Agent",
     "policies": "Policies",
     "supervision": "Supervision",
-    "discovery": "Discovery"
+    "discovery": "Discovery",
+    "automations": "Automations"
   },
   "login": {
     "title": "Monitoring Dashboard",
