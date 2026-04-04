@@ -7,34 +7,49 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 )
 
-// Rule names used by airgap firewall management.
-var airgapRuleNames = []string{
-	"Obliance-Airgap-BlockAll-Out",
-	"Obliance-Airgap-BlockAll-In",
-	"Obliance-Airgap-Loopback-Out",
-	"Obliance-Airgap-Loopback-In",
-	"Obliance-Airgap-DNS",
-}
+// Firewall backup file — used to restore original state on airgap disable or rollback.
+var firewallBackupFile = filepath.Join(configDir, "airgap-firewall-backup.wfw")
 
-// applyAirgapFirewallRules creates Windows Firewall rules that block all traffic
-// except loopback, DNS, and the specified server IPs.
+// applyAirgapFirewallRules exports the current firewall state, resets it,
+// sets default policy to block all, then adds Allow rules for Obliance.
 func applyAirgapFirewallRules(serverIPs []string) error {
-	// Remove any stale rules first.
-	_ = removeAirgapFirewallRules()
+	// 1. Export current firewall state for later restoration.
+	log.Printf("airgap: exporting current firewall state to %s", firewallBackupFile)
+	out, err := newCmd("netsh", "advfirewall", "export", firewallBackupFile).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("airgap: export firewall state: %v — %s", err, string(out))
+	}
 
+	// 2. Reset firewall to defaults (removes ALL existing rules).
+	log.Printf("airgap: resetting firewall to defaults")
+	out, err = newCmd("netsh", "advfirewall", "reset").CombinedOutput()
+	if err != nil {
+		// Restore on failure.
+		restoreFirewall()
+		return fmt.Errorf("airgap: reset firewall: %v — %s", err, string(out))
+	}
+
+	// 3. Set default policy: block inbound + block outbound on all profiles.
+	log.Printf("airgap: setting default policy to block all")
+	out, err = newCmd("netsh", "advfirewall", "set", "allprofiles",
+		"firewallpolicy", "blockinbound,blockoutbound").CombinedOutput()
+	if err != nil {
+		restoreFirewall()
+		return fmt.Errorf("airgap: set block policy: %v — %s", err, string(out))
+	}
+
+	// 4. Add Allow rules — only Obliance server, DNS, and loopback.
 	type rule struct {
 		name string
 		args []string
 	}
 
-	// IMPORTANT: Allow rules MUST be created BEFORE block rules.
-	// If block rules go first, they kill the existing TCP connection to
-	// the Obliance server before the allow rules whitelist it.
 	var rules []rule
 
-	// 1. Allow loopback
+	// Loopback
 	rules = append(rules, rule{
 		name: "Obliance-Airgap-Loopback-Out",
 		args: []string{"advfirewall", "firewall", "add", "rule",
@@ -46,14 +61,14 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 			"name=Obliance-Airgap-Loopback-In", "dir=in", "action=allow", "remoteip=127.0.0.1"},
 	})
 
-	// 2. Allow DNS (UDP 53)
+	// DNS (UDP 53)
 	rules = append(rules, rule{
 		name: "Obliance-Airgap-DNS",
 		args: []string{"advfirewall", "firewall", "add", "rule",
 			"name=Obliance-Airgap-DNS", "dir=out", "action=allow", "protocol=UDP", "remoteport=53"},
 	})
 
-	// 3. Allow server IPs
+	// Server IPs
 	for _, ip := range serverIPs {
 		rules = append(rules, rule{
 			name: "Obliance-Airgap-Allow-" + ip,
@@ -67,24 +82,12 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 		})
 	}
 
-	// 4. Block everything else (LAST — after allows are in place)
-	rules = append(rules, rule{
-		name: "Obliance-Airgap-BlockAll-Out",
-		args: []string{"advfirewall", "firewall", "add", "rule",
-			"name=Obliance-Airgap-BlockAll-Out", "dir=out", "action=block"},
-	})
-	rules = append(rules, rule{
-		name: "Obliance-Airgap-BlockAll-In",
-		args: []string{"advfirewall", "firewall", "add", "rule",
-			"name=Obliance-Airgap-BlockAll-In", "dir=in", "action=block"},
-	})
-
 	for _, r := range rules {
 		out, err := newCmd("netsh", r.args...).CombinedOutput()
 		if err != nil {
-			// Rollback on failure.
-			_ = removeAirgapFirewallRules()
-			return fmt.Errorf("airgap: failed to add rule %q: %v — %s", r.name, err, string(out))
+			log.Printf("airgap: failed to add rule %s: %v — %s", r.name, err, string(out))
+			restoreFirewall()
+			return fmt.Errorf("airgap: failed to add rule %q: %v", r.name, err)
 		}
 		log.Printf("airgap: added rule %s", r.name)
 	}
@@ -92,27 +95,40 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 	return nil
 }
 
-// removeAirgapFirewallRules deletes all Obliance-Airgap-* firewall rules.
+// removeAirgapFirewallRules restores the firewall from the backup taken before
+// airgap was enabled. If no backup exists, it resets to Windows defaults.
 func removeAirgapFirewallRules() error {
-	// Delete static rules.
-	for _, name := range airgapRuleNames {
-		out, err := newCmd("netsh", "advfirewall", "firewall", "delete", "rule", "name="+name).CombinedOutput()
+	return restoreFirewall()
+}
+
+// restoreFirewall imports the saved firewall state, or resets to Windows
+// defaults if no backup is available.
+func restoreFirewall() error {
+	if _, err := os.Stat(firewallBackupFile); err == nil {
+		log.Printf("airgap: restoring firewall from backup %s", firewallBackupFile)
+		out, err := newCmd("netsh", "advfirewall", "import", firewallBackupFile).CombinedOutput()
 		if err != nil {
-			log.Printf("airgap: delete rule %s (may not exist): %v — %s", name, err, string(out))
-		}
-	}
-
-	// Delete per-IP rules: read airgap state to find previously-allowed IPs.
-	data, _ := readAirgapIPs()
-	for _, ip := range data {
-		for _, name := range []string{"Obliance-Airgap-Allow-" + ip, "Obliance-Airgap-Allow-" + ip + "-In"} {
-			out, err := newCmd("netsh", "advfirewall", "firewall", "delete", "rule", "name="+name).CombinedOutput()
-			if err != nil {
-				log.Printf("airgap: delete rule %s (may not exist): %v — %s", name, err, string(out))
+			log.Printf("airgap: import failed: %v — %s, falling back to reset", err, string(out))
+			// Last resort: reset to Windows defaults so the machine isn't bricked.
+			out2, err2 := newCmd("netsh", "advfirewall", "reset").CombinedOutput()
+			if err2 != nil {
+				return fmt.Errorf("airgap: both import and reset failed: import=%v reset=%v — %s", err, err2, string(out2))
 			}
+			log.Printf("airgap: firewall reset to Windows defaults (backup import failed)")
+			return nil
 		}
+		log.Printf("airgap: firewall restored from backup")
+		// Clean up backup file.
+		os.Remove(firewallBackupFile)
+		return nil
 	}
 
+	// No backup — reset to safe defaults.
+	log.Printf("airgap: no backup found, resetting firewall to Windows defaults")
+	out, err := newCmd("netsh", "advfirewall", "reset").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("airgap: reset firewall: %v — %s", err, string(out))
+	}
 	return nil
 }
 

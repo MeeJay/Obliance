@@ -53,11 +53,13 @@ func SetAirgapMode(enabled bool, changedBy string, serverIPs []string) error {
 			return fmt.Errorf("airgap: apply firewall rules: %w", err)
 		}
 
-		// Verify we can still reach the server. If not, rollback immediately.
+		// Verify we can still reach the server. If not, restore firewall immediately.
 		if err := verifyServerConnectivity(); err != nil {
-			log.Printf("airgap: connectivity check failed after applying rules, rolling back: %v", err)
-			_ = removeAirgapFirewallRules()
-			return fmt.Errorf("airgap: server unreachable after applying rules, rolled back: %w", err)
+			log.Printf("airgap: connectivity check failed after applying rules, restoring firewall: %v", err)
+			if restoreErr := removeAirgapFirewallRules(); restoreErr != nil {
+				log.Printf("airgap: CRITICAL — firewall restore also failed: %v", restoreErr)
+			}
+			return fmt.Errorf("airgap: server unreachable after applying rules, firewall restored: %w", err)
 		}
 	} else {
 		if err := removeAirgapFirewallRules(); err != nil {
