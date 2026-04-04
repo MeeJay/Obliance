@@ -896,7 +896,7 @@ async function markRunComplete(runId: string, tenantId: number, status: 'success
         const { notificationService } = await import('./notification.service');
         const device = await db('devices').where({ id: run.deviceId }).select('hostname', 'display_name', 'tenant_id').first();
         const deviceName = device?.display_name || device?.hostname || `Device #${run.deviceId}`;
-        await notificationService.sendForAgent(run.deviceId, tenantId, 'online', `Scenario "${scenario.name}" completed successfully on ${deviceName}`);
+        await notificationService.sendForAgent(run.deviceId, deviceName, 'online', `Scenario "${scenario.name}" completed successfully on ${deviceName}`);
       }
     } catch {}
   }
@@ -926,7 +926,7 @@ async function markRunFailed(runId: string, tenantId: number, errorMessage: stri
         const { notificationService } = await import('./notification.service');
         const device = await db('devices').where({ id: run.deviceId }).select('hostname', 'display_name', 'tenant_id').first();
         const deviceName = device?.display_name || device?.hostname || `Device #${run.deviceId}`;
-        await notificationService.sendForAgent(run.deviceId, tenantId, 'warning', `Scenario "${scenario.name}" failed on ${deviceName}: ${errorMessage}`);
+        await notificationService.sendForAgent(run.deviceId, deviceName, 'warning', `Scenario "${scenario.name}" failed on ${deviceName}: ${errorMessage}`);
       }
     } catch {}
   }

@@ -4,7 +4,7 @@ import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
-import type { Scenario, ScenarioStep, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode } from '@obliance/shared';
+import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 

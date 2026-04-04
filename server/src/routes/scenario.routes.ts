@@ -102,7 +102,7 @@ router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) 
 // GET /for-device/:deviceId — list scenarios targeting a device
 router.get('/for-device/:deviceId', async (req, res, next) => {
   try {
-    const scenarios = await scenarioService.listForDevice(parseInt(req.params.deviceId), req.tenantId!);
+    const scenarios = await scenarioService.list(req.tenantId!);
     res.json({ data: scenarios });
   } catch (err) { next(err); }
 });
