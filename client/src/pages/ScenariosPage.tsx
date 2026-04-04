@@ -113,13 +113,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
     setIsLoading(true);
     try {
       const [scenarioList, scriptList, scheduleList] = await Promise.all([
-        scenarioApi.list(),
-        scriptApi.list(),
-        scriptApi.listSchedules(),
+        scenarioApi.list().catch(() => []),
+        scriptApi.list().catch(() => []),
+        scriptApi.listSchedules().catch(() => []),
       ]);
-      setScenarios(scenarioList);
-      setScripts(scriptList);
-      setSchedules(scheduleList);
+      setScenarios(Array.isArray(scenarioList) ? scenarioList : []);
+      setScripts(Array.isArray(scriptList) ? scriptList : []);
+      setSchedules(Array.isArray(scheduleList) ? scheduleList : []);
     } catch {
       toast.error('Failed to load scenarios');
     } finally {
