@@ -23,13 +23,13 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 		return fmt.Errorf("airgap: export firewall state: %v — %s", err, string(out))
 	}
 
-	// 2. Reset firewall to defaults (removes ALL existing rules).
-	log.Printf("airgap: resetting firewall to defaults")
-	out, err = newCmd("netsh", "advfirewall", "reset").CombinedOutput()
-	if err != nil {
-		// Restore on failure.
-		restoreFirewall()
-		return fmt.Errorf("airgap: reset firewall: %v — %s", err, string(out))
+	// 2. Delete ALL firewall rules — everything, no exceptions.
+	log.Printf("airgap: deleting all firewall rules")
+	for _, dir := range []string{"in", "out"} {
+		out, err = newCmd("netsh", "advfirewall", "firewall", "delete", "rule", "name=all", "dir="+dir).CombinedOutput()
+		if err != nil {
+			log.Printf("airgap: delete all %s rules: %v — %s (continuing)", dir, err, string(out))
+		}
 	}
 
 	// 3. Set default policy: block inbound + block outbound on all profiles.
