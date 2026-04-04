@@ -53,6 +53,10 @@ export const SocketEvents = {
   // Process events
   DEVICE_PROCESSES_UPDATED: 'DEVICE_PROCESSES_UPDATED',
 
+  // Scenario events
+  SCENARIO_RUN_UPDATED:   'SCENARIO_RUN_UPDATED',    // scenario run status changed
+  SCENARIO_STEP_UPDATED:  'SCENARIO_STEP_UPDATED',   // scenario step run status changed
+
   // Client → Server
   DEVICE_SUBSCRIBE:       'DEVICE_SUBSCRIBE',
   DEVICE_UNSUBSCRIBE:     'DEVICE_UNSUBSCRIBE',

@@ -8,6 +8,8 @@ import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
+import { scenarioService } from '../services/scenario.service';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -202,8 +204,17 @@ router.get('/:id', requireDeviceRead(), async (req, res, next) => {
 // PATCH /api/devices/:id
 router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
   try {
-    const device = await deviceService.updateDevice(parseInt(req.params.id), req.tenantId!, req.body);
+    const deviceId = parseInt(req.params.id);
+    // Check if group is changing so we can fire a scenario trigger
+    const hadGroupChange = req.body.groupId !== undefined;
+    const device = await deviceService.updateDevice(deviceId, req.tenantId!, req.body);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+    // Fire scenario trigger when device joins a new group
+    if (hadGroupChange && device.groupId) {
+      scenarioService.fireTrigger('group_join', deviceId, req.tenantId!, { groupId: device.groupId }).catch(err => {
+        logger.error({ err, deviceId }, 'Failed to fire group_join scenario trigger');
+      });
+    }
     res.json({ data: device });
   } catch (err) { next(err); }
 });
@@ -228,6 +239,12 @@ router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
     const device = await deviceService.approveDevice(
       parseInt(req.params.id), req.tenantId!, req.session.userId!
     );
+    // Fire scenario trigger for newly approved agent
+    if (device) {
+      scenarioService.fireTrigger('agent_approved', device.id, req.tenantId!).catch(err => {
+        logger.error({ err, deviceId: device.id }, 'Failed to fire agent_approved scenario trigger');
+      });
+    }
     res.json({ data: device });
   } catch (err) { next(err); }
 });

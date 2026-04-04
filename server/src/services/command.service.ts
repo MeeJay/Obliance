@@ -304,6 +304,24 @@ class CommandService {
           logger.error(execErr, 'Failed to update script_execution from ack');
         }
       }
+
+      // ── Scenario step orchestration ─────────────────────────────────────
+      if (isTerminal && row && row.source_type?.startsWith('scenario_step_')) {
+        try {
+          const result = ack.result as any;
+          const { scenarioService } = await import('./scenario.service');
+          await scenarioService.handleScenarioCommandAck(
+            row.id,
+            row.source_type,
+            row.source_id,
+            result?.exitCode ?? (ack.status === 'success' ? 0 : -1),
+            result?.stdout ?? '',
+            result?.stderr ?? result?.error ?? '',
+          );
+        } catch (scenarioErr) {
+          logger.error(scenarioErr, 'Failed to process scenario step ack');
+        }
+      }
     }
   }
 

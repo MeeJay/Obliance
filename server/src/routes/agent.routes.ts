@@ -21,6 +21,7 @@ import { updateService } from '../services/update.service';
 import { complianceService } from '../services/compliance.service';
 import { softwareComplianceService } from '../services/softwareCompliance.service';
 import { networkDiscoveryService } from '../services/networkDiscovery.service';
+import { scenarioService } from '../services/scenario.service';
 import { SocketEvents } from '@obliance/shared';
 import { getIO } from '../socket';
 
@@ -180,6 +181,18 @@ router.post('/push', agentAuth, async (req, res, next) => {
     }
 
     const response = await deviceService.handlePush(device.id, tenantId, { ...body, agentVersion });
+
+    // Handle agent events (session_login, machine_boot, etc.) for scenario triggers
+    if (Array.isArray(body.events)) {
+      for (const event of body.events) {
+        if (event.type === 'session_login' || event.type === 'machine_boot') {
+          scenarioService.fireTrigger(event.type, device.id, device.tenant_id, event.data).catch(err => {
+            logger.error({ err, deviceId: device.id, eventType: event.type }, 'Failed to fire scenario trigger');
+          });
+        }
+      }
+    }
+
     res.json(response);
   } catch (err) {
     next(err);

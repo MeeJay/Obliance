@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
+import { scenarioApi } from '@/api/scenario.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
-import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode } from '@obliance/shared';
+import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -27,6 +28,7 @@ interface ScheduleFormData {
   catchupEnabled: boolean;
   catchupMax: number;
   assertPass: boolean;
+  onFailureScenarioId: number | null;
   enabled: boolean;
 }
 
@@ -43,6 +45,7 @@ const defaultForm: ScheduleFormData = {
   catchupEnabled: false,
   catchupMax: 3,
   assertPass: false,
+  onFailureScenarioId: null,
   enabled: true,
 };
 
@@ -70,6 +73,7 @@ function formatDate(val: string | null) {
 export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScriptSchedule | null>(null);
@@ -82,12 +86,14 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [schedList, scriptList] = await Promise.all([
+      const [schedList, scriptList, scenarioList] = await Promise.all([
         scriptApi.listSchedules(),
         scriptApi.list(),
+        scenarioApi.list(),
       ]);
       setSchedules(schedList);
       setScripts(scriptList);
+      setScenarios(scenarioList);
     } catch {
       toast.error('Failed to load schedules');
     } finally {
@@ -118,6 +124,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       catchupEnabled: schedule.catchupEnabled,
       catchupMax: schedule.catchupMax,
       assertPass: schedule.assertPass ?? false,
+      onFailureScenarioId: schedule.onFailureScenarioId ?? null,
       enabled: schedule.enabled,
     });
     setEditingSchedule(schedule);
@@ -144,6 +151,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         catchupEnabled: form.catchupEnabled,
         catchupMax: form.catchupMax,
         assertPass: form.assertPass,
+        onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
         enabled: form.enabled,
         parameterValues: {},
         runConditions: [],
@@ -419,6 +427,19 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             </label>
             {form.assertPass && (
               <p className="text-xs text-orange-400/80 ml-6">If the script exits with a non-zero code, the device will show a "Schedule Error" status and a notification will be sent.</p>
+            )}
+            {form.assertPass && (
+              <div className="flex items-center gap-2 ml-6">
+                <span className="text-sm text-text-muted whitespace-nowrap">On failure, trigger scenario:</span>
+                <select
+                  value={form.onFailureScenarioId ?? ''}
+                  onChange={(e) => setForm({ ...form, onFailureScenarioId: e.target.value ? parseInt(e.target.value, 10) : null })}
+                  className="px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="">None</option>
+                  {scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
             )}
           </div>
         </div>

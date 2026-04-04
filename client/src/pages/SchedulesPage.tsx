@@ -1,24 +1,26 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarClock, Code2, Play, History } from 'lucide-react';
+import { CalendarClock, Code2, Play, History, Zap } from 'lucide-react';
 import { ScriptSchedulesPage } from './ScriptSchedulesPage';
 import { ScriptLibraryPage } from './ScriptLibraryPage';
 import { ScriptRunPage } from './ScriptRunPage';
 import { ScriptHistoryPage } from './ScriptHistoryPage';
+import { ScenariosPage } from './ScenariosPage';
 import { clsx } from 'clsx';
 
-type Tab = 'schedules' | 'scripts' | 'run' | 'history';
+type Tab = 'schedules' | 'scenarios' | 'scripts' | 'run' | 'history';
 
 export function SchedulesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const initialTab: Tab = ['scripts', 'run', 'history'].includes(rawTab ?? '') ? rawTab as Tab : 'schedules';
+  const initialTab: Tab = ['scenarios', 'scripts', 'run', 'history'].includes(rawTab ?? '') ? rawTab as Tab : 'schedules';
   const [tab, setTab] = useState<Tab>(initialTab);
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
+    { id: 'scenarios', label: 'Scenarios', icon: <Zap size={16} /> },
     { id: 'scripts', label: t('schedules.tabScripts'), icon: <Code2 size={16} /> },
     { id: 'run', label: t('schedules.tabRun'), icon: <Play size={16} /> },
     { id: 'history', label: t('schedules.tabHistory'), icon: <History size={16} /> },
@@ -26,7 +28,7 @@ export function SchedulesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary">{t('schedules.title')}</h1>
+      <h1 className="text-2xl font-bold text-text-primary">{t('automations.title', 'Automations')}</h1>
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
         {tabs.map((t2) => (
           <button
@@ -43,6 +45,7 @@ export function SchedulesPage() {
         ))}
       </div>
       {tab === 'schedules' && <ScriptSchedulesPage embedded />}
+      {tab === 'scenarios' && <ScenariosPage embedded />}
       {tab === 'scripts' && <ScriptLibraryPage embedded />}
       {tab === 'run' && <ScriptRunPage embedded />}
       {tab === 'history' && <ScriptHistoryPage embedded />}

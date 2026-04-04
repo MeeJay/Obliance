@@ -1805,5 +1805,51 @@
     "disableFailed": "Failed to disable airgap",
     "bannerTitle": "AIRGAP — Appareil isolé du réseau",
     "bannerMessage": "Cet appareil est en mode Airgap suite à un incident de sécurité. Ne désactivez pas l’Airgap sans vérification préalable de l’équipe sécurité."
+  },
+  "automations": {
+    "title": "Automations",
+    "tabSchedules": "Schedules",
+    "tabScenarios": "Scenarios",
+    "tabScripts": "Scripts"
+  },
+  "scenarios": {
+    "title": "Scenarios",
+    "create": "Create Scenario",
+    "name": "Name",
+    "description": "Description",
+    "triggerType": "Trigger",
+    "targetType": "Target",
+    "status": "Status",
+    "steps": "Steps",
+    "variables": "Variables",
+    "timeout": "Timeout (seconds)",
+    "retryPolicy": "Retry Policy",
+    "maxRetries": "Max Retries",
+    "retryDelay": "Retry Delay (seconds)",
+    "notifyOnSuccess": "Notify on success",
+    "notifyOnFailure": "Notify on failure",
+    "noScenarios": "No scenarios yet",
+    "triggerTypes": {
+      "session_login": "Session Login",
+      "machine_boot": "Machine Boot",
+      "agent_approved": "Agent Approved",
+      "group_join": "Group Join",
+      "schedule_failure": "Schedule Failure",
+      "manual": "Manual"
+    },
+    "statuses": {
+      "draft": "Draft",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "stepName": "Step name",
+    "checkScript": "Check script",
+    "resolveScript": "Resolve script",
+    "addStep": "Add step",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete this scenario?",
+    "onFailureScenario": "On failure, trigger scenario",
+    "none": "None"
   }
 }

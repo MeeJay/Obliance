@@ -13,6 +13,42 @@ import (
 	"time"
 )
 
+// ── Agent events ─────────────────────────────────────────────────────────────
+
+// AgentEvent represents a discrete event reported to the server (e.g. boot, login).
+type AgentEvent struct {
+	Type      string                 `json:"type"`
+	Timestamp string                 `json:"timestamp"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+}
+
+var (
+	pendingEvents   []AgentEvent
+	pendingEventsMu sync.Mutex
+)
+
+func addEvent(eventType string, data map[string]interface{}) {
+	pendingEventsMu.Lock()
+	defer pendingEventsMu.Unlock()
+	pendingEvents = append(pendingEvents, AgentEvent{
+		Type:      eventType,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Data:      data,
+	})
+}
+
+func drainEvents() []AgentEvent {
+	pendingEventsMu.Lock()
+	defer pendingEventsMu.Unlock()
+	if len(pendingEvents) == 0 {
+		return nil
+	}
+	events := make([]AgentEvent, len(pendingEvents))
+	copy(events, pendingEvents)
+	pendingEvents = pendingEvents[:0]
+	return events
+}
+
 // ── Push request / response types ─────────────────────────────────────────────
 
 type pushBody struct {
@@ -28,6 +64,7 @@ type pushBody struct {
 	AirgapMode       bool         `json:"airgapMode"`
 	LastLoggedInUser string       `json:"lastLoggedInUser,omitempty"`
 	DistroFamily     string       `json:"distroFamily,omitempty"`
+	Events           []AgentEvent `json:"events,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -163,6 +200,7 @@ func push(cfg *Config) {
 		AirgapMode:       IsAirgapMode(),
 		LastLoggedInUser: getLastLoggedInUser(),
 		DistroFamily:     getDistroFamily(),
+		Events:           drainEvents(),
 	}
 
 	data, err := json.Marshal(body)

@@ -68,6 +68,19 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 			"name=Obliance-Airgap-DNS", "dir=out", "action=allow", "protocol=UDP", "remoteport=53"},
 	})
 
+	// DHCP (UDP 67/68) — essential to renew IP lease, otherwise the machine
+	// loses its IP address and can't reach anything including Obliance.
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-DHCP-Out",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-DHCP-Out", "dir=out", "action=allow", "protocol=UDP", "localport=68", "remoteport=67"},
+	})
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-DHCP-In",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-DHCP-In", "dir=in", "action=allow", "protocol=UDP", "localport=68", "remoteport=67"},
+	})
+
 	// Server IPs
 	for _, ip := range serverIPs {
 		rules = append(rules, rule{

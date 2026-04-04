@@ -44,6 +44,7 @@ import processRoutes from './process.routes';
 import fileRoutes from './file.routes';
 import networkDiscoveryRoutes from './networkDiscovery.routes';
 import permissionSetsRoutes from './permissionSets.routes';
+import scenarioRoutes from './scenario.routes';
 
 const router = Router();
 
@@ -96,6 +97,7 @@ tenantRouter.use('/licenses',    licenseRoutes);
 tenantRouter.use('/quick-reply-templates', quickReplyTemplatesRoutes);
 tenantRouter.use('/network-discovery', networkDiscoveryRoutes);
 tenantRouter.use('/permission-sets', permissionSetsRoutes);
+tenantRouter.use('/scenarios',      scenarioRoutes);
 
 router.use('/', tenantRouter);
 

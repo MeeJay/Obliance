@@ -460,6 +460,7 @@ export interface AgentCommand {
 
 export type ScriptPlatform = 'windows' | 'macos' | 'linux' | 'freebsd' | 'all';
 export type ScriptRuntime = 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh' | 'sh' | 'python' | 'python3' | 'perl' | 'ruby';
+export type ScriptPurpose = 'check' | 'resolve' | 'execute' | 'compliance';
 export type ScriptParameterType = 'string' | 'number' | 'boolean' | 'secret' | 'select' | 'multiselect';
 
 export interface ScriptCategory {
@@ -507,6 +508,7 @@ export interface Script {
   updatedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  purpose?: ScriptPurpose;
   parameters?: ScriptParameter[];
   category?: ScriptCategory | null;
 }
@@ -547,6 +549,7 @@ export interface ScriptSchedule {
   updatedByName?: string | null;
   createdAt: string;
   updatedAt: string;
+  onFailureScenarioId?: number | null;
   script?: Script;
 }
 
@@ -1434,5 +1437,107 @@ export interface NotificationPluginMeta {
   name: string;
   description: string;
   configFields: NotificationConfigField[];
+}
+
+// ─── SCENARIOS ──────────────────────────────────────────────────────────────
+
+export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'manual';
+export type ScenarioStatus = 'draft' | 'active' | 'disabled';
+export type ScenarioRunStatus = 'pending' | 'running' | 'success' | 'failure' | 'cancelled' | 'timeout';
+export type ScenarioStepRunStatus = 'pending' | 'check_running' | 'check_passed' | 'resolve_running' | 'recheck_running' | 'recheck_passed' | 'failed' | 'skipped' | 'success';
+
+export interface ScenarioTriggerConfig {
+  groupIds?: number[];
+  scheduleId?: number;
+}
+
+export interface ScenarioRetryPolicy {
+  maxRetries: number;
+  retryDelaySeconds: number;
+}
+
+export interface Scenario {
+  id: number;
+  uuid: string;
+  tenantId: number;
+  name: string;
+  description: string | null;
+  triggerType: ScenarioTriggerType;
+  triggerConfig: ScenarioTriggerConfig;
+  targetType: string;
+  targetIds: number[];
+  status: ScenarioStatus;
+  retryPolicy: ScenarioRetryPolicy;
+  timeoutSeconds: number;
+  notifyOnSuccess: boolean;
+  notifyOnFailure: boolean;
+  variables: Record<string, string>;
+  steps?: ScenarioStep[];
+  createdBy: number | null;
+  updatedBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScenarioStep {
+  id: number;
+  scenarioId: number;
+  sortOrder: number;
+  name: string;
+  description: string | null;
+  checkScriptId: number | null;
+  resolveScriptId: number | null;
+  timeoutSeconds: number;
+  retryCount: number;
+  parameterOverrides: Record<string, string>;
+  checkScript?: Pick<Script, 'id' | 'name' | 'platform' | 'runtime'>;
+  resolveScript?: Pick<Script, 'id' | 'name' | 'platform' | 'runtime'>;
+}
+
+export interface ScenarioRun {
+  id: string;
+  tenantId: number;
+  scenarioId: number;
+  deviceId: number;
+  triggerType: ScenarioTriggerType;
+  triggerSource: string | null;
+  status: ScenarioRunStatus;
+  currentStep: number;
+  variables: Record<string, string>;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorMessage: string | null;
+  retryAttempt: number;
+  createdAt: string;
+  scenario?: Pick<Scenario, 'id' | 'name'>;
+  device?: { id: number; hostname: string; displayName: string | null; osType: string };
+  stepRuns?: ScenarioStepRun[];
+}
+
+export interface ScenarioStepRun {
+  id: string;
+  runId: string;
+  stepId: number;
+  sortOrder: number;
+  status: ScenarioStepRunStatus;
+  checkExitCode: number | null;
+  checkStdout: string | null;
+  checkStderr: string | null;
+  checkStartedAt: string | null;
+  checkFinishedAt: string | null;
+  resolveExitCode: number | null;
+  resolveStdout: string | null;
+  resolveStderr: string | null;
+  resolveStartedAt: string | null;
+  resolveFinishedAt: string | null;
+  recheckExitCode: number | null;
+  recheckStdout: string | null;
+  recheckStderr: string | null;
+  recheckStartedAt: string | null;
+  recheckFinishedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  retryAttempt: number;
+  step?: ScenarioStep;
 }
 

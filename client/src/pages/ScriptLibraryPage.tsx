@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen, Copy } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
-import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime } from '@obliance/shared';
+import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime, ScriptPurpose } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -27,6 +27,20 @@ const RUNTIME_LABELS: Record<ScriptRuntime, string> = {
   ruby: 'Ruby',
 };
 
+const PURPOSE_LABELS: Record<ScriptPurpose, string> = {
+  check: 'Check',
+  resolve: 'Resolve',
+  execute: 'Execute',
+  compliance: 'Compliance',
+};
+
+const PURPOSE_COLORS: Record<ScriptPurpose, string> = {
+  check: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+  resolve: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+  execute: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
+  compliance: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+};
+
 interface ScriptFormData {
   name: string;
   description: string;
@@ -39,6 +53,7 @@ interface ScriptFormData {
   tags: string;
   categoryId: number | null;
   availableInReach: boolean;
+  purpose: ScriptPurpose;
 }
 
 const defaultForm: ScriptFormData = {
@@ -53,6 +68,7 @@ const defaultForm: ScriptFormData = {
   tags: '',
   categoryId: null,
   availableInReach: false,
+  purpose: 'execute',
 };
 
 export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
@@ -61,6 +77,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
+  const [selectedPurpose, setSelectedPurpose] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -109,6 +126,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
         tags,
         categoryId: form.categoryId,
         availableInReach: form.availableInReach,
+        purpose: form.purpose,
         tenantId: null,
       };
       if (isCreating) {
@@ -162,6 +180,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
       tags: script.tags.join(', '),
       categoryId: script.categoryId,
       availableInReach: script.availableInReach ?? false,
+      purpose: script.purpose ?? 'execute',
     });
     setSelectedScript(script);
     setIsEditing(true);
@@ -176,10 +195,15 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     });
   };
 
+  // Filter scripts by purpose
+  const filteredScripts = selectedPurpose
+    ? scripts.filter((s) => (s.purpose ?? 'execute') === selectedPurpose)
+    : scripts;
+
   // Group scripts by category
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
   const grouped = new Map<string, { catId: number | null; scripts: Script[] }>();
-  for (const s of scripts) {
+  for (const s of filteredScripts) {
     const key = s.categoryId ? (catMap.get(s.categoryId) ?? 'Uncategorized') : 'Uncategorized';
     const catId = s.categoryId ?? null;
     if (!grouped.has(key)) grouped.set(key, { catId, scripts: [] });
@@ -228,6 +252,14 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
             <option value="">All platforms</option>
             {Object.entries(PLATFORM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
+          <select
+            value={selectedPurpose}
+            onChange={(e) => setSelectedPurpose(e.target.value)}
+            className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+          >
+            <option value="">All purposes</option>
+            {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
         </div>
 
         {/* Script list grouped by category (drawers) */}
@@ -236,7 +268,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
             <div className="flex items-center justify-center h-24">
               <RefreshCw className="w-4 h-4 animate-spin text-text-muted" />
             </div>
-          ) : scripts.length === 0 ? (
+          ) : filteredScripts.length === 0 ? (
             <p className="text-center text-text-muted text-sm py-8">No scripts found</p>
           ) : (
             sortedGroups.map(([catName, { scripts: catScripts }]) => {
@@ -274,6 +306,14 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                             <span>{PLATFORM_LABELS[script.platform]}</span>
                             <span>·</span>
                             <span>{RUNTIME_LABELS[script.runtime]}</span>
+                            {script.purpose && script.purpose !== 'execute' && (
+                              <>
+                                <span>·</span>
+                                <span className={clsx('px-1.5 py-0 rounded-full border text-[10px] font-medium', PURPOSE_COLORS[script.purpose])}>
+                                  {PURPOSE_LABELS[script.purpose]}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </button>
                       ))}
@@ -366,6 +406,16 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                 >
                   <option value="system">System</option>
                   <option value="user">User</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Purpose</label>
+                <select
+                  value={form.purpose}
+                  onChange={(e) => setForm({ ...form, purpose: e.target.value as ScriptPurpose })}
+                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                >
+                  {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
@@ -490,6 +540,11 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
 
             <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
               <span>Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}</span>
+              {selectedScript.purpose && (
+                <span className={clsx('px-1.5 py-0.5 rounded border text-[10px] font-medium', PURPOSE_COLORS[selectedScript.purpose])}>
+                  {PURPOSE_LABELS[selectedScript.purpose]}
+                </span>
+              )}
               {selectedScript.isBuiltin && <span className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-text-muted">Built-in</span>}
               {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400">Available in Reach</span>}
             </div>

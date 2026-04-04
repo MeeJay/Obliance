@@ -474,12 +474,19 @@ func mainLoop(cfg *Config) {
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()
 	loadAirgapState()
+
+	addEvent("machine_boot", nil)
+
 	privacyStopCh := make(chan struct{})
 	go watchPrivacyFile(privacyStopCh)
 
 	// Ensure the tray icon process is running in each active user session.
 	trayStopCh := make(chan struct{})
 	go watchTrayLoop(trayStopCh)
+
+	// Monitor for new interactive user sessions (Windows only).
+	sessionStopCh := make(chan struct{})
+	go watchSessionLogins(sessionStopCh)
 
 	// Initialise the command dispatcher used by push() to dispatch commands
 	// received in push responses and to accumulate acks for the next push.
