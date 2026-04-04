@@ -9,8 +9,8 @@ router.get('/', async (req, res, next) => {
   try {
     const { triggerType, status } = req.query;
     const scenarios = await scenarioService.list(req.tenantId!, {
-      triggerType: triggerType as string,
-      status: status as string,
+      triggerType: triggerType as any,
+      status: status as any,
     });
     res.json({ data: scenarios });
   } catch (err) { next(err); }

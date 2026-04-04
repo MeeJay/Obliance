@@ -417,11 +417,18 @@ export interface ProcessInfo {
 }
 
 // Agent push protocol
+export interface AgentPushEvent {
+  type: string;
+  timestamp: string;
+  data?: Record<string, any>;
+}
+
 export interface AgentPushRequest {
   deviceUuid: string;
   metrics: DeviceMetrics;
   acks: CommandAck[];
   agentVersion?: string;
+  events?: AgentPushEvent[];
 }
 
 export interface CommandAck {
