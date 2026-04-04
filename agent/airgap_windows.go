@@ -29,35 +29,31 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 		args []string
 	}
 
-	rules := []rule{
-		{
-			name: "Obliance-Airgap-BlockAll-Out",
-			args: []string{"advfirewall", "firewall", "add", "rule",
-				"name=Obliance-Airgap-BlockAll-Out", "dir=out", "action=block"},
-		},
-		{
-			name: "Obliance-Airgap-BlockAll-In",
-			args: []string{"advfirewall", "firewall", "add", "rule",
-				"name=Obliance-Airgap-BlockAll-In", "dir=in", "action=block"},
-		},
-		{
-			name: "Obliance-Airgap-Loopback-Out",
-			args: []string{"advfirewall", "firewall", "add", "rule",
-				"name=Obliance-Airgap-Loopback-Out", "dir=out", "action=allow", "remoteip=127.0.0.1"},
-		},
-		{
-			name: "Obliance-Airgap-Loopback-In",
-			args: []string{"advfirewall", "firewall", "add", "rule",
-				"name=Obliance-Airgap-Loopback-In", "dir=in", "action=allow", "remoteip=127.0.0.1"},
-		},
-		{
-			name: "Obliance-Airgap-DNS",
-			args: []string{"advfirewall", "firewall", "add", "rule",
-				"name=Obliance-Airgap-DNS", "dir=out", "action=allow", "protocol=UDP", "remoteport=53"},
-		},
-	}
+	// IMPORTANT: Allow rules MUST be created BEFORE block rules.
+	// If block rules go first, they kill the existing TCP connection to
+	// the Obliance server before the allow rules whitelist it.
+	var rules []rule
 
-	// Per-IP allow rules.
+	// 1. Allow loopback
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-Loopback-Out",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-Loopback-Out", "dir=out", "action=allow", "remoteip=127.0.0.1"},
+	})
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-Loopback-In",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-Loopback-In", "dir=in", "action=allow", "remoteip=127.0.0.1"},
+	})
+
+	// 2. Allow DNS (UDP 53)
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-DNS",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-DNS", "dir=out", "action=allow", "protocol=UDP", "remoteport=53"},
+	})
+
+	// 3. Allow server IPs
 	for _, ip := range serverIPs {
 		rules = append(rules, rule{
 			name: "Obliance-Airgap-Allow-" + ip,
@@ -65,11 +61,23 @@ func applyAirgapFirewallRules(serverIPs []string) error {
 				"name=Obliance-Airgap-Allow-" + ip, "dir=out", "action=allow", "remoteip=" + ip},
 		})
 		rules = append(rules, rule{
-			name: "Obliance-Airgap-Allow-" + ip,
+			name: "Obliance-Airgap-Allow-" + ip + "-In",
 			args: []string{"advfirewall", "firewall", "add", "rule",
 				"name=Obliance-Airgap-Allow-" + ip + "-In", "dir=in", "action=allow", "remoteip=" + ip},
 		})
 	}
+
+	// 4. Block everything else (LAST — after allows are in place)
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-BlockAll-Out",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-BlockAll-Out", "dir=out", "action=block"},
+	})
+	rules = append(rules, rule{
+		name: "Obliance-Airgap-BlockAll-In",
+		args: []string{"advfirewall", "firewall", "add", "rule",
+			"name=Obliance-Airgap-BlockAll-In", "dir=in", "action=block"},
+	})
 
 	for _, r := range rules {
 		out, err := newCmd("netsh", r.args...).CombinedOutput()
