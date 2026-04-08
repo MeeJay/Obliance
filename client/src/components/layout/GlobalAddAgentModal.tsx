@@ -52,7 +52,7 @@ export function GlobalAddAgentModal() {
   const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
   const windowsCmdModern = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
-  const windowsCmdLegacy = selectedKey ? `certutil -urlcache -split -f "${origin}/api/agent/installer/windows.msi" "%TEMP%\\obliance-agent.msi"\nmsiexec /i "%TEMP%\\obliance-agent.msi" SERVERURL="${origin}" APIKEY="${selectedKey.key}" /quiet` : '';
+  const windowsCmdLegacy = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/installer/windows.msi" -Destination $m; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
   const windowsCmd = legacyWindows ? windowsCmdLegacy : windowsCmdModern;
   const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
@@ -149,7 +149,7 @@ export function GlobalAddAgentModal() {
                     {osTab === 'windows' && (
                       <div className="p-4 space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-text-muted">{legacyWindows ? t('addAgent.windowsLegacyHint', 'Run in CMD (admin) — Windows 7/8/2008/2012') : t('addAgent.windowsHint')}</p>
+                          <p className="text-xs font-medium text-text-muted">{legacyWindows ? t('addAgent.windowsLegacyHint', 'Run in PowerShell (admin) — Windows Server 2012/2016 & older') : t('addAgent.windowsHint')}</p>
                           <label className="flex items-center gap-1.5 cursor-pointer">
                             <input type="checkbox" checked={legacyWindows} onChange={e => setLegacyWindows(e.target.checked)} className="rounded border-border" />
                             <span className="text-[11px] text-text-muted whitespace-nowrap">{'Windows < 10'}</span>
