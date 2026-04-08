@@ -32,6 +32,7 @@ export function GlobalAddAgentModal() {
   const [keys, setKeys] = useState<AgentApiKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
   const [osTab, setOsTab] = useState<OsTab>('windows');
+  const [legacyWindows, setLegacyWindows] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -50,7 +51,9 @@ export function GlobalAddAgentModal() {
   const origin = window.location.origin;
   const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
-  const windowsCmd = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
+  const windowsCmdModern = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
+  const windowsCmdLegacy = selectedKey ? `certutil -urlcache -split -f "${origin}/api/agent/installer/windows.msi" "%TEMP%\\obliance-agent.msi"\nmsiexec /i "%TEMP%\\obliance-agent.msi" SERVERURL="${origin}" APIKEY="${selectedKey.key}" /quiet` : '';
+  const windowsCmd = legacyWindows ? windowsCmdLegacy : windowsCmdModern;
   const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
   const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
@@ -145,7 +148,13 @@ export function GlobalAddAgentModal() {
                   <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
                     {osTab === 'windows' && (
                       <div className="p-4 space-y-2">
-                        <p className="text-xs font-medium text-text-muted">{t('addAgent.windowsHint')}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-text-muted">{legacyWindows ? t('addAgent.windowsLegacyHint', 'Run in CMD (admin) — Windows 7/8/2008/2012') : t('addAgent.windowsHint')}</p>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" checked={legacyWindows} onChange={e => setLegacyWindows(e.target.checked)} className="rounded border-border" />
+                            <span className="text-[11px] text-text-muted whitespace-nowrap">{'Windows < 10'}</span>
+                          </label>
+                        </div>
                         <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
                           <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{windowsCmd}</code>
                           <CopyButton text={windowsCmd} />
