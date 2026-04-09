@@ -31,7 +31,29 @@ export function createApp() {
   app.set('trust proxy', 1);
 
   // Security headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      // ObliTools desktop app embeds this app in an iframe — must allow framing
+      frameguard: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],  // Tailwind injects inline styles
+          imgSrc: ["'self'", "data:", "blob:"],
+          connectSrc: ["'self'", "wss:", "ws:"],     // Socket.io WebSocket
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          // frame-ancestors not set — allows ObliTools iframe embedding
+        },
+      },
+      hsts: { maxAge: 31536000, includeSubDomains: true },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+    }),
+  );
   app.use(
     cors({
       origin: config.clientOrigin,
