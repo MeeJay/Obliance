@@ -38,6 +38,12 @@ import { deployOblimapWindows } from './deploy-oblimap-windows';
 import { deployOblimapUnix } from './deploy-oblimap-unix';
 import { deployObliguardWindows } from './deploy-obliguard-windows';
 import { deployObliguardUnix } from './deploy-obliguard-unix';
+import { demoKioskChrome } from './demo-kiosk-chrome';
+import { demoDomainJoin } from './demo-domain-join';
+import { demoInstallSoftware } from './demo-install-software';
+import { demoSshHardening } from './demo-ssh-hardening';
+import { demoWindowsUpdates } from './demo-windows-updates';
+import { demoBackupVerify } from './demo-backup-verify';
 
 export const scenarioTemplates: ScenarioTemplate[] = [
   deployObliviewWindows,
@@ -46,6 +52,12 @@ export const scenarioTemplates: ScenarioTemplate[] = [
   deployOblimapUnix,
   deployObliguardWindows,
   deployObliguardUnix,
+  demoKioskChrome,
+  demoDomainJoin,
+  demoInstallSoftware,
+  demoSshHardening,
+  demoWindowsUpdates,
+  demoBackupVerify,
 ];
 
 export {
@@ -55,4 +67,10 @@ export {
   deployOblimapUnix,
   deployObliguardWindows,
   deployObliguardUnix,
+  demoKioskChrome,
+  demoDomainJoin,
+  demoInstallSoftware,
+  demoSshHardening,
+  demoWindowsUpdates,
+  demoBackupVerify,
 };

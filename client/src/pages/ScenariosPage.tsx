@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download } from 'lucide-react';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
@@ -106,6 +106,12 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [form, setForm] = useState<ScenarioFormData>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const [templateVars, setTemplateVars] = useState<Record<string, string>>({});
+  const [importingTemplate, setImportingTemplate] = useState(false);
 
   const { fetchGroups } = useGroupStore();
 
@@ -281,6 +287,43 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
     setForm({ ...form, steps });
   };
 
+  // Template helpers
+  const handleOpenTemplates = async () => {
+    setShowTemplateModal(true);
+    setSelectedTemplate(null);
+    setTemplateVars({});
+    setLoadingTemplates(true);
+    try {
+      const list = await scenarioApi.listTemplates();
+      setTemplates(list);
+    } catch {
+      toast.error('Failed to load templates');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleSelectTemplate = (tpl: any) => {
+    setSelectedTemplate(tpl);
+    setTemplateVars(tpl.variables ? { ...tpl.variables } : {});
+  };
+
+  const handleImportTemplate = async () => {
+    if (!selectedTemplate) return;
+    setImportingTemplate(true);
+    try {
+      await scenarioApi.instantiateTemplate(selectedTemplate.id, { variables: templateVars });
+      toast.success(`Scenario "${selectedTemplate.name}" imported`);
+      setShowTemplateModal(false);
+      setSelectedTemplate(null);
+      await load();
+    } catch {
+      toast.error('Failed to import template');
+    } finally {
+      setImportingTemplate(false);
+    }
+  };
+
   // Variable helpers
   const addVariable = () => {
     setForm({ ...form, variables: [...form.variables, { key: '', value: '' }] });
@@ -312,6 +355,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
             </button>
             <button
+              onClick={handleOpenTemplates}
+              className="flex items-center gap-2 px-4 py-2 border border-border text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Import from template
+            </button>
+            <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
             >
@@ -328,12 +378,117 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
           <button
+            onClick={handleOpenTemplates}
+            className="flex items-center gap-2 px-4 py-2 border border-border text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Import from template
+          </button>
+          <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Scenario
           </button>
+        </div>
+      )}
+
+      {/* Template import modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowTemplateModal(false)}>
+          <div
+            className="bg-bg-primary border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">Import from template</h2>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="p-1 text-text-muted hover:text-text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {loadingTemplates ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+                </div>
+              ) : templates.length === 0 ? (
+                <p className="text-sm text-text-muted text-center py-12">No templates available.</p>
+              ) : selectedTemplate ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setSelectedTemplate(null)}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    &larr; Back to templates
+                  </button>
+                  <div className="bg-bg-secondary border border-border rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-text-primary">{selectedTemplate.name}</h3>
+                    <p className="text-xs text-text-muted mt-1">{selectedTemplate.description}</p>
+                    <div className="flex gap-3 mt-2 text-xs text-text-muted">
+                      <span>{TRIGGER_LABELS[selectedTemplate.triggerType as ScenarioTriggerType] ?? selectedTemplate.triggerType}</span>
+                      <span>{selectedTemplate.stepCount} step{selectedTemplate.stepCount !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  {Object.keys(templateVars).length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-text-primary">Variables</h4>
+                      <p className="text-xs text-text-muted">Fill in the template variables before importing.</p>
+                      {Object.entries(templateVars).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <label className="text-xs font-medium text-text-muted uppercase font-mono">{key}</label>
+                          <input
+                            value={value}
+                            onChange={(e) => setTemplateVars({ ...templateVars, [key]: e.target.value })}
+                            placeholder={`Enter ${key}...`}
+                            className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleImportTemplate}
+                    disabled={importingTemplate}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 text-sm transition-colors"
+                  >
+                    {importingTemplate ? 'Importing...' : 'Import Scenario'}
+                  </button>
+                </div>
+              ) : (
+                templates.map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    className="bg-bg-secondary border border-border rounded-lg p-4 hover:border-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-text-primary">{tpl.name}</h3>
+                        <p className="text-xs text-text-muted mt-1 line-clamp-2">{tpl.description}</p>
+                        <div className="flex gap-3 mt-2 text-xs text-text-muted">
+                          <span>{TRIGGER_LABELS[tpl.triggerType as ScenarioTriggerType] ?? tpl.triggerType}</span>
+                          <span>{tpl.stepCount} step{tpl.stepCount !== 1 ? 's' : ''}</span>
+                          {Object.keys(tpl.variables ?? {}).length > 0 && (
+                            <span>{Object.keys(tpl.variables).length} variable{Object.keys(tpl.variables).length !== 1 ? 's' : ''}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSelectTemplate(tpl)}
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Import
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 

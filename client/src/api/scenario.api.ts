@@ -44,6 +44,14 @@ export const scenarioApi = {
   async cancelRun(runId: string): Promise<void> {
     await apiClient.post(`/scenarios/runs/${runId}/cancel`);
   },
+  async listTemplates(): Promise<any[]> {
+    const res = await apiClient.get<ApiResponse<any[]>>('/scenarios/templates');
+    return res.data.data ?? [];
+  },
+  async instantiateTemplate(index: number, data: { name?: string; variables?: Record<string, string> }): Promise<Scenario> {
+    const res = await apiClient.post<ApiResponse<Scenario>>(`/scenarios/templates/${index}/instantiate`, data);
+    return res.data.data!;
+  },
   async listForDevice(deviceId: number): Promise<Scenario[]> {
     const res = await apiClient.get<ApiResponse<Scenario[]>>(`/scenarios/for-device/${deviceId}`);
     return res.data.data ?? [];

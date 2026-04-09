@@ -6,6 +6,87 @@ const router = Router();
 
 // ── Routes with fixed paths MUST come before /:id ──
 
+// GET /templates — list available scenario templates
+router.get('/templates', async (req, res, next) => {
+  try {
+    const { scenarioTemplates } = await import('../services/scenario-templates');
+    const list = scenarioTemplates.map((t, i) => ({
+      id: i,
+      name: t.name,
+      description: t.description,
+      triggerType: t.triggerType,
+      variables: t.variables,
+      stepCount: t.steps.length,
+    }));
+    res.json({ data: list });
+  } catch (err) { next(err); }
+});
+
+// POST /templates/:index/instantiate — create a scenario from a template
+router.post('/templates/:index/instantiate', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { scenarioTemplates } = await import('../services/scenario-templates');
+    const index = parseInt(req.params.index);
+    if (index < 0 || index >= scenarioTemplates.length) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    const template = scenarioTemplates[index];
+    const variables = { ...template.variables, ...req.body.variables }; // user overrides
+
+    // Create scripts first, then create the scenario with steps referencing them
+    const { db } = await import('../db');
+    const scriptIds: Record<string, number> = {};
+
+    for (const step of template.steps) {
+      for (const scriptDef of [step.checkScript, step.resolveScript]) {
+        if (!scriptDef) continue;
+        const key = scriptDef.name;
+        if (scriptIds[key]) continue; // already created
+        const [row] = await db('scripts').insert({
+          tenant_id: req.tenantId!,
+          name: scriptDef.name,
+          platform: scriptDef.platform,
+          runtime: scriptDef.runtime,
+          purpose: scriptDef.purpose,
+          content: scriptDef.content,
+          created_by: req.session.userId,
+          updated_at: new Date(),
+        }).returning('id');
+        scriptIds[key] = row.id;
+      }
+    }
+
+    // Create scenario
+    const scenarioData = {
+      name: req.body.name || template.name,
+      description: template.description,
+      triggerType: template.triggerType,
+      triggerConfig: template.triggerConfig || {},
+      targetType: template.targetType || 'all',
+      targetIds: [],
+      status: 'draft' as const,
+      retryPolicy: { maxRetries: 0, retryDelaySeconds: 60 },
+      timeoutSeconds: template.timeoutSeconds,
+      notifyOnSuccess: false,
+      notifyOnFailure: true,
+      variables,
+      steps: template.steps.map((s, i) => ({
+        name: s.name,
+        description: s.description,
+        sortOrder: i,
+        checkScriptId: s.checkScript ? scriptIds[s.checkScript.name] : null,
+        resolveScriptId: s.resolveScript ? scriptIds[s.resolveScript.name] : null,
+        timeoutSeconds: s.timeoutSeconds,
+        retryCount: s.retryCount,
+        parameterOverrides: {},
+      })),
+    };
+
+    const scenario = await scenarioService.create(req.tenantId!, scenarioData, req.session.userId!);
+    res.status(201).json({ data: scenario });
+  } catch (err) { next(err); }
+});
+
 // GET /runs/:runId — get run detail
 router.get('/runs/:runId', async (req, res, next) => {
   try {
