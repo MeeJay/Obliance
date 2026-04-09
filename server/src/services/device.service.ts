@@ -521,9 +521,10 @@ class DeviceService {
   async handlePush(deviceId: number, tenantId: number, push: AgentPushRequest): Promise<AgentPushResponse> {
     const now = new Date();
 
-    // Capture previous status to detect transitions (e.g. updating/update_error → online)
-    const prev = await db('devices').where({ id: deviceId }).select('status').first();
+    // Capture previous status + version to detect transitions
+    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version').first();
     const prevStatus = prev?.status as string | undefined;
+    const prevVersion = prev?.agent_version as string | undefined;
 
     // Update last seen, metrics, agent version — but never override pending_uninstall status
     await db('devices').where({ id: deviceId }).update({
@@ -533,10 +534,21 @@ class DeviceService {
       agent_version: push.agentVersion || db.raw('agent_version'),
       updated_at: now,
     });
-    await db('devices')
-      .where({ id: deviceId })
-      .whereNot({ status: 'pending_uninstall' })
-      .update({ status: 'online', update_started_at: null });
+    // Don't flip 'updating' back to 'online' unless the agent version actually changed
+    // (meaning the update completed). This prevents the flickering:
+    // updating → online (last push before death) → offline → online
+    if (prevStatus === 'updating') {
+      if (prevVersion !== push.agentVersion && push.agentVersion) {
+        // Version changed — update completed, go online
+        await db('devices').where({ id: deviceId }).update({ status: 'online', update_started_at: null });
+      }
+      // else: same version still pushing during update — keep 'updating'
+    } else {
+      await db('devices')
+        .where({ id: deviceId })
+        .whereNot({ status: 'pending_uninstall' })
+        .update({ status: 'online', update_started_at: null });
+    }
 
     // Emit real-time metrics update
     if (this.io) {
@@ -545,7 +557,8 @@ class DeviceService {
         metrics: push.metrics,
       });
       // Notify UI of status change (e.g. update_error → online, offline → online)
-      if (prevStatus && prevStatus !== 'online' && prevStatus !== 'pending_uninstall') {
+      // Don't emit online transition for 'updating' devices (they stay updating until version changes)
+      if (prevStatus && prevStatus !== 'online' && prevStatus !== 'pending_uninstall' && prevStatus !== 'updating') {
         this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
       }
     }
