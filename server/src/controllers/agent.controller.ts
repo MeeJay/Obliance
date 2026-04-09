@@ -113,6 +113,8 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'obliance-agent.msi':             'obliance-agent.msi',
   // Windows: bare exe (kept for manual / legacy use)
   'obliance-agent.exe':             'obliance-agent.exe',
+  // Windows legacy: Go 1.20 build for Server 2008 R2 / 2012 / 2016
+  'obliance-legacy.exe':            'obliance-legacy.exe',
   'obliance-agent-linux-amd64':     'obliance-agent-linux-amd64',
   'obliance-agent-linux-arm64':     'obliance-agent-linux-arm64',
   'obliance-agent-darwin-amd64':    'obliance-agent-darwin-amd64',

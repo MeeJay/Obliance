@@ -32,7 +32,7 @@ export function GlobalAddAgentModal() {
   const [keys, setKeys] = useState<AgentApiKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
   const [osTab, setOsTab] = useState<OsTab>('windows');
-  const [legacyWindows, setLegacyWindows] = useState(false);
+  const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'legacy'>('modern');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -52,8 +52,9 @@ export function GlobalAddAgentModal() {
   const linuxCmd = selectedKey ? `curl -fsSL "${deviceApi.getInstallerUrl('linux', selectedKey.key)}" | bash` : '';
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
   const windowsCmdModern = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
-  const windowsCmdLegacy = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/installer/windows.msi" -Destination $m; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
-  const windowsCmd = legacyWindows ? windowsCmdLegacy : windowsCmdModern;
+  const windowsCmdOldTls = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/installer/windows.msi" -Destination $m; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
+  const windowsCmdLegacy = selectedKey ? `$d="C:\\Program Files\\OblianceAgent"; New-Item -ItemType Directory -Force -Path $d | Out-Null; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/download/obliance-legacy.exe" -Destination "$d\\obliance-agent.exe"; sc.exe create OblianceAgent binPath= "\`"$d\\obliance-agent.exe\`" --url ${origin} --key ${selectedKey.key}" start= auto obj= LocalSystem; sc.exe start OblianceAgent` : '';
+  const windowsCmd = legacyWindows === 'legacy' ? windowsCmdLegacy : legacyWindows === 'oldtls' ? windowsCmdOldTls : windowsCmdModern;
   const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
   const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
@@ -148,12 +149,21 @@ export function GlobalAddAgentModal() {
                   <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
                     {osTab === 'windows' && (
                       <div className="p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-text-muted">{legacyWindows ? t('addAgent.windowsLegacyHint', 'Run in PowerShell (admin) — Windows Server 2012/2016 & older') : t('addAgent.windowsHint')}</p>
-                          <label className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox" checked={legacyWindows} onChange={e => setLegacyWindows(e.target.checked)} className="rounded border-border" />
-                            <span className="text-[11px] text-text-muted whitespace-nowrap">{'Windows < 10'}</span>
-                          </label>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-text-muted">
+                            {legacyWindows === 'legacy' ? 'Run in PowerShell (admin) — Server 2008 R2 / 2012'
+                              : legacyWindows === 'oldtls' ? 'Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)'
+                              : t('addAgent.windowsHint')}
+                          </p>
+                          <select
+                            value={legacyWindows}
+                            onChange={e => setLegacyWindows(e.target.value as any)}
+                            className="text-[11px] bg-bg-tertiary border border-border rounded px-1.5 py-1 text-text-muted"
+                          >
+                            <option value="modern">Windows 10+</option>
+                            <option value="oldtls">Server 2012/2016</option>
+                            <option value="legacy">Server 2008 R2</option>
+                          </select>
                         </div>
                         <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
                           <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{windowsCmd}</code>
