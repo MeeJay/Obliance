@@ -35,6 +35,7 @@ import { anonymize } from '@/utils/anonymize';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { getSocket } from '@/socket/socketClient';
@@ -305,6 +306,8 @@ export function Sidebar() {
   const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
   const [search, setSearch] = useState('');
 
+  const currentTenantId = useTenantStore(s => s.currentTenantId);
+
   const loadDeviceData = useCallback(async () => {
     try {
       const [devList, tree] = await Promise.all([
@@ -319,10 +322,12 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
+    setDevices([]);
+    setGroupTree([]);
     loadDeviceData();
     const id = setInterval(loadDeviceData, 30_000);
     return () => clearInterval(id);
-  }, [loadDeviceData]);
+  }, [loadDeviceData, currentTenantId]);
 
   // ── Real-time socket updates ────────────────────────────────────────────────
   useEffect(() => {
