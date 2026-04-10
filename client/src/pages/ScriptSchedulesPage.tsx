@@ -21,7 +21,7 @@ interface ScheduleFormData {
   scriptId: number | null;
   targetType: ScheduleTargetType;
   targetIds: number[];
-  scheduleMode: 'cron' | 'once';
+  scheduleMode: 'cron' | 'once' | 'now';
   cronExpression: string;
   fireOnceAt: string;
   timezone: string;
@@ -136,6 +136,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
     if (!form.scriptId) { toast.error('Script is required'); return; }
     if (form.scheduleMode === 'once' && !form.fireOnceAt) { toast.error('Fire date is required'); return; }
     if (form.scheduleMode === 'once' && new Date(form.fireOnceAt) <= new Date()) { toast.error('Fire date must be in the future'); return; }
+    if (form.scheduleMode === 'cron' && !form.cronExpression.trim()) { toast.error('Cron expression is required'); return; }
 
     setIsSaving(true);
     try {
@@ -146,13 +147,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         targetType: form.targetType,
         targetIds: form.targetIds,
         cronExpression: form.scheduleMode === 'cron' ? form.cronExpression : null,
-        fireOnceAt: form.scheduleMode === 'once' ? new Date(form.fireOnceAt).toISOString() : null,
+        fireOnceAt: form.scheduleMode === 'now' ? new Date().toISOString() : form.scheduleMode === 'once' ? new Date(form.fireOnceAt).toISOString() : null,
         timezone: form.timezone,
         catchupEnabled: form.catchupEnabled,
         catchupMax: form.catchupMax,
         assertPass: form.assertPass,
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
-        enabled: form.enabled,
+        enabled: form.scheduleMode === 'now' ? true : form.enabled,
         parameterValues: {},
         runConditions: [],
         tenantId: 0,
@@ -317,6 +318,12 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 >
                   One-time
                 </button>
+                <button
+                  onClick={() => setForm({ ...form, scheduleMode: 'now' })}
+                  className={clsx('flex-1 py-2 text-sm rounded-lg border transition-colors', form.scheduleMode === 'now' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50')}
+                >
+                  Now
+                </button>
               </div>
             </div>
             {form.scheduleMode === 'cron' ? (
@@ -340,7 +347,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                   ))}
                 </div>
               </div>
-            ) : (
+            ) : form.scheduleMode === 'once' ? (
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">Run At</label>
                 <input
@@ -350,6 +357,10 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                   onChange={(e) => setForm({ ...form, fireOnceAt: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
                 />
+              </div>
+            ) : (
+              <div className="px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-muted">
+                The script will execute immediately on all targets when saved.
               </div>
             )}
             <div className="space-y-1">
