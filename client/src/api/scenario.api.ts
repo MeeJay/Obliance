@@ -5,8 +5,12 @@ interface ApiResponse<T> { data?: T; error?: string; }
 
 export const scenarioApi = {
   async list(params?: Record<string, string>): Promise<Scenario[]> {
-    const res = await apiClient.get<ApiResponse<Scenario[]>>('/scenarios', { params });
-    return res.data.data ?? [];
+    const res = await apiClient.get<ApiResponse<any>>('/scenarios', { params });
+    const d = res.data.data;
+    // Server returns { items: [...], total } — extract items array
+    if (d && Array.isArray(d.items)) return d.items;
+    if (Array.isArray(d)) return d;
+    return [];
   },
   async getById(id: number): Promise<Scenario> {
     const res = await apiClient.get<ApiResponse<Scenario>>(`/scenarios/${id}`);
@@ -34,8 +38,11 @@ export const scenarioApi = {
     return res.data.data ?? [];
   },
   async listRuns(params?: Record<string, any>): Promise<ScenarioRun[]> {
-    const res = await apiClient.get<ApiResponse<ScenarioRun[]>>('/scenarios/runs', { params });
-    return res.data.data ?? [];
+    const res = await apiClient.get<ApiResponse<any>>('/scenarios/runs', { params });
+    const d = res.data.data;
+    if (d && Array.isArray(d.items)) return d.items;
+    if (Array.isArray(d)) return d;
+    return [];
   },
   async getRun(runId: string): Promise<ScenarioRun> {
     const res = await apiClient.get<ApiResponse<ScenarioRun>>(`/scenarios/runs/${runId}`);
