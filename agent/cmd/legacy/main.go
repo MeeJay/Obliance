@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -190,12 +191,66 @@ func generateUUID() string {
 
 var uuidRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// Must stay in sync with agent/machine_uuid.go.
+var badHardwareUUIDs = map[string]bool{
+	"00000000-0000-0000-0000-000000000000": true,
+	"ffffffff-ffff-ffff-ffff-ffffffffffff": true,
+	"12345678-1234-5678-90ab-cddeefaabbcc": true,
+	"12345678-1234-5678-1234-567812345678": true,
+	"03000200-0400-0500-0006-000700080009": true,
+	"00020003-0004-0005-0006-000700080009": true,
+	"01020304-0506-0708-090a-0b0c0d0e0f10": true,
+	"4c4c4544-0000-1010-8010-c4c04f313233": true,
+}
+
+var placeholderSerials = map[string]bool{
+	"": true, "0": true, "00000000": true, "000000000000": true,
+	"none": true, "n/a": true, "not specified": true, "not applicable": true,
+	"default string": true, "to be filled by o.e.m.": true, "to be filled by oem": true,
+	"system serial number": true, "system productname": true, "oem": true,
+	"chassis serial number": true, "123456": true, "1234567890": true, "unknown": true,
+}
+
 func normaliseUUID(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
-	if s == "00000000-0000-0000-0000-000000000000" || !uuidRe.MatchString(s) {
+	if !uuidRe.MatchString(s) {
+		return ""
+	}
+	if badHardwareUUIDs[s] {
 		return ""
 	}
 	return s
+}
+
+func isPlaceholderSerial(s string) bool {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if placeholderSerials[s] {
+		return true
+	}
+	if len(s) > 0 {
+		allSame := true
+		for i := 1; i < len(s); i++ {
+			if s[i] != s[0] {
+				allSame = false
+				break
+			}
+		}
+		if allSame {
+			return true
+		}
+	}
+	return false
+}
+
+// hashToUUIDv5 matches machine_uuid.go exactly. Do not modify.
+func hashToUUIDv5(input string) string {
+	sum := sha256.Sum256([]byte(input))
+	var b [16]byte
+	copy(b[:], sum[:16])
+	b[6] = (b[6] & 0x0f) | 0x50
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // readMachineUUID reads SMBIOS UUID via wmic (available on Server 2008+).
@@ -215,6 +270,33 @@ func readMachineUUID() string {
 	return ""
 }
 
+// readSystemDiskSerial returns the hardware serial of physical disk 0 via
+// wmic. Server 2008 R2 lacks Get-Partition, so we assume disk 0 is the
+// system disk, which holds true on virtually all Windows installs.
+func readSystemDiskSerial() string {
+	out, err := exec.Command("wmic", "diskdrive", "where", "Index=0", "get", "SerialNumber", "/value").Output()
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "SerialNumber=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "SerialNumber="))
+		}
+	}
+	return ""
+}
+
+func deriveHardwareUUID() string {
+	raw := strings.TrimSpace(readSystemDiskSerial())
+	if raw == "" || isPlaceholderSerial(raw) {
+		return ""
+	}
+	u := hashToUUIDv5("obliance-disk:" + strings.ToLower(raw))
+	log.Printf("Device UUID: derived from system disk serial -> %s", u)
+	return u
+}
+
 func resolveDeviceUUID(stored string) string {
 	if hw := readMachineUUID(); hw != "" {
 		if hw != stored {
@@ -222,11 +304,18 @@ func resolveDeviceUUID(stored string) string {
 		}
 		return hw
 	}
+	if derived := deriveHardwareUUID(); derived != "" {
+		if derived != stored {
+			log.Printf("Device UUID: SMBIOS invalid, using disk-derived UUID %s", derived)
+		}
+		return derived
+	}
 	if stored != "" {
+		log.Printf("Device UUID: hardware sources failed, reusing stored UUID %s", stored)
 		return stored
 	}
 	fresh := generateUUID()
-	log.Printf("Device UUID: hardware UUID unavailable, generated %s", fresh)
+	log.Printf("Device UUID: WARNING no hardware ID available, generated random UUID %s", fresh)
 	return fresh
 }
 

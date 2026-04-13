@@ -27,3 +27,12 @@ func readMachineUUID() string {
 
 	return ""
 }
+
+// readSystemDiskSerial reads the serial of the disk hosting "/" via
+// `camcontrol identify`. Returns "" if unavailable.
+func readSystemDiskSerial() string {
+	// camcontrol identify ada0 | grep "serial number"
+	// Not implemented in detail for FreeBSD; returning "" falls through to
+	// the stored-UUID path, which is acceptable given the small footprint.
+	return ""
+}
