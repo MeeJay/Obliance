@@ -427,9 +427,47 @@ export const scenarioService = {
     return run;
   },
 
+  async resolveTargetDevices(scenarioId: number, tenantId: number): Promise<number[]> {
+    const scenarioRow = await db('scenarios').where({ id: scenarioId, tenant_id: tenantId }).first();
+    if (!scenarioRow) return [];
+    const scenario = rowToScenario(scenarioRow);
+
+    if (scenario.targetType === 'all') {
+      const rows = await db('devices').where({ tenant_id: tenantId }).select('id');
+      return rows.map((r: any) => r.id);
+    }
+    if (scenario.targetType === 'group') {
+      const groupIds = scenario.targetIds || [];
+      if (groupIds.length === 0) return [];
+      // Expand to include descendants via closure table
+      const closureRows = await db('device_group_closure')
+        .whereIn('ancestor_id', groupIds)
+        .select('descendant_id');
+      const allGroupIds = Array.from(new Set([
+        ...groupIds,
+        ...closureRows.map((r: any) => r.descendant_id),
+      ]));
+      const rows = await db('devices')
+        .where({ tenant_id: tenantId })
+        .whereIn('group_id', allGroupIds)
+        .select('id');
+      return rows.map((r: any) => r.id);
+    }
+    if (scenario.targetType === 'device') {
+      return scenario.targetIds || [];
+    }
+    return [];
+  },
+
   async triggerManual(scenarioId: number, deviceIds: number[], tenantId: number): Promise<ScenarioRun[]> {
+    // If no devices provided, resolve from scenario's target config
+    let targets = deviceIds;
+    if (!targets || targets.length === 0) {
+      targets = await scenarioService.resolveTargetDevices(scenarioId, tenantId);
+    }
+
     const runs: ScenarioRun[] = [];
-    for (const deviceId of deviceIds) {
+    for (const deviceId of targets) {
       try {
         const run = await scenarioService.triggerScenario(scenarioId, deviceId, tenantId, 'manual', 'manual');
         if (run) runs.push(run);

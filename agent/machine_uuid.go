@@ -7,13 +7,30 @@ import (
 )
 
 var uuidRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-var zeroUUID = "00000000-0000-0000-0000-000000000000"
+
+// Known-bad SMBIOS/hardware UUIDs that OEMs or bad BIOS leave as defaults.
+// These will be shared across many physical machines, causing collisions on
+// the server, so we treat them as "no hardware UUID available" and fall back
+// to a persisted random UUID.
+var badHardwareUUIDs = map[string]bool{
+	"00000000-0000-0000-0000-000000000000": true, // all zeros
+	"ffffffff-ffff-ffff-ffff-ffffffffffff": true, // all ones
+	"12345678-1234-5678-90ab-cddeefaabbcc": true, // common placeholder
+	"12345678-1234-5678-1234-567812345678": true, // common placeholder
+	"03000200-0400-0500-0006-000700080009": true, // ASUS default
+	"00020003-0004-0005-0006-000700080009": true,
+	"01020304-0506-0708-090a-0b0c0d0e0f10": true,
+	"4c4c4544-0000-1010-8010-c4c04f313233": true, // Dell default
+}
 
 // normaliseUUID lowercases and validates a UUID string.
-// Returns "" if the string is not a valid UUID or is the all-zeros sentinel.
+// Returns "" if the string is not a valid UUID or is a known-bad sentinel.
 func normaliseUUID(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
-	if s == zeroUUID || !uuidRe.MatchString(s) {
+	if !uuidRe.MatchString(s) {
+		return ""
+	}
+	if badHardwareUUIDs[s] {
 		return ""
 	}
 	return s

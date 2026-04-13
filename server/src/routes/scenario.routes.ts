@@ -192,6 +192,14 @@ router.post('/:id/trigger', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /:id/resolved-targets — resolve scenario target to device ids
+router.get('/:id/resolved-targets', async (req, res, next) => {
+  try {
+    const deviceIds = await scenarioService.resolveTargetDevices(parseInt(req.params.id), req.tenantId!);
+    res.json({ data: { deviceIds } });
+  } catch (err) { next(err); }
+});
+
 // GET /:id/runs — list runs for scenario
 router.get('/:id/runs', async (req, res, next) => {
   try {

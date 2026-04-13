@@ -84,10 +84,11 @@ function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void 
               ['Architecture', device.osArch ?? '—'],
               ['Agent Version', device.agentVersion ?? '—'],
               ['Last Logged In', anonymize(device.lastLoggedInUser) || '—'],
+              ['Agent UUID', device.uuid ?? '—'],
             ].map(([k, v]) => (
-              <div key={k} className="flex justify-between text-sm">
-                <dt className="text-text-muted">{k}</dt>
-                <dd className="text-text-primary font-medium">{v}</dd>
+              <div key={k} className="flex justify-between gap-2 text-sm">
+                <dt className="text-text-muted shrink-0">{k}</dt>
+                <dd className={clsx('text-text-primary font-medium truncate', k === 'Agent UUID' && 'font-mono text-xs')} title={k === 'Agent UUID' ? (v as string) : undefined}>{v}</dd>
               </div>
             ))}
           </dl>

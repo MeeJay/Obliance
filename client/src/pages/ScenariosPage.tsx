@@ -4,6 +4,7 @@ import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
+import { useDeviceStore } from '@/store/deviceStore';
 import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -107,6 +108,12 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [triggerModalScenario, setTriggerModalScenario] = useState<Scenario | null>(null);
+  const [triggerDeviceIds, setTriggerDeviceIds] = useState<number[]>([]);
+  const [triggerSearch, setTriggerSearch] = useState('');
+  const [isTriggering, setIsTriggering] = useState(false);
+  const fetchDevices = useDeviceStore((s) => s.fetchDevices);
+  const getDeviceList = useDeviceStore((s) => s.getDeviceList);
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
@@ -265,11 +272,33 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   };
 
   const handleTrigger = async (scenario: Scenario) => {
+    await fetchDevices();
+    let preselected: number[] = [];
     try {
-      const runs = await scenarioApi.trigger(scenario.id, []);
+      preselected = await scenarioApi.resolvedTargets(scenario.id);
+    } catch {
+      preselected = scenario.targetType === 'device' ? (scenario.targetIds ?? []) : [];
+    }
+    setTriggerDeviceIds(preselected);
+    setTriggerSearch('');
+    setTriggerModalScenario(scenario);
+  };
+
+  const confirmTrigger = async () => {
+    if (!triggerModalScenario) return;
+    if (triggerDeviceIds.length === 0) {
+      toast.error('Select at least one device');
+      return;
+    }
+    setIsTriggering(true);
+    try {
+      const runs = await scenarioApi.trigger(triggerModalScenario.id, triggerDeviceIds);
       toast.success(`Triggered ${runs.length} run(s)`);
+      setTriggerModalScenario(null);
     } catch {
       toast.error('Failed to trigger scenario');
+    } finally {
+      setIsTriggering(false);
     }
   };
 
@@ -977,6 +1006,94 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {triggerModalScenario && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !isTriggering && setTriggerModalScenario(null)}>
+          <div className="bg-bg-secondary border border-border rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">Run scenario</h2>
+                <p className="text-xs text-text-muted mt-0.5">{triggerModalScenario.name}</p>
+              </div>
+              <button onClick={() => !isTriggering && setTriggerModalScenario(null)} className="p-1 text-text-muted hover:text-text-primary">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-3 overflow-y-auto flex-1">
+              <label className="text-xs font-medium text-text-muted uppercase">Target devices</label>
+              <input
+                type="text"
+                value={triggerSearch}
+                onChange={(e) => setTriggerSearch(e.target.value)}
+                placeholder="Search devices..."
+                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+              />
+              <div className="border border-border rounded-lg bg-bg-tertiary max-h-80 overflow-y-auto">
+                {(() => {
+                  const devices = getDeviceList().filter((d) => {
+                    const q = triggerSearch.toLowerCase();
+                    return !q || (d.hostname || '').toLowerCase().includes(q) || (d.displayName || '').toLowerCase().includes(q);
+                  });
+                  if (devices.length === 0) return <p className="text-sm text-text-muted p-3">No devices</p>;
+                  const allSelected = devices.length > 0 && devices.every((d) => triggerDeviceIds.includes(d.id));
+                  return (
+                    <>
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 border-b border-border cursor-pointer hover:bg-bg-secondary"
+                        onClick={() => {
+                          if (allSelected) setTriggerDeviceIds((prev) => prev.filter((id) => !devices.some((d) => d.id === id)));
+                          else setTriggerDeviceIds((prev) => Array.from(new Set([...prev, ...devices.map((d) => d.id)])));
+                        }}
+                      >
+                        <div className={clsx('w-4 h-4 rounded border flex items-center justify-center', allSelected ? 'bg-accent border-accent' : 'border-border')}>
+                          {allSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <span className="text-xs text-text-muted">Select all ({devices.length})</span>
+                      </div>
+                      {devices.map((d) => {
+                        const selected = triggerDeviceIds.includes(d.id);
+                        return (
+                          <div
+                            key={d.id}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-secondary"
+                            onClick={() => {
+                              setTriggerDeviceIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id]);
+                            }}
+                          >
+                            <div className={clsx('w-4 h-4 rounded border flex items-center justify-center', selected ? 'bg-accent border-accent' : 'border-border')}>
+                              {selected && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className="text-sm text-text-primary flex-1 truncate">{d.displayName || d.hostname}</span>
+                            <span className="text-xs text-text-muted capitalize">{d.osType}</span>
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+              </div>
+              <p className="text-xs text-text-muted">{triggerDeviceIds.length} device(s) selected</p>
+            </div>
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => setTriggerModalScenario(null)}
+                disabled={isTriggering}
+                className="px-4 py-2 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmTrigger}
+                disabled={isTriggering || triggerDeviceIds.length === 0}
+                className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                {isTriggering ? 'Running...' : 'Run'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

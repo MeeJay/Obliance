@@ -37,6 +37,10 @@ export const scenarioApi = {
     const res = await apiClient.post<ApiResponse<ScenarioRun[]>>(`/scenarios/${id}/trigger`, { deviceIds });
     return res.data.data ?? [];
   },
+  async resolvedTargets(id: number): Promise<number[]> {
+    const res = await apiClient.get<ApiResponse<{ deviceIds: number[] }>>(`/scenarios/${id}/resolved-targets`);
+    return res.data.data?.deviceIds ?? [];
+  },
   async listRuns(params?: Record<string, any>): Promise<ScenarioRun[]> {
     const res = await apiClient.get<ApiResponse<any>>('/scenarios/runs', { params });
     const d = res.data.data;

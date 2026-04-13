@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   History, RefreshCw, Terminal, Package, Code2,
-  Monitor, Search, Loader2, X,
+  Monitor, Search, Loader2, X, Zap, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { commandApi } from '@/api/command.api';
 import { scriptApi } from '@/api/script.api';
 import { updateApi } from '@/api/update.api';
+import { scenarioApi } from '@/api/scenario.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Command, ScriptExecution, DeviceUpdate } from '@obliance/shared';
+import type { Command, ScriptExecution, DeviceUpdate, ScenarioRun } from '@obliance/shared';
 import { anonymize } from '@/utils/anonymize';
 import toast from 'react-hot-toast';
 
@@ -122,19 +123,24 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
   const socket = getSocket();
   const { getDevice, fetchDevices } = useDeviceStore();
 
+  const [mainTab, setMainTab] = useState<'events' | 'scenarios'>('events');
   const [events, setEvents] = useState<HistoryEvent[]>([]);
+  const [scenarioRuns, setScenarioRuns] = useState<ScenarioRun[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [search, setSearch] = useState('');
   const [shown, setShown] = useState(PAGE_SIZE);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [runDetails, setRunDetails] = useState<Record<string, ScenarioRun>>({});
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [cmdRes, execRes, updRes] = await Promise.all([
+      const [cmdRes, execRes, updRes, runs] = await Promise.all([
         commandApi.list(),
         scriptApi.listExecutions({ pageSize: 200 }),
         updateApi.listUpdates(),
+        scenarioApi.listRuns({ limit: 200 }).catch(() => [] as ScenarioRun[]),
       ]);
 
       const all: HistoryEvent[] = [
@@ -144,12 +150,27 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       setEvents(all);
+      setScenarioRuns(runs);
     } catch {
       toast.error('Failed to load history');
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const toggleRun = async (runId: string) => {
+    if (expandedRunId === runId) {
+      setExpandedRunId(null);
+      return;
+    }
+    setExpandedRunId(runId);
+    if (!runDetails[runId]) {
+      try {
+        const detail = await scenarioApi.getRun(runId);
+        setRunDetails((prev) => ({ ...prev, [runId]: detail }));
+      } catch {}
+    }
+  };
 
   useEffect(() => {
     fetchDevices();
@@ -229,6 +250,15 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
     { key: 'update', label: 'Updates' },
   ];
 
+  const SCENARIO_STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
+    pending:   { color: 'text-gray-400',    bg: 'bg-gray-400/10',    label: 'Pending' },
+    running:   { color: 'text-blue-400',    bg: 'bg-blue-400/10',    label: 'Running' },
+    success:   { color: 'text-emerald-400', bg: 'bg-emerald-400/10', label: 'Success' },
+    failure:   { color: 'text-red-400',     bg: 'bg-red-400/10',     label: 'Failed' },
+    cancelled: { color: 'text-text-muted',  bg: 'bg-bg-tertiary',    label: 'Cancelled' },
+    timeout:   { color: 'text-orange-400',  bg: 'bg-orange-400/10',  label: 'Timeout' },
+  };
+
   return (
     <div className={embedded ? 'flex flex-col min-h-0 space-y-5' : 'flex flex-col h-full min-h-0 p-6 space-y-5'}>
 
@@ -237,7 +267,7 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
         {!embedded && <div className="flex items-center gap-3">
           <History className="w-5 h-5 text-text-muted" />
           <h1 className="text-xl font-semibold text-text-primary">History</h1>
-          {!isLoading && (
+          {!isLoading && mainTab === 'events' && (
             <span className="text-xs text-text-muted bg-bg-secondary border border-border px-2 py-0.5 rounded-full">
               {filtered.length} events
             </span>
@@ -253,6 +283,37 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
         </button>
       </div>
 
+      {/* Main tabs: Events vs Scenarios */}
+      <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border w-fit">
+        <button
+          onClick={() => setMainTab('events')}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+            mainTab === 'events' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+          )}
+        >
+          <Terminal className="w-4 h-4" />
+          Tasks &amp; Scripts
+          <span className={clsx('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', mainTab === 'events' ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted')}>
+            {events.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setMainTab('scenarios')}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+            mainTab === 'scenarios' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+          )}
+        >
+          <Zap className="w-4 h-4" />
+          Scenarios
+          <span className={clsx('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', mainTab === 'scenarios' ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted')}>
+            {scenarioRuns.length}
+          </span>
+        </button>
+      </div>
+
+      {mainTab === 'events' && <>
       {/* Toolbar: kind filters + search */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -413,6 +474,116 @@ export function HistoryPage({ embedded }: { embedded?: boolean } = {}) {
             )}
           </div>
         </div>
+      )}
+      </>}
+
+      {mainTab === 'scenarios' && (
+        isLoading ? (
+          <div className="flex items-center justify-center flex-1 min-h-[240px]">
+            <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
+          </div>
+        ) : scenarioRuns.length === 0 ? (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[240px] text-text-muted">
+            <Zap className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">No scenario runs yet</p>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 space-y-3">
+            <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider whitespace-nowrap">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Scenario</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Device</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Trigger</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {scenarioRuns.map((r) => {
+                    const sc = SCENARIO_STATUS_CFG[r.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: r.status };
+                    const device = getDevice(r.deviceId);
+                    const isExpanded = expandedRunId === r.id;
+                    const detail = runDetails[r.id];
+                    const duration = r.finishedAt && r.startedAt
+                      ? (new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime())
+                      : null;
+                    return (
+                      <Fragment key={r.id}>
+                        <tr className="hover:bg-bg-tertiary transition-colors cursor-pointer" onClick={() => toggleRun(r.id)}>
+                          <td className="px-4 py-2.5 text-xs text-text-muted whitespace-nowrap">
+                            {new Date(r.startedAt || r.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="text-sm text-text-primary font-medium">{r.scenario?.name ?? `#${r.scenarioId}`}</span>
+                          </td>
+                          <td className="px-4 py-2.5 whitespace-nowrap">
+                            {device ? (
+                              <Link
+                                to={`/devices/${r.deviceId}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors"
+                              >
+                                <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                                <span className="truncate max-w-[140px]">{anonymize(device.displayName || device.hostname)}</span>
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-text-muted">#{r.deviceId}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-text-muted capitalize">{r.triggerType.replace('_', ' ')}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
+                              {r.status === 'running' && <Loader2 className="w-3 h-3 animate-spin" />}
+                              {sc.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
+                            {duration != null ? (duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`) : '—'}
+                          </td>
+                          <td className="px-2 py-2.5 text-text-muted">
+                            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-bg-tertiary/40">
+                            <td colSpan={7} className="px-6 py-3">
+                              {!detail ? (
+                                <div className="text-xs text-text-muted">Loading steps...</div>
+                              ) : !detail.stepRuns || detail.stepRuns.length === 0 ? (
+                                <div className="text-xs text-text-muted">No step details</div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {[...detail.stepRuns].sort((a, b) => a.sortOrder - b.sortOrder).map((sr) => (
+                                    <div key={sr.id} className="flex items-center gap-3 text-xs">
+                                      <span className="text-text-muted w-6">#{sr.sortOrder + 1}</span>
+                                      <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', (SCENARIO_STATUS_CFG[sr.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: sr.status }).color, (SCENARIO_STATUS_CFG[sr.status] ?? { bg: 'bg-bg-tertiary' }).bg)}>
+                                        {sr.status.replace('_', ' ')}
+                                      </span>
+                                      {sr.checkExitCode != null && <span className="text-text-muted">check: exit {sr.checkExitCode}</span>}
+                                      {sr.resolveExitCode != null && <span className="text-text-muted">resolve: exit {sr.resolveExitCode}</span>}
+                                      {sr.recheckExitCode != null && <span className="text-text-muted">recheck: exit {sr.recheckExitCode}</span>}
+                                    </div>
+                                  ))}
+                                  {detail.errorMessage && (
+                                    <div className="mt-2 text-xs text-red-400">{detail.errorMessage}</div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       )}
     </div>
   );

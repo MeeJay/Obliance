@@ -141,7 +141,8 @@ class DeviceService {
       this.whereILike('devices.hostname', `%${filters.search}%`)
           .orWhereILike('devices.display_name', `%${filters.search}%`)
           .orWhereILike('devices.ip_local', `%${filters.search}%`)
-          .orWhereILike('devices.ip_public', `%${filters.search}%`);
+          .orWhereILike('devices.ip_public', `%${filters.search}%`)
+          .orWhereILike('devices.uuid', `%${filters.search}%`);
     });
 
     const countResult = await q.clone().count('devices.id as count').first();
