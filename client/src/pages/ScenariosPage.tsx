@@ -142,11 +142,20 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
     setShowForm(true);
   };
 
-  const handleOpenEdit = (scenario: Scenario) => {
-    const vars = scenario.variables
-      ? Object.entries(scenario.variables).map(([key, value]) => ({ key, value }))
+  const handleOpenEdit = async (scenario: Scenario) => {
+    // The list endpoint only returns stepCount; fetch full scenario with steps
+    let full: Scenario;
+    try {
+      full = await scenarioApi.getById(scenario.id);
+    } catch {
+      toast.error('Failed to load scenario');
+      return;
+    }
+    const vars = full.variables
+      ? Object.entries(full.variables).map(([key, value]) => ({ key, value }))
       : [];
-    const steps: StepFormData[] = (scenario.steps ?? [])
+    const steps: StepFormData[] = (full.steps ?? [])
+      .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((s) => ({
         name: s.name,
@@ -156,21 +165,21 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         retryCount: s.retryCount,
       }));
     setForm({
-      name: scenario.name,
-      description: scenario.description ?? '',
-      triggerType: scenario.triggerType,
-      triggerConfig: scenario.triggerConfig ?? {},
-      targetType: scenario.targetType,
-      targetIds: scenario.targetIds ?? [],
-      status: scenario.status,
+      name: full.name,
+      description: full.description ?? '',
+      triggerType: full.triggerType,
+      triggerConfig: full.triggerConfig ?? {},
+      targetType: full.targetType,
+      targetIds: full.targetIds ?? [],
+      status: full.status,
       variables: vars,
       steps,
-      retryPolicy: scenario.retryPolicy ?? { maxRetries: 0, retryDelaySeconds: 60 },
-      timeoutSeconds: scenario.timeoutSeconds,
-      notifyOnSuccess: scenario.notifyOnSuccess,
-      notifyOnFailure: scenario.notifyOnFailure,
+      retryPolicy: full.retryPolicy ?? { maxRetries: 0, retryDelaySeconds: 60 },
+      timeoutSeconds: full.timeoutSeconds,
+      notifyOnSuccess: full.notifyOnSuccess,
+      notifyOnFailure: full.notifyOnFailure,
     });
-    setEditingScenario(scenario);
+    setEditingScenario(full);
     setShowForm(true);
   };
 
