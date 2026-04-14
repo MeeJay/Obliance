@@ -1798,6 +1798,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleReboot(cmd)
 	case "shutdown":
 		return nil, d.handleShutdown(cmd)
+	case "sleep":
+		return nil, d.handleSleep(cmd)
 	case "restart_agent":
 		return nil, d.handleRestartAgent(cmd)
 	case "uninstall_agent":

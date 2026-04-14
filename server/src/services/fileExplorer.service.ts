@@ -1,6 +1,7 @@
 import { agentHub, type HubCommand } from './agentHub.service';
 import { getIO } from '../socket';
 import { auditService } from './audit.service';
+import { privacyGateService } from './privacyGate.service';
 import { logger } from '../utils/logger';
 import { randomUUID } from 'crypto';
 
@@ -32,15 +33,24 @@ class FileExplorerService {
     payload: Record<string, any>,
     audit?: { userId?: number; action: string; resourceType?: string; resourcePath?: string; details?: Record<string, unknown>; ipAddress?: string },
     requestId?: string,
+    userId?: number,
   ): Promise<void> {
     const clientId = requestId || randomUUID();
     const cmdId = randomUUID();
+
+    // Auto-inject privacy unlock token if the user has an active unlock
+    // session for the 'files' feature on this device.
+    let effectivePayload = payload;
+    if (userId && privacyGateService.isBlockedByPrivacy(commandType)) {
+      const token = privacyGateService.get(userId, deviceId, 'files');
+      if (token) effectivePayload = { ...payload, unlockToken: token };
+    }
 
     const cmd: HubCommand = {
       type: 'command',
       id: cmdId,
       commandType,
-      payload,
+      payload: effectivePayload,
     };
 
     const pushed = agentHub.push(deviceId, cmd);

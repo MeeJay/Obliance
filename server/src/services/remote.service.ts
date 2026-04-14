@@ -3,6 +3,7 @@ import { db } from '../db';
 import { commandService } from './command.service';
 import { agentHub } from './agentHub.service';
 import { oblireachHub } from './oblireachHub.service';
+import { privacyGateService } from './privacyGate.service';
 import type { OrCommand } from './oblireachHub.service';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
@@ -65,6 +66,11 @@ class RemoteService {
     };
     if (wtsSessionId !== undefined) {
       commandPayload.sessionId = wtsSessionId;
+    }
+    // Attach privacy unlock token if the user has an active unlock for 'remote'.
+    const remoteToken = privacyGateService.get(userId, deviceId, 'remote');
+    if (remoteToken) {
+      commandPayload.unlockToken = remoteToken;
     }
 
     if (protocol === 'oblireach') {

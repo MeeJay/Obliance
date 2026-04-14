@@ -97,7 +97,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
         const canRead = await permissionService.canReadDevice(user.id, payload.deviceId, false);
         if (!canRead) return;
       }
-      processService.subscribe(payload.deviceId, tenantId, socket.id);
+      processService.subscribe(payload.deviceId, tenantId, socket.id, user.id);
     });
     socket.on(SocketEvents.PROCESS_UNSUBSCRIBE, (payload: { deviceId: number }) => {
       if (payload?.deviceId) {
@@ -121,6 +121,7 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
         payload.commandType, payload.payload,
         audit,
         payload.requestId,
+        user.id,
       );
     });
 

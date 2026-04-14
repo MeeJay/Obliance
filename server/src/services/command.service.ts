@@ -2,6 +2,7 @@ import { db } from '../db';
 import { logger } from '../utils/logger';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
+import { privacyGateService } from './privacyGate.service';
 import type { Command, CommandAck, CommandType, CommandPriority } from '@obliance/shared';
 
 // Sync-wait map used by privacy-password routes and anywhere else that
@@ -58,11 +59,24 @@ class CommandService {
       ? new Date(Date.now() + data.expiresInSeconds * 1000)
       : null;
 
+    // Auto-inject privacy unlock token for privacy-gated commands if the
+    // caller has an active unlock session on this device for the matching
+    // feature. Applies to every command enqueued via this service (files,
+    // processes, scripts, remote, etc.), not just /api/commands.
+    let payload = data.payload || {};
+    if (data.createdBy && privacyGateService.isBlockedByPrivacy(data.type)) {
+      const feature = privacyGateService.featureForCommand(data.type);
+      const token = privacyGateService.get(data.createdBy, data.deviceId, feature);
+      if (token) {
+        payload = { ...payload, unlockToken: token };
+      }
+    }
+
     const [row] = await db('command_queue').insert({
       device_id: data.deviceId,
       tenant_id: data.tenantId,
       type: data.type,
-      payload: JSON.stringify(data.payload || {}),
+      payload: JSON.stringify(payload),
       status: 'pending',
       priority: data.priority || 'normal',
       max_retries: data.maxRetries || 0,

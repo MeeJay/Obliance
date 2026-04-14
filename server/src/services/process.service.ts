@@ -1,6 +1,7 @@
 import { agentHub, type HubCommand } from './agentHub.service';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
+import { privacyGateService } from './privacyGate.service';
 import { logger } from '../utils/logger';
 import { randomUUID } from 'crypto';
 
@@ -22,18 +23,21 @@ interface DeviceSub {
   interval: ReturnType<typeof setInterval> | null;
   /** Tenant ID for broadcasting */
   tenantId: number;
+  /** User IDs of current viewers — used to look up privacy unlock tokens. */
+  viewerUserIds: Set<number>;
 }
 
 class ProcessService {
   private subs = new Map<number, DeviceSub>();
 
-  subscribe(deviceId: number, tenantId: number, socketId: string): void {
+  subscribe(deviceId: number, tenantId: number, socketId: string, userId?: number): void {
     let sub = this.subs.get(deviceId);
     if (!sub) {
-      sub = { viewers: new Set(), interval: null, tenantId };
+      sub = { viewers: new Set(), interval: null, tenantId, viewerUserIds: new Set() };
       this.subs.set(deviceId, sub);
     }
     sub.viewers.add(socketId);
+    if (userId) sub.viewerUserIds.add(userId);
 
     // Start polling if this is the first viewer
     if (sub.viewers.size === 1 && !sub.interval) {
@@ -73,11 +77,22 @@ class ProcessService {
   }
 
   private _poll(deviceId: number): void {
+    // If any subscriber has a privacy unlock token for 'processes' on this
+    // device, attach it. First found wins — all subscribers share the stream.
+    let unlockToken: string | null = null;
+    const sub = this.subs.get(deviceId);
+    if (sub) {
+      for (const uid of sub.viewerUserIds) {
+        const t = privacyGateService.get(uid, deviceId, 'processes');
+        if (t) { unlockToken = t; break; }
+      }
+    }
+
     const cmd: HubCommand = {
       type: 'command',
       id: randomUUID(),
       commandType: 'list_processes',
-      payload: {},
+      payload: unlockToken ? { unlockToken } : {},
     };
     // Direct push — no DB queue, no command_queue row (ephemeral).
     const pushed = agentHub.push(deviceId, cmd);
