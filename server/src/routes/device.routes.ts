@@ -288,7 +288,7 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
   try {
     const { groupId, deviceIds, action } = req.body as {
       groupId?: number; deviceIds?: number[];
-      action: 'restart_agent' | 'reboot' | 'shutdown' | 'scan_inventory' | 'scan_updates' | 'check_compliance';
+      action: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep' | 'scan_inventory' | 'scan_updates' | 'check_compliance';
     };
     if (!action) return res.status(400).json({ error: 'action required' });
 

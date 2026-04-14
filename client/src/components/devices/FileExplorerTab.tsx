@@ -23,8 +23,11 @@ import {
   Package,
   Check,
   X,
+  Edit3,
+  Save,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { fileApi } from '@/api/file.api';
 import { getSocket } from '@/socket/socketClient';
@@ -184,6 +187,13 @@ export default function FileExplorerTab({ device }: Props) {
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
   const [operationInProgress, setOperationInProgress] = useState<Set<string>>(new Set());
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Text editor panel state
+  const [editorFile, setEditorFile] = useState<FileInfo | null>(null);
+  const [editorContent, setEditorContent] = useState('');
+  const [editorOriginal, setEditorOriginal] = useState('');
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorSaving, setEditorSaving] = useState(false);
   const pendingCmdRef = useRef<Map<string, { resolve: (cmd: Command) => void; timer: ReturnType<typeof setTimeout> }>>(new Map());
 
   const isWindows = device.osType === 'windows';
@@ -368,6 +378,95 @@ export default function FileExplorerTab({ device }: Props) {
     }
   };
 
+  // ── Text editor ─────────────────────────────────────────────────────────
+
+  const EDITABLE_EXTENSIONS = new Set([
+    'txt', 'md', 'log', 'json', 'xml', 'yaml', 'yml', 'ini', 'conf', 'cfg',
+    'env', 'properties', 'toml', 'csv', 'tsv',
+    'js', 'ts', 'jsx', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h',
+    'cs', 'rb', 'php', 'html', 'htm', 'css', 'scss', 'sass', 'less',
+    'sh', 'bash', 'zsh', 'fish', 'bat', 'cmd', 'ps1', 'psm1', 'psd1',
+    'sql', 'ql', 'vue', 'svelte', 'astro', 'lua', 'pl', 'r', 'm', 'swift',
+    'kt', 'scala', 'clj', 'cljs', 'ex', 'exs', 'erl', 'hs', 'dart', 'zig',
+    'dockerfile', 'gitignore', 'editorconfig', 'htaccess',
+  ]);
+  const MAX_EDIT_SIZE = 2 * 1024 * 1024; // 2 MB
+
+  function isEditableText(file: FileInfo): boolean {
+    if (file.isDir) return false;
+    if (file.size > MAX_EDIT_SIZE) return false;
+    const name = file.name.toLowerCase();
+    const ext = name.split('.').pop() ?? '';
+    if (EDITABLE_EXTENSIONS.has(ext)) return true;
+    // Files with no extension but common text names
+    if (name === 'dockerfile' || name === 'makefile' || name === 'readme' || name === 'license') return true;
+    return false;
+  }
+
+  const handleOpenEditor = async (file: FileInfo) => {
+    if (!isEditableText(file)) {
+      toast.error(t('fileExplorer.notEditable') || 'This file is not editable as text');
+      return;
+    }
+    setEditorFile(file);
+    setEditorLoading(true);
+    setEditorContent('');
+    setEditorOriginal('');
+    try {
+      const result = await sendCommand('download_file', { path: file.path }, 60000);
+      if (result.status === 'success') {
+        const base64: string = (result as any).result?.data ?? '';
+        const binaryStr = atob(base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        setEditorContent(text);
+        setEditorOriginal(text);
+      } else {
+        toast.error((result as any).error || t('fileExplorer.downloadFailed'));
+        setEditorFile(null);
+      }
+    } catch (err: any) {
+      toast.error(err.message || t('fileExplorer.downloadFailed'));
+      setEditorFile(null);
+    } finally {
+      setEditorLoading(false);
+    }
+  };
+
+  const handleSaveEditor = async () => {
+    if (!editorFile) return;
+    setEditorSaving(true);
+    try {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(editorContent);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      const result = await sendCommand('upload_file', { path: editorFile.path, data: base64, overwrite: true }, 60000);
+      if (result.status === 'success') {
+        toast.success(t('fileExplorer.saved') || 'File saved');
+        setEditorOriginal(editorContent);
+        await listDirectory(currentPath);
+      } else {
+        toast.error((result as any).error || t('fileExplorer.saveFailed') || 'Save failed');
+      }
+    } catch (err: any) {
+      toast.error(err.message || t('fileExplorer.saveFailed') || 'Save failed');
+    } finally {
+      setEditorSaving(false);
+    }
+  };
+
+  const handleCloseEditor = () => {
+    if (editorContent !== editorOriginal) {
+      if (!confirm(t('fileExplorer.unsavedChanges') || 'You have unsaved changes. Close anyway?')) return;
+    }
+    setEditorFile(null);
+    setEditorContent('');
+    setEditorOriginal('');
+  };
+
   // ── Create directory ────────────────────────────────────────────────────
 
   const handleCreateFolder = async () => {
@@ -528,7 +627,11 @@ export default function FileExplorerTab({ device }: Props) {
   const isRoot = !currentPath;
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden flex flex-col">
+    <div className="flex gap-3">
+    <div className={clsx(
+      'bg-bg-secondary border border-border rounded-xl overflow-hidden flex flex-col',
+      editorFile ? 'flex-1 min-w-0' : 'w-full'
+    )}>
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2 flex-wrap">
         {/* Back button */}
@@ -768,6 +871,18 @@ export default function FileExplorerTab({ device }: Props) {
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {!file.isDir && isEditableText(file) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditor(file);
+                                }}
+                                className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors"
+                                title={t('fileExplorer.edit') || 'Edit'}
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             {!file.isDir && (
                               <button
                                 onClick={(e) => {
@@ -833,6 +948,69 @@ export default function FileExplorerTab({ device }: Props) {
         </span>
         <span className="opacity-60">{currentPath || (isWindows ? t('fileExplorer.drives') : '/')}</span>
       </div>
+    </div>
+
+    {/* ── Text editor side panel ──────────────────────────────────────── */}
+    {editorFile && (
+      <div className="w-1/2 min-w-[400px] bg-bg-secondary border border-border rounded-xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <Edit3 className="w-4 h-4 text-accent shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-text-primary font-medium truncate">{editorFile.name}</div>
+            <div className="text-xs text-text-muted truncate" title={editorFile.path}>{editorFile.path}</div>
+          </div>
+          {editorContent !== editorOriginal && (
+            <span className="text-xs text-orange-400 shrink-0">modified</span>
+          )}
+          <button
+            onClick={handleSaveEditor}
+            disabled={editorSaving || editorLoading || editorContent === editorOriginal}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title={t('fileExplorer.save') || 'Save'}
+          >
+            {editorSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {t('fileExplorer.save') || 'Save'}
+          </button>
+          <button
+            onClick={handleCloseEditor}
+            disabled={editorSaving}
+            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            title={t('fileExplorer.close') || 'Close'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Editor area */}
+        <div className="flex-1 min-h-0 relative">
+          {editorLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-accent animate-spin" />
+            </div>
+          ) : (
+            <textarea
+              value={editorContent}
+              onChange={(e) => setEditorContent(e.target.value)}
+              spellCheck={false}
+              className="w-full h-full min-h-[400px] p-4 bg-bg-primary text-text-primary font-mono text-xs leading-relaxed resize-none focus:outline-none"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                  e.preventDefault();
+                  handleSaveEditor();
+                }
+              }}
+            />
+          )}
+        </div>
+
+        {/* Footer with info */}
+        <div className="px-4 py-1.5 border-t border-border bg-bg-tertiary/50 flex items-center justify-between text-xs text-text-muted">
+          <span>{editorContent.length} chars · {editorContent.split('\n').length} lines</span>
+          <span className="opacity-60">Ctrl+S to save</span>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

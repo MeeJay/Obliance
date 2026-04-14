@@ -7,7 +7,7 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye,
+  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon,
 } from 'lucide-react';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -3881,7 +3881,7 @@ export function DeviceDetailPage() {
   const remoteDropdownRef = useRef<HTMLDivElement>(null);
   const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
 
-  const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown') => {
+  const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep') => {
     setHeaderPending((p) => new Set(p).add(type));
     try {
       await commandApi.enqueue(deviceId, type, {});
@@ -4474,6 +4474,15 @@ export function DeviceDetailPage() {
                 >
                   {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                   Agent
+                </button>
+                <button
+                  onClick={() => handleHeaderAction('sleep')}
+                  disabled={headerPending.has('sleep')}
+                  title="Suspend device (sleep)"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {headerPending.has('sleep') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Moon className="w-3.5 h-3.5" />}
+                  Sleep
                 </button>
                 <button
                   onClick={() => handleHeaderAction('reboot')}

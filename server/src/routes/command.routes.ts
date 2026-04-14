@@ -29,7 +29,7 @@ router.post('/', async (req, res, next) => {
     // Permission check — non-admins need write access to the device
     if (req.session.role !== 'admin') {
       // Determine required capability based on command type
-      const POWER_COMMANDS = ['reboot', 'shutdown', 'restart_agent', 'uninstall_agent'];
+      const POWER_COMMANDS = ['reboot', 'shutdown', 'sleep', 'restart_agent', 'uninstall_agent'];
       const REMOTE_COMMANDS = ['open_remote_tunnel', 'close_remote_tunnel'];
       const FILE_COMMANDS = ['list_directory', 'create_directory', 'rename_file', 'delete_file', 'download_file', 'upload_file'];
 

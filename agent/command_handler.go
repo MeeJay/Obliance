@@ -172,6 +172,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "shutdown":
 		execErr = d.handleShutdown(cmd)
 
+	case "sleep":
+		execErr = d.handleSleep(cmd)
+
 	case "restart_agent":
 		execErr = d.handleRestartAgent(cmd)
 
@@ -1219,6 +1222,25 @@ func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {
 		return newCmd("shutdown", "-r", fmt.Sprintf("+%d", delayMin)).Start()
 	default:
 		return fmt.Errorf("reboot: unsupported platform %s", runtime.GOOS)
+	}
+}
+
+func (d *CommandDispatcher) handleSleep(cmd AgentCommand) error {
+	log.Printf("Command %s: suspending system...", cmd.ID)
+
+	switch runtime.GOOS {
+	case "windows":
+		// SetSuspendState(Hibernate, ForceCritical, DisableWakeEvent)
+		// First arg 0 = Sleep (S3), 1 = Hibernate (S4). We want sleep.
+		return newCmd("rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0").Start()
+	case "linux":
+		return newCmd("systemctl", "suspend").Start()
+	case "darwin":
+		return newCmd("pmset", "sleepnow").Start()
+	case "freebsd":
+		return newCmd("acpiconf", "-s", "3").Start()
+	default:
+		return fmt.Errorf("sleep: unsupported platform %s", runtime.GOOS)
 	}
 }
 

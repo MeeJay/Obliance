@@ -959,6 +959,8 @@ func executeCommand(cmd agentCommand) {
 		execErr = handleReboot(cmd)
 	case "shutdown":
 		execErr = handleShutdown(cmd)
+	case "sleep":
+		execErr = handleSleep(cmd)
 	case "list_processes":
 		result, execErr = handleListProcesses()
 	case "kill_process":
@@ -1172,6 +1174,13 @@ func handleReboot(cmd agentCommand) error {
 		}
 	}
 	return newHiddenCmd("shutdown", "/r", "/t", fmt.Sprintf("%d", delaySecs)).Start()
+}
+
+// ── sleep ────────────────────────────────────────────────────────────────────
+
+func handleSleep(cmd agentCommand) error {
+	log.Printf("Command %s: suspending system...", cmd.ID)
+	return newHiddenCmd("rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0").Start()
 }
 
 // ── shutdown ─────────────────────────────────────────────────────────────────
