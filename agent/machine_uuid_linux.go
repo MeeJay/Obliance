@@ -11,24 +11,14 @@ import (
 )
 
 // readMachineUUID returns a stable unique ID for this Linux machine.
-// Tries the SMBIOS product UUID first (hardware-level, stable across OS
-// reinstalls), then falls back to /etc/machine-id.
 //
-// Note: /etc/machine-id is an OS-install identifier (changes on reinstall),
-// so we prefer SMBIOS to match the semantics of other platforms. The order
-// here is different from earlier versions of this file on purpose.
+// IMPORTANT: the priority here (machine-id first, SMBIOS fallback) is the
+// historical behavior that all previously-deployed Linux agents rely on.
+// DO NOT swap the order — doing so changes the UUID for every already-
+// registered Linux machine, forcing manual reconciliation on the server.
 func readMachineUUID() string {
-	// Primary: SMBIOS product UUID (requires readable /sys/class/dmi).
-	if b, err := os.ReadFile("/sys/class/dmi/id/product_uuid"); err == nil {
-		if uuid := normaliseUUID(strings.TrimSpace(string(b))); uuid != "" {
-			return uuid
-		}
-	}
-
-	// Fallback: systemd machine-id (32 hex chars, no dashes). Unique per OS
-	// instance — survives correctly-sysprepped VM clones but resets on
-	// reinstall. Kept as a fallback rather than a primary for consistency
-	// with Windows/macOS behavior.
+	// Primary: systemd machine-id (32 hex chars, no dashes).
+	// This is what every already-deployed Linux agent uses as its identity.
 	if b, err := os.ReadFile("/etc/machine-id"); err == nil {
 		id := strings.TrimSpace(string(b))
 		if len(id) == 32 {
@@ -37,6 +27,14 @@ func readMachineUUID() string {
 			if u := normaliseUUID(uuid); u != "" {
 				return u
 			}
+		}
+	}
+
+	// Fallback: SMBIOS product UUID (requires readable /sys/class/dmi,
+	// often root-only on some distros, identical across cloned VMs).
+	if b, err := os.ReadFile("/sys/class/dmi/id/product_uuid"); err == nil {
+		if uuid := normaliseUUID(strings.TrimSpace(string(b))); uuid != "" {
+			return uuid
 		}
 	}
 

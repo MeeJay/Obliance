@@ -12,9 +12,12 @@ must be mirrored everywhere.
 
 ## Resolution priority
 
-1. **SMBIOS / hardware UUID**
-   - Windows: `Win32_ComputerSystemProduct.UUID`
-   - Linux:   `/sys/class/dmi/id/product_uuid`
+1. **Platform "machine UUID"**
+   - Windows: `Win32_ComputerSystemProduct.UUID` (SMBIOS)
+   - Linux:   `/etc/machine-id` first, `/sys/class/dmi/id/product_uuid` as fallback.
+     **Linux priority is historical — do not swap.** Existing Linux
+     deployments identify themselves with the machine-id-derived UUID;
+     switching to SMBIOS first would re-register every Linux device.
    - macOS:   `IOPlatformUUID` from `ioreg`
    - FreeBSD: `kenv smbios.system.uuid`
    - Validated with `normaliseUUID()`; if the result matches a
