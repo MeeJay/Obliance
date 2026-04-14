@@ -7,8 +7,10 @@ import {
   Scan, WifiOff, Clock, Network, CircuitBoard, X,
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon,
+  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
 } from 'lucide-react';
+import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
+import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
 import { commandApi } from '@/api/command.api';
@@ -1948,8 +1950,9 @@ function ToggleRow({ label, description, value, onChange }: {
 
 // ─── DeviceSettingsTab ────────────────────────────────────────────────────────
 
-function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
+function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePrivacyPassword }: {
   device: Device; onSaved: () => void; adminMode: boolean; onDeleted: () => void;
+  onManagePrivacyPassword?: (mode: 'set' | 'change' | 'remove') => void;
 }) {
   const emptyDisplayConfig = (): NonNullable<Device['displayConfig']> => ({
     hideCpu: false, hideMemory: false, hideDisk: false,
@@ -2346,6 +2349,71 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted }: {
         <div className="flex items-center gap-2 justify-end text-xs text-text-muted">
           <Loader2 className="w-3 h-3 animate-spin" />
           Saving…
+        </div>
+      )}
+
+      {/* ── Privacy password (gate) ── */}
+      {adminMode && (
+        <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
+                <Lock className="w-4 h-4 text-accent" />
+                Privacy password
+              </h3>
+              <p className="text-xs text-text-muted mt-1">
+                Local password stored on the agent. Required to unlock privacy-blocked features from the console or to disable privacy mode remotely. Obliance never stores the password itself — only whether one is set.
+              </p>
+            </div>
+            <div className="shrink-0">
+              {device.privacyPasswordSet ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-green-500/10 text-green-400 border border-green-400/30">
+                  <Lock className="w-3 h-3" />
+                  Set
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border">
+                  Not set
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {!device.privacyPasswordSet && (
+              <button
+                onClick={() => onManagePrivacyPassword?.('set')}
+                disabled={device.privacyModeEnabled || device.status !== 'online'}
+                title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Set password
+              </button>
+            )}
+            {device.privacyPasswordSet && (
+              <>
+                <button
+                  onClick={() => onManagePrivacyPassword?.('change')}
+                  disabled={device.privacyModeEnabled || device.status !== 'online'}
+                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  Change password
+                </button>
+                <button
+                  onClick={() => onManagePrivacyPassword?.('remove')}
+                  disabled={device.privacyModeEnabled || device.status !== 'online'}
+                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Remove password
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -3829,6 +3897,58 @@ export function DeviceDetailPage() {
   const { getDevice, fetchDevice } = useDeviceStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Privacy unlock state: features currently unlocked by password + expiry
+  const [privacyUnlocks, setPrivacyUnlocks] = useState<Record<string, number>>({});
+  const [unlockModalFeature, setUnlockModalFeature] = useState<null | { feature: 'scripts' | 'remote' | 'files' | 'processes'; navigateTo?: Tab; afterUnlock?: () => void }>(null);
+  const [managePasswordMode, setManagePasswordMode] = useState<null | 'set' | 'change' | 'remove'>(null);
+  const [disablePrivacyPrompt, setDisablePrivacyPrompt] = useState(false);
+
+  // Reload unlock state from server on mount and after each unlock
+  useEffect(() => {
+    if (!deviceId) return;
+    deviceApi.listPrivacyUnlocks(deviceId).then((list) => {
+      const map: Record<string, number> = {};
+      for (const u of list) map[u.feature] = u.expiresAt;
+      setPrivacyUnlocks(map);
+    }).catch(() => {});
+  }, [deviceId]);
+
+  // Drop expired unlocks automatically every 10s
+  useEffect(() => {
+    const int = setInterval(() => {
+      setPrivacyUnlocks((prev) => {
+        const now = Date.now();
+        const next: Record<string, number> = {};
+        for (const [k, v] of Object.entries(prev)) if (v > now) next[k] = v;
+        return next;
+      });
+    }, 10000);
+    return () => clearInterval(int);
+  }, []);
+
+  const isFeatureUnlocked = (feature: string) => {
+    const exp = privacyUnlocks[feature];
+    return exp && exp > Date.now();
+  };
+
+  const unlockCountdown = (feature: string): string | null => {
+    const exp = privacyUnlocks[feature];
+    if (!exp || exp <= Date.now()) return null;
+    const remaining = Math.max(0, exp - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Force re-render every second when at least one feature is unlocked,
+  // so the countdown badge ticks down in real-time.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (Object.keys(privacyUnlocks).length === 0) return;
+    const t = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [privacyUnlocks]);
   const [crossAppLinks, setCrossAppLinks] = useState<Array<{ appType: string; name: string; url: string; color: string | null }>>([]);
 
   // Uninstall countdown (ticks every second while device is pending_uninstall)
@@ -4209,9 +4329,18 @@ export function DeviceDetailPage() {
 
       {/* Header */}
       <div className="flex items-start gap-4">
-        <Link to="/devices" className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5">
+        <button
+          onClick={() => {
+            // Prefer history back so the previous page (with its filters) is restored.
+            // Fall back to /devices if there is no history entry.
+            if (window.history.length > 1) navigate(-1);
+            else navigate('/devices');
+          }}
+          className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5"
+          title="Back"
+        >
           <ArrowLeft className="w-4 h-4" />
-        </Link>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
@@ -4382,12 +4511,19 @@ export function DeviceDetailPage() {
                     }
                     useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
                   }}
-                  disabled={device.status !== 'online'}
-                  title="Chat with user"
+                  disabled={device.status !== 'online' || headerOrInstalled === false || device.privacyModeEnabled}
+                  title={
+                    headerOrInstalled === false
+                      ? 'ObliReach is not deployed on this device — chat is unavailable'
+                      : device.privacyModeEnabled
+                        ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
+                        : 'Chat with user'
+                  }
                   className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   Chat
+                  {headerOrInstalled === false && <Lock className="w-3 h-3 text-orange-400" />}
                 </button>
                 {/* Remote */}
                 {(() => {
@@ -4396,28 +4532,43 @@ export function DeviceDetailPage() {
                     device.osType === 'macos'   ? ['oblireach', 'ssh'] :
                                                   ['oblireach', 'ssh'];
                   const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
+                  // Privacy gate state for the 'remote' feature
+                  const remoteHardBlocked = device.privacyModeEnabled && !device.privacyPasswordSet;
+                  const remoteUnlocked = isFeatureUnlocked('remote');
+                  const remoteSoftGated = device.privacyModeEnabled && device.privacyPasswordSet && !remoteUnlocked;
+                  const guardedClick = (action: () => void) => {
+                    if (remoteSoftGated) {
+                      setUnlockModalFeature({ feature: 'remote', afterUnlock: action });
+                    } else {
+                      action();
+                    }
+                  };
                   return (
                     <div className="relative" ref={remoteDropdownRef}>
                       {opts.length === 1 ? (
                         <button
-                          onClick={() => handleHeaderRemote(opts[0])}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
+                          onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || remoteHardBlocked}
                           title={`${label(opts[0])} Remote`}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
                           {label(opts[0])}
+                          {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
+                          {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
                         </button>
                       ) : (
                         <button
-                          onClick={() => setRemoteDropdownOpen((o) => !o)}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || device.privacyModeEnabled}
+                          onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
+                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || remoteHardBlocked}
                           title="Remote Control"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
                           Remote
                           <ChevronDown className="w-3 h-3" />
+                          {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
+                          {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
                         </button>
                       )}
                       {remoteDropdownOpen && (
@@ -4449,6 +4600,11 @@ export function DeviceDetailPage() {
                     <div className="w-px h-5 bg-border" />
                     <button
                       onClick={async () => {
+                        // If a password gate is set, prompt the user via the modal.
+                        if (device.privacyPasswordSet) {
+                          setDisablePrivacyPrompt(true);
+                          return;
+                        }
                         setHeaderPending((p) => new Set(p).add('privacy'));
                         try {
                           await deviceApi.disablePrivacyMode(device.id);
@@ -4462,6 +4618,7 @@ export function DeviceDetailPage() {
                     >
                       {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
                       {t('privacy.disable')}
+                      {device.privacyPasswordSet && <Lock className="w-3 h-3" />}
                     </button>
                   </>
                 )}
@@ -4554,16 +4711,37 @@ export function DeviceDetailPage() {
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
-          const privacyBlocked = device.privacyModeEnabled && ['scripts', 'remote', 'processes', 'files'].includes(tab.id);
+          const privacyGatedTab = ['scripts', 'remote', 'processes', 'files'].includes(tab.id);
+          const inPrivacyMode = device.privacyModeEnabled && privacyGatedTab;
+          const hasPasswordGate = device.privacyPasswordSet;
+          // Feature key maps to agent/server feature name
+          const featureKey = tab.id === 'scripts' ? 'scripts'
+            : tab.id === 'remote' ? 'remote'
+            : tab.id === 'files' ? 'files'
+            : tab.id === 'processes' ? 'processes'
+            : '';
+          const unlocked = featureKey && isFeatureUnlocked(featureKey);
+          // If privacy + password gate: clickable (opens modal), else clickable only if unlocked.
+          // If privacy + NO password gate: hard-blocked like before.
+          const softGated = inPrivacyMode && hasPasswordGate && !unlocked;
+          const hardBlocked = inPrivacyMode && !hasPasswordGate;
+          const handleClick = () => {
+            if (hardBlocked) return;
+            if (softGated) {
+              setUnlockModalFeature({ feature: featureKey as any, navigateTo: tab.id });
+              return;
+            }
+            setActiveTab(tab.id);
+          };
           return (
             <button
               key={tab.id}
-              onClick={() => !privacyBlocked && setActiveTab(tab.id)}
-              disabled={privacyBlocked}
-              title={privacyBlocked ? t('privacy.badge') : undefined}
+              onClick={handleClick}
+              disabled={hardBlocked}
+              title={hardBlocked ? t('privacy.badge') : softGated ? 'Click to unlock with password' : undefined}
               className={clsx(
                 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
-                privacyBlocked
+                hardBlocked
                   ? 'text-text-muted/40 cursor-not-allowed'
                   : activeTab === tab.id
                     ? 'bg-accent text-white'
@@ -4572,6 +4750,13 @@ export function DeviceDetailPage() {
             >
               <Icon className="w-4 h-4" />
               {tab.label}
+              {softGated && <Lock className="w-3 h-3 text-orange-400" />}
+              {unlocked && inPrivacyMode && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-green-400 bg-green-400/10 border border-green-400/30 px-1.5 py-0.5 rounded-full">
+                  <Unlock className="w-2.5 h-2.5" />
+                  {unlockCountdown(featureKey as string)}
+                </span>
+              )}
             </button>
           );
         })}
@@ -4589,8 +4774,48 @@ export function DeviceDetailPage() {
         {activeTab === 'services' && <ServicesTab device={device} />}
         {activeTab === 'processes' && <ProcessesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
-        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} />}
+        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
       </div>
+
+      {/* Privacy unlock modal */}
+      {unlockModalFeature && (
+        <PrivacyUnlockModal
+          deviceId={device.id}
+          feature={unlockModalFeature.feature}
+          onClose={() => setUnlockModalFeature(null)}
+          onUnlocked={(ttlSeconds) => {
+            setPrivacyUnlocks((prev) => ({ ...prev, [unlockModalFeature.feature]: Date.now() + ttlSeconds * 1000 }));
+            if (unlockModalFeature.navigateTo) setActiveTab(unlockModalFeature.navigateTo);
+            const after = unlockModalFeature.afterUnlock;
+            setUnlockModalFeature(null);
+            if (after) setTimeout(after, 50);
+          }}
+        />
+      )}
+
+      {/* Privacy password manage modal */}
+      {managePasswordMode && (
+        <PrivacyPasswordManageModal
+          deviceId={device.id}
+          mode={managePasswordMode}
+          onClose={() => setManagePasswordMode(null)}
+          onSuccess={() => { fetchDevice(deviceId); }}
+        />
+      )}
+
+      {/* Disable privacy with password — reuses the unlock modal in 'disable' mode */}
+      {disablePrivacyPrompt && (
+        <PrivacyUnlockModal
+          deviceId={device.id}
+          feature={'scripts' as any}
+          mode="disable"
+          onClose={() => setDisablePrivacyPrompt(false)}
+          onUnlocked={() => {
+            setDisablePrivacyPrompt(false);
+            setTimeout(() => fetchDevice(deviceId), 1500);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -408,6 +408,14 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
     const id = parseInt(req.params.id);
     const device = await deviceService.getDeviceById(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    // If a privacy-gate password is set, refuse here. Callers must use
+    // /api/devices/:id/privacy/disable-with-password which verifies the
+    // password on the agent first.
+    if ((device as any).privacyPasswordSet) {
+      return next(new AppError(423, 'Privacy password is set — use /privacy/disable-with-password'));
+    }
+
     const cmd = await commandService.enqueue({
       deviceId: id,
       tenantId: req.tenantId!,

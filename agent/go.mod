@@ -6,6 +6,7 @@ require (
 	github.com/creack/pty v1.1.21
 	github.com/getlantern/systray v1.2.2
 	github.com/shirou/gopsutil/v3 v3.24.5
+	golang.org/x/crypto v0.23.0
 	golang.org/x/sys v0.20.0
 )
 

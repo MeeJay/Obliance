@@ -310,11 +310,13 @@ export function Sidebar() {
 
   const loadDeviceData = useCallback(async () => {
     try {
-      const [devList, tree] = await Promise.all([
-        deviceApi.list({ approvalStatus: 'approved' }),
+      // Fetch ALL approved devices with a large page size. Default is 100
+      // which silently truncated sidebar contents on fleets > 100 devices.
+      const [paged, tree] = await Promise.all([
+        deviceApi.listPaginated({ approvalStatus: 'approved', page: 1, pageSize: 10000 }),
         groupsApi.tree(),
       ]);
-      setDevices(devList);
+      setDevices(paged.items);
       setGroupTree(tree);
     } catch {
       // fail silently — sidebar will just show empty
@@ -609,14 +611,18 @@ export function Sidebar() {
 
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-2">
-          {/* Primary nav */}
-          <nav className="py-1">
+        <div className="flex flex-col flex-1 min-h-0 px-2">
+          {/* Primary nav — fixed, never scrolls with the device list */}
+          <nav className="py-1 shrink-0">
             {mainNavItems.map(item => <NavLink key={item.path} item={item} />)}
           </nav>
 
-          {/* Device group tree */}
-          {showDevices && renderDeviceTree(false)}
+          {/* Device group tree — scrollable independently */}
+          {showDevices && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {renderDeviceTree(false)}
+            </div>
+          )}
         </div>
       )}
 

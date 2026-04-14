@@ -161,6 +161,8 @@ export interface Device {
   maxMissedPushes: number;
   complianceRemediationEnabled: boolean;
   privacyModeEnabled: boolean;
+  privacyPasswordSet: boolean;
+  privacyPasswordSetAt: string | null;
   airgapEnabled: boolean;
   airgapEnabledAt: string | null;
   lastLoggedInUser: string | null;
@@ -353,6 +355,10 @@ export type CommandType =
   | 'disable_privacy_mode'
   | 'enable_airgap'
   | 'disable_airgap'
+  | 'set_privacy_password'
+  | 'change_privacy_password'
+  | 'remove_privacy_password'
+  | 'verify_privacy_password'
   | 'list_directory'
   | 'create_directory'
   | 'rename_file'

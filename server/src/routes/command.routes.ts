@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { commandService } from '../services/command.service';
 import { agentHub } from '../services/agentHub.service';
 import { permissionService } from '../services/permission.service';
+import { privacyGateService } from '../services/privacyGate.service';
 import { db } from '../db';
 import { AppError } from '../middleware/errorHandler';
 import type { CommandType, CommandPriority } from '@obliance/shared';
@@ -26,6 +27,13 @@ router.post('/', async (req, res, next) => {
     const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
     if (!device) return res.status(404).json({ error: 'Device not found' });
 
+    // If a privacy-gate password is set, refuse the raw disable_privacy_mode
+    // command. Clients must use /api/devices/:id/privacy/disable-with-password
+    // which verifies the password via the agent before sending the command.
+    if (type === 'disable_privacy_mode' && device.privacy_password_set) {
+      return next(new AppError(423, 'Privacy password is set — use /privacy/disable-with-password'));
+    }
+
     // Permission check — non-admins need write access to the device
     if (req.session.role !== 'admin') {
       // Determine required capability based on command type
@@ -42,11 +50,27 @@ router.post('/', async (req, res, next) => {
       if (!allowed) return next(new AppError(403, `Capability '${requiredCap}' not permitted for your team`));
     }
 
+    // If the device is in privacy mode and this command is privacy-gated,
+    // check for an active unlock session owned by this user. If one exists,
+    // attach the agent unlock token to the payload so the agent lets it
+    // through. If none, refuse with 403 (even admins).
+    let effectivePayload = payload;
+    if (device.privacy_mode_enabled && privacyGateService.isBlockedByPrivacy(type)) {
+      const feature = privacyGateService.featureForCommand(type);
+      const token = req.session.userId
+        ? privacyGateService.get(req.session.userId, deviceId, feature)
+        : null;
+      if (!token) {
+        return next(new AppError(423, `Privacy mode is active — unlock required for feature '${feature}'`));
+      }
+      effectivePayload = { ...payload, unlockToken: token };
+    }
+
     const cmd = await commandService.enqueue({
       deviceId,
       tenantId: req.tenantId!,
       type,
-      payload,
+      payload: effectivePayload,
       priority: priority as CommandPriority,
       expiresInSeconds: 300,
       createdBy: req.session?.userId,
@@ -59,7 +83,7 @@ router.post('/', async (req, res, next) => {
       type: 'command',
       id: cmd.id,
       commandType: type,
-      payload,
+      payload: effectivePayload,
     });
     if (pushed) {
       try {

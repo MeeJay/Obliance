@@ -107,6 +107,24 @@ func isBlockedByPrivacy(cmdType string) bool {
 	return false
 }
 
+// privacyFeatureForCommand maps a command type to the logical feature name
+// used for privacy-gate unlock tokens. Must stay in sync with the server-side
+// mapping.
+func privacyFeatureForCommand(cmdType string) string {
+	switch cmdType {
+	case "run_script":
+		return "scripts"
+	case "open_remote_tunnel":
+		return "remote"
+	case "list_wts_sessions", "list_processes", "kill_process":
+		return "processes"
+	case "list_directory", "create_directory", "rename_file",
+		"delete_file", "download_file", "upload_file":
+		return "files"
+	}
+	return ""
+}
+
 func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -123,16 +141,22 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	var result interface{}
 	var execErr error
 
-	// Privacy mode: reject remote-access commands.
+	// Privacy mode: reject remote-access commands, unless a valid unlock
+	// token is provided in the payload for the requested feature.
 	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
-		log.Printf("Command %s (%s) blocked by privacy mode", cmd.ID, cmd.Type)
-		d.addAck(CommandAck{
-			CommandID:   cmd.ID,
-			CommandType: cmd.Type,
-			Status:      "failure",
-			Result:      map[string]string{"error": "privacy mode is enabled — remote access denied"},
-		})
-		return
+		token, _ := cmd.Payload["unlockToken"].(string)
+		feature := privacyFeatureForCommand(cmd.Type)
+		if !CheckUnlockToken(token, feature) {
+			log.Printf("Command %s (%s) blocked by privacy mode", cmd.ID, cmd.Type)
+			d.addAck(CommandAck{
+				CommandID:   cmd.ID,
+				CommandType: cmd.Type,
+				Status:      "failure",
+				Result:      map[string]string{"error": "privacy mode is enabled — remote access denied"},
+			})
+			return
+		}
+		log.Printf("Command %s (%s) allowed via privacy unlock token", cmd.ID, cmd.Type)
 	}
 
 	switch cmd.Type {
@@ -174,6 +198,19 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "sleep":
 		execErr = d.handleSleep(cmd)
+
+	case "set_privacy_password":
+		result, execErr = d.handleSetPrivacyPassword(cmd)
+		d.redactPayloadPassword(&cmd)
+	case "change_privacy_password":
+		result, execErr = d.handleChangePrivacyPassword(cmd)
+		d.redactPayloadPassword(&cmd)
+	case "remove_privacy_password":
+		result, execErr = d.handleRemovePrivacyPassword(cmd)
+		d.redactPayloadPassword(&cmd)
+	case "verify_privacy_password":
+		result, execErr = d.handleVerifyPrivacyPassword(cmd)
+		d.redactPayloadPassword(&cmd)
 
 	case "restart_agent":
 		execErr = d.handleRestartAgent(cmd)
@@ -1225,20 +1262,120 @@ func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {
 	}
 }
 
+// redactPayloadPassword wipes password fields from the command payload so
+// they cannot be logged or echoed back in acks.
+func (d *CommandDispatcher) redactPayloadPassword(cmd *AgentCommand) {
+	if cmd.Payload == nil {
+		return
+	}
+	for _, k := range []string{"password", "oldPassword", "newPassword"} {
+		delete(cmd.Payload, k)
+	}
+}
+
+// ── Privacy gate handlers ───────────────────────────────────────────────────
+//
+// Passwords arrive plaintext in the command payload and are verified locally
+// against a scrypt hash. They are NEVER logged, never written to disk, and
+// never echoed back in results.
+
+func (d *CommandDispatcher) handleSetPrivacyPassword(cmd AgentCommand) (map[string]any, error) {
+	pw, _ := cmd.Payload["password"].(string)
+	if pw == "" {
+		return nil, fmt.Errorf("missing password")
+	}
+	if err := SetPrivacyPassword(pw); err != nil {
+		return nil, err
+	}
+	return map[string]any{"passwordSet": true}, nil
+}
+
+func (d *CommandDispatcher) handleChangePrivacyPassword(cmd AgentCommand) (map[string]any, error) {
+	oldPw, _ := cmd.Payload["oldPassword"].(string)
+	newPw, _ := cmd.Payload["newPassword"].(string)
+	if oldPw == "" || newPw == "" {
+		return nil, fmt.Errorf("missing old or new password")
+	}
+	if err := ChangePrivacyPassword(oldPw, newPw); err != nil {
+		return nil, err
+	}
+	return map[string]any{"passwordSet": true}, nil
+}
+
+func (d *CommandDispatcher) handleRemovePrivacyPassword(cmd AgentCommand) (map[string]any, error) {
+	pw, _ := cmd.Payload["password"].(string)
+	if pw == "" {
+		return nil, fmt.Errorf("missing password")
+	}
+	if err := RemovePrivacyPassword(pw); err != nil {
+		return nil, err
+	}
+	return map[string]any{"passwordSet": false}, nil
+}
+
+func (d *CommandDispatcher) handleVerifyPrivacyPassword(cmd AgentCommand) (map[string]any, error) {
+	pw, _ := cmd.Payload["password"].(string)
+	feature, _ := cmd.Payload["feature"].(string)
+	if pw == "" {
+		return nil, fmt.Errorf("missing password")
+	}
+	token, err := VerifyPrivacyPassword(pw, feature)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"unlockToken": token,
+		"feature":     feature,
+		"ttlSeconds":  int(unlockTTL.Seconds()),
+	}, nil
+}
+
 func (d *CommandDispatcher) handleSleep(cmd AgentCommand) error {
 	log.Printf("Command %s: suspending system...", cmd.ID)
 
 	switch runtime.GOOS {
 	case "windows":
-		// SetSuspendState(Hibernate, ForceCritical, DisableWakeEvent)
-		// First arg 0 = Sleep (S3), 1 = Hibernate (S4). We want sleep.
-		return newCmd("rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0").Start()
+		// Windows sleep from a SYSTEM service is tricky:
+		//   - rundll32 powrprof.dll,SetSuspendState 0,1,0 will HIBERNATE
+		//     instead of sleep when hibernation is enabled (very common on
+		//     laptops with Fast Startup).
+		//   - A reliable approach is to disable hibernate first so SetSuspendState
+		//     does a real S3 sleep, then call it.
+		// We use PowerShell to invoke SetSuspendState via P/Invoke directly,
+		// which respects the "sleep vs hibernate" flag explicitly.
+		script := `
+$ErrorActionPreference = 'Stop'
+$sig = @'
+[DllImport("Powrprof.dll", CharSet=CharSet.Auto, ExactSpelling=true)]
+public static extern bool SetSuspendState(bool Hibernate, bool ForceCritical, bool DisableWakeEvent);
+'@
+$type = Add-Type -MemberDefinition $sig -Name PowerState -Namespace Win32 -PassThru
+# Hibernate=$false -> real S3 sleep; ForceCritical=$false; DisableWakeEvent=$false
+[void]$type::SetSuspendState($false, $false, $false)
+`
+		return newCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).Start()
+
 	case "linux":
-		return newCmd("systemctl", "suspend").Start()
+		// Try systemd first (covers 99% of modern distros).
+		if err := newCmd("systemctl", "suspend").Run(); err == nil {
+			return nil
+		}
+		// Fallbacks for non-systemd or locked-down envs.
+		if err := newCmd("loginctl", "suspend").Run(); err == nil {
+			return nil
+		}
+		if err := newCmd("pm-suspend").Run(); err == nil {
+			return nil
+		}
+		return fmt.Errorf("no working suspend command found (systemd/loginctl/pm-suspend all failed)")
+
 	case "darwin":
-		return newCmd("pmset", "sleepnow").Start()
+		// pmset sleepnow is the canonical macOS sleep command and works as root.
+		return newCmd("pmset", "sleepnow").Run()
+
 	case "freebsd":
-		return newCmd("acpiconf", "-s", "3").Start()
+		return newCmd("acpiconf", "-s", "3").Run()
+
 	default:
 		return fmt.Errorf("sleep: unsupported platform %s", runtime.GOOS)
 	}
@@ -1607,7 +1744,10 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 // without waiting for the next HTTP push cycle.
 func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
-		return nil, fmt.Errorf("privacy mode is enabled — remote access denied")
+		token, _ := cmd.Payload["unlockToken"].(string)
+		if !CheckUnlockToken(token, privacyFeatureForCommand(cmd.Type)) {
+			return nil, fmt.Errorf("privacy mode is enabled — remote access denied")
+		}
 	}
 	switch cmd.Type {
 	case "scan_inventory":
@@ -1669,6 +1809,14 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 			return nil, err
 		}
 		return map[string]string{"message": "privacy mode disabled"}, nil
+	case "set_privacy_password":
+		return d.handleSetPrivacyPassword(cmd)
+	case "change_privacy_password":
+		return d.handleChangePrivacyPassword(cmd)
+	case "remove_privacy_password":
+		return d.handleRemovePrivacyPassword(cmd)
+	case "verify_privacy_password":
+		return d.handleVerifyPrivacyPassword(cmd)
 	case "enable_airgap":
 		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
 		ips := make([]string, 0, len(serverIPs))

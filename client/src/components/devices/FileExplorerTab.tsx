@@ -194,6 +194,21 @@ export default function FileExplorerTab({ device }: Props) {
   const [editorOriginal, setEditorOriginal] = useState('');
   const [editorLoading, setEditorLoading] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
+
+  // Custom right-click context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileInfo } | null>(null);
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [contextMenu]);
   const pendingCmdRef = useRef<Map<string, { resolve: (cmd: Command) => void; timer: ReturnType<typeof setTimeout> }>>(new Map());
 
   const isWindows = device.osType === 'windows';
@@ -761,9 +776,16 @@ export default function FileExplorerTab({ device }: Props) {
                       onDoubleClick={() => {
                         if (file.isDir) {
                           navigateTo(file);
+                        } else if (isEditableText(file)) {
+                          handleOpenEditor(file);
                         } else if (file.size <= MAX_UPLOAD_SIZE) {
                           handleDownload(file);
                         }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenu({ x: e.clientX, y: e.clientY, file });
                       }}
                       className={`group border-b border-border/50 cursor-pointer transition-colors ${
                         isSelected
@@ -949,6 +971,69 @@ export default function FileExplorerTab({ device }: Props) {
         <span className="opacity-60">{currentPath || (isWindows ? t('fileExplorer.drives') : '/')}</span>
       </div>
     </div>
+
+    {/* ── Custom right-click context menu ─────────────────────────────── */}
+    {contextMenu && (() => {
+      const file = contextMenu.file;
+      const editable = !file.isDir && isEditableText(file);
+      const MENU_W = 200;
+      const MENU_H_EST = 240;
+      const x = Math.min(contextMenu.x, window.innerWidth - MENU_W - 8);
+      const y = Math.min(contextMenu.y, window.innerHeight - MENU_H_EST - 8);
+      const close = () => setContextMenu(null);
+      return (
+        <div
+          className="fixed z-[200] w-[200px] bg-bg-secondary border border-border rounded-lg shadow-2xl overflow-hidden py-1"
+          style={{ left: x, top: y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {file.isDir ? (
+            <button
+              onClick={() => { navigateTo(file); close(); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-yellow-500" />
+              Open
+            </button>
+          ) : (
+            <>
+              {editable && (
+                <button
+                  onClick={() => { handleOpenEditor(file); close(); }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-accent" />
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={() => { handleDownload(file); close(); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+              >
+                <Download className="w-3.5 h-3.5 text-accent" />
+                Download
+              </button>
+            </>
+          )}
+          <div className="h-px bg-border my-1" />
+          <button
+            onClick={() => { startRename(file); close(); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+          >
+            <Pencil className="w-3.5 h-3.5 text-accent" />
+            Rename
+          </button>
+          <button
+            onClick={() => { setDeletingFile(file.path); close(); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 transition-colors text-left"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      );
+    })()}
 
     {/* ── Text editor side panel ──────────────────────────────────────── */}
     {editorFile && (

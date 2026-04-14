@@ -212,6 +212,8 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
     { key: 'offline', label: t('deviceStatus.offline'), color: 'bg-gray-400' },
     { key: 'warning', label: t('deviceStatus.warning'), color: 'bg-yellow-400' },
     { key: 'critical', label: t('deviceStatus.critical'), color: 'bg-red-400' },
+    { key: 'updating', label: t('deviceStatus.updating', 'Updating'), color: 'bg-blue-400' },
+    { key: 'update_error', label: t('deviceStatus.update_error', 'Update error'), color: 'bg-orange-500' },
   ];
   const OS_CHIPS = [
     { key: 'windows', label: 'Windows' },

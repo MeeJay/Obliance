@@ -74,6 +74,8 @@ class DeviceService {
       maxMissedPushes: row.max_missed_pushes,
       complianceRemediationEnabled: row.compliance_remediation_enabled ?? true,
       privacyModeEnabled: row.privacy_mode_enabled ?? false,
+      privacyPasswordSet: row.privacy_password_set ?? false,
+      privacyPasswordSetAt: row.privacy_password_set_at ?? null,
       airgapEnabled: row.airgap_enabled ?? false,
       airgapEnabledAt: row.airgap_enabled_at ?? null,
       lastLoggedInUser: row.last_logged_in_user ?? null,
@@ -111,7 +113,10 @@ class DeviceService {
     sortBy?: string; sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
-    const pageSize = Math.min(500, Math.max(1, filters?.pageSize ?? 100));
+    // Cap is intentionally high to support the sidebar which needs to render
+    // the entire approved fleet in one request. Callers that paginate the
+    // UI (DeviceTable) still use reasonable page sizes from the UI controls.
+    const pageSize = Math.min(10000, Math.max(1, filters?.pageSize ?? 100));
 
     let q = db('devices')
       .leftJoin('device_groups', 'devices.group_id', 'device_groups.id')

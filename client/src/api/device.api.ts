@@ -32,6 +32,28 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
   },
+  // ── Privacy gate ─────────────────────────────────────────────────────
+  async setPrivacyPassword(id: number, password: string): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy/password`, { action: 'set', password });
+  },
+  async changePrivacyPassword(id: number, oldPassword: string, newPassword: string): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy/password`, { action: 'change', password: oldPassword, newPassword });
+  },
+  async removePrivacyPassword(id: number, password: string): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy/password`, { action: 'remove', password });
+  },
+  async unlockPrivacyFeature(id: number, password: string, feature: string): Promise<{ ttlSeconds: number }> {
+    const res = await apiClient.post<ApiResponse<{ unlocked: boolean; feature: string; ttlSeconds: number }>>(`/devices/${id}/privacy/unlock`, { password, feature });
+    return { ttlSeconds: res.data.data?.ttlSeconds ?? 900 };
+  },
+  async disablePrivacyWithPassword(id: number, password: string): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy/disable-with-password`, { password });
+  },
+  async listPrivacyUnlocks(id: number): Promise<Array<{ feature: string; expiresAt: number }>> {
+    const res = await apiClient.get<ApiResponse<Array<{ feature: string; expiresAt: number }>>>(`/devices/${id}/privacy/unlocks`);
+    return res.data.data ?? [];
+  },
+
   async export(format: 'csv' | 'xlsx' | 'pdf', params?: {
     groupId?: number; includeSubgroups?: boolean; status?: string; search?: string;
     approvalStatus?: string; osType?: string; sortBy?: string; sortOrder?: 'asc' | 'desc';

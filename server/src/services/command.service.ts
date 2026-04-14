@@ -4,6 +4,10 @@ import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
 import type { Command, CommandAck, CommandType, CommandPriority } from '@obliance/shared';
 
+// Sync-wait map used by privacy-password routes and anywhere else that
+// needs to block on the agent's ack for a specific command.
+const pendingWaiters = new Map<string, (payload: { status: string; result: any }) => void>();
+
 class CommandService {
   rowToCommand(row: any): Command {
     // Compute duration from timestamps if not in result
@@ -79,6 +83,25 @@ class CommandService {
     return cmd;
   }
 
+  /**
+   * Wait for a specific command to be acked. Used by sync operations like
+   * privacy-password verification where the caller needs the agent's result
+   * immediately. Resolves on terminal ack, rejects on timeout.
+   */
+  waitForResult(commandId: string, timeoutMs = 10000): Promise<{ status: string; result: any }> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingWaiters.delete(commandId);
+        reject(new Error('Timed out waiting for agent response'));
+      }, timeoutMs);
+      pendingWaiters.set(commandId, (payload) => {
+        clearTimeout(timer);
+        pendingWaiters.delete(commandId);
+        resolve(payload);
+      });
+    });
+  }
+
   async processAcks(deviceId: number, tenantId: number, acks: CommandAck[]) {
     if (!acks?.length) return;
 
@@ -100,6 +123,13 @@ class CommandService {
 
       const isTerminal = ['success', 'failure', 'timeout'].includes(ack.status);
       if (isTerminal) updates.finished_at = new Date();
+
+      // Sync waiters (privacy-password routes, etc.) resolve as soon as the
+      // terminal ack is received.
+      if (isTerminal) {
+        const waiter = pendingWaiters.get(ack.commandId);
+        if (waiter) waiter({ status: ack.status, result: ack.result });
+      }
 
       const affected = await db('command_queue')
         .where({ id: ack.commandId, device_id: deviceId })
