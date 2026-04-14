@@ -32,6 +32,19 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
   },
+  async export(format: 'csv' | 'xlsx' | 'pdf', params?: {
+    groupId?: number; includeSubgroups?: boolean; status?: string; search?: string;
+    approvalStatus?: string; osType?: string; sortBy?: string; sortOrder?: 'asc' | 'desc';
+  }): Promise<{ blob: Blob; filename: string }> {
+    const res = await apiClient.get('/devices/export', {
+      params: { ...params, format },
+      responseType: 'blob',
+    });
+    const cd = res.headers['content-disposition'] || res.headers['Content-Disposition'] || '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : `obliance-devices.${format}`;
+    return { blob: res.data as Blob, filename };
+  },
   async getSummary(): Promise<FleetSummary> {
     const res = await apiClient.get<ApiResponse<FleetSummary>>('/devices/summary');
     return res.data.data!;

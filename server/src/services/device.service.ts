@@ -177,6 +177,63 @@ class DeviceService {
     return result.items;
   }
 
+  /**
+   * Export-oriented query: same filter semantics as getDevices but no
+   * pagination cap, returns every matching row. Used by the /export endpoint
+   * to emit a full CSV/XLSX/PDF regardless of how many pages the UI is on.
+   */
+  async exportDevices(tenantId: number, filters?: {
+    groupId?: number; includeSubgroups?: boolean; status?: string; approvalStatus?: string;
+    search?: string; osType?: string; sortBy?: string; sortOrder?: 'asc' | 'desc';
+  }): Promise<Device[]> {
+    let q = db('devices')
+      .leftJoin('device_groups', 'devices.group_id', 'device_groups.id')
+      .where({ 'devices.tenant_id': tenantId });
+    q = q.whereNot({ 'devices.status': 'pending_uninstall' });
+    if (filters?.groupId) {
+      if (filters.includeSubgroups) {
+        const descendants = await db('device_group_closure')
+          .where('ancestor_id', filters.groupId)
+          .select('descendant_id');
+        const allGroupIds = [filters.groupId, ...descendants.map((d: any) => d.descendant_id)];
+        q = q.whereIn('devices.group_id', allGroupIds);
+      } else {
+        q = q.where({ 'devices.group_id': filters.groupId });
+      }
+    }
+    if (filters?.status) q = q.where({ 'devices.status': filters.status });
+    if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
+    if (filters?.approvalStatus === 'suspended') {
+      q = q.where({ 'devices.status': 'suspended' });
+    } else if (filters?.approvalStatus) {
+      q = q.where({ 'devices.approval_status': filters.approvalStatus });
+    }
+    if (filters?.search) q = q.where(function() {
+      this.whereILike('devices.hostname', `%${filters.search}%`)
+          .orWhereILike('devices.display_name', `%${filters.search}%`)
+          .orWhereILike('devices.ip_local', `%${filters.search}%`)
+          .orWhereILike('devices.ip_public', `%${filters.search}%`)
+          .orWhereILike('devices.uuid', `%${filters.search}%`);
+    });
+
+    const SORT_MAP: Record<string, string> = {
+      name: 'devices.hostname', status: 'devices.status', os: 'devices.os_type',
+      lastSeen: 'devices.last_seen_at', version: 'devices.agent_version', group: 'device_groups.name',
+    };
+    const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
+    const sortDir = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
+
+    const rows = await q
+      .select('devices.*', 'device_groups.name as group_name')
+      .orderBy(sortCol, sortDir);
+
+    return rows.map((row: any) => {
+      const device = this.rowToDevice(row);
+      (device as any).groupName = row.group_name ?? null;
+      return device;
+    });
+  }
+
   async getDeviceById(id: number, tenantId: number): Promise<Device | null> {
     const row = await db('devices').where({ id, tenant_id: tenantId }).first();
     return row ? this.rowToDevice(row) : null;

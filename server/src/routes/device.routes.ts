@@ -43,6 +43,133 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/export
+router.get('/export', async (req, res, next) => {
+  try {
+    const { format, groupId, includeSubgroups, status, approvalStatus, search, osType, sortBy, sortOrder } = req.query as any;
+    const fmt = (format ?? 'csv').toString().toLowerCase();
+    if (!['csv', 'xlsx', 'pdf'].includes(fmt)) {
+      return res.status(400).json({ error: 'Invalid format (csv|xlsx|pdf)' });
+    }
+
+    let devices = await deviceService.exportDevices(req.tenantId!, {
+      groupId: groupId ? parseInt(groupId) : undefined,
+      includeSubgroups: includeSubgroups === 'true',
+      status, approvalStatus, search, osType, sortBy, sortOrder,
+    });
+
+    // Non-admins: filter to visible devices only
+    if (req.session.role !== 'admin') {
+      const visible = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
+      if (Array.isArray(visible)) {
+        const visibleSet = new Set(visible);
+        devices = devices.filter((d: any) => visibleSet.has(d.id));
+      }
+    }
+
+    const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    const baseName = `obliance-devices-${ts}`;
+
+    // Rows for the export — stable column order
+    const columns = [
+      { header: 'Hostname',       key: 'hostname',      width: 24 },
+      { header: 'Display Name',   key: 'displayName',   width: 24 },
+      { header: 'Status',         key: 'status',        width: 12 },
+      { header: 'OS',             key: 'osName',        width: 18 },
+      { header: 'OS Version',     key: 'osVersion',     width: 16 },
+      { header: 'Architecture',   key: 'osArch',        width: 10 },
+      { header: 'Agent Version',  key: 'agentVersion',  width: 12 },
+      { header: 'Group',          key: 'groupName',     width: 20 },
+      { header: 'Local IP',       key: 'ipLocal',       width: 16 },
+      { header: 'Public IP',      key: 'ipPublic',      width: 16 },
+      { header: 'MAC Address',    key: 'macAddress',    width: 18 },
+      { header: 'Last Seen',      key: 'lastSeenAt',    width: 22 },
+      { header: 'Last User',      key: 'lastLoggedInUser', width: 18 },
+      { header: 'Agent UUID',     key: 'uuid',          width: 38 },
+    ];
+
+    const rows = devices.map((d: any) => ({
+      hostname:         d.hostname ?? '',
+      displayName:      d.displayName ?? '',
+      status:           d.status ?? '',
+      osName:           d.osName ?? d.osType ?? '',
+      osVersion:        d.osVersion ?? '',
+      osArch:           d.osArch ?? '',
+      agentVersion:     d.agentVersion ?? '',
+      groupName:        d.groupName ?? '',
+      ipLocal:          d.ipLocal ?? '',
+      ipPublic:         d.ipPublic ?? '',
+      macAddress:       d.macAddress ?? '',
+      lastSeenAt:       d.lastSeenAt ?? '',
+      lastLoggedInUser: d.lastLoggedInUser ?? '',
+      uuid:             d.uuid ?? '',
+    }));
+
+    const ExcelJS = (await import('exceljs')).default;
+
+    if (fmt === 'csv') {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Devices');
+      ws.columns = columns;
+      rows.forEach((r) => ws.addRow(r));
+      const buffer = await wb.csv.writeBuffer();
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${baseName}.csv"`);
+      return res.send(Buffer.from(buffer as any));
+    }
+
+    if (fmt === 'xlsx') {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Obliance';
+      wb.created = new Date();
+      const ws = wb.addWorksheet('Devices');
+      ws.columns = columns;
+      ws.getRow(1).font = { bold: true };
+      ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+      ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      rows.forEach((r) => ws.addRow(r));
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
+      const buffer = await wb.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${baseName}.xlsx"`);
+      return res.send(Buffer.from(buffer as any));
+    }
+
+    // PDF via playwright (renders an HTML table to PDF).
+    const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+    const headHtml = columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join('');
+    const rowsHtml = rows.map((r) =>
+      `<tr>${columns.map((c) => `<td>${escapeHtml(String((r as any)[c.key] ?? ''))}</td>`).join('')}</tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Devices</title><style>
+body { font-family: -apple-system, Segoe UI, sans-serif; font-size: 9px; color: #111; margin: 20px; }
+h1 { font-size: 14px; margin: 0 0 12px; }
+.meta { font-size: 8px; color: #666; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: top; }
+th { background: #1f2937; color: white; font-weight: 600; }
+tr:nth-child(even) td { background: #f9fafb; }
+</style></head><body>
+<h1>Obliance — Devices export</h1>
+<div class="meta">${devices.length} devices · generated ${new Date().toISOString()}</div>
+<table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
+</body></html>`;
+
+    const { chromium } = await import('playwright-chromium');
+    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'domcontentloaded' });
+      const pdf = await page.pdf({ format: 'A4', landscape: true, margin: { top: '15mm', bottom: '15mm', left: '10mm', right: '10mm' }, printBackground: true });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${baseName}.pdf"`);
+      return res.send(pdf);
+    } finally {
+      await browser.close();
+    }
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/summary
 router.get('/summary', async (req, res, next) => {
   try {

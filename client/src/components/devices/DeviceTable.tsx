@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2,
+  Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2, Download,
   ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
@@ -60,6 +60,36 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   // Batch actions
   const [batchMenuOpen, setBatchMenuOpen] = useState(false);
   const [isBatchRunning, setIsBatchRunning] = useState(false);
+
+  // Export
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = async (format: 'csv' | 'xlsx' | 'pdf') => {
+    setExportMenuOpen(false);
+    setIsExporting(true);
+    try {
+      const { blob, filename } = await deviceApi.export(format, {
+        search: debouncedSearch || undefined,
+        status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
+        osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
+        groupId: groupId ?? undefined,
+        includeSubgroups: groupId ? true : undefined,
+        approvalStatus: approvalFilter || undefined,
+        sortBy,
+        sortOrder,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Debounce search
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -241,6 +271,26 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             <button onClick={() => { setSearch(''); setStatusFilters(new Set()); setOsFilters(new Set()); }}
               className="p-2 text-text-muted hover:text-text-primary"><X className="w-3.5 h-3.5" /></button>
           )}
+          <div className="relative">
+            <button
+              onClick={() => setExportMenuOpen((v) => !v)}
+              disabled={isExporting}
+              className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-50"
+              title="Export filtered devices"
+            >
+              <Download className={clsx('w-4 h-4', isExporting && 'animate-pulse')} />
+            </button>
+            {exportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-32 bg-bg-secondary border border-border rounded-lg shadow-xl z-20 overflow-hidden">
+                  <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">CSV</button>
+                  <button onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">Excel (xlsx)</button>
+                  <button onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">PDF</button>
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={load} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
