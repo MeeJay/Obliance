@@ -74,7 +74,7 @@ async function sendPrivacyCommand(
 // POST /api/devices/:id/privacy/password — set, change, or remove
 router.post('/password', requireRole('admin'), async (req, res, next) => {
   try {
-    const deviceId = parseInt(req.params.id);
+    const deviceId = parseInt((req.params as any).id);
     const tenantId = req.tenantId!;
     const userId = req.session.userId!;
 
@@ -137,7 +137,7 @@ router.post('/password', requireRole('admin'), async (req, res, next) => {
 // POST /api/devices/:id/privacy/unlock — verify password + create unlock session
 router.post('/unlock', async (req, res, next) => {
   try {
-    const deviceId = parseInt(req.params.id);
+    const deviceId = parseInt((req.params as any).id);
     const tenantId = req.tenantId!;
     const userId = req.session.userId!;
     const { password, feature } = req.body as { password: string; feature: string };
@@ -173,7 +173,7 @@ router.post('/unlock', async (req, res, next) => {
 // POST /api/devices/:id/privacy/disable-with-password — disable privacy via password gate
 router.post('/disable-with-password', async (req, res, next) => {
   try {
-    const deviceId = parseInt(req.params.id);
+    const deviceId = parseInt((req.params as any).id);
     const tenantId = req.tenantId!;
     const userId = req.session.userId!;
     const { password } = req.body as { password: string };
@@ -216,7 +216,7 @@ router.post('/disable-with-password', async (req, res, next) => {
 // GET /api/devices/:id/privacy/unlocks — list my active unlock sessions for this device
 router.get('/unlocks', async (req, res, next) => {
   try {
-    const deviceId = parseInt(req.params.id);
+    const deviceId = parseInt((req.params as any).id);
     const userId = req.session.userId!;
     res.json({ data: privacyGateService.list(userId, deviceId) });
   } catch (err) { next(err); }
