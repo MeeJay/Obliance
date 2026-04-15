@@ -3,6 +3,18 @@ import type { AppConfigData, DeviceNotificationTypes, ObligateConfig } from '@ob
 
 const AGENT_GLOBAL_CONFIG_KEY = 'agent_global_config';
 const OBLIGATE_CONFIG_KEY     = 'obligate_config';
+const EDITABLE_EXT_KEY        = 'file_explorer_editable_extensions';
+
+const DEFAULT_EDITABLE_EXTENSIONS = [
+  'txt', 'md', 'log', 'json', 'xml', 'yaml', 'yml', 'ini', 'conf', 'cfg',
+  'env', 'properties', 'toml', 'csv', 'tsv',
+  'js', 'ts', 'jsx', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h',
+  'cs', 'rb', 'php', 'html', 'htm', 'css', 'scss', 'sass', 'less',
+  'sh', 'bash', 'zsh', 'fish', 'bat', 'cmd', 'ps1', 'psm1', 'psd1',
+  'sql', 'vue', 'svelte', 'astro', 'lua', 'pl', 'r', 'swift',
+  'kt', 'scala', 'clj', 'cljs', 'ex', 'exs', 'erl', 'hs', 'dart', 'zig',
+  'dockerfile', 'gitignore', 'editorconfig', 'htaccess',
+];
 
 export interface AgentGlobalConfig {
   checkIntervalSeconds: number | null;
@@ -128,6 +140,32 @@ export const appConfigService = {
     const updated: AgentGlobalConfig = { ...current, ...patch };
     await this.set(AGENT_GLOBAL_CONFIG_KEY, JSON.stringify(updated));
     return updated;
+  },
+
+  /** File explorer editable extensions (global, cross-tenant). */
+  async getEditableExtensions(): Promise<string[]> {
+    const raw = await this.get(EDITABLE_EXT_KEY);
+    if (!raw) return DEFAULT_EDITABLE_EXTENSIONS;
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.every((x) => typeof x === 'string')) return arr;
+    } catch {}
+    return DEFAULT_EDITABLE_EXTENSIONS;
+  },
+
+  async setEditableExtensions(extensions: string[]): Promise<string[]> {
+    // Normalise: lowercase, strip leading dots, dedupe, keep non-empty only.
+    const cleaned = Array.from(new Set(
+      extensions
+        .map((e) => String(e).trim().toLowerCase().replace(/^\./, ''))
+        .filter((e) => e.length > 0),
+    ));
+    await this.set(EDITABLE_EXT_KEY, JSON.stringify(cleaned));
+    return cleaned;
+  },
+
+  getDefaultEditableExtensions(): string[] {
+    return [...DEFAULT_EDITABLE_EXTENSIONS];
   },
 
   /**

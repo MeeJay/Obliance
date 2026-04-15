@@ -394,17 +394,27 @@ export default function FileExplorerTab({ device }: Props) {
   };
 
   // ── Text editor ─────────────────────────────────────────────────────────
+  //
+  // Extensions that open in the inline text editor are configurable globally
+  // (see Settings → File explorer). We fetch the list once at mount and fall
+  // back to a sane local default if the server isn't reachable.
 
-  const EDITABLE_EXTENSIONS = new Set([
+  const FALLBACK_EDITABLE: string[] = [
     'txt', 'md', 'log', 'json', 'xml', 'yaml', 'yml', 'ini', 'conf', 'cfg',
-    'env', 'properties', 'toml', 'csv', 'tsv',
-    'js', 'ts', 'jsx', 'tsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h',
-    'cs', 'rb', 'php', 'html', 'htm', 'css', 'scss', 'sass', 'less',
-    'sh', 'bash', 'zsh', 'fish', 'bat', 'cmd', 'ps1', 'psm1', 'psd1',
-    'sql', 'ql', 'vue', 'svelte', 'astro', 'lua', 'pl', 'r', 'm', 'swift',
-    'kt', 'scala', 'clj', 'cljs', 'ex', 'exs', 'erl', 'hs', 'dart', 'zig',
-    'dockerfile', 'gitignore', 'editorconfig', 'htaccess',
-  ]);
+    'env', 'sh', 'bash', 'ps1', 'bat', 'cmd',
+  ];
+  const [editableExtensions, setEditableExtensions] = useState<Set<string>>(() => new Set(FALLBACK_EDITABLE));
+  useEffect(() => {
+    import('@/api/appConfig.api').then(({ appConfigApi }) => {
+      appConfigApi.getEditableExtensions()
+        .then(({ extensions }) => {
+          if (Array.isArray(extensions) && extensions.length > 0) {
+            setEditableExtensions(new Set(extensions.map((e) => e.toLowerCase())));
+          }
+        })
+        .catch(() => { /* keep fallback */ });
+    });
+  }, []);
   const MAX_EDIT_SIZE = 2 * 1024 * 1024; // 2 MB
 
   function isEditableText(file: FileInfo): boolean {
@@ -412,7 +422,7 @@ export default function FileExplorerTab({ device }: Props) {
     if (file.size > MAX_EDIT_SIZE) return false;
     const name = file.name.toLowerCase();
     const ext = name.split('.').pop() ?? '';
-    if (EDITABLE_EXTENSIONS.has(ext)) return true;
+    if (editableExtensions.has(ext)) return true;
     // Files with no extension but common text names
     if (name === 'dockerfile' || name === 'makefile' || name === 'readme' || name === 'license') return true;
     return false;

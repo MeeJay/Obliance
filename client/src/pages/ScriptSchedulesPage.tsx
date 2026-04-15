@@ -250,7 +250,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
           <p className="text-sm text-text-muted mt-0.5">Automate script execution on a schedule</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+          <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
           <button
@@ -266,7 +266,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       {/* Embedded header with actions */}
       {embedded && (
         <div className="flex items-center justify-end gap-2">
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+          <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
           <button

@@ -42,4 +42,16 @@ export const appConfigApi = {
     const res = await apiClient.put<ApiResponse<ObligateConfig>>('/admin/config/obligate', patch);
     return res.data.data!;
   },
+
+  // ── Editable file extensions (file explorer inline editor) ──────────────
+
+  async getEditableExtensions(): Promise<{ extensions: string[]; defaults: string[] }> {
+    const res = await apiClient.get<ApiResponse<{ extensions: string[]; defaults: string[] }>>('/admin/config/editable-extensions');
+    return res.data.data ?? { extensions: [], defaults: [] };
+  },
+
+  async setEditableExtensions(extensions: string[]): Promise<string[]> {
+    const res = await apiClient.put<ApiResponse<{ extensions: string[] }>>('/admin/config/editable-extensions', { extensions });
+    return res.data.data?.extensions ?? [];
+  },
 };

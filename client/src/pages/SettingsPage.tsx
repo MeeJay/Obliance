@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen } from 'lucide-react';
+import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X } from 'lucide-react';
 import { ImportExportPage } from './ImportExportPage';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
@@ -615,6 +615,9 @@ export function SettingsPage() {
         </div>
       )}
 
+      {/* ── File explorer editable extensions ── */}
+      {admin && <EditableExtensionsSection />}
+
       {/* ── Import / Export ── */}
       {admin && (
         <div>
@@ -627,6 +630,131 @@ export function SettingsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Editable Extensions Section ────────────────────────────────────────────
+
+function EditableExtensionsSection() {
+  const [extensions, setExtensions] = useState<string[]>([]);
+  const [defaults, setDefaults] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    appConfigApi.getEditableExtensions()
+      .then(({ extensions, defaults }) => {
+        setExtensions(extensions);
+        setDefaults(defaults);
+      })
+      .catch(() => toast.error('Failed to load editable extensions'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const normalise = (raw: string): string[] =>
+    raw
+      .split(/[,\s]+/)
+      .map((e) => e.trim().toLowerCase().replace(/^\./, ''))
+      .filter((e) => e.length > 0);
+
+  const add = () => {
+    const toAdd = normalise(input);
+    if (toAdd.length === 0) return;
+    setExtensions((prev) => Array.from(new Set([...prev, ...toAdd])).sort());
+    setInput('');
+  };
+
+  const remove = (ext: string) => {
+    setExtensions((prev) => prev.filter((e) => e !== ext));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const saved = await appConfigApi.setEditableExtensions(extensions);
+      setExtensions(saved);
+      toast.success('Editable extensions updated');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = () => {
+    setExtensions([...defaults].sort());
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <FolderOpen size={18} className="text-accent" />
+        <h2 className="text-lg font-semibold text-text-primary">File explorer — editable extensions</h2>
+      </div>
+      <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-3">
+        <p className="text-xs text-text-muted">
+          Files with these extensions open in the inline text editor instead of forcing a download.
+          Comma or space separated. Case-insensitive. Applies across all tenants.
+        </p>
+
+        {loading ? (
+          <p className="text-sm text-text-muted">Loading...</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5 p-2 bg-bg-tertiary border border-border rounded-lg min-h-[44px]">
+              {extensions.length === 0 && (
+                <span className="text-xs text-text-muted italic">No extensions configured</span>
+              )}
+              {extensions.map((ext) => (
+                <span
+                  key={ext}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-bg-secondary border border-border text-text-primary"
+                >
+                  .{ext}
+                  <button onClick={() => remove(ext)} className="hover:text-red-400">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+                placeholder="Add extension(s)... e.g. conf, properties, xyz"
+                className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+              />
+              <button
+                onClick={add}
+                className="px-4 py-2 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+              <button
+                onClick={resetToDefaults}
+                className="text-xs text-text-muted hover:text-text-primary transition-colors"
+              >
+                Reset to defaults ({defaults.length} extensions)
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="px-4 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

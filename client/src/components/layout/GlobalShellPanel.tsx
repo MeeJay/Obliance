@@ -41,19 +41,29 @@ function sendResize(ws: WebSocket, cols: number, rows: number) {
 }
 
 export function GlobalShellPanel() {
-  const { sessions, activeId, isOpen } = useRemoteShellStore();
+  const { sessions, activeId, isOpen, groupedIds } = useRemoteShellStore();
   const removeSession = useRemoteShellStore((s) => s.removeSession);
   const setActive = useRemoteShellStore((s) => s.setActive);
   const setOpen = useRemoteShellStore((s) => s.setOpen);
   const setStatus = useRemoteShellStore((s) => s.setStatus);
   const addSession = useRemoteShellStore((s) => s.addSession);
+  const toggleGrouped = useRemoteShellStore((s) => s.toggleGrouped);
   const getDeviceList = useDeviceStore((s) => s.getDeviceList);
 
+  // Single-view container (used when not in group mode)
   const containerRef = useRef<HTMLDivElement>(null);
+  // Tile containers for grid mode: one <div> per grouped session
+  const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const runtimes = useRef<Map<string, Runtime>>(new Map());
   const [showKeys, setShowKeys] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const nativeTop = useNativeTopOffset();
+
+  // Grid mode is active when the active tab belongs to a group of 2+.
+  const isGroupMode = !!(activeId && groupedIds.includes(activeId) && groupedIds.length >= 2);
+  const visibleIds: string[] = isGroupMode
+    ? sessions.filter((s) => groupedIds.includes(s.id)).map((s) => s.id)
+    : (activeId ? [activeId] : []);
 
   // ── Create runtime for a new session ────────────────────────────────────
   const ensureRuntime = useCallback((session: ShellSession) => {
@@ -107,48 +117,79 @@ export function GlobalShellPanel() {
     return rt;
   }, [setStatus]);
 
-  // ── Attach/detach the active terminal to the DOM container ──────────────
+  // ── Attach visible terminals to their DOM containers ────────────────────
+  //
+  // Visible set:
+  //   - single mode : [activeId]
+  //   - grid  mode  : every session that's in `groupedIds`
+  //
+  // Detach any terminal that's no longer in the visible set (keep runtime
+  // alive — its xterm buffer + websocket stay open, so switching tabs keeps
+  // prior output).
   useEffect(() => {
-    if (!isOpen || !activeId || !containerRef.current) return;
-    const session = sessions.find((s) => s.id === activeId);
-    if (!session) return;
-    const rt = ensureRuntime(session);
+    if (!isOpen) return;
 
-    // Detach all other terminals from their current DOM parent. They keep
-    // their buffer (xterm's scrollback is preserved across open() calls).
-    for (const [id, r] of runtimes.current) {
-      if (id !== activeId && r.attachedTo) {
-        try {
-          // xterm doesn't expose a detach; we empty the container div.
-          r.attachedTo.replaceChildren();
-        } catch {}
-        r.attachedTo = null;
+    // Detach terminals no longer visible
+    const visibleSet = new Set(visibleIds);
+    for (const [id, rt] of runtimes.current) {
+      if (!visibleSet.has(id) && rt.attachedTo) {
+        try { rt.attachedTo.replaceChildren(); } catch {}
+        rt.attachedTo = null;
       }
     }
 
-    // Attach the active one. xterm supports opening on a new container even
-    // after being created — it clears any prior DOM and re-attaches.
-    try {
-      rt.term.open(containerRef.current);
-      rt.fit.fit();
-      rt.term.focus();
-      rt.attachedTo = containerRef.current;
-    } catch (err) {
-      console.error('shell attach failed', err);
+    // Attach each visible terminal to its designated container
+    for (const id of visibleIds) {
+      const session = sessions.find((s) => s.id === id);
+      if (!session) continue;
+      const rt = ensureRuntime(session);
+      const target = isGroupMode
+        ? tileRefs.current.get(id) ?? null
+        : containerRef.current;
+      if (!target) continue;
+      // Already attached to the same element? Just refit.
+      if (rt.attachedTo === target) {
+        try { rt.fit.fit(); } catch {}
+        continue;
+      }
+      try {
+        rt.term.open(target);
+        rt.fit.fit();
+        rt.attachedTo = target;
+      } catch (err) {
+        console.error('shell attach failed', err);
+      }
     }
-  }, [activeId, isOpen, sessions, ensureRuntime]);
 
-  // ── Resize observer on the container ────────────────────────────────────
+    // Focus the active terminal (even in grid mode)
+    if (activeId) {
+      try { runtimes.current.get(activeId)?.term.focus(); } catch {}
+    }
+  }, [activeId, isOpen, sessions, ensureRuntime, isGroupMode, visibleIds.join('|')]);
+
+  // ── Resize observer — refit every visible terminal when the panel or
+  // any tile changes size.
   useEffect(() => {
-    if (!containerRef.current) return;
+    const targets: HTMLDivElement[] = [];
+    if (isGroupMode) {
+      for (const id of visibleIds) {
+        const el = tileRefs.current.get(id);
+        if (el) targets.push(el);
+      }
+    } else if (containerRef.current) {
+      targets.push(containerRef.current);
+    }
+    if (targets.length === 0) return;
+
     const ro = new ResizeObserver(() => {
-      if (!activeId) return;
-      const rt = runtimes.current.get(activeId);
-      try { rt?.fit.fit(); } catch {}
+      for (const id of visibleIds) {
+        const rt = runtimes.current.get(id);
+        try { rt?.fit.fit(); } catch {}
+      }
     });
-    ro.observe(containerRef.current);
+    targets.forEach((t) => ro.observe(t));
     return () => ro.disconnect();
-  }, [activeId, isOpen]);
+  }, [isOpen, isGroupMode, visibleIds.join('|')]);
 
   // ── Session cleanup: when a session is removed from the store, tear
   // down its runtime (ws + xterm) to free memory.

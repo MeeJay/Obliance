@@ -68,4 +68,23 @@ export const appConfigController = {
       res.json({ success: true, data: updated });
     } catch (err) { next(err); }
   },
+
+  // ── File explorer editable extensions (cross-tenant global setting) ────
+
+  async getEditableExtensions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const extensions = await appConfigService.getEditableExtensions();
+      const defaults = appConfigService.getDefaultEditableExtensions();
+      res.json({ success: true, data: { extensions, defaults } });
+    } catch (err) { next(err); }
+  },
+
+  async setEditableExtensions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { extensions } = req.body as { extensions?: unknown };
+      if (!Array.isArray(extensions)) throw new AppError(400, 'extensions must be an array of strings');
+      const saved = await appConfigService.setEditableExtensions(extensions as string[]);
+      res.json({ success: true, data: { extensions: saved } });
+    } catch (err) { next(err); }
+  },
 };

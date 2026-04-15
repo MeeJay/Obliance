@@ -18,6 +18,11 @@ router.patch('/agent-global', requireAuth, requireRole('admin'), appConfigContro
 router.get('/obligate', requireAuth, requireRole('admin'), appConfigController.getObligateConfig);
 router.put('/obligate', requireAuth, requireRole('admin'), appConfigController.setObligateConfig);
 
+// File explorer editable extensions — read by all auth'd users (needed
+// by the file explorer UI), write admin only. Cross-tenant global setting.
+router.get('/editable-extensions', requireAuth, appConfigController.getEditableExtensions);
+router.put('/editable-extensions', requireAuth, requireRole('admin'), appConfigController.setEditableExtensions);
+
 // Generic key setter — must be LAST among PUT routes
 router.put('/:key', requireAuth, requireRole('admin'), appConfigController.set);
 

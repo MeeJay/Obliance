@@ -26,6 +26,13 @@ interface State {
   activeId: string | null;
   /** true = panel visible, false = minimized to floating pill */
   isOpen: boolean;
+  /**
+   * Ids grouped via Ctrl+Click on tabs. When the active tab is in this
+   * set and the set has >= 2 members, the panel tiles all grouped
+   * terminals in a grid simultaneously. Selecting a non-grouped tab
+   * falls back to single-view for that one tab (the group persists).
+   */
+  groupedIds: string[];
 }
 
 interface Actions {
@@ -35,6 +42,8 @@ interface Actions {
   setStatus: (id: string, status: ShellStatus, errorMsg?: string) => void;
   toggleOpen: () => void;
   setOpen: (v: boolean) => void;
+  toggleGrouped: (id: string) => void;
+  clearGroup: () => void;
   clearAll: () => void;
 }
 
@@ -42,6 +51,7 @@ export const useRemoteShellStore = create<State & Actions>((set) => ({
   sessions: [],
   activeId: null,
   isOpen: true,
+  groupedIds: [],
 
   addSession: (s) => set((st) => ({
     sessions: [
@@ -58,7 +68,11 @@ export const useRemoteShellStore = create<State & Actions>((set) => ({
     if (st.activeId === id) {
       nextActive = next.length > 0 ? next[next.length - 1].id : null;
     }
-    return { sessions: next, activeId: nextActive };
+    return {
+      sessions: next,
+      activeId: nextActive,
+      groupedIds: st.groupedIds.filter((g) => g !== id),
+    };
   }),
 
   setActive: (id) => set({ activeId: id }),
@@ -69,5 +83,15 @@ export const useRemoteShellStore = create<State & Actions>((set) => ({
 
   toggleOpen: () => set((st) => ({ isOpen: !st.isOpen })),
   setOpen: (v) => set({ isOpen: v }),
-  clearAll: () => set({ sessions: [], activeId: null, isOpen: false }),
+
+  toggleGrouped: (id) => set((st) => {
+    if (st.groupedIds.includes(id)) {
+      return { groupedIds: st.groupedIds.filter((g) => g !== id) };
+    }
+    return { groupedIds: [...st.groupedIds, id] };
+  }),
+
+  clearGroup: () => set({ groupedIds: [] }),
+
+  clearAll: () => set({ sessions: [], activeId: null, isOpen: false, groupedIds: [] }),
 }));
