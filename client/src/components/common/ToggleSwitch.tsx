@@ -12,15 +12,21 @@ interface Props {
 
 /**
  * iOS-style toggle switch. Drop-in replacement for checkbox inputs used
- * to represent booleans. Accessible, keyboard-friendly, and respects the
- * theme (accent color when on, bg-tertiary border when off).
+ * to represent booleans. Accessible (role="switch", aria-checked).
+ *
+ * Positioning is done with inline styles rather than Tailwind utility
+ * classes to avoid ambiguous absolute-anchoring bugs where the knob ends
+ * up at the wrong edge of the track.
  */
 export function ToggleSwitch({
   checked, onChange, disabled = false, size = 'md', label, description, title,
 }: Props) {
-  const dims = size === 'sm'
-    ? { track: 'w-8 h-4', knob: 'w-3 h-3', on: 'translate-x-4', off: 'translate-x-0.5', top: 'top-0.5' }
-    : { track: 'w-10 h-5', knob: 'w-4 h-4', on: 'translate-x-5', off: 'translate-x-0.5', top: 'top-0.5' };
+  // Geometry (px). Chosen so the knob has a 2px visual padding from the
+  // track edge in both OFF and ON positions.
+  const G = size === 'sm'
+    ? { trackW: 32, trackH: 16, knob: 12, pad: 2 }
+    : { trackW: 40, trackH: 20, knob: 16, pad: 2 };
+  const translateX = checked ? G.trackW - G.knob - G.pad : G.pad;
 
   const toggle = (
     <button
@@ -30,20 +36,22 @@ export function ToggleSwitch({
       disabled={disabled}
       onClick={(e) => { e.stopPropagation(); if (!disabled) onChange(!checked); }}
       title={title}
+      style={{ width: G.trackW, height: G.trackH }}
       className={clsx(
-        'relative rounded-full transition-colors shrink-0',
-        dims.track,
-        checked ? 'bg-accent' : 'bg-bg-tertiary border border-border',
+        'relative rounded-full transition-colors shrink-0 border',
+        checked ? 'bg-accent border-accent' : 'bg-bg-tertiary border-border',
         disabled && 'opacity-50 cursor-not-allowed',
       )}
     >
       <span
-        className={clsx(
-          'absolute rounded-full bg-white transition-transform',
-          dims.knob,
-          dims.top,
-          checked ? dims.on : dims.off,
-        )}
+        className="absolute rounded-full bg-white shadow-sm transition-transform"
+        style={{
+          top: (G.trackH - G.knob) / 2 - 1, // -1 to compensate for the 1px border
+          left: 0,
+          width: G.knob,
+          height: G.knob,
+          transform: `translateX(${translateX}px)`,
+        }}
       />
     </button>
   );

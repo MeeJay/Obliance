@@ -104,15 +104,20 @@ class ScheduleService {
       const batchId = crypto.randomUUID();
 
       // Skip-in-flight: find devices that still have a previous execution
-      // of THIS schedule in pending/sent/running state. We will not launch a
-      // new run on them until the previous one reaches a terminal state.
-      const deviceIds = devices.map((d: any) => d.id);
-      const inFlightRows = deviceIds.length === 0 ? [] : await db('script_executions')
-        .where({ schedule_id: schedule.id })
-        .whereIn('device_id', deviceIds)
-        .whereIn('status', ['pending', 'sent', 'running'])
-        .select('device_id');
-      const inFlight = new Set<number>(inFlightRows.map((r: any) => r.device_id));
+      // of THIS schedule in pending/sent/running state. Only applied when the
+      // schedule has `skip_if_in_flight` enabled (default true).
+      const inFlight = new Set<number>();
+      if (schedule.skip_if_in_flight !== false) {
+        const deviceIds = devices.map((d: any) => d.id);
+        if (deviceIds.length > 0) {
+          const inFlightRows = await db('script_executions')
+            .where({ schedule_id: schedule.id })
+            .whereIn('device_id', deviceIds)
+            .whereIn('status', ['pending', 'sent', 'running'])
+            .select('device_id');
+          inFlightRows.forEach((r: any) => inFlight.add(r.device_id));
+        }
+      }
 
       let skipped = 0;
       for (const device of devices) {

@@ -35,6 +35,7 @@ interface ScheduleFormData {
   notificationChannels: AutomationNotificationBinding[];
   /** Optional override for the script's default timeout. Empty = use script default. */
   timeoutSeconds: number | null;
+  skipIfInFlight: boolean;
   enabled: boolean;
 }
 
@@ -54,6 +55,7 @@ const defaultForm: ScheduleFormData = {
   onFailureScenarioId: null,
   notificationChannels: [],
   timeoutSeconds: null,
+  skipIfInFlight: true,
   enabled: true,
 };
 
@@ -155,6 +157,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       onFailureScenarioId: schedule.onFailureScenarioId ?? null,
       notificationChannels: schedule.notificationChannels ?? [],
       timeoutSeconds: schedule.timeoutSeconds ?? null,
+      skipIfInFlight: schedule.skipIfInFlight ?? true,
       enabled: schedule.enabled,
     });
     setEditingSchedule(schedule);
@@ -185,6 +188,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
         notificationChannels: form.notificationChannels,
         timeoutSeconds: form.timeoutSeconds && form.timeoutSeconds > 0 ? form.timeoutSeconds : null,
+        skipIfInFlight: form.skipIfInFlight,
         enabled: form.scheduleMode === 'now' ? true : form.enabled,
         parameterValues: {},
         runConditions: [],
@@ -437,7 +441,16 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               onChange={(e) => setForm({ ...form, timeoutSeconds: e.target.value ? parseInt(e.target.value, 10) : null })}
               className="w-28 px-2 py-1 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
             />
-            <span className="text-xs text-text-muted">seconds. Devices still running the previous occurrence are skipped on the next tick.</span>
+            <span className="text-xs text-text-muted">seconds</span>
+          </div>
+
+          <div className="pt-2">
+            <ToggleSwitch
+              checked={form.skipIfInFlight}
+              onChange={(v) => setForm({ ...form, skipIfInFlight: v })}
+              label="Skip if still running"
+              description="On each tick, skip devices whose previous run hasn't finished yet."
+            />
           </div>
 
           <div className="flex flex-wrap gap-6 pt-2">

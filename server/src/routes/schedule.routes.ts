@@ -24,6 +24,7 @@ function rowToSchedule(row: any) {
     assertPass: row.assert_pass ?? false,
     enabled: row.enabled,
     timeoutSeconds: row.timeout_seconds ?? null,
+    skipIfInFlight: row.skip_if_in_flight !== false,
     notificationChannels: typeof row.notification_channels === 'string'
       ? JSON.parse(row.notification_channels)
       : (row.notification_channels ?? []),
@@ -93,6 +94,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       assert_pass: req.body.assertPass ?? false,
       notification_channels: JSON.stringify(req.body.notificationChannels || []),
       timeout_seconds: req.body.timeoutSeconds ?? null,
+      skip_if_in_flight: req.body.skipIfInFlight !== false,
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
@@ -119,6 +121,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.timezone !== undefined) updates.timezone = req.body.timezone;
     if (req.body.notificationChannels !== undefined) updates.notification_channels = JSON.stringify(req.body.notificationChannels);
     if (req.body.timeoutSeconds !== undefined) updates.timeout_seconds = req.body.timeoutSeconds;
+    if (req.body.skipIfInFlight !== undefined) updates.skip_if_in_flight = req.body.skipIfInFlight;
 
     // If the cron expression changed, recompute next_run_at immediately
     // so the UI and the tick loop both see the new schedule without waiting

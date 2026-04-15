@@ -584,6 +584,8 @@ export interface ScriptSchedule {
   notificationChannels: AutomationNotificationBinding[];
   /** Overrides the script's default timeout. NULL = use script default. */
   timeoutSeconds?: number | null;
+  /** If true, skip devices that still have a previous execution in progress. */
+  skipIfInFlight: boolean;
   script?: Script;
 }
 
