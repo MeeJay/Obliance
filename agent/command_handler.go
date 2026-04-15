@@ -1886,6 +1886,12 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return d.handleRemovePrivacyPassword(cmd)
 	case "verify_privacy_password":
 		return d.handleVerifyPrivacyPassword(cmd)
+	case "start_custom_section":
+		return d.handleStartCustomSection(cmd)
+	case "stop_custom_section":
+		return nil, d.handleStopCustomSection(cmd)
+	case "resize_custom_section":
+		return nil, d.handleResizeCustomSection(cmd)
 	case "enable_airgap":
 		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
 		ips := make([]string, 0, len(serverIPs))

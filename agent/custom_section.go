@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"sync"
@@ -65,6 +66,15 @@ func StartCustomSection(streamID, command, rt string, usePty bool, cols, rows in
 			cmd = exec.Command("bash", "-lc", command)
 		}
 	}
+
+	// Curses apps (htop, top, less, watch) check the TERM env var and refuse
+	// to start without it. Services running as systemd daemons often have an
+	// empty env, so we inject a sane default.
+	cmd.Env = append(os.Environ(),
+		"TERM=xterm-256color",
+		"LANG=C.UTF-8",
+		"LC_ALL=C.UTF-8",
+	)
 
 	stream := &runningStream{
 		streamID: streamID,

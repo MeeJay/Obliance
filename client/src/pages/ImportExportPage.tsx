@@ -135,7 +135,7 @@ function SectionSelector({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export function ImportExportPage() {
+export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
 
   const SECTION_LABELS: Record<Section, string> = {
@@ -336,26 +336,28 @@ export function ImportExportPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-w-0 px-4 py-8">
+    <div className={embedded ? 'min-w-0' : 'min-w-0 px-4 py-8'}>
 
-      {/* Page header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <PackageOpen size={22} className="text-accent" />
-          <h1 className="text-2xl font-semibold text-text-primary">{t('importExport.title')}</h1>
+      {/* Page header — hidden in embedded mode (the parent renders its own) */}
+      {!embedded && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <PackageOpen size={22} className="text-accent" />
+            <h1 className="text-2xl font-semibold text-text-primary">{t('importExport.title')}</h1>
+          </div>
+          <p className="text-sm text-text-muted">
+            {t('importExport.description')}
+          </p>
+          <a
+            href="/obliance-import-example.json"
+            download="obliance-import-example.json"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
+          >
+            <ExternalLink size={11} />
+            {t('importExport.downloadTemplate')}
+          </a>
         </div>
-        <p className="text-sm text-text-muted">
-          {t('importExport.description')}
-        </p>
-        <a
-          href="/obliance-import-example.json"
-          download="obliance-import-example.json"
-          className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
-        >
-          <ExternalLink size={11} />
-          {t('importExport.downloadTemplate')}
-        </a>
-      </div>
+      )}
 
       {/* ── Export card ── */}
       <div className="mb-6 rounded-xl border border-border bg-bg-secondary p-6">

@@ -17,7 +17,6 @@ import {
   LogOut,
   Server,
   ArrowLeftRight,
-  PackageOpen,
   CalendarClock,
   Building2,
   PanelLeft,
@@ -26,7 +25,6 @@ import {
   ChevronRight,
   Monitor,
   Terminal,
-  TerminalSquare,
   Laptop,
   ShieldCheck,
   Plus,
@@ -161,11 +159,13 @@ function GroupRow({
   devices,
   searchQuery,
   depth = 0,
+  hideDeviceRows = false,
 }: {
   group: DeviceGroupTreeNode;
   devices: Device[];
   searchQuery: string;
   depth?: number;
+  hideDeviceRows?: boolean;
 }) {
   const location = useLocation();
   const [collapsed, setCollapsed] = usePersisted<boolean>(`sidebar-group-collapsed-${group.id}`, false);
@@ -237,8 +237,10 @@ function GroupRow({
       {/* Expanded content */}
       {!collapsed && (
         <div>
-          {/* Devices in this group */}
-          {filteredDevices.map(device => (
+          {/* Devices in this group — hidden when `hideDeviceRows` is true
+              (i.e. user toggled "Devices" off but still wants to see the
+              group tree for navigation). */}
+          {!hideDeviceRows && filteredDevices.map(device => (
             <DraggableDeviceItem key={device.id} device={device} indent />
           ))}
           {/* Child groups */}
@@ -249,6 +251,7 @@ function GroupRow({
               devices={devices}
               searchQuery={searchQuery}
               depth={depth + 1}
+              hideDeviceRows={hideDeviceRows}
             />
           ))}
         </div>
@@ -456,9 +459,7 @@ export function Sidebar() {
     { label: t('nav.agents'),        path: '/admin/devices',       icon: <Terminal size={18} /> },
     { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
-    { label: t('nav.customSections', 'Custom sections'), path: '/admin/custom-sections', icon: <TerminalSquare size={18} /> },
     { label: t('tenant.pageTitle'),  path: '/admin/tenants',       icon: <Building2 size={18} /> },
-    { label: t('nav.importExport'),  path: '/admin/import-export', icon: <PackageOpen size={18} /> },
     { label: t('nav.settings'),      path: '/settings',            icon: <Settings size={18} /> },
   ];
 
@@ -471,13 +472,16 @@ export function Sidebar() {
     : ungroupedDevices;
 
   // ── Device tree content ────────────────────────────────────────────────────
-  const renderDeviceTree = (hideHeader = false) => (
+  // `hideDeviceRows` = render the group tree but not the devices inside.
+  // This is what the user sees when they toggle the "Devices" chip off
+  // but still want quick navigation to group pages.
+  const renderDeviceTree = (hideHeader = false, hideDeviceRows = false) => (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className={hideHeader ? '' : 'mt-2 pt-2 border-t border-border'}>
         {!hideHeader && (
           <div className="px-2 py-1 flex items-center gap-1.5 text-xs font-medium text-text-muted uppercase tracking-wider">
             <Server size={12} />
-            {t('nav.devices')}
+            {hideDeviceRows ? t('nav.groups', 'Groups') : t('nav.devices')}
           </div>
         )}
 
@@ -488,11 +492,12 @@ export function Sidebar() {
             group={group}
             devices={devices}
             searchQuery={search}
+            hideDeviceRows={hideDeviceRows}
           />
         ))}
 
-        {/* Ungrouped devices */}
-        {filteredUngrouped.length > 0 && (
+        {/* Ungrouped devices — only shown when device rows are visible */}
+        {!hideDeviceRows && filteredUngrouped.length > 0 && (
           <DroppableGroupHeader groupId={null}>
             <div className="px-2 py-0.5 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
               Ungrouped
@@ -619,12 +624,12 @@ export function Sidebar() {
             {mainNavItems.map(item => <NavLink key={item.path} item={item} />)}
           </nav>
 
-          {/* Device group tree — scrollable independently */}
-          {showDevices && (
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {renderDeviceTree(false)}
-            </div>
-          )}
+          {/* Group tree — always rendered. When `showDevices` is off we
+              still render the group tree (without the devices inside)
+              so the user can navigate to group pages. */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {renderDeviceTree(false, !showDevices)}
+          </div>
         </div>
       )}
 

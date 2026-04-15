@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock } from 'lucide-react';
+import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen } from 'lucide-react';
+import { ImportExportPage } from './ImportExportPage';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
 import { useAuthStore } from '@/store/authStore';
@@ -610,6 +611,19 @@ export function SettingsPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import / Export ── */}
+      {admin && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <PackageOpen size={18} className="text-accent" />
+            <h2 className="text-lg font-semibold text-text-primary">{t('importExport.title')}</h2>
+          </div>
+          <div className="rounded-lg border border-border bg-bg-secondary p-5">
+            <ImportExportPage embedded />
           </div>
         </div>
       )}

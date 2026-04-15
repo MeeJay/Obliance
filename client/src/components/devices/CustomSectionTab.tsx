@@ -141,8 +141,8 @@ export function CustomSectionTab({ deviceId, section }: Props) {
       )}
       <div
         ref={containerRef}
-        className="flex-1 min-h-[500px] p-2"
-        style={{ background: '#0f1419' }}
+        className="p-2"
+        style={{ background: '#0f1419', height: 'calc(100vh - 340px)', minHeight: '400px' }}
       />
     </div>
   );
