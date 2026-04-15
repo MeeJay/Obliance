@@ -3,6 +3,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/creack/pty"
