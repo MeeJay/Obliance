@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen, Copy } from 'lucide-react';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime, ScriptPurpose } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -85,7 +86,19 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<ScriptFormData>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  // Persist which category folders are expanded across sessions. Default:
+  // everything collapsed — the user can open what they want and the state
+  // survives reloads.
+  const [expandedCategoryList, setExpandedCategoryList] = usePersistedState<string[]>('scriptLib:expandedCategories', []);
+  const expandedCategories = new Set(expandedCategoryList);
+  const toggleCategoryCollapse = (catName: string) => {
+    setExpandedCategoryList((prev) => {
+      const s = new Set(prev);
+      if (s.has(catName)) s.delete(catName);
+      else s.add(catName);
+      return Array.from(s);
+    });
+  };
 
   const { fetchDevices } = useDeviceStore();
 
@@ -189,14 +202,6 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     setIsCreating(false);
   };
 
-  const toggleCategoryCollapse = (key: string) => {
-    setCollapsedCategories((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  };
-
   // Filter scripts by purpose
   const filteredScripts = selectedPurpose
     ? scripts.filter((s) => (s.purpose ?? 'execute') === selectedPurpose)
@@ -274,22 +279,22 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
             <p className="text-center text-text-muted text-sm py-8">No scripts found</p>
           ) : (
             sortedGroups.map(([catName, { scripts: catScripts }]) => {
-              const isCollapsed = collapsedCategories.has(catName);
+              const isExpanded = expandedCategories.has(catName);
               return (
                 <div key={catName}>
                   <button
                     onClick={() => toggleCategoryCollapse(catName)}
                     className="w-full flex items-center gap-2 px-4 py-2 text-left border-b border-border bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
                   >
-                    {isCollapsed
-                      ? <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
-                      : <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+                    {isExpanded
+                      ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+                      : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
                     }
                     <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
                     <span className="text-xs font-semibold text-text-primary uppercase tracking-wide flex-1 truncate">{catName}</span>
                     <span className="text-[10px] text-text-muted shrink-0">{catScripts.length}</span>
                   </button>
-                  {!isCollapsed && (
+                  {isExpanded && (
                     <div className="p-1.5">
                       {catScripts.map((script) => (
                         <button

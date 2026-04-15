@@ -315,7 +315,7 @@ export function DashboardPage() {
           </Link>
 
           {/* Upcoming schedules (24h) */}
-          <Link to="/schedules">
+          <Link to="/automations">
             <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
               <div className={`p-3 rounded-lg ${(s.upcomingSchedules ?? 0) > 0 ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
                 <CalendarClock className="w-5 h-5" />

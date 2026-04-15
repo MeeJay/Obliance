@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 import { useAuthStore } from '@/store/authStore';
@@ -49,7 +49,9 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/devices" element={<DeviceListPage />} />
             <Route path="/devices/:id" element={<DeviceDetailPage />} />
-            <Route path="/schedules" element={<SchedulesPage />} />
+            <Route path="/automations" element={<SchedulesPage />} />
+            {/* Legacy alias — redirect old /schedules URLs to /automations */}
+            <Route path="/schedules" element={<Navigate to="/automations" replace />} />
             <Route path="/policies" element={<PoliciesPage />} />
             {/* Groups */}
             <Route path="/group/:id" element={<GroupDetailPage />} />

@@ -19,6 +19,7 @@ class ScriptService {
       runAs: row.run_as,
       scriptType: (row.script_type ?? 'user') as 'system' | 'user',
       availableInReach: !!row.available_in_reach,
+      purpose: row.purpose ?? 'execute',
       isBuiltin: row.is_builtin,
       createdBy: row.created_by,
       updatedBy: row.updated_by,
@@ -66,6 +67,7 @@ class ScriptService {
     runtime: string; content: string; timeoutSeconds?: number; expectedExitCode?: number; runAs?: string;
     tags?: string[]; parameters?: Omit<ScriptParameter, 'id' | 'scriptId'>[];
     availableInReach?: boolean;
+    purpose?: string;
     createdBy?: number;
   }): Promise<Script> {
     const [row] = await db('scripts').insert({
@@ -81,6 +83,7 @@ class ScriptService {
       expected_exit_code: data.expectedExitCode ?? 0,
       run_as: data.runAs || 'system',
       available_in_reach: data.availableInReach ?? false,
+      purpose: data.purpose || 'execute',
       is_builtin: false,
       created_by: data.createdBy,
       updated_by: data.createdBy,
@@ -105,7 +108,7 @@ class ScriptService {
   async updateScript(id: number, tenantId: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; availableInReach: boolean; updatedBy: number;
+    tags: string[]; availableInReach: boolean; purpose: string; updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -119,6 +122,7 @@ class ScriptService {
     if (data.runAs !== undefined) updates.run_as = data.runAs;
     if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
     if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
+    if (data.purpose !== undefined) updates.purpose = data.purpose;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
 
     await db('scripts').where({ id, tenant_id: tenantId }).update(updates);
@@ -134,7 +138,7 @@ class ScriptService {
   async updateSystemScript(id: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; availableInReach: boolean; updatedBy: number;
+    tags: string[]; availableInReach: boolean; purpose: string; updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -148,6 +152,7 @@ class ScriptService {
     if (data.runAs !== undefined) updates.run_as = data.runAs;
     if (data.tags !== undefined) updates.tags = JSON.stringify(data.tags);
     if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
+    if (data.purpose !== undefined) updates.purpose = data.purpose;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
 
     await db('scripts').where({ id, is_builtin: true }).update(updates);

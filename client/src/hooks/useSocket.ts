@@ -32,8 +32,24 @@ export function useSocket() {
     });
 
     // ── Device lifecycle ───────────────────────────────────────────────────────
-    socket.on(SocketEvents.DEVICE_UPDATED, (data: { device: Device }) => {
-      updateDevice(data.device.id, data.device);
+    // The server emits DEVICE_UPDATED with multiple payload shapes depending
+    // on the originating code path. Accept them all:
+    //   1. { device: Device }                 — full device wrapper
+    //   2. Device                             — full device object
+    //   3. { id|deviceId, ...partial fields } — partial patch
+    socket.on(SocketEvents.DEVICE_UPDATED, (data: any) => {
+      if (!data) return;
+      if (data.device && typeof data.device === 'object' && data.device.id) {
+        updateDevice(data.device.id, data.device);
+        return;
+      }
+      const id: number | undefined = data.id ?? data.deviceId;
+      if (!id || typeof id !== 'number') return;
+      // Strip the id keys from the patch; keep everything else.
+      const { id: _id, deviceId: _deviceId, ...patch } = data;
+      // If the payload looks like a full device (has hostname + uuid), take it as-is.
+      // Otherwise treat it as a partial.
+      updateDevice(id, patch);
     });
 
     socket.on(SocketEvents.DEVICE_METRICS_PUSHED, (data: { deviceId: number; metrics: DeviceMetrics }) => {
