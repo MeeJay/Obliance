@@ -57,7 +57,39 @@ export function GlobalShellPanel() {
   const runtimes = useRef<Map<string, Runtime>>(new Map());
   const [showKeys, setShowKeys] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const nativeTop = useNativeTopOffset();
+
+  // Recently-used device ids for the "+" picker, persisted in localStorage.
+  // We push a device id to the front whenever a shell is opened on it.
+  const MRU_KEY = 'shellPanel:recentDeviceIds';
+  const getRecent = (): number[] => {
+    try {
+      const raw = localStorage.getItem(MRU_KEY);
+      return raw ? JSON.parse(raw) as number[] : [];
+    } catch { return []; }
+  };
+  const pushRecent = (deviceId: number) => {
+    try {
+      const cur = getRecent().filter((id) => id !== deviceId);
+      localStorage.setItem(MRU_KEY, JSON.stringify([deviceId, ...cur].slice(0, 50)));
+    } catch {}
+  };
+
+  // Track fullscreen state via the browser event (F11 / Esc also trigger it)
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+    } else {
+      document.documentElement.requestFullscreen?.();
+    }
+  };
 
   // Grid mode is active when the active tab belongs to a group of 2+.
   const isGroupMode = !!(activeId && groupedIds.includes(activeId) && groupedIds.length >= 2);
@@ -202,6 +234,9 @@ export function GlobalShellPanel() {
         runtimes.current.delete(id);
       }
     }
+    // Push every live session's deviceId into the MRU (dedup + cap inside).
+    // This catches sessions added from DeviceDetailPage too.
+    for (const s of sessions) pushRecent(s.deviceId);
   }, [sessions]);
 
   // ── Send raw bytes to the active session (used by the VirtualKeyPanel) ──
@@ -225,6 +260,7 @@ export function GlobalShellPanel() {
 
   // ── Open a new session on a chosen device/protocol ──────────────────────
   const openNew = async (deviceId: number, deviceName: string, protocol: ShellProtocol) => {
+    pushRecent(deviceId);
     try {
       const session = await remoteApi.startSession(deviceId, protocol);
       // The server emits REMOTE_TUNNEL_READY when the agent is actually
@@ -290,6 +326,7 @@ export function GlobalShellPanel() {
           {/* Tabs */}
           {sessions.map((s) => {
             const isActive = s.id === activeId;
+            const isGrouped = groupedIds.includes(s.id);
             const statusColor =
               s.status === 'connected'    ? 'text-green-400' :
               s.status === 'connecting'   ? 'text-yellow-400' :
@@ -299,16 +336,31 @@ export function GlobalShellPanel() {
               <div
                 key={s.id}
                 className={clsx(
-                  'flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer shrink-0 transition-colors',
+                  'flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer shrink-0 transition-colors border',
                   isActive
-                    ? 'bg-accent/15 text-text-primary'
-                    : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary',
+                    ? 'bg-accent/15 text-text-primary border-accent/40'
+                    : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary border-transparent',
+                  isGrouped && !isActive && 'border-purple-400/50 bg-purple-400/5',
+                  isGrouped && isActive && 'border-purple-400/70',
                 )}
-                onClick={() => setActive(s.id)}
+                title={isGrouped
+                  ? 'Ctrl+Click to remove from split group'
+                  : 'Click to activate · Ctrl+Click to add to split group'}
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    toggleGrouped(s.id);
+                  } else {
+                    setActive(s.id);
+                  }
+                }}
               >
                 <span className={clsx('w-1.5 h-1.5 rounded-full', statusColor.replace('text-', 'bg-'))} />
                 <span className="text-xs font-medium max-w-[160px] truncate">{s.deviceName}</span>
                 <span className="text-[10px] text-text-muted/80">{PROTOCOL_LABEL[s.protocol]}</span>
+                {isGrouped && (
+                  <span className="text-[9px] text-purple-400" title="In split group">◎</span>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDisconnect(s.id); }}
                   className="p-0.5 rounded hover:bg-red-500/20 text-text-muted hover:text-red-400"
@@ -321,49 +373,13 @@ export function GlobalShellPanel() {
           })}
 
           {/* Add-new-session button */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setPickerOpen((v) => !v)}
-              title="Open another remote session"
-              className="p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            {pickerOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
-                <div className="absolute left-0 top-full mt-1 w-64 max-h-80 overflow-y-auto bg-bg-secondary border border-border rounded-lg shadow-xl z-20 p-1">
-                  <div className="px-2 py-1 text-[10px] text-text-muted uppercase tracking-wider">
-                    Open on device
-                  </div>
-                  {getDeviceList()
-                    .filter((d) => d.status === 'online')
-                    .map((d) => {
-                      const protocols: ShellProtocol[] =
-                        d.osType === 'windows' ? ['cmd', 'powershell'] : ['ssh'];
-                      return (
-                        <div key={d.id} className="px-2 py-1 hover:bg-bg-tertiary rounded">
-                          <div className="text-xs text-text-primary truncate" title={d.displayName || d.hostname}>
-                            {d.displayName || d.hostname}
-                          </div>
-                          <div className="flex gap-1 mt-0.5">
-                            {protocols.map((p) => (
-                              <button
-                                key={p}
-                                onClick={() => openNew(d.id, d.displayName || d.hostname || '', p)}
-                                className="text-[10px] px-2 py-0.5 rounded border border-border text-text-muted hover:text-accent hover:border-accent/40"
-                              >
-                                {PROTOCOL_LABEL[p]}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </>
-            )}
-          </div>
+          <button
+            onClick={() => { setPickerSearch(''); setPickerOpen(true); }}
+            title="Open another remote session"
+            className="p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
@@ -383,9 +399,14 @@ export function GlobalShellPanel() {
             <Keyboard className="w-4 h-4" />
           </button>
           <button
-            onClick={() => document.documentElement.requestFullscreen?.()}
-            title="Fullscreen"
-            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            className={clsx(
+              'p-1.5 rounded transition-colors',
+              isFullscreen
+                ? 'bg-accent/15 text-accent'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary',
+            )}
           >
             <Maximize2 className="w-4 h-4" />
           </button>
@@ -409,10 +430,158 @@ export function GlobalShellPanel() {
         </div>
       </div>
 
-      {/* ── Terminal container ── */}
-      <div ref={containerRef} className="flex-1 overflow-hidden p-1" style={{ minHeight: 0 }} />
+      {/* ── Terminal container(s) ── */}
+      {isGroupMode ? (
+        (() => {
+          // Tile the grouped terminals in a near-square grid.
+          const n = visibleIds.length;
+          const cols = Math.ceil(Math.sqrt(n));
+          return (
+            <div
+              className="flex-1 overflow-hidden p-1 grid gap-1"
+              style={{
+                minHeight: 0,
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gridAutoRows: '1fr',
+              }}
+            >
+              {visibleIds.map((id) => {
+                const session = sessions.find((s) => s.id === id);
+                if (!session) return null;
+                const isActiveTile = id === activeId;
+                return (
+                  <div
+                    key={id}
+                    className={clsx(
+                      'relative rounded border overflow-hidden cursor-pointer',
+                      isActiveTile ? 'border-accent/60' : 'border-border',
+                    )}
+                    onClick={() => setActive(id)}
+                  >
+                    {/* Tile header */}
+                    <div className="absolute top-0 left-0 right-0 flex items-center gap-1.5 px-2 py-0.5 bg-bg-primary/80 backdrop-blur border-b border-border/30 z-10">
+                      <span className="text-[10px] font-medium text-text-primary truncate flex-1">
+                        {session.deviceName}
+                      </span>
+                      <span className="text-[9px] text-text-muted">{PROTOCOL_LABEL[session.protocol]}</span>
+                    </div>
+                    <div
+                      className="absolute inset-0 pt-5"
+                      ref={(el) => {
+                        if (el) tileRefs.current.set(id, el);
+                        else tileRefs.current.delete(id);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
+      ) : (
+        <div ref={containerRef} className="flex-1 overflow-hidden p-1" style={{ minHeight: 0 }} />
+      )}
 
       {showKeys && <VirtualKeyPanel onKey={sendRawToActive} />}
+
+      {/* ── Device picker modal (+) ────────────────────────────────────── */}
+      {pickerOpen && (() => {
+        const allDevices = getDeviceList();
+        const recent = getRecent();
+        const recentMap = new Map(recent.map((id, i) => [id, i]));
+        // Filter to online, apply search, then sort: recent first, then alphabetical.
+        const q = pickerSearch.trim().toLowerCase();
+        const filtered = allDevices
+          .filter((d) => d.status === 'online' || d.status === 'warning' || d.status === 'critical')
+          .filter((d) => {
+            if (!q) return true;
+            const name = (d.displayName || d.hostname || '').toLowerCase();
+            const host = (d.hostname || '').toLowerCase();
+            return name.includes(q) || host.includes(q);
+          })
+          .sort((a, b) => {
+            const ra = recentMap.get(a.id) ?? Infinity;
+            const rb = recentMap.get(b.id) ?? Infinity;
+            if (ra !== rb) return ra - rb;
+            return (a.displayName || a.hostname || '').localeCompare(b.displayName || b.hostname || '');
+          });
+        const capped = q ? filtered : filtered.slice(0, 10);
+        return (
+          <div
+            className="fixed inset-0 z-[200] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-24"
+            onClick={() => setPickerOpen(false)}
+          >
+            <div
+              className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[70vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                <Plus className="w-4 h-4 text-accent" />
+                <span className="text-sm font-semibold text-text-primary">Open remote session</span>
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="ml-auto p-1 text-text-muted hover:text-text-primary rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="px-4 py-3 border-b border-border">
+                <input
+                  type="text"
+                  autoFocus
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  placeholder="Search devices..."
+                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+                />
+                {!q && (
+                  <p className="text-[10px] text-text-muted mt-1 ml-1">
+                    Showing {capped.length} most recent · type to search all
+                  </p>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {capped.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-text-muted">
+                    {q ? 'No devices match your search' : 'No devices available'}
+                  </div>
+                ) : (
+                  capped.map((d) => {
+                    const protocols: ShellProtocol[] =
+                      d.osType === 'windows' ? ['cmd', 'powershell'] : ['ssh'];
+                    return (
+                      <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-bg-tertiary/50">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-text-primary truncate" title={d.displayName || d.hostname}>
+                            {d.displayName || d.hostname}
+                          </div>
+                          <div className="text-[10px] text-text-muted">
+                            {d.osName || d.osType} · {d.ipLocal || d.ipPublic || 'no IP'}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          {protocols.map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => {
+                                openNew(d.id, d.displayName || d.hostname || '', p);
+                                setPickerOpen(false);
+                              }}
+                              className="text-xs px-2.5 py-1 rounded border border-border text-text-muted hover:text-accent hover:border-accent/40 hover:bg-accent/5 transition-colors"
+                            >
+                              {PROTOCOL_LABEL[p]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
