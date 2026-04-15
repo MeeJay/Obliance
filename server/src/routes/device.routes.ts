@@ -2,6 +2,7 @@ import { Router } from 'express';
 import dns from 'dns/promises';
 import { deviceService } from '../services/device.service';
 import { customMetricService } from '../services/customMetric.service';
+import { customSectionService } from '../services/customSection.service';
 import { commandService } from '../services/command.service';
 import { requireRole, requireDeviceRead, requireDeviceWrite } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
@@ -353,6 +354,15 @@ router.get('/:id/custom-metrics', requireDeviceRead(), async (req, res, next) =>
     const deviceId = parseInt(req.params.id);
     const metrics = await customMetricService.listForDevice(deviceId, req.tenantId!);
     res.json({ data: metrics });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/custom-sections — list sections that apply to this device
+router.get('/:id/custom-sections', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const sections = await customSectionService.listForDevice(deviceId, req.tenantId!);
+    res.json({ data: sections });
   } catch (err) { next(err); }
 });
 

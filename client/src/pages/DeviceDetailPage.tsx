@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
+import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
+import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
 import { commandApi } from '@/api/command.api';
@@ -36,7 +38,7 @@ import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'settings';
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'settings' | `cs:${number}`;
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'overview', label: 'Overview', icon: Monitor },
@@ -4013,6 +4015,16 @@ export function DeviceDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Custom sections that apply to this device (resolved server-side)
+  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+  useEffect(() => {
+    if (!deviceId) return;
+    fetch(`/api/devices/${deviceId}/custom-sections`, { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((res) => setCustomSections(res.data ?? []))
+      .catch(() => setCustomSections([]));
+  }, [deviceId]);
+
   // Privacy unlock state: features currently unlocked by password + expiry
   const [privacyUnlocks, setPrivacyUnlocks] = useState<Record<string, number>>({});
   const [unlockModalFeature, setUnlockModalFeature] = useState<null | { feature: 'scripts' | 'remote' | 'files' | 'processes'; navigateTo?: Tab; afterUnlock?: () => void }>(null);
@@ -4823,29 +4835,44 @@ export function DeviceDetailPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
-        {TABS.map((tab) => {
+        {(() => {
+          // Inject custom section tabs between Remote and Explorer.
+          const customTabs = customSections.map((cs) => ({
+            id: `cs:${cs.id}` as Tab,
+            label: cs.name,
+            icon: TerminalSquare,
+            _custom: cs,
+          }));
+          const tabList = [...TABS];
+          const remoteIdx = tabList.findIndex((t) => t.id === 'remote');
+          if (remoteIdx >= 0) {
+            tabList.splice(remoteIdx + 1, 0, ...customTabs as any);
+          }
+          return tabList;
+        })().map((tab) => {
           const Icon = tab.icon;
-          const privacyGatedTab = ['scripts', 'remote', 'processes', 'files'].includes(tab.id);
+          const isCustomSection = typeof tab.id === 'string' && tab.id.startsWith('cs:');
+          // Custom sections are classified under the 'remote' privacy feature
+          // since they open a live shell-like view — semantically remote.
+          const privacyGatedTab = isCustomSection || ['scripts', 'remote', 'processes', 'files'].includes(tab.id as string);
           const inPrivacyMode = device.privacyModeEnabled && privacyGatedTab;
           const hasPasswordGate = device.privacyPasswordSet;
-          // Feature key maps to agent/server feature name
-          const featureKey = tab.id === 'scripts' ? 'scripts'
+          const featureKey = isCustomSection ? 'remote'
+            : tab.id === 'scripts' ? 'scripts'
             : tab.id === 'remote' ? 'remote'
             : tab.id === 'files' ? 'files'
             : tab.id === 'processes' ? 'processes'
             : '';
           const unlocked = featureKey && isFeatureUnlocked(featureKey);
-          // If privacy + password gate: clickable (opens modal), else clickable only if unlocked.
-          // If privacy + NO password gate: hard-blocked like before.
           const softGated = inPrivacyMode && hasPasswordGate && !unlocked;
           const hardBlocked = inPrivacyMode && !hasPasswordGate;
           const handleClick = () => {
             if (hardBlocked) return;
             if (softGated) {
-              setUnlockModalFeature({ feature: featureKey as any, navigateTo: tab.id });
+              setUnlockModalFeature({ feature: featureKey as any, navigateTo: tab.id as Tab });
               return;
             }
-            setActiveTab(tab.id);
+            setActiveTab(tab.id as Tab);
           };
           return (
             <button
@@ -4889,6 +4916,12 @@ export function DeviceDetailPage() {
         {activeTab === 'processes' && <ProcessesTab device={device} />}
         {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
         {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
+        {typeof activeTab === 'string' && activeTab.startsWith('cs:') && (() => {
+          const id = parseInt(activeTab.slice(3));
+          const section = customSections.find((s) => s.id === id);
+          if (!section) return null;
+          return <CustomSectionTab key={`cs-${section.id}`} deviceId={device.id} section={section} />;
+        })()}
       </div>
 
       {/* Privacy unlock modal */}

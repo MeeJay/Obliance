@@ -1,4 +1,5 @@
 import * as cron from 'node-cron';
+import cronParser from 'cron-parser';
 import crypto from 'crypto';
 import { db } from '../db';
 import { logger } from '../utils/logger';
@@ -110,9 +111,20 @@ class ScheduleService {
     if (schedule.fire_once_at) return null;
     if (!schedule.cron_expression) return null;
 
-    // Simple: add the approximate interval
-    // In production, use node-cron or cron-parser to compute next
-    return new Date(from.getTime() + 60_000);
+    // Parse the actual cron expression in the schedule's timezone and
+    // compute the next fire time strictly after `from`. Falls back to
+    // from+1min only if the expression is unparseable (should never happen
+    // with valid schedules).
+    try {
+      const it = cronParser.parseExpression(schedule.cron_expression, {
+        currentDate: from,
+        tz: schedule.timezone || undefined,
+      });
+      return it.next().toDate();
+    } catch (err) {
+      logger.error({ err, cron: schedule.cron_expression, scheduleId: schedule.id }, 'Invalid cron expression, falling back to +1min');
+      return new Date(from.getTime() + 60_000);
+    }
   }
 
   private async resolveTargetDevices(schedule: any) {

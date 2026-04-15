@@ -275,6 +275,25 @@ class CommandService {
             finished_at: new Date(),
           });
 
+          // Notify the UI so the automation history / batch list refreshes
+          // without requiring a manual reload.
+          try {
+            const execRow = await db('script_executions').where({ id: row.source_id }).first();
+            if (execRow) {
+              getIO().to(`tenant:${tenantId}`).emit(SocketEvents.EXECUTION_UPDATED, {
+                id: execRow.id,
+                batchId: execRow.batch_id ?? null,
+                scheduleId: execRow.schedule_id ?? null,
+                scriptId: execRow.script_id ?? null,
+                deviceId: execRow.device_id,
+                status: execStatus,
+                exitCode: result?.exitCode ?? null,
+                startedAt: execRow.started_at,
+                finishedAt: execRow.finished_at,
+              });
+            }
+          } catch {}
+
           // ── Custom metrics: if the executed script has purpose='metric',
           // parse stdout and upsert the custom metric row for this device.
           try {

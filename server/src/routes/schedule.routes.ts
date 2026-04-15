@@ -54,10 +54,23 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
-    // Compute next_run_at: for one-time = fire_once_at, for cron = fire_once_at or now + interval
-    const nextRunAt = req.body.fireOnceAt
-      ? new Date(req.body.fireOnceAt)
-      : (req.body.cronExpression ? new Date() : null);
+    // Compute next_run_at: for one-time = fire_once_at, for cron = parse
+    // the expression to get the actual next fire time.
+    let nextRunAt: Date | null = null;
+    if (req.body.fireOnceAt) {
+      nextRunAt = new Date(req.body.fireOnceAt);
+    } else if (req.body.cronExpression) {
+      try {
+        const { default: cronParser } = await import('cron-parser');
+        const it = cronParser.parseExpression(req.body.cronExpression, {
+          currentDate: new Date(),
+          tz: req.body.timezone || undefined,
+        });
+        nextRunAt = it.next().toDate();
+      } catch {
+        nextRunAt = new Date();
+      }
+    }
 
     const [row] = await db('script_schedules').insert({
       tenant_id: req.tenantId!,
@@ -98,6 +111,19 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
       if (req.body.fireOnceAt) updates.next_run_at = new Date(req.body.fireOnceAt);
     }
     if (req.body.timezone !== undefined) updates.timezone = req.body.timezone;
+
+    // If the cron expression changed, recompute next_run_at immediately
+    // so the UI and the tick loop both see the new schedule without waiting
+    // for the next tick to overwrite the (now-stale) value.
+    if (req.body.cronExpression !== undefined && req.body.cronExpression) {
+      try {
+        const { default: cronParser } = await import('cron-parser');
+        const tz = req.body.timezone || (await db('script_schedules').where({ id: req.params.id }).first())?.timezone || undefined;
+        const it = cronParser.parseExpression(req.body.cronExpression, { currentDate: new Date(), tz });
+        updates.next_run_at = it.next().toDate();
+      } catch {}
+    }
+
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).update(updates);
     const row = await db('script_schedules').where({ id: req.params.id }).first();
     res.json({ data: rowToSchedule(row) });

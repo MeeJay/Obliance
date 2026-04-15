@@ -46,6 +46,7 @@ import networkDiscoveryRoutes from './networkDiscovery.routes';
 import permissionSetsRoutes from './permissionSets.routes';
 import scenarioRoutes from './scenario.routes';
 import privacyGateRoutes from './privacyGate.routes';
+import customSectionRoutes from './customSection.routes';
 
 const router = Router();
 
@@ -100,6 +101,7 @@ tenantRouter.use('/network-discovery', networkDiscoveryRoutes);
 tenantRouter.use('/permission-sets', permissionSetsRoutes);
 tenantRouter.use('/scenarios',      scenarioRoutes);
 tenantRouter.use('/devices/:id/privacy', privacyGateRoutes);
+tenantRouter.use('/custom-sections', customSectionRoutes);
 
 router.use('/', tenantRouter);
 

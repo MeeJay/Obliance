@@ -1,6 +1,6 @@
 {
   "name": "@obliance/server",
-  "version": "4.7.35",
+  "version": "4.7.36",
   "private": true,
   "main": "dist/src/index.js",
   "scripts": {
@@ -20,6 +20,7 @@
     "connect-pg-simple": "^9.0.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "cron-parser": "^4.9.0",
     "dotenv": "^17.3.0",
     "exceljs": "^4.4.0",
     "express": "^4.18.2",

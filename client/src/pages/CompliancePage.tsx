@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
 import { groupsApi } from '@/api/groups.api';
+import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -338,6 +339,23 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Refresh compliance results live when a check_compliance command acks.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = (cmd?: any) => {
+      if (cmd && cmd.type && cmd.type !== 'check_compliance') return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => load(), 500);
+    };
+    socket.on('COMMAND_UPDATED', debounced);
+    return () => {
+      socket.off('COMMAND_UPDATED', debounced);
+      if (timer) clearTimeout(timer);
+    };
+  }, [load]);
 
   // Load ignored rules for expanded result
   useEffect(() => {

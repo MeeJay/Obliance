@@ -199,6 +199,13 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "sleep":
 		execErr = d.handleSleep(cmd)
 
+	case "start_custom_section":
+		result, execErr = d.handleStartCustomSection(cmd)
+	case "stop_custom_section":
+		execErr = d.handleStopCustomSection(cmd)
+	case "resize_custom_section":
+		execErr = d.handleResizeCustomSection(cmd)
+
 	case "set_privacy_password":
 		result, execErr = d.handleSetPrivacyPassword(cmd)
 		d.redactPayloadPassword(&cmd)
@@ -1267,6 +1274,54 @@ func (d *CommandDispatcher) handleReboot(cmd AgentCommand) error {
 	default:
 		return fmt.Errorf("reboot: unsupported platform %s", runtime.GOOS)
 	}
+}
+
+// ── Custom section handlers ─────────────────────────────────────────────────
+
+func (d *CommandDispatcher) handleStartCustomSection(cmd AgentCommand) (map[string]any, error) {
+	streamID, _ := cmd.Payload["streamId"].(string)
+	command, _ := cmd.Payload["command"].(string)
+	runtimeStr, _ := cmd.Payload["runtime"].(string)
+	usePty, _ := cmd.Payload["usePty"].(bool)
+	cols := 120
+	rows := 30
+	if v, ok := cmd.Payload["cols"].(float64); ok && v > 0 {
+		cols = int(v)
+	}
+	if v, ok := cmd.Payload["rows"].(float64); ok && v > 0 {
+		rows = int(v)
+	}
+	if streamID == "" || command == "" {
+		return nil, fmt.Errorf("streamId and command are required")
+	}
+	if err := StartCustomSection(streamID, command, runtimeStr, usePty, cols, rows); err != nil {
+		return nil, err
+	}
+	return map[string]any{"streamId": streamID}, nil
+}
+
+func (d *CommandDispatcher) handleStopCustomSection(cmd AgentCommand) error {
+	streamID, _ := cmd.Payload["streamId"].(string)
+	if streamID != "" {
+		StopCustomSection(streamID)
+	}
+	return nil
+}
+
+func (d *CommandDispatcher) handleResizeCustomSection(cmd AgentCommand) error {
+	streamID, _ := cmd.Payload["streamId"].(string)
+	cols := 120
+	rows := 30
+	if v, ok := cmd.Payload["cols"].(float64); ok && v > 0 {
+		cols = int(v)
+	}
+	if v, ok := cmd.Payload["rows"].(float64); ok && v > 0 {
+		rows = int(v)
+	}
+	if streamID != "" {
+		ResizeCustomSection(streamID, cols, rows)
+	}
+	return nil
 }
 
 // redactPayloadPassword wipes password fields from the command payload so

@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, X, StopCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { scriptApi } from '@/api/script.api';
+import { getSocket } from '@/socket/socketClient';
 import type { ExecutionBatch } from '@obliance/shared';
 import { clsx } from 'clsx';
 
@@ -73,6 +74,33 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Live refresh: whenever any execution in this tenant updates status,
+  // reload the batch list. Debounced to avoid hammering the API on a burst
+  // of updates (e.g. a schedule hitting 50 devices at once).
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const triggerReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => {
+        load();
+        // Refresh any expanded batch that's currently open so the detail
+        // view stays in sync with the list.
+        if (expandedBatch) {
+          scriptApi.getBatchDetail(expandedBatch).then((devices) => {
+            setBatchDevices((prev) => new Map(prev).set(expandedBatch, devices as any));
+          }).catch(() => {});
+        }
+      }, 500);
+    };
+    socket.on('EXECUTION_UPDATED', triggerReload);
+    return () => {
+      socket.off('EXECUTION_UPDATED', triggerReload);
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    };
+  }, [load, expandedBatch]);
 
   const toggleBatch = async (batchId: string) => {
     if (expandedBatch === batchId) {

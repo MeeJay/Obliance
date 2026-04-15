@@ -4,6 +4,7 @@ import { scriptApi } from '@/api/script.api';
 import { scenarioApi } from '@/api/scenario.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
+import { getSocket } from '@/socket/socketClient';
 import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -102,6 +103,26 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Live refresh: execution updates affect last_run_at / next_run_at /
+  // schedule alerts displayed in this list. Debounced reload keeps things
+  // simple without hammering the API.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => load(), 500);
+    };
+    socket.on('EXECUTION_UPDATED', debounced);
+    socket.on('DEVICE_UPDATED', debounced);
+    return () => {
+      socket.off('EXECUTION_UPDATED', debounced);
+      socket.off('DEVICE_UPDATED', debounced);
+      if (timer) clearTimeout(timer);
+    };
+  }, [load]);
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
   const handleOpenCreate = () => {

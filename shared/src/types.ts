@@ -355,6 +355,9 @@ export type CommandType =
   | 'list_wts_sessions'
   | 'enable_privacy_mode'
   | 'disable_privacy_mode'
+  | 'start_custom_section'
+  | 'stop_custom_section'
+  | 'resize_custom_section'
   | 'enable_airgap'
   | 'disable_airgap'
   | 'set_privacy_password'
@@ -1482,6 +1485,22 @@ export interface ScenarioTriggerConfig {
 export interface ScenarioRetryPolicy {
   maxRetries: number;
   retryDelaySeconds: number;
+}
+
+export interface CustomSection {
+  id: number;
+  tenantId: number;
+  name: string;
+  description: string | null;
+  command: string;
+  platform: 'all' | 'windows' | 'linux' | 'macos';
+  runtime: 'bash' | 'sh' | 'powershell' | 'cmd';
+  usePty: boolean;
+  targetType: 'all' | 'group' | 'device';
+  targetIds: number[];
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Scenario {

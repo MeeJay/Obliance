@@ -23,6 +23,7 @@ import { AdminDevicesPage } from '@/pages/AdminDevicesPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ImportExportPage } from '@/pages/ImportExportPage';
 import { AdminTenantsPage } from '@/pages/AdminTenantsPage';
+import { CustomSectionsPage } from '@/pages/CustomSectionsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import '@/i18n';
 
@@ -67,6 +68,7 @@ export default function App() {
               <Route path="/admin/supervision" element={<SupervisionPage />} />
               <Route path="/admin/import-export" element={<ImportExportPage />} />
               <Route path="/admin/tenants" element={<AdminTenantsPage />} />
+              <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
             </Route>
           </Route>
         </Route>

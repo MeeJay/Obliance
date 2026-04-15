@@ -5,6 +5,7 @@ import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
 import { useDeviceStore } from '@/store/deviceStore';
+import { getSocket } from '@/socket/socketClient';
 import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -142,6 +143,24 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
+
+  // Live refresh on scenario run / step updates emitted by the orchestrator.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => load(), 400);
+    };
+    socket.on('SCENARIO_RUN_UPDATED', debounced);
+    socket.on('SCENARIO_STEP_UPDATED', debounced);
+    return () => {
+      socket.off('SCENARIO_RUN_UPDATED', debounced);
+      socket.off('SCENARIO_STEP_UPDATED', debounced);
+      if (timer) clearTimeout(timer);
+    };
+  }, [load]);
 
   const handleOpenCreate = () => {
     setForm(defaultForm);

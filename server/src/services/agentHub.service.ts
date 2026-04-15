@@ -99,13 +99,24 @@ class AgentHubService {
     ws.on('error', () => this._unregister(deviceId, ws));
     ws.on('message', async (data: Buffer) => {
       try {
-        const msg = JSON.parse(data.toString()) as AgentHeartbeat | AgentAck | AgentPrivacyNotify;
-        if (msg.type === 'heartbeat') {
+        const msg = JSON.parse(data.toString()) as AgentHeartbeat | AgentAck | AgentPrivacyNotify | { type: string; streamId?: string; data?: string; code?: number };
+        if ((msg as any).type === 'heartbeat') {
           await this._handleHeartbeat(conn, msg as AgentHeartbeat);
-        } else if (msg.type === 'ack') {
+        } else if ((msg as any).type === 'ack') {
           await this._handleAck(conn, msg as AgentAck);
-        } else if (msg.type === 'privacy_mode_changed') {
+        } else if ((msg as any).type === 'privacy_mode_changed') {
           await this._handlePrivacyChange(conn, msg as AgentPrivacyNotify);
+        } else if ((msg as any).type === 'custom_section_output' || (msg as any).type === 'custom_section_closed') {
+          const streamId = (msg as any).streamId as string;
+          if (streamId) {
+            const { customSectionStreamService } = await import('./customSectionStream.service');
+            customSectionStreamService.handleAgentMessage(
+              conn.deviceId,
+              (msg as any).type,
+              streamId,
+              msg,
+            );
+          }
         }
       } catch { /* malformed JSON — ignore */ }
     });
