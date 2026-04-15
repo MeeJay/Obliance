@@ -122,23 +122,23 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <div className={embedded ? 'space-y-4' : 'p-6 space-y-4'}>
-      {!embedded && (
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
+        {!embedded ? (
           <div className="flex items-center gap-2">
             <TerminalSquare className="w-5 h-5 text-text-muted" />
             <h1 className="text-xl font-semibold text-text-primary">Custom Sections</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={load} disabled={isLoading} className="p-2 text-text-muted hover:text-text-primary rounded-lg transition-colors">
-              <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-            </button>
-            <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors">
-              <Plus className="w-4 h-4" />
-              New section
-            </button>
-          </div>
+        ) : <div />}
+        <div className="flex items-center gap-2">
+          <button onClick={load} disabled={isLoading} className="p-2 text-text-muted hover:text-text-primary rounded-lg transition-colors">
+            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors">
+            <Plus className="w-4 h-4" />
+            New section
+          </button>
         </div>
-      )}
+      </div>
 
       <p className="text-xs text-text-muted">
         Custom sections appear as dedicated tabs between <strong>Remote</strong> and <strong>Explorer</strong> on each targeted device. Clicking the tab opens a read-only console that streams the configured command's live output. The process is killed when the tab is closed.

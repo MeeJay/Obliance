@@ -107,7 +107,8 @@
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
     "discovery": "Discovery",
-    "automations": "Automations"
+    "automations": "Automations",
+    "customSections": "사용자 정의 섹션"
   },
   "login": {
     "title": "모니터링 대시보드",

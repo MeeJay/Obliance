@@ -107,7 +107,8 @@
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
     "discovery": "Discovery",
-    "automations": "Automations"
+    "automations": "Automations",
+    "customSections": "自定义部分"
   },
   "login": {
     "title": "监控仪表板",

@@ -107,7 +107,8 @@
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
     "discovery": "Discovery",
-    "automations": "Automations"
+    "automations": "Automations",
+    "customSections": "Brugerdefinerede sektioner"
   },
   "login": {
     "title": "Overvågningsdashboard",

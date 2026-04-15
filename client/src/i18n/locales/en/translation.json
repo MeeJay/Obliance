@@ -107,7 +107,8 @@
     "policies": "Policies",
     "supervision": "Supervision",
     "discovery": "Discovery",
-    "automations": "Automations"
+    "automations": "Automations",
+    "customSections": "Custom sections"
   },
   "login": {
     "title": "Monitoring Dashboard",

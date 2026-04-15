@@ -107,7 +107,8 @@
     "policies": "Politiques",
     "supervision": "Supervision",
     "discovery": "Découverte",
-    "automations": "Automations"
+    "automations": "Automations",
+    "customSections": "Sections personnalisées"
   },
   "login": {
     "title": "Tableau de bord de surveillance",
