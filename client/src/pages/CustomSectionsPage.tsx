@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, TerminalSquare, X, Loader2, FolderOpen, Check, Minus, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, TerminalSquare, X, Loader2, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { customSectionApi } from '@/api/customSection.api';
