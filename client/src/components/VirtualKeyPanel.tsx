@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Keyboard, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Keyboard, ChevronDown, ChevronUp } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface Props {

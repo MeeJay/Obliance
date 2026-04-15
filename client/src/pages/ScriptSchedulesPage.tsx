@@ -4,7 +4,6 @@ import { scriptApi } from '@/api/script.api';
 import { scenarioApi } from '@/api/scenario.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
-import { getSocket } from '@/socket/socketClient';
 import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
@@ -107,8 +106,16 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
 
   const { fetchGroups } = useGroupStore();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  /**
+   * Load schedules/scripts/scenarios.
+   *
+   * `showSpinner` controls whether the loading spinner replaces the list
+   * during the fetch. We only show it on the very first load — subsequent
+   * polls keep the list rendered and just swap in the new data, avoiding
+   * the flash/blink effect that happens when the DOM gets unmounted.
+   */
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setIsLoading(true);
     try {
       const [schedList, scriptList, scenarioList] = await Promise.all([
         scriptApi.listSchedules(),
@@ -119,32 +126,19 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       setScripts(scriptList);
       setScenarios(scenarioList);
     } catch {
-      toast.error('Failed to load schedules');
+      if (showSpinner) toast.error('Failed to load schedules');
     } finally {
-      setIsLoading(false);
+      if (showSpinner) setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Initial mount — show spinner once.
+  useEffect(() => { load(true); }, [load]);
 
-  // Live refresh: execution updates affect last_run_at / next_run_at /
-  // schedule alerts displayed in this list. Debounced reload keeps things
-  // simple without hammering the API.
+  // Background refresh every 60s. No spinner, no blink — just swaps data.
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const debounced = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => load(), 500);
-    };
-    socket.on('EXECUTION_UPDATED', debounced);
-    socket.on('DEVICE_UPDATED', debounced);
-    return () => {
-      socket.off('EXECUTION_UPDATED', debounced);
-      socket.off('DEVICE_UPDATED', debounced);
-      if (timer) clearTimeout(timer);
-    };
+    const id = setInterval(() => load(false), 60_000);
+    return () => clearInterval(id);
   }, [load]);
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 

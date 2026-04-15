@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import {
-  Terminal as TerminalIcon, X, Maximize2, Minus, Plus, RefreshCw,
+  Terminal as TerminalIcon, X, Maximize2, Minus, Plus,
   AlertTriangle, Keyboard,
 } from 'lucide-react';
 import { clsx } from 'clsx';
