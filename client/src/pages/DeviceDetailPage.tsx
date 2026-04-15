@@ -60,6 +60,39 @@ function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void 
   const notesRef = useRef(notes);
   notesRef.current = notes;
 
+  // Custom metrics (script-driven)
+  const [customMetrics, setCustomMetrics] = useState<Array<{ id: number; scheduleId: number; name: string; value: string; unit: string | null; status: string; updatedAt: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    deviceApi.listCustomMetrics(device.id).then((list) => {
+      if (!cancelled) setCustomMetrics(list as any);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [device.id]);
+
+  // Live update via socket
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (msg: { deviceId: number; scheduleId: number; name?: string; value?: string; unit?: string | null; status?: string }) => {
+      if (msg.deviceId !== device.id) return;
+      setCustomMetrics((prev) => {
+        const idx = prev.findIndex((m) => m.scheduleId === msg.scheduleId);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], name: msg.name ?? next[idx].name, value: msg.value ?? next[idx].value, unit: msg.unit ?? next[idx].unit, status: msg.status ?? next[idx].status, updatedAt: new Date().toISOString() };
+          return next;
+        }
+        if (msg.value !== undefined && msg.name) {
+          return [...prev, { id: Date.now(), scheduleId: msg.scheduleId, name: msg.name, value: msg.value, unit: msg.unit ?? null, status: msg.status ?? 'ok', updatedAt: new Date().toISOString() }];
+        }
+        return prev;
+      });
+    };
+    socket.on('CUSTOM_METRIC_UPDATED', handler);
+    return () => { socket.off('CUSTOM_METRIC_UPDATED', handler); };
+  }, [device.id]);
+
   // Sync when device prop changes
   useEffect(() => { setNotes(device.description ?? ''); }, [device.description]);
 
@@ -127,10 +160,33 @@ function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void 
       </div>
 
       {/* Metrics */}
-      {metrics && (
+      {(metrics || customMetrics.length > 0) && (
         <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
           <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Live Metrics</h3>
-          <DeviceMetricsBar metrics={metrics} />
+          {metrics && <DeviceMetricsBar metrics={metrics} />}
+          {customMetrics.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
+              {customMetrics.map((m) => {
+                const statusColor =
+                  m.status === 'critical' ? 'border-red-400/40 text-red-400' :
+                  m.status === 'warning'  ? 'border-yellow-400/40 text-yellow-400' :
+                  m.status === 'error'    ? 'border-gray-400/40 text-gray-400' :
+                                             'border-cyan-400/40 text-cyan-400';
+                return (
+                  <div key={m.id} className={clsx('p-2.5 bg-bg-tertiary border rounded-lg', statusColor)}>
+                    <p className="text-[10px] text-text-muted uppercase tracking-wide truncate" title={m.name}>{m.name}</p>
+                    <p className="text-sm font-mono font-semibold truncate" title={`${m.value}${m.unit ? ' ' + m.unit : ''}`}>
+                      {m.value}
+                      {m.unit && <span className="text-[11px] text-text-muted ml-1">{m.unit}</span>}
+                    </p>
+                    <p className="text-[9px] text-text-muted/70">
+                      {new Date(m.updatedAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

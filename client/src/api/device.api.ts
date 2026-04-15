@@ -32,6 +32,11 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
   },
+  async listCustomMetrics(id: number): Promise<import('@obliance/shared').DeviceCustomMetric[]> {
+    const res = await apiClient.get<ApiResponse<import('@obliance/shared').DeviceCustomMetric[]>>(`/devices/${id}/custom-metrics`);
+    return res.data.data ?? [];
+  },
+
   // ── Privacy gate ─────────────────────────────────────────────────────
   async setPrivacyPassword(id: number, password: string): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy/password`, { action: 'set', password });

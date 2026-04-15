@@ -275,6 +275,43 @@ class CommandService {
             finished_at: new Date(),
           });
 
+          // ── Custom metrics: if the executed script has purpose='metric',
+          // parse stdout and upsert the custom metric row for this device.
+          try {
+            const exec0 = await db('script_executions').where({ id: row.source_id }).first();
+            if (exec0?.script_id && exec0?.schedule_id) {
+              const script = await db('scripts').where({ id: exec0.script_id }).first();
+              if (script?.purpose === 'metric') {
+                const schedule = await db('script_schedules').where({ id: exec0.schedule_id }).first();
+                if (schedule) {
+                  const { customMetricService, parseMetricStdout } = await import('./customMetric.service');
+                  if (execStatus === 'success') {
+                    const parsed = parseMetricStdout(result?.stdout ?? '');
+                    if (parsed) {
+                      await customMetricService.upsert({
+                        deviceId,
+                        scheduleId: schedule.id,
+                        tenantId,
+                        scheduleName: schedule.name,
+                        parsed,
+                      });
+                    } else {
+                      await customMetricService.markError({
+                        deviceId, scheduleId: schedule.id, tenantId, scheduleName: schedule.name,
+                      });
+                    }
+                  } else {
+                    await customMetricService.markError({
+                      deviceId, scheduleId: schedule.id, tenantId, scheduleName: schedule.name,
+                    });
+                  }
+                }
+              }
+            }
+          } catch (metricErr) {
+            logger.error(metricErr, 'Failed to process custom metric from script execution');
+          }
+
           // ── Schedule Assert Pass: alert / recovery ──────────────────────
           try {
             const exec = await db('script_executions').where({ id: row.source_id }).first();

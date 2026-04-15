@@ -474,7 +474,19 @@ export interface AgentCommand {
 
 export type ScriptPlatform = 'windows' | 'macos' | 'linux' | 'freebsd' | 'all';
 export type ScriptRuntime = 'powershell' | 'pwsh' | 'cmd' | 'bash' | 'zsh' | 'sh' | 'python' | 'python3' | 'perl' | 'ruby';
-export type ScriptPurpose = 'check' | 'resolve' | 'execute' | 'compliance';
+export type ScriptPurpose = 'check' | 'resolve' | 'execute' | 'compliance' | 'metric';
+
+export interface DeviceCustomMetric {
+  id: number;
+  deviceId: number;
+  scheduleId: number;
+  tenantId: number;
+  name: string;
+  value: string;
+  unit: string | null;
+  status: 'ok' | 'warning' | 'critical' | 'error';
+  updatedAt: string;
+}
 export type ScriptParameterType = 'string' | 'number' | 'boolean' | 'secret' | 'select' | 'multiselect';
 
 export interface ScriptCategory {

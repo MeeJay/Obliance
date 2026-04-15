@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import dns from 'dns/promises';
 import { deviceService } from '../services/device.service';
+import { customMetricService } from '../services/customMetric.service';
 import { commandService } from '../services/command.service';
 import { requireRole, requireDeviceRead, requireDeviceWrite } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
@@ -343,6 +344,15 @@ router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
       });
     }
     res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/custom-metrics
+router.get('/:id/custom-metrics', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const metrics = await customMetricService.listForDevice(deviceId, req.tenantId!);
+    res.json({ data: metrics });
   } catch (err) { next(err); }
 });
 

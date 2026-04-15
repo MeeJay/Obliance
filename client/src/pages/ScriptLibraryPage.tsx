@@ -32,6 +32,7 @@ const PURPOSE_LABELS: Record<ScriptPurpose, string> = {
   resolve: 'Resolve',
   execute: 'Execute',
   compliance: 'Compliance',
+  metric: 'Custom Metric',
 };
 
 const PURPOSE_COLORS: Record<ScriptPurpose, string> = {
@@ -39,6 +40,7 @@ const PURPOSE_COLORS: Record<ScriptPurpose, string> = {
   resolve: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
   execute: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
   compliance: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+  metric: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
 };
 
 interface ScriptFormData {
