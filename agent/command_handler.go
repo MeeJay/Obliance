@@ -275,6 +275,13 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 			result = map[string]string{"message": "privacy mode disabled"}
 		}
 
+	case "enable_privacy_mode":
+		if err := SetPrivacyMode(true, "remote"); err != nil {
+			execErr = err
+		} else {
+			result = map[string]string{"message": "privacy mode enabled"}
+		}
+
 	case "enable_airgap":
 		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
 		ips := make([]string, 0, len(serverIPs))
@@ -1811,6 +1818,11 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 			return nil, err
 		}
 		return map[string]string{"message": "privacy mode disabled"}, nil
+	case "enable_privacy_mode":
+		if err := SetPrivacyMode(true, "remote"); err != nil {
+			return nil, err
+		}
+		return map[string]string{"message": "privacy mode enabled"}, nil
 	case "set_privacy_password":
 		return d.handleSetPrivacyPassword(cmd)
 	case "change_privacy_password":

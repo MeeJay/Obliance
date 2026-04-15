@@ -352,6 +352,7 @@ export type CommandType =
   | 'list_processes'
   | 'kill_process'
   | 'list_wts_sessions'
+  | 'enable_privacy_mode'
   | 'disable_privacy_mode'
   | 'enable_airgap'
   | 'disable_airgap'

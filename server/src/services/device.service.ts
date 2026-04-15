@@ -585,9 +585,11 @@ class DeviceService {
     const now = new Date();
 
     // Capture previous status + version to detect transitions
-    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version').first();
+    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled').first();
     const prevStatus = prev?.status as string | undefined;
     const prevVersion = prev?.agent_version as string | undefined;
+    const prevPrivacy = !!prev?.privacy_mode_enabled;
+    const prevAirgap = !!prev?.airgap_enabled;
 
     // Update last seen, metrics, agent version — but never override pending_uninstall status
     await db('devices').where({ id: deviceId }).update({
@@ -600,10 +602,12 @@ class DeviceService {
     // Don't flip 'updating' back to 'online' unless the agent version actually changed
     // (meaning the update completed). This prevents the flickering:
     // updating → online (last push before death) → offline → online
+    let updatingCompleted = false;
     if (prevStatus === 'updating') {
       if (prevVersion !== push.agentVersion && push.agentVersion) {
         // Version changed — update completed, go online
         await db('devices').where({ id: deviceId }).update({ status: 'online', update_started_at: null });
+        updatingCompleted = true;
       }
       // else: same version still pushing during update — keep 'updating'
     } else {
@@ -619,10 +623,32 @@ class DeviceService {
         deviceId,
         metrics: push.metrics,
       });
-      // Notify UI of status change (e.g. update_error → online, offline → online)
-      // Don't emit online transition for 'updating' devices (they stay updating until version changes)
-      if (prevStatus && prevStatus !== 'online' && prevStatus !== 'pending_uninstall' && prevStatus !== 'updating') {
+      // Notify UI of status change (e.g. update_error → online, offline → online).
+      // Also emit when updating → online transition completes (version bumped).
+      const statusChanged =
+        prevStatus &&
+        prevStatus !== 'online' &&
+        prevStatus !== 'pending_uninstall' &&
+        (prevStatus !== 'updating' || updatingCompleted);
+      if (statusChanged) {
         this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
+      }
+
+      // Notify UI when privacy mode or airgap mode toggles via agent push
+      // (triggered by local tray, agent console, or by a remote command that
+      // the agent has just applied). Without this, the device detail page
+      // would show the stale state until the user manually refreshes.
+      const newPrivacy = typeof (push as any).privacyMode === 'boolean' ? (push as any).privacyMode : prevPrivacy;
+      const newAirgap = typeof (push as any).airgapMode === 'boolean' ? (push as any).airgapMode : prevAirgap;
+      if (newPrivacy !== prevPrivacy) {
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, {
+          deviceId, privacyModeEnabled: newPrivacy,
+        });
+      }
+      if (newAirgap !== prevAirgap) {
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, {
+          deviceId, airgapEnabled: newAirgap,
+        });
       }
     }
 

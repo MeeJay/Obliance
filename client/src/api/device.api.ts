@@ -120,6 +120,9 @@ export const deviceApi = {
   async disablePrivacyMode(id: number): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy-mode/disable`);
   },
+  async enablePrivacyMode(id: number): Promise<void> {
+    await apiClient.post(`/devices/${id}/privacy-mode/enable`);
+  },
   enableAirgap: (deviceId: number) => apiClient.post(`/devices/${deviceId}/airgap/enable`),
   disableAirgap: (deviceId: number) => apiClient.post(`/devices/${deviceId}/airgap/disable`),
   async initiateUninstall(id: number): Promise<Device> {

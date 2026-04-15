@@ -2408,6 +2408,60 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
         </div>
       )}
 
+      {/* ── Privacy mode remote toggle ── */}
+      {adminMode && (
+        <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
+                <Shield className="w-4 h-4 text-orange-400" />
+                Privacy mode
+              </h3>
+              <p className="text-xs text-text-muted mt-1">
+                When enabled, the agent refuses remote-access commands (scripts, processes, files, remote control). The user can also toggle it locally from the tray icon.
+              </p>
+            </div>
+            <div className="shrink-0">
+              {device.privacyModeEnabled ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
+                  <Shield className="w-3 h-3" />
+                  Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border">
+                  Off
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {!device.privacyModeEnabled ? (
+              <button
+                onClick={async () => {
+                  if (!confirm('Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here).')) return;
+                  try {
+                    await deviceApi.enablePrivacyMode(device.id);
+                    toast.success('Privacy mode enable command sent');
+                    setTimeout(onSaved, 1500);
+                  } catch { toast.error('Failed to send enable command'); }
+                }}
+                disabled={device.status !== 'online'}
+                title={device.status !== 'online' ? 'Agent must be online' : undefined}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Enable privacy mode
+              </button>
+            ) : (
+              <p className="text-xs text-text-muted">
+                Privacy mode is currently active. Use the Disable button in the top header bar (or the tray icon on the machine) to turn it off.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Privacy password (gate) ── */}
       {adminMode && (
         <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
@@ -3950,7 +4004,12 @@ export function DeviceDetailPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { isAdmin } = useAuthStore();
-  const { getDevice, fetchDevice } = useDeviceStore();
+  const fetchDevice = useDeviceStore((s) => s.fetchDevice);
+  // Explicit selector — Zustand re-renders this component whenever the
+  // device row is mutated in the store (via socket events, push updates,
+  // or local fetches). Without the selector, destructuring getDevice
+  // returned a stale snapshot until a manual refresh.
+  const selectedDevice = useDeviceStore((s) => s.devices.get(deviceId));
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -4009,9 +4068,8 @@ export function DeviceDetailPage() {
 
   // Uninstall countdown (ticks every second while device is pending_uninstall)
   const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
-  const _device = getDevice(deviceId);
-  const _uninstallAt = _device?.uninstallAt ?? null;
-  const _isPendingUninstall = _device?.status === 'pending_uninstall';
+  const _uninstallAt = selectedDevice?.uninstallAt ?? null;
+  const _isPendingUninstall = selectedDevice?.status === 'pending_uninstall';
   useEffect(() => {
     if (!_isPendingUninstall || !_uninstallAt) {
       setUninstallCountdown('');
@@ -4218,7 +4276,7 @@ export function DeviceDetailPage() {
     load();
   }, [deviceId, fetchDevice]);
 
-  const device = getDevice(deviceId);
+  const device = selectedDevice;
 
   useEffect(() => {
     if (!device?.uuid) { setHeaderOrInstalled(false); return; }
