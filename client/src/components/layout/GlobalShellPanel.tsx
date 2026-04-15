@@ -9,10 +9,11 @@ import {
 import { clsx } from 'clsx';
 import { VirtualKeyPanel } from '@/components/VirtualKeyPanel';
 import { useRemoteShellStore, type ShellSession, type ShellProtocol } from '@/store/remoteShellStore';
-import { useDeviceStore } from '@/store/deviceStore';
 import { remoteApi } from '@/api/remote.api';
+import { deviceApi } from '@/api/device.api';
 import { getSocket } from '@/socket/socketClient';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
+import type { Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
 // Per-session runtime state held in refs (xterm, ws, fit) — zustand can't
@@ -48,7 +49,11 @@ export function GlobalShellPanel() {
   const setStatus = useRemoteShellStore((s) => s.setStatus);
   const addSession = useRemoteShellStore((s) => s.addSession);
   const toggleGrouped = useRemoteShellStore((s) => s.toggleGrouped);
-  const getDeviceList = useDeviceStore((s) => s.getDeviceList);
+
+  // Devices for the picker. Fetched lazily when the modal opens (full
+  // tenant fleet, not bound to whatever is cached in the deviceStore).
+  const [pickerDevices, setPickerDevices] = useState<Device[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
 
   // Single-view container (used when not in group mode)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -155,48 +160,62 @@ export function GlobalShellPanel() {
   //   - single mode : [activeId]
   //   - grid  mode  : every session that's in `groupedIds`
   //
-  // Detach any terminal that's no longer in the visible set (keep runtime
-  // alive — its xterm buffer + websocket stay open, so switching tabs keeps
-  // prior output).
+  // Runs on a short rAF delay so ref callbacks (tileRefs) have definitely
+  // been populated before we try to attach. Runtimes keep their websocket
+  // + xterm buffer alive; we just move the DOM into the right container.
   useEffect(() => {
     if (!isOpen) return;
 
-    // Detach terminals no longer visible
-    const visibleSet = new Set(visibleIds);
-    for (const [id, rt] of runtimes.current) {
-      if (!visibleSet.has(id) && rt.attachedTo) {
-        try { rt.attachedTo.replaceChildren(); } catch {}
-        rt.attachedTo = null;
-      }
-    }
+    const handle = requestAnimationFrame(() => {
+      const visibleSet = new Set(visibleIds);
 
-    // Attach each visible terminal to its designated container
-    for (const id of visibleIds) {
-      const session = sessions.find((s) => s.id === id);
-      if (!session) continue;
-      const rt = ensureRuntime(session);
-      const target = isGroupMode
-        ? tileRefs.current.get(id) ?? null
-        : containerRef.current;
-      if (!target) continue;
-      // Already attached to the same element? Just refit.
-      if (rt.attachedTo === target) {
-        try { rt.fit.fit(); } catch {}
-        continue;
+      // Detach terminals no longer visible — empty their current container.
+      for (const [id, rt] of runtimes.current) {
+        if (!visibleSet.has(id) && rt.attachedTo) {
+          try { rt.attachedTo.replaceChildren(); } catch {}
+          rt.attachedTo = null;
+        }
       }
-      try {
-        rt.term.open(target);
-        rt.fit.fit();
-        rt.attachedTo = target;
-      } catch (err) {
-        console.error('shell attach failed', err);
-      }
-    }
 
-    // Focus the active terminal (even in grid mode)
-    if (activeId) {
-      try { runtimes.current.get(activeId)?.term.focus(); } catch {}
-    }
+      // Attach each visible terminal to its designated container.
+      for (const id of visibleIds) {
+        const session = sessions.find((s) => s.id === id);
+        if (!session) continue;
+        const rt = ensureRuntime(session);
+        const target = isGroupMode
+          ? tileRefs.current.get(id) ?? null
+          : containerRef.current;
+        if (!target) {
+          // Target not yet in DOM — next render cycle will re-run this effect.
+          continue;
+        }
+        if (rt.attachedTo === target) {
+          try { rt.fit.fit(); } catch {}
+          continue;
+        }
+        // If the runtime was attached to a now-orphaned element (single↔grid
+        // switch), we need to fully reset. Detach first, then open into the
+        // new target.
+        if (rt.attachedTo && rt.attachedTo !== target) {
+          try { rt.attachedTo.replaceChildren(); } catch {}
+          rt.attachedTo = null;
+        }
+        try {
+          rt.term.open(target);
+          rt.fit.fit();
+          rt.attachedTo = target;
+        } catch (err) {
+          console.error('shell attach failed', err);
+        }
+      }
+
+      // Focus the active terminal
+      if (activeId) {
+        try { runtimes.current.get(activeId)?.term.focus(); } catch {}
+      }
+    });
+
+    return () => cancelAnimationFrame(handle);
   }, [activeId, isOpen, sessions, ensureRuntime, isGroupMode, visibleIds.join('|')]);
 
   // ── Resize observer — refit every visible terminal when the panel or
@@ -350,6 +369,10 @@ export function GlobalShellPanel() {
                   if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                     toggleGrouped(s.id);
+                    // Also activate the clicked tab so the user sees the
+                    // effect immediately: grouping a tab switches to it
+                    // (and therefore to grid mode if the group now has 2+).
+                    setActive(s.id);
                   } else {
                     setActive(s.id);
                   }
@@ -374,7 +397,23 @@ export function GlobalShellPanel() {
 
           {/* Add-new-session button */}
           <button
-            onClick={() => { setPickerSearch(''); setPickerOpen(true); }}
+            onClick={async () => {
+              setPickerSearch('');
+              setPickerOpen(true);
+              setPickerLoading(true);
+              try {
+                const res = await deviceApi.listPaginated({
+                  approvalStatus: 'approved',
+                  pageSize: 10000,
+                });
+                setPickerDevices(res.items);
+              } catch {
+                toast.error('Failed to load devices');
+                setPickerDevices([]);
+              } finally {
+                setPickerLoading(false);
+              }
+            }}
             title="Open another remote session"
             className="p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors shrink-0"
           >
@@ -486,12 +525,10 @@ export function GlobalShellPanel() {
 
       {/* ── Device picker modal (+) ────────────────────────────────────── */}
       {pickerOpen && (() => {
-        const allDevices = getDeviceList();
         const recent = getRecent();
         const recentMap = new Map(recent.map((id, i) => [id, i]));
-        // Filter to online, apply search, then sort: recent first, then alphabetical.
         const q = pickerSearch.trim().toLowerCase();
-        const filtered = allDevices
+        const filtered = pickerDevices
           .filter((d) => d.status === 'online' || d.status === 'warning' || d.status === 'critical')
           .filter((d) => {
             if (!q) return true;
@@ -541,7 +578,9 @@ export function GlobalShellPanel() {
                 )}
               </div>
               <div className="flex-1 overflow-y-auto">
-                {capped.length === 0 ? (
+                {pickerLoading ? (
+                  <div className="p-6 text-center text-sm text-text-muted">Loading devices...</div>
+                ) : capped.length === 0 ? (
                   <div className="p-6 text-center text-sm text-text-muted">
                     {q ? 'No devices match your search' : 'No devices available'}
                   </div>
