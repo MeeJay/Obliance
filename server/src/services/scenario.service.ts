@@ -388,6 +388,18 @@ export const scenarioService = {
     const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: tenantId }).first();
     if (!scenario) return null;
 
+    // Skip-in-flight: if a previous run of this scenario is still in progress
+    // on this device, refuse to launch a second one. Avoids stacking parallel
+    // runs that could interfere with each other.
+    const inFlight = await db('scenario_runs')
+      .where({ scenario_id: scenarioId, device_id: deviceId })
+      .whereIn('status', ['pending', 'running'])
+      .first();
+    if (inFlight) {
+      logger.info({ scenarioId, deviceId }, 'scenario: skipping trigger, previous run still in progress');
+      return null;
+    }
+
     const steps = await db('scenario_steps')
       .where({ scenario_id: scenarioId })
       .orderBy('sort_order', 'asc');

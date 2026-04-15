@@ -582,6 +582,8 @@ export interface ScriptSchedule {
   updatedAt: string;
   onFailureScenarioId?: number | null;
   notificationChannels: AutomationNotificationBinding[];
+  /** Overrides the script's default timeout. NULL = use script default. */
+  timeoutSeconds?: number | null;
   script?: Script;
 }
 

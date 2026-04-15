@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { customSectionApi } from '@/api/customSection.api';
 import { groupsApi } from '@/api/groups.api';
 import { useDeviceStore } from '@/store/deviceStore';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import type { CustomSection, DeviceGroupTreeNode } from '@obliance/shared';
 
 interface FormData {
@@ -231,10 +232,13 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                   </select>
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
-                <input type="checkbox" checked={form.usePty} onChange={(e) => setForm({ ...form, usePty: e.target.checked })} />
-                <span>Use PTY (required for curses apps: htop, top, less, watch...)</span>
-              </label>
+              <ToggleSwitch
+                checked={form.usePty}
+                onChange={(v) => setForm({ ...form, usePty: v })}
+                label="Use PTY"
+                description="Required for curses apps: htop, top, less, watch..."
+              />
+
               <div>
                 <label className="text-xs text-text-muted uppercase">Target</label>
                 <div className="flex gap-2 mt-1">

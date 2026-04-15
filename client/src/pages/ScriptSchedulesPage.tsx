@@ -7,6 +7,7 @@ import { useGroupStore } from '@/store/groupStore';
 import { getSocket } from '@/socket/socketClient';
 import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -32,6 +33,8 @@ interface ScheduleFormData {
   assertPass: boolean;
   onFailureScenarioId: number | null;
   notificationChannels: AutomationNotificationBinding[];
+  /** Optional override for the script's default timeout. Empty = use script default. */
+  timeoutSeconds: number | null;
   enabled: boolean;
 }
 
@@ -50,6 +53,7 @@ const defaultForm: ScheduleFormData = {
   assertPass: false,
   onFailureScenarioId: null,
   notificationChannels: [],
+  timeoutSeconds: null,
   enabled: true,
 };
 
@@ -150,6 +154,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       assertPass: schedule.assertPass ?? false,
       onFailureScenarioId: schedule.onFailureScenarioId ?? null,
       notificationChannels: schedule.notificationChannels ?? [],
+      timeoutSeconds: schedule.timeoutSeconds ?? null,
       enabled: schedule.enabled,
     });
     setEditingSchedule(schedule);
@@ -179,6 +184,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         assertPass: form.assertPass,
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
         notificationChannels: form.notificationChannels,
+        timeoutSeconds: form.timeoutSeconds && form.timeoutSeconds > 0 ? form.timeoutSeconds : null,
         enabled: form.scheduleMode === 'now' ? true : form.enabled,
         parameterValues: {},
         runConditions: [],
@@ -421,25 +427,30 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-6 pt-2 border-t border-border">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm text-text-primary">Enabled</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.catchupEnabled}
-                onChange={(e) => setForm({ ...form, catchupEnabled: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm text-text-primary">Enable catchup</span>
-            </label>
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <span className="text-sm text-text-muted whitespace-nowrap">Timeout override:</span>
+            <input
+              type="number"
+              min={1}
+              placeholder="(script default)"
+              value={form.timeoutSeconds ?? ''}
+              onChange={(e) => setForm({ ...form, timeoutSeconds: e.target.value ? parseInt(e.target.value, 10) : null })}
+              className="w-28 px-2 py-1 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+            />
+            <span className="text-xs text-text-muted">seconds. Devices still running the previous occurrence are skipped on the next tick.</span>
+          </div>
+
+          <div className="flex flex-wrap gap-6 pt-2">
+            <ToggleSwitch
+              checked={form.enabled}
+              onChange={(v) => setForm({ ...form, enabled: v })}
+              label="Enabled"
+            />
+            <ToggleSwitch
+              checked={form.catchupEnabled}
+              onChange={(v) => setForm({ ...form, catchupEnabled: v })}
+              label="Enable catchup"
+            />
             {form.catchupEnabled && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-text-muted">Max catchup runs:</span>
@@ -453,15 +464,11 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 />
               </div>
             )}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.assertPass}
-                onChange={(e) => setForm({ ...form, assertPass: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm text-text-primary">Assert pass</span>
-            </label>
+            <ToggleSwitch
+              checked={form.assertPass}
+              onChange={(v) => setForm({ ...form, assertPass: v })}
+              label="Assert pass"
+            />
             {form.assertPass && (
               <p className="text-xs text-orange-400/80 ml-6">If the script exits with a non-zero code, the device will show a "Schedule Error" status and a notification will be sent.</p>
             )}

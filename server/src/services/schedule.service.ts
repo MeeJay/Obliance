@@ -11,11 +11,72 @@ class ScheduleService {
   start() {
     // Check every minute for due schedules
     this.task = cron.schedule('* * * * *', () => this.tick());
+    // Sweeper for stale executions — also every minute
+    this.sweepTask = cron.schedule('* * * * *', () => this.sweepStaleExecutions());
     logger.info('Schedule service started');
   }
 
+  private sweepTask: cron.ScheduledTask | null = null;
+
   stop() {
     this.task?.stop();
+    this.sweepTask?.stop();
+  }
+
+  /**
+   * Periodic sweeper: mark script_executions that have been pending/running
+   * for longer than their timeoutSeconds (+buffer) as 'timeout'. This is the
+   * safety net when an agent disconnects mid-run or never acks. Runs every
+   * minute.
+   */
+  private async sweepStaleExecutions() {
+    try {
+      const now = Date.now();
+      const stalePending = await db('script_executions')
+        .whereIn('status', ['pending', 'sent', 'running'])
+        .whereNotNull('triggered_at')
+        .select('id', 'triggered_at', 'script_snapshot', 'device_id', 'tenant_id', 'batch_id', 'schedule_id');
+
+      for (const row of stalePending) {
+        let timeoutSec = 300;
+        try {
+          const snap = typeof row.script_snapshot === 'string' ? JSON.parse(row.script_snapshot) : row.script_snapshot;
+          if (snap?.timeoutSeconds && snap.timeoutSeconds > 0) timeoutSec = snap.timeoutSeconds;
+        } catch {}
+        const ageMs = now - new Date(row.triggered_at).getTime();
+        // Give 60s grace for network latency on top of the declared timeout.
+        if (ageMs > (timeoutSec + 60) * 1000) {
+          await db('script_executions').where({ id: row.id }).update({
+            status: 'timeout',
+            finished_at: new Date(),
+            stderr: `Execution exceeded ${timeoutSec}s timeout (no agent response)`,
+          });
+          // Cancel the associated queued command so the agent won't run it later.
+          try {
+            await db('command_queue')
+              .where({ source_type: 'script_execution', source_id: row.id })
+              .whereIn('status', ['pending', 'sent'])
+              .update({ status: 'timeout', finished_at: new Date() });
+          } catch {}
+          logger.info({ execId: row.id, deviceId: row.device_id, ageMs }, 'schedule sweeper: marked stale execution as timeout');
+
+          // Emit socket event so UI refreshes
+          try {
+            const { getIO } = await import('../socket');
+            const { SocketEvents } = await import('@obliance/shared');
+            getIO().to(`tenant:${row.tenant_id}`).emit(SocketEvents.EXECUTION_UPDATED, {
+              id: row.id,
+              batchId: row.batch_id,
+              scheduleId: row.schedule_id,
+              deviceId: row.device_id,
+              status: 'timeout',
+            });
+          } catch {}
+        }
+      }
+    } catch (err) {
+      logger.error(err, 'schedule sweeper error');
+    }
   }
 
   private async tick() {
@@ -42,12 +103,31 @@ class ScheduleService {
       const devices = await this.resolveTargetDevices(schedule);
       const batchId = crypto.randomUUID();
 
+      // Skip-in-flight: find devices that still have a previous execution
+      // of THIS schedule in pending/sent/running state. We will not launch a
+      // new run on them until the previous one reaches a terminal state.
+      const deviceIds = devices.map((d: any) => d.id);
+      const inFlightRows = deviceIds.length === 0 ? [] : await db('script_executions')
+        .where({ schedule_id: schedule.id })
+        .whereIn('device_id', deviceIds)
+        .whereIn('status', ['pending', 'sent', 'running'])
+        .select('device_id');
+      const inFlight = new Set<number>(inFlightRows.map((r: any) => r.device_id));
+
+      let skipped = 0;
       for (const device of devices) {
+        if (inFlight.has(device.id)) {
+          skipped++;
+          continue;
+        }
         // Check run conditions
         if (!await this.checkConditions(schedule.run_conditions || [], device)) continue;
 
             // Create execution record + command
         await this.dispatchExecution(schedule, device, now, false, undefined, batchId);
+      }
+      if (skipped > 0) {
+        logger.info({ scheduleId: schedule.id, skipped }, 'schedule: skipped devices with in-flight execution');
       }
 
       // Handle catch-up: find missed executions
@@ -166,6 +246,12 @@ class ScheduleService {
     const script = await db('scripts').where({ id: schedule.script_id }).first();
     if (!script) return;
 
+    // Resolve effective timeout: schedule override > script default > 300s.
+    const effectiveTimeout =
+      (schedule.timeout_seconds && schedule.timeout_seconds > 0)
+        ? schedule.timeout_seconds
+        : (script.timeout_seconds || 300);
+
     // Create script_execution record
     const [exec] = await db('script_executions').insert({
       tenant_id: schedule.tenant_id,
@@ -175,7 +261,7 @@ class ScheduleService {
       script_snapshot: JSON.stringify({
         id: script.id, name: script.name, platform: script.platform,
         runtime: script.runtime, content: script.content,
-        timeoutSeconds: script.timeout_seconds, runAs: script.run_as,
+        timeoutSeconds: effectiveTimeout, runAs: script.run_as,
       }),
       parameter_values: JSON.stringify(schedule.parameter_values || {}),
       batch_id: batchId || null,
@@ -196,12 +282,12 @@ class ScheduleService {
         runtime: script.runtime,
         content: script.content,
         parameters: schedule.parameter_values || {},
-        timeoutSeconds: script.timeout_seconds,
+        timeoutSeconds: effectiveTimeout,
         expectedExitCode: script.expected_exit_code ?? 0,
         runAs: script.run_as,
       },
       priority: 'normal',
-      expiresInSeconds: script.timeout_seconds + 300,
+      expiresInSeconds: effectiveTimeout + 300,
       sourceType: 'script_execution',
       sourceId: exec.id,
     });

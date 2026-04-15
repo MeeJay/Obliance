@@ -8,6 +8,7 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
 import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -713,24 +714,16 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
           {/* Notifications */}
           <div className="flex flex-wrap gap-6 pt-2 border-t border-border">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.notifyOnSuccess}
-                onChange={(e) => setForm({ ...form, notifyOnSuccess: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm text-text-primary">Notify on success</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.notifyOnFailure}
-                onChange={(e) => setForm({ ...form, notifyOnFailure: e.target.checked })}
-                className="rounded"
-              />
-              <span className="text-sm text-text-primary">Notify on failure</span>
-            </label>
+            <ToggleSwitch
+              checked={form.notifyOnSuccess}
+              onChange={(v) => setForm({ ...form, notifyOnSuccess: v })}
+              label="Notify on success"
+            />
+            <ToggleSwitch
+              checked={form.notifyOnFailure}
+              onChange={(v) => setForm({ ...form, notifyOnFailure: v })}
+              label="Notify on failure"
+            />
           </div>
 
           {/* Notification channels */}
