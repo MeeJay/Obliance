@@ -79,10 +79,7 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
 
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-text-primary font-medium truncate">{ch.name}</div>
-                  <div className="text-[11px] text-text-muted">
-                    {ch.type}
-                    {!ch.isEnabled && <span className="ml-2 text-orange-400">disabled</span>}
-                  </div>
+                  <div className="text-[11px] text-text-muted">{ch.type}</div>
                 </div>
 
                 {bound && (
