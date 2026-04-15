@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
+import { logger } from '../utils/logger';
 import { requireRole } from '../middleware/rbac';
 
 const router = Router();
@@ -92,14 +93,18 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       catchup_max: req.body.catchupMax || 3,
       run_conditions: JSON.stringify(req.body.runConditions || []),
       assert_pass: req.body.assertPass ?? false,
-      notification_channels: JSON.stringify(req.body.notificationChannels || []),
+      notification_channels: JSON.stringify(req.body.notificationChannels ?? []),
       timeout_seconds: req.body.timeoutSeconds ?? null,
       skip_if_in_flight: req.body.skipIfInFlight !== false,
+      on_failure_scenario_id: req.body.onFailureScenarioId ?? null,
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
     res.status(201).json({ data: rowToSchedule(row) });
-  } catch (err) { next(err); }
+  } catch (err) {
+    logger.error({ err, body: req.body }, 'schedule create failed');
+    next(err);
+  }
 });
 
 router.patch('/:id', requireRole('admin'), async (req, res, next) => {
@@ -122,6 +127,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.notificationChannels !== undefined) updates.notification_channels = JSON.stringify(req.body.notificationChannels);
     if (req.body.timeoutSeconds !== undefined) updates.timeout_seconds = req.body.timeoutSeconds;
     if (req.body.skipIfInFlight !== undefined) updates.skip_if_in_flight = req.body.skipIfInFlight;
+    if (req.body.onFailureScenarioId !== undefined) updates.on_failure_scenario_id = req.body.onFailureScenarioId;
 
     // If the cron expression changed, recompute next_run_at immediately
     // so the UI and the tick loop both see the new schedule without waiting
@@ -138,7 +144,10 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).update(updates);
     const row = await db('script_schedules').where({ id: req.params.id }).first();
     res.json({ data: rowToSchedule(row) });
-  } catch (err) { next(err); }
+  } catch (err) {
+    logger.error({ err, id: req.params.id, body: req.body }, 'schedule update failed');
+    next(err);
+  }
 });
 
 // GET /api/schedules/for-device/:deviceId — all schedules that apply to a device

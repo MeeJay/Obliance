@@ -251,11 +251,28 @@ class ScheduleService {
     const script = await db('scripts').where({ id: schedule.script_id }).first();
     if (!script) return;
 
-    // Resolve effective timeout: schedule override > script default > 300s.
-    const effectiveTimeout =
-      (schedule.timeout_seconds && schedule.timeout_seconds > 0)
-        ? schedule.timeout_seconds
-        : (script.timeout_seconds || 300);
+    // Resolve effective timeout:
+    //   - schedule.timeout_seconds === 0  → infinite (no timeout)
+    //   - schedule.timeout_seconds > 0    → override value
+    //   - schedule.timeout_seconds NULL   → use the script's default
+    //   - script.timeout_seconds === 0    → infinite
+    //   - fallback                        → 300s
+    // We encode "infinite" as a very large value (24h) to keep the agent
+    // and queue logic simple — a single script run won't legitimately
+    // take more than a day in any realistic scenario.
+    const INFINITE = 86400; // 24h
+    let effectiveTimeout: number;
+    if (schedule.timeout_seconds === 0) {
+      effectiveTimeout = INFINITE;
+    } else if (schedule.timeout_seconds && schedule.timeout_seconds > 0) {
+      effectiveTimeout = schedule.timeout_seconds;
+    } else if (script.timeout_seconds === 0) {
+      effectiveTimeout = INFINITE;
+    } else if (script.timeout_seconds > 0) {
+      effectiveTimeout = script.timeout_seconds;
+    } else {
+      effectiveTimeout = 300;
+    }
 
     // Create script_execution record
     const [exec] = await db('script_executions').insert({

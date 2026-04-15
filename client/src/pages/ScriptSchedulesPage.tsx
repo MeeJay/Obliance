@@ -187,7 +187,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         assertPass: form.assertPass,
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
         notificationChannels: form.notificationChannels,
-        timeoutSeconds: form.timeoutSeconds && form.timeoutSeconds > 0 ? form.timeoutSeconds : null,
+        timeoutSeconds: form.timeoutSeconds,
         skipIfInFlight: form.skipIfInFlight,
         enabled: form.scheduleMode === 'now' ? true : form.enabled,
         parameterValues: {},
@@ -435,13 +435,17 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             <span className="text-sm text-text-muted whitespace-nowrap">Timeout override:</span>
             <input
               type="number"
-              min={1}
+              min={0}
               placeholder="(script default)"
               value={form.timeoutSeconds ?? ''}
-              onChange={(e) => setForm({ ...form, timeoutSeconds: e.target.value ? parseInt(e.target.value, 10) : null })}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') setForm({ ...form, timeoutSeconds: null });
+                else setForm({ ...form, timeoutSeconds: Math.max(0, parseInt(raw, 10) || 0) });
+              }}
               className="w-28 px-2 py-1 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
             />
-            <span className="text-xs text-text-muted">seconds</span>
+            <span className="text-xs text-text-muted">seconds — empty = use script default, 0 = no timeout</span>
           </div>
 
           <div className="pt-2">
