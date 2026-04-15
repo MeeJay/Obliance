@@ -32,6 +32,9 @@ function rowToScenario(row: any): Scenario {
     timeoutSeconds: row.timeout_seconds,
     notifyOnSuccess: row.notify_on_success,
     notifyOnFailure: row.notify_on_failure,
+    notificationChannels: typeof row.notification_channels === 'string'
+      ? JSON.parse(row.notification_channels)
+      : (row.notification_channels || []),
     variables: typeof row.variables === 'string' ? JSON.parse(row.variables) : (row.variables || {}),
     createdBy: row.created_by,
     updatedBy: row.updated_by,
@@ -224,6 +227,7 @@ export const scenarioService = {
         timeout_seconds: data.timeoutSeconds ?? 3600,
         notify_on_success: data.notifyOnSuccess ?? false,
         notify_on_failure: data.notifyOnFailure ?? true,
+        notification_channels: JSON.stringify((data as any).notificationChannels || []),
         variables: JSON.stringify(data.variables || {}),
         created_by: userId,
         updated_by: userId,
@@ -287,6 +291,7 @@ export const scenarioService = {
       if (data.timeoutSeconds !== undefined) updates.timeout_seconds = data.timeoutSeconds;
       if (data.notifyOnSuccess !== undefined) updates.notify_on_success = data.notifyOnSuccess;
       if (data.notifyOnFailure !== undefined) updates.notify_on_failure = data.notifyOnFailure;
+      if ((data as any).notificationChannels !== undefined) updates.notification_channels = JSON.stringify((data as any).notificationChannels);
       if (data.variables !== undefined) updates.variables = JSON.stringify(data.variables);
 
       const [row] = await trx('scenarios').where({ id }).update(updates).returning('*');
@@ -916,6 +921,37 @@ async function matchesTargetAsync(scenario: Scenario, deviceId: number): Promise
   return false;
 }
 
+async function dispatchScenarioChannelNotification(
+  runId: string,
+  tenantId: number,
+  outcome: 'success' | 'failure',
+): Promise<void> {
+  try {
+    const run = await db('scenario_runs').where({ id: runId }).first();
+    if (!run) return;
+    const scenario = await db('scenarios').where({ id: run.scenario_id }).first();
+    if (!scenario?.notification_channels) return;
+    const bindings = typeof scenario.notification_channels === 'string'
+      ? JSON.parse(scenario.notification_channels)
+      : scenario.notification_channels;
+    if (!Array.isArray(bindings) || bindings.length === 0) return;
+
+    const device = await db('devices').where({ id: run.device_id }).select('hostname', 'display_name').first();
+    const name = device?.display_name || device?.hostname || `#${run.device_id}`;
+    const { automationNotificationService } = await import('./automationNotification.service');
+    await automationNotificationService.notify(tenantId, bindings, {
+      automationType: 'scenario',
+      automationName: scenario.name,
+      successCount: outcome === 'success' ? 1 : 0,
+      failureCount: outcome === 'failure' ? 1 : 0,
+      totalCount: 1,
+      failedDeviceNames: outcome === 'failure' ? [name] : [],
+    });
+  } catch (err) {
+    logger.error(err, 'scenario notification dispatch failed');
+  }
+}
+
 async function markRunComplete(runId: string, tenantId: number, status: 'success') {
   const [row] = await db('scenario_runs').where({ id: runId }).update({
     status,
@@ -926,17 +962,7 @@ async function markRunComplete(runId: string, tenantId: number, status: 'success
   if (row) {
     const run = rowToRun(row);
     emitRunUpdate(tenantId, run);
-
-    // Send notification if configured
-    try {
-      const scenario = await db('scenarios').where({ id: run.scenarioId }).first();
-      if (scenario?.notify_on_success) {
-        const { notificationService } = await import('./notification.service');
-        const device = await db('devices').where({ id: run.deviceId }).select('hostname', 'display_name', 'tenant_id').first();
-        const deviceName = device?.display_name || device?.hostname || `Device #${run.deviceId}`;
-        await notificationService.sendForAgent(run.deviceId, deviceName, 'online', `Scenario "${scenario.name}" completed successfully on ${deviceName}`);
-      }
-    } catch {}
+    await dispatchScenarioChannelNotification(runId, tenantId, 'success');
   }
 }
 
@@ -956,16 +982,6 @@ async function markRunFailed(runId: string, tenantId: number, errorMessage: stri
   if (row) {
     const run = rowToRun(row);
     emitRunUpdate(tenantId, run);
-
-    // Send failure notification if configured
-    try {
-      const scenario = await db('scenarios').where({ id: run.scenarioId }).first();
-      if (scenario?.notify_on_failure) {
-        const { notificationService } = await import('./notification.service');
-        const device = await db('devices').where({ id: run.deviceId }).select('hostname', 'display_name', 'tenant_id').first();
-        const deviceName = device?.display_name || device?.hostname || `Device #${run.deviceId}`;
-        await notificationService.sendForAgent(run.deviceId, deviceName, 'warning', `Scenario "${scenario.name}" failed on ${deviceName}: ${errorMessage}`);
-      }
-    } catch {}
+    await dispatchScenarioChannelNotification(runId, tenantId, 'failure');
   }
 }

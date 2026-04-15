@@ -23,6 +23,9 @@ function rowToSchedule(row: any) {
     runConditions: typeof row.run_conditions === 'string' ? JSON.parse(row.run_conditions) : (row.run_conditions ?? []),
     assertPass: row.assert_pass ?? false,
     enabled: row.enabled,
+    notificationChannels: typeof row.notification_channels === 'string'
+      ? JSON.parse(row.notification_channels)
+      : (row.notification_channels ?? []),
     lastRunAt: row.last_run_at,
     nextRunAt: row.next_run_at,
     createdBy: row.created_by,
@@ -87,6 +90,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       catchup_max: req.body.catchupMax || 3,
       run_conditions: JSON.stringify(req.body.runConditions || []),
       assert_pass: req.body.assertPass ?? false,
+      notification_channels: JSON.stringify(req.body.notificationChannels || []),
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
@@ -111,6 +115,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
       if (req.body.fireOnceAt) updates.next_run_at = new Date(req.body.fireOnceAt);
     }
     if (req.body.timezone !== undefined) updates.timezone = req.body.timezone;
+    if (req.body.notificationChannels !== undefined) updates.notification_channels = JSON.stringify(req.body.notificationChannels);
 
     // If the cron expression changed, recompute next_run_at immediately
     // so the UI and the tick loop both see the new schedule without waiting

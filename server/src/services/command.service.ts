@@ -400,6 +400,50 @@ class CommandService {
           } catch (alertErr) {
             logger.error(alertErr, 'Failed to process schedule assert_pass');
           }
+
+          // ── Automation notifications (schedule batch complete) ──────────
+          // If this script execution belongs to a schedule, check whether
+          // the whole batch has now reached a terminal state — and if so,
+          // dispatch aggregated notifications to the bound channels.
+          try {
+            const exec = await db('script_executions').where({ id: row.source_id }).first();
+            if (exec?.schedule_id && exec?.batch_id) {
+              const batch = await db('script_executions')
+                .where({ batch_id: exec.batch_id });
+              const allTerminal = batch.every((e: any) =>
+                ['success', 'failure', 'timeout', 'cancelled', 'skipped'].includes(e.status),
+              );
+              if (allTerminal) {
+                const schedule = await db('script_schedules').where({ id: exec.schedule_id }).first();
+                if (schedule?.notification_channels) {
+                  const bindings = typeof schedule.notification_channels === 'string'
+                    ? JSON.parse(schedule.notification_channels)
+                    : schedule.notification_channels;
+                  if (Array.isArray(bindings) && bindings.length > 0) {
+                    const successCount = batch.filter((e: any) => e.status === 'success').length;
+                    const failedExecs = batch.filter((e: any) => e.status === 'failure' || e.status === 'timeout');
+                    const failureCount = failedExecs.length;
+                    const failedDeviceIds = failedExecs.map((e: any) => e.device_id);
+                    const failedDevices = failedDeviceIds.length > 0
+                      ? await db('devices').whereIn('id', failedDeviceIds).select('id', 'hostname', 'display_name')
+                      : [];
+                    const failedNames = failedDevices.map((d: any) => d.display_name || d.hostname || `#${d.id}`);
+                    const { automationNotificationService } = await import('./automationNotification.service');
+                    await automationNotificationService.notify(tenantId, bindings, {
+                      automationType: 'schedule',
+                      automationName: schedule.name,
+                      successCount,
+                      failureCount,
+                      totalCount: batch.length,
+                      failedDeviceNames: failedNames,
+                    });
+                  }
+                }
+              }
+            }
+          } catch (notifyErr) {
+            logger.error(notifyErr, 'Failed to dispatch schedule batch notifications');
+          }
         } catch (execErr) {
           logger.error(execErr, 'Failed to update script_execution from ack');
         }

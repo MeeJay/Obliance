@@ -5,7 +5,8 @@ import { scenarioApi } from '@/api/scenario.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario } from '@obliance/shared';
+import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario, AutomationNotificationBinding } from '@obliance/shared';
+import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -30,6 +31,7 @@ interface ScheduleFormData {
   catchupMax: number;
   assertPass: boolean;
   onFailureScenarioId: number | null;
+  notificationChannels: AutomationNotificationBinding[];
   enabled: boolean;
 }
 
@@ -47,6 +49,7 @@ const defaultForm: ScheduleFormData = {
   catchupMax: 3,
   assertPass: false,
   onFailureScenarioId: null,
+  notificationChannels: [],
   enabled: true,
 };
 
@@ -146,6 +149,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       catchupMax: schedule.catchupMax,
       assertPass: schedule.assertPass ?? false,
       onFailureScenarioId: schedule.onFailureScenarioId ?? null,
+      notificationChannels: schedule.notificationChannels ?? [],
       enabled: schedule.enabled,
     });
     setEditingSchedule(schedule);
@@ -174,6 +178,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         catchupMax: form.catchupMax,
         assertPass: form.assertPass,
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
+        notificationChannels: form.notificationChannels,
         enabled: form.scheduleMode === 'now' ? true : form.enabled,
         parameterValues: {},
         runConditions: [],
@@ -473,6 +478,12 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                 </select>
               </div>
             )}
+
+            {/* Notification channels */}
+            <NotificationChannelBindings
+              value={form.notificationChannels}
+              onChange={(next) => setForm({ ...form, notificationChannels: next })}
+            />
           </div>
         </div>
       )}

@@ -581,6 +581,7 @@ export interface ScriptSchedule {
   createdAt: string;
   updatedAt: string;
   onFailureScenarioId?: number | null;
+  notificationChannels: AutomationNotificationBinding[];
   script?: Script;
 }
 
@@ -1487,6 +1488,13 @@ export interface ScenarioRetryPolicy {
   retryDelaySeconds: number;
 }
 
+export type AutomationNotificationMode = 'on_error' | 'summary';
+
+export interface AutomationNotificationBinding {
+  channelId: number;
+  mode: AutomationNotificationMode;
+}
+
 export interface CustomSection {
   id: number;
   tenantId: number;
@@ -1518,6 +1526,7 @@ export interface Scenario {
   timeoutSeconds: number;
   notifyOnSuccess: boolean;
   notifyOnFailure: boolean;
+  notificationChannels: AutomationNotificationBinding[];
   variables: Record<string, string>;
   steps?: ScenarioStep[];
   createdBy: number | null;

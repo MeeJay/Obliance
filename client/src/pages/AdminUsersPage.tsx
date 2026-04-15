@@ -482,8 +482,8 @@ export function AdminUsersPage() {
   return (
     <>
       <div className="flex gap-6 p-6 h-full min-w-0 w-full">
-        {/* Left panel */}
-        <div className="flex-1 min-w-0 max-w-xl">
+        {/* Left panel — full-width friendly */}
+        <div className="flex-1 min-w-0">
           {/* Tab switcher */}
           <div className="flex items-center gap-1 mb-4 rounded-lg bg-bg-secondary p-1 border border-border">
             <button
@@ -810,7 +810,7 @@ export function AdminUsersPage() {
 
         {/* Right panel — Team details */}
         {selectedTeam && tab === 'teams' && (
-          <div className="flex-1 min-w-0 max-w-2xl">
+          <div className="flex-[2] min-w-0">
             <div className="sticky top-6">
               <h2 className="text-lg font-semibold text-text-primary mb-1">{selectedTeam.name}</h2>
               {selectedTeam.description && (
@@ -1061,28 +1061,66 @@ interface PermTreeNodeProps {
   toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
 }
 
+// Capability catalog — grouped by logical category. Oblihub-style matrix.
+const CAPABILITY_CATEGORIES: Array<{
+  name: string;
+  capabilities: Array<{ key: Capability; label: string; description: string }>;
+}> = [
+  {
+    name: 'Execution',
+    capabilities: [
+      { key: 'execute', label: 'Execute',   description: 'Scripts, scans, services, install/uninstall' },
+    ],
+  },
+  {
+    name: 'Access',
+    capabilities: [
+      { key: 'remote',  label: 'Remote',    description: 'Reach, RDP, SSH shell sessions' },
+      { key: 'files',   label: 'Files',     description: 'Browse, upload, download, edit files' },
+    ],
+  },
+  {
+    name: 'Power',
+    capabilities: [
+      { key: 'power',   label: 'Power',     description: 'Reboot, shutdown, sleep, restart agent' },
+    ],
+  },
+];
+
+/** Compact iOS-style toggle switch. */
+function ToggleSwitch({ on, onChange, title }: { on: boolean; onChange: () => void; title?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      title={title}
+      className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${
+        on ? 'bg-accent' : 'bg-bg-tertiary border border-border'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+          on ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}
+
 function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: Capability) => void }) {
   if (perm.level === 'ro') return null; // RO only gets monitor, no toggles
-  const CAPS: Array<{ key: Capability; icon: string; label: string }> = [
-    { key: 'execute', icon: '⚡', label: 'Execute scripts & commands' },
-    { key: 'remote', icon: '🖥', label: 'Remote access (Reach, RDP, SSH)' },
-    { key: 'files', icon: '📁', label: 'File explorer' },
-    { key: 'power', icon: '⏻', label: 'Reboot, Shutdown, Restart Agent' },
-  ];
   const caps = perm.capabilities ?? [];
   return (
-    <span className="flex items-center gap-0.5 shrink-0">
-      {CAPS.map(({ key, icon, label }) => (
-        <button
-          key={key}
-          onClick={(e) => { e.stopPropagation(); onToggle(key); }}
-          title={label}
-          className={`text-[11px] w-5 h-5 flex items-center justify-center rounded transition-colors ${
-            caps.includes(key) ? 'bg-accent/20 text-accent' : 'bg-bg-tertiary text-text-muted/40 hover:text-text-muted'
-          }`}
-        >
-          {icon}
-        </button>
+    <span className="flex items-center gap-3 shrink-0">
+      {CAPABILITY_CATEGORIES.map((cat) => (
+        <span key={cat.name} className="flex items-center gap-1.5">
+          {cat.capabilities.map(({ key, label, description }) => (
+            <span key={key} className="flex items-center gap-1" title={`${label} — ${description}`}>
+              <ToggleSwitch on={caps.includes(key)} onChange={() => onToggle(key)} />
+              <span className="text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
+            </span>
+          ))}
+        </span>
       ))}
     </span>
   );

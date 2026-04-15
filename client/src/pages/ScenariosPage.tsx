@@ -6,7 +6,8 @@ import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode } from '@obliance/shared';
+import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding } from '@obliance/shared';
+import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -56,6 +57,7 @@ interface ScenarioFormData {
   timeoutSeconds: number;
   notifyOnSuccess: boolean;
   notifyOnFailure: boolean;
+  notificationChannels: AutomationNotificationBinding[];
 }
 
 const defaultForm: ScenarioFormData = {
@@ -72,6 +74,7 @@ const defaultForm: ScenarioFormData = {
   timeoutSeconds: 3600,
   notifyOnSuccess: false,
   notifyOnFailure: true,
+  notificationChannels: [],
 };
 
 const defaultStep: StepFormData = {
@@ -204,6 +207,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
       timeoutSeconds: full.timeoutSeconds,
       notifyOnSuccess: full.notifyOnSuccess,
       notifyOnFailure: full.notifyOnFailure,
+      notificationChannels: full.notificationChannels ?? [],
     });
     setEditingScenario(full);
     setShowForm(true);
@@ -245,6 +249,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         timeoutSeconds: form.timeoutSeconds,
         notifyOnSuccess: form.notifyOnSuccess,
         notifyOnFailure: form.notifyOnFailure,
+        notificationChannels: form.notificationChannels,
       };
 
       if (editingScenario) {
@@ -726,6 +731,14 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               />
               <span className="text-sm text-text-primary">Notify on failure</span>
             </label>
+          </div>
+
+          {/* Notification channels */}
+          <div className="pt-4 border-t border-border">
+            <NotificationChannelBindings
+              value={form.notificationChannels}
+              onChange={(next) => setForm({ ...form, notificationChannels: next })}
+            />
           </div>
 
           {/* Variables */}
