@@ -103,6 +103,18 @@ class ScheduleService {
       const devices = await this.resolveTargetDevices(schedule);
       const batchId = crypto.randomUUID();
 
+      logger.info({
+        scheduleId: schedule.id,
+        scheduleName: schedule.name,
+        targetType: schedule.target_type,
+        targetCount: devices.length,
+        skipIfInFlight: schedule.skip_if_in_flight !== false,
+      }, 'schedule tick: resolved targets');
+
+      if (devices.length === 0) {
+        logger.warn({ scheduleId: schedule.id, scheduleName: schedule.name }, 'schedule has 0 target devices — nothing to dispatch');
+      }
+
       // Skip-in-flight: find devices that still have a previous execution
       // of THIS schedule in pending/sent/running state. Only applied when the
       // schedule has `skip_if_in_flight` enabled (default true).
@@ -218,7 +230,12 @@ class ScheduleService {
       ? JSON.parse(schedule.target_ids || '[]')
       : (schedule.target_ids || []);
 
-    let q = db('devices').where({ tenant_id: tenantId, approval_status: 'approved', status: 'online' });
+    // Consider all "alive" devices: online / warning / critical are all
+    // pushing metrics and can still run scripts. Only genuine offline
+    // states are excluded.
+    let q = db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereIn('status', ['online', 'warning', 'critical']);
 
     if (schedule.target_type === 'device' && targetIds.length > 0) {
       q = q.whereIn('id', targetIds);
@@ -249,7 +266,15 @@ class ScheduleService {
     schedule: any, device: any, now: Date, isCatchup: boolean, catchupForAt?: Date, batchId?: string
   ) {
     const script = await db('scripts').where({ id: schedule.script_id }).first();
-    if (!script) return;
+    if (!script) {
+      logger.error({
+        scheduleId: schedule.id,
+        scheduleName: schedule.name,
+        scriptId: schedule.script_id,
+        deviceId: device.id,
+      }, 'schedule: script_id references missing script — no execution dispatched');
+      return;
+    }
 
     // Resolve effective timeout:
     //   - schedule.timeout_seconds === 0  → infinite (no timeout)
@@ -316,6 +341,15 @@ class ScheduleService {
 
     // Link command to execution
     await db('script_executions').where({ id: exec.id }).update({ command_queue_id: cmd.id });
+
+    logger.info({
+      scheduleId: schedule.id,
+      scheduleName: schedule.name,
+      executionId: exec.id,
+      deviceId: device.id,
+      commandId: cmd.id,
+      effectiveTimeout,
+    }, 'schedule: dispatched execution');
   }
 
   // Manual execution (from UI)

@@ -88,9 +88,12 @@ function DeviceStatusDot({ status }: { status: DeviceStatus }) {
 function DraggableDeviceItem({
   device,
   indent = false,
+  depth = 0,
 }: {
   device: Device;
   indent?: boolean;
+  /** Parent group depth. Device is indented one level deeper than its parent. */
+  depth?: number;
 }) {
   const location = useLocation();
   const isActive = location.pathname === `/devices/${device.id}`;
@@ -101,18 +104,22 @@ function DraggableDeviceItem({
 
   const displayName = anonymize(device.displayName ?? device.hostname);
 
+  // Match the group-row padding formula: each nesting level adds 12px, and
+  // devices get an extra 22px so they clearly sit under their parent group
+  // header's icon (not level with it).
+  const paddingLeft = indent ? depth * 12 + 22 : 8;
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      style={{ opacity: isDragging ? 0.4 : 1 }}
+      style={{ opacity: isDragging ? 0.4 : 1, paddingLeft }}
     >
       <Link
         to={`/devices/${device.id}`}
         className={cn(
-          'flex items-center gap-2 rounded-md py-1 text-sm transition-colors',
-          indent ? 'pl-6 pr-2' : 'px-2',
+          'flex items-center gap-2 rounded-md py-1 pr-2 text-sm transition-colors',
           isActive
             ? 'bg-bg-active text-text-primary'
             : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -241,7 +248,7 @@ function GroupRow({
               (i.e. user toggled "Devices" off but still wants to see the
               group tree for navigation). */}
           {!hideDeviceRows && filteredDevices.map(device => (
-            <DraggableDeviceItem key={device.id} device={device} indent />
+            <DraggableDeviceItem key={device.id} device={device} indent depth={depth} />
           ))}
           {/* Child groups */}
           {group.children.map(child => (

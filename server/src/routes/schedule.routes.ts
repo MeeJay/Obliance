@@ -50,11 +50,55 @@ router.get('/', async (req, res, next) => {
         db.raw("COALESCE(uu.display_name, uu.username) as updated_by_name"),
       )
       .orderBy('ss.name');
-    res.json({ data: rows.map((row: any) => ({
+
+    // Resolve the number of approved devices each schedule will actually run
+    // on, so the UI can warn on "2 groups → 0 devices" mistakes.
+    const resolveCount = async (row: any): Promise<number> => {
+      const targetIds: number[] = typeof row.target_ids === 'string'
+        ? JSON.parse(row.target_ids || '[]')
+        : (row.target_ids || []);
+      if (row.target_type === 'all') {
+        const r = await db('devices')
+          .where({ tenant_id: row.tenant_id, approval_status: 'approved' })
+          .whereIn('status', ['online', 'warning', 'critical'])
+          .count('id as c')
+          .first();
+        return Number((r as any)?.c ?? 0);
+      }
+      if (row.target_type === 'device') {
+        if (!targetIds.length) return 0;
+        const r = await db('devices')
+          .where({ tenant_id: row.tenant_id, approval_status: 'approved' })
+          .whereIn('id', targetIds)
+          .whereIn('status', ['online', 'warning', 'critical'])
+          .count('id as c')
+          .first();
+        return Number((r as any)?.c ?? 0);
+      }
+      if (row.target_type === 'group') {
+        if (!targetIds.length) return 0;
+        const descendants = await db('device_group_closure')
+          .whereIn('ancestor_id', targetIds)
+          .pluck('descendant_id');
+        const allGroupIds = Array.from(new Set([...targetIds, ...descendants]));
+        const r = await db('devices')
+          .where({ tenant_id: row.tenant_id, approval_status: 'approved' })
+          .whereIn('group_id', allGroupIds)
+          .whereIn('status', ['online', 'warning', 'critical'])
+          .count('id as c')
+          .first();
+        return Number((r as any)?.c ?? 0);
+      }
+      return 0;
+    };
+
+    const items = await Promise.all(rows.map(async (row: any) => ({
       ...rowToSchedule(row),
       createdByName: row.created_by_name ?? null,
       updatedByName: row.updated_by_name ?? null,
-    })) });
+      resolvedDeviceCount: await resolveCount(row),
+    })));
+    res.json({ data: items });
   } catch (err) { next(err); }
 });
 
@@ -148,6 +192,42 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     logger.error({ err, id: req.params.id, body: req.body }, 'schedule update failed');
     next(err);
   }
+});
+
+// GET /api/schedules/:id/history — last N executions for a schedule
+router.get('/:id/history', async (req, res, next) => {
+  try {
+    const scheduleId = parseInt(req.params.id);
+    const limit = Math.min(100, parseInt((req.query.limit as string) || '10'));
+    const sched = await db('script_schedules').where({ id: scheduleId, tenant_id: req.tenantId! }).first();
+    if (!sched) return res.status(404).json({ error: 'Not found' });
+    const rows = await db('script_executions as se')
+      .leftJoin('devices as d', 'd.id', 'se.device_id')
+      .where({ 'se.schedule_id': scheduleId })
+      .select(
+        'se.id', 'se.status', 'se.exit_code', 'se.stdout', 'se.stderr',
+        'se.triggered_at', 'se.started_at', 'se.finished_at',
+        'se.triggered_by', 'se.batch_id', 'se.device_id',
+        'd.hostname as device_hostname',
+        'd.display_name as device_display_name',
+      )
+      .orderBy('se.triggered_at', 'desc')
+      .limit(limit);
+    res.json({ data: rows.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      exitCode: r.exit_code,
+      stdout: r.stdout,
+      stderr: r.stderr,
+      triggeredAt: r.triggered_at,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+      triggeredBy: r.triggered_by,
+      batchId: r.batch_id,
+      deviceId: r.device_id,
+      deviceName: r.device_display_name || r.device_hostname || `#${r.device_id}`,
+    })) });
+  } catch (err) { next(err); }
 });
 
 // GET /api/schedules/for-device/:deviceId — all schedules that apply to a device

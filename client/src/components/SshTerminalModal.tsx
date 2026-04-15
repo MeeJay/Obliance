@@ -2,10 +2,11 @@ import 'xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
-import { Terminal as TerminalIcon, X, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Terminal as TerminalIcon, X, Maximize2, RefreshCw, AlertTriangle, Keyboard } from 'lucide-react';
 import type { RemoteSession } from '@obliance/shared';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
+import { VirtualKeyPanel } from '@/components/VirtualKeyPanel';
 
 interface SshTerminalModalProps {
   /** Null while the tunnel is being established — modal shows a connecting overlay. */
@@ -27,7 +28,20 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
   const [status, setStatus] = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
   const nativeTop = useNativeTopOffset();
+
+  // Send a raw byte sequence to the SSH WebSocket. Used by the virtual
+  // key panel to inject F-keys and other browser-reserved keys that xterm
+  // never gets a chance to see.
+  const sendRawToShell = (sequence: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(new TextEncoder().encode(sequence));
+    }
+    // Keep focus on the terminal so the user can keep typing immediately
+    try { termRef.current?.focus(); } catch {}
+  };
 
   // Derive the WS URL only when we have a session token.
   const wsUrl = session?.sessionToken
@@ -181,6 +195,18 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
 
         <div className="flex items-center gap-1 shrink-0">
           <button
+            onClick={() => setShowKeys((v) => !v)}
+            title={showKeys ? 'Hide virtual keys' : 'Show virtual keys (F1-F12, Ctrl combos...)'}
+            className={clsx(
+              'p-1.5 rounded transition-colors',
+              showKeys
+                ? 'bg-accent/15 text-accent'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary',
+            )}
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
+          <button
             onClick={handleFullscreen}
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
@@ -220,11 +246,14 @@ export function SshTerminalModal({ session, deviceName, onClose }: SshTerminalMo
           <p className="text-sm text-text-muted">Waiting for agent to connect back to the server</p>
         </div>
       ) : (
-        <div
-          ref={containerRef}
-          className="flex-1 overflow-hidden p-1"
-          style={{ minHeight: 0 }}
-        />
+        <>
+          <div
+            ref={containerRef}
+            className="flex-1 overflow-hidden p-1"
+            style={{ minHeight: 0 }}
+          />
+          {showKeys && <VirtualKeyPanel onKey={sendRawToShell} />}
+        </>
       )}
     </div>
   );

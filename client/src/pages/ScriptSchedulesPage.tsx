@@ -90,6 +90,20 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [form, setForm] = useState<ScheduleFormData>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [historyByScheduleId, setHistoryByScheduleId] = useState<Record<number, Awaited<ReturnType<typeof scriptApi.getScheduleHistory>>>>({});
+  const [loadingHistoryId, setLoadingHistoryId] = useState<number | null>(null);
+
+  const loadScheduleHistory = useCallback(async (scheduleId: number) => {
+    setLoadingHistoryId(scheduleId);
+    try {
+      const rows = await scriptApi.getScheduleHistory(scheduleId, 10);
+      setHistoryByScheduleId((prev) => ({ ...prev, [scheduleId]: rows }));
+    } catch {
+      toast.error('Failed to load schedule history');
+    } finally {
+      setLoadingHistoryId(null);
+    }
+  }, []);
 
   const { fetchGroups } = useGroupStore();
 
@@ -539,7 +553,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               <div key={schedule.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
                 <div className="flex items-center gap-4 px-4 py-3">
                   <button
-                    onClick={() => setExpandedId(expanded ? null : schedule.id)}
+                    onClick={() => {
+                      const newId = expanded ? null : schedule.id;
+                      setExpandedId(newId);
+                      if (newId !== null && !historyByScheduleId[schedule.id]) {
+                        loadScheduleHistory(schedule.id);
+                      }
+                    }}
                     className="text-text-muted hover:text-text-primary transition-colors"
                   >
                     {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -554,11 +574,23 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                         <Terminal className="w-3 h-3" />
                         {script?.name ?? `Script #${schedule.scriptId}`}
                       </span>
-                      <span className="flex items-center gap-1">
+                      <span className={clsx(
+                        'flex items-center gap-1',
+                        schedule.resolvedDeviceCount === 0 && 'text-red-400',
+                      )}>
                         <Play className="w-3 h-3" />
-                        {schedule.targetType === 'all'
-                          ? 'All devices'
-                          : `${(schedule.targetIds ?? []).length} ${schedule.targetType}(s)`}
+                        {(() => {
+                          const resolved = schedule.resolvedDeviceCount ?? null;
+                          const resolvedTxt = resolved == null ? '' : ` → ${resolved} device${resolved === 1 ? '' : 's'}`;
+                          if (schedule.targetType === 'all') return `All devices${resolvedTxt}`;
+                          const n = (schedule.targetIds ?? []).length;
+                          return `${n} ${schedule.targetType}${n === 1 ? '' : 's'}${resolvedTxt}`;
+                        })()}
+                        {schedule.resolvedDeviceCount === 0 && (
+                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded border border-red-400/40 bg-red-400/10">
+                            empty target
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1 font-mono">
                         <Clock className="w-3 h-3" />
@@ -630,6 +662,65 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                         <p className="text-sm text-text-primary">{schedule.description}</p>
                       </div>
                     )}
+
+                    {/* History — last 10 executions */}
+                    <div className="md:col-span-4 pt-3 border-t border-border/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-text-muted uppercase font-medium">Recent history</p>
+                        <button
+                          onClick={() => loadScheduleHistory(schedule.id)}
+                          disabled={loadingHistoryId === schedule.id}
+                          className="text-[10px] px-2 py-0.5 rounded border border-border text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors"
+                        >
+                          {loadingHistoryId === schedule.id ? 'Loading...' : 'Refresh'}
+                        </button>
+                      </div>
+                      {(() => {
+                        const rows = historyByScheduleId[schedule.id];
+                        if (!rows) return <p className="text-xs text-text-muted italic">Loading history...</p>;
+                        if (rows.length === 0) return (
+                          <p className="text-xs text-text-muted italic">
+                            No executions yet.{' '}
+                            {schedule.lastRunAt && 'Schedule has ticked but no history rows were created — check server logs for dispatch errors (missing script, offline device, etc.).'}
+                          </p>
+                        );
+                        return (
+                          <div className="space-y-1">
+                            {rows.map((r) => {
+                              const statusColor =
+                                r.status === 'success' ? 'text-green-400 border-green-400/30 bg-green-400/10' :
+                                r.status === 'failure' ? 'text-red-400 border-red-400/30 bg-red-400/10' :
+                                r.status === 'timeout' ? 'text-orange-400 border-orange-400/30 bg-orange-400/10' :
+                                r.status === 'running' || r.status === 'sent' || r.status === 'pending' ? 'text-blue-400 border-blue-400/30 bg-blue-400/10' :
+                                'text-text-muted border-border bg-bg-tertiary';
+                              const duration = r.startedAt && r.finishedAt
+                                ? Math.max(0, new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime())
+                                : null;
+                              return (
+                                <div key={r.id} className="flex items-center gap-2 text-xs px-2 py-1.5 bg-bg-secondary rounded border border-border/50">
+                                  <span className={`shrink-0 px-1.5 py-0.5 rounded-full border font-medium capitalize text-[10px] ${statusColor}`}>
+                                    {r.status}
+                                  </span>
+                                  <span className="text-text-muted shrink-0">{new Date(r.triggeredAt).toLocaleString()}</span>
+                                  <span className="text-text-primary font-medium truncate flex-1">{r.deviceName}</span>
+                                  {r.exitCode != null && (
+                                    <span className="text-text-muted shrink-0 font-mono">exit {r.exitCode}</span>
+                                  )}
+                                  {duration != null && (
+                                    <span className="text-text-muted shrink-0">
+                                      {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
+                                    </span>
+                                  )}
+                                  {r.stderr && (
+                                    <span className="text-red-400 truncate max-w-xs" title={r.stderr}>{r.stderr.split('\n')[0].slice(0, 80)}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
