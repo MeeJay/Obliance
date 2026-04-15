@@ -23,7 +23,8 @@ import { complianceApi } from '@/api/compliance.api';
 import { softwareComplianceApi } from '@/api/softwareCompliance.api';
 import { licenseApi } from '@/api/license.api';
 import { remoteApi, type ObliReachSession } from '@/api/remote.api';
-import { SshTerminalModal } from '@/components/SshTerminalModal';
+// SshTerminalModal is no longer used directly — shell sessions live in
+// the global multi-session panel (components/layout/GlobalShellPanel).
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { useChatStore } from '@/store/chatStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -2629,12 +2630,9 @@ function RemoteTab({ device }: { device: Device }) {
   const [sessions, setSessions] = useState<RemoteSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  // Modal open flags — set immediately on button click so the modal shows a
-  // connecting overlay before REMOTE_TUNNEL_READY arrives.
-  const [sshModalOpen, setSshModalOpen] = useState(false);
+  // Oblireach modal open flag. Shell sessions (SSH/CMD/PowerShell) now
+  // live in the global multi-session panel.
   const [orModalOpen, setOrModalOpen]   = useState(false);
-  // Null while establishing, populated when REMOTE_TUNNEL_READY fires.
-  const [sshSession, setSshSession] = useState<RemoteSession | null>(null);
   const [orSession,  setOrSession]  = useState<RemoteSession | null>(null);
   // Track the session ID we are personally waiting for so a concurrent
   // session started by another user doesn't overwrite our modal state.
@@ -2701,8 +2699,8 @@ function RemoteTab({ device }: { device: Device }) {
       // Only update the modal if this is the session WE started — not a
       // concurrent session opened by another user on the same device.
       if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
-        setSshSession(session);
         pendingSshId.current = null;
+        // Shell sessions are managed by GlobalShellPanel via the global store.
       } else if (session.protocol === 'oblireach' && session.id === pendingOrId.current) {
         setOrSession(session);
         pendingOrId.current = null;
@@ -2836,16 +2834,42 @@ function RemoteTab({ device }: { device: Device }) {
 
   const startShellSession = async (protocol: 'ssh' | 'cmd' | 'powershell', wtsSessionId?: number) => {
     setShellSessionPickerOpen(false);
-    setSshSession(null);
-    setSshModalOpen(true);
     setIsStarting(true);
     try {
       const session = await remoteApi.startSession(device.id, protocol, undefined, wtsSessionId);
       pendingSshId.current = session.id;
       setSessions((prev) => [session, ...prev]);
+
+      // Push to the global multi-session panel instead of opening a
+      // modal local to this page — the user can then minimize, tab
+      // between shells, and it survives route changes.
+      const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
+      const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+      const add = () => useRemoteShellStore.getState().addSession({
+        id: session.sessionToken,
+        deviceId: device.id,
+        deviceName,
+        protocol,
+        sessionToken: session.sessionToken,
+      });
+      const socket = getSocket();
+      if (socket) {
+        const onReady = (s: RemoteSession) => {
+          if (s.deviceId !== device.id || s.id !== session.id) return;
+          socket.off('REMOTE_TUNNEL_READY', onReady);
+          add();
+        };
+        socket.on('REMOTE_TUNNEL_READY', onReady);
+        setTimeout(() => {
+          socket.off('REMOTE_TUNNEL_READY', onReady);
+          const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
+          if (!already) add();
+        }, 1500);
+      } else {
+        add();
+      }
     } catch {
       toast.error('Failed to start remote session');
-      setSshModalOpen(false);
     } finally {
       setIsStarting(false);
     }
@@ -2980,13 +3004,7 @@ function RemoteTab({ device }: { device: Device }) {
           </div>
         </div>
       )}
-      {sshModalOpen && (
-        <SshTerminalModal
-          session={sshSession}
-          deviceName={anonymize(device.displayName || device.hostname)}
-          onClose={() => { setSshModalOpen(false); setSshSession(null); }}
-        />
-      )}
+      {/* Shell sessions now render in the global GlobalShellPanel. */}
       <div className="space-y-4">
       {/* Start session buttons */}
       <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
@@ -3108,7 +3126,24 @@ function RemoteTab({ device }: { device: Device }) {
                 {session.status === 'active' && isShellProtocol(session.protocol) && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setSshSession(session); setSshModalOpen(true); }}
+                      onClick={async () => {
+                        const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+                        const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
+                        // If already in the panel, just switch to it; else add.
+                        const st = useRemoteShellStore.getState();
+                        if (st.sessions.find((x) => x.id === session.sessionToken)) {
+                          st.setActive(session.sessionToken);
+                          st.setOpen(true);
+                        } else {
+                          st.addSession({
+                            id: session.sessionToken,
+                            deviceId: device.id,
+                            deviceName,
+                            protocol: session.protocol as 'ssh' | 'cmd' | 'powershell',
+                            sessionToken: session.sessionToken,
+                          });
+                        }
+                      }}
                       className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
                     >
                       Open
@@ -4195,26 +4230,39 @@ export function DeviceDetailPage() {
       return;
     }
 
-    setHeaderRemoteProtocol(protocol);
-    setHeaderRemoteSession(null);
-    setHeaderRemoteOpen(true);
+    // SSH / CMD / PowerShell now go through the global multi-session panel
+    // so they can be minimized, switched between, and survive route changes.
     setIsStartingRemote(true);
     try {
       const session = await remoteApi.startSession(deviceId, protocol);
+      const deviceName = anonymize(device?.displayName || device?.hostname) || `#${deviceId}`;
+      const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+      const add = () => useRemoteShellStore.getState().addSession({
+        id: session.sessionToken,
+        deviceId,
+        deviceName,
+        protocol,
+        sessionToken: session.sessionToken,
+      });
       const socket = getSocket();
       if (socket) {
         const onReady = (s: RemoteSession) => {
           if (s.deviceId !== deviceId || s.id !== session.id) return;
-          setHeaderRemoteSession(s);
           socket.off('REMOTE_TUNNEL_READY', onReady);
-          remoteReadyListenerRef.current = null;
+          add();
         };
-        remoteReadyListenerRef.current = onReady;
         socket.on('REMOTE_TUNNEL_READY', onReady);
+        // Safety: open the tab anyway after 1.5s even if READY never came.
+        setTimeout(() => {
+          socket.off('REMOTE_TUNNEL_READY', onReady);
+          const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
+          if (!already) add();
+        }, 1500);
+      } else {
+        add();
       }
     } catch {
       toast.error(`Failed to start ${protocol.toUpperCase()} session`);
-      setHeaderRemoteOpen(false);
     } finally {
       setIsStartingRemote(false);
     }
@@ -4358,13 +4406,8 @@ export function DeviceDetailPage() {
           }}
         />
       )}
-      {headerRemoteOpen && (headerRemoteProtocol === 'ssh' || headerRemoteProtocol === 'cmd' || headerRemoteProtocol === 'powershell') && (
-        <SshTerminalModal
-          session={headerRemoteSession}
-          deviceName={anonymize(device.displayName || device.hostname)}
-          onClose={() => { setHeaderRemoteOpen(false); setHeaderRemoteSession(null); }}
-        />
-      )}
+      {/* SSH/CMD/PowerShell sessions now live in the global panel rendered
+          at the AppLayout level — nothing to render here anymore. */}
       {/* Chat session picker (RDS) */}
       {chatSessionPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

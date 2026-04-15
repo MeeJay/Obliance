@@ -6,6 +6,7 @@ import { DesktopUpdateBanner } from './DesktopUpdateBanner';
 import { LiveAlerts } from './LiveAlerts';
 import { GlobalAddAgentModal } from './GlobalAddAgentModal';
 import { GlobalChatPanel } from './GlobalChatPanel';
+import { GlobalShellPanel } from './GlobalShellPanel';
 import { useUiStore } from '@/store/uiStore';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/utils/cn';
@@ -161,6 +162,7 @@ export function AppLayout() {
 
       {/* Global persistent chat (multi-tab, survives page navigation) */}
       <GlobalChatPanel />
+      <GlobalShellPanel />
     </div>
   );
 }
