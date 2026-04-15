@@ -171,6 +171,32 @@ export const DeviceRow = memo(function DeviceRow({
             <MiniBar label="CPU" value={cpuPct} />
             <MiniBar label="RAM" value={ramPct} />
             <MiniBar label="Disk" value={diskPct} />
+            {device.customMetrics && device.customMetrics.length > 0 && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {device.customMetrics.slice(0, 3).map((m) => {
+                  const color =
+                    m.status === 'critical' ? 'border-red-400/40 text-red-400' :
+                    m.status === 'warning'  ? 'border-yellow-400/40 text-yellow-400' :
+                    m.status === 'error'    ? 'border-gray-400/40 text-gray-400' :
+                                               'border-cyan-400/40 text-cyan-400';
+                  return (
+                    <span
+                      key={m.scheduleId}
+                      title={`${m.name}: ${m.value}${m.unit ? ' ' + m.unit : ''}`}
+                      className={clsx('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border bg-bg-tertiary/60 text-[10px] font-mono', color)}
+                    >
+                      <span className="font-semibold">{m.value}</span>
+                      {m.unit && <span className="opacity-70">{m.unit}</span>}
+                    </span>
+                  );
+                })}
+                {device.customMetrics.length > 3 && (
+                  <span className="text-[10px] text-text-muted" title={device.customMetrics.slice(3).map((m) => `${m.name}: ${m.value}${m.unit ? ' ' + m.unit : ''}`).join('\n')}>
+                    +{device.customMetrics.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 

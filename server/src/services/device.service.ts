@@ -166,14 +166,41 @@ class DeviceService {
       .orderBy(sortCol, sortDir)
       .limit(pageSize).offset((page - 1) * pageSize);
 
-    return {
-      items: rows.map((row: any) => {
-        const device = this.rowToDevice(row);
-        (device as any).groupName = row.group_name ?? null;
-        return device;
-      }),
-      total, page, pageSize,
-    };
+    const items = rows.map((row: any) => {
+      const device = this.rowToDevice(row);
+      (device as any).groupName = row.group_name ?? null;
+      return device;
+    });
+
+    // Attach custom metrics in a single batch query (avoids N+1).
+    await this._attachCustomMetrics(items, tenantId);
+
+    return { items, total, page, pageSize };
+  }
+
+  /** Batch-load custom metrics for a list of devices and attach them in-place. */
+  private async _attachCustomMetrics(devices: Device[], tenantId: number): Promise<void> {
+    if (devices.length === 0) return;
+    const ids = devices.map((d) => d.id);
+    const rows = await db('device_custom_metrics')
+      .where({ tenant_id: tenantId })
+      .whereIn('device_id', ids)
+      .select('device_id', 'schedule_id', 'name', 'value', 'unit', 'status');
+    const byDevice = new Map<number, any[]>();
+    for (const r of rows) {
+      const list = byDevice.get(r.device_id) ?? [];
+      list.push({
+        scheduleId: r.schedule_id,
+        name: r.name,
+        value: r.value,
+        unit: r.unit,
+        status: r.status,
+      });
+      byDevice.set(r.device_id, list);
+    }
+    for (const d of devices) {
+      (d as any).customMetrics = byDevice.get(d.id) ?? [];
+    }
   }
 
   /** Legacy non-paginated list — used by sidebar and internal calls. */
@@ -232,16 +259,21 @@ class DeviceService {
       .select('devices.*', 'device_groups.name as group_name')
       .orderBy(sortCol, sortDir);
 
-    return rows.map((row: any) => {
+    const items = rows.map((row: any) => {
       const device = this.rowToDevice(row);
       (device as any).groupName = row.group_name ?? null;
       return device;
     });
+    await this._attachCustomMetrics(items, tenantId);
+    return items;
   }
 
   async getDeviceById(id: number, tenantId: number): Promise<Device | null> {
     const row = await db('devices').where({ id, tenant_id: tenantId }).first();
-    return row ? this.rowToDevice(row) : null;
+    if (!row) return null;
+    const device = this.rowToDevice(row);
+    await this._attachCustomMetrics([device], tenantId);
+    return device;
   }
 
   async getDeviceByUuid(uuid: string, tenantId: number): Promise<Device | null> {

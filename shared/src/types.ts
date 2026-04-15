@@ -165,6 +165,7 @@ export interface Device {
   privacyPasswordSetAt: string | null;
   airgapEnabled: boolean;
   airgapEnabledAt: string | null;
+  customMetrics?: Array<{ scheduleId: number; name: string; value: string; unit: string | null; status: string }>;
   lastLoggedInUser: string | null;
   lastRebootAt: string | null;
   rebootPending: boolean;

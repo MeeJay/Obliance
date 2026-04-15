@@ -96,6 +96,37 @@ export function useSocket() {
       fetchSummary();
     });
 
+    // ── Custom metrics ─────────────────────────────────────────────────────────
+    // Update the device row in the store so any rendered grid / detail page
+    // refreshes its metric chips without a manual reload.
+    socket.on('CUSTOM_METRIC_UPDATED', (data: { deviceId: number; scheduleId: number; name?: string; value?: string; unit?: string | null; status?: string }) => {
+      if (!data?.deviceId || !data?.scheduleId) return;
+      const store = useDeviceStore.getState();
+      const dev = store.devices.get(data.deviceId);
+      if (!dev) return;
+      const list = ((dev as any).customMetrics ?? []) as Array<{ scheduleId: number; name: string; value: string; unit: string | null; status: string }>;
+      const idx = list.findIndex((m) => m.scheduleId === data.scheduleId);
+      let next = list.slice();
+      if (idx >= 0) {
+        next[idx] = {
+          ...next[idx],
+          name: data.name ?? next[idx].name,
+          value: data.value ?? next[idx].value,
+          unit: data.unit ?? next[idx].unit,
+          status: data.status ?? next[idx].status,
+        };
+      } else if (data.name && data.value !== undefined) {
+        next.push({
+          scheduleId: data.scheduleId,
+          name: data.name,
+          value: data.value,
+          unit: data.unit ?? null,
+          status: data.status ?? 'ok',
+        });
+      }
+      updateDevice(data.deviceId, { customMetrics: next } as any);
+    });
+
     // ── Group events ───────────────────────────────────────────────────────────
     socket.on(SocketEvents.GROUP_CREATED, (data: { group: DeviceGroup }) => {
       addGroup(data.group);
@@ -122,6 +153,7 @@ export function useSocket() {
       socket.off(SocketEvents.DEVICE_OFFLINE);
       socket.off(SocketEvents.DEVICE_APPROVED);
       socket.off(SocketEvents.DEVICE_DELETED);
+      socket.off('CUSTOM_METRIC_UPDATED');
       socket.off(SocketEvents.GROUP_CREATED);
       socket.off(SocketEvents.GROUP_UPDATED);
       socket.off(SocketEvents.GROUP_DELETED);
