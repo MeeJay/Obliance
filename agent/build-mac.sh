@@ -82,9 +82,41 @@ fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
+# ── Build tray for both architectures (CGO — needs Cocoa) ────────────────────
+#
+# The tray uses getlantern/systray, which on macOS binds to NSStatusBar via
+# Cocoa. Cross-compilation works the same way as the agent (native CGO on
+# the current arch, clang -arch trick for the other).
+
+echo ""
+echo "Building Obliance Tray $VERSION for darwin/$NATIVE_GOARCH (native, CGO_ENABLED=1)..."
+CGO_ENABLED=1 GOOS=darwin GOARCH="$NATIVE_GOARCH" \
+  go build \
+    -ldflags="-s -w -X main.trayVersion=$VERSION" \
+    -o "$OUT_DIR/obliance-tray-darwin-$NATIVE_GOARCH" \
+    ./cmd/tray
+echo "  → $OUT_DIR/obliance-tray-darwin-$NATIVE_GOARCH"
+
+echo ""
+echo "Building Obliance Tray $VERSION for darwin/$CROSS_GOARCH (cross, clang -arch $CROSS_CLANG_ARCH)..."
+if CGO_ENABLED=1 GOOS=darwin GOARCH="$CROSS_GOARCH" \
+     CGO_CFLAGS="-arch $CROSS_CLANG_ARCH" \
+     CGO_LDFLAGS="-arch $CROSS_CLANG_ARCH" \
+     go build \
+       -ldflags="-s -w -X main.trayVersion=$VERSION" \
+       -o "$OUT_DIR/obliance-tray-darwin-$CROSS_GOARCH" \
+       ./cmd/tray 2>&1; then
+  echo "  → $OUT_DIR/obliance-tray-darwin-$CROSS_GOARCH"
+else
+  echo "  WARNING: Cross-compilation of tray to darwin/$CROSS_GOARCH failed — skipping."
+fi
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+
 echo ""
 echo "Built binaries:"
 ls -lh "$OUT_DIR"/obliance-agent-darwin-* 2>/dev/null || true
+ls -lh "$OUT_DIR"/obliance-tray-darwin-*  2>/dev/null || true
 echo ""
 echo "Next steps:"
 echo "  1. The .bat script (00-A3-build-mac-agent.bat) retrieves both binaries automatically."

@@ -69,9 +69,16 @@ func SetPrivacyMode(enabled bool, changedBy string) error {
 	if err != nil {
 		return fmt.Errorf("privacy: marshal: %w", err)
 	}
-	if err := os.WriteFile(privacyFile, data, 0644); err != nil {
+	// 0666 so the tray process (running as the logged-in user) can also
+	// update the file when the user clicks the tray menu. On Windows the
+	// mode is essentially ignored (ACLs govern access) — on macOS/Linux the
+	// daemon runs as root so without 0666 the user tray couldn't write.
+	// Explicit Chmod after WriteFile because the daemon's umask (typically
+	// 022) would otherwise strip the world-write bit.
+	if err := os.WriteFile(privacyFile, data, 0666); err != nil {
 		return fmt.Errorf("privacy: write: %w", err)
 	}
+	_ = os.Chmod(privacyFile, 0666)
 
 	privacyMu.Lock()
 	privacyEnabled = enabled
@@ -94,10 +101,22 @@ func SetPrivacyMode(enabled bool, changedBy string) error {
 }
 
 // loadPrivacyState reads the current state from disk into memory.
+// On first boot it also ensures privacy.json exists with mode 0666 so the
+// tray app (running as the logged-in user on macOS/Linux) can toggle the
+// state without root privileges.
 func loadPrivacyState() {
 	data, err := os.ReadFile(privacyFile)
 	if err != nil {
 		// File doesn't exist yet — privacy off by default.
+		// Seed an empty state file with 0666 so the user-session tray can
+		// later overwrite it. Errors are non-fatal (dir may not yet exist
+		// on very first boot; privacy just stays OFF in memory).
+		if os.IsNotExist(err) {
+			_ = os.MkdirAll(configDir, 0755)
+			empty, _ := json.MarshalIndent(privacyState{Enabled: false}, "", "  ")
+			_ = os.WriteFile(privacyFile, empty, 0666)
+			_ = os.Chmod(privacyFile, 0666) // bypass daemon umask
+		}
 		return
 	}
 	var state privacyState

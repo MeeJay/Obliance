@@ -121,6 +121,11 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'obliance-agent-darwin-amd64':    'obliance-agent-darwin-amd64',
   'obliance-agent-darwin-arm64':    'obliance-agent-darwin-arm64',
   'obliance-agent-freebsd-amd64':  'obliance-agent-freebsd-amd64',
+  // Tray (menu bar) icons — optional, macOS + Linux
+  'obliance-tray-darwin-amd64':     'obliance-tray-darwin-amd64',
+  'obliance-tray-darwin-arm64':     'obliance-tray-darwin-arm64',
+  'obliance-tray-linux-amd64':      'obliance-tray-linux-amd64',
+  'obliance-tray-linux-arm64':      'obliance-tray-linux-arm64',
   // Oblireach agent (remote desktop streaming)
   'oblireach-agent.msi':            'oblireach-agent.msi',
   'oblireach-agent.exe':            'oblireach-agent.exe',

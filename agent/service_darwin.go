@@ -6,8 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 const (
@@ -15,6 +18,10 @@ const (
 	launchdPlist    = "/Library/LaunchDaemons/com.obliance.agent.plist"
 	installBinPath  = "/usr/local/bin/obliance-agent"
 	logFile         = "/var/log/obliance-agent.log"
+
+	trayLabel       = "com.obliance.tray"
+	trayPlistPath   = "/Library/LaunchAgents/com.obliance.tray.plist"
+	trayBinPath     = "/usr/local/bin/obliance-tray"
 )
 
 // runAsService checks for "install" / "uninstall" positional arguments
@@ -122,16 +129,120 @@ func installLaunchdService(urlArg, keyArg string) {
 	fmt.Println("  To stop:      sudo launchctl unload " + launchdPlist)
 	fmt.Println("  To uninstall: sudo obliance-agent uninstall")
 	_ = cfg // config already saved
+
+	// ── 5. Install tray (menu bar icon) ─────────────────────────────────────
+	// The tray binary is downloaded from the same server endpoint the agent
+	// itself uses. Failure is non-fatal — the agent works without the tray.
+	if err := installTray(cfg.ServerURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: tray installation skipped: %v\n", err)
+	}
 }
 
-// uninstallLaunchdService stops and removes the launchd daemon.
+// installTray downloads the obliance-tray binary for the current architecture
+// and registers it as a per-user LaunchAgent. When a user logs in, launchd
+// starts the tray in their Aqua session automatically.
+func installTray(serverURL string) error {
+	arch := runtime.GOARCH // "amd64" or "arm64"
+	filename := fmt.Sprintf("obliance-tray-darwin-%s", arch)
+	url := fmt.Sprintf("%s/api/agent/download/%s", strings.TrimRight(serverURL, "/"), filename)
+
+	fmt.Printf("Downloading tray binary from %s…\n", url)
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("tray binary not available on server (skipped)")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download: HTTP %d", resp.StatusCode)
+	}
+
+	out, err := os.OpenFile(trayBinPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", trayBinPath, err)
+	}
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		out.Close()
+		return fmt.Errorf("write %s: %w", trayBinPath, err)
+	}
+	out.Close()
+
+	// Clear the quarantine attribute Gatekeeper adds to downloaded files so
+	// the LaunchAgent can exec it without a security warning.
+	_ = newCmd("xattr", "-d", "com.apple.quarantine", trayBinPath).Run()
+
+	fmt.Printf("Tray binary installed to %s\n", trayBinPath)
+
+	// ── Write LaunchAgent plist ─────────────────────────────────────────────
+	trayPlistContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>%s</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>%s</string>
+    </array>
+
+    <!-- Launch once a user logs into Aqua, restart on crash -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/obliance-tray.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/obliance-tray.log</string>
+</dict>
+</plist>
+`, trayLabel, trayBinPath)
+
+	if err := os.WriteFile(trayPlistPath, []byte(trayPlistContent), 0644); err != nil {
+		return fmt.Errorf("write plist %s: %w", trayPlistPath, err)
+	}
+	fmt.Printf("LaunchAgent plist written to %s\n", trayPlistPath)
+
+	// ── Bootstrap for the user who invoked sudo (if any) ─────────────────────
+	// $SUDO_UID is set by sudo and identifies the real user's UID. Without
+	// it (e.g. root login shell), we skip bootstrapping and rely on the next
+	// login to pick the LaunchAgent up automatically.
+	if uid := os.Getenv("SUDO_UID"); uid != "" {
+		_ = newCmd("launchctl", "bootout", fmt.Sprintf("gui/%s/%s", uid, trayLabel)).Run()
+		if err := newCmd("launchctl", "bootstrap", fmt.Sprintf("gui/%s", uid), trayPlistPath).Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: launchctl bootstrap failed (user will see tray at next login): %v\n", err)
+		} else {
+			fmt.Printf("Tray loaded for user UID %s\n", uid)
+		}
+	} else {
+		fmt.Println("Tray will appear in the menu bar at the next user login.")
+	}
+
+	return nil
+}
+
+// uninstallLaunchdService stops and removes the launchd daemon AND the
+// per-user tray LaunchAgent.
 func uninstallLaunchdService() {
 	fmt.Println("Unloading launchd daemon…")
 	if err := newCmd("launchctl", "unload", launchdPlist).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: launchctl unload: %v\n", err)
 	}
 
-	for _, path := range []string{launchdPlist, installBinPath} {
+	// Best-effort tray removal. Bootout first for the sudo-invoking user,
+	// then delete the plist + binary.
+	if uid := os.Getenv("SUDO_UID"); uid != "" {
+		_ = newCmd("launchctl", "bootout", fmt.Sprintf("gui/%s/%s", uid, trayLabel)).Run()
+	}
+
+	for _, path := range []string{launchdPlist, installBinPath, trayPlistPath, trayBinPath} {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove %s: %v\n", path, err)
 		} else if err == nil {

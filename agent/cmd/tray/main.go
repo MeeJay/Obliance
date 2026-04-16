@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,20 +13,17 @@ import (
 	"github.com/getlantern/systray"
 )
 
-//go:embed icon_normal.ico
-var iconNormal []byte // green — connected, all good
-
-//go:embed icon_privacy.ico
-var iconPrivacy []byte // orange — privacy mode active
-
-//go:embed icon_disconnected.ico
-var iconDisconnected []byte // grey — service not running
-
-//go:embed icon_remote.ico
-var iconRemote []byte // red — ObliReach remote session active
-
-//go:embed icon_airgap.ico
-var iconAirgap []byte // blue — airgap mode (network isolated)
+// Icon byte slices are populated by platform-specific files:
+//   icons_windows.go → embeds .ico (Windows uses ICO natively)
+//   icons_unix.go    → embeds .png (macOS NSImage / Linux GTK use PNG)
+// Declared here as vars so refreshState() can reference them directly.
+var (
+	iconNormal       []byte // green — connected, all good
+	iconPrivacy      []byte // orange — privacy mode active
+	iconDisconnected []byte // grey — service not running
+	iconRemote       []byte // red — ObliReach remote session active
+	iconAirgap       []byte // blue — airgap mode (network isolated)
+)
 
 // ── State files (shared with agent service via ProgramData) ──────────────────
 
@@ -66,6 +62,9 @@ func init() {
 		}
 		configDir = filepath.Join(programData, "OblianceAgent")
 	} else {
+		// macOS + Linux: matches agent/main.go init() so tray reads the
+		// same files the daemon writes. privacy.json is created with mode
+		// 0666 by the daemon so the user-session tray can toggle it.
 		configDir = "/etc/obliance-agent"
 	}
 	privacyFile = filepath.Join(configDir, "privacy.json")
@@ -91,7 +90,7 @@ func writePrivacy(enabled bool, by string) {
 		ChangedBy: by,
 	}
 	data, _ := json.MarshalIndent(s, "", "  ")
-	os.WriteFile(privacyFile, data, 0644)
+	os.WriteFile(privacyFile, data, 0666)
 }
 
 func readRemoteSession() remoteSessionState {
@@ -131,14 +130,18 @@ func readAgentVersion() string {
 
 func readOblireachVersion() string {
 	var reachDataDir, reachBinDir string
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		programData := os.Getenv("PROGRAMDATA")
 		if programData == "" {
 			programData = `C:\ProgramData`
 		}
 		reachDataDir = filepath.Join(programData, "OblireachAgent")
 		reachBinDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
-	} else {
+	case "darwin":
+		reachDataDir = "/Library/Application Support/Oblireach"
+		reachBinDir = "/usr/local/oblireach-agent"
+	default:
 		reachDataDir = "/etc/oblireach-agent"
 		reachBinDir = "/etc/oblireach-agent"
 	}
@@ -169,22 +172,39 @@ func readOblireachVersion() string {
 }
 
 func isAgentServiceRunning() bool {
-	if runtime.GOOS != "windows" {
+	switch runtime.GOOS {
+	case "windows":
+		out, err := hiddenCmd("sc", "query", "OblianceAgent").Output()
+		if err != nil {
+			return false
+		}
+		return strings.Contains(string(out), "RUNNING")
+	case "darwin":
+		// launchctl list prints the PID in column 1 for loaded services.
+		// A dash "-" means loaded but not running.
+		out, err := hiddenCmd("launchctl", "list", "com.obliance.agent").Output()
+		if err != nil {
+			return false
+		}
+		// Look for "PID" = <number> in the plist-formatted output.
+		s := string(out)
+		return strings.Contains(s, `"PID" =`) && !strings.Contains(s, `"PID" = "-"`)
+	case "linux":
+		out, err := hiddenCmd("systemctl", "is-active", "obliance-agent").Output()
+		if err != nil {
+			return false
+		}
+		return strings.TrimSpace(string(out)) == "active"
+	default:
 		return false
 	}
-	out, err := hiddenCmd("sc", "query", "OblianceAgent").Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), "RUNNING")
 }
 
-// showToast displays a Windows toast notification.
+// showToast displays a native notification on the platform.
 func showToast(title, message string) {
-	if runtime.GOOS != "windows" {
-		return
-	}
-	script := fmt.Sprintf(`
+	switch runtime.GOOS {
+	case "windows":
+		script := fmt.Sprintf(`
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
 $template = @"
@@ -202,8 +222,26 @@ $xml.LoadXml($template)
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Obliance Agent").Show($toast)
 `, escapeXML(title), escapeXML(message))
-	cmd := hiddenCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	cmd.Run()
+		hiddenCmd("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).Run()
+
+	case "darwin":
+		// osascript needs escaping for quotes and backslashes inside the
+		// AppleScript string literal.
+		script := fmt.Sprintf(`display notification "%s" with title "%s"`,
+			escapeAppleScript(message), escapeAppleScript(title))
+		hiddenCmd("osascript", "-e", script).Run()
+
+	case "linux":
+		// notify-send is part of libnotify and pre-installed on most desktops.
+		hiddenCmd("notify-send", title, message).Run()
+	}
+}
+
+// escapeAppleScript escapes backslashes and double quotes for AppleScript string literals.
+func escapeAppleScript(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 func escapeXML(s string) string {
@@ -243,9 +281,12 @@ func onReady() {
 		mReachVersion.Disable()
 	} else {
 		var reachDir string
-		if runtime.GOOS == "windows" {
+		switch runtime.GOOS {
+		case "windows":
 			reachDir = filepath.Join(os.Getenv("ProgramFiles"), "ObliReachAgent")
-		} else {
+		case "darwin":
+			reachDir = "/usr/local/oblireach-agent"
+		default:
 			reachDir = "/etc/oblireach-agent"
 		}
 		exeName := "oblireach-agent"
