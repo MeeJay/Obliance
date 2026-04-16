@@ -16,6 +16,7 @@ package main
 // Reconnect: automatic, with a 10 s back-off.
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -73,9 +74,11 @@ func SendOnCommandChannel(msg interface{}) {
 
 // runCommandChannel loops forever, reconnecting to the server command channel
 // after each disconnect.  It should be started in a goroutine.
-func runCommandChannel(d *CommandDispatcher, serverURL, apiKey string) {
+// tlsInsecureSkipVerify MUST only be true for deployments explicitly configured
+// with a self-signed cert not present in the system trust store.
+func runCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsInsecureSkipVerify bool) {
 	for {
-		if err := connectCommandChannel(d, serverURL, apiKey); err != nil {
+		if err := connectCommandChannel(d, serverURL, apiKey, tlsInsecureSkipVerify); err != nil {
 			log.Printf("[cmd-channel] disconnected: %v — retrying in 10s", err)
 		}
 		time.Sleep(10 * time.Second)
@@ -84,7 +87,7 @@ func runCommandChannel(d *CommandDispatcher, serverURL, apiKey string) {
 
 // connectCommandChannel dials /api/agent/ws, handles incoming commands and
 // returns when the connection is lost.
-func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error {
+func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsInsecureSkipVerify bool) error {
 	base := strings.TrimRight(serverURL, "/")
 	var wsBase string
 	switch {
@@ -97,10 +100,15 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string) error
 	}
 	wsURL := wsBase + "/api/agent/ws"
 
+	var tlsCfg *tls.Config
+	if tlsInsecureSkipVerify {
+		tlsCfg = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key":     []string{apiKey},
 		"X-Device-UUID": []string{d.deviceUUID},
-	})
+	}, tlsCfg)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}

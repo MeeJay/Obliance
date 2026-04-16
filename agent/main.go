@@ -53,6 +53,11 @@ type Config struct {
 	TaskRetrieveDelaySec    int    `json:"taskRetrieveDelaySeconds,omitempty"` // command-poll interval (default 10)
 	RemediationEnabled      bool   `json:"remediationEnabled"`                // false = skip auto-remediation
 	AgentVersion            string `json:"agentVersion"`
+	// Opt-in: skip TLS certificate verification for ALL connections to the
+	// Obliance server (WebSocket command channel AND HTTPS REST/push/download).
+	// Required ONLY for self-hosted deployments with a self-signed cert NOT
+	// present in the system trust store. Leaving this false is strongly preferred.
+	TlsInsecureSkipVerify   bool   `json:"tlsInsecureSkipVerify,omitempty"`
 	BackoffUntil            int64  `json:"-"` // never persisted — in-memory only
 }
 
@@ -464,6 +469,11 @@ func mainLoop(cfg *Config) {
 	log.Printf("Server: %s", cfg.ServerURL)
 	log.Printf("Device UUID: %s", cfg.DeviceUUID)
 
+	// Apply TLS opt-in for self-hosted deployments with self-signed certs
+	// not present in the system trust store. Overrides http.DefaultTransport
+	// so every http.Client in the agent inherits the setting.
+	applyTlsConfig(cfg)
+
 	// Kill orphaned processes from previous runs (e.g. stuck WUA COM installers).
 	cleanupOrphanedProcesses()
 
@@ -490,12 +500,12 @@ func mainLoop(cfg *Config) {
 
 	// Initialise the command dispatcher used by push() to dispatch commands
 	// received in push responses and to accumulate acks for the next push.
-	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL, cfg.RemediationEnabled)
+	dispatcher = NewCommandDispatcher(cfg.DeviceUUID, cfg.APIKey, cfg.ServerURL, cfg.RemediationEnabled, cfg.TlsInsecureSkipVerify)
 
 	// Start the persistent command channel — keeps a long-lived WebSocket open
 	// so the server can push commands instantly (e.g. open_remote_tunnel)
 	// instead of waiting for the next poll cycle (up to 60 s).
-	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey)
+	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey, cfg.TlsInsecureSkipVerify)
 
 	// Check for a newer version before starting the command poller.
 	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).

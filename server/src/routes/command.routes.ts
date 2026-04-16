@@ -34,8 +34,27 @@ router.post('/', async (req, res, next) => {
       return next(new AppError(423, 'Privacy password is set — use /privacy/disable-with-password'));
     }
 
-    // Permission check — non-admins need write access to the device
+    // Permission check — non-admins need write access to the device.
+    //
+    // Command types whose payload can trigger arbitrary code execution on the
+    // agent (custom install scripts, attacker-chosen msi URLs) are forbidden
+    // on this generic endpoint for non-admins. Non-admins must instead use
+    // the dedicated routes (/software-compliance/check, /remediate) which
+    // resolve entries server-side from admin-curated lists — the payload is
+    // never taken from the client. Admins keep direct access here for debug
+    // and manual orchestration.
+    const ADMIN_ONLY_COMMANDS: CommandType[] = [
+      'install_software',
+      'uninstall_software',
+      'check_software_compliance',
+    ];
+
     if (req.session.role !== 'admin') {
+      if (ADMIN_ONLY_COMMANDS.includes(type)) {
+        return next(new AppError(403,
+          `Command type '${type}' must be invoked via the dedicated /api/software-compliance/* routes`));
+      }
+
       // Determine required capability based on command type
       const POWER_COMMANDS = ['reboot', 'shutdown', 'sleep', 'restart_agent', 'uninstall_agent'];
       const REMOTE_COMMANDS = ['open_remote_tunnel', 'close_remote_tunnel'];

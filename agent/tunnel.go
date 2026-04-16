@@ -23,6 +23,7 @@ package main
 // immediately after the connections are established (not when they close).
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -159,9 +160,13 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	}
 
 	// 2. Connect WebSocket to Obliance server
+	var tlsCfg *tls.Config
+	if d.tlsInsecureSkipVerify {
+		tlsCfg = &tls.Config{InsecureSkipVerify: true}
+	}
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
-	})
+	}, tlsCfg)
 	if err != nil {
 		return nil, fmt.Errorf("open_remote_tunnel: server WS connect failed: %w", err)
 	}
@@ -268,9 +273,13 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 // This backs the "ssh" protocol which gives a remote shell inside the browser.
 func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellCmd string, wtsSessionId int) (interface{}, error) {
 	// Connect WebSocket to Obliance server first so we can reject early if down.
+	var tlsCfg *tls.Config
+	if d.tlsInsecureSkipVerify {
+		tlsCfg = &tls.Config{InsecureSkipVerify: true}
+	}
 	ws, err := wsConnect(wsURL, http.Header{
 		"X-Api-Key": []string{d.apiKey},
-	})
+	}, tlsCfg)
 	if err != nil {
 		return nil, fmt.Errorf("open_remote_tunnel(ssh): server WS connect failed: %w", err)
 	}

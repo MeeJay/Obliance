@@ -31,21 +31,23 @@ type CommandAck struct {
 // CommandDispatcher receives AgentCommands, executes them in background
 // goroutines, and accumulates CommandAcks for the next push cycle.
 type CommandDispatcher struct {
-	deviceUUID           string
-	apiKey               string
-	serverURL            string
-	remediationEnabled   bool
-	pendingAcks          []CommandAck
-	mu                   sync.Mutex
+	deviceUUID            string
+	apiKey                string
+	serverURL             string
+	remediationEnabled    bool
+	tlsInsecureSkipVerify bool
+	pendingAcks           []CommandAck
+	mu                    sync.Mutex
 }
 
 // NewCommandDispatcher creates a CommandDispatcher bound to the given device.
-func NewCommandDispatcher(deviceUUID, apiKey, serverURL string, remediationEnabled bool) *CommandDispatcher {
+func NewCommandDispatcher(deviceUUID, apiKey, serverURL string, remediationEnabled, tlsInsecureSkipVerify bool) *CommandDispatcher {
 	return &CommandDispatcher{
-		deviceUUID:         deviceUUID,
-		apiKey:             apiKey,
-		serverURL:          serverURL,
-		remediationEnabled: remediationEnabled,
+		deviceUUID:            deviceUUID,
+		apiKey:                apiKey,
+		serverURL:             serverURL,
+		remediationEnabled:    remediationEnabled,
+		tlsInsecureSkipVerify: tlsInsecureSkipVerify,
 	}
 }
 

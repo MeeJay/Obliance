@@ -34,7 +34,10 @@ type wsConn struct {
 // wsConnect dials rawURL (ws:// or wss://, or http:// / https:// aliases),
 // performs the HTTP upgrade handshake, and returns a ready-to-use wsConn.
 // extraHeaders are appended verbatim to the upgrade request.
-func wsConnect(rawURL string, extraHeaders http.Header) (*wsConn, error) {
+// If tlsCfg is nil and the scheme is wss, the system default trust store is
+// used (full certificate verification). Callers MUST explicitly opt into
+// InsecureSkipVerify by passing a *tls.Config that sets it.
+func wsConnect(rawURL string, extraHeaders http.Header, tlsCfg *tls.Config) (*wsConn, error) {
 	scheme, host, path, err := parseWsURL(rawURL)
 	if err != nil {
 		return nil, err
@@ -43,9 +46,20 @@ func wsConnect(rawURL string, extraHeaders http.Header) (*wsConn, error) {
 	// Dial TCP (plain or TLS)
 	var conn net.Conn
 	if scheme == "wss" {
-		conn, err = tls.Dial("tcp", host, &tls.Config{
-			InsecureSkipVerify: true, // self-signed certs are common in self-hosted RMM
-		})
+		cfg := tlsCfg
+		if cfg == nil {
+			cfg = &tls.Config{}
+		}
+		// SNI: derive from host (strip :port)
+		if cfg.ServerName == "" {
+			sniHost := host
+			if idx := strings.LastIndex(sniHost, ":"); idx >= 0 {
+				sniHost = sniHost[:idx]
+			}
+			cfg = cfg.Clone()
+			cfg.ServerName = sniHost
+		}
+		conn, err = tls.Dial("tcp", host, cfg)
 	} else {
 		conn, err = net.Dial("tcp", host)
 	}
