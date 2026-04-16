@@ -634,20 +634,20 @@ class DeviceService {
     // Don't flip 'updating' back to 'online' unless the agent version actually changed
     // (meaning the update completed). This prevents the flickering:
     // updating → online (last push before death) → offline → online
+    // Any push = agent is alive → online.
+    // - updating  → agent came back after self-update: we're done.
+    // - update_error → agent recovered on its own: back online.
+    // - anything else (except pending_uninstall) → standard alive ping.
+    // If the agent is actually still outdated, the normal update-check flow
+    // will re-trigger an update and re-enter the 'updating' cycle.
     let updatingCompleted = false;
-    if (prevStatus === 'updating') {
-      if (prevVersion !== push.agentVersion && push.agentVersion) {
-        // Version changed — update completed, go online
-        await db('devices').where({ id: deviceId }).update({ status: 'online', update_started_at: null });
-        updatingCompleted = true;
-      }
-      // else: same version still pushing during update — keep 'updating'
-    } else {
-      await db('devices')
-        .where({ id: deviceId })
-        .whereNot({ status: 'pending_uninstall' })
-        .update({ status: 'online', update_started_at: null });
+    if (prevStatus === 'updating' || prevStatus === 'update_error') {
+      updatingCompleted = true;
     }
+    await db('devices')
+      .where({ id: deviceId })
+      .whereNot({ status: 'pending_uninstall' })
+      .update({ status: 'online', update_started_at: null });
 
     // Emit real-time metrics update
     if (this.io) {

@@ -59,6 +59,7 @@ export async function notifyingUpdate(req: Request, res: Response): Promise<void
     // Mark the device as updating so the heartbeat monitor ignores missed pushes
     await db('devices').where({ id: device.id, tenant_id: agentTenantId }).update({
       status: 'updating',
+      update_started_at: new Date(),
       updated_at: new Date(),
     });
     res.json({ ok: true });
