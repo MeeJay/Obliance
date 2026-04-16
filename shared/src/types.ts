@@ -586,6 +586,8 @@ export interface ScriptSchedule {
   timeoutSeconds?: number | null;
   /** If true, skip devices that still have a previous execution in progress. */
   skipIfInFlight: boolean;
+  /** If true, only send one alert notification per device until recovery. */
+  notifyOnce: boolean;
   /** Number of approved + alive devices this schedule actually resolves to. */
   resolvedDeviceCount?: number;
   script?: Script;

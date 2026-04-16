@@ -1307,7 +1307,9 @@
     "tabHistory": "Historial",
     "assertPass": "Exigir éxito",
     "assertPassHelp": "Si el script termina con un código de error, el dispositivo mostrará \"Error de programación\" y se enviará una notificación.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Notificar una vez",
+    "notifyOnceHint": "Enviar solo una alerta por dispositivo hasta la recuperación — sin notificaciones repetidas en fallos consecutivos."
   },
   "policies": {
     "title": "Políticas",

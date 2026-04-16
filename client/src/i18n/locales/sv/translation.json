@@ -1179,7 +1179,9 @@
     "tabHistory": "Historik",
     "assertPass": "Kräv framgång",
     "assertPassHelp": "Om skriptet avslutas med en felkod visas \"Schemafel\" på enheten och en avisering skickas.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Meddela en gång",
+    "notifyOnceHint": "Skicka bara en varning per enhet tills återhämtning — inga upprepade notifieringar vid upprepade fel."
   },
   "policies": {
     "title": "Policies",

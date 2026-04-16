@@ -1179,7 +1179,9 @@
     "tabHistory": "Historia",
     "assertPass": "Wymagaj powodzenia",
     "assertPassHelp": "Jeśli skrypt zakończy się kodem błędu, urządzenie pokaże \"Błąd harmonogramu\" i zostanie wysłane powiadomienie.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Powiadom raz",
+    "notifyOnceHint": "Wyślij tylko jedno powiadomienie na urządzenie do czasu przywrócenia — brak powtórzonych powiadomień przy kolejnych błędach."
   },
   "policies": {
     "title": "Policies",

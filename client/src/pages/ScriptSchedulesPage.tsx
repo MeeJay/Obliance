@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User } from 'lucide-react';
+import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { scriptApi } from '@/api/script.api';
 import { scenarioApi } from '@/api/scenario.api';
 import { groupsApi } from '@/api/groups.api';
@@ -30,6 +31,7 @@ interface ScheduleFormData {
   catchupEnabled: boolean;
   catchupMax: number;
   assertPass: boolean;
+  notifyOnce: boolean;
   onFailureScenarioId: number | null;
   notificationChannels: AutomationNotificationBinding[];
   /** Optional override for the script's default timeout. Empty = use script default. */
@@ -51,6 +53,7 @@ const defaultForm: ScheduleFormData = {
   catchupEnabled: false,
   catchupMax: 3,
   assertPass: false,
+  notifyOnce: false,
   onFailureScenarioId: null,
   notificationChannels: [],
   timeoutSeconds: null,
@@ -79,6 +82,97 @@ function formatDate(val: string | null) {
   return new Date(val).toLocaleString();
 }
 
+// ── History batch row (expandable) ──────────────────────────────────────────
+function HistoryBatchRow({ time, items, ok, fail, pending, total, summaryColor, isSingle }: {
+  time: string;
+  items: { id: string; status: string; exitCode: number | null; stdout: string | null; stderr: string | null; triggeredAt: string; startedAt: string | null; finishedAt: string | null; deviceId: number; deviceName: string }[];
+  ok: number; fail: number; pending: number; total: number;
+  summaryColor: string; isSingle: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const statusBadge = (s: string) => {
+    const c =
+      s === 'success' ? 'text-green-400 border-green-400/30 bg-green-400/10' :
+      s === 'failure' ? 'text-red-400 border-red-400/30 bg-red-400/10' :
+      s === 'timeout' ? 'text-orange-400 border-orange-400/30 bg-orange-400/10' :
+      s === 'running' || s === 'sent' || s === 'pending' ? 'text-blue-400 border-blue-400/30 bg-blue-400/10' :
+      'text-text-muted border-border bg-bg-tertiary';
+    return <span className={`shrink-0 px-1.5 py-0.5 rounded-full border font-medium capitalize text-[10px] ${c}`}>{s}</span>;
+  };
+
+  const fmtDuration = (r: typeof items[0]) => {
+    if (!r.startedAt || !r.finishedAt) return null;
+    const ms = Math.max(0, new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime());
+    return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  return (
+    <div className="rounded border border-border/50 bg-bg-secondary overflow-hidden">
+      {/* Summary row */}
+      <button
+        onClick={() => !isSingle && setOpen((v) => !v)}
+        className={clsx(
+          'w-full flex items-center gap-2 text-xs px-2 py-1.5 text-left',
+          !isSingle && 'hover:bg-bg-tertiary/50 cursor-pointer',
+          isSingle && 'cursor-default',
+        )}
+      >
+        {!isSingle && (
+          open
+            ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+            : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
+        )}
+        <span className="text-text-muted shrink-0">{new Date(time).toLocaleString()}</span>
+        {isSingle ? (
+          <>
+            {statusBadge(items[0].status)}
+            <Link to={`/devices/${items[0].deviceId}`} className="text-text-primary font-medium truncate hover:text-accent transition-colors flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              {items[0].deviceName}
+              <ExternalLink className="w-3 h-3 opacity-50" />
+            </Link>
+            {items[0].exitCode != null && <span className="text-text-muted shrink-0 font-mono">exit {items[0].exitCode}</span>}
+            {fmtDuration(items[0]) && <span className="text-text-muted shrink-0">{fmtDuration(items[0])}</span>}
+            {items[0].stderr && <span className="text-red-400 truncate max-w-xs" title={items[0].stderr}>{items[0].stderr.split('\n')[0].slice(0, 80)}</span>}
+          </>
+        ) : (
+          <>
+            <span className={`font-medium ${summaryColor}`}>
+              {ok > 0 && <span className="text-green-400">{ok} OK</span>}
+              {ok > 0 && (fail > 0 || pending > 0) && <span className="text-text-muted"> · </span>}
+              {fail > 0 && <span className="text-red-400">{fail} failed</span>}
+              {fail > 0 && pending > 0 && <span className="text-text-muted"> · </span>}
+              {pending > 0 && <span className="text-blue-400">{pending} pending</span>}
+            </span>
+            <span className="text-text-muted">({total} devices)</span>
+          </>
+        )}
+      </button>
+
+      {/* Expanded detail — per-device rows */}
+      {open && !isSingle && (
+        <div className="border-t border-border/30">
+          {items.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 text-xs px-3 py-1.5 border-b border-border/20 last:border-b-0 hover:bg-bg-tertiary/30">
+              {statusBadge(r.status)}
+              <Link
+                to={`/devices/${r.deviceId}`}
+                className="text-text-primary font-medium truncate hover:text-accent transition-colors flex items-center gap-1 flex-1 min-w-0"
+              >
+                <span className="truncate">{r.deviceName}</span>
+                <ExternalLink className="w-3 h-3 opacity-40 shrink-0" />
+              </Link>
+              {r.exitCode != null && <span className="text-text-muted shrink-0 font-mono">exit {r.exitCode}</span>}
+              {fmtDuration(r) && <span className="text-text-muted shrink-0">{fmtDuration(r)}</span>}
+              {r.stderr && <span className="text-red-400 truncate max-w-[200px]" title={r.stderr}>{r.stderr.split('\n')[0].slice(0, 60)}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
@@ -95,7 +189,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
   const loadScheduleHistory = useCallback(async (scheduleId: number) => {
     setLoadingHistoryId(scheduleId);
     try {
-      const rows = await scriptApi.getScheduleHistory(scheduleId, 10);
+      const rows = await scriptApi.getScheduleHistory(scheduleId, 50);
       setHistoryByScheduleId((prev) => ({ ...prev, [scheduleId]: rows }));
     } catch {
       toast.error('Failed to load schedule history');
@@ -162,6 +256,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       catchupEnabled: schedule.catchupEnabled,
       catchupMax: schedule.catchupMax,
       assertPass: schedule.assertPass ?? false,
+      notifyOnce: schedule.notifyOnce ?? false,
       onFailureScenarioId: schedule.onFailureScenarioId ?? null,
       notificationChannels: schedule.notificationChannels ?? [],
       timeoutSeconds: schedule.timeoutSeconds ?? null,
@@ -193,6 +288,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         catchupEnabled: form.catchupEnabled,
         catchupMax: form.catchupMax,
         assertPass: form.assertPass,
+        notifyOnce: form.notifyOnce,
         onFailureScenarioId: form.assertPass ? form.onFailureScenarioId : null,
         notificationChannels: form.notificationChannels,
         timeoutSeconds: form.timeoutSeconds,
@@ -498,6 +594,17 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               <p className="text-xs text-orange-400/80 ml-6">If the script exits with a non-zero code, the device will show a "Schedule Error" status and a notification will be sent.</p>
             )}
             {form.assertPass && (
+              <div className="ml-6">
+                <ToggleSwitch
+                  checked={form.notifyOnce}
+                  onChange={(v) => setForm({ ...form, notifyOnce: v })}
+                  label="Notify once"
+                  size="sm"
+                />
+                <p className="text-[10px] text-text-muted mt-0.5 ml-10">Only send one alert per device until recovery — no repeated notifications on consecutive failures.</p>
+              </div>
+            )}
+            {form.assertPass && (
               <div className="flex items-center gap-2 ml-6">
                 <span className="text-sm text-text-muted whitespace-nowrap">On failure, trigger scenario:</span>
                 <select
@@ -657,7 +764,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                       </div>
                     )}
 
-                    {/* History — last 10 executions */}
+                    {/* History — last executions, grouped by batch */}
                     <div className="md:col-span-4 pt-3 border-t border-border/50">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-text-muted uppercase font-medium">Recent history</p>
@@ -678,37 +785,44 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                             {schedule.lastRunAt && 'Schedule has ticked but no history rows were created — check server logs for dispatch errors (missing script, offline device, etc.).'}
                           </p>
                         );
+
+                        // Group executions by batchId. Entries without a batchId are shown individually.
+                        const batches: { key: string; time: string; items: typeof rows }[] = [];
+                        const byBatch = new Map<string, typeof rows>();
+                        for (const r of rows) {
+                          const k = r.batchId || r.id;
+                          if (!byBatch.has(k)) byBatch.set(k, []);
+                          byBatch.get(k)!.push(r);
+                        }
+                        for (const [key, items] of byBatch) {
+                          batches.push({ key, time: items[0].triggeredAt, items });
+                        }
+                        batches.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
                         return (
-                          <div className="space-y-1">
-                            {rows.map((r) => {
-                              const statusColor =
-                                r.status === 'success' ? 'text-green-400 border-green-400/30 bg-green-400/10' :
-                                r.status === 'failure' ? 'text-red-400 border-red-400/30 bg-red-400/10' :
-                                r.status === 'timeout' ? 'text-orange-400 border-orange-400/30 bg-orange-400/10' :
-                                r.status === 'running' || r.status === 'sent' || r.status === 'pending' ? 'text-blue-400 border-blue-400/30 bg-blue-400/10' :
-                                'text-text-muted border-border bg-bg-tertiary';
-                              const duration = r.startedAt && r.finishedAt
-                                ? Math.max(0, new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime())
-                                : null;
+                          <div className="space-y-1.5">
+                            {batches.map((batch) => {
+                              const ok = batch.items.filter((r) => r.status === 'success').length;
+                              const fail = batch.items.filter((r) => r.status === 'failure' || r.status === 'timeout').length;
+                              const pending = batch.items.filter((r) => r.status === 'pending' || r.status === 'sent' || r.status === 'running').length;
+                              const total = batch.items.length;
+                              const allOk = ok === total;
+                              const hasFail = fail > 0;
+                              const summaryColor = allOk ? 'text-green-400' : hasFail ? 'text-red-400' : 'text-blue-400';
+                              const isSingle = total === 1;
+
                               return (
-                                <div key={r.id} className="flex items-center gap-2 text-xs px-2 py-1.5 bg-bg-secondary rounded border border-border/50">
-                                  <span className={`shrink-0 px-1.5 py-0.5 rounded-full border font-medium capitalize text-[10px] ${statusColor}`}>
-                                    {r.status}
-                                  </span>
-                                  <span className="text-text-muted shrink-0">{new Date(r.triggeredAt).toLocaleString()}</span>
-                                  <span className="text-text-primary font-medium truncate flex-1">{r.deviceName}</span>
-                                  {r.exitCode != null && (
-                                    <span className="text-text-muted shrink-0 font-mono">exit {r.exitCode}</span>
-                                  )}
-                                  {duration != null && (
-                                    <span className="text-text-muted shrink-0">
-                                      {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
-                                    </span>
-                                  )}
-                                  {r.stderr && (
-                                    <span className="text-red-400 truncate max-w-xs" title={r.stderr}>{r.stderr.split('\n')[0].slice(0, 80)}</span>
-                                  )}
-                                </div>
+                                <HistoryBatchRow
+                                  key={batch.key}
+                                  time={batch.time}
+                                  items={batch.items}
+                                  ok={ok}
+                                  fail={fail}
+                                  pending={pending}
+                                  total={total}
+                                  summaryColor={summaryColor}
+                                  isSingle={isSingle}
+                                />
                               );
                             })}
                           </div>

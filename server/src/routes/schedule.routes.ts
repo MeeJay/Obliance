@@ -26,6 +26,7 @@ function rowToSchedule(row: any) {
     enabled: row.enabled,
     timeoutSeconds: row.timeout_seconds ?? null,
     skipIfInFlight: row.skip_if_in_flight !== false,
+    notifyOnce: row.notify_once ?? false,
     notificationChannels: typeof row.notification_channels === 'string'
       ? JSON.parse(row.notification_channels)
       : (row.notification_channels ?? []),
@@ -137,6 +138,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       catchup_max: req.body.catchupMax || 3,
       run_conditions: JSON.stringify(req.body.runConditions || []),
       assert_pass: req.body.assertPass ?? false,
+      notify_once: req.body.notifyOnce ?? false,
       notification_channels: JSON.stringify(req.body.notificationChannels ?? []),
       timeout_seconds: req.body.timeoutSeconds ?? null,
       skip_if_in_flight: req.body.skipIfInFlight !== false,
@@ -159,6 +161,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.cronExpression !== undefined) updates.cron_expression = req.body.cronExpression;
     if (req.body.catchupEnabled !== undefined) updates.catchup_enabled = req.body.catchupEnabled;
     if (req.body.assertPass !== undefined) updates.assert_pass = req.body.assertPass;
+    if (req.body.notifyOnce !== undefined) updates.notify_once = req.body.notifyOnce;
     if (req.body.targetType !== undefined) updates.target_type = req.body.targetType;
     if (req.body.targetIds !== undefined) updates.target_ids = JSON.stringify(req.body.targetIds);
     if (req.body.scriptId !== undefined) updates.script_id = req.body.scriptId;

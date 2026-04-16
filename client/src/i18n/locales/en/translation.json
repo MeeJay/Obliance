@@ -1510,7 +1510,9 @@
     "tabHistory": "History",
     "assertPass": "Assert pass",
     "assertPassHelp": "If the script exits with a non-zero code, the device will show a \"Schedule Error\" status and a notification will be sent.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Notify once",
+    "notifyOnceHint": "Only send one alert per device until recovery — no repeated notifications on consecutive failures."
   },
   "policies": {
     "title": "Policies",

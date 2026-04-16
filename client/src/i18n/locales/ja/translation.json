@@ -1179,7 +1179,9 @@
     "tabHistory": "履歴",
     "assertPass": "成功を要求",
     "assertPassHelp": "スクリプトがゼロ以外の終了コードで終了した場合、デバイスに「スケジュールエラー」が表示され、通知が送信されます。",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "一度だけ通知",
+    "notifyOnceHint": "復旧するまでデバイスごとに1回だけアラートを送信 — 連続する障害で繰り返し通知しません。"
   },
   "policies": {
     "title": "Policies",

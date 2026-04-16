@@ -339,7 +339,16 @@ class CommandService {
               if (schedule?.assert_pass) {
                 const device = await db('devices').where({ id: deviceId }).first();
                 if (execStatus === 'failure' || execStatus === 'timeout') {
-                  // Set schedule alert on the device
+                  // Check if there's already an active alert for the same schedule (notify_once dedup)
+                  let alreadyAlerting = false;
+                  if (schedule.notify_once && device?.schedule_alert) {
+                    const existing = typeof device.schedule_alert === 'string'
+                      ? JSON.parse(device.schedule_alert)
+                      : device.schedule_alert;
+                    alreadyAlerting = existing?.scheduleId === schedule.id;
+                  }
+
+                  // Set schedule alert on the device (always update, even if dedup)
                   const alertData = {
                     scheduleId: schedule.id,
                     scheduleName: schedule.name,
@@ -351,14 +360,16 @@ class CommandService {
                     schedule_alert: JSON.stringify(alertData),
                     updated_at: new Date(),
                   });
-                  // Send alert notification
-                  try {
-                    const { notificationService } = await import('./notification.service');
-                    const deviceName = device?.display_name || device?.hostname || `Device #${deviceId}`;
-                    const msg = `Schedule "${schedule.name}" failed on ${deviceName} (exit code ${alertData.exitCode})`;
-                    const detail = alertData.stderr ? `\n${alertData.stderr.slice(0, 500)}` : '';
-                    await notificationService.sendForAgent(deviceId, device?.tenant_id, 'warning', msg + detail);
-                  } catch {}
+                  // Send alert notification (skip if notify_once and alert already active)
+                  if (!alreadyAlerting) {
+                    try {
+                      const { notificationService } = await import('./notification.service');
+                      const deviceName = device?.display_name || device?.hostname || `Device #${deviceId}`;
+                      const msg = `Schedule "${schedule.name}" failed on ${deviceName} (exit code ${alertData.exitCode})`;
+                      const detail = alertData.stderr ? `\n${alertData.stderr.slice(0, 500)}` : '';
+                      await notificationService.sendForAgent(deviceId, device?.tenant_id, 'warning', msg + detail);
+                    } catch {}
+                  }
                   // Emit socket event
                   try {
                     const { getIO } = await import('../socket');

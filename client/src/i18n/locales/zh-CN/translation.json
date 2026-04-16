@@ -1179,7 +1179,9 @@
     "tabHistory": "历史",
     "assertPass": "要求成功",
     "assertPassHelp": "如果脚本以非零退出码结束，设备将显示\"计划错误\"状态并发送通知。",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "仅通知一次",
+    "notifyOnceHint": "每台设备在恢复前仅发送一次警报——连续失败时不重复通知。"
   },
   "policies": {
     "title": "Policies",

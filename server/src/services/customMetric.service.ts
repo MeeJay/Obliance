@@ -30,25 +30,32 @@ export function parseMetricStdout(stdout: string | null | undefined): ParsedMetr
   const trimmed = stdout.trim();
   if (!trimmed) return null;
 
-  // Try JSON first.
-  if (trimmed.startsWith('{')) {
-    try {
-      const obj = JSON.parse(trimmed);
-      if (obj && (obj.value !== undefined || obj.v !== undefined)) {
-        const value = String(obj.value ?? obj.v);
-        const unit = obj.unit ?? obj.u ?? null;
-        const name = obj.label ?? obj.name ?? undefined;
-        const status = obj.status && ['ok', 'warning', 'critical', 'error'].includes(obj.status) ? obj.status : undefined;
-        return { value, unit, name, status };
+  // Split into lines first — the JSON metric may be on the last line while
+  // earlier lines contain human-readable progress/detail text.
+  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return null;
+
+  // Try JSON: check both the full output and the last line.
+  // Scripts often print "detail text\n{json}" — the last line is the metric.
+  const jsonCandidates = [trimmed, lines[lines.length - 1]];
+  for (const candidate of jsonCandidates) {
+    if (candidate.startsWith('{')) {
+      try {
+        const obj = JSON.parse(candidate);
+        if (obj && (obj.value !== undefined || obj.v !== undefined)) {
+          const value = String(obj.value ?? obj.v);
+          const unit = obj.unit ?? obj.u ?? null;
+          const name = obj.label ?? obj.name ?? undefined;
+          const status = obj.status && ['ok', 'warning', 'critical', 'error'].includes(obj.status) ? obj.status : undefined;
+          return { value, unit, name, status };
+        }
+      } catch {
+        // Fall through.
       }
-    } catch {
-      // Fall through to plain parsing.
     }
   }
 
   // Plain: take the last non-empty line.
-  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-  if (lines.length === 0) return null;
   const last = lines[lines.length - 1];
 
   // Match: optional +/-, digits with optional decimal, optional SI prefix

@@ -1179,7 +1179,9 @@
     "tabHistory": "Cronologia",
     "assertPass": "Richiedi successo",
     "assertPassHelp": "Se lo script termina con un codice di errore, il dispositivo mostrerà \"Errore pianificazione\" e verrà inviata una notifica.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Notifica una volta",
+    "notifyOnceHint": "Invia un solo avviso per dispositivo fino al ripristino — nessuna notifica ripetuta per errori consecutivi."
   },
   "policies": {
     "title": "Policies",

@@ -1496,7 +1496,9 @@
     "tabHistory": "Historique",
     "assertPass": "Exiger le succès",
     "assertPassHelp": "Si le script se termine avec un code de sortie non nul, l'appareil affichera \"Erreur planification\" et une notification sera envoyée.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "Notifier une seule fois",
+    "notifyOnceHint": "N'envoie qu'une seule alerte par appareil jusqu'au rétablissement — pas de notifications répétées sur des échecs consécutifs."
   },
   "policies": {
     "title": "Politiques",

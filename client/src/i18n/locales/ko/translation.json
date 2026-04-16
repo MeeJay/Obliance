@@ -1179,7 +1179,9 @@
     "tabHistory": "기록",
     "assertPass": "성공 필수",
     "assertPassHelp": "스크립트가 0이 아닌 종료 코드로 종료되면 장치에 \"스케줄 오류\" 상태가 표시되고 알림이 전송됩니다.",
-    "assertPassBadge": "Assert"
+    "assertPassBadge": "Assert",
+    "notifyOnce": "한 번만 알림",
+    "notifyOnceHint": "복구될 때까지 장치당 하나의 알림만 전송 — 연속 실패 시 반복 알림 없음."
   },
   "policies": {
     "title": "Policies",
