@@ -172,10 +172,21 @@ export function GlobalShellPanel() {
     const handle = requestAnimationFrame(() => {
       const visibleSet = new Set(visibleIds);
 
-      // For every visible session, ensure its runtime exists and its DOM is
-      // attached to the right container. xterm.js only supports term.open()
-      // being called ONCE per terminal — subsequent moves must happen via
-      // DOM manipulation on term.element.
+      // Single-view: remove all non-visible terminal elements from the
+      // container first, otherwise overflow:hidden shows the first child
+      // (stale terminal) instead of the active one.
+      if (!isGroupMode && containerRef.current) {
+        for (const [id, rt] of runtimes.current) {
+          if (!visibleSet.has(id) && rt.opened) {
+            const el = (rt.term as any).element as HTMLElement | undefined;
+            if (el?.parentElement === containerRef.current) {
+              containerRef.current.removeChild(el);
+            }
+            rt.attachedTo = null;
+          }
+        }
+      }
+
       for (const id of visibleIds) {
         const session = sessions.find((s) => s.id === id);
         if (!session) continue;
