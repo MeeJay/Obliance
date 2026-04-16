@@ -227,7 +227,7 @@ router.get('/:id/history', async (req, res, next) => {
       .leftJoin('devices as d', 'd.id', 'se.device_id')
       .where({ 'se.schedule_id': scheduleId })
       .where(function () {
-        this.whereIn('se.batch_id', batchKeys).orWhereIn(db.raw('se.id::text'), batchKeys);
+        this.whereIn('se.batch_id', batchKeys).orWhereRaw('se.id::text = ANY(?)', [batchKeys]);
       })
       .select(
         'se.id', 'se.status', 'se.exit_code', 'se.stdout', 'se.stderr',
