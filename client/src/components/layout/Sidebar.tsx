@@ -107,6 +107,9 @@ function DraggableDeviceItem({
   // Match the group-row padding formula: each nesting level adds 12px, and
   // devices get an extra 22px so they clearly sit under their parent group
   // header's icon (not level with it).
+  // Padding lives on the Link (not the wrapper) so the active background
+  // starts flush with the outer container and the status dot has breathing
+  // room inside the highlighted pill instead of being glued to its left edge.
   const paddingLeft = indent ? depth * 12 + 22 : 8;
 
   return (
@@ -114,10 +117,11 @@ function DraggableDeviceItem({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      style={{ opacity: isDragging ? 0.4 : 1, paddingLeft }}
+      style={{ opacity: isDragging ? 0.4 : 1 }}
     >
       <Link
         to={`/devices/${device.id}`}
+        style={{ paddingLeft }}
         className={cn(
           'flex items-center gap-2 rounded-md py-1 pr-2 text-sm transition-colors',
           isActive

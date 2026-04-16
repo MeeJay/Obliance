@@ -24,6 +24,9 @@ interface Runtime {
   ws: WebSocket | null;
   /** DOM element the terminal is currently attached to (null before first attach) */
   attachedTo: HTMLElement | null;
+  /** Whether term.open() has been called once already. After that we move
+   *  the terminal's own DOM element instead of re-opening. */
+  opened: boolean;
 }
 
 const PROTOCOL_LABEL: Record<ShellProtocol, string> = {
@@ -149,7 +152,7 @@ export function GlobalShellPanel() {
       if (ws.readyState === WebSocket.OPEN) sendResize(ws, cols, rows);
     });
 
-    const rt: Runtime = { term, fit, ws, attachedTo: null };
+    const rt: Runtime = { term, fit, ws, attachedTo: null, opened: false };
     runtimes.current.set(session.id, rt);
     return rt;
   }, [setStatus]);
@@ -169,15 +172,10 @@ export function GlobalShellPanel() {
     const handle = requestAnimationFrame(() => {
       const visibleSet = new Set(visibleIds);
 
-      // Detach terminals no longer visible — empty their current container.
-      for (const [id, rt] of runtimes.current) {
-        if (!visibleSet.has(id) && rt.attachedTo) {
-          try { rt.attachedTo.replaceChildren(); } catch {}
-          rt.attachedTo = null;
-        }
-      }
-
-      // Attach each visible terminal to its designated container.
+      // For every visible session, ensure its runtime exists and its DOM is
+      // attached to the right container. xterm.js only supports term.open()
+      // being called ONCE per terminal — subsequent moves must happen via
+      // DOM manipulation on term.element.
       for (const id of visibleIds) {
         const session = sessions.find((s) => s.id === id);
         if (!session) continue;
@@ -185,27 +183,42 @@ export function GlobalShellPanel() {
         const target = isGroupMode
           ? tileRefs.current.get(id) ?? null
           : containerRef.current;
-        if (!target) {
-          // Target not yet in DOM — next render cycle will re-run this effect.
-          continue;
-        }
+        if (!target) continue; // Not in DOM yet — effect will re-run.
+
+        // Same target? Just refit.
         if (rt.attachedTo === target) {
           try { rt.fit.fit(); } catch {}
           continue;
         }
-        // If the runtime was attached to a now-orphaned element (single↔grid
-        // switch), we need to fully reset. Detach first, then open into the
-        // new target.
-        if (rt.attachedTo && rt.attachedTo !== target) {
-          try { rt.attachedTo.replaceChildren(); } catch {}
-          rt.attachedTo = null;
-        }
+
         try {
-          rt.term.open(target);
-          rt.fit.fit();
+          if (!rt.opened) {
+            // First-time attach: let xterm build its DOM inside `target`.
+            rt.term.open(target);
+            rt.opened = true;
+          } else {
+            // Move the already-built terminal element into the new parent.
+            // Appending a DOM node that already has a parent auto-removes
+            // it from the old one (standard DOM behaviour).
+            const el = (rt.term as any).element as HTMLElement | undefined;
+            if (el) target.appendChild(el);
+            else rt.term.open(target); // fallback (shouldn't happen)
+          }
           rt.attachedTo = target;
+          rt.fit.fit();
         } catch (err) {
           console.error('shell attach failed', err);
+        }
+      }
+
+      // Cleanup: if a runtime is no longer visible, leave its DOM where it
+      // is (it will be implicitly removed when the next visible runtime
+      // moves into the same container, or when the containing div unmounts).
+      // We still clear `attachedTo` so the next visible transition treats
+      // it as needing re-attachment.
+      for (const [id, rt] of runtimes.current) {
+        if (!visibleSet.has(id) && rt.attachedTo) {
+          rt.attachedTo = null;
         }
       }
 
@@ -588,11 +601,23 @@ export function GlobalShellPanel() {
                   capped.map((d) => {
                     const protocols: ShellProtocol[] =
                       d.osType === 'windows' ? ['cmd', 'powershell'] : ['ssh'];
+                    const inPrivacy = !!d.privacyModeEnabled;
                     return (
-                      <div key={d.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-bg-tertiary/50">
+                      <div
+                        key={d.id}
+                        className={clsx(
+                          'flex items-center gap-3 px-4 py-2.5 border-b border-border/30 last:border-b-0',
+                          inPrivacy ? 'opacity-60' : 'hover:bg-bg-tertiary/50',
+                        )}
+                      >
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-text-primary truncate" title={d.displayName || d.hostname}>
-                            {d.displayName || d.hostname}
+                          <div className="text-sm text-text-primary truncate flex items-center gap-2" title={d.displayName || d.hostname}>
+                            <span className="truncate">{d.displayName || d.hostname}</span>
+                            {inPrivacy && (
+                              <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
+                                privacy
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-text-muted">
                             {d.osName || d.osType} · {d.ipLocal || d.ipPublic || 'no IP'}
@@ -602,11 +627,14 @@ export function GlobalShellPanel() {
                           {protocols.map((p) => (
                             <button
                               key={p}
+                              disabled={inPrivacy}
                               onClick={() => {
+                                if (inPrivacy) return;
                                 openNew(d.id, d.displayName || d.hostname || '', p);
                                 setPickerOpen(false);
                               }}
-                              className="text-xs px-2.5 py-1 rounded border border-border text-text-muted hover:text-accent hover:border-accent/40 hover:bg-accent/5 transition-colors"
+                              title={inPrivacy ? 'Privacy mode is active — unlock Remote on the device detail page first' : undefined}
+                              className="text-xs px-2.5 py-1 rounded border border-border text-text-muted hover:text-accent hover:border-accent/40 hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text-muted disabled:hover:border-border disabled:hover:bg-transparent transition-colors"
                             >
                               {PROTOCOL_LABEL[p]}
                             </button>

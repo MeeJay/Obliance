@@ -189,17 +189,32 @@ func dispatchHubCommand(d *CommandDispatcher, msg hubCommand, sendAck func(hubAc
 
 	var result interface{}
 	var cmdErr error
+	var privacyBlocked bool
 
-	switch msg.CommandType {
-	case "open_remote_tunnel":
-		result, cmdErr = d.handleOpenRemoteTunnel(cmd)
-	case "close_remote_tunnel":
-		result, cmdErr = d.handleCloseRemoteTunnel(cmd)
-	default:
-		// All other command types are executed synchronously so the result
-		// can be sent back via the WS channel immediately, without waiting
-		// for the next HTTP push cycle (which can be up to 60 s away).
-		result, cmdErr = d.ExecuteSync(cmd)
+	// Privacy mode gate — enforced at the command_channel dispatch layer
+	// so NO command type bypasses it. Must match the check in
+	// executeCommand/ExecuteSync so all paths share one source of truth.
+	if IsPrivacyMode() && isBlockedByPrivacy(msg.CommandType) {
+		token, _ := cmd.Payload["unlockToken"].(string)
+		feature := privacyFeatureForCommand(msg.CommandType)
+		if !CheckUnlockToken(token, feature) {
+			cmdErr = fmt.Errorf("privacy mode is enabled — remote access denied")
+			privacyBlocked = true
+			log.Printf("[cmd-channel] blocked %s (%s) by privacy mode", msg.ID, msg.CommandType)
+		}
+	}
+
+	if !privacyBlocked {
+		switch msg.CommandType {
+		case "open_remote_tunnel":
+			result, cmdErr = d.handleOpenRemoteTunnel(cmd)
+		case "close_remote_tunnel":
+			result, cmdErr = d.handleCloseRemoteTunnel(cmd)
+		default:
+			// All other command types are executed synchronously so the
+			// result can be sent back via the WS channel immediately.
+			result, cmdErr = d.ExecuteSync(cmd)
+		}
 	}
 
 	ack := hubAck{
