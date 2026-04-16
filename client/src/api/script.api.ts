@@ -61,18 +61,26 @@ export const scriptApi = {
     return res.data.data!;
   },
   async getScheduleHistory(id: number, limit = 10): Promise<Array<{
-    id: string;
-    status: string;
-    exitCode: number | null;
-    stdout: string | null;
-    stderr: string | null;
+    batchId: string;
     triggeredAt: string;
-    startedAt: string | null;
-    finishedAt: string | null;
-    triggeredBy: string;
-    batchId: string | null;
-    deviceId: number;
-    deviceName: string;
+    triggeredBy: string | null;
+    total: number;
+    ok: number;
+    fail: number;
+    pending: number;
+    items: Array<{
+      id: string;
+      status: string;
+      exitCode: number | null;
+      stdout: string | null;
+      stderr: string | null;
+      triggeredAt: string;
+      startedAt: string | null;
+      finishedAt: string | null;
+      deviceId: number;
+      deviceName: string;
+      deviceOsType: string | null;
+    }>;
   }>> {
     const res = await apiClient.get<ApiResponse<any[]>>(`/schedules/${id}/history`, { params: { limit } });
     return res.data.data ?? [];

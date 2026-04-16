@@ -197,39 +197,89 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
   }
 });
 
-// GET /api/schedules/:id/history — last N executions for a schedule
+// GET /api/schedules/:id/history — last N batches for a schedule, grouped.
+// Each batch contains all per-device executions with stdout/stderr.
 router.get('/:id/history', async (req, res, next) => {
   try {
     const scheduleId = parseInt(req.params.id);
-    const limit = Math.min(100, parseInt((req.query.limit as string) || '10'));
+    const batchLimit = Math.min(50, parseInt((req.query.limit as string) || '10'));
     const sched = await db('script_schedules').where({ id: scheduleId, tenant_id: req.tenantId! }).first();
     if (!sched) return res.status(404).json({ error: 'Not found' });
+
+    // Step 1: find the N most recent distinct batch_ids (or individual exec ids
+    // for entries without a batch).
+    const batchRows = await db('script_executions')
+      .where({ schedule_id: scheduleId })
+      .select(db.raw('COALESCE(batch_id, id::text) as batch_key'))
+      .select(db.raw('MAX(triggered_at) as triggered_at'))
+      .groupBy(db.raw('COALESCE(batch_id, id::text)'))
+      .orderBy('triggered_at', 'desc')
+      .limit(batchLimit);
+
+    if (batchRows.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    const batchKeys = batchRows.map((b: any) => b.batch_key);
+
+    // Step 2: fetch all executions belonging to those batches.
     const rows = await db('script_executions as se')
       .leftJoin('devices as d', 'd.id', 'se.device_id')
       .where({ 'se.schedule_id': scheduleId })
+      .where(function () {
+        this.whereIn('se.batch_id', batchKeys).orWhereIn(db.raw('se.id::text'), batchKeys);
+      })
       .select(
         'se.id', 'se.status', 'se.exit_code', 'se.stdout', 'se.stderr',
         'se.triggered_at', 'se.started_at', 'se.finished_at',
         'se.triggered_by', 'se.batch_id', 'se.device_id',
         'd.hostname as device_hostname',
         'd.display_name as device_display_name',
+        'd.os_type as device_os_type',
       )
-      .orderBy('se.triggered_at', 'desc')
-      .limit(limit);
-    res.json({ data: rows.map((r: any) => ({
+      .orderBy('se.triggered_at', 'desc');
+
+    // Step 3: group into batches.
+    const batchMap = new Map<string, any[]>();
+    for (const r of rows) {
+      const key = r.batch_id || String(r.id);
+      if (!batchMap.has(key)) batchMap.set(key, []);
+      batchMap.get(key)!.push(r);
+    }
+
+    const mapExec = (r: any) => ({
       id: r.id,
       status: r.status,
       exitCode: r.exit_code,
-      stdout: r.stdout,
-      stderr: r.stderr,
+      stdout: r.stdout ? String(r.stdout).slice(0, 4000) : null,
+      stderr: r.stderr ? String(r.stderr).slice(0, 4000) : null,
       triggeredAt: r.triggered_at,
       startedAt: r.started_at,
       finishedAt: r.finished_at,
-      triggeredBy: r.triggered_by,
-      batchId: r.batch_id,
       deviceId: r.device_id,
       deviceName: r.device_display_name || r.device_hostname || `#${r.device_id}`,
-    })) });
+      deviceOsType: r.device_os_type,
+    });
+
+    // Preserve batch order from step 1
+    const data = batchKeys.map((key: string) => {
+      const items = (batchMap.get(key) || []).map(mapExec);
+      const ok = items.filter((i: any) => i.status === 'success').length;
+      const fail = items.filter((i: any) => i.status === 'failure' || i.status === 'timeout').length;
+      const pending = items.filter((i: any) => ['pending', 'sent', 'running'].includes(i.status)).length;
+      return {
+        batchId: key,
+        triggeredAt: items[0]?.triggeredAt,
+        triggeredBy: (batchMap.get(key) || [])[0]?.triggered_by,
+        total: items.length,
+        ok,
+        fail,
+        pending,
+        items,
+      };
+    }).filter((b: any) => b.items.length > 0);
+
+    res.json({ data });
   } catch (err) { next(err); }
 });
 
