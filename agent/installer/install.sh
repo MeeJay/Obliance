@@ -103,6 +103,46 @@ SyslogIdentifier=$SERVICE_NAME
 WantedBy=multi-user.target
 EOF
 
+  # ── Watchdog sentinel ──────────────────────────────────────────────────
+  # Download the watchdog binary + install a systemd timer that pokes it
+  # every 5 minutes. If the agent service is dead, the watchdog restarts
+  # it and logs the event to $CONFIG_DIR/watchdog.json for the next push.
+  echo "   Installing watchdog..."
+  curl -fsSL "${SERVER_URL}/api/agent/download/obliance-watchdog-${BINARY_SUFFIX}" \
+    -o "$INSTALL_DIR/obliance-watchdog" 2>/dev/null || true
+  if [ -s "$INSTALL_DIR/obliance-watchdog" ]; then
+    chmod +x "$INSTALL_DIR/obliance-watchdog"
+
+    cat > "/etc/systemd/system/obliance-watchdog.service" <<EOF
+[Unit]
+Description=Obliance Agent Watchdog (one-shot)
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=$INSTALL_DIR/obliance-watchdog
+EOF
+
+    cat > "/etc/systemd/system/obliance-watchdog.timer" <<EOF
+[Unit]
+Description=Run Obliance Agent Watchdog every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=obliance-watchdog.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable --now obliance-watchdog.timer
+  else
+    echo "   Watchdog binary not available on server — skipping watchdog install."
+  fi
+
   systemctl daemon-reload
   systemctl enable "$SERVICE_NAME"
   systemctl restart "$SERVICE_NAME"

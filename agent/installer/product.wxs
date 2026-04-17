@@ -100,6 +100,18 @@
                          KeyPath="yes" />
         </Component>
 
+        <!--
+          Watchdog sentinel — runs every 5 minutes as SYSTEM via a Scheduled Task.
+          Restarts the OblianceAgent service if it stopped unexpectedly, and
+          records restarts to watchdog.json for the agent to report on next push.
+          The agent honours a watchdog.json "inhibitUntil" flag during auto-update
+          so msiexec's stop/start cycle is not disturbed.
+        -->
+        <Component Id="WatchdogExe" Guid="D4E5F6A7-B8C9-0123-DEF0-123456780004">
+          <File Id="WatchdogExeFile" Source="dist\obliance-watchdog.exe" Name="obliance-watchdog.exe"
+                DefaultVersion="65535.0.0.0" KeyPath="yes" />
+        </Component>
+
       </Directory>
     </StandardDirectory>
 
@@ -120,9 +132,32 @@
                   Impersonate="no"
                   Return="ignore" />
 
+    <!--
+      Scheduled Task: obliance-watchdog runs every 5 minutes as SYSTEM.
+      Created on install, removed on uninstall. If the task is deleted by
+      hand, the agent recreates it at startup (see main.go ensureWatchdogTask).
+    -->
+    <SetProperty Id="WdCreateProp" Value="[SystemFolder]cmd.exe" Sequence="execute" Before="WdCreate" />
+    <CustomAction Id="WdCreate"
+                  Property="WdCreateProp"
+                  ExeCommand="/C schtasks /Create /TN &quot;OblianceWatchdog&quot; /TR &quot;\&quot;[INSTALLFOLDER]obliance-watchdog.exe\&quot;&quot; /SC MINUTE /MO 5 /RU SYSTEM /RL HIGHEST /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <SetProperty Id="WdDeleteProp" Value="[SystemFolder]cmd.exe" Sequence="execute" Before="WdDelete" />
+    <CustomAction Id="WdDelete"
+                  Property="WdDeleteProp"
+                  ExeCommand="/C schtasks /Delete /TN &quot;OblianceWatchdog&quot; /F"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
     <InstallExecuteSequence>
       <Custom Action="KillTray" Before="InstallFiles" />
       <Custom Action="SvcFailure" After="StartServices" />
+      <Custom Action="WdCreate" After="SvcFailure" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="WdDelete" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
     </InstallExecuteSequence>
     <!-- Tray relaunch is handled by the agent service (watchTrayLoop) after it starts -->
 
@@ -130,6 +165,7 @@
       <ComponentRef Id="AgentExe" />
       <ComponentRef Id="AgentConfig" />
       <ComponentRef Id="TrayExe" />
+      <ComponentRef Id="WatchdogExe" />
     </Feature>
 
   </Package>

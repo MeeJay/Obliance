@@ -78,6 +78,8 @@ class DeviceService {
       privacyPasswordSetAt: row.privacy_password_set_at ?? null,
       airgapEnabled: row.airgap_enabled ?? false,
       airgapEnabledAt: row.airgap_enabled_at ?? null,
+      watchdogRestartCount: row.watchdog_restart_count ?? 0,
+      watchdogLastRestartAt: row.watchdog_last_restart_at ?? null,
       lastLoggedInUser: row.last_logged_in_user ?? null,
       lastRebootAt: row.last_reboot_at ?? null,
       rebootPending: row.reboot_pending ?? false,
@@ -648,6 +650,19 @@ class DeviceService {
       .where({ id: deviceId })
       .whereNot({ status: 'pending_uninstall' })
       .update({ status: 'online', update_started_at: null });
+
+    // Watchdog: if the agent reports that it was restarted by the watchdog
+    // since the last push, increment the running total and store the latest
+    // timestamp. A rising counter in a short window indicates an unstable
+    // agent/host that should be investigated.
+    const wdCount = Number(push.watchdogRestartCount ?? 0);
+    if (wdCount > 0) {
+      const lastAt = push.watchdogLastRestartAt ? new Date(push.watchdogLastRestartAt) : now;
+      await db('devices').where({ id: deviceId }).update({
+        watchdog_restart_count: db.raw('watchdog_restart_count + ?', [wdCount]),
+        watchdog_last_restart_at: lastAt,
+      });
+    }
 
     // Emit real-time metrics update
     if (this.io) {

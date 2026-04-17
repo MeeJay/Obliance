@@ -146,6 +146,13 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'schedule.created', {
+        resourceType: 'schedule', resourcePath: String(row.id),
+        details: { name: row.name, scriptId: row.script_id, cronExpression: row.cron_expression },
+      });
+    } catch {}
     res.status(201).json({ data: rowToSchedule(row) });
   } catch (err) {
     logger.error({ err, body: req.body }, 'schedule create failed');
@@ -190,6 +197,16 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
 
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).update(updates);
     const row = await db('script_schedules').where({ id: req.params.id }).first();
+    try {
+      const { auditService } = await import('../services/audit.service');
+      const action = req.body.enabled === true ? 'schedule.enabled'
+                   : req.body.enabled === false ? 'schedule.disabled'
+                   : 'schedule.updated';
+      await auditService.logReq(req, action, {
+        resourceType: 'schedule', resourcePath: String(req.params.id),
+        details: { name: row?.name, changes: Object.keys(updates) },
+      });
+    } catch {}
     res.json({ data: rowToSchedule(row) });
   } catch (err) {
     logger.error({ err, id: req.params.id, body: req.body }, 'schedule update failed');
@@ -315,7 +332,15 @@ router.get('/for-device/:deviceId', async (req, res, next) => {
 
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
+    const existing = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).delete();
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'schedule.deleted', {
+        resourceType: 'schedule', resourcePath: String(req.params.id),
+        details: { name: existing?.name },
+      });
+    } catch {}
     res.status(204).send();
   } catch (err) { next(err); }
 });

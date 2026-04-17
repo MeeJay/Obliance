@@ -27,6 +27,7 @@ import {
   Terminal,
   Laptop,
   ShieldCheck,
+  FileText,
   Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -277,6 +278,8 @@ interface NavItem {
   label: string;
   path: string;
   icon: React.ReactNode;
+  /** Optional red pill showing a pending-work count next to the label. */
+  badgeCount?: number;
 }
 
 function NavLink({ item }: { item: NavItem }) {
@@ -294,7 +297,12 @@ function NavLink({ item }: { item: NavItem }) {
       )}
     >
       {item.icon}
-      {item.label}
+      <span className="flex-1">{item.label}</span>
+      {item.badgeCount !== undefined && item.badgeCount > 0 && (
+        <span className="shrink-0 min-w-[1.25rem] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-semibold text-center">
+          {item.badgeCount > 99 ? '99+' : item.badgeCount}
+        </span>
+      )}
     </Link>
   );
 }
@@ -320,6 +328,7 @@ export function Sidebar() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
   const [search, setSearch] = useState('');
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
   const currentTenantId = useTenantStore(s => s.currentTenantId);
 
@@ -345,6 +354,35 @@ export function Sidebar() {
     const id = setInterval(loadDeviceData, 30_000);
     return () => clearInterval(id);
   }, [loadDeviceData, currentTenantId]);
+
+  // ── Pending approvals badge (admin only) ────────────────────────────────
+  useEffect(() => {
+    if (!admin) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { approvalApi } = await import('@/api/approval.api');
+        const rows = await approvalApi.list(false);
+        if (!cancelled) setPendingApprovalsCount(rows.length);
+      } catch { /* ignore */ }
+    };
+    load();
+    const socket = getSocket();
+    const handler = () => load();
+    if (socket) {
+      socket.on('APPROVAL_CREATED', handler);
+      socket.on('APPROVAL_UPDATED', handler);
+    }
+    const tick = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(tick);
+      if (socket) {
+        socket.off('APPROVAL_CREATED', handler);
+        socket.off('APPROVAL_UPDATED', handler);
+      }
+    };
+  }, [admin, currentTenantId]);
 
   // ── Real-time socket updates ────────────────────────────────────────────────
   useEffect(() => {
@@ -470,6 +508,8 @@ export function Sidebar() {
     { label: t('nav.agents'),        path: '/admin/devices',       icon: <Terminal size={18} /> },
     { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
+    { label: t('nav.approvals', 'Approvals'), path: '/admin/approvals', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount },
+    { label: t('nav.auditLog', 'Audit log'), path: '/admin/audit-log', icon: <FileText size={18} /> },
     { label: t('tenant.pageTitle'),  path: '/admin/tenants',       icon: <Building2 size={18} /> },
     { label: t('nav.settings'),      path: '/settings',            icon: <Settings size={18} /> },
   ];

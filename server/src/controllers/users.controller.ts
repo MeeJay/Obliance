@@ -37,6 +37,14 @@ export const usersController = {
     try {
       const data = req.body as CreateUserInput;
       const user = await userService.create(data);
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'user.created', {
+          resourceType: 'user',
+          resourcePath: String(user.id),
+          details: { username: user.username, role: user.role },
+        });
+      } catch {}
       res.status(201).json({ success: true, data: user });
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('unique')) {
@@ -73,6 +81,15 @@ export const usersController = {
 
       const user = await userService.update(id, data);
       if (!user) throw new AppError(404, 'User not found');
+      try {
+        const { auditService } = await import('../services/audit.service');
+        const roleChanged = data.role !== undefined && data.role !== targetUser.role;
+        await auditService.logReq(req, roleChanged ? 'user.role_changed' : 'user.updated', {
+          resourceType: 'user',
+          resourcePath: String(id),
+          details: { username: user.username, before: { role: targetUser.role, isActive: targetUser.isActive }, after: { role: user.role, isActive: user.isActive } },
+        });
+      } catch {}
       res.json({ success: true, data: user });
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('unique')) {
@@ -128,6 +145,14 @@ export const usersController = {
 
       const deleted = await userService.delete(id);
       if (!deleted) throw new AppError(404, 'User not found');
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'user.deleted', {
+          resourceType: 'user',
+          resourcePath: String(id),
+          details: { username: user?.username },
+        });
+      } catch {}
       res.json({ success: true, message: 'User deleted' });
     } catch (err) {
       next(err);

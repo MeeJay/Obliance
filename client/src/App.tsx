@@ -24,6 +24,8 @@ import { ProfilePage } from '@/pages/ProfilePage';
 import { ImportExportPage } from '@/pages/ImportExportPage';
 import { AdminTenantsPage } from '@/pages/AdminTenantsPage';
 import { CustomSectionsPage } from '@/pages/CustomSectionsPage';
+import { ApprovalsPage } from '@/pages/ApprovalsPage';
+import { AuditLogPage } from '@/pages/AuditLogPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import '@/i18n';
 
@@ -69,6 +71,8 @@ export default function App() {
               <Route path="/admin/import-export" element={<ImportExportPage />} />
               <Route path="/admin/tenants" element={<AdminTenantsPage />} />
               <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
+              <Route path="/admin/approvals" element={<ApprovalsPage />} />
+              <Route path="/admin/audit-log" element={<AuditLogPage />} />
             </Route>
           </Route>
         </Route>

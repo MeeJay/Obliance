@@ -26,10 +26,27 @@ GOOS=linux GOARCH=arm64 go build \
   -o dist/obliance-agent-linux-arm64 .
 
 # FreeBSD amd64 (cross-compiled from Linux)
-echo "  [3/3] freebsd/amd64..."
+echo "  [3/6] freebsd/amd64..."
 GOOS=freebsd GOARCH=amd64 go build \
   -ldflags="-s -w -X main.agentVersion=${VERSION}" \
   -o dist/obliance-agent-freebsd-amd64 .
 
+# Watchdog binaries — tiny companion process that restarts the agent
+# service if it dies. Installed alongside the agent by install.sh.
+echo "  [4/6] watchdog linux/amd64..."
+GOOS=linux GOARCH=amd64 go build \
+  -ldflags="-s -w" \
+  -o dist/obliance-watchdog-linux-amd64 ./cmd/watchdog/
+
+echo "  [5/6] watchdog linux/arm64..."
+GOOS=linux GOARCH=arm64 go build \
+  -ldflags="-s -w" \
+  -o dist/obliance-watchdog-linux-arm64 ./cmd/watchdog/
+
+echo "  [6/6] watchdog freebsd/amd64..."
+GOOS=freebsd GOARCH=amd64 go build \
+  -ldflags="-s -w" \
+  -o dist/obliance-watchdog-freebsd-amd64 ./cmd/watchdog/
+
 echo "Done. Binaries:"
-ls -lh dist/obliance-agent-linux-* dist/obliance-agent-freebsd-*
+ls -lh dist/obliance-agent-linux-* dist/obliance-agent-freebsd-* dist/obliance-watchdog-linux-* dist/obliance-watchdog-freebsd-*

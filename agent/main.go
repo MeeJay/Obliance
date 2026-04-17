@@ -350,12 +350,18 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 			return
 		}
 
+		// Tell the external watchdog to stand down for up to 15 minutes —
+		// msiexec is about to stop + reinstall the service and we don't
+		// want the watchdog to race us by trying to start it back up.
+		InhibitWatchdog(15 * time.Minute)
+
 		// Launch msiexec via a detached batch script — the script outlives the
 		// service process. msiexec will stop the service, install the new version,
 		// then restart it.
 		if err := applyWindowsMSIUpdate(msiPath, cfg.ServerURL, cfg.APIKey); err != nil {
 			os.Remove(msiPath)
 			log.Printf("Auto-update: Windows MSI update failed: %v", err)
+			ClearWatchdogInhibit()
 			return
 		}
 	} else {
@@ -484,6 +490,16 @@ func mainLoop(cfg *Config) {
 	// Load privacy mode state from disk and start watching for tray changes.
 	loadPrivacyState()
 	loadAirgapState()
+
+	// Agent just came back up — we passed whatever stop/start cycle the
+	// update or crash put us through, so clear any stale watchdog inhibit
+	// flag that an aborted update may have left behind.
+	ClearWatchdogInhibit()
+
+	// Self-heal the watchdog registration in case the Scheduled Task
+	// (Windows) or systemd timer (Linux) was removed by a user. The agent
+	// keeps the watchdog alive as long as the agent itself is alive.
+	go EnsureWatchdogRegistered()
 
 	addEvent("machine_boot", nil)
 

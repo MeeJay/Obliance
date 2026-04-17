@@ -121,6 +121,13 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'obliance-agent-darwin-amd64':    'obliance-agent-darwin-amd64',
   'obliance-agent-darwin-arm64':    'obliance-agent-darwin-arm64',
   'obliance-agent-freebsd-amd64':  'obliance-agent-freebsd-amd64',
+  // Watchdog — tiny sentinel that restarts the agent service if it dies
+  'obliance-watchdog.exe':           'obliance-watchdog.exe',
+  'obliance-watchdog-linux-amd64':   'obliance-watchdog-linux-amd64',
+  'obliance-watchdog-linux-arm64':   'obliance-watchdog-linux-arm64',
+  'obliance-watchdog-darwin-amd64':  'obliance-watchdog-darwin-amd64',
+  'obliance-watchdog-darwin-arm64':  'obliance-watchdog-darwin-arm64',
+  'obliance-watchdog-freebsd-amd64': 'obliance-watchdog-freebsd-amd64',
   // Tray (menu bar) icons — optional, macOS + Linux
   'obliance-tray-darwin-amd64':     'obliance-tray-darwin-amd64',
   'obliance-tray-darwin-arm64':     'obliance-tray-darwin-arm64',

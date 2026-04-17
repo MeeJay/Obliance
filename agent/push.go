@@ -52,19 +52,21 @@ func drainEvents() []AgentEvent {
 // ── Push request / response types ─────────────────────────────────────────────
 
 type pushBody struct {
-	DeviceUUID       string       `json:"deviceUuid"`
-	Hostname         string       `json:"hostname"`
-	AgentVersion     string       `json:"agentVersion"`
-	OSInfo           OSInfo       `json:"osInfo"`
-	Metrics          Metrics      `json:"metrics"`
-	Acks             []CommandAck `json:"acks,omitempty"`
-	IPLocal          string       `json:"ipLocal,omitempty"`
-	MACAddress       string       `json:"macAddress,omitempty"`
-	PrivacyMode      bool         `json:"privacyMode"`
-	AirgapMode       bool         `json:"airgapMode"`
-	LastLoggedInUser string       `json:"lastLoggedInUser,omitempty"`
-	DistroFamily     string       `json:"distroFamily,omitempty"`
-	Events           []AgentEvent `json:"events,omitempty"`
+	DeviceUUID            string       `json:"deviceUuid"`
+	Hostname              string       `json:"hostname"`
+	AgentVersion          string       `json:"agentVersion"`
+	OSInfo                OSInfo       `json:"osInfo"`
+	Metrics               Metrics      `json:"metrics"`
+	Acks                  []CommandAck `json:"acks,omitempty"`
+	IPLocal               string       `json:"ipLocal,omitempty"`
+	MACAddress            string       `json:"macAddress,omitempty"`
+	PrivacyMode           bool         `json:"privacyMode"`
+	AirgapMode            bool         `json:"airgapMode"`
+	LastLoggedInUser      string       `json:"lastLoggedInUser,omitempty"`
+	DistroFamily          string       `json:"distroFamily,omitempty"`
+	Events                []AgentEvent `json:"events,omitempty"`
+	WatchdogRestartCount  int          `json:"watchdogRestartCount,omitempty"`
+	WatchdogLastRestartAt string       `json:"watchdogLastRestartAt,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -187,31 +189,39 @@ func push(cfg *Config) {
 	}
 
 	ipLocal, macAddress := getLocalNetworkInfo()
+	// Drain watchdog restart events so they're reported alongside metrics.
+	// If the push fails (non-2xx), we restore them so the next attempt
+	// will carry them up.
+	wdCount, wdLast := drainWatchdogRestarts()
 	body := pushBody{
-		DeviceUUID:       cfg.DeviceUUID,
-		Hostname:         hostname,
-		AgentVersion:     cfg.AgentVersion,
-		OSInfo:           getOSInfo(),
-		Metrics:          collectMetrics(),
-		Acks:             acks,
-		IPLocal:          ipLocal,
-		MACAddress:       macAddress,
-		PrivacyMode:      IsPrivacyMode(),
-		AirgapMode:       IsAirgapMode(),
-		LastLoggedInUser: getLastLoggedInUser(),
-		DistroFamily:     getDistroFamily(),
-		Events:           drainEvents(),
+		DeviceUUID:            cfg.DeviceUUID,
+		Hostname:              hostname,
+		AgentVersion:          cfg.AgentVersion,
+		OSInfo:                getOSInfo(),
+		Metrics:               collectMetrics(),
+		Acks:                  acks,
+		IPLocal:               ipLocal,
+		MACAddress:            macAddress,
+		PrivacyMode:           IsPrivacyMode(),
+		AirgapMode:            IsAirgapMode(),
+		LastLoggedInUser:      getLastLoggedInUser(),
+		DistroFamily:          getDistroFamily(),
+		Events:                drainEvents(),
+		WatchdogRestartCount:  wdCount,
+		WatchdogLastRestartAt: wdLast,
 	}
 
 	data, err := json.Marshal(body)
 	if err != nil {
 		log.Printf("Push error (marshal): %v", err)
+		restoreWatchdogRestarts(wdCount, wdLast)
 		return
 	}
 
 	req, err := http.NewRequest("POST", cfg.ServerURL+"/api/agent/push", bytes.NewReader(data))
 	if err != nil {
 		log.Printf("Push error (request): %v", err)
+		restoreWatchdogRestarts(wdCount, wdLast)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -221,6 +231,7 @@ func push(cfg *Config) {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Printf("Push error: %v", err)
+		restoreWatchdogRestarts(wdCount, wdLast)
 		return
 	}
 	defer resp.Body.Close()

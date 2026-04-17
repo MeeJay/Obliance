@@ -111,6 +111,20 @@ else
   echo "  WARNING: Cross-compilation of tray to darwin/$CROSS_GOARCH failed — skipping."
 fi
 
+# ── Build watchdog for both architectures (pure Go, no CGO needed) ───────────
+echo ""
+echo "Building Obliance Watchdog for darwin (both architectures, CGO_ENABLED=0)..."
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 \
+  go build -ldflags="-s -w" \
+    -o "$OUT_DIR/obliance-watchdog-darwin-arm64" \
+    ./cmd/watchdog
+CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 \
+  go build -ldflags="-s -w" \
+    -o "$OUT_DIR/obliance-watchdog-darwin-amd64" \
+    ./cmd/watchdog
+echo "  → $OUT_DIR/obliance-watchdog-darwin-arm64"
+echo "  → $OUT_DIR/obliance-watchdog-darwin-amd64"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 echo ""

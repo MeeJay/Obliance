@@ -5,6 +5,7 @@ interface TenantRow {
   id: number;
   name: string;
   slug: string;
+  two_step_approval?: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -23,6 +24,7 @@ function rowToTenant(row: TenantRow): Tenant {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    twoStepApproval: !!row.two_step_approval,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -51,11 +53,12 @@ export const tenantService = {
     return rowToTenant(row as TenantRow);
   },
 
-  async update(id: number, data: { name?: string; slug?: string }): Promise<Tenant | null> {
-    const [row] = await db('tenants')
-      .where({ id })
-      .update({ ...data, updated_at: db.fn.now() })
-      .returning('*');
+  async update(id: number, data: { name?: string; slug?: string; twoStepApproval?: boolean }): Promise<Tenant | null> {
+    const patch: any = { updated_at: db.fn.now() };
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.slug !== undefined) patch.slug = data.slug;
+    if (data.twoStepApproval !== undefined) patch.two_step_approval = data.twoStepApproval;
+    const [row] = await db('tenants').where({ id }).update(patch).returning('*');
     return row ? rowToTenant(row as TenantRow) : null;
   },
 

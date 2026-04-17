@@ -53,6 +53,13 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
     const script = await scriptService.createScript(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'script.created', {
+        resourceType: 'script', resourcePath: String(script.id),
+        details: { name: script.name, platform: script.platform, purpose: script.purpose },
+      });
+    } catch {}
     res.status(201).json({ data: script });
   } catch (err) { next(err); }
 });
@@ -85,6 +92,13 @@ async function handleScriptUpdate(req: any, res: any, next: any) {
       ...req.body, updatedBy: req.session.userId,
     });
     if (!script) return res.status(404).json({ error: 'Script not found' });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'script.updated', {
+        resourceType: 'script', resourcePath: String(scriptId),
+        details: { name: script.name },
+      });
+    } catch {}
     res.json({ data: script });
   } catch (err) { next(err); }
 }
@@ -116,7 +130,16 @@ router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
 // DELETE /api/scripts/:id (admin only)
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    await scriptService.deleteScript(parseInt(req.params.id), req.tenantId!);
+    const id = parseInt(req.params.id);
+    const existing = await scriptService.getScriptById(id, req.tenantId!);
+    await scriptService.deleteScript(id, req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'script.deleted', {
+        resourceType: 'script', resourcePath: String(id),
+        details: { name: existing?.name },
+      });
+    } catch {}
     res.status(204).send();
   } catch (err) { next(err); }
 });

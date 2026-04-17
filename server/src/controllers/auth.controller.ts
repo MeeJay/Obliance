@@ -58,6 +58,22 @@ export const authController = {
       req.session.role = user.role;
       await setSessionTenant(req, user.id);
 
+      try {
+        const { auditService } = await import('../services/audit.service');
+        if (req.session.currentTenantId) {
+          await auditService.log({
+            tenantId: req.session.currentTenantId,
+            userId: user.id,
+            action: 'auth.login',
+            resourceType: 'user',
+            resourcePath: String(user.id),
+            details: { username: user.username, via: 'password' },
+            ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+              || req.socket?.remoteAddress || undefined,
+          });
+        }
+      } catch {}
+
       res.json({ success: true, data: { user } });
     } catch (err) {
       next(err);
@@ -66,12 +82,24 @@ export const authController = {
 
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      req.session.destroy((err) => {
+      const userId = req.session.userId;
+      const tenantId = req.session.currentTenantId;
+      req.session.destroy(async (err) => {
         if (err) {
           next(new AppError(500, 'Failed to logout'));
           return;
         }
         res.clearCookie('connect.sid');
+        try {
+          if (userId && tenantId) {
+            const { auditService } = await import('../services/audit.service');
+            await auditService.log({
+              tenantId, userId, action: 'auth.logout', resourceType: 'user', resourcePath: String(userId),
+              ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+                || req.socket?.remoteAddress || undefined,
+            });
+          }
+        } catch {}
         res.json({ success: true, message: 'Logged out' });
       });
     } catch (err) {

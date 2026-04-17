@@ -64,6 +64,8 @@ export interface Tenant {
   id: number;
   name: string;
   slug: string;
+  /** When true, destructive batch/uninstall actions require a 2nd admin approval. */
+  twoStepApproval?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,6 +167,10 @@ export interface Device {
   privacyPasswordSetAt: string | null;
   airgapEnabled: boolean;
   airgapEnabledAt: string | null;
+  /** Total count of watchdog-triggered agent restarts since install. */
+  watchdogRestartCount: number;
+  /** Timestamp of the last watchdog-triggered restart. */
+  watchdogLastRestartAt: string | null;
   customMetrics?: Array<{ scheduleId: number; name: string; value: string; unit: string | null; status: string }>;
   lastLoggedInUser: string | null;
   lastRebootAt: string | null;
@@ -441,6 +447,10 @@ export interface AgentPushRequest {
   acks: CommandAck[];
   agentVersion?: string;
   events?: AgentPushEvent[];
+  /** Number of watchdog-triggered restarts since the last successful push. */
+  watchdogRestartCount?: number;
+  /** ISO timestamp of the most recent watchdog restart (if count > 0). */
+  watchdogLastRestartAt?: string;
 }
 
 export interface CommandAck {

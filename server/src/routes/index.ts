@@ -47,6 +47,8 @@ import permissionSetsRoutes from './permissionSets.routes';
 import scenarioRoutes from './scenario.routes';
 import privacyGateRoutes from './privacyGate.routes';
 import customSectionRoutes from './customSection.routes';
+import approvalRoutes from './approval.routes';
+import auditRoutes from './audit.routes';
 
 const router = Router();
 
@@ -88,6 +90,8 @@ tenantRouter.use('/notifications', notificationsRoutes);
 tenantRouter.use('/users',       usersRoutes);
 tenantRouter.use('/teams',       teamsRoutes);
 tenantRouter.use('/maintenance', maintenanceRoutes);
+tenantRouter.use('/approvals',   approvalRoutes);
+tenantRouter.use('/audit-log',   auditRoutes);
 tenantRouter.use('/admin/config', adminRoutes);
 tenantRouter.use('/admin/smtp-servers', smtpRoutes);
 tenantRouter.use('/agent',       agentAdminRoutes);  // admin: API key management

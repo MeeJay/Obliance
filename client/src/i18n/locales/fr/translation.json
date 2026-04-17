@@ -93,6 +93,8 @@
     "signOut": "Se déconnecter",
     "pinSidebar": "Épingler la barre latérale",
     "floatSidebar": "Flottante",
+    "approvals": "Approbations",
+    "auditLog": "Journal d'audit",
     "devices": "Appareils",
     "scripts": "Scripts",
     "schedules": "Planifications",

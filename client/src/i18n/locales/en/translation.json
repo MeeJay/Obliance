@@ -93,6 +93,8 @@
     "signOut": "Sign out",
     "pinSidebar": "Pin sidebar",
     "floatSidebar": "Float sidebar",
+    "approvals": "Approvals",
+    "auditLog": "Audit log",
     "devices": "Devices",
     "scripts": "Scripts",
     "schedules": "Schedules",

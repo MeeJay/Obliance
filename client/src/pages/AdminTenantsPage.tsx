@@ -335,6 +335,26 @@ export function AdminTenantsPage() {
                     <p className="text-xs text-text-muted mt-0.5">
                       /{tenant.slug} · {t('tenant.createdAt')} {new Date(tenant.createdAt).toLocaleDateString()}
                     </p>
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!tenant.twoStepApproval}
+                        onChange={async (e) => {
+                          const checked = e.target.checked;
+                          await fetch(`/api/tenants/${tenant.id}`, {
+                            method: 'PUT',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ twoStepApproval: checked }),
+                          });
+                          fetchTenants();
+                        }}
+                        className="accent-accent"
+                      />
+                      <span className="text-[11px] text-text-secondary">
+                        {t('tenant.twoStepApproval', 'Require 2nd-admin approval for destructive actions')}
+                      </span>
+                    </label>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button

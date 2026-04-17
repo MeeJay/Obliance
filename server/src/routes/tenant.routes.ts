@@ -88,9 +88,31 @@ router.put('/:id', async (req, res, next) => {
   try {
     if (req.session.role !== 'admin') throw new AppError(403, 'Admin only');
     const id = parseInt(req.params.id);
-    const { name, slug } = req.body as { name?: string; slug?: string };
-    const tenant = await tenantService.update(id, { name, slug });
+    const before = await tenantService.getById(id);
+    const { name, slug, twoStepApproval } = req.body as { name?: string; slug?: string; twoStepApproval?: boolean };
+    const tenant = await tenantService.update(id, { name, slug, twoStepApproval });
     if (!tenant) throw new AppError(404, 'Tenant not found');
+    try {
+      const { auditService } = await import('../services/audit.service');
+      const changes: Record<string, unknown> = {};
+      if (name !== undefined && name !== before?.name) changes.name = { from: before?.name, to: name };
+      if (slug !== undefined && slug !== before?.slug) changes.slug = { from: before?.slug, to: slug };
+      if (twoStepApproval !== undefined && twoStepApproval !== before?.twoStepApproval) {
+        changes.twoStepApproval = { from: before?.twoStepApproval, to: twoStepApproval };
+      }
+      if (Object.keys(changes).length > 0) {
+        await auditService.log({
+          tenantId: id,
+          userId: req.session.userId,
+          action: 'tenant.settings_changed',
+          resourceType: 'tenant',
+          resourcePath: String(id),
+          details: changes,
+          ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+            || req.socket?.remoteAddress || undefined,
+        });
+      }
+    } catch {}
     res.json({ success: true, data: tenant });
   } catch (err) {
     next(err);

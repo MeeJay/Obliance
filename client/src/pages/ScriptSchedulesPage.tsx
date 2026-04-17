@@ -592,7 +592,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             <input
               type="number"
               min={0}
-              placeholder="(script default)"
+              placeholder="(default)"
               value={form.timeoutSeconds ?? ''}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -604,73 +604,78 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             <span className="text-xs text-text-muted">seconds — empty = use script default, 0 = no timeout</span>
           </div>
 
-          <div className="pt-2">
-            <ToggleSwitch
-              checked={form.skipIfInFlight}
-              onChange={(v) => setForm({ ...form, skipIfInFlight: v })}
-              label="Skip if still running"
-              description="On each tick, skip devices whose previous run hasn't finished yet."
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-6 pt-2">
+          {/*
+            Toggles block — kept on a single wrapping row, with each toggle
+            isolated in its own flex item so Tailwind's gap-6 can flow them
+            cleanly. The "Max catchup runs" input is grouped with its parent
+            toggle so the pair never breaks apart on wrap. Tooltips are
+            attached via `title` on the switch — the old inline <p> pushed
+            other items to a new line and misaligned the row.
+          */}
+          <div className="flex flex-wrap gap-x-6 gap-y-3 pt-2 items-center">
             <ToggleSwitch
               checked={form.enabled}
               onChange={(v) => setForm({ ...form, enabled: v })}
               label="Enabled"
+              title="When off, the cron loop ignores this schedule entirely — no ticks, no history."
             />
             <ToggleSwitch
-              checked={form.catchupEnabled}
-              onChange={(v) => setForm({ ...form, catchupEnabled: v })}
-              label="Enable catchup"
+              checked={form.skipIfInFlight}
+              onChange={(v) => setForm({ ...form, skipIfInFlight: v })}
+              label="Skip if still running"
+              title="On each tick, skip devices whose previous execution hasn't finished yet. Prevents overlapping runs on slow hosts."
             />
-            {form.catchupEnabled && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-text-muted">Max catchup runs:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={form.catchupMax}
-                  onChange={(e) => setForm({ ...form, catchupMax: parseInt(e.target.value, 10) || 3 })}
-                  className="w-16 px-2 py-1 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <ToggleSwitch
+                checked={form.catchupEnabled}
+                onChange={(v) => setForm({ ...form, catchupEnabled: v })}
+                label="Enable catchup"
+                title="If the server was down during a scheduled tick, run it once the server is back (bounded by Max catchup runs)."
+              />
+              {form.catchupEnabled && (
+                <>
+                  <span className="text-xs text-text-muted whitespace-nowrap">Max:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={form.catchupMax}
+                    onChange={(e) => setForm({ ...form, catchupMax: parseInt(e.target.value, 10) || 3 })}
+                    className="w-14 px-2 py-1 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                    title="Maximum number of missed runs to catch up on."
+                  />
+                </>
+              )}
+            </div>
             <ToggleSwitch
               checked={form.assertPass}
               onChange={(v) => setForm({ ...form, assertPass: v })}
               label="Assert pass"
+              title={'When the script exits non-zero, mark the device with a "Schedule Error" status and fire a notification. Leave off for pure-metric scripts where a non-zero exit is expected behaviour.'}
             />
-            {form.assertPass && (
-              <p className="text-xs text-orange-400/80 ml-6">If the script exits with a non-zero code, the device will show a "Schedule Error" status and a notification will be sent.</p>
-            )}
-            {form.assertPass && (
-              <div className="ml-6">
-                <ToggleSwitch
-                  checked={form.notifyOnce}
-                  onChange={(v) => setForm({ ...form, notifyOnce: v })}
-                  label="Notify once"
-                  size="sm"
-                />
-                <p className="text-[10px] text-text-muted mt-0.5 ml-10">Only send one alert per device until recovery — no repeated notifications on consecutive failures.</p>
-              </div>
-            )}
-            {form.assertPass && (
-              <div className="flex items-center gap-2 ml-6">
-                <span className="text-sm text-text-muted whitespace-nowrap">On failure, trigger scenario:</span>
-                <select
-                  value={form.onFailureScenarioId ?? ''}
-                  onChange={(e) => setForm({ ...form, onFailureScenarioId: e.target.value ? parseInt(e.target.value, 10) : null })}
-                  className="px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">None</option>
-                  {scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            )}
+            <ToggleSwitch
+              checked={form.notifyOnce}
+              onChange={(v) => setForm({ ...form, notifyOnce: v })}
+              label="Notify once"
+              title="Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts."
+            />
+          </div>
 
-            {/* Notification channels */}
+          {form.assertPass && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-sm text-text-muted whitespace-nowrap">On failure, trigger scenario:</span>
+              <select
+                value={form.onFailureScenarioId ?? ''}
+                onChange={(e) => setForm({ ...form, onFailureScenarioId: e.target.value ? parseInt(e.target.value, 10) : null })}
+                className="px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">None</option>
+                {scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="pt-2">
             <NotificationChannelBindings
               value={form.notificationChannels}
               onChange={(next) => setForm({ ...form, notificationChannels: next })}

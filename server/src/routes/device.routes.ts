@@ -285,7 +285,10 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/devices/batch — batch action by group or device IDs
+// POST /api/devices/batch — batch action by group or device IDs.
+// When 2-step approval is enabled AND the action is destructive
+// (reboot/shutdown/restart_agent/sleep), a pending_approvals row is
+// created instead of direct dispatch.
 router.post('/batch', requireRole('admin'), async (req, res, next) => {
   try {
     const { groupId, deviceIds, action } = req.body as {
@@ -303,6 +306,25 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
       ids = rows.map((r: any) => r.id);
     }
     if (!ids.length) return res.json({ data: { dispatched: 0 } });
+
+    // Gate destructive actions through the 2-step approval flow if the
+    // tenant has opted in. Scan/check commands bypass since they can't
+    // break anything.
+    const destructive = ['reboot', 'shutdown', 'restart_agent', 'sleep'].includes(action);
+    if (destructive) {
+      const { approvalService } = await import('../services/approval.service');
+      const needsApproval = await approvalService.requiresApproval(req.tenantId!);
+      if (needsApproval) {
+        const approval = await approvalService.create({
+          tenantId: req.tenantId!,
+          userId: req.session.userId!,
+          requestType: 'batch_command',
+          description: `${action} on ${ids.length} device${ids.length > 1 ? 's' : ''}`,
+          payload: { action, deviceIds: ids },
+        });
+        return res.status(202).json({ data: { approvalId: approval.id, status: 'pending_approval', dispatched: 0 } });
+      }
+    }
 
     let dispatched = 0;
     for (const deviceId of ids) {
@@ -383,14 +405,20 @@ router.get('/:id/services', requireDeviceRead(), async (req, res, next) => {
 // POST /api/devices/:id/approve
 router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
   try {
-    const device = await deviceService.approveDevice(
-      parseInt(req.params.id), req.tenantId!, req.session.userId!
-    );
+    const id = parseInt(req.params.id);
+    const device = await deviceService.approveDevice(id, req.tenantId!, req.session.userId!);
     // Fire scenario trigger for newly approved agent
     if (device) {
       scenarioService.fireTrigger('agent_approved', device.id, req.tenantId!).catch(err => {
         logger.error({ err, deviceId: device.id }, 'Failed to fire agent_approved scenario trigger');
       });
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'device.approved', {
+          deviceId: id, resourceType: 'device', resourcePath: String(id),
+          details: { hostname: device.hostname },
+        });
+      } catch {}
     }
     res.json({ data: device });
   } catch (err) { next(err); }
@@ -399,7 +427,17 @@ router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
 // POST /api/devices/:id/refuse
 router.post('/:id/refuse', requireRole('admin'), async (req, res, next) => {
   try {
-    const device = await deviceService.refuseDevice(parseInt(req.params.id), req.tenantId!);
+    const id = parseInt(req.params.id);
+    const device = await deviceService.refuseDevice(id, req.tenantId!);
+    if (device) {
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'device.refused', {
+          deviceId: id, resourceType: 'device', resourcePath: String(id),
+          details: { hostname: device.hostname },
+        });
+      } catch {}
+    }
     res.json({ data: device });
   } catch (err) { next(err); }
 });
@@ -407,8 +445,16 @@ router.post('/:id/refuse', requireRole('admin'), async (req, res, next) => {
 // POST /api/devices/:id/suspend
 router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
   try {
-    const device = await deviceService.suspendDevice(parseInt(req.params.id), req.tenantId!);
+    const id = parseInt(req.params.id);
+    const device = await deviceService.suspendDevice(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.suspended', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+        details: { hostname: device.hostname },
+      });
+    } catch {}
     res.json({ data: device });
   } catch (err) { next(err); }
 });
@@ -416,8 +462,16 @@ router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
 // POST /api/devices/:id/unsuspend
 router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
   try {
-    const device = await deviceService.unsuspendDevice(parseInt(req.params.id), req.tenantId!);
+    const id = parseInt(req.params.id);
+    const device = await deviceService.unsuspendDevice(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.unsuspended', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+        details: { hostname: device.hostname },
+      });
+    } catch {}
     res.json({ data: device });
   } catch (err) { next(err); }
 });
@@ -528,13 +582,29 @@ router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) 
   } catch (err) { next(err); }
 });
 
-// POST /api/devices/:id/uninstall — mark as pending_uninstall + send uninstall command to agent
+// POST /api/devices/:id/uninstall — mark as pending_uninstall + send uninstall command to agent.
+// Routed through 2-step approval when the tenant has opted in.
 router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
+    const existing = await deviceService.getDeviceById(id, req.tenantId!);
+    if (!existing) return res.status(404).json({ error: 'Device not found' });
+
+    const { approvalService } = await import('../services/approval.service');
+    if (await approvalService.requiresApproval(req.tenantId!)) {
+      const name = existing.displayName || existing.hostname || `#${id}`;
+      const approval = await approvalService.create({
+        tenantId: req.tenantId!,
+        userId: req.session.userId!,
+        requestType: 'device_uninstall',
+        description: `Uninstall agent from ${name}`,
+        payload: { deviceId: id },
+      });
+      return res.status(202).json({ data: { approvalId: approval.id, status: 'pending_approval' } });
+    }
+
     const device = await deviceService.initiateUninstall(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
-    // Fire-and-forget — best effort; if agent is offline it'll receive it when it reconnects
     commandService.enqueue({
       deviceId: id, tenantId: req.tenantId!,
       type: 'uninstall_agent', payload: {},
@@ -557,7 +627,16 @@ router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next
 // DELETE /api/devices/:id
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    await deviceService.deleteDevice(parseInt(req.params.id), req.tenantId!);
+    const id = parseInt(req.params.id);
+    const existing = await deviceService.getDeviceById(id, req.tenantId!);
+    await deviceService.deleteDevice(id, req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.deleted', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+        details: { hostname: existing?.hostname, displayName: existing?.displayName },
+      });
+    } catch {}
     res.status(204).send();
   } catch (err) { next(err); }
 });
