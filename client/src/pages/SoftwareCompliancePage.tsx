@@ -5,8 +5,10 @@ import {
   Monitor, Wrench, ShieldCheck, ShieldX, ShieldAlert,
   ToggleLeft, ToggleRight, ChevronRight, Check, Minus, FolderOpen,
   ArrowUp, ArrowDown, Search, Package, Upload, HardDrive,
+  ExternalLink,
 } from 'lucide-react';
-import { softwareComplianceApi, softwareRepoApi } from '@/api/softwareCompliance.api';
+import { Link } from 'react-router-dom';
+import { softwareComplianceApi, softwareRepoApi, type SoftwareComplianceHistoryBatch } from '@/api/softwareCompliance.api';
 import { groupsApi } from '@/api/groups.api';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -22,7 +24,7 @@ import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 
-type Tab = 'results' | 'lists' | 'repository';
+type Tab = 'results' | 'lists' | 'history' | 'repository';
 
 const MATCH_TYPES: SoftwareMatchType[] = ['exact', 'contains', 'regex'];
 const INSTALL_SOURCES: SoftwareInstallSource[] = ['winget', 'choco', 'apt', 'yum', 'dnf', 'brew', 'pkg', 'snap', 'flatpak', 'msi', 'custom'];
@@ -950,7 +952,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
       {/* Tabs + filter */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-          {(['results', 'lists', 'repository'] as Tab[]).map((tab) => (
+          {(['results', 'lists', 'history', 'repository'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -959,7 +961,10 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
                 activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
               )}
             >
-              {tab === 'results' ? t('softwareCompliance.tabResults') : tab === 'lists' ? t('softwareCompliance.tabLists') : t('softwareCompliance.tabRepository')}
+              {tab === 'results'    ? t('softwareCompliance.tabResults', 'Results')
+             : tab === 'lists'      ? t('softwareCompliance.tabLists', 'Lists')
+             : tab === 'history'    ? t('softwareCompliance.tabHistory', 'History')
+             :                        t('softwareCompliance.tabRepository', 'Repository')}
             </button>
           ))}
         </div>
@@ -1145,6 +1150,11 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
             );
           })}
         </div>
+      )}
+
+      {/* ── History tab ── */}
+      {activeTab === 'history' && (
+        <SoftwareHistoryTab />
       )}
 
       {/* ── Lists tab ── */}
@@ -1415,6 +1425,27 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button
+                        onClick={async () => {
+                          try {
+                            const r = await softwareComplianceApi.scanList(list.id);
+                            if (r.enqueued === 0) {
+                              toast(t('softwareCompliance.scanNoTargets', 'No online target devices'));
+                            } else {
+                              toast.success(t('softwareCompliance.scanEnqueued', { count: r.enqueued, defaultValue: `Scan enqueued on ${r.enqueued} device${r.enqueued > 1 ? 's' : ''}` }));
+                            }
+                            // Refresh results after a delay to give agents time to report.
+                            setTimeout(load, 8000);
+                          } catch {
+                            toast.error(t('softwareCompliance.scanFailed', 'Scan failed'));
+                          }
+                        }}
+                        disabled={!list.enabled}
+                        className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-muted"
+                        title={t('softwareCompliance.scanNow', 'Scan now on all targets')}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleToggleEnabled(list)}
                         className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
                         title={list.enabled ? t('softwareCompliance.disable') : t('softwareCompliance.enable')}
@@ -1564,6 +1595,147 @@ function RepoTab() {
                   className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── History tab — last 10 compliance batches with per-device drill-down ──
+// Mirrors the UX of the schedule history in ScriptSchedulesPage: each batch
+// is a collapsible card; clicking a device row reveals stdout/stderr.
+
+function SoftwareHistoryTab() {
+  const { t } = useTranslation();
+  const [batches, setBatches] = useState<SoftwareComplianceHistoryBatch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async (spinner = true) => {
+    if (spinner) setLoading(true);
+    try {
+      const rows = await softwareComplianceApi.history({ limit: 20 });
+      setBatches(rows);
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      if (spinner) setLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-text-muted">{t('softwareCompliance.historyHint', 'Last 20 scan & remediation batches. Click a batch to drill into device results.')}</p>
+        <button
+          onClick={() => load(true)}
+          className="text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors"
+        >
+          {t('common.refresh', 'Refresh')}
+        </button>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>
+      ) : batches.length === 0 ? (
+        <div className="p-8 text-center text-sm text-text-muted bg-bg-secondary rounded-xl border border-border">
+          {t('softwareCompliance.historyEmpty', 'No scan or remediation history yet. Run a scan on a list to populate this view.')}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {batches.map((batch) => <SoftwareHistoryBatchRow key={batch.batchId} batch={batch} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBatch }) {
+  const [open, setOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const typeLabel = batch.type === 'check_software_compliance' ? 'Scan'
+                  : batch.type === 'install_software' ? 'Install'
+                  : 'Uninstall';
+  const typeColor = batch.type === 'uninstall_software' ? 'text-red-400 border-red-400/30 bg-red-400/10'
+                  : batch.type === 'install_software' ? 'text-green-400 border-green-400/30 bg-green-400/10'
+                  : 'text-accent border-accent/30 bg-accent/10';
+
+  const badge = (s: string) => {
+    const c = s === 'success' ? 'text-green-400 border-green-400/30 bg-green-400/10'
+            : s === 'failure' || s === 'timeout' ? 'text-red-400 border-red-400/30 bg-red-400/10'
+            : 'text-blue-400 border-blue-400/30 bg-blue-400/10';
+    return <span className={`shrink-0 px-1.5 py-0.5 rounded-full border font-medium capitalize text-[10px] ${c}`}>{s}</span>;
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 text-xs px-3 py-2 text-left hover:bg-bg-tertiary/40"
+      >
+        {open ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+        <span className={`shrink-0 px-2 py-0.5 rounded-full border font-medium text-[10px] ${typeColor}`}>{typeLabel}</span>
+        <span className="text-text-muted shrink-0">{new Date(batch.triggeredAt).toLocaleString()}</span>
+        <span className="text-text-primary font-medium truncate flex-1 min-w-0">{batch.listName}</span>
+        <span className="flex items-center gap-1.5 shrink-0 text-[11px]">
+          {batch.ok > 0 && <span className="text-green-400">{batch.ok} OK</span>}
+          {batch.fail > 0 && <span className="text-red-400">{batch.fail} failed</span>}
+          {batch.pending > 0 && <span className="text-blue-400">{batch.pending} pending</span>}
+          <span className="text-text-muted">({batch.total})</span>
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-border/30">
+          {batch.items.map((r) => {
+            const isExpanded = expandedId === r.id;
+            return (
+              <div key={r.id} className="border-b border-border/20 last:border-b-0">
+                <div
+                  className="flex items-center gap-2 text-xs px-3 py-1.5 hover:bg-bg-tertiary/30 cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                >
+                  {isExpanded
+                    ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+                    : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />}
+                  {badge(r.status)}
+                  <span className="text-text-primary truncate flex-1 min-w-0 font-medium">
+                    {r.deviceName}
+                    {r.entryName && <span className="text-text-muted font-normal"> — {r.entryName}</span>}
+                  </span>
+                  {r.exitCode != null && <span className="text-text-muted font-mono shrink-0">exit {r.exitCode}</span>}
+                  <Link
+                    to={`/devices/${r.deviceId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 text-text-muted hover:text-accent p-0.5 rounded hover:bg-accent/10 transition-colors"
+                    title="Open device"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+                {isExpanded && (
+                  <div className="px-4 py-2 bg-[#0d0f14] border-t border-border/20 space-y-2">
+                    {r.stdout && (
+                      <div>
+                        <p className="text-[10px] text-green-400/70 uppercase font-medium mb-0.5">stdout</p>
+                        <pre className="text-[11px] text-green-300/90 font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto scrollbar-thin">{r.stdout}</pre>
+                      </div>
+                    )}
+                    {r.stderr && (
+                      <div>
+                        <p className="text-[10px] text-red-400/70 uppercase font-medium mb-0.5">stderr</p>
+                        <pre className="text-[11px] text-red-300/90 font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto scrollbar-thin">{r.stderr}</pre>
+                      </div>
+                    )}
+                    {!r.stdout && !r.stderr && (
+                      <p className="text-[10px] text-text-muted italic">{r.status === 'pending' || r.status === 'sent' ? 'Awaiting agent reply…' : 'No output captured.'}</p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

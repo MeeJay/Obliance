@@ -79,6 +79,9 @@ func SetPrivacyMode(enabled bool, changedBy string) error {
 		return fmt.Errorf("privacy: write: %w", err)
 	}
 	_ = os.Chmod(privacyFile, 0666)
+	// On Windows, chmod only flips the read-only bit — grant Users NTFS
+	// modify rights so the user-session tray can later toggle the state.
+	_ = ensureUsersWritable(privacyFile, false)
 
 	privacyMu.Lock()
 	privacyEnabled = enabled
@@ -116,6 +119,7 @@ func loadPrivacyState() {
 			empty, _ := json.MarshalIndent(privacyState{Enabled: false}, "", "  ")
 			_ = os.WriteFile(privacyFile, empty, 0666)
 			_ = os.Chmod(privacyFile, 0666) // bypass daemon umask
+			_ = ensureUsersWritable(privacyFile, false)
 		}
 		return
 	}

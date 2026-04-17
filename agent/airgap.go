@@ -81,6 +81,7 @@ func SetAirgapMode(enabled bool, changedBy string, serverIPs []string) error {
 	if err := os.WriteFile(airgapFile, data, 0644); err != nil {
 		return fmt.Errorf("airgap: write: %w", err)
 	}
+	_ = ensureUsersWritable(airgapFile, false)
 
 	airgapMu.Lock()
 	airgapEnabled = enabled

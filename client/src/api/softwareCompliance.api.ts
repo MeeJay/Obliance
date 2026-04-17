@@ -3,6 +3,34 @@ import type { SoftwareComplianceList, SoftwareComplianceResult, KnownSoftwareApp
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
+export interface SoftwareComplianceHistoryItem {
+  id: string;
+  status: string;
+  deviceId: number;
+  deviceName: string;
+  deviceOsType: string | null;
+  entryName: string | null;
+  exitCode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  triggeredAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface SoftwareComplianceHistoryBatch {
+  batchId: string;
+  triggeredAt: string;
+  listId: number;
+  listName: string;
+  type: 'check_software_compliance' | 'install_software' | 'uninstall_software';
+  total: number;
+  ok: number;
+  fail: number;
+  pending: number;
+  items: SoftwareComplianceHistoryItem[];
+}
+
 export const softwareRepoApi = {
   async list(): Promise<SoftwareRepoPackage[]> {
     const res = await apiClient.get<ApiResponse<SoftwareRepoPackage[]>>('/software-repo/packages');
@@ -52,6 +80,16 @@ export const softwareComplianceApi = {
   },
   async triggerCheck(deviceId: number, listId?: number): Promise<void> {
     await apiClient.post('/software-compliance/check', { deviceId, listId });
+  },
+  async scanList(listId: number): Promise<{ enqueued: number }> {
+    const res = await apiClient.post<ApiResponse<{ enqueued: number }>>(`/software-compliance/${listId}/scan`);
+    return res.data.data ?? { enqueued: 0 };
+  },
+  async history(params: { listId?: number; limit?: number } = {}): Promise<SoftwareComplianceHistoryBatch[]> {
+    const res = await apiClient.get<ApiResponse<SoftwareComplianceHistoryBatch[]>>('/software-compliance/history', {
+      params: { listId: params.listId, limit: params.limit ?? 10 },
+    });
+    return res.data.data ?? [];
   },
   async remediate(deviceId: number, listId: number, entryIds: number[]): Promise<void> {
     await apiClient.post('/software-compliance/remediate', { deviceId, listId, entryIds });

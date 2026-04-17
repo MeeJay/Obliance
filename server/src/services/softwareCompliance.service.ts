@@ -336,6 +336,46 @@ class SoftwareComplianceService {
     });
   }
 
+  /**
+   * Trigger a compliance check across ALL target devices of a list at once.
+   * Useful for "scan now" after creating/editing a list — no need to wait
+   * for the 6h scheduled sweep. Returns the number of devices enqueued.
+   */
+  async triggerCheckForList(listId: number, tenantId: number, createdBy: number): Promise<number> {
+    const list = await this.getListById(listId, tenantId);
+    if (!list) throw new Error('List not found');
+
+    let deviceQuery = db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereIn('status', ['online', 'warning', 'critical']);
+
+    if (list.targetPlatform && list.targetPlatform !== 'all') {
+      deviceQuery = deviceQuery.where({ os_type: list.targetPlatform });
+    }
+    if (list.targetType === 'group' && list.targetIds.length > 0) {
+      const descendants = await db('device_group_closure')
+        .whereIn('ancestor_id', list.targetIds)
+        .select('descendant_id');
+      const allGroupIds = [...new Set([...list.targetIds, ...descendants.map((d: any) => d.descendant_id)])];
+      deviceQuery = deviceQuery.whereIn('group_id', allGroupIds);
+    }
+
+    const devices = await deviceQuery.select('id');
+
+    let enqueued = 0;
+    for (const device of devices) {
+      try {
+        await commandService.enqueue({
+          deviceId: device.id, tenantId, type: 'check_software_compliance',
+          payload: { listId: list.id, listType: list.listType, entries: list.entries, autoRemediate: list.autoRemediate },
+          priority: 'normal', expiresInSeconds: 600, createdBy,
+        });
+        enqueued++;
+      } catch { /* device offline / queue full — skip silently */ }
+    }
+    return enqueued;
+  }
+
   async triggerRemediation(
     deviceId: number, listId: number, entryIds: number[],
     tenantId: number, createdBy: number,

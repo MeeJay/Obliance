@@ -491,6 +491,14 @@ func mainLoop(cfg *Config) {
 	loadPrivacyState()
 	loadAirgapState()
 
+	// Grant BUILTIN\Users write rights on the config directory so the
+	// user-session tray can toggle privacy.json / airgap.json without
+	// running as admin. On unix this is a no-op. Recurse once to also
+	// fix existing files from previous installs that were locked down.
+	if err := ensureUsersWritable(configDir, true); err != nil {
+		log.Printf("ACL bootstrap failed (tray may not be able to toggle privacy): %v", err)
+	}
+
 	// Agent just came back up — we passed whatever stop/start cycle the
 	// update or crash put us through, so clear any stale watchdog inhibit
 	// flag that an aborted update may have left behind.

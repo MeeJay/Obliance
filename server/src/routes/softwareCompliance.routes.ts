@@ -3,6 +3,7 @@ import { softwareComplianceService } from '../services/softwareCompliance.servic
 import { requireRole, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
+import { db } from '../db';
 
 const router = Router();
 
@@ -81,6 +82,108 @@ router.get('/results/device/:deviceId', requireDeviceRead('deviceId'), async (re
   try {
     const items = await softwareComplianceService.getLatestResults(parseInt(req.params.deviceId), req.tenantId!);
     res.json({ data: { items, total: items.length } });
+  } catch (err) { next(err); }
+});
+
+// GET /software-compliance/history — last N compliance-related commands
+// (check_software_compliance, install_software, uninstall_software), grouped
+// into "batches" by (listId, minute-truncated timestamp) so the UI can show
+// each scan-run as a single row, drill down per device with stdout/stderr.
+router.get('/history', async (req, res, next) => {
+  try {
+    const limitBatches = Math.min(50, parseInt((req.query.limit as string) || '10'));
+    const listIdFilter = req.query.listId ? parseInt(req.query.listId as string) : null;
+
+    // Step 1: candidate commands (take a generous slice — we group after).
+    const qBase = db('command_queue as c')
+      .leftJoin('devices as d', 'd.id', 'c.device_id')
+      .where({ 'c.tenant_id': req.tenantId! })
+      .whereIn('c.type', ['check_software_compliance', 'install_software', 'uninstall_software']);
+
+    if (listIdFilter) {
+      qBase.whereRaw("(c.payload->>'listId')::int = ?", [listIdFilter]);
+    }
+
+    const rows = await qBase
+      .select(
+        'c.id', 'c.device_id', 'c.type', 'c.status', 'c.payload', 'c.result',
+        'c.created_at', 'c.sent_at', 'c.finished_at',
+        db.raw("(c.payload->>'listId')::int as list_id"),
+        db.raw("c.payload->>'entryName' as entry_name"),
+        'd.hostname', 'd.display_name as device_display_name', 'd.os_type',
+      )
+      .orderBy('c.created_at', 'desc')
+      .limit(limitBatches * 200);
+
+    // Step 2: resolve list names.
+    const listIds = [...new Set(rows.map((r: any) => r.list_id).filter(Boolean))];
+    const listsById: Record<number, string> = {};
+    if (listIds.length) {
+      const listRows = await db('software_compliance_lists')
+        .where({ tenant_id: req.tenantId! })
+        .whereIn('id', listIds)
+        .select('id', 'name');
+      for (const l of listRows) listsById[l.id] = l.name;
+    }
+
+    // Step 3: group into batches. Batch key = listId + minute bucket + type.
+    const batches = new Map<string, any>();
+    for (const r of rows) {
+      const dt = new Date(r.created_at);
+      const bucket = Math.floor(dt.getTime() / 60_000); // 1-minute granularity
+      const key = `${r.list_id}|${bucket}|${r.type}`;
+      if (!batches.has(key)) {
+        batches.set(key, {
+          batchId: key,
+          triggeredAt: r.created_at,
+          listId: r.list_id,
+          listName: listsById[r.list_id] || `List #${r.list_id}`,
+          type: r.type,
+          total: 0, ok: 0, fail: 0, pending: 0,
+          items: [],
+        });
+      }
+      const b = batches.get(key);
+      const result = typeof r.result === 'string' ? JSON.parse(r.result) : (r.result || {});
+      const item = {
+        id: r.id,
+        status: r.status,
+        deviceId: r.device_id,
+        deviceName: r.device_display_name || r.hostname || `#${r.device_id}`,
+        deviceOsType: r.os_type,
+        entryName: r.entry_name,
+        exitCode: result.exitCode ?? null,
+        stdout: (result.stdout ?? '').toString().slice(0, 4000) || null,
+        stderr: (result.stderr ?? result.error ?? '').toString().slice(0, 4000) || null,
+        triggeredAt: r.created_at,
+        startedAt: r.sent_at,
+        finishedAt: r.finished_at,
+      };
+      b.items.push(item);
+      b.total++;
+      if (r.status === 'success') b.ok++;
+      else if (r.status === 'failure' || r.status === 'timeout') b.fail++;
+      else b.pending++;
+    }
+
+    const data = Array.from(batches.values())
+      .sort((a, b) => new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime())
+      .slice(0, limitBatches);
+
+    res.json({ data });
+  } catch (err) { next(err); }
+});
+
+// POST /software-compliance/:id/scan — trigger a compliance check for an
+// entire list across every target device. Admin-only. Returns { enqueued }.
+router.post('/:id/scan', async (req, res, next) => {
+  try {
+    if (req.session.role !== 'admin') throw new AppError(403, 'Admin only');
+    const id = parseInt(req.params.id);
+    const count = await softwareComplianceService.triggerCheckForList(
+      id, req.tenantId!, req.session.userId!,
+    );
+    res.json({ data: { enqueued: count } });
   } catch (err) { next(err); }
 });
 
