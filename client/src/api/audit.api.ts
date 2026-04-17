@@ -1,5 +1,6 @@
-import { apiClient } from './client';
-import type { ApiResponse } from './client';
+import apiClient from './client';
+
+interface ApiResponse<T> { data?: T; error?: string; }
 
 export interface AuditLogRow {
   id: number;

@@ -16,7 +16,6 @@ function actionCategory(action: string): string {
 }
 
 function actionPill(action: string) {
-  const root = action.split('.')[0];
   const isDestructive = /delete|refuse|suspend|denied|deleted/.test(action);
   const isSecurity = /auth|approval|permission|role/.test(action);
   const color =
