@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { approvalService } from '../services/approval.service';
-import { AppError } from '../utils/errors';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
