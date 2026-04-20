@@ -155,17 +155,33 @@ class DeviceService {
     const countResult = await q.clone().count('devices.id as count').first();
     const total = Number(countResult?.count ?? 0);
 
-    // Sortable columns
+    // Sortable columns. "cpu" / "ram" / "disk" dig into the latest_metrics
+    // JSONB blob to sort by the most recent sample percentage. NULL metrics
+    // are pushed to the end so online devices bubble up first.
     const SORT_MAP: Record<string, string> = {
       name: 'devices.hostname', status: 'devices.status', os: 'devices.os_type',
       lastSeen: 'devices.last_seen_at', version: 'devices.agent_version', group: 'device_groups.name',
     };
-    const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
     const sortDir = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
+    const nullsOrder = sortDir === 'desc' ? 'NULLS LAST' : 'NULLS LAST';
 
-    const rows = await q
+    const metricSortExpr: Record<string, string> = {
+      cpu:  `NULLIF(latest_metrics->'cpu'->>'percent','')::float`,
+      ram:  `NULLIF(latest_metrics->'memory'->>'percent','')::float`,
+      disk: `NULLIF(latest_metrics->'disks'->0->>'percent','')::float`,
+    };
+
+    let qOrdered = q;
+    const wantsMetric = filters?.sortBy && metricSortExpr[filters.sortBy];
+    if (wantsMetric) {
+      qOrdered = qOrdered.orderByRaw(`${metricSortExpr[filters!.sortBy!]} ${sortDir} ${nullsOrder}`);
+    } else {
+      const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
+      qOrdered = qOrdered.orderBy(sortCol, sortDir);
+    }
+
+    const rows = await qOrdered
       .select('devices.*', 'device_groups.name as group_name')
-      .orderBy(sortCol, sortDir)
       .limit(pageSize).offset((page - 1) * pageSize);
 
     const items = rows.map((row: any) => {

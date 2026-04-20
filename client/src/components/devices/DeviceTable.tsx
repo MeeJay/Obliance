@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
+import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
 import type { Device } from '@obliance/shared';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,7 @@ import { clsx } from 'clsx';
 import { anonymize } from '@/utils/anonymize';
 
 type ApprovalFilter = '' | 'approved' | 'pending' | 'refused' | 'suspended';
-type SortField = 'name' | 'status' | 'os' | 'lastSeen' | 'version' | 'group';
+type SortField = 'name' | 'status' | 'os' | 'lastSeen' | 'version' | 'group' | 'cpu' | 'ram' | 'disk';
 
 interface DeviceTableProps {
   mode: 'monitoring' | 'admin';
@@ -53,6 +54,12 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAllGroup, setSelectAllGroup] = useState(false);
+  // When enabled, a dark checkbox is shown on every row AND the whole row
+  // becomes a selection toggle (no navigation). Lets the user pick devices
+  // without having to aim a tiny checkbox target.
+  const [selectionMode, setSelectionMode] = useState(false);
+  // Change-group modal state
+  const [changeGroupOpen, setChangeGroupOpen] = useState(false);
 
   // Approval counts (admin mode)
   const [counts, setCounts] = useState({ all: 0, approved: 0, pending: 0, refused: 0, suspended: 0 });
@@ -204,7 +211,12 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
-    else { setSortBy(field); setSortOrder('asc'); }
+    else {
+      setSortBy(field);
+      // Metric sorts default to desc (highest first) — that's the useful
+      // direction (see which machines are busiest). Alpha fields default asc.
+      setSortOrder(['cpu', 'ram', 'disk', 'lastSeen', 'status'].includes(field) ? 'desc' : 'asc');
+    }
   };
 
   const STATUS_CHIPS = [
@@ -263,6 +275,9 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               <option value="os">{t('sort.os')}</option>
               <option value="version">{t('sort.version')}</option>
               <option value="group">{t('sort.group')}</option>
+              <option value="cpu">{t('sort.cpu', 'CPU %')}</option>
+              <option value="ram">{t('sort.ram', 'RAM %')}</option>
+              <option value="disk">{t('sort.disk', 'Disk %')}</option>
             </select>
           </button>
           <select value={pageSize} onChange={e => setPageSize(parseInt(e.target.value))}
@@ -293,6 +308,23 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               </>
             )}
           </div>
+          <button
+            onClick={() => {
+              const next = !selectionMode;
+              setSelectionMode(next);
+              if (!next) { setSelectedIds(new Set()); setSelectAllGroup(false); }
+            }}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors',
+              selectionMode
+                ? 'bg-accent text-white border-accent'
+                : 'bg-bg-secondary border-border text-text-muted hover:text-text-primary hover:border-accent/40',
+            )}
+            title={selectionMode ? t('devices.selection.exit', 'Exit selection mode') : t('devices.selection.enter', 'Enter selection mode — click any row to select')}
+          >
+            {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
+          </button>
           <button onClick={load} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
@@ -359,6 +391,14 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
                 <button onClick={() => handleBatchAction('scan_inventory')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
                   <Search className="w-3.5 h-3.5 text-text-muted" /> {t('devices.batch.scanInventory')}
                 </button>
+                <div className="border-t border-border" />
+                <button
+                  onClick={() => { setBatchMenuOpen(false); setChangeGroupOpen(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-accent" />
+                  {t('devices.batch.changeGroup', 'Change group')}
+                </button>
                 {mode === 'admin' && (<>
                   <div className="border-t border-border" />
                   <button onClick={() => handleBatchAction('delete')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
@@ -389,15 +429,32 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         </div>
       ) : (
         <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-          {/* Select all header */}
-          {isAdmin() && (
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-tertiary/50">
+          {/* Column header row with click-to-sort. The layout isn't a true
+              HTML table — DeviceRow is a "rich row" with 2 lines per device —
+              but this header approximates the column positions so the user
+              can click the label closest to the data they want to sort by. */}
+          <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-bg-tertiary/50 text-[10px] uppercase tracking-wider font-medium text-text-muted">
+            {(isAdmin() || selectionMode) && (
               <StyledCheckbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
-              <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium">
-                {t('devices.table.device')}
+            )}
+            <SortLabel label={t('sort.name', 'Name')} field="name" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} />
+            <div className="flex-1" />
+            {mode === 'monitoring' && (
+              <>
+                <SortLabel label="CPU" field="cpu" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} className="w-14 justify-center" />
+                <SortLabel label="RAM" field="ram" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} className="w-14 justify-center" />
+                <SortLabel label={t('sort.disk', 'Disk')} field="disk" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} className="w-14 justify-center" />
+              </>
+            )}
+            <SortLabel label={t('sort.status', 'Status')} field="status" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} className="w-20 justify-center" />
+            <SortLabel label={t('sort.lastSeen', 'Last seen')} field="lastSeen" sortBy={sortBy} sortOrder={sortOrder} onClick={handleSort} className="w-12 justify-end" />
+            <span className="w-6" />
+            {selectionMode && (
+              <span className="ml-2 text-accent">
+                {t('devices.selection.modeLabel', 'Selection mode')}
               </span>
-            </div>
-          )}
+            )}
+          </div>
           <div>
             {(() => {
               // Group devices by groupName when filtering by a parent group
@@ -418,7 +475,8 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
                     {gDevices.map(device => (
                       <DeviceRow key={device.id} device={device} mode={mode}
                         isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
-                        onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange} />
+                        onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange}
+                        selectionMode={selectionMode} />
                     ))}
                   </div>
                 ));
@@ -427,7 +485,8 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               return devices.map(device => (
                 <DeviceRow key={device.id} device={device} mode={mode}
                   isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
-                  onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange} />
+                  onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange}
+                  selectionMode={selectionMode} />
               ));
             })()}
           </div>
@@ -466,6 +525,114 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
           <span>{t('devices.pagination.page', { page, total: totalPages })}</span>
         </div>
       )}
+
+      {/* ── Bulk change-group modal ──────────────────────────────────── */}
+      {changeGroupOpen && (
+        <ChangeGroupModal
+          count={selectedIds.size}
+          onCancel={() => setChangeGroupOpen(false)}
+          onConfirm={async (newGroupId) => {
+            setChangeGroupOpen(false);
+            setIsBatchRunning(true);
+            try {
+              const ids = Array.from(selectedIds);
+              const r = await deviceApi.batchChangeGroup(ids, newGroupId);
+              toast.success(t('devices.batch.groupChanged', { count: r.changed, defaultValue: `Moved ${r.changed} device${r.changed > 1 ? 's' : ''}` }));
+              setSelectedIds(new Set());
+              setSelectAllGroup(false);
+              await load();
+            } catch {
+              toast.error(t('common.error'));
+            } finally {
+              setIsBatchRunning(false);
+            }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Change-group modal ─────────────────────────────────────────────────────
+function ChangeGroupModal({
+  count, onCancel, onConfirm,
+}: {
+  count: number;
+  onCancel: () => void;
+  onConfirm: (groupId: number | null) => void;
+}) {
+  const { t } = useTranslation();
+  const [groupId, setGroupId] = useState<number | null>(null);
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div
+        className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-md mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <FolderOpen className="w-4 h-4 text-accent" />
+          <span className="text-sm font-semibold text-text-primary">
+            {t('devices.batch.changeGroupTitle', { count, defaultValue: `Change group for ${count} device${count > 1 ? 's' : ''}` })}
+          </span>
+          <button onClick={onCancel} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-4 space-y-3">
+          <p className="text-xs text-text-muted">
+            {t('devices.batch.changeGroupHint', 'Pick a target group, or leave blank to move to "Ungrouped".')}
+          </p>
+          <GroupTreePicker value={groupId} onChange={(id) => setGroupId(id)} />
+        </div>
+        <div className="px-4 py-3 border-t border-border flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-xs border border-border rounded text-text-muted hover:text-text-primary"
+          >
+            {t('common.cancel', 'Cancel')}
+          </button>
+          <button
+            onClick={() => onConfirm(groupId)}
+            className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
+          >
+            {t('devices.batch.moveHere', 'Move')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Column header sort label ──────────────────────────────────────────────
+function SortLabel({
+  label, field, sortBy, sortOrder, onClick, className,
+}: {
+  label: string;
+  field: SortField;
+  sortBy: SortField;
+  sortOrder: 'asc' | 'desc';
+  onClick: (f: SortField) => void;
+  className?: string;
+}) {
+  const active = sortBy === field;
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(field); }}
+      className={clsx(
+        'flex items-center gap-0.5 transition-colors shrink-0',
+        active ? 'text-accent' : 'hover:text-text-primary',
+        className,
+      )}
+      title={`Sort by ${label}`}
+    >
+      <span>{label}</span>
+      {active ? (
+        sortOrder === 'asc'
+          ? <SortAsc className="w-3 h-3" />
+          : <SortDesc className="w-3 h-3" />
+      ) : (
+        <span className="w-3 h-3 opacity-30">↕</span>
+      )}
+    </button>
   );
 }

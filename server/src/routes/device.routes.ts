@@ -285,6 +285,59 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/batch/change-group — move N devices to a new group in one shot.
+// Body: { deviceIds: number[], groupId: number | null }
+// Fires the 'group_join' scenario trigger for each device whose group actually
+// changed, matching the single-device PATCH flow.
+router.post('/batch/change-group', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { deviceIds, groupId } = req.body as { deviceIds: number[]; groupId: number | null };
+    if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
+      return res.status(400).json({ error: 'deviceIds required' });
+    }
+    // Validate group if provided (null = ungrouped).
+    if (groupId !== null && groupId !== undefined) {
+      const grp = await db('device_groups').where({ id: groupId, tenant_id: req.tenantId! }).first();
+      if (!grp) return res.status(404).json({ error: 'Group not found' });
+    }
+    const normalized = groupId === undefined ? null : groupId;
+
+    // Capture previous groupIds so we only fire triggers when the group changed.
+    const prev = await db('devices')
+      .whereIn('id', deviceIds)
+      .andWhere({ tenant_id: req.tenantId! })
+      .select('id', 'group_id');
+    const prevById = new Map(prev.map((p: any) => [p.id, p.group_id]));
+
+    await db('devices')
+      .whereIn('id', deviceIds)
+      .andWhere({ tenant_id: req.tenantId! })
+      .update({ group_id: normalized, updated_at: new Date() });
+
+    let changedCount = 0;
+    for (const id of deviceIds) {
+      if (prevById.get(id) !== normalized) {
+        changedCount++;
+        if (normalized !== null) {
+          scenarioService.fireTrigger('group_join', id, req.tenantId!, { groupId: normalized })
+            .catch(err => logger.error({ err, deviceId: id }, 'group_join trigger failed'));
+        }
+      }
+    }
+
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.bulk_group_changed', {
+        resourceType: 'device',
+        resourcePath: deviceIds.join(','),
+        details: { count: deviceIds.length, changed: changedCount, toGroupId: normalized },
+      });
+    } catch {}
+
+    res.json({ data: { updated: deviceIds.length, changed: changedCount } });
+  } catch (err) { next(err); }
+});
+
 // POST /api/devices/batch — batch action by group or device IDs.
 // When 2-step approval is enabled AND the action is destructive
 // (reboot/shutdown/restart_agent/sleep), a pending_approvals row is

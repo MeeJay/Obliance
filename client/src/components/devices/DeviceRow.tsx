@@ -14,6 +14,10 @@ interface DeviceRowProps {
   onSelect: (id: number) => void;
   onNavigate: (id: number) => void;
   onGroupClick?: (groupId: number) => void;
+  /** When true, the entire row becomes a selection target (no navigation) and
+   *  a dark checkbox is always visible on the left. Enabled by the "Select"
+   *  toggle in DeviceTable. */
+  selectionMode?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,6 +72,7 @@ export const DeviceRow = memo(function DeviceRow({
   onSelect,
   onNavigate,
   onGroupClick,
+  selectionMode = false,
 }: DeviceRowProps) {
   const { t } = useTranslation();
   const metrics = device.latestMetrics;
@@ -87,7 +92,8 @@ export const DeviceRow = memo(function DeviceRow({
     device.osArch,
   ].filter(Boolean).join(' ');
 
-  const line2Offset = mode === 'admin' ? 'pl-[68px]' : 'pl-[40px]';
+  const showCheckbox = selectionMode || mode === 'admin';
+  const line2Offset = showCheckbox ? 'pl-[68px]' : 'pl-[40px]';
 
   const handleCheckbox = (e: MouseEvent) => {
     e.stopPropagation();
@@ -110,20 +116,26 @@ export const DeviceRow = memo(function DeviceRow({
     <div
       className={clsx(
         'h-[72px] px-4 py-2 border-b border-border hover:bg-bg-tertiary cursor-pointer transition-colors flex flex-col justify-center',
-        isSelected && 'bg-accent/5',
+        isSelected && 'bg-accent/10',
+        selectionMode && isSelected && 'bg-accent/15',
       )}
-      onClick={() => onNavigate(device.id)}
+      onClick={() => selectionMode ? onSelect(device.id) : onNavigate(device.id)}
     >
       {/* Line 1 */}
       <div className="flex items-center gap-3">
-        {mode === 'admin' && (
+        {showCheckbox && (
           <button
             onClick={handleCheckbox}
             className={clsx(
               'w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors',
-              isSelected
-                ? 'bg-accent border-accent text-white'
-                : 'border-border hover:border-accent/50',
+              // Dark-theme checkbox when in selection mode (user-requested visual)
+              selectionMode
+                ? (isSelected
+                    ? 'bg-accent border-accent text-white'
+                    : 'bg-bg-primary/80 border-text-muted/40 hover:border-accent/50')
+                : (isSelected
+                    ? 'bg-accent border-accent text-white'
+                    : 'border-border hover:border-accent/50'),
             )}
           >
             {isSelected && (

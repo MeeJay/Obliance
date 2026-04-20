@@ -117,6 +117,10 @@ export const deviceApi = {
     const res = await apiClient.post<ApiResponse<{ dispatched: number }>>('/devices/batch', params);
     return res.data.data ?? { dispatched: 0 };
   },
+  async batchChangeGroup(deviceIds: number[], groupId: number | null): Promise<{ updated: number; changed: number }> {
+    const res = await apiClient.post<ApiResponse<{ updated: number; changed: number }>>('/devices/batch/change-group', { deviceIds, groupId });
+    return res.data.data ?? { updated: 0, changed: 0 };
+  },
   async disablePrivacyMode(id: number): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy-mode/disable`);
   },
