@@ -677,6 +677,154 @@ router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/:id/transfer/candidates — list the tenants the caller
+// can transfer INTO (must be admin there, or platform admin) along with
+// their API keys. Excludes the current tenant.
+router.get('/:id/transfer/candidates', requireRole('admin'), async (req, res, next) => {
+  try {
+    const userId = req.session.userId!;
+    const isPlatformAdmin = req.session.role === 'admin';
+
+    let tenantsQ = db('tenants').select('id', 'name', 'slug').orderBy('name');
+    if (!isPlatformAdmin) {
+      // Only tenants where the user has admin membership.
+      tenantsQ = tenantsQ
+        .join('user_tenants', 'user_tenants.tenant_id', 'tenants.id')
+        .where({ 'user_tenants.user_id': userId, 'user_tenants.role': 'admin' })
+        .select('tenants.id', 'tenants.name', 'tenants.slug');
+    }
+    const tenants = (await tenantsQ).filter((t: any) => t.id !== req.tenantId!);
+
+    if (tenants.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    const keys = await db('agent_api_keys')
+      .whereIn('tenant_id', tenants.map((t: any) => t.id))
+      .select('id', 'tenant_id', 'label', 'default_group_id');
+
+    const keysByTenant = new Map<number, any[]>();
+    for (const k of keys) {
+      if (!keysByTenant.has(k.tenant_id)) keysByTenant.set(k.tenant_id, []);
+      keysByTenant.get(k.tenant_id)!.push({
+        id: k.id,
+        label: k.label,
+        defaultGroupId: k.default_group_id ?? null,
+      });
+    }
+
+    res.json({
+      data: tenants.map((t: any) => ({
+        tenantId: t.id,
+        tenantName: t.name,
+        tenantSlug: t.slug,
+        apiKeys: keysByTenant.get(t.id) ?? [],
+      })),
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/devices/:id/transfer — move a device from the current tenant
+// to another tenant. Caller must be admin in BOTH tenants (or platform
+// admin). The device's tenant_id + api_key_id are updated, group_id is
+// cleared, and a `reconfigure_agent` command is enqueued so the agent
+// picks up the new API key on its next push.
+//
+// Body: { targetTenantId: number, targetApiKeyId: number }
+router.post('/:id/transfer', requireRole('admin'), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const { targetTenantId, targetApiKeyId } = req.body as { targetTenantId: number; targetApiKeyId: number };
+    if (!targetTenantId || !targetApiKeyId) {
+      return res.status(400).json({ error: 'targetTenantId and targetApiKeyId required' });
+    }
+    if (targetTenantId === req.tenantId!) {
+      return res.status(400).json({ error: 'Target tenant is the same as source' });
+    }
+
+    const userId = req.session.userId!;
+    const isPlatformAdmin = req.session.role === 'admin';
+    // Platform admin bypasses tenant-level admin check. Otherwise the
+    // caller must be an admin in BOTH the source and the destination.
+    if (!isPlatformAdmin) {
+      const [sourceMembership, targetMembership] = await Promise.all([
+        db('user_tenants').where({ user_id: userId, tenant_id: req.tenantId!, role: 'admin' }).first(),
+        db('user_tenants').where({ user_id: userId, tenant_id: targetTenantId, role: 'admin' }).first(),
+      ]);
+      if (!sourceMembership || !targetMembership) {
+        return res.status(403).json({ error: 'You must be admin of both tenants' });
+      }
+    }
+
+    const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const targetKey = await db('agent_api_keys').where({ id: targetApiKeyId, tenant_id: targetTenantId }).first();
+    if (!targetKey) return res.status(400).json({ error: 'Target API key not found in target tenant' });
+
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+
+    await db.transaction(async (trx) => {
+      // Enqueue the reconfigure command in the SOURCE tenant's queue so the
+      // agent still picks it up on its next push (it's still using the old
+      // API key). Payload carries the new key + server URL so the agent can
+      // rewrite its config.json and start authenticating against the target.
+      await trx('command_queue').insert({
+        device_id: deviceId,
+        tenant_id: req.tenantId!,
+        type: 'reconfigure_agent',
+        payload: JSON.stringify({
+          apiKey: targetKey.key,
+          serverUrl,
+          targetTenantId,
+        }),
+        priority: 'urgent',
+        status: 'pending',
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        created_by: userId,
+      });
+
+      // Move the device record.
+      await trx('devices').where({ id: deviceId }).update({
+        tenant_id: targetTenantId,
+        api_key_id: targetApiKeyId,
+        group_id: null,
+        schedule_alert: null,
+        updated_at: new Date(),
+      });
+
+      // Clear cross-tenant artefacts that would otherwise point at the
+      // old tenant's schedules / compliance lists.
+      await trx('device_custom_metrics').where({ device_id: deviceId }).delete();
+      await trx('software_compliance_results').where({ device_id: deviceId }).delete();
+
+      // Cancel any still-pending commands from the source tenant.
+      await trx('command_queue')
+        .where({ device_id: deviceId, tenant_id: req.tenantId! })
+        .whereIn('status', ['pending', 'sent'])
+        .whereNot({ type: 'reconfigure_agent' })
+        .update({ status: 'cancelled', finished_at: new Date() });
+    });
+
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.transferred', {
+        deviceId,
+        resourceType: 'device',
+        resourcePath: String(deviceId),
+        details: {
+          fromTenantId: req.tenantId,
+          toTenantId: targetTenantId,
+          targetApiKeyId,
+          hostname: device.hostname,
+        },
+      });
+    } catch {}
+
+    res.json({ data: { ok: true } });
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/devices/:id
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {

@@ -205,7 +205,7 @@ function GroupAttachmentsPanel({ groupId }: { groupId: number }) {
               name: s.name,
               href: `/automations?tab=scenarios`,
               hint: s.triggerType,
-              disabled: !s.enabled,
+              disabled: s.status !== 'active',
             }))}
           />
           <AttachmentColumn

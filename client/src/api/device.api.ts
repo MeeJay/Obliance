@@ -121,6 +121,18 @@ export const deviceApi = {
     const res = await apiClient.post<ApiResponse<{ updated: number; changed: number }>>('/devices/batch/change-group', { deviceIds, groupId });
     return res.data.data ?? { updated: 0, changed: 0 };
   },
+  async listTransferCandidates(deviceId: number): Promise<Array<{
+    tenantId: number;
+    tenantName: string;
+    tenantSlug: string;
+    apiKeys: Array<{ id: number; label: string; defaultGroupId: number | null }>;
+  }>> {
+    const res = await apiClient.get<ApiResponse<any[]>>(`/devices/${deviceId}/transfer/candidates`);
+    return res.data.data ?? [];
+  },
+  async transferToTenant(deviceId: number, targetTenantId: number, targetApiKeyId: number): Promise<void> {
+    await apiClient.post(`/devices/${deviceId}/transfer`, { targetTenantId, targetApiKeyId });
+  },
   async disablePrivacyMode(id: number): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy-mode/disable`);
   },

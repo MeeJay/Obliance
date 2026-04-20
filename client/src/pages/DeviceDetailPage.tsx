@@ -8,8 +8,10 @@ import {
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
   ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
+import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
 import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
 import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
 import type { CustomSection } from '@obliance/shared';
@@ -2074,6 +2076,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
     expectedLifetimeYears: device.expectedLifetimeYears ?? null as number | null,
   });
   const [saving, setSaving] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const formRef = useRef(form);
   formRef.current = form;
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2535,6 +2538,27 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
         <div className="p-5 bg-bg-secondary border border-red-500/30 rounded-xl space-y-4">
           <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
 
+          {/* Transfer to another tenant */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-text-primary">Transfer to another tenant</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                Move this device to a different tenant you are admin of. Group, custom metrics,
+                schedule alerts and compliance results in the current tenant are cleared.
+                The agent is reconfigured with the target tenant's API key on its next check-in.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowTransferModal(true)}
+              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              Transfer
+            </button>
+          </div>
+
+          <div className="h-px bg-border" />
+
           {/* Delete */}
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -2619,6 +2643,15 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
             )}
           </div>
         </div>
+      )}
+
+      {showTransferModal && (
+        <TransferTenantModal
+          deviceId={device.id}
+          deviceName={anonymize(device.displayName || device.hostname)}
+          onClose={() => setShowTransferModal(false)}
+          onTransferred={onDeleted}
+        />
       )}
     </div>
   );
