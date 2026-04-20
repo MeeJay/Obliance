@@ -542,6 +542,16 @@ router.post('/:id/privacy-mode/enable', requireRole('admin'), async (req, res, n
     const id = parseInt(req.params.id);
     const device = await deviceService.getDeviceById(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req, actionKey: 'command.enable_privacy_mode', deviceIds: [id],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Enable privacy mode on ${device.hostname}`,
+      approvalPayload: { action: 'enable_privacy_mode', deviceIds: [id] },
+    });
+    if (!approved) return;
+
     const cmd = await commandService.enqueue({
       deviceId: id,
       tenantId: req.tenantId!,
@@ -550,6 +560,13 @@ router.post('/:id/privacy-mode/enable', requireRole('admin'), async (req, res, n
       expiresInSeconds: 300,
       createdBy: req.session.userId,
     });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'command.enable_privacy_mode', {
+        deviceId: id, resourceType: 'command', resourcePath: cmd.id,
+        details: { hostname: device.hostname },
+      });
+    } catch {}
     res.json({ data: cmd });
   } catch (err) { next(err); }
 });
@@ -568,6 +585,15 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
       return next(new AppError(423, 'Privacy password is set — use /privacy/disable-with-password'));
     }
 
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req, actionKey: 'command.disable_privacy_mode', deviceIds: [id],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Disable privacy mode on ${device.hostname}`,
+      approvalPayload: { action: 'disable_privacy_mode', deviceIds: [id] },
+    });
+    if (!approved) return;
+
     const cmd = await commandService.enqueue({
       deviceId: id,
       tenantId: req.tenantId!,
@@ -576,6 +602,13 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
       expiresInSeconds: 300,
       createdBy: req.session.userId,
     });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'command.disable_privacy_mode', {
+        deviceId: id, resourceType: 'command', resourcePath: cmd.id,
+        details: { hostname: device.hostname },
+      });
+    } catch {}
     res.json({ data: cmd });
   } catch (err) { next(err); }
 });
@@ -594,6 +627,15 @@ router.post('/:id/airgap/enable', requireRole('admin'), async (req, res, next) =
     try { serverIPs.push(...await dns.resolve4(hostname)); } catch {}
     try { serverIPs.push(...await dns.resolve6(hostname)); } catch {}
 
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req, actionKey: 'command.enable_airgap', deviceIds: [id],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Enable airgap on ${device.hostname}`,
+      approvalPayload: { action: 'enable_airgap', deviceIds: [id] },
+    });
+    if (!approved) return;
+
     await commandService.enqueue({
       deviceId: id,
       tenantId: req.tenantId!,
@@ -610,6 +652,14 @@ router.post('/:id/airgap/enable', requireRole('admin'), async (req, res, next) =
       updated_at: new Date(),
     });
 
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'command.enable_airgap', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+        details: { hostname: device.hostname },
+      });
+    } catch {}
+
     getIO().to(`tenant:${req.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { id, airgapEnabled: true, airgapEnabledAt: new Date().toISOString() });
     res.json({ data: { success: true } });
   } catch (err) { next(err); }
@@ -621,6 +671,15 @@ router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) 
     const id = parseInt(req.params.id);
     const device = await deviceService.getDeviceById(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req, actionKey: 'command.disable_airgap', deviceIds: [id],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Disable airgap on ${device.hostname}`,
+      approvalPayload: { action: 'disable_airgap', deviceIds: [id] },
+    });
+    if (!approved) return;
 
     await commandService.enqueue({
       deviceId: id,
@@ -636,6 +695,14 @@ router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) 
       airgap_enabled_at: null,
       updated_at: new Date(),
     });
+
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'command.disable_airgap', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+        details: { hostname: device.hostname },
+      });
+    } catch {}
 
     getIO().to(`tenant:${req.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { id, airgapEnabled: false, airgapEnabledAt: null });
     res.json({ data: { success: true } });

@@ -203,6 +203,13 @@ router.post('/:id/scan', async (req, res, next) => {
     const count = await softwareComplianceService.triggerCheckForList(
       id, req.tenantId!, req.session.userId!,
     );
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'software_policy.scan_triggered', {
+        resourceType: 'software_policy', resourcePath: String(id),
+        details: { devicesEnqueued: count },
+      });
+    } catch {}
     res.json({ data: { enqueued: count } });
   } catch (err) { next(err); }
 });

@@ -1344,13 +1344,19 @@ function RestrictionsTab() {
   const [dirty, setDirty] = useState(false);
   const [scopeFor, setScopeFor] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { map, actions } = await restrictionApi.get();
       setMap(map);
       setActions(actions);
       setDirty(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Failed to load restrictions';
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -1388,6 +1394,27 @@ function RestrictionsTab() {
   }
 
   if (loading) return <p className="text-sm text-text-muted italic">Loading...</p>;
+
+  if (loadError) {
+    return (
+      <div className="p-4 rounded-lg border border-red-400/30 bg-red-400/5">
+        <p className="text-sm text-red-400 font-medium">Failed to load restrictions</p>
+        <p className="text-xs text-text-muted mt-1">{loadError}</p>
+        <p className="text-[11px] text-text-muted mt-2 italic">
+          If this is a fresh deployment, the server migration 066 may not have run yet. Restart the server, or run migrations manually.
+        </p>
+      </div>
+    );
+  }
+
+  if (actions.length === 0) {
+    return (
+      <div className="p-4 rounded-lg border border-orange-400/30 bg-orange-400/5">
+        <p className="text-sm text-orange-400">No restrictable actions returned by the server.</p>
+        <p className="text-xs text-text-muted mt-1">Server may not have the updated code — check the server build version.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

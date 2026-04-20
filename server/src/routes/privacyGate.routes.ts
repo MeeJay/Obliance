@@ -166,6 +166,13 @@ router.post('/unlock', async (req, res, next) => {
 
     privacyGateService.put(userId, deviceId, feature, result.result.unlockToken);
     const ttlSeconds: number = Number(result.result.ttlSeconds) || 900;
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'privacy.unlocked', {
+        deviceId, resourceType: 'device', resourcePath: String(deviceId),
+        details: { feature, ttlSeconds },
+      });
+    } catch {}
     res.json({ data: { unlocked: true, feature, ttlSeconds } });
   } catch (err) { next(err); }
 });

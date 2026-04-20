@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { FileText, RefreshCw, Search, ChevronDown, ChevronRight, Download, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { clsx } from 'clsx';
 import { auditApi, type AuditLogRow, type AuditLogFilters } from '@/api/audit.api';
 import { usersApi } from '@/api/users.api';
 import type { User } from '@obliance/shared';
@@ -222,14 +223,11 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
         </div>
         <div>
           <label className="block text-[10px] uppercase text-text-muted mb-0.5">User</label>
-          <select
-            value={filters.userId || ''}
-            onChange={(e) => setFilters({ ...filters, userId: e.target.value ? parseInt(e.target.value) : undefined, offset: 0 })}
-            className="py-1.5 px-2 text-xs bg-bg-secondary border border-border rounded text-text-primary min-w-[140px]"
-          >
-            <option value="">Any user</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
-          </select>
+          <UserCombobox
+            users={users}
+            value={filters.userId ?? null}
+            onChange={(id) => setFilters({ ...filters, userId: id ?? undefined, offset: 0 })}
+          />
         </div>
         <div>
           <label className="block text-[10px] uppercase text-text-muted mb-0.5">Since</label>
@@ -308,6 +306,92 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
               Next
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dark-theme searchable user combobox ─────────────────────────────────
+// The native <select> element picks up the OS chrome when focused on some
+// browsers (Chrome on Linux renders a white dropdown even in dark mode).
+// This tiny custom combobox keeps the whole popover inside our theme and
+// lets the admin type to filter — useful when a tenant has many users.
+
+function UserCombobox({
+  users,
+  value,
+  onChange,
+}: {
+  users: User[];
+  value: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = users.find((u) => u.id === value) ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = users.filter((u) => !q || u.username.toLowerCase().includes(q) || (u.displayName ?? '').toLowerCase().includes(q));
+
+  return (
+    <div ref={ref} className="relative min-w-[160px]">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 py-1.5 px-2 text-xs bg-bg-secondary border border-border rounded text-text-primary hover:border-accent/40"
+      >
+        <span className="truncate">{selected ? selected.username : 'Any user'}</span>
+        <span className="text-text-muted shrink-0">▾</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-20 w-full max-h-64 overflow-y-auto bg-bg-secondary border border-border rounded shadow-xl">
+          <div className="p-1.5 border-b border-border/50 sticky top-0 bg-bg-secondary">
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search…"
+              className="w-full px-2 py-1 text-xs bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => { onChange(null); setOpen(false); setQuery(''); }}
+            className={clsx(
+              'w-full text-left px-2.5 py-1.5 text-xs hover:bg-bg-tertiary',
+              value === null ? 'text-accent' : 'text-text-muted',
+            )}
+          >
+            Any user
+          </button>
+          {filtered.length === 0 ? (
+            <div className="px-2.5 py-2 text-xs text-text-muted italic">No match</div>
+          ) : filtered.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => { onChange(u.id); setOpen(false); setQuery(''); }}
+              className={clsx(
+                'w-full text-left px-2.5 py-1.5 text-xs hover:bg-bg-tertiary flex items-center gap-1.5',
+                value === u.id ? 'text-accent' : 'text-text-primary',
+              )}
+            >
+              <span className="truncate">{u.username}</span>
+              {u.displayName && <span className="text-[10px] text-text-muted truncate">({u.displayName})</span>}
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -192,6 +192,13 @@ router.post('/:id/execute', async (req, res, next) => {
       triggeredBy: r.triggered_by,
       triggeredAt: r.triggered_at,
     }));
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'script.executed_manually', {
+        resourceType: 'script', resourcePath: req.params.id,
+        details: { deviceCount: deviceIds.length, executionCount: executions.length },
+      });
+    } catch {}
     res.status(202).json({ data: executions });
   } catch (err) { next(err); }
 });
