@@ -59,7 +59,56 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   { key: 'device.transfer_tenant',       label: 'Transfer device to another tenant', category: 'Device' },
   { key: 'software.remediate_install',   label: 'Install software (manual)', category: 'Software' },
   { key: 'software.remediate_uninstall', label: 'Uninstall software (manual)', category: 'Software' },
+  // File Explorer — listing is a low-risk read; upload/delete/rename are destructive.
+  { key: 'command.list_directory',       label: 'Browse file explorer',     category: 'File Explorer' },
+  { key: 'command.upload_file',          label: 'Upload a file to the device', category: 'File Explorer' },
+  { key: 'command.download_file',        label: 'Download a file from the device', category: 'File Explorer' },
+  { key: 'command.delete_file',          label: 'Delete a file on the device', category: 'File Explorer' },
+  { key: 'command.rename_file',          label: 'Rename a file on the device', category: 'File Explorer' },
+  { key: 'command.create_directory',     label: 'Create a directory on the device', category: 'File Explorer' },
+  // Remote sessions (any protocol — SSH, CMD, PowerShell, ObliReach).
+  { key: 'remote.session_start',         label: 'Start a remote session (SSH / CMD / PowerShell / ObliReach)', category: 'Remote' },
+  // Services — start is low-risk, stop/restart impact the host.
+  { key: 'command.start_service',        label: 'Start a service',          category: 'Services' },
+  { key: 'command.stop_service',         label: 'Stop a service',           category: 'Services' },
+  { key: 'command.restart_service',      label: 'Restart a service',        category: 'Services' },
+  // Processes.
+  { key: 'command.kill_process',         label: 'Kill a process',           category: 'Processes' },
+  // Scripts — manual execution from the UI (schedules are un-gated).
+  { key: 'script.execute_manual',        label: 'Manually execute a script', category: 'Scripts' },
 ];
+
+/**
+ * Recommended default levels for fresh tenants (and tenants that never
+ * customised anything). Keys listed as 'none' are omitted from the stored
+ * map so the UI shows them blank and the admin can opt in later.
+ */
+export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = {
+  'command.reboot':               'sensitive',
+  'command.shutdown':             'sensitive',
+  // sleep + restart_agent = none (not listed)
+  'command.uninstall_agent':      'restricted',
+  'command.enable_airgap':        'sensitive',
+  'command.disable_airgap':       'restricted',
+  // enable_privacy_mode = none
+  'command.disable_privacy_mode': 'sensitive',
+  'device.delete':                'sensitive',
+  'device.bulk_group_change':     'sensitive',
+  'device.transfer_tenant':       'sensitive',
+  'software.remediate_install':   'sensitive',
+  'software.remediate_uninstall': 'sensitive',
+  // Manual script execution defaults to sensitive — scripts can do anything
+  // on the target host, so a fresh TOTP confirm is a sane default.
+  'script.execute_manual':        'sensitive',
+  // File explorer is gated at the menu-entry point (list_directory) only,
+  // so a user enters a code ONCE when opening the explorer and then browses
+  // / downloads / uploads freely without re-prompting. Individual
+  // destructive operations stay None by default — admins can opt in per
+  // action from the matrix if they want a double-gate.
+  'command.list_directory':       'sensitive',
+  // Remote sessions / services / processes are intentionally NOT defaulted —
+  // admins opt in by editing the matrix.
+};
 
 function normalizeEntry(raw: any): RestrictionEntry | null {
   if (raw === 'restricted' || raw === 'sensitive') {

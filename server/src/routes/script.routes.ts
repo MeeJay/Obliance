@@ -179,6 +179,18 @@ router.post('/:id/execute', async (req, res, next) => {
       }
     }
 
+    // Action restriction gate — manual script execution.
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'script.execute_manual',
+      deviceIds,
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Manually run script #${req.params.id} on ${deviceIds.length} device(s)`,
+      approvalPayload: { action: 'run_script', deviceIds, params: { scriptId: parseInt(req.params.id), parameterValues: parameterValues || {} } },
+    });
+    if (!approved) return;
+
     const rawExecs = await scheduleService.executeNow(
       parseInt(req.params.id), deviceIds, req.tenantId!,
       parameterValues || {}, req.session.userId!

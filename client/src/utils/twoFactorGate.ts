@@ -17,14 +17,18 @@ let listener: Listener | null = null;
 
 export function setTwoFactorListener(fn: Listener | null): void {
   listener = fn;
+  if (fn) console.debug('[tfa-gate] listener registered');
+  else console.debug('[tfa-gate] listener cleared');
 }
 
 export function awaitTwoFactorCode(actionLabel: string): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!listener) {
+      console.warn('[tfa-gate] awaitTwoFactorCode called but no listener is mounted');
       reject(new Error('Two-factor gate is not mounted. Did you forget <TwoFactorGate /> at app root?'));
       return;
     }
+    console.debug('[tfa-gate] prompting for code —', actionLabel);
     listener({ actionLabel, resolve, reject });
   });
 }

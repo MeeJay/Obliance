@@ -50,6 +50,8 @@ apiClient.interceptors.response.use(
 
     // ── Sensitive-action 2FA gate ──────────────────────────────────────────
     if (status === 401 && body?.twoFactorRequired && !(config as any)._tfaRetried) {
+      // Diagnostic log — helps debug "modal didn't pop" scenarios.
+      console.debug('[tfa-gate] server requested 2FA for', body?.action || '(unknown action)');
       try {
         const actionLabel = body?.action || 'Sensitive action';
         const code = await awaitTwoFactorCode(actionLabel);
@@ -69,12 +71,18 @@ apiClient.interceptors.response.use(
         (config.headers as any)['Content-Type'] = 'application/json';
         return apiClient(config);
       } catch (cancelled) {
+        console.warn('[tfa-gate] 2FA prompt rejected:', (cancelled as any)?.message);
         return Promise.reject(cancelled);
       }
     }
 
     // ── Plain 401 (session lost) ──────────────────────────────────────────
-    if (status === 401) {
+    // Only redirect to /login when the 401 is *not* an action-specific error
+    // (bad 2FA code, missing TOTP config, invalid approval state, etc). Those
+    // carry an `error` string in the body but no session-loss signal; if we
+    // redirected here, a bad 2FA code would boot the user out of the app.
+    const isActionError = status === 401 && body && typeof body === 'object' && typeof body.error === 'string';
+    if (status === 401 && !isActionError && !(config as any)._tfaRetried) {
       if (isInObliTools) {
         sessionStorage.removeItem(OBLITOOLS_TOKEN_KEY);
       } else if (window.location.pathname !== '/login') {

@@ -15,6 +15,20 @@ router.post('/sessions', async (req, res, next) => {
       const canRemote = await permissionService.canUseCapability(req.session.userId!, deviceId, false, 'remote');
       if (!canRemote) return next(new AppError(403, 'Remote access not permitted for your team'));
     }
+
+    // Action restriction gate — any remote session (SSH, CMD, PowerShell,
+    // ObliReach) is controlled by the single `remote.session_start` key.
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'remote.session_start',
+      deviceIds: [deviceId],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Start ${protocol} session on device #${deviceId}`,
+      approvalPayload: { action: `open_${protocol}_session`, deviceIds: [deviceId] },
+    });
+    if (!approved) return;
+
     const session = await remoteService.createSession(
       deviceId, req.tenantId!, req.session.userId!, protocol,
       typeof sessionId === 'number' ? sessionId : undefined,
