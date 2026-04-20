@@ -46,6 +46,13 @@ export const teamsController = {
       const isPlatformAdmin = req.session.role === 'admin';
       const targetTenantId = (isPlatformAdmin && data.tenantId) ? data.tenantId : req.tenantId;
       const team = await teamService.create(data, targetTenantId);
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'team.created', {
+          resourceType: 'team', resourcePath: String(team.id),
+          details: { name: team.name },
+        });
+      } catch {}
       res.status(201).json({ success: true, data: team });
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('unique')) {
@@ -62,6 +69,12 @@ export const teamsController = {
       const data = req.body as UpdateTeamInput;
       const team = await teamService.update(id, data);
       if (!team) throw new AppError(404, 'Team not found');
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'team.updated', {
+          resourceType: 'team', resourcePath: String(id), details: { name: team.name },
+        });
+      } catch {}
       res.json({ success: true, data: team });
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('unique')) {
@@ -77,6 +90,10 @@ export const teamsController = {
       const id = parseInt(req.params.id, 10);
       const deleted = await teamService.delete(id);
       if (!deleted) throw new AppError(404, 'Team not found');
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'team.deleted', { resourceType: 'team', resourcePath: String(id) });
+      } catch {}
       res.json({ success: true, message: 'Team deleted' });
     } catch (err) {
       next(err);
@@ -100,6 +117,13 @@ export const teamsController = {
       const id = parseInt(req.params.id, 10);
       const { userIds } = req.body as SetTeamMembersInput;
       await teamService.setMembers(id, userIds);
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'team.members_changed', {
+          resourceType: 'team', resourcePath: String(id),
+          details: { userCount: userIds.length, userIds },
+        });
+      } catch {}
       res.json({ success: true, data: userIds });
     } catch (err) {
       next(err);
@@ -123,6 +147,13 @@ export const teamsController = {
       const id = parseInt(req.params.id, 10);
       const { permissions } = req.body as SetTeamPermissionsInput;
       const result = await teamService.setPermissions(id, permissions);
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'team.permissions_changed', {
+          resourceType: 'team', resourcePath: String(id),
+          details: { permissionCount: permissions.length },
+        });
+      } catch {}
       res.json({ success: true, data: result });
     } catch (err) {
       next(err);

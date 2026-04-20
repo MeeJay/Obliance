@@ -147,6 +147,13 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
     const scenario = await scenarioService.create(req.tenantId!, req.body, req.session.userId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.created', {
+        resourceType: 'scenario', resourcePath: String(scenario.id),
+        details: { name: scenario.name, triggerType: scenario.triggerType },
+      });
+    } catch {}
     res.status(201).json({ data: scenario });
   } catch (err) { next(err); }
 });
@@ -155,6 +162,13 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 router.put('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     const scenario = await scenarioService.update(parseInt(req.params.id), req.tenantId!, req.body, req.session.userId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.updated', {
+        resourceType: 'scenario', resourcePath: req.params.id,
+        details: { name: scenario.name },
+      });
+    } catch {}
     res.json({ data: scenario });
   } catch (err) { next(err); }
 });
@@ -163,6 +177,12 @@ router.put('/:id', requireRole('admin'), async (req, res, next) => {
 router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await scenarioService.delete(parseInt(req.params.id), req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.deleted', {
+        resourceType: 'scenario', resourcePath: req.params.id,
+      });
+    } catch {}
     res.json({ data: { success: true } });
   } catch (err) { next(err); }
 });
@@ -171,6 +191,10 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
 router.post('/:id/enable', requireRole('admin'), async (req, res, next) => {
   try {
     await scenarioService.enable(parseInt(req.params.id), req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.enabled', { resourceType: 'scenario', resourcePath: req.params.id });
+    } catch {}
     res.json({ data: { success: true } });
   } catch (err) { next(err); }
 });
@@ -179,6 +203,10 @@ router.post('/:id/enable', requireRole('admin'), async (req, res, next) => {
 router.post('/:id/disable', requireRole('admin'), async (req, res, next) => {
   try {
     await scenarioService.disable(parseInt(req.params.id), req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.disabled', { resourceType: 'scenario', resourcePath: req.params.id });
+    } catch {}
     res.json({ data: { success: true } });
   } catch (err) { next(err); }
 });
@@ -188,6 +216,13 @@ router.post('/:id/trigger', requireRole('admin'), async (req, res, next) => {
   try {
     const { deviceIds } = req.body;
     const runs = await scenarioService.triggerManual(parseInt(req.params.id), deviceIds, req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'scenario.triggered_manually', {
+        resourceType: 'scenario', resourcePath: req.params.id,
+        details: { deviceCount: Array.isArray(deviceIds) ? deviceIds.length : 0 },
+      });
+    } catch {}
     res.json({ data: runs });
   } catch (err) { next(err); }
 });

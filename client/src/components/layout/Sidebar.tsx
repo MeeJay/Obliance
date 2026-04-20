@@ -508,8 +508,7 @@ export function Sidebar() {
     { label: t('nav.agents'),        path: '/admin/devices',       icon: <Terminal size={18} /> },
     { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
-    { label: t('nav.approvals', 'Approvals'), path: '/admin/approvals', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount },
-    { label: t('nav.auditLog', 'Audit log'), path: '/admin/audit-log', icon: <FileText size={18} /> },
+    { label: t('nav.security', 'Security'), path: '/admin/security', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount },
     { label: t('tenant.pageTitle'),  path: '/admin/tenants',       icon: <Building2 size={18} /> },
     { label: t('nav.settings'),      path: '/settings',            icon: <Settings size={18} /> },
   ];

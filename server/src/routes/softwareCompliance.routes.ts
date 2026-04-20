@@ -30,6 +30,13 @@ router.post('/lists', requireRole('admin'), async (req, res, next) => {
     const list = await softwareComplianceService.createList(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'software_policy.created', {
+        resourceType: 'software_policy', resourcePath: String(list.id),
+        details: { name: list.name, listType: list.listType },
+      });
+    } catch {}
     res.status(201).json({ data: list });
   } catch (err) { next(err); }
 });
@@ -38,6 +45,13 @@ router.post('/lists', requireRole('admin'), async (req, res, next) => {
 router.put('/lists/:id', requireRole('admin'), async (req, res, next) => {
   try {
     const list = await softwareComplianceService.updateList(parseInt(req.params.id), req.tenantId!, req.body);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'software_policy.updated', {
+        resourceType: 'software_policy', resourcePath: req.params.id,
+        details: { name: list.name },
+      });
+    } catch {}
     res.json({ data: list });
   } catch (err) { next(err); }
 });
@@ -46,6 +60,12 @@ router.put('/lists/:id', requireRole('admin'), async (req, res, next) => {
 router.delete('/lists/:id', requireRole('admin'), async (req, res, next) => {
   try {
     await softwareComplianceService.deleteList(parseInt(req.params.id), req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'software_policy.deleted', {
+        resourceType: 'software_policy', resourcePath: req.params.id,
+      });
+    } catch {}
     res.status(204).send();
   } catch (err) { next(err); }
 });
@@ -230,6 +250,18 @@ router.post('/remediate', async (req, res, next) => {
       const canWrite = await permissionService.canWriteDevice(req.session.userId!, parseInt(deviceId), false);
       if (!canWrite) throw new AppError(403, 'Insufficient permissions');
     }
+    const list = await softwareComplianceService.getListById(parseInt(listId), req.tenantId!);
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: list?.listType === 'whitelist' ? 'software.remediate_install' : 'software.remediate_uninstall',
+      deviceIds: [parseInt(deviceId)],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `${list?.listType === 'whitelist' ? 'Install' : 'Uninstall'} ${entryIds.length} entry(ies) on device #${deviceId}`,
+      approvalPayload: { action: list?.listType === 'whitelist' ? 'install_software' : 'uninstall_software', deviceIds: [parseInt(deviceId)], params: { listId, entryIds } },
+    });
+    if (!approved) return;
+
     const cmds = await softwareComplianceService.triggerRemediation(
       parseInt(deviceId), parseInt(listId), entryIds,
       req.tenantId!, req.session.userId!

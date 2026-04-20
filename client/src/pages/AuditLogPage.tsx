@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { FileText, RefreshCw, Search, ChevronDown, ChevronRight, Download, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { auditApi, type AuditLogRow, type AuditLogFilters } from '@/api/audit.api';
+import { usersApi } from '@/api/users.api';
+import type { User } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
 // Tenant-wide audit log — "who did what when, and from which IP".
@@ -81,12 +83,13 @@ function Row({ row }: { row: AuditLogRow }) {
   );
 }
 
-export function AuditLogPage() {
+export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [items, setItems] = useState<AuditLogRow[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<AuditLogFilters>({ limit: PAGE_SIZE, offset: 0 });
   const [actions, setActions] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState('');
 
   const load = useCallback(async (spinner = true) => {
@@ -109,6 +112,8 @@ export function AuditLogPage() {
   useEffect(() => {
     // Load distinct action list once for the dropdown.
     auditApi.distinctActions().then(setActions).catch(() => {});
+    // Load tenant users for the "By user" filter.
+    usersApi.list().then(setUsers).catch(() => {});
   }, []);
 
   const applySearch = () => {
@@ -153,15 +158,18 @@ export function AuditLogPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className={embedded ? '' : 'p-6'}>
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-accent" />
-          <div>
-            <h1 className="text-xl font-semibold text-text-primary">Audit log</h1>
-            <p className="text-sm text-text-muted">Who did what, when, and from where.</p>
+        {!embedded && (
+          <div className="flex items-center gap-3">
+            <FileText className="w-6 h-6 text-accent" />
+            <div>
+              <h1 className="text-xl font-semibold text-text-primary">Audit log</h1>
+              <p className="text-sm text-text-muted">Who did what, when, and from where.</p>
+            </div>
           </div>
-        </div>
+        )}
+        {embedded && <div />}
         <div className="flex items-center gap-2">
           <button
             onClick={exportCsv}
@@ -210,6 +218,17 @@ export function AuditLogPage() {
                 {acts.map((a) => <option key={a} value={a}>{a}</option>)}
               </optgroup>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase text-text-muted mb-0.5">User</label>
+          <select
+            value={filters.userId || ''}
+            onChange={(e) => setFilters({ ...filters, userId: e.target.value ? parseInt(e.target.value) : undefined, offset: 0 })}
+            className="py-1.5 px-2 text-xs bg-bg-secondary border border-border rounded text-text-primary min-w-[140px]"
+          >
+            <option value="">Any user</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
           </select>
         </div>
         <div>

@@ -19,6 +19,15 @@ router.post('/sessions', async (req, res, next) => {
       deviceId, req.tenantId!, req.session.userId!, protocol,
       typeof sessionId === 'number' ? sessionId : undefined,
     );
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, `remote.session_started.${protocol}`, {
+        deviceId,
+        resourceType: 'remote_session',
+        resourcePath: String(session.id),
+        details: { protocol, sessionToken: session.sessionToken?.slice(0, 8) + '…' },
+      });
+    } catch {}
     res.status(201).json({ data: session });
   } catch (err) { next(err); }
 });
@@ -37,6 +46,12 @@ router.get('/sessions', async (req, res, next) => {
 router.post('/sessions/:id/end', async (req, res, next) => {
   try {
     await remoteService.endSession(req.params.id, req.tenantId!, 'user_disconnect');
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'remote.session_ended', {
+        resourceType: 'remote_session', resourcePath: req.params.id,
+      });
+    } catch {}
     res.status(204).send();
   } catch (err) { next(err); }
 });

@@ -265,21 +265,6 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               placeholder={t('devices.filters.search')}
               className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
           </div>
-          <button onClick={() => handleSort(sortBy)} className="flex items-center gap-1 px-2.5 py-2 text-xs bg-bg-secondary border border-border rounded-lg text-text-muted hover:text-text-primary transition-colors">
-            {sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
-            <select value={sortBy} onChange={e => { setSortBy(e.target.value as SortField); }} onClick={e => e.stopPropagation()}
-              className="bg-transparent text-xs focus:outline-none cursor-pointer">
-              <option value="name">{t('sort.name')}</option>
-              <option value="status">{t('sort.status')}</option>
-              <option value="lastSeen">{t('sort.lastSeen')}</option>
-              <option value="os">{t('sort.os')}</option>
-              <option value="version">{t('sort.version')}</option>
-              <option value="group">{t('sort.group')}</option>
-              <option value="cpu">{t('sort.cpu', 'CPU %')}</option>
-              <option value="ram">{t('sort.ram', 'RAM %')}</option>
-              <option value="disk">{t('sort.disk', 'Disk %')}</option>
-            </select>
-          </button>
           <select value={pageSize} onChange={e => setPageSize(parseInt(e.target.value))}
             className="px-2 py-2 text-xs bg-bg-secondary border border-border rounded-lg text-text-muted focus:outline-none">
             {PAGE_SIZES.map(n => <option key={n} value={n}>{n}/page</option>)}

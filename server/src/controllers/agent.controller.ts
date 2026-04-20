@@ -317,6 +317,12 @@ export async function createKey(req: Request, res: Response): Promise<void> {
     default_group_id: defaultGroupId ?? null,
     created_by: userId,
   }).returning('*');
+  try {
+    const { auditService } = await import('../services/audit.service');
+    await auditService.logReq(req, 'api_key.created', {
+      resourceType: 'api_key', resourcePath: String(row.id), details: { name: row.name },
+    });
+  } catch {}
   res.status(201).json({
     success: true,
     data: {
@@ -348,6 +354,13 @@ export async function updateKey(req: Request, res: Response): Promise<void> {
     .where({ id, tenant_id: req.tenantId })
     .update(updates);
   if (!affected) { res.status(404).json({ success: false, error: 'Key not found' }); return; }
+  try {
+    const { auditService } = await import('../services/audit.service');
+    await auditService.logReq(req, 'api_key.updated', {
+      resourceType: 'api_key', resourcePath: String(id),
+      details: { changes: Object.keys(updates) },
+    });
+  } catch {}
   res.json({ success: true });
 }
 
@@ -360,6 +373,12 @@ export async function deleteKey(req: Request, res: Response): Promise<void> {
     res.status(404).json({ success: false, error: 'API key not found' });
     return;
   }
+  try {
+    const { auditService } = await import('../services/audit.service');
+    await auditService.logReq(req, 'api_key.deleted', {
+      resourceType: 'api_key', resourcePath: String(id),
+    });
+  } catch {}
   res.json({ success: true });
 }
 

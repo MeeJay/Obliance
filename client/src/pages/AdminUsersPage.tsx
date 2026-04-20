@@ -5,6 +5,7 @@ import {
   Trash2,
   Key,
   Shield,
+  ShieldAlert,
   ShieldOff,
   UserIcon,
   UserX,
@@ -42,7 +43,7 @@ import { PermissionSetsTab } from '@/components/PermissionSetsTab';
 type PermissionLevel = 'ro' | 'rw';
 type PermissionScope = 'group' | 'device';
 
-type Tab = 'users' | 'teams' | 'notifications' | 'permissionSets';
+type Tab = 'users' | 'teams' | 'notifications' | 'permissionSets' | 'restrictions';
 type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
 type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
@@ -529,7 +530,20 @@ export function AdminUsersPage() {
               <Shield size={14} className="inline mr-1.5" />
               {t('users.tabPermissionSets', 'Permissions')}
             </button>
+            <button
+              onClick={() => setTab('restrictions')}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                tab === 'restrictions'
+                  ? 'bg-accent text-white'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <ShieldAlert size={14} className="inline mr-1.5" />
+              {t('users.tabRestrictions', 'Restrictions')}
+            </button>
           </div>
+
+          {tab === 'restrictions' && <RestrictionsTab />}
 
           {/* ── Notifications Tab ── */}
           {tab === 'notifications' && <NotificationsPage embedded />}
@@ -1312,6 +1326,300 @@ function PermDeviceRow({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Restrictions Tab ──────────────────────────────────────────────────────
+// Matrix: each restrictable action can be set to None / Restricted /
+// Sensitive, with an optional "scope" modal that limits the restriction
+// to specific devices or groups. Default is "all devices" (opt-in).
+
+import { restrictionApi, type RestrictionLevel, type RestrictionMap, type RestrictableAction, type ScopeMode } from '@/api/restriction.api';
+import { groupsApi } from '@/api/groups.api';
+import { deviceApi } from '@/api/device.api';
+import type { DeviceGroupTreeNode, Device } from '@obliance/shared';
+
+function RestrictionsTab() {
+  const [actions, setActions] = useState<RestrictableAction[]>([]);
+  const [map, setMap] = useState<RestrictionMap>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [scopeFor, setScopeFor] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { map, actions } = await restrictionApi.get();
+      setMap(map);
+      setActions(actions);
+      setDirty(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const setLevel = (key: string, level: 'none' | RestrictionLevel) => {
+    setMap((cur) => {
+      const next = { ...cur };
+      if (level === 'none') delete next[key];
+      else next[key] = cur[key]
+        ? { ...cur[key], level }
+        : { level, scope: { mode: 'all' } };
+      return next;
+    });
+    setDirty(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await restrictionApi.setMap(map);
+      setMap(r.map);
+      setDirty(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Group actions by category for the matrix layout.
+  const byCategory: Record<string, RestrictableAction[]> = {};
+  for (const a of actions) {
+    (byCategory[a.category] ||= []).push(a);
+  }
+
+  if (loading) return <p className="text-sm text-text-muted italic">Loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-bg-secondary p-3 text-[11px] text-text-muted">
+        <p>
+          <strong className="text-text-primary">None</strong> = no extra check.{' '}
+          <strong className="text-orange-400">Restricted</strong> = a second admin must approve via Security → Approvals.{' '}
+          <strong className="text-red-400">Sensitive</strong> = the acting user must provide a valid TOTP 2FA code at the moment of execution. Users without TOTP cannot trigger sensitive actions.
+        </p>
+        <p className="mt-1">
+          Use <strong className="text-text-primary">Scope</strong> to limit a restriction to specific devices or groups. Default applies to <em>all</em> devices.
+        </p>
+      </div>
+
+      {Object.entries(byCategory).map(([cat, acts]) => (
+        <div key={cat} className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
+          <div className="px-3 py-2 bg-bg-tertiary/50 border-b border-border">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-text-muted">{cat}</span>
+          </div>
+          <div className="divide-y divide-border/40">
+            {acts.map((a) => {
+              const entry = map[a.key];
+              const level: 'none' | RestrictionLevel = entry?.level ?? 'none';
+              return (
+                <div key={a.key} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary truncate">{a.label}</p>
+                    <p className="text-[10px] text-text-muted font-mono">{a.key}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {(['none', 'restricted', 'sensitive'] as const).map((lv) => {
+                      const color =
+                        lv === 'none' ? 'border-border text-text-muted'
+                      : lv === 'restricted' ? 'border-orange-400/40 text-orange-400'
+                      : 'border-red-400/40 text-red-400';
+                      const active = level === lv;
+                      return (
+                        <button
+                          key={lv}
+                          onClick={() => setLevel(a.key, lv)}
+                          className={`px-2.5 py-1 text-[11px] font-medium rounded border transition-colors capitalize ${
+                            active
+                              ? (lv === 'restricted' ? 'bg-orange-400/10 border-orange-400 text-orange-400'
+                               : lv === 'sensitive' ? 'bg-red-400/10 border-red-400 text-red-400'
+                               : 'bg-bg-tertiary border-border text-text-primary')
+                              : color + ' hover:border-accent/50'
+                          }`}
+                        >
+                          {lv}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    disabled={level === 'none'}
+                    onClick={() => setScopeFor(a.key)}
+                    className={`shrink-0 px-2 py-1 text-[10px] rounded border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                      entry && entry.scope.mode !== 'all'
+                        ? 'border-accent text-accent bg-accent/10'
+                        : 'border-border text-text-muted hover:border-accent/40'
+                    }`}
+                    title="Configure which devices / groups this restriction applies to"
+                  >
+                    Scope: {entry?.scope.mode === 'include' ? 'Include'
+                          : entry?.scope.mode === 'exclude' ? 'Exclude'
+                          : 'All'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex items-center justify-end gap-2">
+        {dirty && <span className="text-xs text-orange-400">Unsaved changes</span>}
+        <button
+          onClick={load}
+          disabled={!dirty || saving}
+          className="px-3 py-1.5 text-xs border border-border rounded text-text-muted hover:text-text-primary disabled:opacity-30"
+        >
+          Reset
+        </button>
+        <button
+          onClick={save}
+          disabled={!dirty || saving}
+          className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {scopeFor && (
+        <RestrictionScopeModal
+          actionKey={scopeFor}
+          entry={map[scopeFor]}
+          onClose={() => setScopeFor(null)}
+          onSave={(scope) => {
+            setMap((cur) => {
+              const next = { ...cur };
+              if (next[scopeFor]) next[scopeFor] = { ...next[scopeFor], scope };
+              return next;
+            });
+            setDirty(true);
+            setScopeFor(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
+  actionKey: string;
+  entry: { level: RestrictionLevel; scope: { mode: ScopeMode; deviceIds?: number[]; groupIds?: number[] } } | undefined;
+  onClose: () => void;
+  onSave: (scope: { mode: ScopeMode; deviceIds?: number[]; groupIds?: number[] }) => void;
+}) {
+  const [mode, setMode] = useState<ScopeMode>(entry?.scope.mode ?? 'all');
+  const [deviceIds, setDeviceIds] = useState<number[]>(entry?.scope.deviceIds ?? []);
+  const [groupIds, setGroupIds] = useState<number[]>(entry?.scope.groupIds ?? []);
+  const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    groupsApi.tree().then(setGroupTree).catch(() => {});
+    deviceApi.listPaginated({ approvalStatus: 'approved', pageSize: 10000 })
+      .then((r) => setDevices(r.items))
+      .catch(() => {});
+  }, []);
+
+  const toggle = (arr: number[], id: number): number[] =>
+    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+
+  const flatGroups: { id: number; name: string; depth: number }[] = [];
+  const walk = (nodes: DeviceGroupTreeNode[], depth: number) => {
+    for (const n of nodes) {
+      flatGroups.push({ id: n.id, name: n.name, depth });
+      if (n.children?.length) walk(n.children, depth + 1);
+    }
+  };
+  walk(groupTree, 0);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <Shield className="w-4 h-4 text-accent" />
+          <span className="text-sm font-semibold text-text-primary">Scope — {actionKey}</span>
+          <button onClick={onClose} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-3 space-y-3 overflow-y-auto">
+          <div className="flex items-center gap-2">
+            {(['all', 'include', 'exclude'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1.5 text-xs rounded border ${
+                  mode === m ? 'bg-accent text-white border-accent' : 'border-border text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {m === 'all' ? 'All devices (default)' : m === 'include' ? 'Only these' : 'All except these'}
+              </button>
+            ))}
+          </div>
+          {mode !== 'all' && (
+            <>
+              <div>
+                <p className="text-[10px] uppercase text-text-muted font-medium mb-1">Groups</p>
+                <div className="flex flex-wrap gap-1">
+                  {flatGroups.length === 0 && <span className="text-xs text-text-muted italic">No groups</span>}
+                  {flatGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() => setGroupIds((a) => toggle(a, g.id))}
+                      className={`px-2 py-0.5 text-[11px] rounded border ${
+                        groupIds.includes(g.id)
+                          ? 'bg-accent/20 border-accent text-accent'
+                          : 'border-border text-text-muted hover:text-text-primary'
+                      }`}
+                      style={{ marginLeft: g.depth * 12 }}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-text-muted font-medium mb-1">Devices</p>
+                <div className="flex flex-wrap gap-1 max-h-48 overflow-y-auto border border-border rounded p-1.5 bg-bg-tertiary/30">
+                  {devices.length === 0 && <span className="text-xs text-text-muted italic">No devices</span>}
+                  {devices.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => setDeviceIds((a) => toggle(a, d.id))}
+                      className={`px-1.5 py-0.5 text-[11px] rounded border ${
+                        deviceIds.includes(d.id)
+                          ? 'bg-accent/20 border-accent text-accent'
+                          : 'border-border text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {d.displayName || d.hostname}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t border-border flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs border border-border rounded text-text-muted hover:text-text-primary">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave({ mode, deviceIds: mode === 'all' ? undefined : deviceIds, groupIds: mode === 'all' ? undefined : groupIds })}
+            className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
+          >
+            Apply scope
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

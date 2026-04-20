@@ -106,6 +106,14 @@ export const groupsController = {
         io.to('role:admin').emit('group:created', { group });
       }
 
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'group.created', {
+          resourceType: 'group', resourcePath: String(group.id),
+          details: { name: group.name, parentId: group.parentId ?? null },
+        });
+      } catch {}
+
       res.status(201).json({ success: true, data: group });
     } catch (err) {
       next(err);
@@ -128,6 +136,14 @@ export const groupsController = {
       if (io) {
         io.to('role:admin').emit('group:updated', { group });
       }
+
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'group.updated', {
+          resourceType: 'group', resourcePath: String(id),
+          details: { name: group.name },
+        });
+      } catch {}
 
       res.json({ success: true, data: group });
     } catch (err) {
@@ -178,6 +194,13 @@ export const groupsController = {
       if (io) {
         io.to('role:admin').emit('group:deleted', { groupId: id });
       }
+
+      try {
+        const { auditService } = await import('../services/audit.service');
+        await auditService.logReq(req, 'group.deleted', {
+          resourceType: 'group', resourcePath: String(id),
+        });
+      } catch {}
 
       res.json({ success: true, message: 'Group deleted' });
     } catch (err) {

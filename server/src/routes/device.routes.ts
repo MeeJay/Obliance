@@ -302,6 +302,17 @@ router.post('/batch/change-group', requireRole('admin'), async (req, res, next) 
     }
     const normalized = groupId === undefined ? null : groupId;
 
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'device.bulk_group_change',
+      deviceIds,
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Move ${deviceIds.length} device(s) to group #${normalized ?? 'none'}`,
+      approvalPayload: { action: 'change_group', deviceIds, params: { groupId: normalized } },
+    });
+    if (!approved) return;
+
     // Capture previous groupIds so we only fire triggers when the group changed.
     const prev = await db('devices')
       .whereIn('id', deviceIds)
@@ -360,23 +371,19 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
     }
     if (!ids.length) return res.json({ data: { dispatched: 0 } });
 
-    // Gate destructive actions through the 2-step approval flow if the
-    // tenant has opted in. Scan/check commands bypass since they can't
-    // break anything.
+    // Gate destructive actions via the per-action restriction policy.
     const destructive = ['reboot', 'shutdown', 'restart_agent', 'sleep'].includes(action);
     if (destructive) {
-      const { approvalService } = await import('../services/approval.service');
-      const needsApproval = await approvalService.requiresApproval(req.tenantId!);
-      if (needsApproval) {
-        const approval = await approvalService.create({
-          tenantId: req.tenantId!,
-          userId: req.session.userId!,
-          requestType: 'batch_command',
-          description: `${action} on ${ids.length} device${ids.length > 1 ? 's' : ''}`,
-          payload: { action, deviceIds: ids },
-        });
-        return res.status(202).json({ data: { approvalId: approval.id, status: 'pending_approval', dispatched: 0 } });
-      }
+      const { applyRestriction } = await import('../services/restriction.service');
+      const approved = await applyRestriction(res, {
+        req,
+        actionKey: `command.${action}`,
+        deviceIds: ids,
+        approvalRequestType: 'batch_command',
+        approvalDescription: `${action} on ${ids.length} device${ids.length > 1 ? 's' : ''}`,
+        approvalPayload: { action, deviceIds: ids },
+      });
+      if (!approved) return;
     }
 
     let dispatched = 0;
@@ -643,18 +650,17 @@ router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
     const existing = await deviceService.getDeviceById(id, req.tenantId!);
     if (!existing) return res.status(404).json({ error: 'Device not found' });
 
-    const { approvalService } = await import('../services/approval.service');
-    if (await approvalService.requiresApproval(req.tenantId!)) {
-      const name = existing.displayName || existing.hostname || `#${id}`;
-      const approval = await approvalService.create({
-        tenantId: req.tenantId!,
-        userId: req.session.userId!,
-        requestType: 'device_uninstall',
-        description: `Uninstall agent from ${name}`,
-        payload: { deviceId: id },
-      });
-      return res.status(202).json({ data: { approvalId: approval.id, status: 'pending_approval' } });
-    }
+    const name = existing.displayName || existing.hostname || `#${id}`;
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'command.uninstall_agent',
+      deviceIds: [id],
+      approvalRequestType: 'device_uninstall',
+      approvalDescription: `Uninstall agent from ${name}`,
+      approvalPayload: { deviceId: id },
+    });
+    if (!approved) return;
 
     const device = await deviceService.initiateUninstall(id, req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
@@ -762,6 +768,17 @@ router.post('/:id/transfer', requireRole('admin'), async (req, res, next) => {
     const targetKey = await db('agent_api_keys').where({ id: targetApiKeyId, tenant_id: targetTenantId }).first();
     if (!targetKey) return res.status(400).json({ error: 'Target API key not found in target tenant' });
 
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'device.transfer_tenant',
+      deviceIds: [deviceId],
+      approvalRequestType: 'device_uninstall',
+      approvalDescription: `Transfer ${device.hostname} to tenant #${targetTenantId}`,
+      approvalPayload: { deviceId, targetTenantId, targetApiKeyId },
+    });
+    if (!approved) return;
+
     const serverUrl = `${req.protocol}://${req.get('host')}`;
 
     await db.transaction(async (trx) => {
@@ -830,6 +847,19 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const existing = await deviceService.getDeviceById(id, req.tenantId!);
+    if (!existing) return res.status(404).json({ error: 'Device not found' });
+
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'device.delete',
+      deviceIds: [id],
+      approvalRequestType: 'device_uninstall',
+      approvalDescription: `Delete device ${existing.displayName || existing.hostname || `#${id}`}`,
+      approvalPayload: { deviceId: id, deleteOnly: true },
+    });
+    if (!approved) return;
+
     await deviceService.deleteDevice(id, req.tenantId!);
     try {
       const { auditService } = await import('../services/audit.service');

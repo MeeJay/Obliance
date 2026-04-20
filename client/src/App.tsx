@@ -26,7 +26,9 @@ import { AdminTenantsPage } from '@/pages/AdminTenantsPage';
 import { CustomSectionsPage } from '@/pages/CustomSectionsPage';
 import { ApprovalsPage } from '@/pages/ApprovalsPage';
 import { AuditLogPage } from '@/pages/AuditLogPage';
+import { SecurityPage } from '@/pages/SecurityPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { TwoFactorGate } from '@/components/common/TwoFactorGate';
 import '@/i18n';
 
 export default function App() {
@@ -71,8 +73,10 @@ export default function App() {
               <Route path="/admin/import-export" element={<ImportExportPage />} />
               <Route path="/admin/tenants" element={<AdminTenantsPage />} />
               <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
+              {/* Legacy direct routes kept for backward compat; new menu uses /admin/security */}
               <Route path="/admin/approvals" element={<ApprovalsPage />} />
               <Route path="/admin/audit-log" element={<AuditLogPage />} />
+              <Route path="/admin/security" element={<SecurityPage />} />
             </Route>
           </Route>
         </Route>
@@ -88,6 +92,10 @@ export default function App() {
           duration: 4000,
         }}
       />
+
+      {/* Singleton modal that pops whenever the server replies
+          401 twoFactorRequired — no need to wire anything at call sites. */}
+      <TwoFactorGate />
     </BrowserRouter>
   );
 }

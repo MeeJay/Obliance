@@ -30,7 +30,7 @@ function formatCountdown(expiresAt: string): string {
   return `${min}m ${sec}s`;
 }
 
-export function ApprovalsPage() {
+export function ApprovalsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const userId = useAuthStore((s) => s.user?.id);
   const [items, setItems] = useState<PendingApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,15 +115,18 @@ export function ApprovalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className={embedded ? '' : 'p-6'}>
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-6 h-6 text-accent" />
-          <div>
-            <h1 className="text-xl font-semibold text-text-primary">Approvals</h1>
-            <p className="text-sm text-text-muted">Destructive actions waiting for a second admin.</p>
+        {!embedded && (
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-6 h-6 text-accent" />
+            <div>
+              <h1 className="text-xl font-semibold text-text-primary">Approvals</h1>
+              <p className="text-sm text-text-muted">Destructive actions waiting for a second admin.</p>
+            </div>
           </div>
-        </div>
+        )}
+        {embedded && <div />}
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer">
             <input

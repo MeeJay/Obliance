@@ -85,6 +85,22 @@ router.post('/', async (req, res, next) => {
       effectivePayload = { ...payload, unlockToken: token };
     }
 
+    // ── Action restriction gate ───────────────────────────────────────────
+    // Consults the tenant's per-action restriction map (configured under
+    // /admin/users → Restrictions). If the action is "sensitive", we require
+    // a valid TOTP code in req.body.twoFactorCode; if "restricted", we
+    // queue a pending approval instead of executing.
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: `command.${type}`,
+      deviceIds: [deviceId],
+      approvalRequestType: 'batch_command',
+      approvalDescription: `${type} on ${device.hostname}`,
+      approvalPayload: { action: type, deviceIds: [deviceId], params: effectivePayload },
+    });
+    if (!approved) return;
+
     const cmd = await commandService.enqueue({
       deviceId,
       tenantId: req.tenantId!,
@@ -94,6 +110,18 @@ router.post('/', async (req, res, next) => {
       expiresInSeconds: 300,
       createdBy: req.session?.userId,
     });
+
+    // Audit every user-initiated command so the security tab shows who
+    // triggered what on which machine (reboot / shutdown / scripts / etc).
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, `command.${type}`, {
+        deviceId,
+        resourceType: 'command',
+        resourcePath: cmd.id,
+        details: { hostname: device.hostname, priority },
+      });
+    } catch {}
 
     // Try immediate delivery via WebSocket command channel.
     // If the push succeeds the agent will execute and ack via WS, so mark
