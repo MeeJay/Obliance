@@ -89,6 +89,31 @@ apiClient.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+
+    // ── Surface actionable restriction errors ─────────────────────────────
+    // When a sensitive/restricted action is refused (no TOTP on the account,
+    // bad 2FA code, unauthorised user, etc.) the server ships a useful
+    // `error` string. Most UI call sites show a generic "Failed to …" toast
+    // that hides this, so we pop the server message here as a fallback.
+    //
+    // Skip this for:
+    //   - 2FA prompts (status 401 + twoFactorRequired — handled above)
+    //   - 2FA retries (bad code → the caller still shows its toast anyway,
+    //     we don't want to double-toast but we DO want visibility; keep it)
+    //   - GET requests (usually background polling — noise)
+    const method = (config.method || 'get').toLowerCase();
+    const shouldSurface =
+      (status === 401 || status === 403 || status === 423)
+      && body?.error
+      && !body?.twoFactorRequired
+      && method !== 'get';
+    if (shouldSurface) {
+      // Lazy-load to avoid a circular import (client.ts is imported very early).
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error(body.error, { duration: 6000 });
+      }).catch(() => {});
+    }
+
     return Promise.reject(error);
   },
 );

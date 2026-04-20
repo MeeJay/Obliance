@@ -49,6 +49,45 @@ export const obligateService = {
   /**
    * Exchange an authorization code with Obligate for user info.
    */
+  /**
+   * Step-up authentication: verify a fresh TOTP code against an SSO user's
+   * Obligate account. Used by the restriction service when a user flagged
+   * as `foreign_source='obligate'` (no local TOTP secret) tries to invoke
+   * a sensitive action.
+   *
+   * Returns true if the code is accepted, false if rejected / Obligate
+   * unreachable / SSO user without TOTP configured. Failing closed is
+   * deliberate — a sensitive action must never go through on a silent
+   * verification failure.
+   */
+  async verifyTotp(obligateUserId: number, code: string): Promise<boolean> {
+    const raw = await appConfigService.getObligateRaw();
+    if (!raw.url || !raw.apiKey) {
+      logger.warn('Obligate verifyTotp: not configured');
+      return false;
+    }
+
+    try {
+      const res = await fetch(`${raw.url}/api/oauth/verify-totp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${raw.apiKey}`,
+        },
+        body: JSON.stringify({ userId: obligateUserId, code }),
+      });
+      if (!res.ok) {
+        logger.warn(`Obligate verifyTotp failed: HTTP ${res.status}`);
+        return false;
+      }
+      const data = await res.json() as { success?: boolean; data?: { valid?: boolean } };
+      return !!(data?.success && data?.data?.valid);
+    } catch (err) {
+      logger.error(err, 'Obligate verifyTotp error');
+      return false;
+    }
+  },
+
   async exchangeCode(code: string, redirectUri: string): Promise<ObligateUserAssertion | null> {
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) {

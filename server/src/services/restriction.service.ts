@@ -227,16 +227,24 @@ export const restrictionService = {
     if (level === 'none') return { ok: true };
 
     if (level === 'sensitive') {
-      const user = await db('users').where({ id: userId }).first('totp_enabled', 'totp_secret', 'username');
+      const user = await db('users')
+        .where({ id: userId })
+        .first('totp_enabled', 'totp_secret', 'username', 'foreign_source', 'foreign_id');
       if (!user) return { ok: false, status: 401, body: { error: 'Unauthenticated' } };
-      // Only TOTP is trusted for sensitive actions — email OTP would race the
-      // network and is not guaranteed delivered before the command executes.
-      if (!user.totp_enabled || !user.totp_secret) {
+
+      const hasLocalTotp = !!(user.totp_enabled && user.totp_secret);
+      const isObligateSso = user.foreign_source === 'obligate' && user.foreign_id;
+
+      // Must have either local TOTP or Obligate SSO (which proxies to the
+      // Obligate-side TOTP). Email OTP isn't trusted for sensitive actions —
+      // too slow + network-dependent.
+      if (!hasLocalTotp && !isObligateSso) {
         return {
           ok: false, status: 403,
           body: { error: 'This action is marked sensitive — enable TOTP 2FA on your profile before you can use it.' },
         };
       }
+
       const code = (req.body?.twoFactorCode || '').trim();
       if (!code) {
         return {
@@ -244,7 +252,16 @@ export const restrictionService = {
           body: { error: 'twoFactorCode required', twoFactorRequired: true, action: actionKey },
         };
       }
-      const valid = twoFactorService.verifyTotp(user.totp_secret, code);
+
+      let valid = false;
+      if (hasLocalTotp) {
+        valid = twoFactorService.verifyTotp(user.totp_secret, code);
+      } else if (isObligateSso) {
+        // Delegate to Obligate (lazy import to avoid a circular dep —
+        // obligate.service imports appConfigService which pulls db indirectly).
+        const { obligateService } = await import('./obligate.service');
+        valid = await obligateService.verifyTotp(user.foreign_id, code);
+      }
       if (!valid) {
         return { ok: false, status: 401, body: { error: 'Invalid 2FA code' } };
       }
