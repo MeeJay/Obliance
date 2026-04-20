@@ -32,6 +32,7 @@ import { usersApi } from '@/api/users.api';
 import { teamsApi } from '@/api/teams.api';
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
+import { restrictionApi, type RestrictionLevel, type RestrictionMap, type RestrictableAction, type ScopeMode } from '@/api/restriction.api';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
@@ -1335,11 +1336,6 @@ function PermDeviceRow({
 // Sensitive, with an optional "scope" modal that limits the restriction
 // to specific devices or groups. Default is "all devices" (opt-in).
 
-import { restrictionApi, type RestrictionLevel, type RestrictionMap, type RestrictableAction, type ScopeMode } from '@/api/restriction.api';
-import { groupsApi } from '@/api/groups.api';
-import { deviceApi } from '@/api/device.api';
-import type { DeviceGroupTreeNode, Device } from '@obliance/shared';
-
 function RestrictionsTab() {
   const [actions, setActions] = useState<RestrictableAction[]>([]);
   const [map, setMap] = useState<RestrictionMap>({});
@@ -1414,7 +1410,7 @@ function RestrictionsTab() {
           <div className="divide-y divide-border/40">
             {acts.map((a) => {
               const entry = map[a.key];
-              const level: 'none' | RestrictionLevel = entry?.level ?? 'none';
+              const level: 'none' | RestrictionLevel = entry ? entry.level : 'none';
               return (
                 <div key={a.key} className="flex items-center gap-3 px-3 py-2">
                   <div className="flex-1 min-w-0">
@@ -1448,7 +1444,7 @@ function RestrictionsTab() {
                   </div>
 
                   <button
-                    disabled={level === 'none'}
+                    disabled={!entry}
                     onClick={() => setScopeFor(a.key)}
                     className={`shrink-0 px-2 py-1 text-[10px] rounded border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                       entry && entry.scope.mode !== 'all'

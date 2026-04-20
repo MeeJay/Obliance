@@ -27,7 +27,6 @@ import {
   Terminal,
   Laptop,
   ShieldCheck,
-  FileText,
   Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

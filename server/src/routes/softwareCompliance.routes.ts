@@ -49,7 +49,7 @@ router.put('/lists/:id', requireRole('admin'), async (req, res, next) => {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'software_policy.updated', {
         resourceType: 'software_policy', resourcePath: req.params.id,
-        details: { name: list.name },
+        details: { name: list?.name },
       });
     } catch {}
     res.json({ data: list });

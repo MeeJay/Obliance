@@ -166,7 +166,7 @@ router.put('/:id', requireRole('admin'), async (req, res, next) => {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'scenario.updated', {
         resourceType: 'scenario', resourcePath: req.params.id,
-        details: { name: scenario.name },
+        details: { name: scenario?.name },
       });
     } catch {}
     res.json({ data: scenario });
