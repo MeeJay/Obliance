@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ChevronRight, FolderOpen, Search, PanelLeftClose, PanelLeftOpen, Monitor } from 'lucide-react';
+import { ChevronRight, FolderOpen, Search, PanelLeftClose, PanelLeftOpen, Monitor, FolderX } from 'lucide-react';
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
@@ -329,6 +329,24 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
           <Monitor size={15} className={clsx('shrink-0', groupId === null ? 'text-accent' : 'text-text-muted')} />
           <span className="text-text-primary">{t('groupPanel.allDevices')}</span>
           <span className="ml-auto text-xs text-text-muted">{total}</span>
+        </button>
+
+        {/* Ungrouped — pseudo-entry that filters to devices with NULL
+            group_id. Sits between "All Devices" and the group tree so
+            admins can easily find stray devices and bulk-assign a group
+            via the DeviceTable's "Select" mode + "Change group" action. */}
+        <button
+          type="button"
+          onClick={() => onGroupChange(-1)}
+          className={clsx(
+            'flex w-full items-center gap-1.5 rounded-md py-1 pl-2 pr-2 text-left text-sm transition-colors',
+            'hover:bg-accent/5',
+            groupId === -1 && 'bg-accent/10 font-medium',
+          )}
+          title={t('groupPanel.ungroupedHint', 'Devices that don\'t belong to any group yet')}
+        >
+          <FolderX size={15} className={clsx('shrink-0', groupId === -1 ? 'text-accent' : 'text-text-muted')} />
+          <span className="text-text-primary">{t('groupPanel.ungrouped', 'Ungrouped')}</span>
         </button>
 
         {/* Group tree */}

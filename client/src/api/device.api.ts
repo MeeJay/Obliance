@@ -28,6 +28,10 @@ export const deviceApi = {
     groupId?: number; includeSubgroups?: boolean; status?: string; search?: string;
     approvalStatus?: string; osType?: string; page?: number; pageSize?: number;
     sortBy?: string; sortOrder?: 'asc' | 'desc';
+    /** Set true to return only devices whose group_id is NULL. Used by the
+     *  "Ungrouped" pseudo-entry in the group sidebar so admins can quickly
+     *  bulk-assign a group to stray devices. */
+    ungrouped?: boolean;
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
@@ -62,6 +66,7 @@ export const deviceApi = {
   async export(format: 'csv' | 'xlsx' | 'pdf', params?: {
     groupId?: number; includeSubgroups?: boolean; status?: string; search?: string;
     approvalStatus?: string; osType?: string; sortBy?: string; sortOrder?: 'asc' | 'desc';
+    ungrouped?: boolean;
   }): Promise<{ blob: Blob; filename: string }> {
     const res = await apiClient.get('/devices/export', {
       params: { ...params, format },

@@ -20,7 +20,7 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, includeSubgroups, status, approvalStatus, search, osType, page, pageSize, sortBy, sortOrder } = req.query as any;
+    const { groupId, includeSubgroups, status, approvalStatus, search, osType, page, pageSize, sortBy, sortOrder, ungrouped } = req.query as any;
 
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
@@ -29,6 +29,7 @@ router.get('/', async (req, res, next) => {
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
       sortBy, sortOrder,
+      ungrouped: ungrouped === 'true' || ungrouped === true,
     });
 
     // Filter by visible devices for non-admins
@@ -48,7 +49,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/devices/export
 router.get('/export', async (req, res, next) => {
   try {
-    const { format, groupId, includeSubgroups, status, approvalStatus, search, osType, sortBy, sortOrder } = req.query as any;
+    const { format, groupId, includeSubgroups, status, approvalStatus, search, osType, sortBy, sortOrder, ungrouped } = req.query as any;
     const fmt = (format ?? 'csv').toString().toLowerCase();
     if (!['csv', 'xlsx', 'pdf'].includes(fmt)) {
       return res.status(400).json({ error: 'Invalid format (csv|xlsx|pdf)' });
@@ -58,6 +59,7 @@ router.get('/export', async (req, res, next) => {
       groupId: groupId ? parseInt(groupId) : undefined,
       includeSubgroups: includeSubgroups === 'true',
       status, approvalStatus, search, osType, sortBy, sortOrder,
+      ungrouped: ungrouped === 'true' || ungrouped === true,
     });
 
     // Non-admins: filter to visible devices only

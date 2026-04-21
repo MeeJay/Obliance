@@ -113,6 +113,9 @@ class DeviceService {
     groupId?: number; includeSubgroups?: boolean; status?: string; approvalStatus?: string;
     search?: string; osType?: string; page?: number; pageSize?: number;
     sortBy?: string; sortOrder?: 'asc' | 'desc';
+    /** When true, only return devices with NULL group_id (the "Ungrouped"
+     *  pseudo-group in the sidebar). Takes precedence over groupId. */
+    ungrouped?: boolean;
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     // Cap is intentionally high to support the sidebar which needs to render
@@ -125,7 +128,12 @@ class DeviceService {
       .where({ 'devices.tenant_id': tenantId });
     // Never show pending_uninstall devices in normal listings
     q = q.whereNot({ 'devices.status': 'pending_uninstall' });
-    if (filters?.groupId) {
+    if (filters?.ungrouped) {
+      // "Ungrouped" pseudo-filter — devices without any group. Takes
+      // precedence over groupId so an accidental ungrouped=true+groupId
+      // combination stays predictable.
+      q = q.whereNull('devices.group_id');
+    } else if (filters?.groupId) {
       if (filters.includeSubgroups) {
         // Include devices from all descendant groups via closure table
         const descendants = await db('device_group_closure')
@@ -235,12 +243,15 @@ class DeviceService {
   async exportDevices(tenantId: number, filters?: {
     groupId?: number; includeSubgroups?: boolean; status?: string; approvalStatus?: string;
     search?: string; osType?: string; sortBy?: string; sortOrder?: 'asc' | 'desc';
+    ungrouped?: boolean;
   }): Promise<Device[]> {
     let q = db('devices')
       .leftJoin('device_groups', 'devices.group_id', 'device_groups.id')
       .where({ 'devices.tenant_id': tenantId });
     q = q.whereNot({ 'devices.status': 'pending_uninstall' });
-    if (filters?.groupId) {
+    if (filters?.ungrouped) {
+      q = q.whereNull('devices.group_id');
+    } else if (filters?.groupId) {
       if (filters.includeSubgroups) {
         const descendants = await db('device_group_closure')
           .where('ancestor_id', filters.groupId)

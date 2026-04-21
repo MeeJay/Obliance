@@ -79,8 +79,9 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         search: debouncedSearch || undefined,
         status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
         osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
-        groupId: groupId ?? undefined,
-        includeSubgroups: groupId ? true : undefined,
+        groupId: groupId === -1 ? undefined : (groupId ?? undefined),
+        includeSubgroups: groupId === -1 ? undefined : (groupId ? true : undefined),
+        ungrouped: groupId === -1 ? true : undefined,
         approvalStatus: approvalFilter || undefined,
         sortBy,
         sortOrder,
@@ -106,6 +107,10 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   }, [search]);
 
   const groupId = externalGroupId ?? null;
+  // -1 is the sentinel the GroupSidePanel emits for "Ungrouped" — devices
+  // with NULL group_id. We translate it into the dedicated `ungrouped`
+  // query flag and skip the normal group / sub-group filter.
+  const ungroupedOnly = groupId === -1;
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -114,8 +119,9 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         search: debouncedSearch || undefined,
         status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
         osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
-        groupId: groupId ?? undefined,
-        includeSubgroups: groupId ? true : undefined,
+        groupId: ungroupedOnly ? undefined : (groupId ?? undefined),
+        includeSubgroups: ungroupedOnly ? undefined : (groupId ? true : undefined),
+        ungrouped: ungroupedOnly ? true : undefined,
         approvalStatus: approvalFilter || undefined,
         page,
         pageSize,
