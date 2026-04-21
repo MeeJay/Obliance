@@ -709,19 +709,22 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             const script = scripts.find((s) => s.id === schedule.scriptId);
             return (
               <div key={schedule.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-                <div className="flex items-center gap-4 px-4 py-3">
-                  <button
-                    onClick={() => {
-                      const newId = expanded ? null : schedule.id;
-                      setExpandedId(newId);
-                      if (newId !== null && !historyByScheduleId[schedule.id]) {
-                        loadScheduleHistory(schedule.id);
-                      }
-                    }}
-                    className="text-text-muted hover:text-text-primary transition-colors"
-                  >
+                {/* Whole header row toggles the expanded view. The right-hand
+                    action buttons stop propagation so clicking them doesn't
+                    accidentally collapse the row. */}
+                <div
+                  onClick={() => {
+                    const newId = expanded ? null : schedule.id;
+                    setExpandedId(newId);
+                    if (newId !== null && !historyByScheduleId[schedule.id]) {
+                      loadScheduleHistory(schedule.id);
+                    }
+                  }}
+                  className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary/30 transition-colors"
+                >
+                  <span className="text-text-muted shrink-0">
                     {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-text-primary">{schedule.name}</span>
@@ -767,22 +770,24 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Action buttons — stopPropagation so clicking them
+                      doesn't also toggle the expand/collapse on the row. */}
+                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => handleToggle(schedule)}
+                      onClick={(e) => { e.stopPropagation(); handleToggle(schedule); }}
                       className="text-text-muted hover:text-accent transition-colors"
                       title={schedule.enabled ? 'Pause schedule' : 'Activate schedule'}
                     >
                       {schedule.enabled ? <ToggleRight className="w-5 h-5 text-green-400" /> : <ToggleLeft className="w-5 h-5" />}
                     </button>
                     <button
-                      onClick={() => handleOpenEdit(schedule)}
+                      onClick={(e) => { e.stopPropagation(); handleOpenEdit(schedule); }}
                       className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(schedule)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(schedule); }}
                       className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
