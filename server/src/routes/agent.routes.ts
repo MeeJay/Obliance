@@ -93,8 +93,19 @@ router.post('/push', agentAuth, async (req, res, next) => {
       airgapMode?: boolean;
       lastLoggedInUser?: string;
       distroFamily?: string;
+      agentFlavor?: 'modern' | 'legacy';
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor } = body;
+
+    // The Go 1.20 legacy agent doesn't include `distroFamily` in its push
+    // body (and lacks every WebSocket tunnel / ObliReach / software
+    // compliance handler). Infer the flavor from the payload so existing
+    // deployed legacy agents get flagged without needing a rebuild. Explicit
+    // `agentFlavor` on future builds takes precedence.
+    const inferredFlavor: 'modern' | 'legacy' =
+      agentFlavor === 'legacy' ? 'legacy'
+      : agentFlavor === 'modern' ? 'modern'
+      : (distroFamily ? 'modern' : 'legacy');
 
     if (!deviceUuid) return res.status(400).json({ error: 'deviceUuid required' });
 
@@ -129,6 +140,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         osVersion: osInfo?.release,
         osArch: osInfo?.arch,
         agentVersion,
+        agentFlavor: inferredFlavor,
         ipPublic,
         ipLocal,
         macAddress,
@@ -145,6 +157,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         os_version: osInfo?.release || device.os_version,
         os_arch: osInfo?.arch || device.os_arch,
         agent_version: agentVersion || device.agent_version,
+        agent_flavor: inferredFlavor,
         ip_public: ipPublic || device.ip_public,
         ip_local: ipLocal || device.ip_local,
         mac_address: macAddress || device.mac_address,

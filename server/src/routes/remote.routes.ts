@@ -16,6 +16,15 @@ router.post('/sessions', async (req, res, next) => {
       if (!canRemote) return next(new AppError(403, 'Remote access not permitted for your team'));
     }
 
+    // Legacy-agent compatibility gate. No remote shell tunnels on the Go
+    // 1.20 build — it has no WebSocket / Oblireach code.
+    const { db } = await import('../db');
+    const dev = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first('agent_flavor');
+    if (dev?.agent_flavor === 'legacy') {
+      return next(new AppError(409,
+        'Remote sessions (SSH / CMD / PowerShell / ObliReach) are not supported on the legacy agent. Upgrade the agent first.'));
+    }
+
     // Action restriction gate — any remote session (SSH, CMD, PowerShell,
     // ObliReach) is controlled by the single `remote.session_start` key.
     const { applyRestriction } = await import('../services/restriction.service');

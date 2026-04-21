@@ -4560,6 +4560,14 @@ export function DeviceDetailPage() {
                 {t('airgap.badge')}
               </span>
             )}
+            {device.agentFlavor === 'legacy' && (
+              <span
+                title="Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update"
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 uppercase tracking-wider"
+              >
+                Legacy
+              </span>
+            )}
           </div>
           <p className="text-sm text-text-muted mt-1">
             {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}

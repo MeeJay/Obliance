@@ -142,12 +142,14 @@ func setupConfig(urlArg, keyArg string) *Config {
 		cfg.APIKey = keyArg
 	}
 
-	// Auto-upgrade http:// → https:// (MSI upgrades may reinstall with the
-	// original URL scheme; normalising here breaks the cycle permanently).
-	if strings.HasPrefix(cfg.ServerURL, "http://") {
-		cfg.ServerURL = "https://" + cfg.ServerURL[len("http://"):]
-		log.Printf("ServerURL normalised to https://")
-	}
+	// Honour the URL scheme the admin set — do NOT auto-upgrade http→https.
+	// The previous silent upgrade broke HTTP-only deployments (old Windows
+	// servers that can't reach HTTPS): every auto-update cycle, the agent
+	// rewrote its configured http:// URL to https://, failed to push, and
+	// disappeared from the fleet until someone reinstalled manually. If
+	// you want HTTPS, install the agent with `--url https://...`; if you
+	// want HTTP, install with `--url http://...` — both paths are now
+	// preserved verbatim.
 	cfg.ServerURL = strings.TrimRight(cfg.ServerURL, "/")
 
 	cfg.DeviceUUID = resolveDeviceUUID(cfg.DeviceUUID)

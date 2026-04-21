@@ -158,10 +158,11 @@ func setupConfig(urlArg, keyArg string) *Config {
 		cfg.APIKey = keyArg
 	}
 
-	// Normalise http -> https
-	if strings.HasPrefix(cfg.ServerURL, "http://") {
-		cfg.ServerURL = "https://" + cfg.ServerURL[len("http://"):]
-	}
+	// Honour the URL scheme the admin set — do NOT auto-upgrade http→https.
+	// Legacy agents run on Server 2008 R2 / 2012 where HTTPS to a modern
+	// Obliance server often fails (TLS 1.2 cipher mismatches). Silently
+	// rewriting http:// to https:// caused every update cycle to lose
+	// those servers from the fleet until someone reinstalled manually.
 	cfg.ServerURL = strings.TrimRight(cfg.ServerURL, "/")
 
 	cfg.DeviceUUID = resolveDeviceUUID(cfg.DeviceUUID)

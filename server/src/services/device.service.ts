@@ -80,6 +80,7 @@ class DeviceService {
       airgapEnabledAt: row.airgap_enabled_at ?? null,
       watchdogRestartCount: row.watchdog_restart_count ?? 0,
       watchdogLastRestartAt: row.watchdog_last_restart_at ?? null,
+      agentFlavor: (row.agent_flavor ?? 'modern') as 'modern' | 'legacy',
       lastLoggedInUser: row.last_logged_in_user ?? null,
       lastRebootAt: row.last_reboot_at ?? null,
       rebootPending: row.reboot_pending ?? false,
@@ -587,6 +588,7 @@ class DeviceService {
     ipPublic?: string;
     macAddress?: string;
     agentVersion?: string;
+    agentFlavor?: 'modern' | 'legacy';
     apiKeyId: number;
     tenantId: number;
   }) {
@@ -635,6 +637,7 @@ class DeviceService {
       ip_public: data.ipPublic,
       mac_address: data.macAddress,
       agent_version: data.agentVersion,
+      agent_flavor: data.agentFlavor ?? 'modern',
       approval_status: approvalStatus,
       status,
     }).returning('*');

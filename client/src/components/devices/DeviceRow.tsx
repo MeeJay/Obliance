@@ -175,6 +175,14 @@ export const DeviceRow = memo(function DeviceRow({
         {device.airgapEnabled && (
           <span title="Airgap"><WifiOff className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /></span>
         )}
+        {device.agentFlavor === 'legacy' && (
+          <span
+            title="Legacy Go 1.20 agent — no remote shell, ObliReach, software compliance, or auto-update"
+            className="text-[9px] px-1 rounded border border-amber-400/40 bg-amber-400/10 text-amber-400 font-semibold uppercase tracking-wider flex-shrink-0"
+          >
+            Legacy
+          </span>
+        )}
 
         <div className="flex-1" />
 

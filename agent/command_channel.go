@@ -78,16 +78,26 @@ func SendOnCommandChannel(msg interface{}) {
 // with a self-signed cert not present in the system trust store.
 func runCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsInsecureSkipVerify bool) {
 	for {
-		if err := connectCommandChannel(d, serverURL, apiKey, tlsInsecureSkipVerify); err != nil {
-			log.Printf("[cmd-channel] disconnected: %v — retrying in 10s", err)
+		code, err := connectCommandChannel(d, serverURL, apiKey, tlsInsecureSkipVerify)
+		// 4004 = "Device not found" — emitted on a fresh install before the
+		// first HTTP push has created the device row. Back off 60s so the
+		// push loop (10–60s cadence) has a chance to register first, rather
+		// than spamming 6 reconnects/min.
+		wait := 10 * time.Second
+		if code == 4004 {
+			wait = 60 * time.Second
 		}
-		time.Sleep(10 * time.Second)
+		if err != nil {
+			log.Printf("[cmd-channel] disconnected: %v — retrying in %s", err, wait)
+		}
+		time.Sleep(wait)
 	}
 }
 
 // connectCommandChannel dials /api/agent/ws, handles incoming commands and
-// returns when the connection is lost.
-func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsInsecureSkipVerify bool) error {
+// returns when the connection is lost. The first return is the WS close
+// code received from the server (0 if none — e.g. network-level failure).
+func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsInsecureSkipVerify bool) (uint16, error) {
 	base := strings.TrimRight(serverURL, "/")
 	var wsBase string
 	switch {
@@ -110,7 +120,7 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsIn
 		"X-Device-UUID": []string{d.deviceUUID},
 	}, tlsCfg)
 	if err != nil {
-		return fmt.Errorf("connect: %w", err)
+		return 0, fmt.Errorf("connect: %w", err)
 	}
 	defer func() {
 		cmdChanMu.Lock()
@@ -140,13 +150,14 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsIn
 	for {
 		opcode, payload, err := ws.ReadFrame()
 		if err != nil {
-			return fmt.Errorf("read: %w", err)
+			return 0, fmt.Errorf("read: %w", err)
 		}
 
 		switch opcode {
 		case 0x8: // close frame — server asked us to disconnect
+			var code uint16
 			if len(payload) >= 2 {
-				code := uint16(payload[0])<<8 | uint16(payload[1])
+				code = uint16(payload[0])<<8 | uint16(payload[1])
 				reason := ""
 				if len(payload) > 2 {
 					reason = string(payload[2:])
@@ -155,7 +166,7 @@ func connectCommandChannel(d *CommandDispatcher, serverURL, apiKey string, tlsIn
 			} else {
 				log.Printf("[cmd-channel] server closed (no close code)")
 			}
-			return nil
+			return code, nil
 
 		case 0x9: // ping — respond with pong
 			mu.Lock()

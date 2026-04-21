@@ -27,6 +27,23 @@ router.post('/', async (req, res, next) => {
     const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
     if (!device) return res.status(404).json({ error: 'Device not found' });
 
+    // Legacy-agent compatibility gate. The Go 1.20 build that runs on
+    // Server 2008 R2 / 2012 lacks the WebSocket tunnel, ObliReach,
+    // software-compliance and file upload/download handlers — queuing
+    // these commands would silently hang forever. Refuse at the edge so
+    // the caller gets a clear error instead of a ghost command.
+    const LEGACY_INCOMPATIBLE: string[] = [
+      'open_remote_tunnel', 'close_remote_tunnel',
+      'install_oblireach',
+      'install_software', 'uninstall_software', 'check_software_compliance',
+      'enable_privacy_mode',
+      'upload_file', 'download_file',
+    ];
+    if (device.agent_flavor === 'legacy' && LEGACY_INCOMPATIBLE.includes(type)) {
+      return next(new AppError(409,
+        `Command "${type}" is not supported on the legacy agent (Go 1.20 / Server 2008 R2). Upgrade the agent or use a compatible action.`));
+    }
+
     // If a privacy-gate password is set, refuse the raw disable_privacy_mode
     // command. Clients must use /api/devices/:id/privacy/disable-with-password
     // which verifies the password via the agent before sending the command.

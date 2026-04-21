@@ -124,9 +124,28 @@ async function main() {
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
           if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
           const deviceUuid = request.headers['x-device-uuid'] as string | undefined;
-          const device = deviceUuid
+          let device = deviceUuid
             ? await db('devices').where({ uuid: deviceUuid, tenant_id: keyRow.tenant_id }).first()
             : await db('devices').where({ api_key_id: keyRow.id }).first();
+
+          // No device row yet — this can happen if the WS channel reaches the
+          // server before the first HTTP push (fresh install, flaky HTTP, HTTPS
+          // misconfig on an HTTP-only agent, etc.). Auto-register a minimal
+          // pending row here so the device actually appears in the admin UI
+          // for approval rather than silently spinning on 4004 forever.
+          // Subsequent HTTP pushes will fill in hostname, OS, metrics.
+          if (!device && deviceUuid) {
+            const { deviceId } = await deviceService.registerDevice({
+              uuid: deviceUuid,
+              hostname: deviceUuid,
+              osType: 'other',
+              apiKeyId: keyRow.id,
+              tenantId: keyRow.tenant_id,
+            });
+            device = await db('devices').where({ id: deviceId }).first();
+            logger.info({ deviceId, uuid: deviceUuid }, 'Auto-registered device via WS channel');
+          }
+
           if (!device) { ws.close(4004, 'Device not found'); return; }
           const clientIp =
             (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ??

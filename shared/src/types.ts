@@ -171,6 +171,11 @@ export interface Device {
   watchdogRestartCount: number;
   /** Timestamp of the last watchdog-triggered restart. */
   watchdogLastRestartAt: string | null;
+  /** Which agent build is running on this device. "legacy" = Go 1.20 build
+   *  for Server 2008 R2 / 2012 — lacks the remote tunnel, ObliReach,
+   *  software-compliance and auto-update handlers. Inferred from the push
+   *  body shape (no `distroFamily` field). */
+  agentFlavor: 'modern' | 'legacy';
   customMetrics?: Array<{ scheduleId: number; name: string; value: string; unit: string | null; status: string }>;
   lastLoggedInUser: string | null;
   lastRebootAt: string | null;

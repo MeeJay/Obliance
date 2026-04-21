@@ -53,7 +53,13 @@ export function GlobalAddAgentModal() {
   const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
   const windowsCmdModern = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
   const windowsCmdOldTls = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/installer/windows.msi" -Destination $m; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
-  const windowsCmdLegacy = selectedKey ? `$d="C:\\Program Files\\OblianceAgent"; New-Item -ItemType Directory -Force -Path $d | Out-Null; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/download/obliance-legacy.exe" -Destination "$d\\obliance-agent.exe"; sc.exe create OblianceAgent binPath= "\`"$d\\obliance-agent.exe\`" --url ${origin} --key ${selectedKey.key}" start= auto obj= LocalSystem; sc.exe start OblianceAgent` : '';
+  // Use New-Service instead of sc.exe — PowerShell's argument splitter
+  // mangles sc.exe's `binPath= "quoted path" ...` syntax (the space after
+  // `=` makes every token a separate arg, so sc.exe prints help + start
+  // fails with 1060). New-Service takes a single -BinaryPathName string
+  // that is written verbatim into the ImagePath registry value, bypassing
+  // the whole quoting mess. Available on Server 2008 R2 / PowerShell 2.0+.
+  const windowsCmdLegacy = selectedKey ? `$d="C:\\Program Files\\OblianceAgent"; New-Item -ItemType Directory -Force -Path $d | Out-Null; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/download/obliance-legacy.exe" -Destination "$d\\obliance-agent.exe"; New-Service -Name OblianceAgent -BinaryPathName "\`"$d\\obliance-agent.exe\`" --url ${origin} --key ${selectedKey.key}" -StartupType Automatic -DisplayName "Obliance Monitoring Agent"; Start-Service OblianceAgent` : '';
   const windowsCmd = legacyWindows === 'legacy' ? windowsCmdLegacy : legacyWindows === 'oldtls' ? windowsCmdOldTls : windowsCmdModern;
   const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
