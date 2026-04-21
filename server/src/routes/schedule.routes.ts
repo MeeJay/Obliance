@@ -223,13 +223,14 @@ router.get('/:id/history', async (req, res, next) => {
     const sched = await db('script_schedules').where({ id: scheduleId, tenant_id: req.tenantId! }).first();
     if (!sched) return res.status(404).json({ error: 'Not found' });
 
-    // Step 1: find the N most recent distinct batch_ids (or individual exec ids
-    // for entries without a batch).
+    // Step 1: find the N most recent distinct batch_ids (or individual exec
+    // ids for entries without a batch). Both sides of COALESCE must share a
+    // type — batch_id is UUID, id is integer, so we cast both to text.
     const batchRows = await db('script_executions')
       .where({ schedule_id: scheduleId })
-      .select(db.raw('COALESCE(batch_id, id::text) as batch_key'))
+      .select(db.raw('COALESCE(batch_id::text, id::text) as batch_key'))
       .select(db.raw('MAX(triggered_at) as triggered_at'))
-      .groupBy(db.raw('COALESCE(batch_id, id::text)'))
+      .groupBy(db.raw('COALESCE(batch_id::text, id::text)'))
       .orderBy('triggered_at', 'desc')
       .limit(batchLimit);
 
@@ -237,14 +238,28 @@ router.get('/:id/history', async (req, res, next) => {
       return res.json({ data: [] });
     }
 
-    const batchKeys = batchRows.map((b: any) => b.batch_key);
+    const batchKeys = batchRows.map((b: any) => String(b.batch_key));
+
+    // Split keys by shape so Postgres doesn't choke trying to cast a numeric
+    // row-id string into a UUID (batch_id's column type). UUIDs → batch_id
+    // lookup; everything else → standalone execution id lookup.
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidKeys = batchKeys.filter((k: string) => uuidRe.test(k));
+    const idKeys = batchKeys
+      .filter((k: string) => !uuidRe.test(k))
+      .map((k: string) => parseInt(k, 10))
+      .filter((n: number) => Number.isFinite(n));
 
     // Step 2: fetch all executions belonging to those batches.
     const rows = await db('script_executions as se')
       .leftJoin('devices as d', 'd.id', 'se.device_id')
       .where({ 'se.schedule_id': scheduleId })
       .where(function () {
-        this.whereIn('se.batch_id', batchKeys).orWhereRaw('se.id::text = ANY(?)', [batchKeys]);
+        // Always open the boolean group — either side may be empty but at
+        // least one must exist because batchKeys.length > 0 above.
+        if (uuidKeys.length) this.whereIn('se.batch_id', uuidKeys);
+        else this.whereRaw('1 = 0'); // no uuid hits — fall back to id branch
+        if (idKeys.length) this.orWhereIn('se.id', idKeys);
       })
       .select(
         'se.id', 'se.status', 'se.exit_code', 'se.stdout', 'se.stderr',
