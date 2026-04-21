@@ -24,6 +24,7 @@ interface FleetCounts {
 }
 
 const STORAGE_KEY = 'obliance:groupPanelCollapsed';
+const EXPANDED_KEY = 'obliance:groupPanelExpanded';
 
 function getInitialCollapsed(): boolean {
   try {
@@ -31,6 +32,14 @@ function getInitialCollapsed(): boolean {
   } catch {
     return false;
   }
+}
+
+function getInitialExpanded(): Set<number> | null {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY);
+    if (!raw) return null;                                       // first-time user
+    return new Set(JSON.parse(raw) as number[]);
+  } catch { return null; }
 }
 
 /** Check if a node or any descendant matches the given group id */
@@ -163,7 +172,12 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
   const [fleet, setFleet] = useState<FleetCounts>({ online: 0, offline: 0, warning: 0, critical: 0, total: 0 });
   const [search, setSearch] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => getInitialExpanded() ?? new Set());
+
+  // Persist expanded ids so collapsing a sub-group survives page reloads.
+  useEffect(() => {
+    try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedIds])); } catch { /* noop */ }
+  }, [expandedIds]);
 
   // Persist collapsed state
   useEffect(() => {
@@ -177,9 +191,13 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     try {
       const data = await groupsApi.tree();
       setTree(data);
-      // Auto-expand all on first load
+      // First-time user (no persisted expansion state): auto-expand only
+      // the top-level nodes so sub-groups start collapsed — mirrors how
+      // most file-tree UIs behave. Persistence kicks in after that.
       setExpandedIds((prev) => {
-        if (prev.size === 0) return new Set(collectIds(data));
+        const fromStorage = getInitialExpanded();
+        if (fromStorage !== null) return prev;       // respect stored state
+        if (prev.size === 0) return new Set(data.map((n) => n.id));
         return prev;
       });
     } catch { /* silent */ }

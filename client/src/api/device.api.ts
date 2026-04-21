@@ -138,6 +138,22 @@ export const deviceApi = {
   async transferToTenant(deviceId: number, targetTenantId: number, targetApiKeyId: number): Promise<void> {
     await apiClient.post(`/devices/${deviceId}/transfer`, { targetTenantId, targetApiKeyId });
   },
+  async bulkTransfer(deviceIds: number[], targetTenantId: number, targetApiKeyId: number): Promise<{ transferred: number; failed: number }> {
+    const res = await apiClient.post<ApiResponse<{ transferred: number; failed: number }>>('/devices/batch/transfer', { deviceIds, targetTenantId, targetApiKeyId });
+    return res.data.data ?? { transferred: 0, failed: 0 };
+  },
+  async listTransferCandidatesForBatch(): Promise<Array<{
+    tenantId: number;
+    tenantName: string;
+    tenantSlug: string;
+    apiKeys: Array<{ id: number; label: string; defaultGroupId: number | null }>;
+  }>> {
+    // Candidate list is the same for any device in the tenant — we reuse
+    // the per-device endpoint with deviceId=0, the server only uses it
+    // for 404 handling (which we skip by not passing it).
+    const res = await apiClient.get<ApiResponse<any[]>>('/devices/transfer/candidates');
+    return res.data.data ?? [];
+  },
   async disablePrivacyMode(id: number): Promise<void> {
     await apiClient.post(`/devices/${id}/privacy-mode/disable`);
   },

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
@@ -58,8 +58,9 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   // becomes a selection toggle (no navigation). Lets the user pick devices
   // without having to aim a tiny checkbox target.
   const [selectionMode, setSelectionMode] = useState(false);
-  // Change-group modal state
+  // Change-group + transfer-tenant modal state
   const [changeGroupOpen, setChangeGroupOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   // Approval counts (admin mode)
   const [counts, setCounts] = useState({ all: 0, approved: 0, pending: 0, refused: 0, suspended: 0 });
@@ -390,6 +391,13 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
                   <FolderOpen className="w-3.5 h-3.5 text-accent" />
                   {t('devices.batch.changeGroup', 'Change group')}
                 </button>
+                <button
+                  onClick={() => { setBatchMenuOpen(false); setTransferOpen(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
+                  {t('devices.batch.transferTenant', 'Transfer to another tenant')}
+                </button>
                 {mode === 'admin' && (<>
                   <div className="border-t border-border" />
                   <button onClick={() => handleBatchAction('delete')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
@@ -448,15 +456,33 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
           </div>
           <div>
             {(() => {
-              // Group devices by groupName when filtering by a parent group
-              if (groupId && devices.some(d => d.groupId !== groupId)) {
+              // Group devices by their groupName when the listing spans
+              // multiple groups:
+              //   - "All devices"  (groupId === null)
+              //   - A parent group with subgroups (groupId && some device
+              //     belongs to a different group id than the selected one)
+              // A single group with no subgroup spread → flat list.
+              const distinctGroups = new Set(devices.map((d) => (d as any).groupName ?? '__ungrouped__'));
+              const shouldGroup =
+                (groupId === null && distinctGroups.size > 1) ||
+                (!!groupId && groupId !== -1 && devices.some(d => d.groupId !== groupId));
+
+              if (shouldGroup) {
                 const grouped = new Map<string, Device[]>();
                 for (const d of devices) {
                   const key = (d as any).groupName ?? 'Ungrouped';
                   if (!grouped.has(key)) grouped.set(key, []);
                   grouped.get(key)!.push(d);
                 }
-                return [...grouped.entries()].map(([gName, gDevices]) => (
+                // Stable display order: groups sorted by name, with
+                // "Ungrouped" pushed last so scanned group buckets stay
+                // together at the top.
+                const sortedEntries = [...grouped.entries()].sort(([a], [b]) => {
+                  if (a === 'Ungrouped') return 1;
+                  if (b === 'Ungrouped') return -1;
+                  return a.localeCompare(b);
+                });
+                return sortedEntries.map(([gName, gDevices]) => (
                   <div key={gName}>
                     <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border sticky top-0 z-10">
                       <FolderOpen className="w-3.5 h-3.5 text-accent" />
@@ -472,7 +498,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
                   </div>
                 ));
               }
-              // Flat list (no group filter or single group)
+              // Flat list (single group, or "Ungrouped" pseudo-filter)
               return devices.map(device => (
                 <DeviceRow key={device.id} device={device} mode={mode}
                   isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
@@ -540,6 +566,32 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
           }}
         />
       )}
+
+      {transferOpen && (
+        <BulkTransferTenantModal
+          count={selectedIds.size}
+          onCancel={() => setTransferOpen(false)}
+          onConfirm={async (targetTenantId, targetApiKeyId) => {
+            setTransferOpen(false);
+            setIsBatchRunning(true);
+            try {
+              const ids = Array.from(selectedIds);
+              const r = await deviceApi.bulkTransfer(ids, targetTenantId, targetApiKeyId);
+              if (r.transferred > 0) toast.success(`Transferred ${r.transferred} device(s)`);
+              if (r.failed > 0) toast.error(`${r.failed} transfer(s) failed — see audit log`);
+              setSelectedIds(new Set());
+              setSelectAllGroup(false);
+              await load();
+            } catch (err: any) {
+              if (err?.response?.status !== 202) {
+                toast.error(err?.response?.data?.error || t('common.error'));
+              }
+            } finally {
+              setIsBatchRunning(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -587,6 +639,106 @@ function ChangeGroupModal({
             className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
           >
             {t('devices.batch.moveHere', 'Move')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Bulk transfer-tenant modal ────────────────────────────────────────────
+function BulkTransferTenantModal({
+  count, onCancel, onConfirm,
+}: {
+  count: number;
+  onCancel: () => void;
+  onConfirm: (targetTenantId: number, targetApiKeyId: number) => void;
+}) {
+  const [candidates, setCandidates] = useState<Array<{ tenantId: number; tenantName: string; tenantSlug: string; apiKeys: Array<{ id: number; label: string; defaultGroupId: number | null }> }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [tenantId, setTenantId] = useState<number | null>(null);
+  const [keyId, setKeyId] = useState<number | null>(null);
+
+  useEffect(() => {
+    deviceApi.listTransferCandidatesForBatch()
+      .then((rows) => {
+        setCandidates(rows);
+        if (rows.length === 1) {
+          setTenantId(rows[0].tenantId);
+          if (rows[0].apiKeys.length > 0) setKeyId(rows[0].apiKeys[0].id);
+        }
+      })
+      .catch(() => toast.error('Failed to load target tenants'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const selectedTenant = candidates.find((c) => c.tenantId === tenantId);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <ArrowRightLeft className="w-4 h-4 text-accent" />
+          <span className="text-sm font-semibold text-text-primary">Transfer {count} device{count > 1 ? 's' : ''} to another tenant</span>
+          <button onClick={onCancel} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-4 space-y-4">
+          <div className="flex items-start gap-2 p-2.5 rounded bg-orange-400/5 border border-orange-400/20 text-[11px] text-orange-400/90">
+            Group assignment, custom metrics and compliance results in the current tenant will be cleared for every selected device. Each agent is reconfigured with the target tenant's API key on its next check-in.
+          </div>
+          {loading ? (
+            <div className="py-8 flex justify-center text-text-muted"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-text-muted italic">You are not admin in any other tenant.</p>
+          ) : (
+            <>
+              <div>
+                <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">Target tenant</label>
+                <select
+                  value={tenantId ?? ''}
+                  onChange={(e) => {
+                    const id = e.target.value ? parseInt(e.target.value) : null;
+                    setTenantId(id);
+                    const tc = candidates.find((c) => c.tenantId === id);
+                    setKeyId(tc && tc.apiKeys.length > 0 ? tc.apiKeys[0].id : null);
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="">— Select —</option>
+                  {candidates.map((c) => (
+                    <option key={c.tenantId} value={c.tenantId}>
+                      {c.tenantName} ({c.tenantSlug}){c.apiKeys.length === 0 ? ' — no API keys' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedTenant && selectedTenant.apiKeys.length > 0 && (
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">Target API key</label>
+                  <select
+                    value={keyId ?? ''}
+                    onChange={(e) => setKeyId(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    {selectedTenant.apiKeys.map((k) => (
+                      <option key={k.id} value={k.id}>{k.label || `Key #${k.id}`}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="px-4 py-3 border-t border-border flex justify-end gap-2">
+          <button onClick={onCancel} className="px-3 py-1.5 text-xs border border-border rounded text-text-muted hover:text-text-primary">Cancel</button>
+          <button
+            disabled={!tenantId || !keyId}
+            onClick={() => { if (tenantId && keyId) onConfirm(tenantId, keyId); }}
+            className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50"
+          >
+            Transfer
           </button>
         </div>
       </div>

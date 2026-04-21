@@ -287,6 +287,123 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/batch/transfer — move N devices to another tenant in
+// one shot. All devices must currently belong to `req.tenantId` and the
+// caller must be admin in both source and target (or platform admin).
+// Honours the tenant's `device.transfer_tenant` restriction policy — if
+// the action is Sensitive the whole batch prompts for TOTP once; if
+// Restricted the batch hits the approvals queue as a single request.
+router.post('/batch/transfer', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { deviceIds, targetTenantId, targetApiKeyId } = req.body as {
+      deviceIds: number[]; targetTenantId: number; targetApiKeyId: number;
+    };
+    if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
+      return res.status(400).json({ error: 'deviceIds required' });
+    }
+    if (!targetTenantId || !targetApiKeyId) {
+      return res.status(400).json({ error: 'targetTenantId and targetApiKeyId required' });
+    }
+    if (targetTenantId === req.tenantId!) {
+      return res.status(400).json({ error: 'Target tenant is the same as source' });
+    }
+
+    const userId = req.session.userId!;
+    const isPlatformAdmin = req.session.role === 'admin';
+    if (!isPlatformAdmin) {
+      const [sourceMembership, targetMembership] = await Promise.all([
+        db('user_tenants').where({ user_id: userId, tenant_id: req.tenantId!, role: 'admin' }).first(),
+        db('user_tenants').where({ user_id: userId, tenant_id: targetTenantId, role: 'admin' }).first(),
+      ]);
+      if (!sourceMembership || !targetMembership) {
+        return res.status(403).json({ error: 'You must be admin of both tenants' });
+      }
+    }
+
+    const targetKey = await db('agent_api_keys')
+      .where({ id: targetApiKeyId, tenant_id: targetTenantId })
+      .first();
+    if (!targetKey) return res.status(400).json({ error: 'Target API key not found in target tenant' });
+
+    // Ensure every device belongs to the source tenant — prevents a
+    // malicious admin from stuffing arbitrary device ids into the batch.
+    const validDevices = await db('devices')
+      .whereIn('id', deviceIds)
+      .andWhere({ tenant_id: req.tenantId! })
+      .select('id', 'hostname');
+    if (validDevices.length === 0) {
+      return res.status(404).json({ error: 'No matching devices in this tenant' });
+    }
+
+    // Gate via the transfer restriction policy. deviceIds drives scope
+    // evaluation (e.g. "Sensitive only for prod group") — same semantics
+    // as the single-device transfer.
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'device.transfer_tenant',
+      deviceIds: validDevices.map((d: any) => d.id),
+      approvalRequestType: 'batch_command',
+      approvalDescription: `Transfer ${validDevices.length} device(s) to tenant #${targetTenantId}`,
+      approvalPayload: { action: 'transfer_tenant', deviceIds: validDevices.map((d: any) => d.id), params: { targetTenantId, targetApiKeyId } },
+    });
+    if (!approved) return;
+
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+
+    const results = { transferred: 0, failed: 0 };
+    for (const device of validDevices) {
+      try {
+        await db.transaction(async (trx) => {
+          // Enqueue the reconfigure command in the SOURCE tenant so the
+          // agent (still on the old key) receives it on its next push.
+          await trx('command_queue').insert({
+            device_id: device.id,
+            tenant_id: req.tenantId!,
+            type: 'reconfigure_agent',
+            payload: JSON.stringify({ apiKey: targetKey.key, serverUrl, targetTenantId }),
+            priority: 'urgent',
+            status: 'pending',
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            created_by: userId,
+          });
+
+          await trx('devices').where({ id: device.id }).update({
+            tenant_id: targetTenantId,
+            api_key_id: targetApiKeyId,
+            group_id: null,
+            schedule_alert: null,
+            updated_at: new Date(),
+          });
+
+          await trx('device_custom_metrics').where({ device_id: device.id }).delete();
+          await trx('software_compliance_results').where({ device_id: device.id }).delete();
+          await trx('command_queue')
+            .where({ device_id: device.id, tenant_id: req.tenantId! })
+            .whereIn('status', ['pending', 'sent'])
+            .whereNot({ type: 'reconfigure_agent' })
+            .update({ status: 'cancelled', finished_at: new Date() });
+        });
+        results.transferred++;
+      } catch (err) {
+        logger.error({ err, deviceId: device.id }, 'bulk transfer: failed for device');
+        results.failed++;
+      }
+    }
+
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.bulk_transferred', {
+        resourceType: 'device',
+        resourcePath: validDevices.map((d: any) => d.id).join(','),
+        details: { fromTenantId: req.tenantId, toTenantId: targetTenantId, count: validDevices.length, transferred: results.transferred, failed: results.failed },
+      });
+    } catch {}
+
+    res.json({ data: results });
+  } catch (err) { next(err); }
+});
+
 // POST /api/devices/batch/change-group — move N devices to a new group in one shot.
 // Body: { deviceIds: number[], groupId: number | null }
 // Fires the 'group_join' scenario trigger for each device whose group actually
@@ -752,6 +869,43 @@ router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/transfer/candidates — tenant-level list, same body
+// shape as the per-device variant below. Used by the bulk transfer UI
+// where no single deviceId is relevant.
+router.get('/transfer/candidates', requireRole('admin'), async (req, res, next) => {
+  try {
+    const userId = req.session.userId!;
+    const isPlatformAdmin = req.session.role === 'admin';
+
+    let tenantsQ = db('tenants').select('id', 'name', 'slug').orderBy('name');
+    if (!isPlatformAdmin) {
+      tenantsQ = tenantsQ
+        .join('user_tenants', 'user_tenants.tenant_id', 'tenants.id')
+        .where({ 'user_tenants.user_id': userId, 'user_tenants.role': 'admin' })
+        .select('tenants.id', 'tenants.name', 'tenants.slug');
+    }
+    const tenants = (await tenantsQ).filter((t: any) => t.id !== req.tenantId!);
+
+    if (tenants.length === 0) return res.json({ data: [] });
+
+    const keys = await db('agent_api_keys')
+      .whereIn('tenant_id', tenants.map((t: any) => t.id))
+      .select('id', 'tenant_id', 'name', 'default_group_id');
+    const keysByTenant = new Map<number, any[]>();
+    for (const k of keys) {
+      if (!keysByTenant.has(k.tenant_id)) keysByTenant.set(k.tenant_id, []);
+      keysByTenant.get(k.tenant_id)!.push({ id: k.id, label: k.name, defaultGroupId: k.default_group_id ?? null });
+    }
+
+    res.json({
+      data: tenants.map((t: any) => ({
+        tenantId: t.id, tenantName: t.name, tenantSlug: t.slug,
+        apiKeys: keysByTenant.get(t.id) ?? [],
+      })),
+    });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/:id/transfer/candidates — list the tenants the caller
 // can transfer INTO (must be admin there, or platform admin) along with
 // their API keys. Excludes the current tenant.
@@ -776,14 +930,14 @@ router.get('/:id/transfer/candidates', requireRole('admin'), async (req, res, ne
 
     const keys = await db('agent_api_keys')
       .whereIn('tenant_id', tenants.map((t: any) => t.id))
-      .select('id', 'tenant_id', 'label', 'default_group_id');
+      .select('id', 'tenant_id', 'name', 'default_group_id');
 
     const keysByTenant = new Map<number, any[]>();
     for (const k of keys) {
       if (!keysByTenant.has(k.tenant_id)) keysByTenant.set(k.tenant_id, []);
       keysByTenant.get(k.tenant_id)!.push({
         id: k.id,
-        label: k.label,
+        label: k.name,        // client contract is still `label`
         defaultGroupId: k.default_group_id ?? null,
       });
     }
