@@ -156,15 +156,6 @@ function TreeNode({
   );
 }
 
-/** Collect all node ids from a tree (for auto-expand) */
-function collectIds(nodes: DeviceGroupTreeNode[]): number[] {
-  const ids: number[] = [];
-  for (const n of nodes) {
-    ids.push(n.id);
-    if (n.children.length > 0) ids.push(...collectIds(n.children));
-  }
-  return ids;
-}
 
 export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSidePanelProps) {
   const { t } = useTranslation();
