@@ -50,13 +50,12 @@ apiClient.interceptors.response.use(
 
     // ── Sensitive-action 2FA gate ──────────────────────────────────────────
     if (status === 401 && body?.twoFactorRequired && !(config as any)._tfaRetried) {
-      // Diagnostic log — helps debug "modal didn't pop" scenarios.
       console.debug('[tfa-gate] server requested 2FA for', body?.action || '(unknown action)');
       try {
         const actionLabel = body?.action || 'Sensitive action';
-        const code = await awaitTwoFactorCode(actionLabel);
+        const currentIp = typeof body?.currentIp === 'string' ? body.currentIp : undefined;
+        const { code, trustIp } = await awaitTwoFactorCode(actionLabel, currentIp);
 
-        // Merge twoFactorCode into the request body so the server can verify.
         let payload: Record<string, unknown> = {};
         if (typeof config.data === 'string') {
           try { payload = JSON.parse(config.data) as Record<string, unknown>; } catch { payload = {}; }
@@ -64,6 +63,7 @@ apiClient.interceptors.response.use(
           payload = { ...(config.data as object) };
         }
         payload.twoFactorCode = code;
+        if (trustIp) payload.trustIp = true;
 
         (config as any)._tfaRetried = true;
         config.data = JSON.stringify(payload);

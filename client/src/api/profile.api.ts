@@ -24,4 +24,15 @@ export const profileApi = {
   async deleteAvatar(): Promise<void> {
     await apiClient.delete('/profile/avatar');
   },
+
+  async listTrustedIps(): Promise<{ ip: string; trustedUntil: string; createdAt: string }[]> {
+    const res = await apiClient.get('/profile/trusted-ips');
+    return res.data.data ?? [];
+  },
+  async revokeAllTrustedIps(): Promise<void> {
+    await apiClient.delete('/profile/trusted-ips');
+  },
+  async revokeTrustedIp(ip: string): Promise<void> {
+    await apiClient.delete(`/profile/trusted-ips/${encodeURIComponent(ip)}`);
+  },
 };

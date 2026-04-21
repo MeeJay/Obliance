@@ -251,9 +251,6 @@ export const restrictionService = {
       const hasLocalTotp = !!(user.totp_enabled && user.totp_secret);
       const isObligateSso = user.foreign_source === 'obligate' && user.foreign_id;
 
-      // Must have either local TOTP or Obligate SSO (which proxies to the
-      // Obligate-side TOTP). Email OTP isn't trusted for sensitive actions —
-      // too slow + network-dependent.
       if (!hasLocalTotp && !isObligateSso) {
         return {
           ok: false, status: 403,
@@ -261,11 +258,27 @@ export const restrictionService = {
         };
       }
 
+      // ── Trusted-IP shortcut ───────────────────────────────────────────
+      // If the user previously completed a TOTP step-up from this IP AND
+      // checked "Trust this IP for 24h" in the prompt, skip the 2FA prompt
+      // for the rest of the trust window. See tfaTrust.service.ts.
+      const { tfaTrustService, clientIp } = await import('./tfaTrust.service');
+      const ip = clientIp(req);
+      if (ip && await tfaTrustService.isTrusted(userId, ip)) {
+        return { ok: true };
+      }
+
       const code = (req.body?.twoFactorCode || '').trim();
       if (!code) {
         return {
           ok: false, status: 401,
-          body: { error: 'twoFactorCode required', twoFactorRequired: true, action: actionKey },
+          body: {
+            error: 'twoFactorCode required',
+            twoFactorRequired: true,
+            action: actionKey,
+            currentIp: ip,          // surface to the UI so the user can
+                                    // verify before ticking "trust this IP"
+          },
         };
       }
 
@@ -273,14 +286,18 @@ export const restrictionService = {
       if (hasLocalTotp) {
         valid = twoFactorService.verifyTotp(user.totp_secret, code);
       } else if (isObligateSso) {
-        // Delegate to Obligate (lazy import to avoid a circular dep —
-        // obligate.service imports appConfigService which pulls db indirectly).
         const { obligateService } = await import('./obligate.service');
         valid = await obligateService.verifyTotp(user.foreign_id, code);
       }
       if (!valid) {
         return { ok: false, status: 401, body: { error: 'Invalid 2FA code' } };
       }
+
+      // Grant IP trust ONLY if the user explicitly opted in. Default off.
+      if (ip && req.body?.trustIp === true) {
+        await tfaTrustService.grant(userId, ip);
+      }
+
       return { ok: true };
     }
 

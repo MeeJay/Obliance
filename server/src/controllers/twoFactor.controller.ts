@@ -67,6 +67,13 @@ export const twoFactorController = {
         totp_secret: null,
         totp_enabled: false,
       });
+      // When TOTP is disabled, any "trusted IP" entries the user accumulated
+      // are now worthless — revoke them so the next sensitive action will
+      // prompt again (and tell the user TOTP is gone).
+      try {
+        const { tfaTrustService } = await import('../services/tfaTrust.service');
+        await tfaTrustService.revokeAllForUser(req.session.userId!);
+      } catch {}
       res.json({ success: true });
     } catch (err) { next(err); }
   },

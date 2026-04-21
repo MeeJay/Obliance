@@ -5,9 +5,12 @@
 // twoFactorRequired, the gate pops the modal, and the listener resolves
 // the promise with the code the user typed.
 
+export interface TwoFactorCodeResult { code: string; trustIp: boolean }
+
 interface Pending {
   actionLabel: string;
-  resolve: (code: string) => void;
+  currentIp?: string;
+  resolve: (result: TwoFactorCodeResult) => void;
   reject: (err: Error) => void;
 }
 
@@ -21,14 +24,14 @@ export function setTwoFactorListener(fn: Listener | null): void {
   else console.debug('[tfa-gate] listener cleared');
 }
 
-export function awaitTwoFactorCode(actionLabel: string): Promise<string> {
+export function awaitTwoFactorCode(actionLabel: string, currentIp?: string): Promise<TwoFactorCodeResult> {
   return new Promise((resolve, reject) => {
     if (!listener) {
       console.warn('[tfa-gate] awaitTwoFactorCode called but no listener is mounted');
       reject(new Error('Two-factor gate is not mounted. Did you forget <TwoFactorGate /> at app root?'));
       return;
     }
-    console.debug('[tfa-gate] prompting for code —', actionLabel);
-    listener({ actionLabel, resolve, reject });
+    console.debug('[tfa-gate] prompting for code —', actionLabel, 'ip:', currentIp || '(unknown)');
+    listener({ actionLabel, currentIp, resolve, reject });
   });
 }

@@ -12,7 +12,8 @@ import { setTwoFactorListener } from '@/utils/twoFactorGate';
 
 interface Pending {
   actionLabel: string;
-  resolve: (code: string) => void;
+  currentIp?: string;
+  resolve: (result: { code: string; trustIp: boolean }) => void;
   reject: (err: Error) => void;
 }
 
@@ -20,7 +21,7 @@ export function TwoFactorGate() {
   const [pending, setPending] = useState<Pending | null>(null);
 
   useEffect(() => {
-    setTwoFactorListener((p) => setPending(p));
+    setTwoFactorListener((p) => setPending(p as Pending));
     return () => setTwoFactorListener(null);
   }, []);
 
@@ -29,16 +30,13 @@ export function TwoFactorGate() {
   return (
     <TwoFactorPromptModal
       actionLabel={pending.actionLabel}
+      currentIp={pending.currentIp}
       onClose={() => {
-        // Cancellation — let the caller see a normal rejected promise.
         pending.reject(new Error('Two-factor verification cancelled'));
         setPending(null);
       }}
-      onSubmit={async (code) => {
-        // Hand the code to the interceptor; axios retries the original
-        // request. If the retry fails (bad code), the caller gets a plain
-        // error toast — they can re-trigger the action to try again.
-        pending.resolve(code);
+      onSubmit={async (code, { trustIp }) => {
+        pending.resolve({ code, trustIp });
         setPending(null);
       }}
     />

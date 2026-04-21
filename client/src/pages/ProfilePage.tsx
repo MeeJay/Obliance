@@ -728,6 +728,86 @@ export function ProfilePage() {
           </div>
         </div>
       )}
+
+      <TrustedIpsSection />
+    </div>
+  );
+}
+
+// ── Trusted IPs for 2FA step-up ───────────────────────────────────────────
+// Admins can see which IPs currently skip their TOTP prompt for sensitive
+// actions, and revoke them individually or all at once. Entries live 24h
+// after a successful step-up where the user explicitly ticked the
+// "Trust this IP" box in the TOTP modal.
+
+function TrustedIpsSection() {
+  const [items, setItems] = useState<{ ip: string; trustedUntil: string; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try { setItems(await profileApi.listTrustedIps()); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const revokeOne = async (ip: string) => {
+    if (!confirm(`Revoke trust for ${ip}? The next sensitive action from this IP will prompt for TOTP again.`)) return;
+    await profileApi.revokeTrustedIp(ip);
+    await load();
+  };
+  const revokeAll = async () => {
+    if (!confirm('Revoke trust for ALL IPs? Every sensitive action will prompt for TOTP again until you re-opt-in.')) return;
+    await profileApi.revokeAllTrustedIps();
+    await load();
+  };
+
+  const fmt = (iso: string) => {
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return 'expired';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  return (
+    <div className="mt-8 bg-bg-secondary border border-border rounded-xl p-6">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">Trusted IPs (2FA)</h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            IPs where you ticked "Trust this IP for 24h" on a sensitive-action TOTP prompt. Sensitive actions from these IPs skip the prompt until expiry.
+          </p>
+        </div>
+        {items.length > 0 && (
+          <button
+            onClick={revokeAll}
+            className="text-xs px-2.5 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10"
+          >
+            Revoke all
+          </button>
+        )}
+      </div>
+      {loading ? (
+        <p className="text-sm text-text-muted italic">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-text-muted italic">No trusted IPs. Every sensitive action will ask for a TOTP code.</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((it) => (
+            <div key={it.ip} className="flex items-center gap-3 px-3 py-2 rounded border border-border/50 bg-bg-tertiary/30 text-xs">
+              <span className="font-mono text-text-primary truncate flex-1">{it.ip}</span>
+              <span className="text-text-muted">expires in {fmt(it.trustedUntil)}</span>
+              <button
+                onClick={() => revokeOne(it.ip)}
+                className="text-red-400 hover:text-red-300 hover:bg-red-400/10 px-2 py-0.5 rounded"
+              >
+                Revoke
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

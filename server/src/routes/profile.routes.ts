@@ -39,4 +39,36 @@ router.put('/password', validate(changePasswordSchema), gateProfileWrite, profil
 router.put('/avatar', gateProfileWrite, profileController.uploadAvatar);
 router.delete('/avatar', gateProfileWrite, profileController.deleteAvatar);
 
+// ── Trusted-IP TOTP sessions ─────────────────────────────────────────────
+// The user can see which IPs currently skip the sensitive-action TOTP
+// prompt, and revoke them. Listing is unauthenticated beyond the session;
+// revocation just deletes — no step-up required because it's restrictive.
+
+router.get('/trusted-ips', async (req, res, next) => {
+  try {
+    const userId = (req.session as any).userId as number;
+    const { tfaTrustService } = await import('../services/tfaTrust.service');
+    const items = await tfaTrustService.listForUser(userId);
+    res.json({ data: items });
+  } catch (err) { next(err); }
+});
+
+router.delete('/trusted-ips', async (req, res, next) => {
+  try {
+    const userId = (req.session as any).userId as number;
+    const { tfaTrustService } = await import('../services/tfaTrust.service');
+    await tfaTrustService.revokeAllForUser(userId);
+    res.status(204).send();
+  } catch (err) { next(err); }
+});
+
+router.delete('/trusted-ips/:ip', async (req, res, next) => {
+  try {
+    const userId = (req.session as any).userId as number;
+    const { tfaTrustService } = await import('../services/tfaTrust.service');
+    await tfaTrustService.revokeForUserIp(userId, req.params.ip);
+    res.status(204).send();
+  } catch (err) { next(err); }
+});
+
 export default router;

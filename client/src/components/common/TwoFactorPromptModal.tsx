@@ -13,14 +13,20 @@ import { ShieldCheck, X, Loader2 } from 'lucide-react';
 
 export function TwoFactorPromptModal({
   actionLabel,
+  currentIp,
   onClose,
   onSubmit,
 }: {
   actionLabel: string;
+  /** IP the server sees the user coming from — shown next to the trust
+   *  checkbox so the user verifies before opting in. Passed from the
+   *  401 response body (`currentIp`). */
+  currentIp?: string;
   onClose: () => void;
-  onSubmit: (code: string) => Promise<void>;
+  onSubmit: (code: string, opts: { trustIp: boolean }) => Promise<void>;
 }) {
   const [code, setCode] = useState('');
+  const [trustIp, setTrustIp] = useState(false);   // explicit opt-in
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +41,7 @@ export function TwoFactorPromptModal({
     }
     setBusy(true);
     try {
-      await onSubmit(code);
+      await onSubmit(code, { trustIp });
       onClose();
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Verification failed');
@@ -77,6 +83,26 @@ export function TwoFactorPromptModal({
             placeholder="123456"
             className="w-full px-3 py-2 text-center text-lg font-mono tracking-[0.5em] bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
           />
+          {/* Explicit opt-in: skip the prompt for 24h for THIS user + THIS
+              IP only. If the cookie is stolen from a different IP the
+              trust does not follow — a step-up is still required. */}
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={trustIp}
+              onChange={(e) => setTrustIp(e.target.checked)}
+              className="mt-0.5 accent-accent"
+            />
+            <span className="text-[11px] text-text-muted">
+              Trust this IP for 24h
+              {currentIp && (
+                <span className="block font-mono text-[10px] text-text-primary/80 mt-0.5">{currentIp}</span>
+              )}
+              <span className="block text-[10px] text-text-muted/70 mt-0.5">
+                Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile.
+              </span>
+            </span>
+          </label>
           {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
         <div className="px-4 py-3 border-t border-border flex justify-end gap-2">
