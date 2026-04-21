@@ -102,6 +102,26 @@ func isServiceRunning() (bool, error) {
 	}
 }
 
+// isAgentProcessRunning reports whether any process named `obliance-agent`
+// is currently running — including one started manually from a command
+// prompt (not via SCM). Used to avoid launching a second agent instance
+// that would fight the first one for the server's WS command-channel slot
+// ("replaced" loop).
+func isAgentProcessRunning() bool {
+	switch runtime.GOOS {
+	case "windows":
+		out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq obliance-agent.exe", "/NH").CombinedOutput()
+		if err != nil {
+			return false
+		}
+		return strings.Contains(strings.ToLower(string(out)), "obliance-agent.exe")
+	default:
+		// pgrep returns 0 if it finds a match, 1 if not.
+		err := exec.Command("pgrep", "-x", "obliance-agent").Run()
+		return err == nil
+	}
+}
+
 // startService asks the OS to (re)start the agent service.
 func startService() error {
 	switch runtime.GOOS {
@@ -146,6 +166,18 @@ func main() {
 	}
 	if running {
 		// Everything fine.
+		return
+	}
+
+	// Service is stopped — but before we restart, check if an admin is
+	// already running the agent binary manually (e.g. `obliance-agent.exe`
+	// from a command prompt for interactive debugging). Starting the
+	// service on top of that spawns a second agent process sharing the
+	// same hardware UUID; both then fight for the server's WS
+	// command-channel slot and each kicks the other with close code 1000
+	// "replaced", so the device flaps offline forever.
+	if isAgentProcessRunning() {
+		log.Printf("%s service is stopped but an agent process is already running — skipping restart", serviceName)
 		return
 	}
 
