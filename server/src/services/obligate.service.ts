@@ -63,12 +63,13 @@ export const obligateService = {
   async verifyTotp(obligateUserId: number, code: string): Promise<boolean> {
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) {
-      logger.warn('Obligate verifyTotp: not configured');
+      logger.warn('[Obligate verifyTotp] not configured — returning false');
       return false;
     }
 
+    const url = `${raw.url}/api/oauth/verify-totp`;
     try {
-      const res = await fetch(`${raw.url}/api/oauth/verify-totp`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,13 +78,23 @@ export const obligateService = {
         body: JSON.stringify({ userId: obligateUserId, code }),
       });
       if (!res.ok) {
-        logger.warn(`Obligate verifyTotp failed: HTTP ${res.status}`);
+        // Dump the response body for diagnosis — the #1 cause of silent
+        // failures here is an outdated Obligate deployment that doesn't
+        // know the /verify-totp route yet (returns 404 HTML).
+        const text = await res.text().catch(() => '');
+        logger.warn(
+          { url, status: res.status, body: text.slice(0, 200) },
+          '[Obligate verifyTotp] non-2xx — is Obligate rebuilt with the /verify-totp route?',
+        );
         return false;
       }
       const data = await res.json() as { success?: boolean; data?: { valid?: boolean } };
+      if (!data?.success) {
+        logger.warn({ data }, '[Obligate verifyTotp] response success=false');
+      }
       return !!(data?.success && data?.data?.valid);
     } catch (err) {
-      logger.error(err, 'Obligate verifyTotp error');
+      logger.error({ err, url }, '[Obligate verifyTotp] exception');
       return false;
     }
   },

@@ -491,12 +491,23 @@ func mainLoop(cfg *Config) {
 	loadPrivacyState()
 	loadAirgapState()
 
-	// Grant BUILTIN\Users write rights on the config directory so the
-	// user-session tray can toggle privacy.json / airgap.json without
-	// running as admin. On unix this is a no-op. Recurse once to also
-	// fix existing files from previous installs that were locked down.
-	if err := ensureUsersWritable(configDir, true); err != nil {
-		log.Printf("ACL bootstrap failed (tray may not be able to toggle privacy): %v", err)
+	// Grant BUILTIN\Users write rights on ONLY the state files the tray
+	// needs to toggle (privacy.json / airgap.json). Originally we did
+	// `icacls <configDir> /T` which recursively granted Modify on every
+	// file including config.json — that exposed the tenant API key and
+	// server URL to any local user, enabling a local→SYSTEM escalation.
+	// Now we target each file individually; config.json keeps its
+	// default SYSTEM/Administrators-only ACL.
+	for _, p := range []string{
+		filepath.Join(configDir, "privacy.json"),
+		filepath.Join(configDir, "airgap.json"),
+		filepath.Join(configDir, "remote-session.json"),
+	} {
+		if _, err := os.Stat(p); err == nil {
+			if err := ensureUsersWritable(p, false); err != nil {
+				log.Printf("ACL bootstrap for %s failed: %v", filepath.Base(p), err)
+			}
+		}
 	}
 
 	// Agent just came back up — we passed whatever stop/start cycle the

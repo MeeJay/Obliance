@@ -41,6 +41,15 @@ export const teamsController = {
 
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_teams',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Create team`,
+        approvalPayload: { action: 'team_create', body: req.body },
+      });
+      if (!gated) return;
+
       const data = req.body as CreateTeamInput & { tenantId?: number };
       // Platform admins can specify the target tenant in the body; others use the session tenant
       const isPlatformAdmin = req.session.role === 'admin';
@@ -65,6 +74,15 @@ export const teamsController = {
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_teams',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Update team #${req.params.id}`,
+        approvalPayload: { action: 'team_update', teamId: parseInt(req.params.id, 10) },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
       const data = req.body as UpdateTeamInput;
       const team = await teamService.update(id, data);
@@ -87,6 +105,15 @@ export const teamsController = {
 
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_teams',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Delete team #${req.params.id}`,
+        approvalPayload: { action: 'team_delete', teamId: parseInt(req.params.id, 10) },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
       const deleted = await teamService.delete(id);
       if (!deleted) throw new AppError(404, 'Team not found');
@@ -114,6 +141,15 @@ export const teamsController = {
 
   async setMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_permissions',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Set members of team #${req.params.id}`,
+        approvalPayload: { action: 'team_members_set', teamId: parseInt(req.params.id, 10) },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
       const { userIds } = req.body as SetTeamMembersInput;
       await teamService.setMembers(id, userIds);
@@ -144,6 +180,15 @@ export const teamsController = {
 
   async setPermissions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_permissions',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Set permissions on team #${req.params.id}`,
+        approvalPayload: { action: 'team_permissions_set', teamId: parseInt(req.params.id, 10) },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
       const { permissions } = req.body as SetTeamPermissionsInput;
       const result = await teamService.setPermissions(id, permissions);

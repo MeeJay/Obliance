@@ -21,6 +21,19 @@ router.get('/', async (req, res, next) => {
 // and matches how the UI edits a whole matrix form at once).
 router.put('/', async (req, res, next) => {
   try {
+    // Gate via the "manage restrictions" action itself — bootstrap-friendly
+    // because the default is None, but tenants that opt in get TOTP-
+    // protected edits to their own security policy.
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'tenant.manage_restrictions',
+      approvalRequestType: 'batch_command',
+      approvalDescription: 'Edit action restrictions matrix',
+      approvalPayload: { action: 'restrictions_update', keys: Object.keys(req.body?.map ?? {}) },
+    });
+    if (!approved) return;
+
     const incoming = req.body?.map ?? {};
     await restrictionService.setMap(req.tenantId!, incoming);
     await auditService.logReq(req, 'restrictions.updated', {

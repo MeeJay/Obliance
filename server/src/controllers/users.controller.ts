@@ -35,6 +35,15 @@ export const usersController = {
   // POST /api/users
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_users',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Create user ${(req.body as any)?.username ?? ''}`,
+        approvalPayload: { action: 'user_create', body: req.body },
+      });
+      if (!gated) return;
+
       const data = req.body as CreateUserInput;
       const user = await userService.create(data);
       try {
@@ -58,6 +67,15 @@ export const usersController = {
   // PUT /api/users/:id
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_users',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Update user #${req.params.id}`,
+        approvalPayload: { action: 'user_update', userId: parseInt(req.params.id, 10), body: req.body },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
       const data = req.body as UpdateUserInput;
 
@@ -123,6 +141,15 @@ export const usersController = {
   // DELETE /api/users/:id
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { applyRestriction } = await import('../services/restriction.service');
+      const gated = await applyRestriction(res, {
+        req, actionKey: 'tenant.manage_users',
+        approvalRequestType: 'batch_command',
+        approvalDescription: `Delete user #${req.params.id}`,
+        approvalPayload: { action: 'user_delete', userId: parseInt(req.params.id, 10) },
+      });
+      if (!gated) return;
+
       const id = parseInt(req.params.id, 10);
 
       if (id === req.session.userId) {

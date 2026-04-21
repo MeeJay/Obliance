@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { FileText, RefreshCw, Search, ChevronDown, ChevronRight, Download, Filter } from 'lucide-react';
+import { FileText, RefreshCw, Search, ChevronDown, ChevronRight, Download, Filter, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { auditApi, type AuditLogRow, type AuditLogFilters } from '@/api/audit.api';
@@ -178,6 +178,28 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-border text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" /> CSV
+          </button>
+          <button
+            onClick={async () => {
+              if (!confirm('Clear the ENTIRE audit log for this tenant?\n\nThis typically requires a second-admin approval (default: Restricted). A single "audit.cleared" entry is kept so investigators can still see who wiped it.')) return;
+              try {
+                const r = await auditApi.clear();
+                toast.success(`Cleared ${r.deleted} entries`);
+                load(true);
+              } catch (err: any) {
+                const msg = err?.response?.data?.error;
+                const status = err?.response?.status;
+                if (status === 202) {
+                  toast('Clear request submitted — awaiting second-admin approval.', { icon: '⏳' });
+                } else {
+                  toast.error(msg || 'Clear failed');
+                }
+              }
+            }}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10 transition-colors"
+            title="Clear all audit entries (requires second-admin approval by default)"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Clear
           </button>
           <button
             onClick={() => load(true)}

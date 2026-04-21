@@ -44,4 +44,37 @@ router.get('/distinct-actions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// DELETE /api/audit-log — clear all audit entries for this tenant.
+// Defaults to `restricted` (second-admin approval) because destroying
+// accountability records should never be a one-click action. An admin
+// can bump it to `sensitive` from the matrix for extra friction.
+router.delete('/', async (req, res, next) => {
+  try {
+    const { applyRestriction } = await import('../services/restriction.service');
+    const approved = await applyRestriction(res, {
+      req,
+      actionKey: 'audit.clear',
+      approvalRequestType: 'batch_command',
+      approvalDescription: 'Clear the audit log for this tenant',
+      approvalPayload: { action: 'audit_clear', tenantId: req.tenantId! },
+    });
+    if (!approved) return;
+
+    const { db } = await import('../db');
+    const { auditService } = await import('../services/audit.service');
+    const deleted = await db('audit_logs').where({ tenant_id: req.tenantId! }).delete();
+
+    // Leave a single "cleared" line so investigators see WHO wiped the log
+    // and WHEN — the point of audit trails is that the very act of
+    // tampering leaves a mark.
+    await auditService.logReq(req, 'audit.cleared', {
+      resourceType: 'audit_log',
+      resourcePath: 'tenant',
+      details: { entriesDeleted: deleted },
+    });
+
+    res.json({ data: { deleted } });
+  } catch (err) { next(err); }
+});
+
 export default router;

@@ -76,6 +76,16 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   { key: 'command.kill_process',         label: 'Kill a process',           category: 'Processes' },
   // Scripts — manual execution from the UI (schedules are un-gated).
   { key: 'script.execute_manual',        label: 'Manually execute a script', category: 'Scripts' },
+  // Tenant config surfaces — editing these pages changes who can do what.
+  // Defaults live in DEFAULT_RESTRICTIONS below; we don't auto-seed the
+  // management ones so fresh installs without TOTP don't lock admins out.
+  { key: 'tenant.manage_restrictions',   label: 'Edit the Restrictions matrix', category: 'Tenant config' },
+  { key: 'tenant.manage_users',          label: 'Create / edit / delete users', category: 'Tenant config' },
+  { key: 'tenant.manage_teams',          label: 'Create / edit / delete teams', category: 'Tenant config' },
+  { key: 'tenant.manage_permissions',    label: 'Edit team permissions / members', category: 'Tenant config' },
+  { key: 'tenant.manage_settings',       label: 'Edit tenant settings',       category: 'Tenant config' },
+  { key: 'tenant.manage_profile',        label: 'Edit own profile (local users)', category: 'Tenant config' },
+  { key: 'audit.clear',                  label: 'Clear the audit log',        category: 'Tenant config' },
 ];
 
 /**
@@ -106,8 +116,14 @@ export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = 
   // destructive operations stay None by default — admins can opt in per
   // action from the matrix if they want a double-gate.
   'command.list_directory':       'sensitive',
-  // Remote sessions / services / processes are intentionally NOT defaulted —
-  // admins opt in by editing the matrix.
+  // Clearing the audit log deletes accountability — always require a
+  // second admin to approve. Doesn't need TOTP.
+  'audit.clear':                  'restricted',
+  // Remote sessions / services / processes / tenant-config management
+  // (users/teams/permissions/settings/profile/restrictions-config) are
+  // intentionally NOT defaulted — admins opt in from the matrix once they
+  // have TOTP deployed across privileged accounts, otherwise a fresh
+  // install could softlock itself.
 };
 
 function normalizeEntry(raw: any): RestrictionEntry | null {

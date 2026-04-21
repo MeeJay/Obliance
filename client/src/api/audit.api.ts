@@ -48,4 +48,8 @@ export const auditApi = {
     const res = await apiClient.get<ApiResponse<string[]>>('/audit-log/distinct-actions');
     return res.data.data ?? [];
   },
+  async clear(): Promise<{ deleted: number }> {
+    const res = await apiClient.delete<ApiResponse<{ deleted: number }>>('/audit-log');
+    return res.data.data ?? { deleted: 0 };
+  },
 };
