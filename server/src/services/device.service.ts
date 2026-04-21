@@ -153,11 +153,15 @@ class DeviceService {
       q = q.where({ 'devices.approval_status': filters.approvalStatus });
     }
     if (filters?.search) q = q.where(function() {
-      this.whereILike('devices.hostname', `%${filters.search}%`)
-          .orWhereILike('devices.display_name', `%${filters.search}%`)
-          .orWhereILike('devices.ip_local', `%${filters.search}%`)
-          .orWhereILike('devices.ip_public', `%${filters.search}%`)
-          .orWhereILike('devices.uuid', `%${filters.search}%`);
+      const pat = `%${filters.search}%`;
+      // devices.uuid is the PG `uuid` type — ILIKE refuses to match it
+      // directly, so cast to text. The other columns are varchar and
+      // accept ILIKE as-is.
+      this.whereILike('devices.hostname', pat)
+          .orWhereILike('devices.display_name', pat)
+          .orWhereILike('devices.ip_local', pat)
+          .orWhereILike('devices.ip_public', pat)
+          .orWhereRaw('devices.uuid::text ILIKE ?', [pat]);
     });
 
     const countResult = await q.clone().count('devices.id as count').first();
@@ -270,11 +274,15 @@ class DeviceService {
       q = q.where({ 'devices.approval_status': filters.approvalStatus });
     }
     if (filters?.search) q = q.where(function() {
-      this.whereILike('devices.hostname', `%${filters.search}%`)
-          .orWhereILike('devices.display_name', `%${filters.search}%`)
-          .orWhereILike('devices.ip_local', `%${filters.search}%`)
-          .orWhereILike('devices.ip_public', `%${filters.search}%`)
-          .orWhereILike('devices.uuid', `%${filters.search}%`);
+      const pat = `%${filters.search}%`;
+      // devices.uuid is the PG `uuid` type — ILIKE refuses to match it
+      // directly, so cast to text. The other columns are varchar and
+      // accept ILIKE as-is.
+      this.whereILike('devices.hostname', pat)
+          .orWhereILike('devices.display_name', pat)
+          .orWhereILike('devices.ip_local', pat)
+          .orWhereILike('devices.ip_public', pat)
+          .orWhereRaw('devices.uuid::text ILIKE ?', [pat]);
     });
 
     const SORT_MAP: Record<string, string> = {
