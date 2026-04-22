@@ -439,15 +439,48 @@ class CommandService {
                       ? await db('devices').whereIn('id', failedDeviceIds).select('id', 'hostname', 'display_name')
                       : [];
                     const failedNames = failedDevices.map((d: any) => d.display_name || d.hostname || `#${d.id}`);
-                    const { automationNotificationService } = await import('./automationNotification.service');
-                    await automationNotificationService.notify(tenantId, bindings, {
-                      automationType: 'schedule',
-                      automationName: schedule.name,
-                      successCount,
-                      failureCount,
-                      totalCount: batch.length,
-                      failedDeviceNames: failedNames,
-                    });
+
+                    // notify_once dedup: if the PREVIOUS batch of this same
+                    // schedule already had failures, suppress this one — the
+                    // admin was paged on the first transition into failure
+                    // and doesn't want the same alert every minute until it
+                    // recovers. We only block the notification when both
+                    // batches share the same failure state (fail→fail); the
+                    // recovery case (fail→ok) still flows through so the
+                    // operator sees the problem cleared.
+                    let skipNotification = false;
+                    if (schedule.notify_once) {
+                      // Find the previous batch_id for this schedule (most
+                      // recently finished, excluding the current one).
+                      const prevBatchIdRow = await db('script_executions')
+                        .where({ schedule_id: exec.schedule_id })
+                        .whereNot({ batch_id: exec.batch_id })
+                        .whereNotNull('batch_id')
+                        .whereNotNull('finished_at')
+                        .orderBy('finished_at', 'desc')
+                        .first('batch_id');
+                      if (prevBatchIdRow?.batch_id) {
+                        const prevBatch = await db('script_executions')
+                          .where({ batch_id: prevBatchIdRow.batch_id });
+                        const prevHadFailure = prevBatch.some((e: any) =>
+                          e.status === 'failure' || e.status === 'timeout',
+                        );
+                        const currHasFailure = failureCount > 0;
+                        if (prevHadFailure && currHasFailure) skipNotification = true;
+                      }
+                    }
+
+                    if (!skipNotification) {
+                      const { automationNotificationService } = await import('./automationNotification.service');
+                      await automationNotificationService.notify(tenantId, bindings, {
+                        automationType: 'schedule',
+                        automationName: schedule.name,
+                        successCount,
+                        failureCount,
+                        totalCount: batch.length,
+                        failedDeviceNames: failedNames,
+                      });
+                    }
                   }
                 }
               }
