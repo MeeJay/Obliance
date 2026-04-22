@@ -498,7 +498,6 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               onNavigate={id => navigate(`/devices/${id}`)}
               onGroupChange={onGroupChange}
               selectionMode={selectionMode}
-              t={t}
             />
           </div>
         </div>
@@ -842,7 +841,6 @@ function DeviceListBody({
   devices, tree, groupId, searchActive,
   collapsedGroupIds, onToggleGroup,
   mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
-  t,
 }: {
   devices: Device[];
   tree: DeviceGroupTreeNode[];
@@ -856,8 +854,8 @@ function DeviceListBody({
   onNavigate: (id: number) => void;
   onGroupChange?: (id: number | null) => void;
   selectionMode: boolean;
-  t: (k: string, fallback?: string) => string;
 }) {
+  const { t } = useTranslation();
   // Hooks MUST run unconditionally (Rules of Hooks), so build the maps and
   // roots before any early-return branches below.
   const devicesByGroupId = useMemo(() => {
