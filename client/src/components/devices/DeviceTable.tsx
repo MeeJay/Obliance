@@ -289,7 +289,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         });
         toast.success(t('devices.batch.dispatched', { count: result.dispatched }));
       }
-      setSelectedIds(new Set()); setSelectAllGroup(false); await load();
+      setSelectedIds(new Set()); setSelectAllGroup(false); await load(true);
     } catch { toast.error(t('common.error')); } finally { setIsBatchRunning(false); }
   };
 
@@ -396,7 +396,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
           </button>
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
+          <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
         </div>
@@ -605,7 +605,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               toast.success(t('devices.batch.groupChanged', { count: r.changed, defaultValue: `Moved ${r.changed} device${r.changed > 1 ? 's' : ''}` }));
               setSelectedIds(new Set());
               setSelectAllGroup(false);
-              await load();
+              await load(true);
             } catch {
               toast.error(t('common.error'));
             } finally {
@@ -629,7 +629,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               if (r.failed > 0) toast.error(`${r.failed} transfer(s) failed — see audit log`);
               setSelectedIds(new Set());
               setSelectAllGroup(false);
-              await load();
+              await load(true);
             } catch (err: any) {
               if (err?.response?.status !== 202) {
                 toast.error(err?.response?.data?.error || t('common.error'));
