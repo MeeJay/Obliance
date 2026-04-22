@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "이미 관리 중",
+    "selectAllUnmanaged": "관리되지 않는 항목 모두 선택 ({{count}})",
+    "clearSelection": "선택 해제",
+    "selectedCount": "{{count}}개 선택됨",
+    "deployScript": {
+      "button": "배포 스크립트 생성 ({{count}})",
+      "title": "배포 스크립트 생성",
+      "subtitle": "{{count}}개 호스트 선택됨",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "대상 API 키",
+      "searchKey": "이름, 그룹 또는 키로 검색...",
+      "noKeys": "일치하는 API 키가 없습니다",
+      "targets": "대상 호스트",
+      "preview": "생성된 스크립트",
+      "pickKey": "스크립트를 생성하려면 API 키를 선택하세요.",
+      "warning": "실행 전에 USERS, SSH_KEYS / SSH_KEY_DIR 및 주석 처리된 PASSWORD 변수를 편집하세요. 스크립트는 각 호스트에 SSH로 연결하여 Obliance 에이전트를 설치합니다. 자격 증명은 로컬 시스템을 벗어나지 않습니다."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

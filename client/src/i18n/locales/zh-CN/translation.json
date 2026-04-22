@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "已托管",
+    "selectAllUnmanaged": "全选未托管 ({{count}})",
+    "clearSelection": "清除选择",
+    "selectedCount": "已选 {{count}} 个",
+    "deployScript": {
+      "button": "生成部署脚本 ({{count}})",
+      "title": "生成部署脚本",
+      "subtitle": "已选择 {{count}} 台主机",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "目标 API 密钥",
+      "searchKey": "按名称、分组或密钥搜索...",
+      "noKeys": "没有匹配的 API 密钥",
+      "targets": "目标主机",
+      "preview": "生成的脚本",
+      "pickKey": "请选择 API 密钥以生成脚本。",
+      "warning": "运行前请编辑 USERS、SSH_KEYS / SSH_KEY_DIR 以及注释掉的 PASSWORD 变量。脚本将通过 SSH 连接到每台主机并安装 Obliance 代理。凭据不会离开您的本地计算机。"
+    }
   },
   "patchReport": {
     "title": "Patch Report",

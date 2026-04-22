@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Allerede administreret",
+    "selectAllUnmanaged": "Vælg alle ikke-administrerede ({{count}})",
+    "clearSelection": "Ryd valg",
+    "selectedCount": "{{count}} valgt",
+    "deployScript": {
+      "button": "Generér installationsscript ({{count}})",
+      "title": "Generér installationsscript",
+      "subtitle": "{{count}} host(s) valgt",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Mål-API-nøgle",
+      "searchKey": "Søg efter navn, gruppe eller nøgle...",
+      "noKeys": "Ingen API-nøgler matcher",
+      "targets": "Mål-hosts",
+      "preview": "Genereret script",
+      "pickKey": "Vælg en API-nøgle for at generere scriptet.",
+      "warning": "Rediger USERS, SSH_KEYS / SSH_KEY_DIR og den udkommenterede PASSWORD-variabel før kørsel. Scriptet opretter SSH-forbindelse til hver host og installerer Obliance-agenten. Adgangsoplysninger forlader aldrig din lokale maskine."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

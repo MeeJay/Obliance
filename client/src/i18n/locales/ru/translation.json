@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Уже управляется",
+    "selectAllUnmanaged": "Выбрать все неуправляемые ({{count}})",
+    "clearSelection": "Очистить выбор",
+    "selectedCount": "Выбрано: {{count}}",
+    "deployScript": {
+      "button": "Создать скрипт развёртывания ({{count}})",
+      "title": "Создать скрипт развёртывания",
+      "subtitle": "Выбрано узлов: {{count}}",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Целевой API-ключ",
+      "searchKey": "Поиск по имени, группе или ключу...",
+      "noKeys": "Нет подходящих API-ключей",
+      "targets": "Целевые узлы",
+      "preview": "Сгенерированный скрипт",
+      "pickKey": "Выберите API-ключ для создания скрипта.",
+      "warning": "Перед запуском отредактируйте USERS, SSH_KEYS / SSH_KEY_DIR и закомментированную переменную PASSWORD. Скрипт подключится к каждому узлу по SSH и установит агент Obliance. Учётные данные никогда не покидают вашу локальную машину."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

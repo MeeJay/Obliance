@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "مُدار بالفعل",
+    "selectAllUnmanaged": "تحديد كل غير المُدارة ({{count}})",
+    "clearSelection": "مسح التحديد",
+    "selectedCount": "{{count}} محدد",
+    "deployScript": {
+      "button": "إنشاء برنامج نصي للنشر ({{count}})",
+      "title": "إنشاء برنامج نصي للنشر",
+      "subtitle": "تم تحديد {{count}} مضيف",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "مفتاح API الهدف",
+      "searchKey": "البحث بالاسم أو المجموعة أو المفتاح...",
+      "noKeys": "لا توجد مفاتيح API مطابقة",
+      "targets": "المضيفون الهدف",
+      "preview": "البرنامج النصي المُنشأ",
+      "pickKey": "اختر مفتاح API لإنشاء البرنامج النصي.",
+      "warning": "عدّل USERS و SSH_KEYS / SSH_KEY_DIR ومتغير PASSWORD المعلّق قبل التشغيل. سيتصل البرنامج النصي عبر SSH بكل مضيف وسيثبت وكيل Obliance. لا تغادر بيانات الاعتماد جهازك المحلي أبدًا."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

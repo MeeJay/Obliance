@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Reeds beheerd",
+    "selectAllUnmanaged": "Alles onbeheerd selecteren ({{count}})",
+    "clearSelection": "Selectie wissen",
+    "selectedCount": "{{count}} geselecteerd",
+    "deployScript": {
+      "button": "Implementatiescript genereren ({{count}})",
+      "title": "Implementatiescript genereren",
+      "subtitle": "{{count}} host(s) geselecteerd",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Doel API-sleutel",
+      "searchKey": "Zoek op naam, groep of sleutel...",
+      "noKeys": "Geen overeenkomende API-sleutels",
+      "targets": "Doelhosts",
+      "preview": "Gegenereerd script",
+      "pickKey": "Kies een API-sleutel om het script te genereren.",
+      "warning": "Bewerk USERS, SSH_KEYS / SSH_KEY_DIR en de uitgecommentarieerde PASSWORD-variabele voor uitvoering. Het script maakt SSH-verbinding met elke host en installeert de Obliance-agent. Inloggegevens verlaten nooit uw lokale machine."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

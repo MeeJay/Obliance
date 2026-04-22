@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Zaten yönetiliyor",
+    "selectAllUnmanaged": "Tüm yönetilmeyenleri seç ({{count}})",
+    "clearSelection": "Seçimi temizle",
+    "selectedCount": "{{count}} seçildi",
+    "deployScript": {
+      "button": "Dağıtım betiği oluştur ({{count}})",
+      "title": "Dağıtım betiği oluştur",
+      "subtitle": "{{count}} ana makine seçildi",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Hedef API anahtarı",
+      "searchKey": "Ad, grup veya anahtara göre ara...",
+      "noKeys": "Eşleşen API anahtarı yok",
+      "targets": "Hedef ana makineler",
+      "preview": "Oluşturulan betik",
+      "pickKey": "Betiği oluşturmak için bir API anahtarı seçin.",
+      "warning": "Çalıştırmadan önce USERS, SSH_KEYS / SSH_KEY_DIR ve yorumlu PASSWORD değişkenini düzenleyin. Betik her ana makineye SSH ile bağlanacak ve Obliance aracısını kuracaktır. Kimlik bilgileri yerel makinenizden asla çıkmaz."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

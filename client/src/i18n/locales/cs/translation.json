@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Již spravováno",
+    "selectAllUnmanaged": "Vybrat vše nespravované ({{count}})",
+    "clearSelection": "Zrušit výběr",
+    "selectedCount": "{{count}} vybráno",
+    "deployScript": {
+      "button": "Generovat skript nasazení ({{count}})",
+      "title": "Generovat skript nasazení",
+      "subtitle": "Vybráno {{count}} hostitel(ů)",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Cílový API klíč",
+      "searchKey": "Hledat podle názvu, skupiny nebo klíče...",
+      "noKeys": "Žádné odpovídající API klíče",
+      "targets": "Cíloví hostitelé",
+      "preview": "Vygenerovaný skript",
+      "pickKey": "Vyberte API klíč pro generování skriptu.",
+      "warning": "Před spuštěním upravte proměnné USERS, SSH_KEYS / SSH_KEY_DIR a zakomentovanou PASSWORD. Skript se připojí přes SSH na každého hostitele a nainstaluje agenta Obliance. Přihlašovací údaje nikdy neopustí váš lokální počítač."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

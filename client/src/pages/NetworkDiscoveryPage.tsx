@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight, FileCode } from 'lucide-react';
 import { networkDiscoveryApi } from '@/api/networkDiscovery.api';
 import { commandApi } from '@/api/command.api';
 import { deviceApi } from '@/api/device.api';
@@ -7,6 +7,7 @@ import type { DiscoveredDevice, Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { GenerateDeployScriptModal } from '@/components/networkDiscovery/GenerateDeployScriptModal';
 
 const PAGE_SIZE = 50;
 
@@ -44,6 +45,10 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
   const [showScanPicker, setShowScanPicker] = useState(false);
   const [scanning, setScanning] = useState(false);
 
+  // Deploy script modal — works on unmanaged selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showDeployModal, setShowDeployModal] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -69,6 +74,11 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [managedFilter, typeFilter, subnetFilter]);
+
+  // Clear selection whenever the visible set changes — selections are
+  // page-local in this iteration (the full cross-page selection will come
+  // with the broader Discovery rework).
+  useEffect(() => { setSelectedIds(new Set()); }, [page, managedFilter, typeFilter, subnetFilter]);
 
   const handleDelete = async (id: number) => {
     if (!confirm(t('common.confirmDelete') || 'Delete this entry?')) return;
@@ -111,6 +121,31 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
         (d.hostname ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (d.ip ?? '').toLowerCase().includes(search.toLowerCase()))
     : (items ?? []);
+
+  // Unmanaged rows currently visible (after all filters + text search) — the
+  // "Select all unmanaged" button targets this set.
+  const unmanagedVisible = useMemo(
+    () => filteredItems.filter((d) => !d.isManaged),
+    [filteredItems],
+  );
+  const selectedHosts = useMemo(
+    () => filteredItems.filter((d) => selectedIds.has(d.id) && !d.isManaged),
+    [filteredItems, selectedIds],
+  );
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllUnmanaged = () => {
+    setSelectedIds(new Set(unmanagedVisible.map((d) => d.id)));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
 
   const formatDate = (s: string) => {
     try { return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -214,16 +249,52 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
           )}
         </div>
 
+        {/* Deploy script */}
+        {selectedHosts.length > 0 && (
+          <button
+            onClick={() => setShowDeployModal(true)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-border text-text-primary rounded-lg hover:border-accent hover:text-accent transition-colors"
+          >
+            <FileCode className="w-3.5 h-3.5" />
+            {t('discovery.deployScript.button', { count: selectedHosts.length }) ||
+              `Generate deploy script (${selectedHosts.length})`}
+          </button>
+        )}
+
         {/* Scan Now */}
         <button
           onClick={handleScanNow}
           disabled={scanning}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors',
+            selectedHosts.length === 0 && 'ml-auto',
+          )}
         >
           <Wifi className={clsx('w-3.5 h-3.5', scanning && 'animate-pulse')} />
           {t('discovery.scanNow') || 'Scan Now'}
         </button>
       </div>
+
+      {/* Selection toolbar — appears when unmanaged rows are selectable */}
+      {unmanagedVisible.length > 0 && (
+        <div className="flex items-center gap-3 px-3 py-1.5 bg-bg-secondary border border-border rounded-lg text-xs text-text-muted">
+          <button
+            onClick={selectedIds.size > 0 ? clearSelection : selectAllUnmanaged}
+            className="text-accent hover:underline"
+          >
+            {selectedIds.size > 0
+              ? (t('discovery.clearSelection') || 'Clear selection')
+              : (t('discovery.selectAllUnmanaged', { count: unmanagedVisible.length }) ||
+                  `Select all unmanaged (${unmanagedVisible.length})`)}
+          </button>
+          {selectedHosts.length > 0 && (
+            <span>
+              {t('discovery.selectedCount', { count: selectedHosts.length }) ||
+                `${selectedHosts.length} selected`}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Scan Picker Modal */}
       {showScanPicker && (
@@ -267,6 +338,19 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-bg-secondary border-b border-border text-left">
+                <th className="px-2 py-2.5 w-8">
+                  <input
+                    type="checkbox"
+                    className="accent-accent"
+                    checked={
+                      unmanagedVisible.length > 0 &&
+                      unmanagedVisible.every((d) => selectedIds.has(d.id))
+                    }
+                    onChange={(e) => (e.target.checked ? selectAllUnmanaged() : clearSelection())}
+                    disabled={unmanagedVisible.length === 0}
+                    title={t('discovery.selectAllUnmanaged', { count: unmanagedVisible.length }) || 'Select all unmanaged'}
+                  />
+                </th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">IP</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">{t('discovery.hostname') || 'Hostname'}</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted hidden lg:table-cell">MAC</th>
@@ -288,6 +372,16 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
                   : '--';
                 return (
                   <tr key={d.id} className="border-b border-border/50 hover:bg-bg-secondary/50 transition-colors">
+                    <td className="px-2 py-2.5">
+                      <input
+                        type="checkbox"
+                        className="accent-accent"
+                        checked={selectedIds.has(d.id)}
+                        onChange={() => toggleSelect(d.id)}
+                        disabled={d.isManaged}
+                        title={d.isManaged ? (t('discovery.alreadyManaged') || 'Already managed') : undefined}
+                      />
+                    </td>
                     <td className="px-4 py-2.5 text-text-primary font-mono text-xs">{d.ip}</td>
                     <td className="px-4 py-2.5 text-text-primary text-xs truncate max-w-[200px]">{d.hostname || '--'}</td>
                     <td className="px-4 py-2.5 text-text-muted text-xs font-mono hidden lg:table-cell">{d.mac || '--'}</td>
@@ -327,6 +421,14 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Deploy script modal */}
+      {showDeployModal && selectedHosts.length > 0 && (
+        <GenerateDeployScriptModal
+          hosts={selectedHosts}
+          onClose={() => setShowDeployModal(false)}
+        />
       )}
 
       {/* Pagination */}

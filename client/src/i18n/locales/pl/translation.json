@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Już zarządzany",
+    "selectAllUnmanaged": "Zaznacz wszystkie niezarządzane ({{count}})",
+    "clearSelection": "Wyczyść zaznaczenie",
+    "selectedCount": "Zaznaczono: {{count}}",
+    "deployScript": {
+      "button": "Wygeneruj skrypt wdrożenia ({{count}})",
+      "title": "Wygeneruj skrypt wdrożenia",
+      "subtitle": "Wybrano {{count}} host(ów)",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Docelowy klucz API",
+      "searchKey": "Szukaj po nazwie, grupie lub kluczu...",
+      "noKeys": "Brak pasujących kluczy API",
+      "targets": "Hosty docelowe",
+      "preview": "Wygenerowany skrypt",
+      "pickKey": "Wybierz klucz API, aby wygenerować skrypt.",
+      "warning": "Przed uruchomieniem zmodyfikuj zmienne USERS, SSH_KEYS / SSH_KEY_DIR oraz zakomentowaną PASSWORD. Skrypt połączy się przez SSH z każdym hostem i zainstaluje agenta Obliance. Poświadczenia nigdy nie opuszczają twojej lokalnej maszyny."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

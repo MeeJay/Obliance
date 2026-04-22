@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "管理済み",
+    "selectAllUnmanaged": "未管理をすべて選択 ({{count}})",
+    "clearSelection": "選択解除",
+    "selectedCount": "{{count}} 件選択中",
+    "deployScript": {
+      "button": "デプロイスクリプトを生成 ({{count}})",
+      "title": "デプロイスクリプトを生成",
+      "subtitle": "{{count}} 個のホストを選択中",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "対象の API キー",
+      "searchKey": "名前、グループ、キーで検索...",
+      "noKeys": "一致する API キーがありません",
+      "targets": "対象ホスト",
+      "preview": "生成されたスクリプト",
+      "pickKey": "スクリプトを生成するには API キーを選択してください。",
+      "warning": "実行前に USERS、SSH_KEYS / SSH_KEY_DIR、およびコメントアウトされた PASSWORD 変数を編集してください。スクリプトは各ホストに SSH 接続して Obliance エージェントをインストールします。認証情報がローカルマシンから出ることはありません。"
+    }
   },
   "patchReport": {
     "title": "Patch Report",

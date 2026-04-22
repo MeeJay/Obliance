@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Вже керується",
+    "selectAllUnmanaged": "Вибрати всі некеровані ({{count}})",
+    "clearSelection": "Очистити вибір",
+    "selectedCount": "Вибрано: {{count}}",
+    "deployScript": {
+      "button": "Створити скрипт розгортання ({{count}})",
+      "title": "Створити скрипт розгортання",
+      "subtitle": "Вибрано вузлів: {{count}}",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Цільовий API-ключ",
+      "searchKey": "Пошук за назвою, групою або ключем...",
+      "noKeys": "Немає відповідних API-ключів",
+      "targets": "Цільові вузли",
+      "preview": "Згенерований скрипт",
+      "pickKey": "Виберіть API-ключ для створення скрипту.",
+      "warning": "Перед запуском відредагуйте USERS, SSH_KEYS / SSH_KEY_DIR та закоментовану змінну PASSWORD. Скрипт з'єднається з кожним вузлом через SSH і встановить агент Obliance. Облікові дані ніколи не покидають вашу локальну машину."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

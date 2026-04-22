@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Ya gestionado",
+    "selectAllUnmanaged": "Seleccionar todos los no gestionados ({{count}})",
+    "clearSelection": "Limpiar selección",
+    "selectedCount": "{{count}} seleccionado(s)",
+    "deployScript": {
+      "button": "Generar script de despliegue ({{count}})",
+      "title": "Generar script de despliegue",
+      "subtitle": "{{count}} host(s) seleccionado(s)",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Clave API objetivo",
+      "searchKey": "Buscar por nombre, grupo o clave...",
+      "noKeys": "Ninguna clave API coincide",
+      "targets": "Hosts objetivo",
+      "preview": "Script generado",
+      "pickKey": "Seleccione una clave API para generar el script.",
+      "warning": "Edite USERS, SSH_KEYS / SSH_KEY_DIR y la variable PASSWORD comentada antes de ejecutar. El script se conectará por SSH a cada host e instalará el agente Obliance. Las credenciales nunca salen de su máquina local."
+    }
   },
   "patchReport": {
     "title": "Patch Report",

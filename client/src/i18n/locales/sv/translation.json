@@ -1532,7 +1532,25 @@
     "scanDispatched": "Network scan dispatched",
     "noResults": "No discovered devices yet. Run a scan from an online agent.",
     "searchPlaceholder": "Search IP or hostname...",
-    "subnetPlaceholder": "Filter by subnet..."
+    "subnetPlaceholder": "Filter by subnet...",
+    "alreadyManaged": "Redan hanterad",
+    "selectAllUnmanaged": "Välj alla ohanterade ({{count}})",
+    "clearSelection": "Rensa val",
+    "selectedCount": "{{count}} vald(a)",
+    "deployScript": {
+      "button": "Generera installationsskript ({{count}})",
+      "title": "Generera installationsskript",
+      "subtitle": "{{count}} värd(ar) vald(a)",
+      "linux": "Linux / macOS (SSH)",
+      "windows": "Windows (WinRM)",
+      "apiKey": "Mål-API-nyckel",
+      "searchKey": "Sök efter namn, grupp eller nyckel...",
+      "noKeys": "Inga API-nycklar matchar",
+      "targets": "Målvärdar",
+      "preview": "Genererat skript",
+      "pickKey": "Välj en API-nyckel för att generera skriptet.",
+      "warning": "Redigera USERS, SSH_KEYS / SSH_KEY_DIR och den utkommenterade PASSWORD-variabeln före körning. Skriptet ansluter via SSH till varje värd och installerar Obliance-agenten. Autentiseringsuppgifter lämnar aldrig din lokala maskin."
+    }
   },
   "patchReport": {
     "title": "Patch Report",
