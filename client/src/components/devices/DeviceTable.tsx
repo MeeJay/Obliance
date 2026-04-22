@@ -136,6 +136,19 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   // query flag and skip the normal group / sub-group filter.
   const ungroupedOnly = groupId === -1;
 
+  // Tree view is active when the user isn't searching and we're not
+  // browsing the flat "Ungrouped" bucket. In tree mode, paginating by a
+  // fixed device count slices groups across pages arbitrarily (a fleet
+  // of 346 Caisses + 15 Servers + 2 Workstations ends up with Caisses
+  // spread over 4 pages and Workstations invisible until the last one).
+  // That makes no sense with drawers — so in tree mode we widen the
+  // page to fit the whole scope (cap at 2000 to stay sensible on huge
+  // fleets) and hide the pagination controls.
+  const treeViewActive = !debouncedSearch.trim() && !ungroupedOnly;
+  const TREE_MAX = 2000;
+  const effectivePageSize = treeViewActive ? TREE_MAX : pageSize;
+  const effectivePage = treeViewActive ? 1 : page;
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -147,8 +160,8 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         includeSubgroups: ungroupedOnly ? undefined : (groupId ? true : undefined),
         ungrouped: ungroupedOnly ? true : undefined,
         approvalStatus: approvalFilter || undefined,
-        page,
-        pageSize,
+        page: effectivePage,
+        pageSize: effectivePageSize,
         sortBy,
         sortOrder,
       });
@@ -159,7 +172,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, page, pageSize, sortBy, sortOrder, t]);
+  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, effectivePage, effectivePageSize, sortBy, sortOrder, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -503,8 +516,24 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {/* Tree-view total count — replaces pagination so the admin still
+          sees how many devices are in scope. */}
+      {treeViewActive && total > 0 && (
+        <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
+          <span>{total} device{total !== 1 ? 's' : ''}</span>
+          {total > TREE_MAX && (
+            <span className="text-amber-400">
+              {t('devices.pagination.treeCapped', { shown: TREE_MAX, total }) ||
+                `Showing first ${TREE_MAX} of ${total} — use search or pick a sub-group to narrow.`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Pagination — hidden in tree view where all scope devices are
+          loaded in one go (slicing groups across pages is incoherent
+          with the drawer layout). */}
+      {!treeViewActive && totalPages > 1 && (
         <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
           <span>{total} device{total !== 1 ? 's' : ''}</span>
           <div className="flex items-center gap-1">
