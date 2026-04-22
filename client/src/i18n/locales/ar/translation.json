@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "تحديد الكل",
+    "none": "لا شيء"
   },
   "status": {
     "up": "يعمل",
@@ -1550,6 +1552,34 @@
       "preview": "البرنامج النصي المُنشأ",
       "pickKey": "اختر مفتاح API لإنشاء البرنامج النصي.",
       "warning": "عدّل USERS و SSH_KEYS / SSH_KEY_DIR ومتغير PASSWORD المعلّق قبل التشغيل. سيتصل البرنامج النصي عبر SSH بكل مضيف وسيثبت وكيل Obliance. لا تغادر بيانات الاعتماد جهازك المحلي أبدًا."
+    },
+    "os": "نظام التشغيل",
+    "scanDispatchedN": "تم إرسال المسح على {{count}} وكيل",
+    "scanDispatchedPartial": "{{ok}} مسح تم إرساله، {{failed}} فشل",
+    "newSinceLastVisit": "{{count}} جديد منذ آخر زيارة",
+    "newSince": "جديد منذ زيارتك الأخيرة",
+    "markAllSeen": "تحديد الكل كمقروء",
+    "markSeen": "تحديد كمقروء",
+    "picker": {
+      "title": "اختر الوكلاء لتشغيل المسح",
+      "subtitle": "كل وكيل محدد يمسح شبكته الفرعية المحلية. وكيل واحد لكل موقع يكفي عادةً.",
+      "searchPlaceholder": "اكتب للتصفية حسب الوكيل أو المجموعة...",
+      "selectAll": "تحديد الكل ({{count}})",
+      "clearAll": "مسح",
+      "noMatch": "لا يوجد وكيل يطابق التصفية",
+      "ungrouped": "بدون مجموعة",
+      "selectedCount": "{{count}} محدد",
+      "selectHint": "حدد وكيلاً واحداً أو أكثر.",
+      "launch": "تشغيل المسح على {{count}} وكيل"
+    },
+    "export": {
+      "button": "تصدير",
+      "title": "تصدير الأجهزة المكتشفة",
+      "subtitle": "{{count}} صف جاهز للتصدير",
+      "format": "التنسيق",
+      "fields": "الأعمدة",
+      "subnet": "الشبكة الفرعية",
+      "countHint": "{{rows}} صف · {{cols}} عمود"
     }
   },
   "patchReport": {

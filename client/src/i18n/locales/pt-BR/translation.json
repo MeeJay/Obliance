@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Selecionar tudo",
+    "none": "Nenhum"
   },
   "status": {
     "up": "ON-LINE",
@@ -1550,6 +1552,34 @@
       "preview": "Script gerado",
       "pickKey": "Escolha uma chave API para gerar o script.",
       "warning": "Edite USERS, SSH_KEYS / SSH_KEY_DIR e a variável PASSWORD comentada antes de executar. O script conectará via SSH em cada host e instalará o agente Obliance. Credenciais nunca saem da sua máquina local."
+    },
+    "os": "SO",
+    "scanDispatchedN": "Varredura de rede enviada para {{count}} agente(s)",
+    "scanDispatchedPartial": "{{ok}} varredura(s) enviadas, {{failed}} falharam",
+    "newSinceLastVisit": "{{count}} novo(s) desde a última visita",
+    "newSince": "Novo desde sua última visita",
+    "markAllSeen": "Marcar tudo como visto",
+    "markSeen": "Marcar como visto",
+    "picker": {
+      "title": "Selecionar agentes para executar a varredura",
+      "subtitle": "Cada agente selecionado varre sua própria sub-rede local. Um agente por site geralmente é suficiente.",
+      "searchPlaceholder": "Digite para filtrar por agente ou grupo...",
+      "selectAll": "Selecionar tudo ({{count}})",
+      "clearAll": "Limpar",
+      "noMatch": "Nenhum agente corresponde ao filtro",
+      "ungrouped": "Sem grupo",
+      "selectedCount": "{{count}} selecionado(s)",
+      "selectHint": "Selecione um ou mais agentes.",
+      "launch": "Iniciar varredura em {{count}} agente(s)"
+    },
+    "export": {
+      "button": "Exportar",
+      "title": "Exportar dispositivos descobertos",
+      "subtitle": "{{count}} linha(s) prontas para exportar",
+      "format": "Formato",
+      "fields": "Colunas",
+      "subnet": "Sub-rede",
+      "countHint": "{{rows}} linha(s) · {{cols}} coluna(s)"
     }
   },
   "patchReport": {

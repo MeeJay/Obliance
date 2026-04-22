@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Seleccionar todo",
+    "none": "Ninguno"
   },
   "status": {
     "up": "EN LÍNEA",
@@ -1550,6 +1552,34 @@
       "preview": "Script generado",
       "pickKey": "Seleccione una clave API para generar el script.",
       "warning": "Edite USERS, SSH_KEYS / SSH_KEY_DIR y la variable PASSWORD comentada antes de ejecutar. El script se conectará por SSH a cada host e instalará el agente Obliance. Las credenciales nunca salen de su máquina local."
+    },
+    "os": "SO",
+    "scanDispatchedN": "Escaneo de red enviado a {{count}} agente(s)",
+    "scanDispatchedPartial": "{{ok}} escaneo(s) enviados, {{failed}} fallidos",
+    "newSinceLastVisit": "{{count}} nuevo(s) desde la última visita",
+    "newSince": "Nuevo desde tu última visita",
+    "markAllSeen": "Marcar todo como visto",
+    "markSeen": "Marcar como visto",
+    "picker": {
+      "title": "Seleccionar agentes para ejecutar el escaneo",
+      "subtitle": "Cada agente seleccionado escanea su propia subred local. Un agente por sitio suele ser suficiente.",
+      "searchPlaceholder": "Escriba para filtrar por agente o grupo...",
+      "selectAll": "Seleccionar todo ({{count}})",
+      "clearAll": "Limpiar",
+      "noMatch": "Ningún agente coincide con el filtro",
+      "ungrouped": "Sin grupo",
+      "selectedCount": "{{count}} seleccionado(s)",
+      "selectHint": "Seleccione uno o más agentes.",
+      "launch": "Lanzar escaneo en {{count}} agente(s)"
+    },
+    "export": {
+      "button": "Exportar",
+      "title": "Exportar dispositivos descubiertos",
+      "subtitle": "{{count}} fila(s) lista(s) para exportar",
+      "format": "Formato",
+      "fields": "Columnas",
+      "subnet": "Subred",
+      "countHint": "{{rows}} fila(s) · {{cols}} columna(s)"
     }
   },
   "patchReport": {

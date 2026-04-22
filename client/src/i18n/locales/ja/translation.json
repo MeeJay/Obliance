@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "すべて選択",
+    "none": "なし"
   },
   "status": {
     "up": "正常",
@@ -1550,6 +1552,34 @@
       "preview": "生成されたスクリプト",
       "pickKey": "スクリプトを生成するには API キーを選択してください。",
       "warning": "実行前に USERS、SSH_KEYS / SSH_KEY_DIR、およびコメントアウトされた PASSWORD 変数を編集してください。スクリプトは各ホストに SSH 接続して Obliance エージェントをインストールします。認証情報がローカルマシンから出ることはありません。"
+    },
+    "os": "OS",
+    "scanDispatchedN": "ネットワークスキャンを {{count}} 個のエージェントに送信しました",
+    "scanDispatchedPartial": "{{ok}} 件のスキャンを送信、{{failed}} 件失敗",
+    "newSinceLastVisit": "前回の訪問から新しい {{count}} 件",
+    "newSince": "前回の訪問以降に追加",
+    "markAllSeen": "すべて既読にする",
+    "markSeen": "既読",
+    "picker": {
+      "title": "スキャンを実行するエージェントを選択",
+      "subtitle": "選択した各エージェントは自身のローカルサブネットをスキャンします。通常、サイトごとに1つのエージェントで十分です。",
+      "searchPlaceholder": "エージェントまたはグループでフィルタリング...",
+      "selectAll": "すべて選択 ({{count}})",
+      "clearAll": "クリア",
+      "noMatch": "フィルターに一致するエージェントがありません",
+      "ungrouped": "グループなし",
+      "selectedCount": "{{count}} 件選択中",
+      "selectHint": "1つ以上のエージェントを選択してください。",
+      "launch": "{{count}} 個のエージェントでスキャンを開始"
+    },
+    "export": {
+      "button": "エクスポート",
+      "title": "検出されたデバイスをエクスポート",
+      "subtitle": "{{count}} 行をエクスポート可能",
+      "format": "形式",
+      "fields": "列",
+      "subnet": "サブネット",
+      "countHint": "{{rows}} 行 · {{cols}} 列"
     }
   },
   "patchReport": {

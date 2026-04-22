@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight, FileCode } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { RefreshCw, Wifi, Monitor, Printer, Router, Cpu, HelpCircle, Trash2, Search, X, ChevronLeft, ChevronRight, FileCode, Download, Sparkles } from 'lucide-react';
 import { networkDiscoveryApi } from '@/api/networkDiscovery.api';
 import { commandApi } from '@/api/command.api';
-import { deviceApi } from '@/api/device.api';
-import type { DiscoveredDevice, Device } from '@obliance/shared';
+import type { DiscoveredDevice } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { GenerateDeployScriptModal } from '@/components/networkDiscovery/GenerateDeployScriptModal';
+import { ScanTargetPickerModal } from '@/components/networkDiscovery/ScanTargetPickerModal';
+import { ExportDiscoveryModal } from '@/components/networkDiscovery/ExportDiscoveryModal';
 
 const PAGE_SIZE = 50;
 
@@ -41,13 +42,22 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
   const [page, setPage] = useState(1);
 
   // Scan
-  const [onlineDevices, setOnlineDevices] = useState<Device[]>([]);
   const [showScanPicker, setShowScanPicker] = useState(false);
   const [scanning, setScanning] = useState(false);
 
-  // Deploy script modal — works on unmanaged selection
+  // Deploy script + export modals — work on unmanaged selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showDeployModal, setShowDeployModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // "New since last viewed" tracking — we remember the highest lastSeen
+  // the user has ever observed (persisted in localStorage) and badge any
+  // row that's newer than that. Updated when the user clicks "Mark as
+  // seen" or navigates away from the page.
+  const [seenAt, setSeenAt] = useState<string>(() =>
+    localStorage.getItem('discovery.seenAt') ?? '1970-01-01T00:00:00Z',
+  );
+  const firstLoadRef = useRef(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -91,27 +101,37 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
     }
   };
 
-  const handleScanNow = async () => {
-    try {
-      const devices = await deviceApi.list({ status: 'online' });
-      setOnlineDevices(devices);
-      setShowScanPicker(true);
-    } catch {
-      toast.error(t('common.error'));
-    }
-  };
+  const handleScanNow = () => setShowScanPicker(true);
 
-  const dispatchScan = async (deviceId: number) => {
+  const dispatchScan = async (deviceIds: number[]) => {
+    if (deviceIds.length === 0) return;
     setScanning(true);
-    setShowScanPicker(false);
     try {
-      await commandApi.enqueue(deviceId, 'scan_network' as any, {}, 'normal');
-      toast.success(t('discovery.scanDispatched') || 'Network scan dispatched');
-    } catch {
-      toast.error(t('common.error'));
+      const results = await Promise.allSettled(
+        deviceIds.map((id) => commandApi.enqueue(id, 'scan_network' as any, {}, 'normal')),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      if (failed === 0) {
+        toast.success(
+          t('discovery.scanDispatchedN', { count: ok }) ||
+            (ok === 1 ? 'Network scan dispatched' : `Network scan dispatched on ${ok} agents`),
+        );
+      } else {
+        toast.error(
+          t('discovery.scanDispatchedPartial', { ok, failed }) ||
+            `${ok} scan(s) dispatched, ${failed} failed`,
+        );
+      }
     } finally {
       setScanning(false);
     }
+  };
+
+  const markAllAsSeen = () => {
+    const now = new Date().toISOString();
+    setSeenAt(now);
+    localStorage.setItem('discovery.seenAt', now);
   };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -147,6 +167,29 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  // "New" = firstSeen stored on the server is strictly after the user's
+  // last-seen marker. Counted against the CURRENT page's visible rows so
+  // the stats card matches what the admin is actually looking at.
+  const newCount = useMemo(
+    () => (items ?? []).filter((d) => d.firstSeen > seenAt).length,
+    [items, seenAt],
+  );
+
+  // Auto-advance the seen marker on leaving the page so the badge clears
+  // without a manual "mark seen" click. Runs once on unmount.
+  useEffect(() => {
+    if (firstLoadRef.current) { firstLoadRef.current = false; return; }
+    return () => {
+      if (items.length > 0) {
+        const max = items.reduce(
+          (acc, d) => (d.lastSeen > acc ? d.lastSeen : acc),
+          seenAt,
+        );
+        localStorage.setItem('discovery.seenAt', max);
+      }
+    };
+  }, [items, seenAt]);
+
   const formatDate = (s: string) => {
     try { return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
     catch { return s; }
@@ -155,6 +198,26 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
   const TypeIcon = ({ type }: { type: string }) => {
     const Icon = TYPE_ICONS[type] ?? HelpCircle;
     return <Icon className="w-4 h-4 text-text-muted" />;
+  };
+
+  const OsBadge = ({ os }: { os: string | null }) => {
+    if (!os) return <span className="text-xs text-text-muted">--</span>;
+    const normalised = os.toLowerCase();
+    const config: Record<string, { label: string; color: string }> = {
+      windows: { label: 'Windows', color: 'bg-blue-400/10 text-blue-400 border-blue-400/30' },
+      linux:   { label: 'Linux',   color: 'bg-green-400/10 text-green-400 border-green-400/30' },
+      macos:   { label: 'macOS',   color: 'bg-gray-400/10 text-gray-300 border-gray-400/30' },
+      freebsd: { label: 'FreeBSD', color: 'bg-red-400/10 text-red-400 border-red-400/30' },
+    };
+    const c = config[normalised] ?? {
+      label: os,
+      color: 'bg-bg-tertiary text-text-muted border-border',
+    };
+    return (
+      <span className={clsx('inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-medium', c.color)}>
+        {c.label}
+      </span>
+    );
   };
 
   return (
@@ -249,11 +312,27 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
           )}
         </div>
 
+        {/* "New since last visit" badge + mark-seen shortcut */}
+        {newCount > 0 && (
+          <button
+            onClick={markAllAsSeen}
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/15 transition-colors"
+            title={t('discovery.markAllSeen') || 'Mark as seen'}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {t('discovery.newSinceLastVisit', { count: newCount }) ||
+              `${newCount} new since last visit`}
+          </button>
+        )}
+
         {/* Deploy script */}
         {selectedHosts.length > 0 && (
           <button
             onClick={() => setShowDeployModal(true)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-border text-text-primary rounded-lg hover:border-accent hover:text-accent transition-colors"
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-border text-text-primary rounded-lg hover:border-accent hover:text-accent transition-colors',
+              newCount === 0 && 'ml-auto',
+            )}
           >
             <FileCode className="w-3.5 h-3.5" />
             {t('discovery.deployScript.button', { count: selectedHosts.length }) ||
@@ -261,14 +340,24 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
           </button>
         )}
 
+        {/* Export */}
+        <button
+          onClick={() => setShowExportModal(true)}
+          disabled={filteredItems.length === 0}
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-secondary border border-border text-text-primary rounded-lg hover:border-accent hover:text-accent disabled:opacity-50 transition-colors',
+            newCount === 0 && selectedHosts.length === 0 && 'ml-auto',
+          )}
+        >
+          <Download className="w-3.5 h-3.5" />
+          {t('discovery.export.button') || 'Export'}
+        </button>
+
         {/* Scan Now */}
         <button
           onClick={handleScanNow}
           disabled={scanning}
-          className={clsx(
-            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors',
-            selectedHosts.length === 0 && 'ml-auto',
-          )}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
         >
           <Wifi className={clsx('w-3.5 h-3.5', scanning && 'animate-pulse')} />
           {t('discovery.scanNow') || 'Scan Now'}
@@ -298,29 +387,10 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
 
       {/* Scan Picker Modal */}
       {showScanPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowScanPicker(false)}>
-          <div className="bg-bg-primary border border-border rounded-xl p-5 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-text-primary mb-3">{t('discovery.selectAgent') || 'Select an online agent to run the scan'}</h3>
-            {onlineDevices.length === 0 ? (
-              <p className="text-xs text-text-muted py-4 text-center">{t('discovery.noOnlineAgents') || 'No online agents available'}</p>
-            ) : (
-              <div className="max-h-60 overflow-y-auto space-y-1">
-                {onlineDevices.map(d => (
-                  <button
-                    key={d.id}
-                    onClick={() => dispatchScan(d.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-accent/10 rounded-lg transition-colors text-left"
-                  >
-                    <Monitor className="w-4 h-4 text-text-muted flex-shrink-0" />
-                    <span className="truncate">{d.hostname || d.ipLocal || `#${d.id}`}</span>
-                    {d.ipLocal && <span className="text-xs text-text-muted ml-auto flex-shrink-0">{d.ipLocal}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-            <button onClick={() => setShowScanPicker(false)} className="mt-3 w-full text-xs text-text-muted hover:text-text-primary text-center py-1">{t('common.cancel') || 'Cancel'}</button>
-          </div>
-        </div>
+        <ScanTargetPickerModal
+          onClose={() => setShowScanPicker(false)}
+          onDispatch={dispatchScan}
+        />
       )}
 
       {/* Table */}
@@ -355,6 +425,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">{t('discovery.hostname') || 'Hostname'}</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted hidden lg:table-cell">MAC</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted hidden lg:table-cell">{t('discovery.vendor') || 'Vendor'}</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-text-muted">{t('discovery.os') || 'OS'}</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">{t('discovery.type') || 'Type'}</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted hidden md:table-cell">{t('discovery.ports') || 'Ports'}</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted hidden xl:table-cell">{t('discovery.firstSeen') || 'First Seen'}</th>
@@ -382,10 +453,23 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
                         title={d.isManaged ? (t('discovery.alreadyManaged') || 'Already managed') : undefined}
                       />
                     </td>
-                    <td className="px-4 py-2.5 text-text-primary font-mono text-xs">{d.ip}</td>
+                    <td className="px-4 py-2.5 text-text-primary font-mono text-xs">
+                      <span className="inline-flex items-center gap-1.5">
+                        {d.firstSeen > seenAt && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0"
+                            title={t('discovery.newSince') || 'New since your last visit'}
+                          />
+                        )}
+                        {d.ip}
+                      </span>
+                    </td>
                     <td className="px-4 py-2.5 text-text-primary text-xs truncate max-w-[200px]">{d.hostname || '--'}</td>
                     <td className="px-4 py-2.5 text-text-muted text-xs font-mono hidden lg:table-cell">{d.mac || '--'}</td>
                     <td className="px-4 py-2.5 text-text-muted text-xs hidden lg:table-cell truncate max-w-[150px]">{d.ouiVendor || '--'}</td>
+                    <td className="px-4 py-2.5">
+                      <OsBadge os={d.osGuess} />
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
                         <TypeIcon type={d.deviceType} />
@@ -428,6 +512,14 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
         <GenerateDeployScriptModal
           hosts={selectedHosts}
           onClose={() => setShowDeployModal(false)}
+        />
+      )}
+
+      {/* Export modal */}
+      {showExportModal && (
+        <ExportDiscoveryModal
+          rows={filteredItems}
+          onClose={() => setShowExportModal(false)}
         />
       )}
 

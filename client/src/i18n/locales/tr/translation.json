@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Tümünü seç",
+    "none": "Yok"
   },
   "status": {
     "up": "ÇEVRIMIÇI",
@@ -1550,6 +1552,34 @@
       "preview": "Oluşturulan betik",
       "pickKey": "Betiği oluşturmak için bir API anahtarı seçin.",
       "warning": "Çalıştırmadan önce USERS, SSH_KEYS / SSH_KEY_DIR ve yorumlu PASSWORD değişkenini düzenleyin. Betik her ana makineye SSH ile bağlanacak ve Obliance aracısını kuracaktır. Kimlik bilgileri yerel makinenizden asla çıkmaz."
+    },
+    "os": "İşletim Sistemi",
+    "scanDispatchedN": "Ağ taraması {{count}} aracıya gönderildi",
+    "scanDispatchedPartial": "{{ok}} tarama gönderildi, {{failed}} başarısız",
+    "newSinceLastVisit": "Son ziyaretten bu yana {{count}} yeni",
+    "newSince": "Son ziyaretinizden bu yana yeni",
+    "markAllSeen": "Tümünü görüldü olarak işaretle",
+    "markSeen": "Görüldü olarak işaretle",
+    "picker": {
+      "title": "Taramayı çalıştıracak aracıları seç",
+      "subtitle": "Seçilen her aracı kendi yerel alt ağını tarar. Genellikle site başına bir aracı yeterlidir.",
+      "searchPlaceholder": "Aracı veya gruba göre filtrelemek için yazın...",
+      "selectAll": "Tümünü seç ({{count}})",
+      "clearAll": "Temizle",
+      "noMatch": "Filtreyle eşleşen aracı yok",
+      "ungrouped": "Gruba dahil değil",
+      "selectedCount": "{{count}} seçildi",
+      "selectHint": "Bir veya daha fazla aracı seçin.",
+      "launch": "{{count}} aracıda tarama başlat"
+    },
+    "export": {
+      "button": "Dışa aktar",
+      "title": "Keşfedilen cihazları dışa aktar",
+      "subtitle": "Dışa aktarmaya hazır {{count}} satır",
+      "format": "Biçim",
+      "fields": "Sütunlar",
+      "subnet": "Alt ağ",
+      "countHint": "{{rows}} satır · {{cols}} sütun"
     }
   },
   "patchReport": {

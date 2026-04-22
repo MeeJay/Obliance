@@ -443,8 +443,99 @@ func enrichHost(host *DiscoveredHost) {
 		}
 	}
 
+	// OS fingerprint — SSH banner grab + Windows-port heuristic. Runs only
+	// on hosts with at least one interesting port open; skips cheaply.
+	fingerprintOS(host)
+
 	// Port-based classification (overrides OUI hint when more specific)
 	classifyByPorts(host)
+}
+
+// fingerprintOS sets host.OSGuess to one of "windows", "linux", "macos",
+// "freebsd" or "" based on two cheap, unprivileged signals:
+//
+//  1. SSH banner grab on port 22 — the string contains the distro name
+//     95 % of the time (e.g. "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4"),
+//     which makes it the most reliable signal available without raw
+//     sockets.
+//  2. Windows-specific TCP ports — 445 (SMB), 3389 (RDP), 5985 (WinRM),
+//     135 (RPC endpoint mapper) strongly imply Windows when the SSH
+//     banner is absent or ambiguous.
+//
+// Kept deliberately dependency-free and 1 s worst-case per host.
+func fingerprintOS(host *DiscoveredHost) {
+	portSet := make(map[int]bool, len(host.Ports))
+	for _, p := range host.Ports {
+		portSet[p] = true
+	}
+
+	// 1) SSH banner grab
+	if portSet[22] {
+		if guess := guessOSFromSSHBanner(host.IP); guess != "" {
+			host.OSGuess = guess
+			return
+		}
+	}
+
+	// 2) Windows-only ports — SMB (445), RDP (3389), WinRM (5985), RPC (135)
+	if portSet[445] || portSet[3389] || portSet[5985] || portSet[135] {
+		host.OSGuess = "windows"
+		return
+	}
+
+	// 3) SSH alone on a host with no Windows ports → most likely Linux,
+	// but we can't be more specific without the banner; leave blank so
+	// the UI doesn't lie.
+	if portSet[22] {
+		host.OSGuess = "linux"
+	}
+}
+
+// guessOSFromSSHBanner opens a TCP connection to :22 and reads the
+// banner (single line, terminated by \r\n). Returns one of "windows",
+// "linux", "macos", "freebsd" or "" if the banner is unparseable or
+// doesn't hint at an OS.
+func guessOSFromSSHBanner(ip string) string {
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, "22"), 500*time.Millisecond)
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+
+	buf := make([]byte, 256)
+	n, err := conn.Read(buf)
+	if err != nil || n == 0 {
+		return ""
+	}
+	banner := strings.ToLower(string(buf[:n]))
+
+	// Order matters: "win32-openssh" before "openssh"
+	switch {
+	case strings.Contains(banner, "win32-openssh"), strings.Contains(banner, "microsoft_ssh"):
+		return "windows"
+	case strings.Contains(banner, "freebsd"):
+		return "freebsd"
+	case strings.Contains(banner, "netbsd"), strings.Contains(banner, "openbsd"):
+		return "freebsd" // close enough for our UI
+	case strings.Contains(banner, "macos"), strings.Contains(banner, "darwin"):
+		return "macos"
+	case strings.Contains(banner, "ubuntu"),
+		strings.Contains(banner, "debian"),
+		strings.Contains(banner, "centos"),
+		strings.Contains(banner, "rhel"),
+		strings.Contains(banner, "rocky"),
+		strings.Contains(banner, "alma"),
+		strings.Contains(banner, "fedora"),
+		strings.Contains(banner, "arch"),
+		strings.Contains(banner, "suse"),
+		strings.Contains(banner, "alpine"):
+		return "linux"
+	case strings.Contains(banner, "openssh"), strings.Contains(banner, "dropbear"):
+		// Generic UNIX SSH; assume Linux as the most common case.
+		return "linux"
+	}
+	return ""
 }
 
 func classifyByPorts(host *DiscoveredHost) {

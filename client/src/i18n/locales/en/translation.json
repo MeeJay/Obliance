@@ -31,6 +31,8 @@
     "copy": "Copy",
     "copied": "Copied!",
     "search": "Search",
+    "selectAll": "Select all",
+    "none": "None",
     "noResults": "No results",
     "error": "Error",
     "success": "Success",
@@ -1567,6 +1569,34 @@
       "preview": "Generated script",
       "pickKey": "Pick an API key to generate the script.",
       "warning": "Edit USERS, SSH_KEYS / SSH_KEY_DIR and the commented PASSWORD variable before running. The script will SSH into each host and install the Obliance agent. Credentials never leave your local machine."
+    },
+    "os": "OS",
+    "scanDispatchedN": "Network scan dispatched on {{count}} agent(s)",
+    "scanDispatchedPartial": "{{ok}} scan(s) dispatched, {{failed}} failed",
+    "newSinceLastVisit": "{{count}} new since last visit",
+    "newSince": "New since your last visit",
+    "markAllSeen": "Mark all as seen",
+    "markSeen": "Mark seen",
+    "picker": {
+      "title": "Select agents to run the scan",
+      "subtitle": "Each selected agent scans its own local subnet. Pick one agent per site.",
+      "searchPlaceholder": "Type to filter by agent or group...",
+      "selectAll": "Select all ({{count}})",
+      "clearAll": "Clear",
+      "noMatch": "No agent matches the filter",
+      "ungrouped": "Ungrouped",
+      "selectedCount": "{{count}} selected",
+      "selectHint": "Select one or more agents.",
+      "launch": "Launch scan on {{count}} agent(s)"
+    },
+    "export": {
+      "button": "Export",
+      "title": "Export discovered devices",
+      "subtitle": "{{count}} row(s) ready to export",
+      "format": "Format",
+      "fields": "Columns",
+      "subnet": "Subnet",
+      "countHint": "{{rows}} row(s) · {{cols}} column(s)"
     }
   },
   "patchReport": {

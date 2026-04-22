@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Vælg alle",
+    "none": "Ingen"
   },
   "status": {
     "up": "ONLINE",
@@ -1550,6 +1552,34 @@
       "preview": "Genereret script",
       "pickKey": "Vælg en API-nøgle for at generere scriptet.",
       "warning": "Rediger USERS, SSH_KEYS / SSH_KEY_DIR og den udkommenterede PASSWORD-variabel før kørsel. Scriptet opretter SSH-forbindelse til hver host og installerer Obliance-agenten. Adgangsoplysninger forlader aldrig din lokale maskine."
+    },
+    "os": "OS",
+    "scanDispatchedN": "Netværksscanning sendt til {{count}} agent(er)",
+    "scanDispatchedPartial": "{{ok}} scan(ninger) sendt, {{failed}} fejlet",
+    "newSinceLastVisit": "{{count}} nye siden sidste besøg",
+    "newSince": "Ny siden dit sidste besøg",
+    "markAllSeen": "Marker alle som set",
+    "markSeen": "Marker set",
+    "picker": {
+      "title": "Vælg agenter til at køre scanningen",
+      "subtitle": "Hver valgt agent scanner sit eget lokale undernet. Én agent pr. lokation er typisk nok.",
+      "searchPlaceholder": "Skriv for at filtrere efter agent eller gruppe...",
+      "selectAll": "Vælg alle ({{count}})",
+      "clearAll": "Ryd",
+      "noMatch": "Ingen agent matcher filteret",
+      "ungrouped": "Uden gruppe",
+      "selectedCount": "{{count}} valgt",
+      "selectHint": "Vælg en eller flere agenter.",
+      "launch": "Start scanning på {{count}} agent(er)"
+    },
+    "export": {
+      "button": "Eksportér",
+      "title": "Eksportér opdagede enheder",
+      "subtitle": "{{count}} række(r) klar til eksport",
+      "format": "Format",
+      "fields": "Kolonner",
+      "subnet": "Undernet",
+      "countHint": "{{rows}} række(r) · {{cols}} kolonne(r)"
     }
   },
   "patchReport": {

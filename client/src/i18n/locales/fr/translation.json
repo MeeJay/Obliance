@@ -31,6 +31,8 @@
     "copy": "Copier",
     "copied": "Copié !",
     "search": "Rechercher",
+    "selectAll": "Tout sélectionner",
+    "none": "Aucun",
     "noResults": "Aucun résultat",
     "error": "Erreur",
     "success": "Succès",
@@ -1553,6 +1555,34 @@
       "preview": "Script généré",
       "pickKey": "Choisissez une clé API pour générer le script.",
       "warning": "Éditez USERS, SSH_KEYS / SSH_KEY_DIR et la variable PASSWORD commentée avant d'exécuter. Le script se connecte en SSH sur chaque hôte et installe l'agent Obliance. Les identifiants restent sur votre machine, jamais sur le serveur."
+    },
+    "os": "OS",
+    "scanDispatchedN": "Scan réseau lancé sur {{count}} agent(s)",
+    "scanDispatchedPartial": "{{ok}} scan(s) lancé(s), {{failed}} échec(s)",
+    "newSinceLastVisit": "{{count}} nouveau(x) depuis votre dernière visite",
+    "newSince": "Nouveau depuis votre dernière visite",
+    "markAllSeen": "Marquer comme vu",
+    "markSeen": "Marquer vu",
+    "picker": {
+      "title": "Choisir les agents qui lancent le scan",
+      "subtitle": "Chaque agent sélectionné scanne son propre sous-réseau. Un agent par site suffit généralement.",
+      "searchPlaceholder": "Tapez pour filtrer par agent ou groupe...",
+      "selectAll": "Tout sélectionner ({{count}})",
+      "clearAll": "Effacer",
+      "noMatch": "Aucun agent ne correspond au filtre",
+      "ungrouped": "Sans groupe",
+      "selectedCount": "{{count}} sélectionné(s)",
+      "selectHint": "Sélectionnez un ou plusieurs agents.",
+      "launch": "Lancer le scan sur {{count}} agent(s)"
+    },
+    "export": {
+      "button": "Exporter",
+      "title": "Exporter les appareils découverts",
+      "subtitle": "{{count}} ligne(s) prête(s) à exporter",
+      "format": "Format",
+      "fields": "Colonnes",
+      "subnet": "Sous-réseau",
+      "countHint": "{{rows}} ligne(s) · {{cols}} colonne(s)"
     }
   },
   "patchReport": {

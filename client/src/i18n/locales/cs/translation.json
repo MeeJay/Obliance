@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Vybrat vše",
+    "none": "Žádné"
   },
   "status": {
     "up": "ONLINE",
@@ -1550,6 +1552,34 @@
       "preview": "Vygenerovaný skript",
       "pickKey": "Vyberte API klíč pro generování skriptu.",
       "warning": "Před spuštěním upravte proměnné USERS, SSH_KEYS / SSH_KEY_DIR a zakomentovanou PASSWORD. Skript se připojí přes SSH na každého hostitele a nainstaluje agenta Obliance. Přihlašovací údaje nikdy neopustí váš lokální počítač."
+    },
+    "os": "OS",
+    "scanDispatchedN": "Skenování sítě spuštěno na {{count}} agentech",
+    "scanDispatchedPartial": "{{ok}} skenů spuštěno, {{failed}} selhalo",
+    "newSinceLastVisit": "{{count}} nových od poslední návštěvy",
+    "newSince": "Nové od vaší poslední návštěvy",
+    "markAllSeen": "Označit vše jako přečtené",
+    "markSeen": "Označit jako přečtené",
+    "picker": {
+      "title": "Vybrat agenty pro spuštění skenu",
+      "subtitle": "Každý vybraný agent skenuje svou lokální podsíť. Jeden agent na lokalitu obvykle stačí.",
+      "searchPlaceholder": "Pište pro filtrování podle agenta nebo skupiny...",
+      "selectAll": "Vybrat vše ({{count}})",
+      "clearAll": "Vymazat",
+      "noMatch": "Žádný agent neodpovídá filtru",
+      "ungrouped": "Bez skupiny",
+      "selectedCount": "{{count}} vybráno",
+      "selectHint": "Vyberte jednoho nebo více agentů.",
+      "launch": "Spustit sken na {{count}} agentech"
+    },
+    "export": {
+      "button": "Exportovat",
+      "title": "Exportovat objevená zařízení",
+      "subtitle": "{{count}} řádek/řádků připraveno k exportu",
+      "format": "Formát",
+      "fields": "Sloupce",
+      "subnet": "Podsíť",
+      "countHint": "{{rows}} řádek · {{cols}} sloupec"
     }
   },
   "patchReport": {

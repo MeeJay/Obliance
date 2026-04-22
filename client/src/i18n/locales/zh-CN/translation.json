@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "全选",
+    "none": "无"
   },
   "status": {
     "up": "正常",
@@ -1550,6 +1552,34 @@
       "preview": "生成的脚本",
       "pickKey": "请选择 API 密钥以生成脚本。",
       "warning": "运行前请编辑 USERS、SSH_KEYS / SSH_KEY_DIR 以及注释掉的 PASSWORD 变量。脚本将通过 SSH 连接到每台主机并安装 Obliance 代理。凭据不会离开您的本地计算机。"
+    },
+    "os": "操作系统",
+    "scanDispatchedN": "网络扫描已发送到 {{count}} 个代理",
+    "scanDispatchedPartial": "已发送 {{ok}} 次扫描，{{failed}} 次失败",
+    "newSinceLastVisit": "自上次访问以来有 {{count}} 个新项",
+    "newSince": "自上次访问以来新增",
+    "markAllSeen": "全部标记为已查看",
+    "markSeen": "标记为已查看",
+    "picker": {
+      "title": "选择运行扫描的代理",
+      "subtitle": "每个选定的代理扫描其自己的本地子网。通常每个站点一个代理就足够了。",
+      "searchPlaceholder": "键入以按代理或分组筛选...",
+      "selectAll": "全选 ({{count}})",
+      "clearAll": "清除",
+      "noMatch": "没有代理与筛选条件匹配",
+      "ungrouped": "未分组",
+      "selectedCount": "已选 {{count}} 个",
+      "selectHint": "请选择一个或多个代理。",
+      "launch": "在 {{count}} 个代理上启动扫描"
+    },
+    "export": {
+      "button": "导出",
+      "title": "导出已发现的设备",
+      "subtitle": "{{count}} 行可供导出",
+      "format": "格式",
+      "fields": "列",
+      "subnet": "子网",
+      "countHint": "{{rows}} 行 · {{cols}} 列"
     }
   },
   "patchReport": {

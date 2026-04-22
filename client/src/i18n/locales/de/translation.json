@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "Alle auswählen",
+    "none": "Keine"
   },
   "status": {
     "up": "ONLINE",
@@ -1550,6 +1552,34 @@
       "preview": "Generiertes Skript",
       "pickKey": "Wählen Sie einen API-Schlüssel, um das Skript zu generieren.",
       "warning": "Bearbeiten Sie USERS, SSH_KEYS / SSH_KEY_DIR und die auskommentierte PASSWORD-Variable vor der Ausführung. Das Skript verbindet sich per SSH mit jedem Host und installiert den Obliance-Agenten. Anmeldedaten verlassen niemals Ihren lokalen Rechner."
+    },
+    "os": "Betriebssystem",
+    "scanDispatchedN": "Netzwerk-Scan an {{count}} Agent(en) gesendet",
+    "scanDispatchedPartial": "{{ok}} Scan(s) gesendet, {{failed}} fehlgeschlagen",
+    "newSinceLastVisit": "{{count}} neu seit letztem Besuch",
+    "newSince": "Neu seit Ihrem letzten Besuch",
+    "markAllSeen": "Alle als gesehen markieren",
+    "markSeen": "Als gesehen markieren",
+    "picker": {
+      "title": "Agenten für den Scan auswählen",
+      "subtitle": "Jeder ausgewählte Agent scannt sein eigenes lokales Subnetz. Ein Agent pro Standort reicht meist aus.",
+      "searchPlaceholder": "Tippen, um nach Agent oder Gruppe zu filtern...",
+      "selectAll": "Alle auswählen ({{count}})",
+      "clearAll": "Zurücksetzen",
+      "noMatch": "Kein Agent entspricht dem Filter",
+      "ungrouped": "Keine Gruppe",
+      "selectedCount": "{{count}} ausgewählt",
+      "selectHint": "Wählen Sie einen oder mehrere Agenten aus.",
+      "launch": "Scan auf {{count}} Agent(en) starten"
+    },
+    "export": {
+      "button": "Exportieren",
+      "title": "Gefundene Geräte exportieren",
+      "subtitle": "{{count}} Zeile(n) bereit zum Export",
+      "format": "Format",
+      "fields": "Spalten",
+      "subnet": "Subnetz",
+      "countHint": "{{rows}} Zeile(n) · {{cols}} Spalte(n)"
     }
   },
   "patchReport": {

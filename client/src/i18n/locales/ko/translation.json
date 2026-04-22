@@ -60,7 +60,9 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "selectAll": "모두 선택",
+    "none": "없음"
   },
   "status": {
     "up": "정상",
@@ -1550,6 +1552,34 @@
       "preview": "생성된 스크립트",
       "pickKey": "스크립트를 생성하려면 API 키를 선택하세요.",
       "warning": "실행 전에 USERS, SSH_KEYS / SSH_KEY_DIR 및 주석 처리된 PASSWORD 변수를 편집하세요. 스크립트는 각 호스트에 SSH로 연결하여 Obliance 에이전트를 설치합니다. 자격 증명은 로컬 시스템을 벗어나지 않습니다."
+    },
+    "os": "OS",
+    "scanDispatchedN": "네트워크 스캔을 에이전트 {{count}}개에 전송했습니다",
+    "scanDispatchedPartial": "스캔 {{ok}}개 전송됨, {{failed}}개 실패",
+    "newSinceLastVisit": "마지막 방문 이후 {{count}}개 새로 추가됨",
+    "newSince": "마지막 방문 이후 새로 추가됨",
+    "markAllSeen": "모두 확인됨으로 표시",
+    "markSeen": "확인됨으로 표시",
+    "picker": {
+      "title": "스캔을 실행할 에이전트 선택",
+      "subtitle": "선택한 각 에이전트는 자체 로컬 서브넷을 스캔합니다. 일반적으로 사이트당 하나의 에이전트면 충분합니다.",
+      "searchPlaceholder": "에이전트 또는 그룹으로 필터링...",
+      "selectAll": "모두 선택 ({{count}})",
+      "clearAll": "지우기",
+      "noMatch": "필터와 일치하는 에이전트가 없습니다",
+      "ungrouped": "그룹 없음",
+      "selectedCount": "{{count}}개 선택됨",
+      "selectHint": "하나 이상의 에이전트를 선택하세요.",
+      "launch": "에이전트 {{count}}개에서 스캔 시작"
+    },
+    "export": {
+      "button": "내보내기",
+      "title": "발견된 장치 내보내기",
+      "subtitle": "{{count}}개 행을 내보낼 준비 완료",
+      "format": "형식",
+      "fields": "열",
+      "subnet": "서브넷",
+      "countHint": "{{rows}}개 행 · {{cols}}개 열"
     }
   },
   "patchReport": {
