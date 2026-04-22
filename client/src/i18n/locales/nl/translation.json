@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "Eerste {{shown}} van {{total}} weergegeven — gebruik zoeken of selecteer een subgroep om te beperken."
+      "treeCapped": "Eerste {{shown}} van {{total}} weergegeven — gebruik zoeken of selecteer een subgroep om te beperken.",
+      "loadMore": "Meer laden"
     },
     "batch": {
       "actions": "Actions",

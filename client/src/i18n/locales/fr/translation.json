@@ -1104,7 +1104,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "appareils",
-      "treeCapped": "Affichage des {{shown}} premiers sur {{total}} — utilisez la recherche ou choisissez un sous-groupe pour restreindre."
+      "treeCapped": "Affichage des {{shown}} premiers sur {{total}} — utilisez la recherche ou choisissez un sous-groupe pour restreindre.",
+      "loadMore": "Charger plus"
     },
     "batch": {
       "actions": "Actions",

@@ -1104,7 +1104,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "Showing first {{shown}} of {{total}} — use search or pick a sub-group to narrow."
+      "treeCapped": "Showing first {{shown}} of {{total}} — use search or pick a sub-group to narrow.",
+      "loadMore": "Load more"
     },
     "batch": {
       "actions": "Actions",

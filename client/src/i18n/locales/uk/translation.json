@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "Показано перші {{shown}} з {{total}} — використовуйте пошук або виберіть підгрупу для звуження."
+      "treeCapped": "Показано перші {{shown}} з {{total}} — використовуйте пошук або виберіть підгрупу для звуження.",
+      "loadMore": "Завантажити ще"
     },
     "batch": {
       "actions": "Actions",

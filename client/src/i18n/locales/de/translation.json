@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Seite {{page}} / {{total}}",
       "total": "Geräte",
-      "treeCapped": "Zeige die ersten {{shown}} von {{total}} — Suche verwenden oder Untergruppe auswählen zum Einschränken."
+      "treeCapped": "Zeige die ersten {{shown}} von {{total}} — Suche verwenden oder Untergruppe auswählen zum Einschränken.",
+      "loadMore": "Mehr laden"
     },
     "batch": {
       "actions": "Aktionen",

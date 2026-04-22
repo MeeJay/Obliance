@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "Visar de första {{shown}} av {{total}} — använd sökning eller välj en undergrupp för att smalna av."
+      "treeCapped": "Visar de första {{shown}} av {{total}} — använd sökning eller välj en undergrupp för att smalna av.",
+      "loadMore": "Ladda fler"
     },
     "batch": {
       "actions": "Actions",

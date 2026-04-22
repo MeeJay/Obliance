@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "显示 {{total}} 项中的前 {{shown}} 项 — 使用搜索或选择子组以缩小范围。"
+      "treeCapped": "显示 {{total}} 项中的前 {{shown}} 项 — 使用搜索或选择子组以缩小范围。",
+      "loadMore": "加载更多"
     },
     "batch": {
       "actions": "Actions",

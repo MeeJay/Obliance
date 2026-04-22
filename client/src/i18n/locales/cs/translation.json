@@ -613,7 +613,8 @@
     "pagination": {
       "page": "Page {{page}} / {{total}}",
       "total": "devices",
-      "treeCapped": "Zobrazeno prvních {{shown}} z {{total}} — použijte hledání nebo vyberte podskupinu pro zúžení."
+      "treeCapped": "Zobrazeno prvních {{shown}} z {{total}} — použijte hledání nebo vyberte podskupinu pro zúžení.",
+      "loadMore": "Načíst více"
     },
     "batch": {
       "actions": "Actions",

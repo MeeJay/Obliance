@@ -912,7 +912,8 @@
     "pagination": {
       "page": "Página {{page}} / {{total}}",
       "total": "dispositivos",
-      "treeCapped": "Mostrando los primeros {{shown}} de {{total}} — use búsqueda o seleccione un subgrupo para reducir."
+      "treeCapped": "Mostrando los primeros {{shown}} de {{total}} — use búsqueda o seleccione un subgrupo para reducir.",
+      "loadMore": "Cargar más"
     },
     "batch": {
       "actions": "Acciones",
