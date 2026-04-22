@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
+  Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
   ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
@@ -26,8 +26,6 @@ interface DeviceTableProps {
   onGroupChange?: (id: number | null) => void;
 }
 
-const PAGE_SIZES = [50, 100, 200, 500];
-
 export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupId, onGroupChange }: DeviceTableProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -44,12 +42,11 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(mode === 'admin' ? '' : 'approved');
   const [sortBy, setSortBy] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [pageSize, setPageSize] = useState(100);
 
-  // Data
+  // Data — `devices` is the accumulated list across infinite-scroll
+  // fetches in flat mode, and the whole scope in tree mode.
   const [devices, setDevices] = useState<Device[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
   // Group tree — drives the hierarchical render when no search is active.
@@ -136,21 +133,32 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   // query flag and skip the normal group / sub-group filter.
   const ungroupedOnly = groupId === -1;
 
-  // Tree view is active when the user isn't searching and we're not
-  // browsing the flat "Ungrouped" bucket. In tree mode, paginating by a
-  // fixed device count slices groups across pages arbitrarily (a fleet
-  // of 346 Caisses + 15 Servers + 2 Workstations ends up with Caisses
-  // spread over 4 pages and Workstations invisible until the last one).
-  // That makes no sense with drawers — so in tree mode we widen the
-  // page to fit the whole scope (cap at 2000 to stay sensible on huge
-  // fleets) and hide the pagination controls.
-  const treeViewActive = !debouncedSearch.trim() && !ungroupedOnly;
+  // Tree view is active when the admin is in the "default landing" shape:
+  // no search, no ungrouped filter, and the default name-asc sort. Any
+  // other sort (CPU, RAM, Status, …) breaks the drawer metaphor because
+  // devices end up ordered across groups — we switch to the flat list
+  // with infinite scroll so the ordering holds across the whole fleet.
+  const treeViewActive =
+    !debouncedSearch.trim() &&
+    !ungroupedOnly &&
+    sortBy === 'name' &&
+    sortOrder === 'asc';
   const TREE_MAX = 2000;
-  const effectivePageSize = treeViewActive ? TREE_MAX : pageSize;
-  const effectivePage = treeViewActive ? 1 : page;
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  // Flat mode uses cumulative fetches: every scroll-triggered append
+  // tacks on the next page of results to `devices`. We track the highest
+  // loaded page in a ref so re-renders don't re-create `load` and don't
+  // fire duplicate fetches.
+  const loadedPagesRef = useRef(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [appending, setAppending] = useState(false);
+  const FLAT_PAGE_SIZE = 100;
+
+  const load = useCallback(async (reset: boolean) => {
+    const pageToFetch = reset ? 1 : loadedPagesRef.current + 1;
+    const size = treeViewActive ? TREE_MAX : FLAT_PAGE_SIZE;
+    if (reset) { setIsLoading(true); loadedPagesRef.current = 1; }
+    else       { setAppending(true); }
     try {
       const result = await deviceApi.listPaginated({
         search: debouncedSearch || undefined,
@@ -160,21 +168,33 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         includeSubgroups: ungroupedOnly ? undefined : (groupId ? true : undefined),
         ungrouped: ungroupedOnly ? true : undefined,
         approvalStatus: approvalFilter || undefined,
-        page: effectivePage,
-        pageSize: effectivePageSize,
+        page: pageToFetch,
+        pageSize: size,
         sortBy,
         sortOrder,
       });
-      setDevices(result.items);
+      setDevices((prev) => reset ? result.items : [...prev, ...result.items]);
       setTotal(result.total);
+      loadedPagesRef.current = pageToFetch;
+      // Tree mode eats the whole scope in one shot → no more pages.
+      // Flat mode keeps scrolling as long as we haven't loaded all rows.
+      if (treeViewActive) {
+        setHasMore(false);
+      } else {
+        setHasMore(pageToFetch * size < result.total);
+      }
     } catch {
       toast.error(t('common.error'));
     } finally {
-      setIsLoading(false);
+      if (reset) setIsLoading(false);
+      else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, effectivePage, effectivePageSize, sortBy, sortOrder, t]);
+  }, [debouncedSearch, statusFilters, osFilters, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, t]);
 
-  useEffect(() => { load(); }, [load]);
+  // Refetch from scratch whenever any filter/sort input changes. The
+  // dep is `load` itself, which rebuilds every time its inputs change,
+  // so this effectively tracks them all.
+  useEffect(() => { load(true); }, [load]);
 
   // Fetch the group tree once so the main table can render a nested
   // hierarchy (parents → children → devices). Silent failure: the flat
@@ -182,6 +202,23 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   useEffect(() => {
     groupsApi.tree().then(setTree).catch(() => setTree([]));
   }, []);
+
+  // Infinite-scroll sentinel — a 1 px div below the flat list. When it
+  // enters the viewport (± 200 px early-load margin), we append the
+  // next page. Disabled in tree mode since the whole scope loads in
+  // one request.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (treeViewActive || !hasMore || !sentinelRef.current) return;
+    const node = sentinelRef.current;
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && !appending && !isLoading) {
+        load(false);
+      }
+    }, { rootMargin: '200px' });
+    io.observe(node);
+    return () => io.disconnect();
+  }, [treeViewActive, hasMore, appending, isLoading, load]);
 
   // Load counts for admin mode
   useEffect(() => {
@@ -197,10 +234,13 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
     }).catch(() => {});
   }, [mode, devices]);
 
-  const totalPages = Math.ceil(total / pageSize);
-
-  // Reset page when filters change
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); setSelectAllGroup(false); }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, sortBy, sortOrder, pageSize]);
+  // Clear selection when the filter set changes — selected IDs usually
+  // aren't in the new view anyway and bulk actions against unseen rows
+  // confuse the admin.
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectAllGroup(false);
+  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, sortBy, sortOrder]);
 
   // Toggle filter chips
   const toggleStatus = (s: string) => {
@@ -315,10 +355,6 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               placeholder={t('devices.filters.search')}
               className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
           </div>
-          <select value={pageSize} onChange={e => setPageSize(parseInt(e.target.value))}
-            className="px-2 py-2 text-xs bg-bg-secondary border border-border rounded-lg text-text-muted focus:outline-none">
-            {PAGE_SIZES.map(n => <option key={n} value={n}>{n}/page</option>)}
-          </select>
           {hasFilters && (
             <button onClick={() => { setSearch(''); setStatusFilters(new Set()); setOsFilters(new Set()); }}
               className="p-2 text-text-muted hover:text-text-primary"><X className="w-3.5 h-3.5" /></button>
@@ -516,53 +552,43 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         </div>
       )}
 
-      {/* Tree-view total count — replaces pagination so the admin still
-          sees how many devices are in scope. */}
-      {treeViewActive && total > 0 && (
+      {/* Footer: total + load-more fallback. In tree mode the whole
+          scope is already loaded; in flat mode the IntersectionObserver
+          sentinel below handles progressive loading, with a manual
+          "Load more" button as a fallback for browsers that don't fire
+          the observer (or zero-height containers). */}
+      {total > 0 && (
         <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
-          <span>{total} device{total !== 1 ? 's' : ''}</span>
-          {total > TREE_MAX && (
+          <span>
+            {treeViewActive
+              ? `${total} device${total !== 1 ? 's' : ''}`
+              : `${devices.length} / ${total}`}
+          </span>
+          {treeViewActive && total > TREE_MAX && (
             <span className="text-amber-400">
               {t('devices.pagination.treeCapped', { shown: TREE_MAX, total }) ||
                 `Showing first ${TREE_MAX} of ${total} — use search or pick a sub-group to narrow.`}
             </span>
           )}
+          {!treeViewActive && hasMore && (
+            <button
+              onClick={() => load(false)}
+              disabled={appending}
+              className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-50 transition-colors"
+            >
+              {appending
+                ? (t('common.loading') || 'Loading…')
+                : (t('devices.pagination.loadMore') || 'Load more')}
+            </button>
+          )}
         </div>
       )}
 
-      {/* Pagination — hidden in tree view where all scope devices are
-          loaded in one go (slicing groups across pages is incoherent
-          with the drawer layout). */}
-      {!treeViewActive && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
-          <span>{total} device{total !== 1 ? 's' : ''}</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors">
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let p: number;
-              if (totalPages <= 7) p = i + 1;
-              else if (page <= 4) p = i + 1;
-              else if (page >= totalPages - 3) p = totalPages - 6 + i;
-              else p = page - 3 + i;
-              return (
-                <button key={p} onClick={() => setPage(p)}
-                  className={clsx('w-7 h-7 rounded text-xs transition-colors',
-                    p === page ? 'bg-accent text-white' : 'hover:bg-bg-secondary text-text-muted',
-                  )}>
-                  {p}
-                </button>
-              );
-            })}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="p-1.5 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors">
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <span>{t('devices.pagination.page', { page, total: totalPages })}</span>
-        </div>
+      {/* Infinite-scroll sentinel — watched by the IntersectionObserver
+          set up in the effect above. Only rendered in flat mode when
+          more rows are available. */}
+      {!treeViewActive && hasMore && (
+        <div ref={sentinelRef} className="h-px" aria-hidden />
       )}
 
       {/* ── Bulk change-group modal ──────────────────────────────────── */}
