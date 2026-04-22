@@ -6,7 +6,7 @@ interface ApiResponse<T> { data?: T; error?: string; }
 export const networkDiscoveryApi = {
   async list(params?: {
     isManaged?: boolean; deviceType?: string; subnet?: string;
-    page?: number; limit?: number;
+    osFamily?: string; page?: number; limit?: number;
   }): Promise<{ items: DiscoveredDevice[]; total: number }> {
     const res = await apiClient.get<ApiResponse<{ items: DiscoveredDevice[]; total: number }>>('/network-discovery', { params });
     return res.data.data ?? { items: [], total: 0 };

@@ -37,6 +37,11 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
   // Filters
   const [managedFilter, setManagedFilter] = useState<ManagedFilter>('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  // OS family filter — mirrors the deploy-script target split so the
+  // admin can narrow the list to exactly what will go into a given
+  // script. "unix" bundles linux/macos/freebsd (all SSH targets); "other"
+  // = non-null + non-known; "unknown" = NULL os_guess.
+  const [osFilter, setOsFilter] = useState<'all' | 'windows' | 'unix' | 'other' | 'unknown'>('all');
   const [subnetFilter, setSubnetFilter] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -65,6 +70,7 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
       const params: Record<string, any> = { page, limit: PAGE_SIZE };
       if (managedFilter !== 'all') params.isManaged = managedFilter === 'managed';
       if (typeFilter !== 'all') params.deviceType = typeFilter;
+      if (osFilter !== 'all') params.osFamily = osFilter;
       if (subnetFilter.trim()) params.subnet = subnetFilter.trim();
       const [listRes, statsRes] = await Promise.all([
         networkDiscoveryApi.list(params),
@@ -78,17 +84,17 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
     } finally {
       setLoading(false);
     }
-  }, [page, managedFilter, typeFilter, subnetFilter, t]);
+  }, [page, managedFilter, typeFilter, osFilter, subnetFilter, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(1); }, [managedFilter, typeFilter, subnetFilter]);
+  useEffect(() => { setPage(1); }, [managedFilter, typeFilter, osFilter, subnetFilter]);
 
   // Clear selection whenever the visible set changes — selections are
   // page-local in this iteration (the full cross-page selection will come
   // with the broader Discovery rework).
-  useEffect(() => { setSelectedIds(new Set()); }, [page, managedFilter, typeFilter, subnetFilter]);
+  useEffect(() => { setSelectedIds(new Set()); }, [page, managedFilter, typeFilter, osFilter, subnetFilter]);
 
   const handleDelete = async (id: number) => {
     if (!confirm(t('common.confirmDelete') || 'Delete this entry?')) return;
@@ -284,6 +290,21 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
           {TYPE_OPTIONS.map(o => (
             <option key={o} value={o}>{o === 'all' ? (t('common.all') || 'All Types') : o.charAt(0).toUpperCase() + o.slice(1)}</option>
           ))}
+        </select>
+
+        {/* OS family dropdown — four buckets mirroring the deploy-script
+            target split: Windows, Linux/macOS (all SSH targets), Other,
+            Unknown (os_guess is NULL). */}
+        <select
+          value={osFilter}
+          onChange={e => setOsFilter(e.target.value as typeof osFilter)}
+          className="px-3 py-1.5 text-xs bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+        >
+          <option value="all">{t('discovery.osFilter.all') || 'All OS'}</option>
+          <option value="windows">Windows</option>
+          <option value="unix">{t('discovery.osFilter.unix') || 'Linux / macOS'}</option>
+          <option value="other">{t('discovery.osFilter.other') || 'Other'}</option>
+          <option value="unknown">{t('discovery.osFilter.unknown') || 'Unknown'}</option>
         </select>
 
         {/* Subnet filter */}

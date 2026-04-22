@@ -9,12 +9,13 @@ const router = Router();
 router.get('/', async (req, res, next) => {
   try {
     const tenantId = req.tenantId!;
-    const { isManaged, deviceType, subnet, page, limit } = req.query;
+    const { isManaged, deviceType, subnet, osFamily, page, limit } = req.query;
 
     const result = await networkDiscoveryService.list(tenantId, {
       isManaged: isManaged !== undefined ? isManaged === 'true' : undefined,
       deviceType: deviceType as string | undefined,
       subnet: subnet as string | undefined,
+      osFamily: osFamily as string | undefined,
       page: page ? parseInt(page as string, 10) : undefined,
       limit: limit ? parseInt(limit as string, 10) : undefined,
     });

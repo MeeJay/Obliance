@@ -107,6 +107,10 @@ export const networkDiscoveryService = {
     isManaged?: boolean;
     deviceType?: string;
     subnet?: string;
+    /** 'windows' | 'linux' | 'macos' | 'freebsd' | 'other' | 'unknown'.
+     * 'other' matches everything non-null outside the known families
+     * (e.g. openbsd, solaris); 'unknown' matches NULL os_guess. */
+    osFamily?: string;
     page?: number;
     limit?: number;
   }): Promise<{ data: DiscoveredDevice[]; total: number }> {
@@ -125,6 +129,24 @@ export const networkDiscoveryService = {
     }
     if (filters?.subnet) {
       query = query.where('dd.subnet', filters.subnet);
+    }
+    if (filters?.osFamily) {
+      // The filter buckets mirror the deploy-script target choice:
+      //   windows → Windows only (WinRM)
+      //   unix    → linux + macos + freebsd (all SSH-able, one bucket)
+      //   other   → non-null os_guess that isn't in either bucket above
+      //   unknown → NULL os_guess (agent couldn't fingerprint it)
+      const UNIX = ['linux', 'macos', 'freebsd'];
+      const f = filters.osFamily.toLowerCase();
+      if (f === 'unknown') {
+        query = query.whereNull('dd.os_guess');
+      } else if (f === 'other') {
+        query = query.whereNotNull('dd.os_guess').whereNotIn('dd.os_guess', ['windows', ...UNIX]);
+      } else if (f === 'windows') {
+        query = query.where('dd.os_guess', 'windows');
+      } else if (f === 'unix' || f === 'linux') {
+        query = query.whereIn('dd.os_guess', UNIX);
+      }
     }
 
     const countResult = await query.clone().count('dd.id as count').first();
