@@ -1,14 +1,15 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, RefreshCw, ChevronLeft, ChevronRight, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft,
+  Search, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
+import { groupsApi } from '@/api/groups.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
 import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
-import type { Device } from '@obliance/shared';
+import type { Device, DeviceGroupTreeNode } from '@obliance/shared';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -50,6 +51,28 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Group tree — drives the hierarchical render when no search is active.
+  // Fetched once on mount; cheap enough that we refetch on every
+  // page/filter change if it ever grows stale (rare — groups don't
+  // change often).
+  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem('obliance:deviceTableCollapsed');
+      return new Set<number>(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set<number>();
+    }
+  });
+  const toggleGroupCollapsed = useCallback((gId: number) => {
+    setCollapsedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(gId)) next.delete(gId); else next.add(gId);
+      try { localStorage.setItem('obliance:deviceTableCollapsed', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -139,6 +162,13 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, page, pageSize, sortBy, sortOrder, t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fetch the group tree once so the main table can render a nested
+  // hierarchy (parents → children → devices). Silent failure: the flat
+  // fallback still works if the endpoint is unreachable.
+  useEffect(() => {
+    groupsApi.tree().then(setTree).catch(() => setTree([]));
+  }, []);
 
   // Load counts for admin mode
   useEffect(() => {
@@ -455,57 +485,21 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             )}
           </div>
           <div>
-            {(() => {
-              // Group devices by their groupName when the listing spans
-              // multiple groups:
-              //   - "All devices"  (groupId === null)
-              //   - A parent group with subgroups (groupId && some device
-              //     belongs to a different group id than the selected one)
-              // A single group with no subgroup spread → flat list.
-              const distinctGroups = new Set(devices.map((d) => (d as any).groupName ?? '__ungrouped__'));
-              const shouldGroup =
-                (groupId === null && distinctGroups.size > 1) ||
-                (!!groupId && groupId !== -1 && devices.some(d => d.groupId !== groupId));
-
-              if (shouldGroup) {
-                const grouped = new Map<string, Device[]>();
-                for (const d of devices) {
-                  const key = (d as any).groupName ?? 'Ungrouped';
-                  if (!grouped.has(key)) grouped.set(key, []);
-                  grouped.get(key)!.push(d);
-                }
-                // Stable display order: groups sorted by name, with
-                // "Ungrouped" pushed last so scanned group buckets stay
-                // together at the top.
-                const sortedEntries = [...grouped.entries()].sort(([a], [b]) => {
-                  if (a === 'Ungrouped') return 1;
-                  if (b === 'Ungrouped') return -1;
-                  return a.localeCompare(b);
-                });
-                return sortedEntries.map(([gName, gDevices]) => (
-                  <div key={gName}>
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border sticky top-0 z-10">
-                      <FolderOpen className="w-3.5 h-3.5 text-accent" />
-                      <span className="text-xs font-semibold text-text-primary">{anonymize(gName)}</span>
-                      <span className="text-[10px] text-text-muted">({gDevices.length})</span>
-                    </div>
-                    {gDevices.map(device => (
-                      <DeviceRow key={device.id} device={device} mode={mode}
-                        isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
-                        onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange}
-                        selectionMode={selectionMode} />
-                    ))}
-                  </div>
-                ));
-              }
-              // Flat list (single group, or "Ungrouped" pseudo-filter)
-              return devices.map(device => (
-                <DeviceRow key={device.id} device={device} mode={mode}
-                  isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
-                  onNavigate={id => navigate(`/devices/${id}`)} onGroupClick={onGroupChange}
-                  selectionMode={selectionMode} />
-              ));
-            })()}
+            <DeviceListBody
+              devices={devices}
+              tree={tree}
+              groupId={groupId}
+              searchActive={!!debouncedSearch.trim()}
+              collapsedGroupIds={collapsedGroupIds}
+              onToggleGroup={toggleGroupCollapsed}
+              mode={mode}
+              selectedIds={selectedIds}
+              toggleSelect={toggleSelect}
+              onNavigate={id => navigate(`/devices/${id}`)}
+              onGroupChange={onGroupChange}
+              selectionMode={selectionMode}
+              t={t}
+            />
           </div>
         </div>
       )}
@@ -743,6 +737,221 @@ function BulkTransferTenantModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Hierarchical list body ────────────────────────────────────────────────
+//
+// Two rendering modes, chosen based on whether the user is searching:
+//
+//   1. Tree mode (no search) — devices are bucketed by groupId, then
+//      rendered under a nested group header tree. Each group header has a
+//      chevron to collapse/expand; state is persisted in localStorage so
+//      the admin's view shape survives reloads. Empty branches of the
+//      tree (no device in the current page) are hidden so the listing
+//      stays tight.
+//
+//   2. Flat mode (active search) — every group header is dropped and the
+//      devices render in a single flat list. When the admin is looking
+//      for a specific machine, group membership is noise.
+
+type GroupRenderContext = {
+  devicesByGroupId: Map<number | null, Device[]>;
+  collapsedGroupIds: Set<number>;
+  onToggleGroup: (id: number) => void;
+  mode: 'monitoring' | 'admin';
+  selectedIds: Set<number>;
+  toggleSelect: (id: number) => void;
+  onNavigate: (id: number) => void;
+  onGroupChange?: (id: number | null) => void;
+  selectionMode: boolean;
+};
+
+function hasDevicesRecursive(
+  node: DeviceGroupTreeNode,
+  byId: Map<number | null, Device[]>,
+): boolean {
+  if ((byId.get(node.id) ?? []).length > 0) return true;
+  return node.children.some((c) => hasDevicesRecursive(c, byId));
+}
+
+function countDevicesRecursive(
+  node: DeviceGroupTreeNode,
+  byId: Map<number | null, Device[]>,
+): number {
+  let n = (byId.get(node.id) ?? []).length;
+  for (const c of node.children) n += countDevicesRecursive(c, byId);
+  return n;
+}
+
+function renderTreeNode(
+  node: DeviceGroupTreeNode,
+  depth: number,
+  ctx: GroupRenderContext,
+): JSX.Element[] {
+  if (!hasDevicesRecursive(node, ctx.devicesByGroupId)) return [];
+
+  const own = ctx.devicesByGroupId.get(node.id) ?? [];
+  const isCollapsed = ctx.collapsedGroupIds.has(node.id);
+  const totalBelow = countDevicesRecursive(node, ctx.devicesByGroupId);
+  // Nested groups shift right by 16 px per level so the hierarchy reads
+  // at a glance. Cap at depth 6 to avoid tiny device rows on pathological
+  // trees.
+  const indent = Math.min(depth, 6) * 16;
+
+  const out: JSX.Element[] = [
+    <button
+      key={`g-${node.id}`}
+      onClick={() => ctx.onToggleGroup(node.id)}
+      className="w-full flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border hover:bg-bg-tertiary transition-colors text-left"
+      style={{ paddingLeft: `${16 + indent}px` }}
+    >
+      {isCollapsed
+        ? <ChevronRight className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+        : <ChevronDown className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />}
+      <FolderOpen className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+      <span className="text-xs font-semibold text-text-primary truncate">{anonymize(node.name)}</span>
+      <span className="text-[10px] text-text-muted">({totalBelow})</span>
+    </button>,
+  ];
+
+  if (!isCollapsed) {
+    // Render sub-groups first, then devices directly attached to this node.
+    const children = [...node.children].sort((a, b) => a.name.localeCompare(b.name));
+    for (const c of children) out.push(...renderTreeNode(c, depth + 1, ctx));
+    for (const d of own) {
+      out.push(
+        <div key={`d-${d.id}`} style={{ paddingLeft: `${indent}px` }}>
+          <DeviceRow
+            device={d}
+            mode={ctx.mode}
+            isSelected={ctx.selectedIds.has(d.id)}
+            onSelect={ctx.toggleSelect}
+            onNavigate={ctx.onNavigate}
+            onGroupClick={ctx.onGroupChange}
+            selectionMode={ctx.selectionMode}
+          />
+        </div>,
+      );
+    }
+  }
+  return out;
+}
+
+function DeviceListBody({
+  devices, tree, groupId, searchActive,
+  collapsedGroupIds, onToggleGroup,
+  mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
+  t,
+}: {
+  devices: Device[];
+  tree: DeviceGroupTreeNode[];
+  groupId: number | null;
+  searchActive: boolean;
+  collapsedGroupIds: Set<number>;
+  onToggleGroup: (id: number) => void;
+  mode: 'monitoring' | 'admin';
+  selectedIds: Set<number>;
+  toggleSelect: (id: number) => void;
+  onNavigate: (id: number) => void;
+  onGroupChange?: (id: number | null) => void;
+  selectionMode: boolean;
+  t: (k: string, fallback?: string) => string;
+}) {
+  // Hooks MUST run unconditionally (Rules of Hooks), so build the maps and
+  // roots before any early-return branches below.
+  const devicesByGroupId = useMemo(() => {
+    const map = new Map<number | null, Device[]>();
+    for (const d of devices) {
+      const key = d.groupId ?? null;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(d);
+    }
+    return map;
+  }, [devices]);
+
+  // Pick the roots of the rendered tree:
+  //   - All devices view (groupId === null) → render from every tree root
+  //   - Specific group selected → render only that subtree
+  const roots: DeviceGroupTreeNode[] = useMemo(() => {
+    if (groupId === null) return tree;
+    const find = (nodes: DeviceGroupTreeNode[]): DeviceGroupTreeNode | null => {
+      for (const n of nodes) {
+        if (n.id === groupId) return n;
+        const f = find(n.children);
+        if (f) return f;
+      }
+      return null;
+    };
+    const node = find(tree);
+    return node ? [node] : [];
+  }, [tree, groupId]);
+
+  // Flat mode: search is active OR "Ungrouped" sentinel is selected.
+  if (searchActive || groupId === -1) {
+    return (
+      <>
+        {devices.map((device) => (
+          <DeviceRow
+            key={device.id} device={device} mode={mode}
+            isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+            onNavigate={onNavigate} onGroupClick={onGroupChange}
+            selectionMode={selectionMode}
+          />
+        ))}
+      </>
+    );
+  }
+
+  const ctx: GroupRenderContext = {
+    devicesByGroupId, collapsedGroupIds, onToggleGroup,
+    mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
+  };
+
+  // Fallback when the tree is empty or hasn't loaded yet — behave like the
+  // old flat listing with a single sticky group-name header per bucket,
+  // so the table isn't blank on first paint.
+  if (roots.length === 0 && tree.length === 0 && devices.length > 0) {
+    return (
+      <>
+        {devices.map((device) => (
+          <DeviceRow
+            key={device.id} device={device} mode={mode}
+            isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+            onNavigate={onNavigate} onGroupClick={onGroupChange}
+            selectionMode={selectionMode}
+          />
+        ))}
+      </>
+    );
+  }
+
+  const sortedRoots = [...roots].sort((a, b) => a.name.localeCompare(b.name));
+  const ungrouped = devicesByGroupId.get(null) ?? [];
+
+  return (
+    <>
+      {sortedRoots.flatMap((r) => renderTreeNode(r, 0, ctx))}
+      {ungrouped.length > 0 && groupId === null && (
+        <div>
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border">
+            <FolderX className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+            <span className="text-xs font-semibold text-text-muted">
+              {t('groupPanel.ungrouped', 'Ungrouped')}
+            </span>
+            <span className="text-[10px] text-text-muted">({ungrouped.length})</span>
+          </div>
+          {ungrouped.map((device) => (
+            <DeviceRow
+              key={device.id} device={device} mode={mode}
+              isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+              onNavigate={onNavigate} onGroupClick={onGroupChange}
+              selectionMode={selectionMode}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
