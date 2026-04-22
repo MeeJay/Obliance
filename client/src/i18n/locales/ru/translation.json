@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Показано первые {{shown}} из {{total}} — используйте поиск или выберите подгруппу для сужения."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Столбцы",
       "subnet": "Подсеть",
       "countHint": "{{rows}} строк · {{cols}} столбц."
+    },
+    "osFilter": {
+      "all": "Все ОС",
+      "unix": "Linux / macOS",
+      "other": "Другое",
+      "unknown": "Неизвестно"
     }
   },
   "patchReport": {

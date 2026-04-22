@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Zobrazeno prvních {{shown}} z {{total}} — použijte hledání nebo vyberte podskupinu pro zúžení."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Sloupce",
       "subnet": "Podsíť",
       "countHint": "{{rows}} řádek · {{cols}} sloupec"
+    },
+    "osFilter": {
+      "all": "Všechny OS",
+      "unix": "Linux / macOS",
+      "other": "Jiný",
+      "unknown": "Neznámý"
     }
   },
   "patchReport": {

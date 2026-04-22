@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Seite {{page}} / {{total}}",
-      "total": "Geräte"
+      "total": "Geräte",
+      "treeCapped": "Zeige die ersten {{shown}} von {{total}} — Suche verwenden oder Untergruppe auswählen zum Einschränken."
     },
     "batch": {
       "actions": "Aktionen",
@@ -1588,6 +1589,12 @@
       "fields": "Spalten",
       "subnet": "Subnetz",
       "countHint": "{{rows}} Zeile(n) · {{cols}} Spalte(n)"
+    },
+    "osFilter": {
+      "all": "Alle OS",
+      "unix": "Linux / macOS",
+      "other": "Andere",
+      "unknown": "Unbekannt"
     }
   },
   "patchReport": {

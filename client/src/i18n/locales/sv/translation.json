@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Visar de första {{shown}} av {{total}} — använd sökning eller välj en undergrupp för att smalna av."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Kolumner",
       "subnet": "Delnät",
       "countHint": "{{rows}} rad(er) · {{cols}} kolumn(er)"
+    },
+    "osFilter": {
+      "all": "Alla OS",
+      "unix": "Linux / macOS",
+      "other": "Annat",
+      "unknown": "Okänt"
     }
   },
   "patchReport": {

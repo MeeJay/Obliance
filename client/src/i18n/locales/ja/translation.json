@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "{{total}} 件中最初の {{shown}} 件を表示 — 絞り込むには検索またはサブグループを選択してください。"
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "列",
       "subnet": "サブネット",
       "countHint": "{{rows}} 行 · {{cols}} 列"
+    },
+    "osFilter": {
+      "all": "すべての OS",
+      "unix": "Linux / macOS",
+      "other": "その他",
+      "unknown": "不明"
     }
   },
   "patchReport": {

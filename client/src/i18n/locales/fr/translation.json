@@ -1103,7 +1103,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "appareils"
+      "total": "appareils",
+      "treeCapped": "Affichage des {{shown}} premiers sur {{total}} — utilisez la recherche ou choisissez un sous-groupe pour restreindre."
     },
     "batch": {
       "actions": "Actions",
@@ -1591,6 +1592,12 @@
       "fields": "Colonnes",
       "subnet": "Sous-réseau",
       "countHint": "{{rows}} ligne(s) · {{cols}} colonne(s)"
+    },
+    "osFilter": {
+      "all": "Tous OS",
+      "unix": "Linux / macOS",
+      "other": "Autre",
+      "unknown": "Inconnu"
     }
   },
   "patchReport": {

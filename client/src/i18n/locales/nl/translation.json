@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Eerste {{shown}} van {{total}} weergegeven — gebruik zoeken of selecteer een subgroep om te beperken."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Kolommen",
       "subnet": "Subnet",
       "countHint": "{{rows}} rij(en) · {{cols}} kolom(men)"
+    },
+    "osFilter": {
+      "all": "Alle OS",
+      "unix": "Linux / macOS",
+      "other": "Andere",
+      "unknown": "Onbekend"
     }
   },
   "patchReport": {

@@ -911,7 +911,8 @@
     },
     "pagination": {
       "page": "Página {{page}} / {{total}}",
-      "total": "dispositivos"
+      "total": "dispositivos",
+      "treeCapped": "Mostrando los primeros {{shown}} de {{total}} — use búsqueda o seleccione un subgrupo para reducir."
     },
     "batch": {
       "actions": "Acciones",
@@ -1588,6 +1589,12 @@
       "fields": "Columnas",
       "subnet": "Subred",
       "countHint": "{{rows}} fila(s) · {{cols}} columna(s)"
+    },
+    "osFilter": {
+      "all": "Todos los SO",
+      "unix": "Linux / macOS",
+      "other": "Otro",
+      "unknown": "Desconocido"
     }
   },
   "patchReport": {

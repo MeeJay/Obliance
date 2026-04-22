@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "يتم عرض أول {{shown}} من {{total}} — استخدم البحث أو اختر مجموعة فرعية للتضييق."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "الأعمدة",
       "subnet": "الشبكة الفرعية",
       "countHint": "{{rows}} صف · {{cols}} عمود"
+    },
+    "osFilter": {
+      "all": "كل الأنظمة",
+      "unix": "Linux / macOS",
+      "other": "أخرى",
+      "unknown": "غير معروف"
     }
   },
   "patchReport": {

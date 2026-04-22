@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Показано перші {{shown}} з {{total}} — використовуйте пошук або виберіть підгрупу для звуження."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Стовпці",
       "subnet": "Підмережа",
       "countHint": "{{rows}} рядків · {{cols}} стовпців"
+    },
+    "osFilter": {
+      "all": "Усі ОС",
+      "unix": "Linux / macOS",
+      "other": "Інше",
+      "unknown": "Невідомо"
     }
   },
   "patchReport": {

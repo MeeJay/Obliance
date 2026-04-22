@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "{{total}} öğeden ilk {{shown}} gösteriliyor — daraltmak için arama veya alt grup kullanın."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Sütunlar",
       "subnet": "Alt ağ",
       "countHint": "{{rows}} satır · {{cols}} sütun"
+    },
+    "osFilter": {
+      "all": "Tüm OS",
+      "unix": "Linux / macOS",
+      "other": "Diğer",
+      "unknown": "Bilinmiyor"
     }
   },
   "patchReport": {

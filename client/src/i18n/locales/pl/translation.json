@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "Wyświetlono pierwsze {{shown}} z {{total}} — użyj wyszukiwania lub wybierz podgrupę, aby zawęzić."
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "Kolumny",
       "subnet": "Podsieć",
       "countHint": "{{rows}} wiersz(y) · {{cols}} kolumn(y)"
+    },
+    "osFilter": {
+      "all": "Wszystkie OS",
+      "unix": "Linux / macOS",
+      "other": "Inne",
+      "unknown": "Nieznane"
     }
   },
   "patchReport": {

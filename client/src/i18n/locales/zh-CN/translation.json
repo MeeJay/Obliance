@@ -612,7 +612,8 @@
     },
     "pagination": {
       "page": "Page {{page}} / {{total}}",
-      "total": "devices"
+      "total": "devices",
+      "treeCapped": "显示 {{total}} 项中的前 {{shown}} 项 — 使用搜索或选择子组以缩小范围。"
     },
     "batch": {
       "actions": "Actions",
@@ -1588,6 +1589,12 @@
       "fields": "列",
       "subnet": "子网",
       "countHint": "{{rows}} 行 · {{cols}} 列"
+    },
+    "osFilter": {
+      "all": "所有 OS",
+      "unix": "Linux / macOS",
+      "other": "其他",
+      "unknown": "未知"
     }
   },
   "patchReport": {
