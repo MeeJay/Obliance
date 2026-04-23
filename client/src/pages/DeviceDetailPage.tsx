@@ -111,15 +111,16 @@ function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
   );
 }
 
-// ─── Note pill ──────────────────────────────────────────────────────────────
+// ─── Note banner ────────────────────────────────────────────────────────────
 //
-// Compact rose-tinted badge in the header that replaces the old big
-// textarea card. When collapsed, shows a truncated note or "Add note".
-// Click → expands into a small inline popover with a textarea; save
-// with the green Check, cancel with X or Escape. Matches the Obliview
-// inline-edit idiom.
+// Obliview-style inline note: invisible until there's a note OR the
+// admin is editing. Sits directly under the info line in the header
+// as a rose-tinted full-width banner — no big textarea card, no
+// permanent "Add note" button eating the header. The affordance to
+// CREATE a note lives in the info line itself (hover-only, rendered
+// by the parent).
 
-function NotePill({
+function NoteBanner({
   description,
   editing,
   draft,
@@ -137,69 +138,52 @@ function NotePill({
   onCancel: () => void;
 }) {
   const hasNote = !!description && description.trim().length > 0;
+  if (!editing && !hasNote) return null;
 
   if (editing) {
     return (
-      <div className="relative">
-        <div className="flex items-start gap-1 p-2 bg-bg-tertiary border border-rose-500/40 rounded-lg shadow-lg">
-          <textarea
-            autoFocus
-            value={draft}
-            onChange={(e) => onDraftChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onCancel();
-              // Ctrl/Cmd+Enter saves; plain Enter keeps typing (multi-line).
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
-            }}
-            rows={3}
-            placeholder="Add a note about this device..."
-            className="w-64 px-2 py-1 text-xs bg-bg-primary border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
-          />
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={onSave}
-              className="p-1 rounded text-green-400 hover:bg-bg-secondary"
-              title="Save (Ctrl+Enter)"
-            >
-              <Check className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={onCancel}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
-              title="Cancel (Esc)"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-rose-500/10 border border-rose-500/30">
+        <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel();
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
+          }}
+          rows={2}
+          placeholder="Add a note about this device..."
+          className="flex-1 px-2 py-1 text-xs bg-bg-primary border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+        />
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <button
+            onClick={onSave}
+            className="p-1 rounded text-green-400 hover:bg-bg-secondary"
+            title="Save (Ctrl+Enter)"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onCancel}
+            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+            title="Cancel (Esc)"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!hasNote) {
-    return (
-      <button
-        onClick={onStart}
-        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/15 transition-colors"
-        title="Add a note"
-      >
-        <StickyNote className="w-3 h-3" />
-        Add note
-      </button>
-    );
-  }
-
-  const preview = description!.split('\n')[0].slice(0, 40);
-  const truncated = description!.length > preview.length;
-
   return (
     <button
       onClick={onStart}
-      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/15 transition-colors max-w-[280px]"
-      title={description!}
+      className="mt-2 w-full flex items-start gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/15 transition-colors text-left"
+      title="Edit note"
     >
-      <StickyNote className="w-3 h-3 flex-shrink-0" />
-      <span className="truncate">{preview}{truncated ? '…' : ''}</span>
+      <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
+      <span className="flex-1 whitespace-pre-wrap break-words">{description}</span>
     </button>
   );
 }
@@ -4750,15 +4734,6 @@ export function DeviceDetailPage() {
             )}
             <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
             <LastSeenPill lastSeenAt={device.lastSeenAt} />
-            <NotePill
-              description={device.description}
-              editing={editingNote}
-              draft={noteDraft}
-              onDraftChange={setNoteDraft}
-              onStart={startNote}
-              onSave={saveNote}
-              onCancel={() => setEditingNote(false)}
-            />
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
                 <Shield className="w-3 h-3" />
@@ -4780,7 +4755,7 @@ export function DeviceDetailPage() {
               </span>
             )}
           </div>
-          <p className="text-sm text-text-muted mt-1">
+          <p className="group text-sm text-text-muted mt-1">
             {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}
             {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
               <span>
@@ -4794,7 +4769,31 @@ export function DeviceDetailPage() {
                 })()}
               </span>
             )}
+            {/* Hover-only "add note" affordance — invisible until the
+                info line is hovered, exactly where Obliview puts it. */}
+            {!device.description && !editingNote && (
+              <button
+                onClick={startNote}
+                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-rose-400 hover:text-rose-300"
+                title="Add a note"
+              >
+                <Plus className="w-3 h-3" />
+                <span className="text-xs">add note</span>
+              </button>
+            )}
           </p>
+          {/* Rose note banner under the info line — only rendered when a
+              note exists or while editing. Click anywhere on the banner
+              to edit. */}
+          <NoteBanner
+            description={device.description}
+            editing={editingNote}
+            draft={noteDraft}
+            onDraftChange={setNoteDraft}
+            onStart={startNote}
+            onSave={saveNote}
+            onCancel={() => setEditingNote(false)}
+          />
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {device.approvalStatus === 'pending' ? (
