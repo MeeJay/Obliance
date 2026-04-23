@@ -243,6 +243,7 @@ router.get('/group-stats', async (req, res, next) => {
       if (row.status === 'online') s.online += count;
       else if (row.status === 'offline') s.offline += count;
       else if (row.status === 'warning') s.warning += count;
+      else if (row.status === 'update_error') s.warning += count;
       else if (row.status === 'critical') s.critical += count;
     }
 

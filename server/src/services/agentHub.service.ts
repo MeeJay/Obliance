@@ -95,6 +95,39 @@ class AgentHubService {
     const conn: AgentConn = { ws, deviceId, tenantId, apiKeyId, deviceUuid, clientIp };
     this.byDevice.set(deviceId, conn);
 
+    // Treat WS command-channel connection as a heartbeat. The agent's HTTP push
+    // is the usual path that updates last_push_at and flips transient statuses
+    // (updating/update_error/offline) back to online — but if that push path
+    // breaks (post-update zombie, firewall flapping, etc.) while the WS stays
+    // up, the device would be stuck in update_error/offline in the UI even
+    // though realtime features (explorer, tunnels) keep working via WS.
+    // So on connect: refresh last_push_at and reset stuck transient statuses.
+    try {
+      const prev = await db('devices')
+        .where({ id: deviceId })
+        .select('status')
+        .first();
+      const prevStatus = prev?.status as string | undefined;
+      const now = new Date();
+      const patch: Record<string, unknown> = { last_push_at: now, last_seen_at: now, updated_at: now };
+      const transient = prevStatus === 'updating' || prevStatus === 'update_error' || prevStatus === 'offline';
+      if (transient) {
+        patch.status = 'online';
+        patch.update_started_at = null;
+      }
+      await db('devices')
+        .where({ id: deviceId })
+        .whereNot({ status: 'pending_uninstall' })
+        .update(patch);
+      if (transient) {
+        try {
+          getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
+        } catch {}
+      }
+    } catch (e) {
+      logger.error(e, 'agentHub: failed to refresh status on WS connect');
+    }
+
     ws.on('close', () => this._unregister(deviceId, ws));
     ws.on('error', () => this._unregister(deviceId, ws));
     ws.on('message', async (data: Buffer) => {
