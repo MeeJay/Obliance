@@ -128,6 +128,7 @@ function NoteBanner({
   onStart,
   onSave,
   onCancel,
+  onDelete,
 }: {
   description: string | null;
   editing: boolean;
@@ -136,6 +137,7 @@ function NoteBanner({
   onStart: () => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const hasNote = !!description && description.trim().length > 0;
   if (!editing && !hasNote) return null;
@@ -171,6 +173,15 @@ function NoteBanner({
           >
             <X className="w-3.5 h-3.5" />
           </button>
+          {description && (
+            <button
+              onClick={onDelete}
+              className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-bg-secondary"
+              title="Delete note"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -4510,10 +4521,23 @@ export function DeviceDetailPage() {
     if (!device) return;
     if (noteDraft === (device.description ?? '')) { setEditingNote(false); return; }
     try {
-      await deviceApi.update(device.id, { description: noteDraft || undefined });
+      // Send null (not undefined) when emptied so the server clears the
+      // DB column. `description: undefined` is stripped by the service
+      // layer and the old note sticks around.
+      const next: string | null = noteDraft.trim() === '' ? null : noteDraft;
+      await deviceApi.update(device.id, { description: next });
       setEditingNote(false);
       await fetchDevice(device.id);
     } catch { toast.error('Failed to save note'); }
+  };
+  const deleteNote = async () => {
+    if (!device) return;
+    try {
+      await deviceApi.update(device.id, { description: null });
+      setEditingNote(false);
+      setNoteDraft('');
+      await fetchDevice(device.id);
+    } catch { toast.error('Failed to delete note'); }
   };
 
   useEffect(() => {
@@ -4793,6 +4817,7 @@ export function DeviceDetailPage() {
             onStart={startNote}
             onSave={saveNote}
             onCancel={() => setEditingNote(false)}
+            onDelete={deleteNote}
           />
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
