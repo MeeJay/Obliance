@@ -8,20 +8,19 @@ import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
 import { DevicesPageLayout } from '@/components/devices/DevicesPageLayout';
-import { GroupManagePage } from './GroupManagePage';
 import { NetworkDiscoveryPage } from './NetworkDiscoveryPage';
 import { CustomSectionsPage } from './CustomSectionsPage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'agents' | 'groups' | 'keys' | 'custom-sections' | 'discovery';
+type Tab = 'agents' | 'keys' | 'custom-sections' | 'discovery';
 
 export function AdminDevicesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const [tab, setTab] = useState<Tab>(['groups', 'keys', 'custom-sections', 'discovery'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
+  const [tab, setTab] = useState<Tab>(['keys', 'custom-sections', 'discovery'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // ── API Keys state ─────────────────────────────────────────────────────────
@@ -112,7 +111,7 @@ export function AdminDevicesPage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-        {(['agents', 'groups', 'keys', 'custom-sections', 'discovery'] as Tab[]).map((t2) => (
+        {(['agents', 'keys', 'custom-sections', 'discovery'] as Tab[]).map((t2) => (
           <button
             key={t2}
             onClick={() => setTab(t2)}
@@ -124,7 +123,6 @@ export function AdminDevicesPage() {
             {t2 === 'discovery' && <Wifi className="w-3.5 h-3.5" />}
             {t2 === 'custom-sections' && <TerminalSquare className="w-3.5 h-3.5" />}
             {t2 === 'agents' ? t('agents.tabAgents')
-              : t2 === 'groups' ? t('agents.tabGroups')
               : t2 === 'keys' ? t('devices.tabApiKeys')
               : t2 === 'custom-sections' ? (t('nav.customSections') || 'Custom sections')
               : (t('nav.discovery') || 'Discovery')}
@@ -132,11 +130,9 @@ export function AdminDevicesPage() {
         ))}
       </div>
 
-      {/* Tab: Agents */}
+      {/* Tab: Agents — group creation / drag-reorg / pencil-to-settings
+          live inside its sidebar; the old "Groups" tab was retired. */}
       {tab === 'agents' && <DevicesPageLayout mode="admin" />}
-
-      {/* Tab: Groups */}
-      {tab === 'groups' && <GroupManagePage embedded />}
 
       {/* Tab: API Keys */}
       {tab === 'keys' && (
