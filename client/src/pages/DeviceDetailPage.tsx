@@ -57,6 +57,60 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
+// ─── Last-seen pill ─────────────────────────────────────────────────────────
+//
+// Glanceable badge next to the status in the device header. Shows the
+// relative delay ("5m", "2h", "3d") colour-coded on the same thresholds
+// the device list uses, so the two views agree at a glance.
+
+function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
+  if (!lastSeenAt) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border"
+        title="Never seen"
+      >
+        <Clock className="w-3 h-3" />
+        —
+      </span>
+    );
+  }
+  const date = new Date(lastSeenAt);
+  const diffMs = Date.now() - date.getTime();
+  const mins  = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(diffMs / 3_600_000);
+  const days  = Math.floor(diffMs / 86_400_000);
+
+  let text: string;
+  let color: string;
+  if (mins < 5) {
+    text = `${Math.max(mins, 1)}m`;
+    color = 'bg-green-400/10 text-green-400 border-green-400/30';
+  } else if (mins < 60) {
+    text = `${mins}m`;
+    color = 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
+  } else if (hours < 24) {
+    text = `${hours}h`;
+    color = 'bg-orange-400/10 text-orange-400 border-orange-400/30';
+  } else {
+    text = `${days}d`;
+    color = 'bg-red-400/10 text-red-400 border-red-400/30';
+  }
+
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
+        color,
+      )}
+      title={`Last seen ${date.toLocaleString()}`}
+    >
+      <Clock className="w-3 h-3" />
+      {text}
+    </span>
+  );
+}
+
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void }) {
@@ -4548,6 +4602,7 @@ export function DeviceDetailPage() {
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
             <h1 className="text-2xl font-bold text-text-primary truncate">{anonymize(device.displayName || device.hostname)}</h1>
             <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
+            <LastSeenPill lastSeenAt={device.lastSeenAt} />
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
                 <Shield className="w-3 h-3" />
