@@ -1552,6 +1552,9 @@ export interface Scenario {
   notificationChannels: AutomationNotificationBinding[];
   variables: Record<string, string>;
   steps?: ScenarioStep[];
+  /** Populated by the list endpoint (cheap COUNT subquery). The detail
+   *  endpoint returns the full `steps` array instead. */
+  stepCount?: number;
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;

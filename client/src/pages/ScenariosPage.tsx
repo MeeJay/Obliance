@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Scenario, ScenarioTriggerType, ScenarioStatus, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding } from '@obliance/shared';
+import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
@@ -117,6 +117,8 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [triggerDeviceIds, setTriggerDeviceIds] = useState<number[]>([]);
   const [triggerSearch, setTriggerSearch] = useState('');
   const [isTriggering, setIsTriggering] = useState(false);
+  // Run-history drill-down for the "History" button on each card.
+  const [historyForScenario, setHistoryForScenario] = useState<Scenario | null>(null);
   const fetchDevices = useDeviceStore((s) => s.fetchDevices);
   const getDeviceList = useDeviceStore((s) => s.getDeviceList);
   const [templates, setTemplates] = useState<any[]>([]);
@@ -911,7 +913,10 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         <div className="space-y-2">
           {scenarios.map((scenario) => {
             const expanded = expandedId === scenario.id;
-            const stepCount = scenario.steps?.length ?? 0;
+            // Prefer the COUNT returned by the list endpoint (`stepCount`);
+            // fall back to the detail-view `steps` array when the scenario
+            // was loaded via getById (edit form).
+            const stepCount = scenario.stepCount ?? scenario.steps?.length ?? 0;
             return (
               <div key={scenario.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
                 <div className="flex items-center gap-4 px-4 py-3">
@@ -952,6 +957,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                       title={scenario.status === 'active' ? 'Disable' : 'Enable'}
                     >
                       {scenario.status === 'active' ? <ToggleRight className="w-5 h-5 text-green-400" /> : <ToggleLeft className="w-5 h-5" />}
+                    </button>
+                    <button
+                      onClick={() => setHistoryForScenario(scenario)}
+                      className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
+                      title="Run history"
+                    >
+                      <History className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleOpenEdit(scenario)}
@@ -1121,6 +1133,249 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
           </div>
         </div>
       )}
+
+      {historyForScenario && (
+        <ScenarioHistoryModal
+          scenario={historyForScenario}
+          onClose={() => setHistoryForScenario(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Run history modal ────────────────────────────────────────────────────────
+//
+// Fetches `GET /api/scenarios/:id/runs` and lets the admin drill into any
+// run to see per-step outcomes (stdout / stderr / exit code). The modal
+// stays open long enough for the server to update the run status via
+// SCENARIO_RUN_UPDATED socket events, so a manually-triggered run
+// refreshes live.
+
+function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClose: () => void }) {
+  const [runs, setRuns] = useState<ScenarioRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRun, setSelectedRun] = useState<ScenarioRun | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await scenarioApi.listRunsForScenario(scenario.id);
+      setRuns(items);
+    } catch {
+      toast.error('Failed to load run history');
+    } finally {
+      setLoading(false);
+    }
+  }, [scenario.id]);
+
+  useEffect(() => { loadList(); }, [loadList]);
+
+  // Auto-refresh while the modal is open so the admin sees status flip
+  // from running → success/failure live.
+  useEffect(() => {
+    const t = setInterval(loadList, 4000);
+    return () => clearInterval(t);
+  }, [loadList]);
+
+  // Drill-down: load full detail (step runs, stdout/stderr) when selected.
+  useEffect(() => {
+    if (!selectedRunId) { setSelectedRun(null); return; }
+    setDetailLoading(true);
+    scenarioApi.getRun(selectedRunId)
+      .then(setSelectedRun)
+      .catch(() => toast.error('Failed to load run detail'))
+      .finally(() => setDetailLoading(false));
+  }, [selectedRunId]);
+
+  const statusColor = (s: string) => {
+    switch (s) {
+      case 'success':   return 'text-green-400 bg-green-400/10 border-green-400/30';
+      case 'failure':   return 'text-red-400 bg-red-400/10 border-red-400/30';
+      case 'cancelled': return 'text-gray-400 bg-gray-400/10 border-gray-400/30';
+      case 'running':   return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
+      case 'pending':   return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+      default:          return 'text-text-muted bg-bg-tertiary border-border';
+    }
+  };
+  const statusIcon = (s: string) => {
+    switch (s) {
+      case 'success':   return <CheckCircle2 className="w-3 h-3" />;
+      case 'failure':   return <AlertCircle className="w-3 h-3" />;
+      case 'running':   return <Loader2 className="w-3 h-3 animate-spin" />;
+      case 'pending':   return <Clock className="w-3 h-3" />;
+      default:          return <Minus className="w-3 h-3" />;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="bg-bg-primary border border-border rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Run history — {scenario.name}
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              {loading ? 'Loading...' : `${runs.length} run${runs.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-hidden flex">
+          {/* Left: run list */}
+          <div className="w-1/2 border-r border-border overflow-y-auto">
+            {loading ? (
+              <div className="p-8 text-center text-xs text-text-muted">Loading...</div>
+            ) : runs.length === 0 ? (
+              <div className="p-8 text-center text-xs text-text-muted">
+                No runs yet. Trigger the scenario to create one.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {runs.map((run) => {
+                  const name = run.device?.displayName || run.device?.hostname || `#${run.deviceId}`;
+                  const started = run.startedAt || run.createdAt;
+                  return (
+                    <button
+                      key={run.id}
+                      onClick={() => setSelectedRunId(run.id)}
+                      className={clsx(
+                        'w-full px-3 py-2 flex items-start gap-2 text-left text-xs transition-colors',
+                        selectedRunId === run.id
+                          ? 'bg-accent/15 text-text-primary'
+                          : 'hover:bg-bg-secondary text-text-primary',
+                      )}
+                    >
+                      <span className={clsx(
+                        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium flex-shrink-0 mt-0.5',
+                        statusColor(run.status),
+                      )}>
+                        {statusIcon(run.status)}
+                        {run.status}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{name}</div>
+                        <div className="text-[10px] text-text-muted mt-0.5">
+                          {run.triggerType} · {new Date(started).toLocaleString()}
+                          {run.finishedAt && run.startedAt && (
+                            <> · {Math.round(
+                              (new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()) / 1000,
+                            )}s</>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right: selected run detail */}
+          <div className="w-1/2 overflow-y-auto p-3">
+            {!selectedRunId ? (
+              <div className="flex items-center justify-center h-full text-xs text-text-muted">
+                Pick a run to see step-by-step output.
+              </div>
+            ) : detailLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+              </div>
+            ) : !selectedRun ? (
+              <div className="flex items-center justify-center h-full text-xs text-text-muted">
+                Run no longer exists.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {selectedRun.errorMessage && (
+                  <div className="p-2 rounded border border-red-400/30 bg-red-400/10 text-[11px] text-red-400 font-mono whitespace-pre-wrap">
+                    {selectedRun.errorMessage}
+                  </div>
+                )}
+                {(selectedRun.stepRuns ?? []).length === 0 ? (
+                  <div className="text-xs text-text-muted">No step runs recorded.</div>
+                ) : (
+                  (selectedRun.stepRuns ?? []).map((sr) => (
+                    <div key={sr.id} className="border border-border rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary flex-wrap">
+                        <span className={clsx(
+                          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium',
+                          statusColor(sr.status),
+                        )}>
+                          {statusIcon(sr.status)}
+                          {sr.status}
+                        </span>
+                        <span className="text-xs font-medium text-text-primary truncate flex-1 min-w-0">
+                          {sr.step?.name || `Step ${sr.sortOrder + 1}`}
+                        </span>
+                        {typeof sr.checkExitCode === 'number' && (
+                          <span className="text-[10px] text-text-muted font-mono">check={sr.checkExitCode}</span>
+                        )}
+                        {typeof sr.resolveExitCode === 'number' && (
+                          <span className="text-[10px] text-text-muted font-mono">resolve={sr.resolveExitCode}</span>
+                        )}
+                        {typeof sr.recheckExitCode === 'number' && (
+                          <span className="text-[10px] text-text-muted font-mono">recheck={sr.recheckExitCode}</span>
+                        )}
+                      </div>
+                      {(sr.checkStdout || sr.checkStderr || sr.resolveStdout || sr.resolveStderr || sr.recheckStdout || sr.recheckStderr) && (
+                        <div className="px-3 py-2 text-[11px] font-mono space-y-2 bg-bg-primary">
+                          {sr.checkStdout && (
+                            <div>
+                              <div className="text-text-muted flex items-center gap-1"><Terminal className="w-3 h-3" />check stdout</div>
+                              <pre className="whitespace-pre-wrap text-text-primary">{sr.checkStdout.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {sr.checkStderr && (
+                            <div>
+                              <div className="text-red-400/70">check stderr</div>
+                              <pre className="whitespace-pre-wrap text-red-400/80">{sr.checkStderr.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {sr.resolveStdout && (
+                            <div>
+                              <div className="text-text-muted flex items-center gap-1"><Terminal className="w-3 h-3" />resolve stdout</div>
+                              <pre className="whitespace-pre-wrap text-text-primary">{sr.resolveStdout.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {sr.resolveStderr && (
+                            <div>
+                              <div className="text-red-400/70">resolve stderr</div>
+                              <pre className="whitespace-pre-wrap text-red-400/80">{sr.resolveStderr.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {sr.recheckStdout && (
+                            <div>
+                              <div className="text-text-muted flex items-center gap-1"><Terminal className="w-3 h-3" />recheck stdout</div>
+                              <pre className="whitespace-pre-wrap text-text-primary">{sr.recheckStdout.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {sr.recheckStderr && (
+                            <div>
+                              <div className="text-red-400/70">recheck stderr</div>
+                              <pre className="whitespace-pre-wrap text-red-400/80">{sr.recheckStderr.slice(-2000)}</pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
