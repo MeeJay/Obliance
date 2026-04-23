@@ -7,6 +7,8 @@ desktop-app/dist/*.wixpdb
 agent/bin/*.exe
 agent/*.exe
 !desktop-app/dist/
+!oblireach-desktop/dist/
+oblireach-desktop/dist/*.wixpdb
 .env
 *.log
 .DS_Store

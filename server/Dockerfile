@@ -45,6 +45,13 @@ COPY agent/VERSION ./agent/
 RUN mkdir -p ./agent/dist
 COPY agent/dist/ ./agent/dist/
 
+# Oblireach Desktop App — served by GET /api/oblireach-desktop/{version,download}.
+# VERSION is plain text (single semver line). Binary + release notes are
+# optional: if dist/OblireachDesktop.msi is missing the version endpoint
+# still works, the download endpoint returns 404.
+RUN mkdir -p ./oblireach-desktop/dist
+COPY oblireach-desktop/ ./oblireach-desktop/
+
 # Obli.tools VERSION file — obli.tools/ is a symlink to an external directory and cannot be
 # followed by the Docker build context. The version is injected via --build-arg at build time;
 # defaults to "0.0.0" so the build never fails when the arg is omitted.

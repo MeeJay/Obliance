@@ -50,6 +50,7 @@ import customSectionRoutes from './customSection.routes';
 import approvalRoutes from './approval.routes';
 import auditRoutes from './audit.routes';
 import restrictionRoutes from './restriction.routes';
+import oblireachDesktopRoutes from './oblireachDesktop.routes';
 
 const router = Router();
 
@@ -59,6 +60,7 @@ router.use('/auth', obligateCallbackRoutes);  // sso-config, connected-apps, app
 router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth required)
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
+router.use('/oblireach-desktop', oblireachDesktopRoutes); // Public: desktop app version + MSI download
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
 

@@ -2,8 +2,10 @@ node_modules
 **/node_modules
 **/dist
 !agent/dist
+!oblireach-desktop/dist
 .git
 .env
 *.md
+!oblireach-desktop/RELEASE_NOTES.md
 .vscode
 .ps1
