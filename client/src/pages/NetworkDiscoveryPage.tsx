@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { GenerateDeployScriptModal } from '@/components/networkDiscovery/GenerateDeployScriptModal';
 import { ScanTargetPickerModal } from '@/components/networkDiscovery/ScanTargetPickerModal';
 import { ExportDiscoveryModal } from '@/components/networkDiscovery/ExportDiscoveryModal';
+import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
 
 const PAGE_SIZE = 50;
 
@@ -430,17 +431,16 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
             <thead>
               <tr className="bg-bg-secondary border-b border-border text-left">
                 <th className="px-2 py-2.5 w-8">
-                  <input
-                    type="checkbox"
-                    className="accent-accent"
-                    checked={
-                      unmanagedVisible.length > 0 &&
-                      unmanagedVisible.every((d) => selectedIds.has(d.id))
-                    }
-                    onChange={(e) => (e.target.checked ? selectAllUnmanaged() : clearSelection())}
-                    disabled={unmanagedVisible.length === 0}
-                    title={t('discovery.selectAllUnmanaged', { count: unmanagedVisible.length }) || 'Select all unmanaged'}
-                  />
+                  <div title={t('discovery.selectAllUnmanaged', { count: unmanagedVisible.length }) || 'Select all unmanaged'}>
+                    <StyledCheckbox
+                      checked={
+                        unmanagedVisible.length > 0 &&
+                        unmanagedVisible.every((d) => selectedIds.has(d.id))
+                      }
+                      onChange={(v) => (v ? selectAllUnmanaged() : clearSelection())}
+                      disabled={unmanagedVisible.length === 0}
+                    />
+                  </div>
                 </th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">IP</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-text-muted">{t('discovery.hostname') || 'Hostname'}</th>
@@ -465,14 +465,13 @@ export function NetworkDiscoveryPage({ embedded }: { embedded?: boolean }) {
                 return (
                   <tr key={d.id} className="border-b border-border/50 hover:bg-bg-secondary/50 transition-colors">
                     <td className="px-2 py-2.5">
-                      <input
-                        type="checkbox"
-                        className="accent-accent"
-                        checked={selectedIds.has(d.id)}
-                        onChange={() => toggleSelect(d.id)}
-                        disabled={d.isManaged}
-                        title={d.isManaged ? (t('discovery.alreadyManaged') || 'Already managed') : undefined}
-                      />
+                      <div title={d.isManaged ? (t('discovery.alreadyManaged') || 'Already managed') : undefined}>
+                        <StyledCheckbox
+                          checked={selectedIds.has(d.id)}
+                          onChange={() => toggleSelect(d.id)}
+                          disabled={d.isManaged}
+                        />
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-text-primary font-mono text-xs">
                       <span className="inline-flex items-center gap-1.5">

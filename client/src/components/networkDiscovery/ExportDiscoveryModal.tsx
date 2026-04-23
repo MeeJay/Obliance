@@ -3,6 +3,7 @@ import { X, Download, FileJson, FileSpreadsheet } from 'lucide-react';
 import type { DiscoveredDevice } from '@obliance/shared';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
 
 interface Props {
   rows: DiscoveredDevice[];
@@ -195,18 +196,17 @@ export function ExportDiscoveryModal({ rows, onClose }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {ALL_FIELDS.map((f) => (
-                <label
+                <div
                   key={f}
+                  onClick={() => toggle(f)}
                   className="flex items-center gap-2 px-2 py-1 rounded hover:bg-bg-secondary cursor-pointer text-xs text-text-primary"
                 >
-                  <input
-                    type="checkbox"
-                    className="accent-accent"
+                  <StyledCheckbox
                     checked={fields.has(f)}
-                    onChange={() => toggle(f)}
+                    onChange={() => { /* handled by wrapper */ }}
                   />
                   <span>{labelFor(f)}</span>
-                </label>
+                </div>
               ))}
             </div>
           </div>
