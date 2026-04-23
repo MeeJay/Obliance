@@ -8,7 +8,7 @@ import {
   Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
   AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
   ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
-  ArrowRightLeft,
+  ArrowRightLeft, Pencil, Check, StickyNote,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
@@ -111,13 +111,103 @@ function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
   );
 }
 
+// ─── Note pill ──────────────────────────────────────────────────────────────
+//
+// Compact rose-tinted badge in the header that replaces the old big
+// textarea card. When collapsed, shows a truncated note or "Add note".
+// Click → expands into a small inline popover with a textarea; save
+// with the green Check, cancel with X or Escape. Matches the Obliview
+// inline-edit idiom.
+
+function NotePill({
+  description,
+  editing,
+  draft,
+  onDraftChange,
+  onStart,
+  onSave,
+  onCancel,
+}: {
+  description: string | null;
+  editing: boolean;
+  draft: string;
+  onDraftChange: (v: string) => void;
+  onStart: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const hasNote = !!description && description.trim().length > 0;
+
+  if (editing) {
+    return (
+      <div className="relative">
+        <div className="flex items-start gap-1 p-2 bg-bg-tertiary border border-rose-500/40 rounded-lg shadow-lg">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => onDraftChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onCancel();
+              // Ctrl/Cmd+Enter saves; plain Enter keeps typing (multi-line).
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
+            }}
+            rows={3}
+            placeholder="Add a note about this device..."
+            className="w-64 px-2 py-1 text-xs bg-bg-primary border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+          />
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={onSave}
+              className="p-1 rounded text-green-400 hover:bg-bg-secondary"
+              title="Save (Ctrl+Enter)"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onCancel}
+              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+              title="Cancel (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasNote) {
+    return (
+      <button
+        onClick={onStart}
+        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/15 transition-colors"
+        title="Add a note"
+      >
+        <StickyNote className="w-3 h-3" />
+        Add note
+      </button>
+    );
+  }
+
+  const preview = description!.split('\n')[0].slice(0, 40);
+  const truncated = description!.length > preview.length;
+
+  return (
+    <button
+      onClick={onStart}
+      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/15 transition-colors max-w-[280px]"
+      title={description!}
+    >
+      <StickyNote className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">{preview}{truncated ? '…' : ''}</span>
+    </button>
+  );
+}
+
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void }) {
+function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
   const metrics = device.latestMetrics;
-  const [notes, setNotes] = useState(device.description ?? '');
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
 
   // Custom metrics (script-driven)
   const [customMetrics, setCustomMetrics] = useState<Array<{ id: number; scheduleId: number; name: string; value: string; unit: string | null; status: string; updatedAt: string }>>([]);
@@ -151,17 +241,6 @@ function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void 
     socket.on('CUSTOM_METRIC_UPDATED', handler);
     return () => { socket.off('CUSTOM_METRIC_UPDATED', handler); };
   }, [device.id]);
-
-  // Sync when device prop changes
-  useEffect(() => { setNotes(device.description ?? ''); }, [device.description]);
-
-  const saveNotes = useCallback(async () => {
-    if (notesRef.current === (device.description ?? '')) return;
-    try {
-      await deviceApi.update(device.id, { description: notesRef.current || undefined });
-      onSaved();
-    } catch { toast.error('Failed to save notes'); }
-  }, [device.id, device.description, onSaved]);
 
   return (
     <div className="space-y-6">
@@ -204,18 +283,8 @@ function OverviewTab({ device, onSaved }: { device: Device; onSaved: () => void 
             ))}
           </dl>
         </div>
-        {/* Notes */}
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-          <h4 className="text-sm font-semibold text-text-muted mb-2">Notes</h4>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            onBlur={saveNotes}
-            rows={3}
-            placeholder="Add notes about this device..."
-            className="w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary resize-y focus:outline-none focus:border-accent"
-          />
-        </div>
+        {/* Notes card removed — replaced by the rose NotePill in the
+            page header (inline edit, keeps the overview compact). */}
       </div>
 
       {/* Metrics */}
@@ -4137,6 +4206,12 @@ export function DeviceDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Inline rename + note editing (header-level).
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+
   // Custom sections that apply to this device (resolved server-side)
   const [customSections, setCustomSections] = useState<CustomSection[]>([]);
   useEffect(() => {
@@ -4425,6 +4500,38 @@ export function DeviceDetailPage() {
 
   const device = selectedDevice;
 
+  const startRename = () => {
+    if (!device) return;
+    setNameDraft(device.displayName ?? device.hostname ?? '');
+    setEditingName(true);
+  };
+  const saveRename = async () => {
+    if (!device) return;
+    const v = nameDraft.trim();
+    const current = device.displayName ?? device.hostname ?? '';
+    if (!v || v === current) { setEditingName(false); return; }
+    try {
+      await deviceApi.update(device.id, { displayName: v });
+      setEditingName(false);
+      await fetchDevice(device.id);
+    } catch { toast.error('Failed to rename'); }
+  };
+
+  const startNote = () => {
+    if (!device) return;
+    setNoteDraft(device.description ?? '');
+    setEditingNote(true);
+  };
+  const saveNote = async () => {
+    if (!device) return;
+    if (noteDraft === (device.description ?? '')) { setEditingNote(false); return; }
+    try {
+      await deviceApi.update(device.id, { description: noteDraft || undefined });
+      setEditingNote(false);
+      await fetchDevice(device.id);
+    } catch { toast.error('Failed to save note'); }
+  };
+
   useEffect(() => {
     if (!device?.uuid) { setHeaderOrInstalled(false); return; }
     remoteApi.listObliReachDeviceUuids().then((uuids) => {
@@ -4600,9 +4707,58 @@ export function DeviceDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
-            <h1 className="text-2xl font-bold text-text-primary truncate">{anonymize(device.displayName || device.hostname)}</h1>
+            {editingName ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveRename();
+                    if (e.key === 'Escape') setEditingName(false);
+                  }}
+                  className="text-2xl font-bold bg-bg-tertiary border border-accent rounded px-2 py-0.5 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <button
+                  onClick={saveRename}
+                  className="p-1 rounded text-green-400 hover:bg-bg-secondary"
+                  title="Save"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+                  title="Cancel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 min-w-0">
+                <h1 className="text-2xl font-bold text-text-primary truncate">
+                  {anonymize(device.displayName || device.hostname)}
+                </h1>
+                <button
+                  onClick={startRename}
+                  className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
+                  title="Rename"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
             <LastSeenPill lastSeenAt={device.lastSeenAt} />
+            <NotePill
+              description={device.description}
+              editing={editingNote}
+              draft={noteDraft}
+              onDraftChange={setNoteDraft}
+              onStart={startNote}
+              onSave={saveNote}
+              onCancel={() => setEditingNote(false)}
+            />
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
                 <Shield className="w-3 h-3" />
