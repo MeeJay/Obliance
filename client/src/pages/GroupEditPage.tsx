@@ -10,6 +10,9 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { GroupPicker } from '@/components/common/GroupPicker';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { NotificationBindingsPanel } from '@/components/notifications/NotificationBindingsPanel';
+import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindowList';
 import { cn } from '@/utils/cn';
 import toast from 'react-hot-toast';
 
@@ -317,6 +320,40 @@ export function GroupEditPage() {
           )}
         </div>
       )}
+
+      {/* Group-scoped agent settings — intervals, auto-approve, etc.
+          Was previously rendered inline by the old GroupManagePage; moved
+          here so the single group-settings page (/group/:id/edit) carries
+          every knob without the retired tab. */}
+      <div className="mb-6">
+        <SettingsPanel
+          scope="group"
+          scopeId={groupId}
+          title={`Settings for "${group.name}"`}
+        />
+      </div>
+
+      {/* Group-scoped notification bindings — same rationale. */}
+      <div className="mb-6">
+        <NotificationBindingsPanel
+          scope="group"
+          scopeId={groupId}
+          title={`Notifications for "${group.name}"`}
+        />
+      </div>
+
+      {/* Group-scoped maintenance windows. */}
+      <div className="mb-6 rounded-lg border border-border bg-bg-secondary p-4">
+        <MaintenanceWindowList
+          scopeType="group"
+          scopeId={groupId}
+          scopeOptions={[{ id: groupId, name: group.name, type: 'group' }]}
+          channels={[]}
+          defaultScopeType="group"
+          defaultScopeId={groupId}
+          title={`Maintenance for "${group.name}"`}
+        />
+      </div>
     </div>
   );
 }
