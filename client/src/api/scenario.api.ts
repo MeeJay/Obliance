@@ -71,4 +71,11 @@ export const scenarioApi = {
     const res = await apiClient.get<ApiResponse<ScenarioRun[]>>(`/scenarios/for-device/${deviceId}/runs`);
     return res.data.data ?? [];
   },
+  async listRunsForScenario(scenarioId: number): Promise<ScenarioRun[]> {
+    const res = await apiClient.get<ApiResponse<any>>(`/scenarios/${scenarioId}/runs`);
+    const d = res.data.data;
+    if (d && Array.isArray(d.items)) return d.items;
+    if (Array.isArray(d)) return d;
+    return [];
+  },
 };
