@@ -28,6 +28,7 @@ import { ApprovalsPage } from '@/pages/ApprovalsPage';
 import { AuditLogPage } from '@/pages/AuditLogPage';
 import { SecurityPage } from '@/pages/SecurityPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { DownloadPage } from '@/pages/DownloadPage';
 import { TwoFactorGate } from '@/components/common/TwoFactorGate';
 import '@/i18n';
 
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/group/:id/edit" element={<GroupEditPage />} />
             {/* User */}
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/download" element={<DownloadPage />} />
 
             {/* Admin-only */}
             <Route element={<ProtectedRoute requiredRole="admin" />}>
