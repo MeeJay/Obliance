@@ -224,12 +224,21 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   useEffect(() => {
     if (mode !== 'admin') return;
     deviceApi.getSummary().then((s) => {
+      // Use the server's authoritative `total` rather than summing a
+      // hand-picked subset of statuses — the old formula missed
+      // `maintenance`, `updating`, `pending_uninstall` and
+      // `update_error`, so both "All" and "Approved" under-reported
+      // (visible as e.g. 395 instead of 444 on fleets with devices in
+      // those transitional states).
+      const total     = s.total ?? 0;
+      const pending   = s.pending ?? 0;
+      const suspended = s.suspended ?? 0;
       setCounts({
-        all: (s.online ?? 0) + (s.offline ?? 0) + (s.warning ?? 0) + (s.critical ?? 0) + (s.pending ?? 0) + (s.suspended ?? 0),
-        approved: (s.online ?? 0) + (s.offline ?? 0) + (s.warning ?? 0) + (s.critical ?? 0),
-        pending: s.pending ?? 0,
+        all: total,
+        approved: Math.max(0, total - pending - suspended),
+        pending,
         refused: 0,
-        suspended: s.suspended ?? 0,
+        suspended,
       });
     }).catch(() => {});
   }, [mode, devices]);
