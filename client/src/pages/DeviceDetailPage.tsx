@@ -2794,6 +2794,10 @@ function RemoteTab({ device }: { device: Device }) {
   const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
   const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
   const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
+  // Remember the wtsSessionId used for the current Oblireach session so the
+  // ObliReachViewer's onReconnect prop can redial the same target after a
+  // Winlogon→user-session transition (login via CAD) tears the tunnel down.
+  const orWtsSessionIdRef = useRef<number | undefined>(undefined);
   // Shell session picker (cmd/powershell — choose SYSTEM or user session)
   const [shellSessionPickerOpen, setShellSessionPickerOpen] = useState(false);
   const [shellWtsSessions, setShellWtsSessions] = useState<{ id: number; username: string; domain: string; state: string; name: string }[]>([]);
@@ -2912,6 +2916,7 @@ function RemoteTab({ device }: { device: Device }) {
     setOrSession(null);
     setOrModalOpen(true);
     setIsStarting(true);
+    orWtsSessionIdRef.current = wtsSessionId;
     try {
       const session = await remoteApi.startSession(device.id, 'oblireach', undefined, wtsSessionId);
       pendingOrId.current = session.id;
@@ -2922,6 +2927,20 @@ function RemoteTab({ device }: { device: Device }) {
     } finally {
       setIsStarting(false);
     }
+  };
+
+  // Triggered by ObliReachViewer when its WebSocket closes unexpectedly
+  // (typical cause: operator logged the console target in through the CAD
+  // screen → Winlogon→user-session transition tore down the tunnel). We
+  // recreate a fresh session on the same device + same WTS session ID,
+  // which flips the sessionToken prop on the viewer and reopens its WS.
+  const handleReconnectObliReach = async () => {
+    const session = await remoteApi.startSession(
+      device.id, 'oblireach', undefined, orWtsSessionIdRef.current,
+    );
+    pendingOrId.current = session.id;
+    setSessions((prev) => [session, ...prev]);
+    setOrSession(session);
   };
 
   const handleStartSession = async (protocol: 'oblireach' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
@@ -3054,6 +3073,7 @@ function RemoteTab({ device }: { device: Device }) {
             setOrModalOpen(false);
             setOrSession(null);
           }}
+          onReconnect={handleReconnectObliReach}
         />
       )}
       {/* WTS Session picker — shown on RDS when multiple sessions are available */}
@@ -4318,6 +4338,9 @@ export function DeviceDetailPage() {
   const [headerOrSessionPickerOpen, setHeaderOrSessionPickerOpen] = useState(false);
   const remoteDropdownRef = useRef<HTMLDivElement>(null);
   const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
+  // wtsSessionId used for the current header Oblireach session, reused on
+  // auto-reconnect after login transition.
+  const headerOrWtsSessionIdRef = useRef<number | undefined>(undefined);
 
   const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep') => {
     setHeaderPending((p) => new Set(p).add(type));
@@ -4337,6 +4360,7 @@ export function DeviceDetailPage() {
     setHeaderRemoteSession(null);
     setHeaderRemoteOpen(true);
     setIsStartingRemote(true);
+    headerOrWtsSessionIdRef.current = wtsSessionId;
     try {
       const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsSessionId);
       const socket = getSocket();
@@ -4356,6 +4380,16 @@ export function DeviceDetailPage() {
     } finally {
       setIsStartingRemote(false);
     }
+  };
+
+  // Called by ObliReachViewer after an unexpected WS close (see doc on
+  // onReconnect prop). Recreates the session on the same WTS target so
+  // the viewer can reopen its tunnel.
+  const handleHeaderReconnectObliReach = async () => {
+    const session = await remoteApi.startSession(
+      deviceId, 'oblireach', undefined, headerOrWtsSessionIdRef.current,
+    );
+    setHeaderRemoteSession(session);
   };
 
   const handleHeaderRemote = async (protocol: 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
@@ -4606,6 +4640,7 @@ export function DeviceDetailPage() {
             setHeaderRemoteOpen(false);
             setHeaderRemoteSession(null);
           }}
+          onReconnect={handleHeaderReconnectObliReach}
         />
       )}
       {/* SSH/CMD/PowerShell sessions now live in the global panel rendered

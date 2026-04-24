@@ -472,6 +472,12 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
             setOrSession(null);
             load();
           }}
+          onReconnect={async () => {
+            // Recreate a session on the same device after an unexpected
+            // WS close (Winlogon→user-session transition after CAD login).
+            const s = await remoteApi.startSession(orSession.deviceId, 'oblireach', undefined);
+            setOrSession(s);
+          }}
         />
       )}
     </>

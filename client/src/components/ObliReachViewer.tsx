@@ -24,7 +24,7 @@ const FRAME_H264 = 0x02;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type ConnStatus = 'connecting' | 'waiting' | 'streaming' | 'disconnected' | 'error';
+type ConnStatus = 'connecting' | 'waiting' | 'streaming' | 'disconnected' | 'error' | 'reconnecting';
 
 export interface ObliReachViewerProps {
   /** Obliance session token (hex, 64 chars). Used to build the WS URL. */
@@ -49,6 +49,14 @@ export interface ObliReachViewerProps {
   chatSoundEnabled?: boolean;
   /** Toggle chat sound on/off. */
   onChatSoundToggle?: () => void;
+  /** Called when the viewer wants to auto-reconnect after an unexpected
+   *  WS close (e.g. Winlogon→user-session transition after the operator
+   *  logs the target in via the CAD screen). The parent should create a
+   *  new remote session with the same deviceId + wtsSessionId and update
+   *  the `sessionToken` prop so this component re-opens a fresh WS.
+   *  Throwing disables further retries. Absent prop disables auto-reconnect
+   *  entirely (viewer just stays on 'disconnected'). */
+  onReconnect?: () => Promise<void>;
 }
 
 // ── Control message shapes ────────────────────────────────────────────────────
@@ -105,12 +113,21 @@ export function ObliReachViewer({
   chatOpen: chatOpenProp,
   chatSoundEnabled,
   onChatSoundToggle,
+  onReconnect,
 }: ObliReachViewerProps) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef        = useRef<WebSocket | null>(null);
   const decoderRef   = useRef<VideoDecoder | null>(null);
   const rafRef       = useRef<number>(0);
+
+  // Auto-reconnect state — survives re-renders and useEffect re-runs so a
+  // burst of quick close→reconnect→close doesn't reset the counter. Reset
+  // to 0 on a successful ws.onopen below.
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY_MS = 2000;
 
   const [status, setStatus]       = useState<ConnStatus>('connecting');
   const [errorMsg, setErrorMsg]   = useState('');
@@ -235,12 +252,52 @@ export function ObliReachViewer({
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
 
-    ws.onopen  = () => { if (active) setStatus('waiting'); };
-    ws.onclose = () => { if (active) setStatus('disconnected'); };
+    ws.onopen  = () => {
+      if (!active) return;
+      setStatus('waiting');
+      // Successful connect — clear any pending retry state.
+      reconnectAttemptsRef.current = 0;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+    ws.onclose = (ev) => {
+      if (!active) return;
+      // Kick off auto-reconnect. The parent implements onReconnect by
+      // calling remoteApi.startSession again and updating sessionToken —
+      // which flips wsUrl and re-runs this effect on a fresh WS. This is
+      // TeamViewer/RustDesk's behaviour after the Winlogon→user-session
+      // transition tears the tunnel down on login.
+      if (onReconnect && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttemptsRef.current++;
+        const n = reconnectAttemptsRef.current;
+        console.log(`[reach] ws close code=${ev.code} wasClean=${ev.wasClean} — scheduling reconnect ${n}/${MAX_RECONNECT_ATTEMPTS}`);
+        setStatus('reconnecting');
+        setErrorMsg(`Reconnecting (${n}/${MAX_RECONNECT_ATTEMPTS})...`);
+        reconnectTimerRef.current = setTimeout(() => {
+          reconnectTimerRef.current = null;
+          onReconnect().catch((e) => {
+            console.error('[reach] onReconnect threw, giving up:', e);
+            if (active) {
+              setStatus('disconnected');
+              setErrorMsg('');
+            }
+          });
+        }, RECONNECT_DELAY_MS);
+      } else {
+        setStatus('disconnected');
+      }
+    };
     ws.onerror = () => {
       if (!active) return;
-      setStatus('error');
-      setErrorMsg('WebSocket connection failed');
+      // Don't flip to 'error' if a reconnect is already scheduled — onclose
+      // will fire right after and set 'reconnecting' which is more
+      // informative for the operator.
+      if (!onReconnect || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        setStatus('error');
+        setErrorMsg('WebSocket connection failed');
+      }
     };
 
     ws.onmessage = (ev) => {
@@ -378,6 +435,13 @@ export function ObliReachViewer({
       clearInterval(fpsTimerRef.current);
       try { decoderRef.current?.close(); } catch {}
       decoderRef.current = null;
+      // Cancel any pending auto-reconnect from the OLD effect run. The new
+      // effect (triggered by sessionToken change) starts with a fresh
+      // counter unless the reconnect itself scheduled this re-run.
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsUrl]);
@@ -642,11 +706,12 @@ export function ObliReachViewer({
 
   // ── Status config ─────────────────────────────────────────────────────────
   const statusCfg: Record<ConnStatus, { label: string; color: string; spin?: boolean }> = {
-    connecting:   { label: 'Connecting…',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', spin: true },
-    waiting:      { label: 'Waiting…',     color: 'text-blue-400   bg-blue-400/10   border-blue-400/30',   spin: true },
-    streaming:    { label: 'Streaming',    color: 'text-green-400  bg-green-400/10  border-green-400/30'  },
-    disconnected: { label: 'Disconnected', color: 'text-gray-400   bg-gray-400/10   border-gray-400/30'   },
-    error:        { label: 'Error',        color: 'text-red-400    bg-red-400/10    border-red-400/30'    },
+    connecting:   { label: 'Connecting…',   color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', spin: true },
+    waiting:      { label: 'Waiting…',      color: 'text-blue-400   bg-blue-400/10   border-blue-400/30',   spin: true },
+    streaming:    { label: 'Streaming',     color: 'text-green-400  bg-green-400/10  border-green-400/30'  },
+    reconnecting: { label: 'Reconnecting…', color: 'text-orange-400 bg-orange-400/10 border-orange-400/30', spin: true },
+    disconnected: { label: 'Disconnected',  color: 'text-gray-400   bg-gray-400/10   border-gray-400/30'   },
+    error:        { label: 'Error',         color: 'text-red-400    bg-red-400/10    border-red-400/30'    },
   };
   const sc = statusCfg[status];
 
@@ -895,16 +960,22 @@ export function ObliReachViewer({
           </div>
         )}
 
-        {(status === 'connecting' || status === 'waiting') && (
+        {(status === 'connecting' || status === 'waiting' || status === 'reconnecting') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-8 bg-[#0d0f14]">
             <RefreshCw className="w-10 h-10 text-accent animate-spin" />
             <p className="text-text-primary font-medium">
-              {status === 'waiting' ? 'Waiting for agent to connect…' : 'Connecting to relay…'}
+              {status === 'waiting'
+                ? 'Waiting for agent to connect…'
+                : status === 'reconnecting'
+                  ? 'Reconnecting…'
+                  : 'Connecting to relay…'}
             </p>
             <p className="text-sm text-text-muted">
               {status === 'waiting'
                 ? 'The wake-up command has been sent. The Oblireach agent will connect within 30 s.'
-                : 'Establishing encrypted tunnel…'}
+                : status === 'reconnecting'
+                  ? (errorMsg || 'The target session transitioned (e.g. after login) — redialling automatically.')
+                  : 'Establishing encrypted tunnel…'}
             </p>
           </div>
         )}
