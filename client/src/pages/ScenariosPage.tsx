@@ -4,9 +4,9 @@ import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
-import { useDeviceStore } from '@/store/deviceStore';
 import { getSocket } from '@/socket/socketClient';
-import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding } from '@obliance/shared';
+import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding, Device } from '@obliance/shared';
+import { deviceApi } from '@/api/device.api';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
@@ -117,10 +117,15 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [triggerDeviceIds, setTriggerDeviceIds] = useState<number[]>([]);
   const [triggerSearch, setTriggerSearch] = useState('');
   const [isTriggering, setIsTriggering] = useState(false);
+  // Devices loaded for the trigger picker — scoped to the scenario's
+  // target (group / device / all) so we don't drown the admin in
+  // unrelated rows and don't get truncated at the legacy 100-row cap.
+  const [triggerDevices, setTriggerDevices] = useState<Device[]>([]);
+  const [triggerLoading, setTriggerLoading] = useState(false);
   // Run-history drill-down for the "History" button on each card.
   const [historyForScenario, setHistoryForScenario] = useState<Scenario | null>(null);
-  const fetchDevices = useDeviceStore((s) => s.fetchDevices);
-  const getDeviceList = useDeviceStore((s) => s.getDeviceList);
+  // (deviceStore removed — trigger picker uses its own scoped fetch via
+  // deviceApi.listPaginated to bypass the 100-row cap.)
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
@@ -299,16 +304,50 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   };
 
   const handleTrigger = async (scenario: Scenario) => {
-    await fetchDevices();
-    let preselected: number[] = [];
-    try {
-      preselected = await scenarioApi.resolvedTargets(scenario.id);
-    } catch {
-      preselected = scenario.targetType === 'device' ? (scenario.targetIds ?? []) : [];
-    }
-    setTriggerDeviceIds(preselected);
+    setTriggerLoading(true);
     setTriggerSearch('');
     setTriggerModalScenario(scenario);
+    try {
+      // 1) Pre-selection from the server (resolves group → devices via the
+      //    closure table). Falls back to the configured device list.
+      let preselected: number[] = [];
+      try {
+        preselected = await scenarioApi.resolvedTargets(scenario.id);
+      } catch {
+        preselected = scenario.targetType === 'device' ? (scenario.targetIds ?? []) : [];
+      }
+      setTriggerDeviceIds(preselected);
+
+      // 2) Device pool scoped to the scenario's target. listPaginated with
+      //    pageSize=5000 covers fleets up to 5k without truncating; the
+      //    old fetch was capped at 100 (legacy /devices default), which
+      //    masked half a 500-device target group.
+      const merged = new Map<number, Device>();
+      if (scenario.targetType === 'group' && (scenario.targetIds ?? []).length > 0) {
+        // Multi-group target: fetch each group's devices (with descendants)
+        // in parallel and dedupe.
+        const results = await Promise.all(
+          (scenario.targetIds ?? []).map((gid) =>
+            deviceApi.listPaginated({ groupId: gid, includeSubgroups: true, pageSize: 5000 }),
+          ),
+        );
+        for (const r of results) for (const d of r.items) merged.set(d.id, d);
+      } else if (scenario.targetType === 'device' && (scenario.targetIds ?? []).length > 0) {
+        // Specific device list: fetch the whole tenant once, filter to those.
+        const r = await deviceApi.listPaginated({ pageSize: 5000 });
+        for (const d of r.items) {
+          if ((scenario.targetIds ?? []).includes(d.id)) merged.set(d.id, d);
+        }
+      } else {
+        // 'all', 'self', or no target: show every device so the admin can
+        // pick anything for a one-off run.
+        const r = await deviceApi.listPaginated({ pageSize: 5000 });
+        for (const d of r.items) merged.set(d.id, d);
+      }
+      setTriggerDevices(Array.from(merged.values()));
+    } finally {
+      setTriggerLoading(false);
+    }
   };
 
   const confirmTrigger = async () => {
@@ -605,7 +644,20 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               <label className="text-xs font-medium text-text-muted uppercase">Trigger Type</label>
               <select
                 value={form.triggerType}
-                onChange={(e) => setForm({ ...form, triggerType: e.target.value as ScenarioTriggerType, triggerConfig: {} })}
+                onChange={(e) => {
+                  const next = e.target.value as ScenarioTriggerType;
+                  // Event-driven triggers fire on a specific device; the
+                  // sensible default is to run the action on that same
+                  // device. The admin can still flip to All / Group /
+                  // Device later if they want a broadcast.
+                  const eventDriven = ['session_login', 'machine_boot', 'agent_approved', 'group_join'].includes(next);
+                  setForm({
+                    ...form,
+                    triggerType: next,
+                    triggerConfig: {},
+                    ...(eventDriven ? { targetType: 'self', targetIds: [] } : {}),
+                  });
+                }}
                 className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
               >
                 {Object.entries(TRIGGER_LABELS).map(([v, l]) => (
@@ -617,11 +669,17 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
             {/* Conditional trigger config */}
             {form.triggerType === 'group_join' && (
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Trigger Groups</label>
+                <label className="text-xs font-medium text-text-muted uppercase">
+                  Fire when joining…
+                </label>
                 <GroupTreeMultiSelect
                   selectedIds={form.triggerConfig.groupIds ?? []}
                   onChange={(ids) => setForm({ ...form, triggerConfig: { ...form.triggerConfig, groupIds: ids } })}
                 />
+                <p className="text-[11px] text-text-muted">
+                  Leave empty to fire on any group join. Otherwise the trigger only fires
+                  when a device joins one of these groups (or any descendant).
+                </p>
               </div>
             )}
             {form.triggerType === 'schedule_failure' && (
@@ -640,20 +698,52 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Target</label>
-              <div className="flex gap-2">
-                {(['all', 'group', 'device'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setForm({ ...form, targetType: t, targetIds: [] })}
-                    className={clsx(
-                      'flex-1 py-2 text-sm rounded-lg border transition-colors',
-                      form.targetType === t ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
-                    )}
-                  >
-                    {t === 'all' ? 'All devices' : t === 'group' ? 'By group' : 'By device'}
-                  </button>
-                ))}
-              </div>
+              {/* For event triggers we offer a "Originating device" option
+                  ('self') that's the right default 95 % of the time —
+                  session_login fires on a device, the resolve script
+                  should run on that same device. Broadcasting a script
+                  to a whole group when one device logs in is rarely the
+                  intent and is footgun-prone. */}
+              {(() => {
+                const eventDriven = ['session_login', 'machine_boot', 'agent_approved', 'group_join'].includes(form.triggerType);
+                const choices: { v: string; l: string }[] = eventDriven
+                  ? [
+                      { v: 'self',   l: 'Originating device' },
+                      { v: 'all',    l: 'All devices' },
+                      { v: 'group',  l: 'By group' },
+                      { v: 'device', l: 'By device' },
+                    ]
+                  : [
+                      { v: 'all',    l: 'All devices' },
+                      { v: 'group',  l: 'By group' },
+                      { v: 'device', l: 'By device' },
+                    ];
+                return (
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
+                    {choices.map((t) => (
+                      <button
+                        key={t.v}
+                        onClick={() => setForm({ ...form, targetType: t.v as 'self' | 'all' | 'group' | 'device', targetIds: [] })}
+                        className={clsx(
+                          'flex-1 py-2 text-sm rounded-lg border transition-colors',
+                          form.targetType === t.v ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                        )}
+                      >
+                        {t.l}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+              {form.targetType === 'self' && (
+                <p className="text-[11px] text-text-muted mt-1">
+                  Runs only on the device that fired the trigger
+                  {form.triggerType === 'session_login'  && ' (the agent reporting the new session).'}
+                  {form.triggerType === 'machine_boot'   && ' (the agent that just booted).'}
+                  {form.triggerType === 'group_join'     && ' (the device that just joined the group).'}
+                  {form.triggerType === 'agent_approved' && ' (the agent that was just approved).'}
+                </p>
+              )}
             </div>
             {form.targetType === 'group' && (
               <div className="space-y-1">
@@ -1069,11 +1159,14 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               />
               <div className="border border-border rounded-lg bg-bg-tertiary max-h-80 overflow-y-auto">
                 {(() => {
-                  const devices = getDeviceList().filter((d) => {
+                  if (triggerLoading) {
+                    return <p className="text-sm text-text-muted p-3">Loading devices…</p>;
+                  }
+                  const devices = triggerDevices.filter((d) => {
                     const q = triggerSearch.toLowerCase();
                     return !q || (d.hostname || '').toLowerCase().includes(q) || (d.displayName || '').toLowerCase().includes(q);
                   });
-                  if (devices.length === 0) return <p className="text-sm text-text-muted p-3">No devices</p>;
+                  if (devices.length === 0) return <p className="text-sm text-text-muted p-3">No devices in this scenario's target.</p>;
                   const allSelected = devices.length > 0 && devices.every((d) => triggerDeviceIds.includes(d.id));
                   return (
                     <>
