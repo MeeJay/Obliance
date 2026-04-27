@@ -1542,7 +1542,15 @@ export interface Scenario {
   description: string | null;
   triggerType: ScenarioTriggerType;
   triggerConfig: ScenarioTriggerConfig;
-  targetType: string;
+  /**
+   * 'self'   — event triggers run on the originating device only (the
+   *            sane default for session_login / machine_boot / agent_approved
+   *            / group_join). targetIds is ignored.
+   * 'all'    — every device in the tenant (rarely useful with event triggers).
+   * 'group'  — devices that belong to one of `targetIds` or any descendant.
+   * 'device' — devices whose id is in `targetIds`.
+   */
+  targetType: 'self' | 'all' | 'group' | 'device' | string;
   targetIds: number[];
   status: ScenarioStatus;
   retryPolicy: ScenarioRetryPolicy;

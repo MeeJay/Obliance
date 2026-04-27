@@ -353,7 +353,7 @@ export const scenarioService = {
       const scenario = rowToScenario(scenarioRow);
 
       // Check target matching: does this device match the scenario targets?
-      if (!matchesTarget(scenario, deviceId, data?.groupId)) continue;
+      if (!(await matchesTarget(scenario, deviceId, data?.groupId))) continue;
 
       // For trigger configs with scheduleId filter (schedule_failure)
       if (triggerType === 'schedule_failure' && scenario.triggerConfig.scheduleId) {
@@ -910,25 +910,56 @@ export const scenarioService = {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-function matchesTarget(scenario: Scenario, deviceId: number, groupId?: number): boolean {
+/**
+ * Check whether a given device falls under a scenario's target. Handles
+ * the four `targetType` values:
+ *
+ *  - 'all'    → every device in the tenant qualifies.
+ *  - 'self'   → the originating device of an event trigger ALWAYS qualifies
+ *               (the action runs on the device that emitted session_login,
+ *               machine_boot, group_join, agent_approved, etc.).
+ *  - 'device' → device must be in `targetIds`.
+ *  - 'group'  → device's group must be one of `targetIds`, OR a descendant
+ *               of one (via the device_group_closure table). The optional
+ *               `originGroupId` short-circuits the check when the trigger
+ *               already knows the joined/relevant group (group_join).
+ *
+ * Async because the 'group' branch has to look up the device's group_id
+ * and walk the closure when the caller didn't pass `originGroupId`.
+ */
+async function matchesTarget(
+  scenario: Scenario,
+  deviceId: number,
+  originGroupId?: number,
+): Promise<boolean> {
   if (scenario.targetType === 'all') return true;
+  if (scenario.targetType === 'self') return true;
   if (scenario.targetType === 'device') return scenario.targetIds.includes(deviceId);
   if (scenario.targetType === 'group') {
-    if (groupId && scenario.targetIds.includes(groupId)) return true;
-    // For non-group-join triggers, we need to check if the device belongs to one of the target groups
-    // (caller may not pass groupId for all trigger types)
-    return false;
-  }
-  return false;
-}
+    if (!scenario.targetIds.length) return false;
 
-async function matchesTargetAsync(scenario: Scenario, deviceId: number): Promise<boolean> {
-  if (scenario.targetType === 'all') return true;
-  if (scenario.targetType === 'device') return scenario.targetIds.includes(deviceId);
-  if (scenario.targetType === 'group') {
-    const device = await db('devices').where({ id: deviceId }).select('group_id').first();
-    if (!device?.group_id) return false;
-    return scenario.targetIds.includes(device.group_id);
+    // Fast path: caller already knows the relevant group (e.g. the one
+    // the device just joined for a group_join event). If it's directly
+    // listed as a target we're done; otherwise still need the closure
+    // check below to handle "target = parent group, joined = child".
+    if (originGroupId && scenario.targetIds.includes(originGroupId)) return true;
+
+    // Resolve the device's actual group, then ask the closure: is that
+    // group a descendant of any target? Falls back to originGroupId when
+    // the device row hasn't been refreshed yet (e.g. group_join fires
+    // before the move has been committed in our caller's transaction).
+    let groupId: number | null = originGroupId ?? null;
+    if (groupId == null) {
+      const device = await db('devices').where({ id: deviceId }).select('group_id').first();
+      groupId = device?.group_id ?? null;
+    }
+    if (groupId == null) return false;
+
+    const match = await db('device_group_closure')
+      .whereIn('ancestor_id', scenario.targetIds)
+      .where('descendant_id', groupId)
+      .first();
+    return !!match;
   }
   return false;
 }
