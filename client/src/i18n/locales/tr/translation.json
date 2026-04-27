@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "Hostname, görünen ad, IP, MAC, son kullanıcı, İşletim Sistemi, aracı sürümü, konum, etiketler, notlar, UUID içinde arar"
     },
     "table": {
       "device": "Device",

@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "Поиск по hostname, отображаемому имени, IP, MAC, последнему пользователю, ОС, версии агента, локации, тегам, заметкам, UUID"
     },
     "table": {
       "device": "Device",

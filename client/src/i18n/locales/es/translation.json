@@ -900,7 +900,8 @@
       "allOs": "Todos los SO",
       "allGroups": "Todos los grupos",
       "reset": "Restablecer",
-      "select": "Seleccionar"
+      "select": "Seleccionar",
+      "searchHint": "Busca en hostname, nombre mostrado, IP, MAC, último usuario, SO, versión del agente, ubicación, etiquetas, notas, UUID"
     },
     "table": {
       "device": "Dispositivo",

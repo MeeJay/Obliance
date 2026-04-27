@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "호스트명, 표시 이름, IP, MAC, 마지막 사용자, OS, 에이전트 버전, 위치, 태그, 메모, UUID 검색"
     },
     "table": {
       "device": "Device",

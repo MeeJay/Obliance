@@ -156,13 +156,23 @@ class DeviceService {
     if (filters?.search) q = q.where(function() {
       const pat = `%${filters.search}%`;
       // devices.uuid is the PG `uuid` type — ILIKE refuses to match it
-      // directly, so cast to text. The other columns are varchar and
-      // accept ILIKE as-is.
+      // directly, so cast to text. devices.tags is a JSONB array, also
+      // cast to text so a substring match across all tag values works.
+      // Other columns are varchar / text — plain ILIKE is fine.
       this.whereILike('devices.hostname', pat)
           .orWhereILike('devices.display_name', pat)
           .orWhereILike('devices.ip_local', pat)
           .orWhereILike('devices.ip_public', pat)
-          .orWhereRaw('devices.uuid::text ILIKE ?', [pat]);
+          .orWhereILike('devices.mac_address', pat)
+          .orWhereILike('devices.last_logged_in_user', pat)
+          .orWhereILike('devices.os_name', pat)
+          .orWhereILike('devices.os_version', pat)
+          .orWhereILike('devices.agent_version', pat)
+          .orWhereILike('devices.geo_city', pat)
+          .orWhereILike('devices.geo_country', pat)
+          .orWhereILike('devices.description', pat)
+          .orWhereRaw('devices.uuid::text ILIKE ?', [pat])
+          .orWhereRaw('devices.tags::text ILIKE ?', [pat]);
     });
 
     const countResult = await q.clone().count('devices.id as count').first();
@@ -277,13 +287,23 @@ class DeviceService {
     if (filters?.search) q = q.where(function() {
       const pat = `%${filters.search}%`;
       // devices.uuid is the PG `uuid` type — ILIKE refuses to match it
-      // directly, so cast to text. The other columns are varchar and
-      // accept ILIKE as-is.
+      // directly, so cast to text. devices.tags is a JSONB array, also
+      // cast to text so a substring match across all tag values works.
+      // Other columns are varchar / text — plain ILIKE is fine.
       this.whereILike('devices.hostname', pat)
           .orWhereILike('devices.display_name', pat)
           .orWhereILike('devices.ip_local', pat)
           .orWhereILike('devices.ip_public', pat)
-          .orWhereRaw('devices.uuid::text ILIKE ?', [pat]);
+          .orWhereILike('devices.mac_address', pat)
+          .orWhereILike('devices.last_logged_in_user', pat)
+          .orWhereILike('devices.os_name', pat)
+          .orWhereILike('devices.os_version', pat)
+          .orWhereILike('devices.agent_version', pat)
+          .orWhereILike('devices.geo_city', pat)
+          .orWhereILike('devices.geo_country', pat)
+          .orWhereILike('devices.description', pat)
+          .orWhereRaw('devices.uuid::text ILIKE ?', [pat])
+          .orWhereRaw('devices.tags::text ILIKE ?', [pat]);
     });
 
     const SORT_MAP: Record<string, string> = {

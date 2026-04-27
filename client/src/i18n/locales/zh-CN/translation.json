@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "搜索主机名、显示名称、IP、MAC、最后用户、操作系统、代理版本、位置、标签、备注、UUID"
     },
     "table": {
       "device": "Device",

@@ -362,6 +362,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder={t('devices.filters.search')}
+              title={t('devices.filters.searchHint', 'Searches hostname, display name, IP, MAC, last user, OS, agent version, location, tags, notes, UUID')}
               className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
           </div>
           {hasFilters && (

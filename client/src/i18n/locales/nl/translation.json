@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "Zoekt in hostname, weergavenaam, IP, MAC, laatste gebruiker, OS, agentversie, locatie, tags, notities, UUID"
     },
     "table": {
       "device": "Device",

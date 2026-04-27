@@ -1088,6 +1088,7 @@
       "refused": "Refusés",
       "suspended": "Suspendus",
       "search": "Rechercher des appareils...",
+      "searchHint": "Recherche par hostname, nom affiché, IP, MAC, dernier utilisateur, OS, version d'agent, localisation, tags, notes, UUID",
       "allStatus": "Tous les statuts",
       "allOs": "Tous les OS",
       "allGroups": "Tous les groupes",

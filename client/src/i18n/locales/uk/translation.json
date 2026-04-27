@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "Пошук за hostname, відображуваним ім'ям, IP, MAC, останнім користувачем, ОС, версією агента, локацією, тегами, нотатками, UUID"
     },
     "table": {
       "device": "Device",

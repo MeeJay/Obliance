@@ -601,7 +601,8 @@
       "allOs": "All OS",
       "allGroups": "All groups",
       "reset": "Reset",
-      "select": "Select"
+      "select": "Select",
+      "searchHint": "Söker i hostname, visningsnamn, IP, MAC, senaste användare, OS, agent-version, plats, taggar, anteckningar, UUID"
     },
     "table": {
       "device": "Device",
