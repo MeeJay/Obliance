@@ -1,7 +1,8 @@
-# Obli\* Design System — v1 (2026-04-28)
+# Obli\* Design System — Operator (v1, 2026-04-28)
 
-This is the **canonical UI specification** every Obli* app must implement. It
-ships as the new default theme via Obligate's theme selector. Apps still own
+The canonical theme name is **"Obli Operator"** (id: `obli-operator`).
+It's the default theme shipped via Obligate's theme selector and the
+canonical UI specification every Obli* app must implement. Apps still own
 their accent color and per-app content; the **layout, navigation patterns and
 common chrome are identical across the suite**.
 
@@ -212,6 +213,22 @@ server, panel, bell, download, logout, refresh, warn, clock, package, spark.
 Stroke weight 2. Colour `currentColor`. Inactive nav uses `--text3`, hover
 `--text2`, active `<accent2>`.
 
+### 7.1 Sidebar control icons (must be distinct)
+
+These two buttons sit side-by-side in the expanded sidebar header and have
+**different semantics** — they MUST use different icons or the user can't
+tell them apart:
+
+| Action                              | Icon (Lucide)            | When                              |
+|-------------------------------------|--------------------------|-----------------------------------|
+| Collapse sidebar (260px → 64px)     | `ChevronsLeft`           | expanded → collapsed              |
+| Expand sidebar (64px → 260px)       | `ChevronsRight`          | collapsed → expanded              |
+| Pin sidebar (was floating)          | `Pin`                    | sidebar currently floating        |
+| Unpin / float sidebar (auto-hide)   | `PinOff`                 | sidebar currently pinned          |
+
+Earlier prototypes reused `PanelLeft / PanelLeftClose` for both actions —
+that produced two visually-identical icons doing different things. **Don't.**
+
 ---
 
 ## 8. Spacing & shape system
@@ -274,19 +291,64 @@ horizontally.
 
 ## 10. Obligate theme selector entry
 
-Add this entry to Obligate's theme catalog:
+Add this entry to Obligate's theme catalog. The canonical name is
+**"Obli Operator"** (the audience: SREs, ops engineers, fleet admins).
 
 ```ts
 {
-  id: 'obli-v1',
-  name: 'Obli Design v1',
-  description: 'Shared dark theme for the Obli suite — Rajdhani + JetBrains Mono, brighter type, accent-led, no borders.',
+  id: 'obli-operator',
+  name: 'Obli Operator',
+  description: 'Default dark theme for the Obli suite — Rajdhani display + JetBrains Mono numerics, brighter type scale, depth via shadow (no borders), per-app accent.',
   isDefault: true,                  // ← becomes default on next release
-  cssTokens: { /* §2 */ },
-  fonts:     { /* §3 */ },
   layoutVersion: 'v1',
+
+  // Theme tokens — values in space-separated RGB triplets so Tailwind's
+  // alpha-modifier syntax (bg-accent/30) works. Apps consume these as
+  // CSS custom properties (`--c-*`) per their existing theme system.
+  tokens: {
+    '--c-bg-primary':       '11 13 26',     // #0b0d1a
+    '--c-bg-secondary':     '19 23 40',     // #131728
+    '--c-bg-tertiary':      '24 28 48',     // #181c30
+    '--c-bg-hover':         '255 255 255 / 0.04',
+    '--c-bg-active':        '255 255 255 / 0.06',
+    '--c-border':           '255 255 255 / 0.05',
+    '--c-border-light':     '255 255 255 / 0.08',
+    '--c-text-primary':     '232 236 245',  // #e8ecf5  — brighter than v0
+    '--c-text-secondary':   '140 147 182',  // #8c93b6
+    '--c-text-muted':       '75 82 115',    // #4b5273
+
+    // Status (shared)
+    '--c-status-up':        '30 221 138',   // #1edd8a
+    '--c-status-down':      '107 115 153',  // muted gray (was red — red is now reserved for accent)
+    '--c-status-pending':   '79 123 255',   // #4f7bff
+    '--c-status-warning':   '245 166 35',   // #f5a623
+    '--c-status-critical':  '224 58 58',    // accent
+
+    // Accent — per-app, swap these four:
+    '--c-accent':           '224 58 58',    // app brand (Obliance: red)
+    '--c-accent-hover':     '255 104 104',
+    '--c-accent-dark':      '180 30 30',
+    '--c-primary':          '224 58 58',
+  },
+
+  // Per-app overrides — Obligate hands the right block to each app on
+  // theme apply. The accent + primary tokens above are replaced.
+  perApp: {
+    obliview:  { accent: '43 196 189',  hover: '95 217 211',  dark: '24 142 138' }, // teal
+    obliguard: { accent: '245 166 35',  hover: '255 184 74',  dark: '184 124 24' }, // orange
+    oblimap:   { accent: '30 221 138',  hover: '92 240 168',  dark: '20 165 105' }, // green
+    obliance:  { accent: '224 58 58',   hover: '255 104 104', dark: '180 30 30'  }, // red
+    oblihub:   { accent: '45 78 201',   hover: '90 120 232',  dark: '30 56 158'  }, // deep blue
+  },
+
+  // Typography
+  fonts: {
+    sans: ['Rajdhani', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+    mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+  },
 }
 ```
 
-The previous Obliance theme stays available as `obli-classic` for users who
-prefer it.
+The previous Obliance / Obli* themes stay available under their existing ids
+(`obli-classic` etc.) for users who prefer them — Obligate must not delete
+them when adding `obli-operator`.

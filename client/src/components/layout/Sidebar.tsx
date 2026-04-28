@@ -19,10 +19,12 @@ import {
   ArrowLeftRight,
   CalendarClock,
   Building2,
-  PanelLeft,
-  PanelLeftClose,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Pin,
+  PinOff,
   Monitor,
   Terminal,
   Laptop,
@@ -574,7 +576,7 @@ export function Sidebar() {
             title={t('nav.expandSidebar', 'Expand sidebar')}
             className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
-            <PanelLeft size={16} />
+            <ChevronsRight size={16} />
           </button>
         </div>
 
@@ -626,7 +628,11 @@ export function Sidebar() {
                 : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
             )}
           >
-            <UserCircle size={18} />
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+            ) : (
+              <UserCircle size={18} />
+            )}
           </Link>
           <button
             onClick={() => useAuthStore.getState().logout()}
@@ -654,11 +660,11 @@ export function Sidebar() {
             title={t('nav.collapseSidebar', 'Collapse sidebar')}
             className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
-            <PanelLeftClose size={15} />
+            <ChevronsLeft size={15} />
           </button>
           <button
             onClick={toggleSidebarFloating}
-            title={sidebarFloating ? t('nav.pinSidebar') : t('nav.floatSidebar')}
+            title={sidebarFloating ? t('nav.pinSidebar', 'Pin sidebar') : t('nav.floatSidebar', 'Float sidebar (auto-hide)')}
             className={cn(
               'p-1.5 rounded transition-colors',
               sidebarFloating
@@ -666,7 +672,7 @@ export function Sidebar() {
                 : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
             )}
           >
-            {sidebarFloating ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+            {sidebarFloating ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
         </div>
       </div>
@@ -802,7 +808,11 @@ export function Sidebar() {
               : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
           )}
         >
-          <UserCircle size={18} />
+          {user?.avatar ? (
+            <img src={user.avatar} alt="" className="w-[20px] h-[20px] rounded-full object-cover" />
+          ) : (
+            <UserCircle size={18} />
+          )}
           <span className="truncate flex-1">{anonymize(user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username))}</span>
         </Link>
 
