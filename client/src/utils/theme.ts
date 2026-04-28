@@ -18,11 +18,11 @@ export function applyTheme(theme: AppTheme): void {
 export function loadSavedTheme(): AppTheme {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'modern' || saved === 'neon') return saved;
+    if (saved === 'obli-operator' || saved === 'modern' || saved === 'neon') return saved;
   } catch {
     // ignore
   }
-  return 'modern';
+  return 'obli-operator';
 }
 
 /** Called once on app boot in main.tsx to prevent flash of wrong theme. */

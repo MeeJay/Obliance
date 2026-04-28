@@ -9,6 +9,65 @@ interface ThemePickerProps {
 
 /* ─── SVG mini-dashboard previews ─────────────────────────────────────────── */
 
+function OperatorPreviewSvg() {
+  // Obli Operator : fond bleu nuit, accent rouge, pas de bordures sur les cartes.
+  // Spec: D:\Mockup\obli-design-system.md §2 + §10.
+  return (
+    <svg viewBox="0 0 280 170" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-md">
+      <rect width="280" height="170" fill="#0b0d1a" rx="6" />
+      {/* Sidebar — pas de bordure, juste différence de fond */}
+      <rect x="0" y="0" width="60" height="170" fill="#0f1220" rx="6" />
+      <rect x="10" y="12" width="16" height="16" rx="3" fill="#e03a3a" />
+      <rect x="31" y="15" width="22" height="5" rx="2" fill="#8c93b6" />
+      {[40, 62, 84, 106].map((y, i) => (
+        <g key={y}>
+          <rect x="7" y={y} width="46" height="16" rx="3"
+            fill={i === 0 ? 'rgba(255,255,255,0.06)' : 'transparent'} />
+          <rect x="13" y={y + 4} width="8" height="8" rx="2"
+            fill={i === 0 ? '#e03a3a' : '#4b5273'} />
+          <rect x="25" y={y + 6} width={i === 0 ? 22 : 18} height="4" rx="2"
+            fill={i === 0 ? '#e8ecf5' : '#8c93b6'} />
+        </g>
+      ))}
+      {/* Top header */}
+      <rect x="61" y="0" width="219" height="28" fill="#0f1220" />
+      <rect x="70" y="8" width="50" height="12" rx="3" fill="#131728" />
+      <rect x="230" y="9" width="44" height="10" rx="4" fill="#131728" />
+      {/* Stats row — cartes sans bordure, profondeur via fond */}
+      {[0, 1, 2, 3].map((i) => {
+        const colors = ['#1edd8a', '#e03a3a', '#f5a623', '#4f7bff'];
+        const labels = [68, 4, 2, 8];
+        const x = 70 + i * 52;
+        return (
+          <g key={i}>
+            <rect x={x} y="36" width="44" height="24" rx="4" fill="#131728" />
+            <rect x={x + 4} y="40" width="14" height="3" rx="1.5" fill="#8c93b6" />
+            <text x={x + 4} y="55" fill="#e8ecf5" fontSize="9" fontWeight="700"
+              fontFamily="'JetBrains Mono', monospace">
+              {labels[i]}
+            </text>
+            <circle cx={x + 38} cy="44" r="2" fill={colors[i]} />
+          </g>
+        );
+      })}
+      {/* Big card */}
+      <rect x="70" y="68" width="200" height="58" rx="4" fill="#131728" />
+      <rect x="78" y="76" width="50" height="5" rx="2" fill="#e8ecf5" />
+      <rect x="78" y="86" width="184" height="3" rx="1.5" fill="#181c30" />
+      <rect x="78" y="86" width="120" height="3" rx="1.5" fill="#e03a3a" />
+      <rect x="78" y="96" width="184" height="3" rx="1.5" fill="#181c30" />
+      <rect x="78" y="96" width="80" height="3" rx="1.5" fill="#1edd8a" />
+      <rect x="78" y="106" width="184" height="3" rx="1.5" fill="#181c30" />
+      <rect x="78" y="106" width="55" height="3" rx="1.5" fill="#f5a623" />
+      {/* Bottom card */}
+      <rect x="70" y="132" width="200" height="30" rx="4" fill="#131728" />
+      <rect x="78" y="140" width="35" height="4" rx="2" fill="#e8ecf5" />
+      <rect x="78" y="150" width="90" height="3" rx="1.5" fill="#181c30" />
+      <rect x="78" y="150" width="55" height="3" rx="1.5" fill="#e03a3a" />
+    </svg>
+  );
+}
+
 function ModernPreviewSvg() {
   // Modern UI : fond très sombre, teinte rouge ultra-subtile
   return (
@@ -222,8 +281,9 @@ function NeonPreviewSvg() {
 /* ─── ThemePicker ──────────────────────────────────────────────────────────── */
 
 const THEMES: { id: AppTheme; label: string; Preview: () => JSX.Element }[] = [
-  { id: 'modern', label: 'Modern UI', Preview: ModernPreviewSvg },
-  { id: 'neon',   label: 'Neon UI',   Preview: NeonPreviewSvg },
+  { id: 'obli-operator', label: 'Obli Operator', Preview: OperatorPreviewSvg },
+  { id: 'modern',        label: 'Modern UI',     Preview: ModernPreviewSvg },
+  { id: 'neon',          label: 'Neon UI',       Preview: NeonPreviewSvg },
 ];
 
 export function ThemePicker({ value, onChange }: ThemePickerProps) {

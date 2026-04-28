@@ -8,8 +8,42 @@
    (e.g. bg-accent/30) works: Tailwind emits  rgb(var(--c-X) / 0.3)
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* ── Modern UI (default) — fond très sombre, teinte rouge ultra-subtile ──── */
+/* ── Obli Operator (default) — Obli design system v1, teinte bleu nuit + accent rouge.
+       Tokens forwarded by Obligate (shared/src/themes.ts → OBLI_OPERATOR_THEME).
+       Spec: D:\Mockup\obli-design-system.md §2 + §10. ────────────────────────── */
 :root,
+[data-theme="obli-operator"] {
+  --c-bg-primary:            11 13 26;
+  --c-bg-secondary:          19 23 40;
+  --c-bg-tertiary:           24 28 48;
+  --c-bg-hover:              29 34 56;
+  --c-bg-active:             34 39 64;
+
+  --c-border:                255 255 255;
+  --c-border-light:          255 255 255;
+
+  --c-text-primary:          232 236 245;
+  --c-text-secondary:        140 147 182;
+  --c-text-muted:            75 82 115;
+
+  --c-status-up:             30 221 138;
+  --c-status-up-bg:          12 40 26;
+  --c-status-down:           107 115 153;
+  --c-status-down-bg:        24 28 48;
+  --c-status-pending:        79 123 255;
+  --c-status-pending-bg:     16 24 56;
+  --c-status-maintenance:    140 147 182;
+  --c-status-maintenance-bg: 19 23 40;
+  --c-status-paused:         75 82 115;
+  --c-status-paused-bg:      19 23 40;
+
+  --c-accent:                224 58 58;
+  --c-accent-hover:          255 104 104;
+  --c-accent-dark:           180 30 30;
+  --c-primary:               224 58 58;
+}
+
+/* ── Modern UI (legacy) — fond très sombre, teinte rouge ultra-subtile ──── */
 [data-theme="modern"] {
   --c-bg-primary:            14 11 12;
   --c-bg-secondary:          22 17 18;
