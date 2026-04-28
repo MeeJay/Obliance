@@ -105,8 +105,14 @@ Order from left to right:
    The current app's pill has `background: rgba(<accent>, 0.12); color: <accent2>` and the dot has `box-shadow: 0 0 8px currentColor`. Click any other pill = navigate to that app, carrying the current tenant context (see § 6).
 4. **Right cluster (margin-left: auto)**:
    - Topbar link "Télécharger l'appli" with download icon
+   - Socket / connection status dot (green = connected, amber pulse =
+     reconnecting, red pulse = disconnected). Click reloads the page when
+     not connected.
    - Notification bell (icon button, red dot top-right when unread)
-   - User badge — 26 × 26 avatar + username + role pill (small mono on the right of a 1px subtle vertical separator)
+   - User badge — `user.avatar` 28 × 28 round (or gradient initial fallback)
+     + username + small mono role pill separated by a 1 px subtle vertical
+     line
+   - Logout icon button
 
 ### 4.2 Sidebar — 260 px expanded / 64 px collapsed / floating overlay
 
@@ -191,9 +197,15 @@ The dashboard layout is **identical**, the data is per-app:
 
 ```
 [ Page header ]
-[ Hero row ] — 5 KPI cards, first one "featured" (1.6× wider) with sparkline + day axis
+[ Hero row ] — 5 KPI cards, first one "featured" (1.6× wider) with sparkline
+                or progress bar + secondary line of context
 [ Two-column row ] — left (2fr): time-series chart with 24h/7j/14j/30j tabs
-                     right (1fr): donut + legend
+                                  OR a "top items" list (pick whichever the
+                                  app has data for; Obliance ships with a
+                                  top-groups list because it has no fleet
+                                  time-series store yet)
+                     right (1fr): donut + legend (OS / monitor type / threat
+                                  category / network type / app type)
 [ Bottom row ] — 4 small status cards (icon left, label/name/count, badge right)
 ```
 
