@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import { anonymize } from '@/utils/anonymize';
-import { useUiStore } from '@/store/uiStore';
 import { useSocketStore } from '@/store/socketStore';
 import { appConfigApi } from '@/api/appConfig.api';
 import { NotificationCenter } from './NotificationCenter';
@@ -43,7 +42,6 @@ const CURRENT_APP: AppType = 'obliance';
 export function Header() {
   const { t } = useTranslation();
   const { user, logout } = useAuthStore();
-  const { sidebarFloating } = useUiStore();
   const { status: socketStatus } = useSocketStore();
   const [connectedApps, setConnectedApps] = useState<Array<{ appType: string; name: string; baseUrl: string }>>([]);
   const [obligateUrl, setObligateUrl] = useState<string | null>(null);
@@ -76,13 +74,13 @@ export function Header() {
 
   return (
     <header className="flex h-13 shrink-0 items-center gap-3 bg-bg-secondary px-4" style={{ height: 52 }}>
-      {/* Logo — only visible when sidebar is floating (otherwise it lives in
-          the sidebar header). */}
-      {sidebarFloating && (
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <img src="/logo.svg" alt="Obliance" className="h-8 w-auto max-w-[140px] object-contain" />
-        </Link>
-      )}
+      {/* Logo — always visible in the topbar so it (and the tenant selector
+          right next to it) stay accessible regardless of sidebar state
+          (pinned, collapsed, floating). Reserved width matches the default
+          sidebar width so nav items below align with content. */}
+      <Link to="/" className="flex items-center gap-2 shrink-0">
+        <img src="/logo.svg" alt="Obliance" className="h-8 w-auto max-w-[160px] object-contain" />
+      </Link>
 
       {/* Tenant selector — sits left of the app switcher, preserving the
           context that gets carried across apps. */}

@@ -1041,8 +1041,32 @@ class DeviceService {
       .first()
       .then(r => parseInt(String((r as any)?.count ?? 0)));
 
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+
+    // ── Deltas vs yesterday + week ago ─────────────────────────────────────
+    // Read the two most recent snapshots so the dashboard can show
+    // ↑/↓ comparisons. Missing snapshot → delta = null (UI hides it).
+    const yesterdaySnap = await db('fleet_daily_snapshot')
+      .where({ tenant_id: tenantId })
+      .where('day', '<', new Date().toISOString().slice(0, 10))
+      .orderBy('day', 'desc')
+      .first();
+    const weekAgoSnap = await db('fleet_daily_snapshot')
+      .where({ tenant_id: tenantId })
+      .where('day', '<=', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
+      .orderBy('day', 'desc')
+      .first();
+
+    const deltas = {
+      onlineVsYesterday:        yesterdaySnap ? (counts.online   || 0) - yesterdaySnap.online           : null,
+      offlineVsYesterday:       yesterdaySnap ? (counts.offline  || 0) - yesterdaySnap.offline          : null,
+      pendingUpdatesVsWeek:     weekAgoSnap   ? pendingUpdates           - weekAgoSnap.pending_updates  : null,
+      staleVsYesterday:         yesterdaySnap ? staleDevices             - yesterdaySnap.stale_72h      : null,
+      totalVsYesterday:         yesterdaySnap ? total                    - yesterdaySnap.total          : null,
+    };
+
     return {
-      total: Object.values(counts).reduce((a, b) => a + b, 0),
+      total,
       online: counts.online || 0,
       offline: counts.offline || 0,
       warning: counts.warning || 0,
@@ -1058,7 +1082,137 @@ class DeviceService {
       activeRemoteSessions,
       upcomingSchedules,
       staleDevices,
+      deltas,
     };
+  }
+
+  // ─── Fleet timeseries ─────────────────────────────────────────────────────
+  // Returns {date, total, online, offline, pendingUpdates, stale72} for the
+  // last N days. The current day is always synthesized from live state — the
+  // nightly snapshot job is for historic comparison only.
+  async getFleetTimeseries(tenantId: number, days: number) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+
+    const rows = await db('fleet_daily_snapshot')
+      .where({ tenant_id: tenantId })
+      .where('day', '>=', cutoff.toISOString().slice(0, 10))
+      .orderBy('day', 'asc')
+      .select('day', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72');
+
+    // Synthesise the live "today" point from current state so the chart
+    // always ends on the current value, regardless of whether the nightly
+    // snapshot job has run.
+    const live = await this.getFleetSummary(tenantId);
+    const todayStr = today.toISOString().slice(0, 10);
+    const todayRow = {
+      day: todayStr,
+      total: live.total,
+      online: live.online,
+      offline: live.offline,
+      pendingUpdates: live.pendingUpdates,
+      stale72: live.staleDevices,
+    };
+    const filtered = rows.filter((r: any) => String(r.day).slice(0, 10) !== todayStr);
+    return [...filtered.map((r: any) => ({ ...r, day: String(r.day).slice(0, 10) })), todayRow];
+  }
+
+  // ─── Agent version distribution ──────────────────────────────────────────
+  // Top N most-common agent versions in the tenant fleet. Sorted desc so the
+  // dashboard can show "X devices on v4.5.34, Y on v4.5.33, …".
+  async getAgentVersionDistribution(tenantId: number) {
+    const rows = await db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .whereNotNull('agent_version')
+      .select('agent_version')
+      .count('* as count')
+      .groupBy('agent_version')
+      .orderBy('count', 'desc')
+      .limit(8);
+
+    const latest = getAgentVersion();
+    return rows.map((r: any) => ({
+      version: r.agent_version as string,
+      count: parseInt(String(r.count)),
+      isLatest: r.agent_version === latest,
+    }));
+  }
+
+  // ─── Disk saturation ─────────────────────────────────────────────────────
+  // Walks each device's `latest_metrics.disks[]` and surfaces those where
+  // any disk's used_percent crosses the threshold. Heavy-ish (full table
+  // scan + JSON parse) — fine at fleet sizes <10k, paginate if it grows.
+  async getDiskSaturation(tenantId: number, threshold: number) {
+    const rows = await db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .whereNotNull('latest_metrics')
+      .select('id', 'hostname', 'display_name', 'latest_metrics');
+
+    const saturated: { deviceId: number; hostname: string; displayName: string | null; pct: number; mountpoint: string }[] = [];
+
+    for (const r of rows) {
+      try {
+        const m = typeof r.latest_metrics === 'string' ? JSON.parse(r.latest_metrics) : r.latest_metrics;
+        const disks = (m?.disks ?? []) as { mountpoint?: string; usedPercent?: number; used_percent?: number }[];
+        for (const d of disks) {
+          const pct = typeof d.usedPercent === 'number' ? d.usedPercent
+                     : typeof d.used_percent === 'number' ? d.used_percent
+                     : 0;
+          if (pct >= threshold) {
+            saturated.push({
+              deviceId: r.id,
+              hostname: r.hostname,
+              displayName: r.display_name,
+              pct: Math.round(pct),
+              mountpoint: d.mountpoint ?? '/',
+            });
+            break; // Only count each device once even if multiple disks saturate
+          }
+        }
+      } catch { /* corrupt JSON — skip */ }
+    }
+
+    saturated.sort((a, b) => b.pct - a.pct);
+    return {
+      count: saturated.length,
+      threshold,
+      top: saturated.slice(0, 5),
+    };
+  }
+
+  // ─── Daily snapshot job ──────────────────────────────────────────────────
+  // Called once a day by the cron in index.ts. Writes one row per tenant in
+  // fleet_daily_snapshot, used by the dashboard for week-over-week deltas
+  // and for the "Activité du parc" timeseries chart.
+  async snapshotFleetDaily() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const tenants = await db('tenants').select('id');
+      for (const t of tenants) {
+        const summary = await this.getFleetSummary(t.id);
+        await db('fleet_daily_snapshot')
+          .insert({
+            tenant_id: t.id,
+            day: today,
+            total: summary.total,
+            online: summary.online,
+            offline: summary.offline,
+            warning: summary.warning,
+            critical: summary.critical,
+            pending_updates: summary.pendingUpdates,
+            stale_72h: summary.staleDevices,
+            active_remote_sessions: summary.activeRemoteSessions,
+          })
+          .onConflict(['tenant_id', 'day'])
+          .merge();
+      }
+      logger.info({ tenants: tenants.length }, 'Fleet daily snapshot complete');
+    } catch (err) {
+      logger.error(err, 'Fleet daily snapshot failed');
+    }
   }
 }
 

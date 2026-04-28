@@ -16,6 +16,35 @@ export interface GroupStats {
   pendingUpdates: number;
 }
 
+export interface FleetTimeseriesPoint {
+  day: string;
+  total: number;
+  online: number;
+  offline: number;
+  pendingUpdates: number;
+  stale72: number;
+}
+
+export interface AgentVersionRow {
+  version: string;
+  count: number;
+  isLatest: boolean;
+}
+
+export interface DiskSaturationDevice {
+  deviceId: number;
+  hostname: string;
+  displayName: string | null;
+  pct: number;
+  mountpoint: string;
+}
+
+export interface DiskSaturationResult {
+  count: number;
+  threshold: number;
+  top: DiskSaturationDevice[];
+}
+
 export const deviceApi = {
   // Fleet
   async list(params?: { groupId?: number; status?: string; search?: string; approvalStatus?: string }): Promise<Device[]> {
@@ -84,6 +113,18 @@ export const deviceApi = {
   async getGroupStats(): Promise<GroupStats[]> {
     const res = await apiClient.get<ApiResponse<GroupStats[]>>('/devices/group-stats');
     return res.data.data ?? [];
+  },
+  async getFleetTimeseries(days = 14): Promise<FleetTimeseriesPoint[]> {
+    const res = await apiClient.get<ApiResponse<FleetTimeseriesPoint[]>>('/devices/fleet-timeseries', { params: { days } });
+    return res.data.data ?? [];
+  },
+  async getAgentVersions(): Promise<AgentVersionRow[]> {
+    const res = await apiClient.get<ApiResponse<AgentVersionRow[]>>('/devices/agent-versions');
+    return res.data.data ?? [];
+  },
+  async getDiskSaturated(threshold = 85): Promise<DiskSaturationResult> {
+    const res = await apiClient.get<ApiResponse<DiskSaturationResult>>('/devices/disk-saturated', { params: { threshold } });
+    return res.data.data ?? { count: 0, threshold, top: [] };
   },
   async getById(id: number): Promise<Device> {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);

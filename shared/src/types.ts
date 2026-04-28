@@ -1411,6 +1411,15 @@ export interface FleetSummary {
   activeRemoteSessions: number;
   upcomingSchedules: number;
   staleDevices: number;
+  /** Day-over-day deltas computed from yesterday's fleet snapshot. Null
+   *  values mean no snapshot is available yet (fresh deploy). */
+  deltas?: {
+    onlineVsYesterday:    number | null;
+    offlineVsYesterday:   number | null;
+    pendingUpdatesVsWeek: number | null;
+    staleVsYesterday:     number | null;
+    totalVsYesterday:     number | null;
+  };
 }
 
 // ─── AUTH & USERS ─────────────────────────────────────────────────────────────

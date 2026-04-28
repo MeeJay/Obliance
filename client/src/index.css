@@ -19,8 +19,12 @@
   --c-bg-hover:              29 34 56;
   --c-bg-active:             34 39 64;
 
-  --c-border:                255 255 255;
-  --c-border-light:          255 255 255;
+  /* Borders kept subtle on a dark base — Tailwind's `border-border` resolves
+     to `rgb(var(--c-border))` (no automatic alpha), so the value here MUST
+     be a near-bg shade rather than 255/255/255. Otherwise scrollbars,
+     separators and focus rings render bright white. */
+  --c-border:                42 48 72;
+  --c-border-light:          62 70 100;
 
   --c-text-primary:          232 236 245;
   --c-text-secondary:        140 147 182;

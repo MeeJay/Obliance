@@ -182,6 +182,40 @@ router.get('/summary', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/fleet-timeseries?days=14
+// Returns daily online/offline/total/pendingUpdates/stale72/critical for the
+// last N days. Used by the dashboard hero sparklines and the "Activité du
+// parc" chart. The current-day point is always synthesized from live state
+// (no waiting for the nightly snapshot job).
+router.get('/fleet-timeseries', async (req, res, next) => {
+  try {
+    const days = Math.min(parseInt(String(req.query.days ?? '14')) || 14, 90);
+    const series = await deviceService.getFleetTimeseries(req.tenantId!, days);
+    res.json({ data: series });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/agent-versions
+// Top N agent versions by device count. Used by the dashboard "Top versions
+// agent" mini chart so admins spot devices stuck on old auto-update cycles.
+router.get('/agent-versions', async (req, res, next) => {
+  try {
+    const versions = await deviceService.getAgentVersionDistribution(req.tenantId!);
+    res.json({ data: versions });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/disk-saturated?threshold=85
+// Devices whose latest hardware snapshot reports any disk above the
+// threshold. Used by the dashboard "Disques saturés" card.
+router.get('/disk-saturated', async (req, res, next) => {
+  try {
+    const threshold = Math.min(Math.max(parseInt(String(req.query.threshold ?? '85')) || 85, 50), 99);
+    const result = await deviceService.getDiskSaturation(req.tenantId!, threshold);
+    res.json({ data: result });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/group-stats — stats per group for dashboard
 router.get('/group-stats', async (req, res, next) => {
   try {

@@ -205,6 +205,13 @@ async function main() {
   // Start inventory retention job (every 6h)
   setInterval(() => deviceService.pruneInventory(), 6 * 60 * 60 * 1000);
 
+  // Daily fleet snapshot for the dashboard hero deltas + timeseries chart.
+  // Run once on boot (idempotent via onConflict merge) so a fresh deploy has
+  // a "today" row right away, then every 24h. The chart synthesises today's
+  // live point regardless, so the cadence isn't user-visible.
+  deviceService.snapshotFleetDaily().catch(() => {});
+  setInterval(() => deviceService.snapshotFleetDaily(), 24 * 60 * 60 * 1000);
+
   // Self-healing: purge orphaned records from tables whose device no longer exists (every 4h)
   deviceService.cleanOrphans().catch(() => {}); // run once at startup
   setInterval(() => deviceService.cleanOrphans(), 4 * 60 * 60 * 1000);

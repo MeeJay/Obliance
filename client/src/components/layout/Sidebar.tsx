@@ -570,7 +570,7 @@ export function Sidebar() {
     const allItems = [...mainNavItems, ...(admin ? adminNavItems : [])];
     return (
       <aside className="flex h-full w-16 shrink-0 flex-col bg-bg-secondary">
-        <div className="flex h-14 shrink-0 items-center justify-center">
+        <div className="flex h-12 shrink-0 items-center justify-center">
           <button
             onClick={toggleSidebarCollapsed}
             title={t('nav.expandSidebar', 'Expand sidebar')}
@@ -649,16 +649,14 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-full flex-col bg-bg-secondary">
 
-      {/* Logo + collapse + float/pin toggle */}
-      <div className="flex h-14 shrink-0 items-center justify-between px-4">
-        <Link to="/" className="flex items-center">
-          <img src="/logo.svg" alt="Obliance" className="h-10 w-auto max-w-[200px] object-contain" />
-        </Link>
+      {/* Sidebar head — collapse + float/pin toggles only. The logo and
+          tenant selector live in the topbar (Header.tsx) so they remain
+          visible when the sidebar is collapsed or floating. */}
+      <div className="flex h-9 shrink-0 items-center justify-end px-3 pt-2">
         <div className="flex items-center gap-1">
           {/* Collapse and Float are mutually exclusive: in collapsed mode
               we already hide the Float button, so do the symmetric thing
-              and hide Collapse while floating. Otherwise enabling both
-              leaves the floating-panel shadow stuck at 260 px width. */}
+              and hide Collapse while floating. */}
           {!sidebarFloating && (
             <button
               onClick={toggleSidebarCollapsed}
