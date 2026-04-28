@@ -44,9 +44,25 @@ export default {
         },
         // Alias used by ThemePicker and interactive components
         primary: 'rgb(var(--c-primary) / <alpha-value>)',
+        // Obli Suite brand palette — used by the topbar app switcher
+        // and the per-app active-pill highlight. Values fixed per
+        // docs/obli-design-system.md §1; not theme-swappable so the
+        // dot colours stay recognisable across every theme.
+        obli: {
+          view:   '#2bc4bd',
+          guard:  '#f5a623',
+          map:    '#1edd8a',
+          ance:   '#e03a3a',
+          ance2:  '#ff6868',
+          hub:    '#2d4ec9',
+        },
       },
       fontFamily: {
+        // Obli Design v1 — Rajdhani for everything UI/display, JetBrains
+        // Mono for IDs / counts / dates. Native sans/mono left as
+        // fallbacks for browsers that fail to load Google Fonts.
         sans: [
+          'Rajdhani',
           '-apple-system',
           'BlinkMacSystemFont',
           'Segoe UI',

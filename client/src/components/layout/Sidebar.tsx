@@ -312,7 +312,7 @@ export function Sidebar() {
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isAdmin } = useAuthStore();
-  const { sidebarFloating, toggleSidebarFloating, openAddAgentModal } = useUiStore();
+  const { sidebarFloating, toggleSidebarFloating, sidebarCollapsed, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
 
   const admin = isAdmin();
 
@@ -560,26 +560,115 @@ export function Sidebar() {
     </DndContext>
   );
 
-  return (
-    <aside className="flex h-full w-full flex-col border-r border-border bg-bg-secondary">
+  // ── Collapsed mode (Obli Design v1) ─────────────────────────────────
+  // 64 px icon-only column. Navigation items keep their tooltips, the
+  // device tree + search are hidden, the user avatar + logout stay
+  // visible at the bottom. Click the panel toggle to expand back.
+  if (sidebarCollapsed) {
+    const allItems = [...mainNavItems, ...(admin ? adminNavItems : [])];
+    return (
+      <aside className="flex h-full w-16 shrink-0 flex-col bg-bg-secondary">
+        <div className="flex h-14 shrink-0 items-center justify-center">
+          <button
+            onClick={toggleSidebarCollapsed}
+            title={t('nav.expandSidebar', 'Expand sidebar')}
+            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          >
+            <PanelLeft size={16} />
+          </button>
+        </div>
 
-      {/* Logo + float/pin toggle */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="px-2 pt-1">
+          <button
+            onClick={openAddAgentModal}
+            title={t('nav.addAgent')}
+            className="flex h-10 w-full items-center justify-center rounded-md bg-accent/12 text-accent transition-colors hover:bg-accent/20"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-2 pt-3 space-y-1">
+          {allItems.map((item) => {
+            const isActive = location.pathname === item.path
+              || (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                title={item.label}
+                className={cn(
+                  'relative flex h-10 w-full items-center justify-center rounded-md transition-colors',
+                  isActive
+                    ? 'bg-accent/12 text-accent'
+                    : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
+                )}
+              >
+                {item.icon}
+                {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[1.1rem] px-1 py-0 rounded-full bg-red-500/20 text-red-400 text-[9px] font-semibold text-center">
+                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-2 space-y-1">
+          <Link
+            to="/profile"
+            title={anonymize(user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username))}
+            className={cn(
+              'flex h-10 w-full items-center justify-center rounded-md transition-colors',
+              location.pathname === '/profile'
+                ? 'bg-bg-active text-text-primary'
+                : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+            )}
+          >
+            <UserCircle size={18} />
+          </Link>
+          <button
+            onClick={() => useAuthStore.getState().logout()}
+            title={t('nav.signOut')}
+            className="flex h-10 w-full items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="flex h-full w-full flex-col bg-bg-secondary">
+
+      {/* Logo + collapse + float/pin toggle */}
+      <div className="flex h-14 shrink-0 items-center justify-between px-4">
         <Link to="/" className="flex items-center">
           <img src="/logo.svg" alt="Obliance" className="h-10 w-auto max-w-[200px] object-contain" />
         </Link>
-        <button
-          onClick={toggleSidebarFloating}
-          title={sidebarFloating ? t('nav.pinSidebar') : t('nav.floatSidebar')}
-          className={cn(
-            'p-1.5 rounded transition-colors',
-            sidebarFloating
-              ? 'text-accent hover:text-accent hover:bg-accent/10'
-              : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
-          )}
-        >
-          {sidebarFloating ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleSidebarCollapsed}
+            title={t('nav.collapseSidebar', 'Collapse sidebar')}
+            className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          >
+            <PanelLeftClose size={15} />
+          </button>
+          <button
+            onClick={toggleSidebarFloating}
+            title={sidebarFloating ? t('nav.pinSidebar') : t('nav.floatSidebar')}
+            className={cn(
+              'p-1.5 rounded transition-colors',
+              sidebarFloating
+                ? 'text-accent hover:text-accent hover:bg-accent/10'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
+            )}
+          >
+            {sidebarFloating ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+          </button>
+        </div>
       </div>
 
       {/* Add agent button */}

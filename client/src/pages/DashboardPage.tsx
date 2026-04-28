@@ -1,134 +1,160 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Monitor, Wifi, WifiOff, AlertTriangle, AlertCircle, Clock, RefreshCw,
-  ArrowRight, Package, ShieldCheck, ArrowUpCircle,
-  FolderOpen, Users, Activity, ScreenShare, CalendarClock, Ghost,
-} from 'lucide-react';
+import { RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare } from 'lucide-react';
 import { useDeviceStore } from '@/store/deviceStore';
 import { deviceApi, type GroupStats } from '@/api/device.api';
-import { groupsApi } from '@/api/groups.api';
-import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
-import { clsx } from 'clsx';
+import { useUiStore } from '@/store/uiStore';
 
-function StatCard({ icon: Icon, label, value, color, to }: { icon: any; label: string; value: number; color: string; to?: string }) {
-  const content = (
-    <div className={`p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors ${to ? 'cursor-pointer' : ''}`}>
-      <div className={`p-3 rounded-lg ${color}`}>
-        <Icon className="w-5 h-5" />
+// ── Hero KPI card ───────────────────────────────────────────────────────────
+
+function HeroCard({
+  label, value, subline, color, sublineColor, featured, children,
+}: {
+  label: string;
+  value: string | number;
+  subline?: string;
+  /** value text colour class, e.g. 'text-accent', 'text-green-400' */
+  color?: string;
+  sublineColor?: string;
+  /** When true, applies the rose glow + gradient bg used for the lead card. */
+  featured?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={[
+        'rounded-xl p-5 relative overflow-hidden',
+        featured
+          ? 'bg-gradient-to-br from-accent/10 via-bg-secondary to-bg-secondary shadow-[0_0_0_1px_rgb(var(--c-accent)/0.18)_inset,_0_6px_28px_-10px_rgb(var(--c-accent)/0.25)]'
+          : 'bg-bg-secondary shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]',
+      ].join(' ')}
+    >
+      <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-text-muted mb-3">
+        {label}
       </div>
-      <div>
-        <p className="text-2xl font-bold text-text-primary">{value}</p>
-        <p className="text-sm text-text-muted">{label}</p>
+      <div className={`text-[34px] font-semibold leading-none ${color ?? 'text-text-primary'}`}>
+        {value}
+      </div>
+      {subline && (
+        <div className={`text-xs font-mono mt-2 ${sublineColor ?? 'text-text-muted'}`}>
+          {subline}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ── Donut chart ─────────────────────────────────────────────────────────────
+
+interface DonutSlice { name: string; value: number; color: string }
+
+function OsDonut({ slices, total }: { slices: DonutSlice[]; total: number }) {
+  // Convert to dasharray fragments. Each slice gets `value/total*100` units
+  // of the 100-unit circumference, and the next slice's offset is the
+  // negative cumulative sum.
+  let cumulative = 0;
+  const arcs = slices.map((s) => {
+    const len = total > 0 ? (s.value / total) * 100 : 0;
+    const offset = -cumulative + 25; // start at 12 o'clock (offset = 25 of 100)
+    cumulative += len;
+    return { ...s, len, offset };
+  });
+  return (
+    <div className="flex items-center gap-5">
+      <svg viewBox="0 0 42 42" className="w-28 h-28 shrink-0">
+        <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="3.5" />
+        {arcs.map((a) => (
+          <circle
+            key={a.name}
+            cx="21" cy="21" r="15.915"
+            fill="none"
+            stroke={a.color}
+            strokeWidth="3.5"
+            strokeDasharray={`${a.len} ${100 - a.len}`}
+            strokeDashoffset={a.offset}
+            strokeLinecap="butt"
+            transform="rotate(-90 21 21)"
+          />
+        ))}
+        <text x="21" y="20" textAnchor="middle" dominantBaseline="middle"
+              fill="rgb(var(--c-text-primary))" fontSize="6.5" fontWeight="600">{total}</text>
+        <text x="21" y="26" textAnchor="middle" dominantBaseline="middle"
+              fill="rgb(var(--c-text-muted))" fontSize="2.6" fontFamily="JetBrains Mono">total</text>
+      </svg>
+      <div className="flex-1 flex flex-col gap-2">
+        {slices.map((s) => {
+          const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+          return (
+            <div key={s.name} className="flex items-center gap-3 text-[13px]">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
+              <span className="text-text-primary font-medium flex-1">{s.name}</span>
+              <span className="text-text-muted font-mono text-[11px]">{s.value} · {pct}%</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
-  return to ? <Link to={to}>{content}</Link> : content;
 }
 
-function ComplianceBadge({ score }: { score: number | null }) {
-  if (score === null || isNaN(score)) return <span className="text-xs text-text-muted">—</span>;
-  const color = score >= 80 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400';
-  const bg = score >= 80 ? 'bg-green-400/10' : score >= 50 ? 'bg-yellow-400/10' : 'bg-red-400/10';
-  return (
-    <span className={clsx('text-xs font-semibold px-1.5 py-0.5 rounded', color, bg)}>
-      {score.toFixed(0)}%
-    </span>
+// ── Bottom status card ──────────────────────────────────────────────────────
+
+function StatusCard({
+  icon, label, name, count, badge, badgeTone = 'muted',
+  iconTone = 'accent', to,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  name: string;
+  count?: string;
+  badge?: string;
+  badgeTone?: 'green' | 'amber' | 'red' | 'muted';
+  iconTone?: 'accent' | 'amber' | 'green' | 'blue';
+  to?: string;
+}) {
+  const iconBg: Record<string, string> = {
+    accent: 'bg-accent/10 text-accent',
+    amber:  'bg-amber-500/10 text-amber-400',
+    green:  'bg-green-500/10 text-green-400',
+    blue:   'bg-blue-500/10 text-blue-400',
+  };
+  const badgeBg: Record<string, string> = {
+    green:  'bg-green-500/12 text-green-400',
+    amber:  'bg-amber-500/12 text-amber-400',
+    red:    'bg-accent/12 text-accent',
+    muted:  'bg-bg-hover text-text-muted',
+  };
+  const body = (
+    <div className="flex items-center gap-3.5 rounded-xl bg-bg-secondary p-4 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg[iconTone]}`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-text-muted">{label}</div>
+        <div className="text-[15px] font-semibold text-text-primary mt-0.5 truncate">{name}</div>
+        {count && <div className="text-[12px] font-mono text-text-muted mt-0.5">{count}</div>}
+      </div>
+      {badge && (
+        <div className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-medium shrink-0 ${badgeBg[badgeTone]}`}>
+          {badge}
+        </div>
+      )}
+    </div>
   );
+  return to ? <Link to={to} className="block hover:opacity-90 transition-opacity">{body}</Link> : body;
 }
 
-function GroupCard({ stats, wide }: { stats: GroupStats; wide?: boolean }) {
-  const { t } = useTranslation();
-  const name = anonymize(stats.groupName) || t('dashboard.ungrouped');
-  const healthPercent = stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
-  const healthColor = healthPercent >= 80 ? 'text-green-400' : healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400';
-  const barColor = healthPercent >= 80 ? 'bg-green-400' : healthPercent >= 50 ? 'bg-yellow-400' : 'bg-red-400';
-
-  if (wide) {
-    return (
-      <Link
-        to={stats.groupId ? `/group/${stats.groupId}` : '/devices'}
-        className="p-4 bg-bg-secondary border border-border rounded-xl hover:border-accent/50 transition-colors flex items-center gap-5"
-      >
-        {/* Name */}
-        <div className="flex items-center gap-2 min-w-[160px]">
-          <FolderOpen className="w-5 h-5 text-accent shrink-0" />
-          <h3 className="text-sm font-semibold text-text-primary truncate">{name}</h3>
-        </div>
-
-        {/* Online / Total */}
-        <div className="flex items-center gap-2 min-w-[100px]">
-          <Wifi className="w-3.5 h-3.5 text-green-400 shrink-0" />
-          <span className={clsx('text-sm font-semibold', healthColor)}>{stats.online}</span>
-          <span className="text-xs text-text-muted">/ {stats.total}</span>
-        </div>
-
-        {/* Health bar */}
-        <div className="flex-1 max-w-[200px]">
-          <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
-            <div className={clsx('h-full rounded-full transition-all', barColor)} style={{ width: `${healthPercent}%` }} />
-          </div>
-        </div>
-
-        {/* Alerts */}
-        <div className="flex items-center gap-3 text-xs min-w-[100px]">
-          {stats.warning > 0 && <span className="flex items-center gap-1 text-yellow-400"><AlertTriangle className="w-3 h-3" />{stats.warning}</span>}
-          {stats.critical > 0 && <span className="flex items-center gap-1 text-red-400"><AlertCircle className="w-3 h-3" />{stats.critical}</span>}
-          {stats.warning === 0 && stats.critical === 0 && <span className="text-text-muted">—</span>}
-        </div>
-
-        {/* Compliance */}
-        <div className="flex items-center gap-1.5 text-xs min-w-[80px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-text-muted shrink-0" />
-          <ComplianceBadge score={stats.complianceScore} />
-          {stats.policyCount > 0 && <span className="text-text-muted">({stats.policyCount})</span>}
-        </div>
-
-        {/* Updates */}
-        <div className="flex items-center gap-1 text-xs min-w-[50px]">
-          {stats.pendingUpdates > 0 ? (
-            <span className="flex items-center gap-1 text-orange-400"><Package className="w-3 h-3" />{stats.pendingUpdates}</span>
-          ) : (
-            <span className="text-text-muted">—</span>
-          )}
-        </div>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      to={stats.groupId ? `/group/${stats.groupId}` : '/devices'}
-      className="p-3 bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors space-y-2"
-    >
-      <div className="flex items-center gap-2">
-        <FolderOpen className="w-3.5 h-3.5 text-accent shrink-0" />
-        <h3 className="text-xs font-semibold text-text-primary truncate flex-1">{name}</h3>
-        <span className={clsx('text-xs font-medium', healthColor)}>{stats.online}/{stats.total}</span>
-      </div>
-      <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
-        <div className={clsx('h-full rounded-full', barColor)} style={{ width: `${healthPercent}%` }} />
-      </div>
-      <div className="flex items-center gap-2 text-[10px]">
-        {stats.warning > 0 && <span className="text-yellow-400">{stats.warning}w</span>}
-        {stats.critical > 0 && <span className="text-red-400">{stats.critical}c</span>}
-        <span className="flex-1" />
-        <ShieldCheck className="w-2.5 h-2.5 text-text-muted" />
-        <ComplianceBadge score={stats.complianceScore} />
-        {stats.pendingUpdates > 0 && <span className="text-orange-400"><Package className="w-2.5 h-2.5 inline" /> {stats.pendingUpdates}</span>}
-      </div>
-    </Link>
-  );
-}
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { t } = useTranslation();
   const { fetchDevices, summary, fetchSummary } = useDeviceStore();
+  const { openAddAgentModal } = useUiStore();
   const [isLoading, setIsLoading] = useState(true);
   const [groupStats, setGroupStats] = useState<GroupStats[]>([]);
-  const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -137,12 +163,50 @@ export function DashboardPage() {
         fetchDevices(),
         fetchSummary(),
         deviceApi.getGroupStats().then(setGroupStats).catch(() => {}),
-        groupsApi.tree().then(setGroupTree).catch(() => {}),
       ]);
       setIsLoading(false);
     };
     load();
   }, [fetchDevices, fetchSummary]);
+
+  // Derived KPIs
+  const total       = summary?.total ?? 0;
+  const online      = summary?.online ?? 0;
+  const offline     = summary?.offline ?? 0;
+  const pendingUpd  = summary?.pendingUpdates ?? 0;
+  const stale       = summary?.staleDevices ?? 0;
+  const upToDate    = summary?.agentUpToDate ?? 0;
+  const outdated    = summary?.agentOutdated ?? 0;
+  const latestVer   = summary?.latestAgentVersion ?? '';
+  const remoteSess  = summary?.activeRemoteSessions ?? 0;
+  const upcoming    = summary?.upcomingSchedules ?? 0;
+
+  const onlinePct  = total > 0 ? Math.round((online / total) * 100) : 0;
+  const offlinePct = total > 0 ? Math.round((offline / total) * 100) : 0;
+  const updPct     = total > 0 ? Math.round((pendingUpd / total) * 100) : 0;
+  const stalePct   = total > 0 ? Math.round((stale / total) * 100) : 0;
+
+  // OS donut data
+  const os = summary?.osByType ?? { windows: 0, macos: 0, linux: 0, other: 0 };
+  const osSlices: DonutSlice[] = useMemo(() => [
+    { name: 'Windows', value: os.windows, color: '#4f7bff' },
+    { name: 'Linux',   value: os.linux,   color: '#f5a623' },
+    { name: 'macOS',   value: os.macos,   color: '#1edd8a' },
+    { name: t('dashboard.osOther', 'Autres'),  value: os.other, color: 'rgba(255,255,255,0.20)' },
+  ], [os, t]);
+
+  // Largest groups (top 5 by direct device count)
+  const topGroups = useMemo(
+    () => [...groupStats]
+      .filter((g) => g.groupId !== null)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5),
+    [groupStats],
+  );
+  const largest = topGroups[0];
+  const largestUpPct = largest && largest.total > 0
+    ? Math.round((largest.online / largest.total) * 100)
+    : null;
 
   if (isLoading) {
     return (
@@ -152,227 +216,204 @@ export function DashboardPage() {
     );
   }
 
-  const s = summary;
-
-  // Build a lookup map groupId → stats (direct devices only)
-  const directStatsMap = new Map<number | null, GroupStats>();
-  for (const gs of groupStats) directStatsMap.set(gs.groupId, gs);
-
-  // Compute aggregated stats for a group (its own devices + all descendants)
-  const emptyStats = (id: number | null, name: string | null): GroupStats => ({
-    groupId: id, groupName: name, online: 0, offline: 0, warning: 0, critical: 0,
-    total: 0, complianceScore: null, policyCount: 0, pendingUpdates: 0,
-  });
-
-  const computeAggregatedStats = (node: DeviceGroupTreeNode): GroupStats => {
-    const own = directStatsMap.get(node.id);
-    const agg = emptyStats(node.id, node.name);
-
-    // Add own direct devices
-    if (own) {
-      agg.online += own.online; agg.offline += own.offline;
-      agg.warning += own.warning; agg.critical += own.critical;
-      agg.total += own.total; agg.pendingUpdates += own.pendingUpdates;
-      agg.policyCount += own.policyCount;
-    }
-
-    // Recursively add children
-    const childAggs: GroupStats[] = [];
-    for (const child of node.children) {
-      const childAgg = computeAggregatedStats(child);
-      childAggs.push(childAgg);
-      agg.online += childAgg.online; agg.offline += childAgg.offline;
-      agg.warning += childAgg.warning; agg.critical += childAgg.critical;
-      agg.total += childAgg.total; agg.pendingUpdates += childAgg.pendingUpdates;
-      agg.policyCount = Math.max(agg.policyCount, childAgg.policyCount);
-    }
-
-    // Average compliance across all non-null scores
-    const scores = [own?.complianceScore, ...childAggs.map(c => c.complianceScore)].filter((s): s is number => s !== null);
-    agg.complianceScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : null;
-
-    return agg;
-  };
-
-  // Recursive render: groups with children = wide, leaf groups = small grid
-  const renderGroupNode = (node: DeviceGroupTreeNode, depth: number): React.ReactNode => {
-    const hasChildren = node.children.length > 0;
-    const aggStats = computeAggregatedStats(node);
-
-    if (!hasChildren) {
-      // Leaf — rendered as small card by parent's grid
-      return null; // handled in parent
-    }
-
-    // Node with children — wide card + recurse
-    const leafChildren = node.children.filter(c => c.children.length === 0);
-    const branchChildren = node.children.filter(c => c.children.length > 0);
-
-    return (
-      <div key={node.id} className="space-y-2" style={{ marginLeft: depth > 0 ? 16 : 0 }}>
-        <GroupCard stats={aggStats} wide />
-
-        {/* Branch children (have sub-groups) — recurse */}
-        {branchChildren.map(child => renderGroupNode(child, depth + 1))}
-
-        {/* Leaf children (no sub-groups) — small grid */}
-        {leafChildren.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-4 border-l-2 border-accent/20 ml-2">
-            {leafChildren.map(child => {
-              const childStats = computeAggregatedStats(child);
-              return <GroupCard key={child.id} stats={childStats} />;
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">{t('dashboard.title')}</h1>
-        <Link
-          to="/devices"
-          className="flex items-center gap-2 text-sm text-accent hover:text-accent/80 transition-colors"
+    <div className="flex flex-col gap-5 p-6">
+
+      {/* Page header */}
+      <div className="flex items-baseline gap-4">
+        <h1 className="text-2xl font-semibold tracking-wide text-text-primary">
+          {t('dashboard.title', 'Tableau de bord')}
+        </h1>
+        <span className="text-xs font-mono tracking-wider text-text-muted">
+          {total} {t('dashboard.devicesManaged', 'appareils gérés')}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={openAddAgentModal}
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-bg-hover hover:bg-bg-active text-[13px] font-medium text-text-primary transition-colors"
+          >
+            <Plus size={14} />
+            {t('nav.addAgent')}
+          </button>
+          <Link
+            to="/devices"
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-accent/12 hover:bg-accent/20 text-[13px] font-medium text-accent transition-colors"
+          >
+            {t('dashboard.allDevices', 'Voir tous les appareils')}
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Hero row — 5 KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <HeroCard
+          featured
+          label={t('dashboard.totalDevices', 'Appareils total')}
+          value={total}
+          color="text-accent"
         >
-          {t('dashboard.viewAll')}
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+          <div className="mt-3 h-1 w-full bg-white/[0.04] rounded">
+            <div className="h-full rounded bg-accent" style={{ width: `${onlinePct}%` }} />
+          </div>
+          <div className="text-[11px] font-mono text-text-muted mt-2">
+            {online} {t('dashboard.online')} · {offline} {t('dashboard.offline')}
+          </div>
+        </HeroCard>
+
+        <HeroCard
+          label={t('dashboard.online')}
+          value={online}
+          color="text-green-400"
+          subline={`${onlinePct}% ${t('dashboard.ofFleet', 'du parc')}`}
+        >
+          <div className="mt-3 h-0.5 w-full bg-white/[0.04] rounded">
+            <div className="h-full rounded bg-green-400" style={{ width: `${onlinePct}%` }} />
+          </div>
+        </HeroCard>
+
+        <HeroCard
+          label={t('dashboard.offline')}
+          value={offline}
+          sublineColor="text-text-muted"
+          subline={`${offlinePct}% ${t('dashboard.ofFleet', 'du parc')}`}
+        >
+          <div className="mt-3 h-0.5 w-full bg-white/[0.04] rounded">
+            <div className="h-full rounded bg-text-muted" style={{ width: `${offlinePct}%` }} />
+          </div>
+        </HeroCard>
+
+        <HeroCard
+          label={t('dashboard.pendingUpdates', 'MAJ en attente')}
+          value={pendingUpd}
+          color="text-amber-400"
+          subline={`${updPct}% ${t('dashboard.toPatch', 'à patcher')}`}
+        >
+          <div className="mt-3 h-0.5 w-full bg-white/[0.04] rounded">
+            <div className="h-full rounded bg-amber-400" style={{ width: `${updPct}%` }} />
+          </div>
+        </HeroCard>
+
+        <HeroCard
+          label={t('dashboard.staleDevices', 'Injoignables 72h')}
+          value={stale}
+          color="text-accent"
+          sublineColor="text-accent"
+          subline={stale > 0 ? `${stalePct}% ${t('dashboard.unreachable', 'injoignables')}` : t('dashboard.allReachable', 'tout le parc joignable')}
+        >
+          <div className="mt-3 h-0.5 w-full bg-white/[0.04] rounded">
+            <div className="h-full rounded bg-accent" style={{ width: `${stalePct}%` }} />
+          </div>
+        </HeroCard>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard icon={Monitor} label="Total" value={s?.total ?? 0} color="bg-blue-500/20 text-blue-400" to="/devices" />
-        <StatCard icon={Wifi} label="Online" value={s?.online ?? 0} color="bg-green-500/20 text-green-400" to="/devices?status=online" />
-        <StatCard icon={WifiOff} label="Offline" value={s?.offline ?? 0} color="bg-gray-500/20 text-gray-400" to="/devices?status=offline" />
-        <StatCard icon={AlertTriangle} label="Warning" value={s?.warning ?? 0} color="bg-yellow-500/20 text-yellow-400" to="/devices?status=warning" />
-        <StatCard icon={AlertCircle} label="Critical" value={s?.critical ?? 0} color="bg-red-500/20 text-red-400" to="/devices?status=critical" />
-        <StatCard icon={Clock} label="Pending" value={s?.pending ?? 0} color="bg-rose-500/20 text-rose-400" to="/admin/devices" />
+      {/* Two-col row: top groups list + OS donut */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        <div className="lg:col-span-2 rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
+          <div className="flex items-center gap-3 mb-4">
+            <div>
+              <div className="text-[15px] font-semibold text-text-primary">
+                {t('dashboard.topGroups', 'Plus gros groupes')}
+              </div>
+              <div className="text-[11px] font-mono text-text-muted tracking-wider">
+                {t('dashboard.topGroupsSub', 'tri par taille de parc')}
+              </div>
+            </div>
+            <Link to="/devices" className="ml-auto text-[12px] font-mono text-text-muted hover:text-accent transition-colors">
+              {t('dashboard.allGroups', 'Tous les groupes')} →
+            </Link>
+          </div>
+          {topGroups.length === 0 ? (
+            <div className="text-text-muted text-sm py-8 text-center">
+              {t('dashboard.noGroups', 'Aucun groupe configuré')}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {topGroups.map((g) => {
+                const upPct = g.total > 0 ? Math.round((g.online / g.total) * 100) : 0;
+                const barColor = upPct >= 95 ? 'bg-green-400' : upPct >= 70 ? 'bg-amber-400' : 'bg-accent';
+                return (
+                  <Link
+                    key={g.groupId ?? 'ungrouped'}
+                    to={g.groupId ? `/group/${g.groupId}` : '/devices'}
+                    className="group flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-bg-hover transition-colors"
+                  >
+                    <FolderOpen size={15} className="text-accent shrink-0" />
+                    <span className="text-[14px] font-medium text-text-primary truncate flex-1">
+                      {anonymize(g.groupName) || t('dashboard.ungrouped', 'Sans groupe')}
+                    </span>
+                    <div className="w-32 h-1 bg-white/[0.04] rounded overflow-hidden">
+                      <div className={`h-full ${barColor}`} style={{ width: `${upPct}%` }} />
+                    </div>
+                    <span className="font-mono text-[11px] text-text-muted w-16 text-right">
+                      {g.online} / {g.total}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
+          <div className="mb-4">
+            <div className="text-[15px] font-semibold text-text-primary">
+              {t('dashboard.osBreakdown', 'Répartition OS')}
+            </div>
+            <div className="text-[11px] font-mono text-text-muted tracking-wider">
+              {t('dashboard.fleetTotal', 'parc total')}
+            </div>
+          </div>
+          <OsDonut slices={osSlices} total={total} />
+        </div>
       </div>
 
-      {/* Quick stats row */}
-      {s && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors">
-            <div className="p-3 rounded-lg bg-orange-500/20 text-orange-400">
-              <Package className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">{s.pendingUpdates}</p>
-              <p className="text-sm text-text-muted">{t('dashboard.pendingUpdates')}</p>
-            </div>
-          </div>
-
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors">
-            <div className={`p-3 rounded-lg ${s.agentOutdated === 0 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-              <ArrowUpCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-text-primary">{s.agentUpToDate}<span className="text-sm font-normal text-text-muted">/{s.agentUpToDate + s.agentOutdated}</span></p>
-              <p className="text-sm text-text-muted">Agent v{s.latestAgentVersion}</p>
-            </div>
-          </div>
-
-          {/* OS breakdown */}
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl hover:border-accent/50 transition-colors">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
-                <Monitor className="w-4 h-4" />
-              </div>
-              <p className="text-sm text-text-muted">{t('dashboard.osByType')}</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                <span className="text-text-muted">Win</span>
-                <span className="font-semibold text-text-primary">{s.osByType?.windows ?? 0}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                <span className="text-text-muted">Mac</span>
-                <span className="font-semibold text-text-primary">{s.osByType?.macos ?? 0}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-orange-400" />
-                <span className="text-text-muted">Linux</span>
-                <span className="font-semibold text-text-primary">{s.osByType?.linux ?? 0}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Active remote sessions */}
-          <Link to="/admin/supervision">
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
-              <div className={`p-3 rounded-lg ${(s.activeRemoteSessions ?? 0) > 0 ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                <ScreenShare className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-text-primary">{s.activeRemoteSessions ?? 0}</p>
-                <p className="text-sm text-text-muted">{t('dashboard.activeSessions')}</p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Upcoming schedules (24h) */}
-          <Link to="/automations">
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
-              <div className={`p-3 rounded-lg ${(s.upcomingSchedules ?? 0) > 0 ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                <CalendarClock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-text-primary">{s.upcomingSchedules ?? 0}</p>
-                <p className="text-sm text-text-muted">{t('dashboard.upcomingSchedules')}</p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Stale devices (72h) */}
-          <Link to="/devices?status=offline">
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl flex items-center gap-4 hover:border-accent/50 transition-colors cursor-pointer">
-              <div className={`p-3 rounded-lg ${(s.staleDevices ?? 0) > 0 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                <Ghost className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-text-primary">{s.staleDevices ?? 0}</p>
-                <p className="text-sm text-text-muted">{t('dashboard.staleDevices')}</p>
-              </div>
-            </div>
-          </Link>
-        </div>
-      )}
-
-      {/* Group overview */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            <Activity className="w-4 h-4 text-text-muted" />
-            {t('dashboard.groupOverview')}
-          </h2>
-          <Link to="/admin/devices?tab=groups" className="text-sm text-accent hover:text-accent/80">{t('dashboard.manageGroups')} →</Link>
-        </div>
-        {groupStats.length === 0 ? (
-          <div className="p-8 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
-            <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>{t('dashboard.noGroups')}</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {groupTree.map((root) => {
-              const hasChildren = root.children.length > 0;
-              if (hasChildren) {
-                return renderGroupNode(root, 0);
-              }
-              // Root without children — show as wide card
-              const aggStats = computeAggregatedStats(root);
-              return <GroupCard key={root.id} stats={aggStats} wide />;
-            })}
-
-            {/* Ungrouped devices */}
-            {directStatsMap.get(null) && <GroupCard stats={directStatsMap.get(null)!} wide />}
-          </div>
+      {/* Bottom row — actionable status snapshots */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {largest && (
+          <StatusCard
+            icon={<FolderOpen size={16} />}
+            iconTone="green"
+            label={t('dashboard.largestGroup', 'Plus gros groupe')}
+            name={anonymize(largest.groupName) || '—'}
+            count={`${largest.total} ${t('dashboard.devices', 'appareils')}`}
+            badge={largestUpPct !== null ? `${largestUpPct}% up` : undefined}
+            badgeTone={largestUpPct !== null && largestUpPct >= 95 ? 'green' : 'amber'}
+            to={largest.groupId ? `/group/${largest.groupId}` : undefined}
+          />
         )}
+
+        <StatusCard
+          icon={<Package size={16} />}
+          iconTone="blue"
+          label={t('dashboard.agentVersion', 'Version d\'agent')}
+          name={latestVer ? `v${latestVer}` : '—'}
+          count={`${upToDate} / ${upToDate + outdated} ${t('dashboard.upToDate', 'à jour')}`}
+          badge={outdated > 0 ? `${outdated} outdated` : undefined}
+          badgeTone={outdated > 0 ? 'amber' : 'muted'}
+        />
+
+        <StatusCard
+          icon={<ScreenShare size={16} />}
+          iconTone="accent"
+          label={t('dashboard.activeSessions', 'Sessions actives')}
+          name={remoteSess > 0 ? String(remoteSess) : '—'}
+          count={t('dashboard.remoteSessionsSub', 'sessions distantes')}
+          to="/admin/supervision"
+        />
+
+        <StatusCard
+          icon={<Clock size={16} />}
+          iconTone="amber"
+          label={t('dashboard.upcomingSchedules', 'Schedules 24h')}
+          name={String(upcoming)}
+          count={t('dashboard.upcomingSchedulesSub', 'planifiés dans les prochaines 24h')}
+          to="/automations"
+          badge={upcoming === 0 ? '—' : undefined}
+          badgeTone="muted"
+        />
       </div>
+
     </div>
   );
 }

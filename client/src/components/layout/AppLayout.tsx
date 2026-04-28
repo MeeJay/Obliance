@@ -15,7 +15,7 @@ export function AppLayout() {
   // Global socket subscriptions — always active regardless of which page is open
   useSocket();
 
-  const { sidebarOpen, sidebarWidth, setSidebarWidth, sidebarFloating } = useUiStore();
+  const { sidebarOpen, sidebarWidth, setSidebarWidth, sidebarFloating, sidebarCollapsed } = useUiStore();
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -131,12 +131,14 @@ export function AppLayout() {
             'flex-shrink-0 transition-all duration-200 relative',
             !sidebarOpen && 'w-0 overflow-hidden',
           )}
-          style={sidebarOpen ? { width: `${sidebarWidth}px` } : undefined}
+          style={sidebarOpen
+            ? { width: sidebarCollapsed ? '64px' : `${sidebarWidth}px` }
+            : undefined}
         >
           <Sidebar />
 
-          {/* Resize handle */}
-          {sidebarOpen && (
+          {/* Resize handle — disabled while collapsed (fixed 64 px width). */}
+          {sidebarOpen && !sidebarCollapsed && (
             <div
               onMouseDown={handleMouseDown}
               className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors z-10"
