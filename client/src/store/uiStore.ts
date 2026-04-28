@@ -64,15 +64,25 @@ export const useUiStore = create<UiState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   openAddAgentModal: () => set({ addAgentModalOpen: true }),
   closeAddAgentModal: () => set({ addAgentModalOpen: false }),
+  // Floating and collapsed are mutually exclusive — leaving both on makes
+  // the AppLayout draw the 260 px floating overlay AND a 64 px sidebar
+  // inside it, so the drop-shadow extends to the wrong width. Whenever
+  // we toggle one ON, we forcibly turn the other OFF and persist both.
   toggleSidebarFloating: () => set((s) => {
     const next = !s.sidebarFloating;
-    try { localStorage.setItem(STORAGE_KEY_FLOATING, String(next)); } catch { /* ignore */ }
-    return { sidebarFloating: next };
+    try {
+      localStorage.setItem(STORAGE_KEY_FLOATING, String(next));
+      if (next) localStorage.setItem(STORAGE_KEY_COLLAPSED, 'false');
+    } catch { /* ignore */ }
+    return { sidebarFloating: next, sidebarCollapsed: next ? false : s.sidebarCollapsed };
   }),
   toggleSidebarCollapsed: () => set((s) => {
     const next = !s.sidebarCollapsed;
-    try { localStorage.setItem(STORAGE_KEY_COLLAPSED, String(next)); } catch { /* ignore */ }
-    return { sidebarCollapsed: next };
+    try {
+      localStorage.setItem(STORAGE_KEY_COLLAPSED, String(next));
+      if (next) localStorage.setItem(STORAGE_KEY_FLOATING, 'false');
+    } catch { /* ignore */ }
+    return { sidebarCollapsed: next, sidebarFloating: next ? false : s.sidebarFloating };
   }),
   setSidebarWidth: (width) => {
     const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, width));

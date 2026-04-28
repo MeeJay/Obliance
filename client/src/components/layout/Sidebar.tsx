@@ -655,13 +655,19 @@ export function Sidebar() {
           <img src="/logo.svg" alt="Obliance" className="h-10 w-auto max-w-[200px] object-contain" />
         </Link>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleSidebarCollapsed}
-            title={t('nav.collapseSidebar', 'Collapse sidebar')}
-            className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-          >
-            <ChevronsLeft size={15} />
-          </button>
+          {/* Collapse and Float are mutually exclusive: in collapsed mode
+              we already hide the Float button, so do the symmetric thing
+              and hide Collapse while floating. Otherwise enabling both
+              leaves the floating-panel shadow stuck at 260 px width. */}
+          {!sidebarFloating && (
+            <button
+              onClick={toggleSidebarCollapsed}
+              title={t('nav.collapseSidebar', 'Collapse sidebar')}
+              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            >
+              <ChevronsLeft size={15} />
+            </button>
+          )}
           <button
             onClick={toggleSidebarFloating}
             title={sidebarFloating ? t('nav.pinSidebar', 'Pin sidebar') : t('nav.floatSidebar', 'Float sidebar (auto-hide)')}
