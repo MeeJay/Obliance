@@ -12,12 +12,22 @@ import { connectSocket, disconnectSocket } from '../socket/socketClient';
 import { useLiveAlertsStore } from './liveAlertsStore';
 import { setLanguage } from '../i18n';
 import { useTenantStore } from './tenantStore';
+import { applyTheme, type AppTheme } from '../utils/theme';
 
 function syncPreferencesToStore(user: User) {
   const prefs = user.preferences;
   if (prefs) {
     useLiveAlertsStore.getState().setEnabled(prefs.toastEnabled ?? true);
     useLiveAlertsStore.getState().setPosition(prefs.toastPosition ?? 'bottom-right');
+    // Theme is owned by Obligate (SSO) — when the user picks a theme there,
+    // it lands in user.preferences.preferredTheme on the next /auth/me. We
+    // must apply it to the DOM here, otherwise the boot-time initTheme()
+    // (which only reads localStorage) keeps a stale theme. Validates the
+    // value against AppTheme so an unknown id can't poison data-theme.
+    const t = (prefs as { preferredTheme?: string }).preferredTheme;
+    if (t === 'obli-operator' || t === 'modern' || t === 'neon') {
+      applyTheme(t as AppTheme);
+    }
   }
   if (user.preferredLanguage) {
     setLanguage(user.preferredLanguage);

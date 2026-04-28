@@ -11,7 +11,7 @@ const enrollmentSchema = z.object({
   preferredLanguage: z.string().max(10).default('en'),
   toastEnabled: z.boolean().default(true),
   toastPosition: z.enum(['top-center', 'bottom-right']).default('bottom-right'),
-  preferredTheme: z.enum(['modern', 'neon']).default('modern'),
+  preferredTheme: z.enum(['obli-operator', 'modern', 'neon']).default('obli-operator'),
 });
 
 export const enrollmentController = {

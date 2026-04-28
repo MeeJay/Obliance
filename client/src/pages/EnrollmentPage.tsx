@@ -405,7 +405,7 @@ export function EnrollmentPage() {
     email: user?.email ?? '',
     toastEnabled: true,
     toastPosition: 'bottom-right',
-    preferredTheme: (user?.preferences as { preferredTheme?: AppTheme } | null)?.preferredTheme ?? 'modern',
+    preferredTheme: (user?.preferences as { preferredTheme?: AppTheme } | null)?.preferredTheme ?? 'obli-operator',
   });
 
   const [hasPassword, setHasPassword] = useState(true); // optimistic: assume true until fetched

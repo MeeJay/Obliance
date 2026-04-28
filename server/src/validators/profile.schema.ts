@@ -6,7 +6,7 @@ const userPreferencesSchema = z.object({
   multiTenantNotifications:  z.boolean().optional(),
   sidebarFloating:           z.boolean().optional(),
   theme:                     z.enum(['dark', 'light']).optional(),
-  preferredTheme:            z.enum(['modern', 'neon']).optional(),
+  preferredTheme:            z.enum(['obli-operator', 'modern', 'neon']).optional(),
 }).passthrough().nullable().optional();
 
 export const updateProfileSchema = z.object({
