@@ -26,9 +26,12 @@
   --c-border:                42 48 72;
   --c-border-light:          62 70 100;
 
-  --c-text-primary:          232 236 245;
-  --c-text-secondary:        140 147 182;
-  --c-text-muted:            75 82 115;
+  /* Text scale — bumped lighter than the original Obli Design v1 spec so
+     secondary/muted text reads cleanly against the dark blue-night bg.
+     Spec floor: text-secondary >= 0.55 contrast, text-muted >= 0.40. */
+  --c-text-primary:          240 244 252;
+  --c-text-secondary:        180 188 215;
+  --c-text-muted:            130 140 175;
 
   --c-status-up:             30 221 138;
   --c-status-up-bg:          12 40 26;

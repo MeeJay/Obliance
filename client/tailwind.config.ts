@@ -58,17 +58,28 @@ export default {
         },
       },
       fontFamily: {
-        // Obli Design v1 — Rajdhani for everything UI/display, JetBrains
-        // Mono for IDs / counts / dates. Native sans/mono left as
-        // fallbacks for browsers that fail to load Google Fonts.
+        // Obli Design v1 — Rajdhani is a CONDENSED display font; it's beautiful
+        // at 24+px (page titles, hero KPIs) but blurry/unreadable at 12-13px
+        // body sizes. So:
+        //   font-sans     → Inter / system stack for body, nav, table rows
+        //   font-display  → Rajdhani for headings + hero values (use class)
+        //   font-mono     → JetBrains Mono for IDs / counts / timestamps
+        // Fallback chain stays native so Google Fonts failures don't blank UI.
         sans: [
-          'Rajdhani',
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           'Segoe UI',
           'Noto Sans',
           'Helvetica',
           'Arial',
+          'sans-serif',
+        ],
+        display: [
+          'Rajdhani',
+          'Inter',
+          '-apple-system',
+          'Segoe UI',
           'sans-serif',
         ],
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],

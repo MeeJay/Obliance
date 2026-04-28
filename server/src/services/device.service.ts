@@ -1001,15 +1001,28 @@ class DeviceService {
     const vCounts: Record<string, number> = {};
     for (const r of versionRows) vCounts[r.vstat] = parseInt(r.count);
 
-    // OS breakdown
+    // OS breakdown — total per OS family + online count per OS family. The
+    // dashboard renders both: a donut (totals) AND a per-OS connectivity bar
+    // (online vs offline) using osConnectivity below.
     const osRows = await db('devices')
       .where({ tenant_id: tenantId })
-      .select(db.raw('os_type, count(*) as count'))
-      .groupBy('os_type');
+      .select(db.raw("os_type, status = 'online' as is_online, count(*) as count"))
+      .groupBy('os_type', db.raw("status = 'online'"));
     const osByType = { windows: 0, macos: 0, linux: 0, other: 0 };
+    const osConnectivity: Record<string, { online: number; total: number }> = {
+      windows: { online: 0, total: 0 },
+      macos:   { online: 0, total: 0 },
+      linux:   { online: 0, total: 0 },
+      other:   { online: 0, total: 0 },
+    };
     for (const r of osRows) {
       const key = r.os_type as keyof typeof osByType;
-      osByType[key] = (osByType[key] || 0) + parseInt(r.count);
+      const c = parseInt(r.count);
+      osByType[key] = (osByType[key] || 0) + c;
+      if (osConnectivity[key]) {
+        osConnectivity[key].total += c;
+        if (r.is_online) osConnectivity[key].online += c;
+      }
     }
 
     // Active remote sessions
@@ -1079,6 +1092,7 @@ class DeviceService {
       agentOutdated: vCounts.outdated || 0,
       latestAgentVersion: latestVersion,
       osByType,
+      osConnectivity,
       activeRemoteSessions,
       upcomingSchedules,
       staleDevices,

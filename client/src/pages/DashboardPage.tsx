@@ -54,7 +54,7 @@ function HeroFeatured({ label, value, color, series, days }: {
   return (
     <div className="rounded-xl p-5 relative overflow-hidden bg-gradient-to-br from-accent/10 via-bg-secondary to-bg-secondary shadow-[0_0_0_1px_rgb(var(--c-accent)/0.18)_inset,_0_6px_28px_-10px_rgb(var(--c-accent)/0.25)]">
       <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-text-muted mb-3">{label}</div>
-      <div className={`text-[44px] font-semibold leading-none ${color}`}>{value}</div>
+      <div className={`font-display text-[48px] font-semibold leading-none ${color}`}>{value}</div>
       <div className="mt-3"><Sparkline data={series} color="#ff6868" /></div>
       <div className="grid grid-cols-4 mt-2 gap-2">
         {days.map((d, i) => {
@@ -86,7 +86,7 @@ function HeroCard({ label, value, color, delta, deltaText, barPct, barColor }: {
   return (
     <div className="rounded-xl p-5 relative overflow-hidden bg-bg-secondary shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
       <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-text-muted mb-3">{label}</div>
-      <div className={`text-[34px] font-semibold leading-none ${color}`}>{value}</div>
+      <div className={`font-display text-[36px] font-semibold leading-none ${color}`}>{value}</div>
       {(delta != null || deltaText) && (
         <div className={`text-[12px] font-mono mt-3 ${deltaIconClass}`}>
           <span className="mr-1">{deltaIcon}</span>{deltaText}
@@ -148,10 +148,11 @@ function OsDonut({ slices, total }: { slices: DonutSlice[]; total: number }) {
 type ActivityRange = '24h' | '7j' | '14j' | '30j';
 
 function ActivityChart({ data }: { data: FleetTimeseriesPoint[] }) {
+  const { t } = useTranslation();
   if (data.length < 2) {
     return (
       <div className="h-[240px] flex items-center justify-center text-text-muted text-sm">
-        Pas assez d'historique — données après 24h
+        {t('dashboard.notEnoughHistory', "Pas assez d'historique — données après 24h")}
       </div>
     );
   }
@@ -221,15 +222,16 @@ function MiniStat({ icon, label, value, sub, color = 'text-text-primary', to }: 
 // ── Top versions agent (horizontal bars) ─────────────────────────────────────
 
 function AgentVersionsCard({ rows }: { rows: AgentVersionRow[] }) {
+  const { t } = useTranslation();
   const max = Math.max(...rows.map(r => r.count), 1);
   return (
     <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)] flex flex-col gap-3">
       <div>
-        <div className="text-[15px] font-semibold text-text-primary">Top versions agent</div>
-        <div className="text-[11px] font-mono text-text-muted tracking-wider">distribution du parc</div>
+        <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.topAgentVersions', 'Top versions agent')}</div>
+        <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.agentVersionsSub', 'distribution du parc')}</div>
       </div>
       {rows.length === 0 ? (
-        <div className="text-text-muted text-sm py-4">Aucune version reportée</div>
+        <div className="text-text-muted text-sm py-4">{t('dashboard.noVersionsReported', 'Aucune version reportée')}</div>
       ) : (
         <div className="flex flex-col gap-2">
           {rows.slice(0, 5).map(r => {
@@ -255,14 +257,15 @@ function AgentVersionsCard({ rows }: { rows: AgentVersionRow[] }) {
 // ── Conformité gauge ─────────────────────────────────────────────────────────
 
 function ComplianceGauge({ score }: { score: number | null }) {
+  const { t } = useTranslation();
   const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
   const color = pct >= 90 ? '#1edd8a' : pct >= 70 ? '#f5a623' : '#e03a3a';
   const dasharray = `${pct} 100`;
   return (
     <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)] flex flex-col gap-2">
       <div>
-        <div className="text-[15px] font-semibold text-text-primary">Conformité moyenne</div>
-        <div className="text-[11px] font-mono text-text-muted tracking-wider">policies actives</div>
+        <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.averageCompliance', 'Conformité moyenne')}</div>
+        <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.averageComplianceSub', 'policies actives')}</div>
       </div>
       <div className="flex items-center justify-center pt-2 pb-1">
         <svg viewBox="0 0 42 28" className="w-32">
@@ -274,7 +277,7 @@ function ComplianceGauge({ score }: { score: number | null }) {
         </svg>
       </div>
       <Link to="/policies" className="text-center text-[11px] font-mono text-text-muted hover:text-accent transition-colors">
-        Voir les policies →
+        {t('dashboard.viewPolicies', 'Voir les policies')} →
       </Link>
     </div>
   );
@@ -283,17 +286,18 @@ function ComplianceGauge({ score }: { score: number | null }) {
 // ── Disques saturés ──────────────────────────────────────────────────────────
 
 function DiskSaturationCard({ data }: { data: DiskSaturationResult }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)] flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <div>
-          <div className="text-[15px] font-semibold text-text-primary">Disques saturés</div>
-          <div className="text-[11px] font-mono text-text-muted tracking-wider">&gt; {data.threshold}% utilisés</div>
+          <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.diskSaturated', 'Disques saturés')}</div>
+          <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.diskSaturatedSub', '> {{threshold}}% utilisés', { threshold: data.threshold })}</div>
         </div>
-        <div className={`text-[28px] font-semibold ${data.count > 0 ? 'text-amber-400' : 'text-text-muted'} leading-none`}>{data.count}</div>
+        <div className={`font-display text-[30px] font-semibold ${data.count > 0 ? 'text-amber-400' : 'text-text-muted'} leading-none`}>{data.count}</div>
       </div>
       {data.top.length === 0 ? (
-        <div className="text-text-muted text-[12px] font-mono">Aucun disque critique</div>
+        <div className="text-text-muted text-[12px] font-mono">{t('dashboard.diskSaturatedNone', 'Aucun disque critique')}</div>
       ) : (
         <div className="flex flex-col gap-1.5">
           {data.top.map(d => (
@@ -313,19 +317,20 @@ function DiskSaturationCard({ data }: { data: DiskSaturationResult }) {
 // ── Sessions remote 24h ──────────────────────────────────────────────────────
 
 function RemoteSessionsCard({ active }: { active: number }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)] flex flex-col gap-3">
       <div>
-        <div className="text-[15px] font-semibold text-text-primary">Sessions remote</div>
-        <div className="text-[11px] font-mono text-text-muted tracking-wider">live · ObliReach + tunnels</div>
+        <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.remoteSessions', 'Sessions remote')}</div>
+        <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.remoteSessionsSub', 'live · ObliReach + tunnels')}</div>
       </div>
       <div className="flex items-baseline gap-3">
-        <span className={`text-[36px] font-semibold leading-none ${active > 0 ? 'text-accent' : 'text-text-muted'}`}>{active}</span>
-        <span className="text-[12px] font-mono text-text-muted">en cours</span>
+        <span className={`font-display text-[40px] font-semibold leading-none ${active > 0 ? 'text-accent' : 'text-text-muted'}`}>{active}</span>
+        <span className="text-[12px] font-mono text-text-muted">{t('dashboard.remoteSessionsCount', 'en cours')}</span>
       </div>
       <Link to="/admin/supervision"
         className="text-[11px] font-mono text-text-muted hover:text-accent transition-colors flex items-center gap-1">
-        <ScreenShare size={11} /> Supervision →
+        <ScreenShare size={11} /> {t('dashboard.supervision', 'Supervision')} →
       </Link>
     </div>
   );
@@ -334,24 +339,42 @@ function RemoteSessionsCard({ active }: { active: number }) {
 // ── Vue par groupe (recursive cards) ─────────────────────────────────────────
 
 function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children?: React.ReactNode; depth?: number }) {
+  const { t } = useTranslation();
   const upPct = group.total > 0 ? Math.round((group.online / group.total) * 100) : 0;
   const barColor = upPct >= 95 ? 'bg-green-400' : upPct >= 70 ? 'bg-amber-400' : 'bg-accent';
   const warnings = group.warning + group.critical;
+
+  // Conformité — green ≥90 / amber ≥70 / red <70 / muted if no policy
+  const complianceColor =
+    group.complianceScore == null ? 'text-text-muted' :
+    group.complianceScore >= 90   ? 'text-green-400' :
+    group.complianceScore >= 70   ? 'text-amber-400' :
+                                    'text-accent';
+  // MAJ — amber if any pending, muted otherwise
+  const updatesColor = group.pendingUpdates > 0 ? 'text-amber-400' : 'text-text-muted';
+  const onlineColor =
+    upPct >= 95 ? 'text-green-400' :
+    upPct >= 70 ? 'text-amber-400' :
+                  'text-accent';
+
   return (
-    <div className={`rounded-lg bg-bg-secondary px-4 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_4px_18px_-8px_rgba(0,0,0,0.45)] ${depth > 0 ? 'bg-bg-tertiary' : ''}`}>
+    <div className={`rounded-lg px-4 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_4px_18px_-8px_rgba(0,0,0,0.45)] ${depth > 0 ? 'bg-bg-tertiary' : 'bg-bg-secondary'}`}>
       <Link
         to={group.groupId ? `/group/${group.groupId}` : '/devices'}
         className="flex items-center gap-3 group min-w-0"
       >
-        <FolderOpen size={depth > 0 ? 13 : 15} className="text-accent shrink-0" />
-        <span className="text-[13px] font-semibold text-text-primary truncate min-w-0">
-          {anonymize(group.groupName) || 'Sans groupe'}
+        <FolderOpen size={depth > 0 ? 14 : 16} className="text-accent shrink-0" />
+        <span className="text-[14px] font-semibold text-text-primary truncate min-w-0">
+          {anonymize(group.groupName) || t('dashboard.ungrouped', 'Sans groupe')}
         </span>
 
-        <div className="flex items-center gap-1.5 ml-2">
-          <Wifi size={12} className="text-text-muted" />
-          <span className="font-mono text-[11px] text-text-secondary">
-            <span className={upPct >= 95 ? 'text-green-400' : upPct >= 70 ? 'text-amber-400' : 'text-accent'}>{group.online}</span>
+        <div
+          className="flex items-center gap-1.5 ml-2"
+          title={t('dashboard.tooltipOnline', '{{online}} en ligne sur {{total}} ({{pct}}%)', { online: group.online, total: group.total, pct: upPct })}
+        >
+          <Wifi size={13} className={onlineColor} />
+          <span className="font-mono text-[12px] text-text-secondary">
+            <span className={onlineColor}>{group.online}</span>
             <span className="text-text-muted"> / {group.total}</span>
           </span>
         </div>
@@ -362,16 +385,33 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
 
         <div className="flex items-center gap-3 ml-auto shrink-0">
           {warnings > 0 && (
-            <div className="flex items-center gap-1 font-mono text-[11px] text-amber-400">
-              <AlertTriangle size={12} /> {warnings}
+            <div
+              className="flex items-center gap-1 font-mono text-[12px] text-amber-400"
+              title={t('dashboard.tooltipAlerts', '{{warning}} warning · {{critical}} critical', { warning: group.warning, critical: group.critical })}
+            >
+              <AlertTriangle size={13} /> {warnings}
             </div>
           )}
-          <div className="flex items-center gap-1 font-mono text-[11px] text-text-muted">
-            <ShieldCheck size={12} />
+          <div
+            className={`flex items-center gap-1 font-mono text-[12px] ${complianceColor}`}
+            title={
+              group.complianceScore == null
+                ? t('dashboard.tooltipNoCompliance', 'Aucune policy de conformité appliquée')
+                : t('dashboard.tooltipCompliance', 'Conformité : {{pct}}% sur {{count}} policy(ies)', { pct: Math.round(group.complianceScore), count: group.policyCount })
+            }
+          >
+            <ShieldCheck size={13} />
             {group.complianceScore != null ? `${Math.round(group.complianceScore)}%` : '—'}
           </div>
-          <div className="flex items-center gap-1 font-mono text-[11px] text-text-muted">
-            <Box size={12} />
+          <div
+            className={`flex items-center gap-1 font-mono text-[12px] ${updatesColor}`}
+            title={
+              group.pendingUpdates === 0
+                ? t('dashboard.tooltipNoUpdates', 'Aucune MAJ en attente')
+                : t('dashboard.tooltipUpdates', '{{count}} appareil(s) avec MAJ en attente', { count: group.pendingUpdates })
+            }
+          >
+            <Box size={13} />
             {group.pendingUpdates}
           </div>
         </div>
@@ -379,6 +419,59 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
       {children && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 pl-3 border-l border-border ml-1">
           {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Connectivity by OS (horizontal stacked bars) ─────────────────────────────
+
+function OsConnectivityCard({ data }: {
+  data: Record<'windows' | 'macos' | 'linux' | 'other', { online: number; total: number }> | undefined;
+}) {
+  const { t } = useTranslation();
+  const rows: { name: string; color: string; online: number; total: number }[] = [
+    { name: 'Windows',                              color: '#4f7bff', online: data?.windows.online ?? 0, total: data?.windows.total ?? 0 },
+    { name: 'Linux',                                color: '#f5a623', online: data?.linux.online   ?? 0, total: data?.linux.total   ?? 0 },
+    { name: 'macOS',                                color: '#1edd8a', online: data?.macos.online   ?? 0, total: data?.macos.total   ?? 0 },
+    { name: t('dashboard.osOther', 'Autres'),       color: 'rgba(255,255,255,0.20)', online: data?.other.online ?? 0, total: data?.other.total ?? 0 },
+  ].filter(r => r.total > 0);
+
+  const max = Math.max(...rows.map(r => r.total), 1);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between">
+        <div className="text-[13px] font-semibold text-text-primary">{t('dashboard.osConnectivity', 'Connectivité par OS')}</div>
+        <div className="text-[10px] font-mono text-text-muted tracking-wider">online / total</div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="text-text-muted text-[12px] py-2">{t('dashboard.noData', 'Aucune donnée')}</div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {rows.map(r => {
+            const offline = r.total - r.online;
+            const onlinePct  = (r.online / max) * 100;
+            const offlinePct = (offline  / max) * 100;
+            const upPct = r.total > 0 ? Math.round((r.online / r.total) * 100) : 0;
+            return (
+              <div key={r.name} className="flex items-center gap-3" title={t('dashboard.tooltipOnline', '{{online}} en ligne sur {{total}} ({{pct}}%)', { online: r.online, total: r.total, pct: upPct })}>
+                <span className="flex items-center gap-1.5 w-20 shrink-0">
+                  <span className="w-2 h-2 rounded-sm" style={{ background: r.color }} />
+                  <span className="text-[12px] text-text-secondary truncate">{r.name}</span>
+                </span>
+                <div className="flex-1 h-2 bg-white/[0.04] rounded overflow-hidden flex">
+                  <div className="h-full" style={{ width: `${onlinePct}%`, background: '#1edd8a' }} />
+                  <div className="h-full" style={{ width: `${offlinePct}%`, background: 'rgba(255,255,255,0.18)' }} />
+                </div>
+                <span className="font-mono text-[11px] text-text-muted w-14 text-right shrink-0">
+                  <span className="text-green-400">{r.online}</span>
+                  <span className="text-text-muted">/{r.total}</span>
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -481,7 +574,7 @@ export function DashboardPage() {
 
       {/* Page header */}
       <div className="flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold tracking-wide text-text-primary">
+        <h1 className="font-display text-2xl font-semibold tracking-wide text-text-primary">
           {t('dashboard.title', 'Tableau de bord')}
         </h1>
         <span className="text-xs font-mono tracking-wider text-text-muted">
@@ -516,28 +609,28 @@ export function DashboardPage() {
         />
 
         <HeroCard
-          label={t('dashboard.online')}
+          label={t('dashboard.online', 'En ligne')}
           value={online}
           color="text-green-400"
           delta={deltas?.onlineVsYesterday ?? null}
           deltaText={
-            deltas?.onlineVsYesterday == null ? `${onlinePct}% du parc`
-              : deltas.onlineVsYesterday === 0 ? 'stable vs hier'
-              : `${Math.abs(deltas.onlineVsYesterday)} vs hier`
+            deltas?.onlineVsYesterday == null ? `${onlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
+              : deltas.onlineVsYesterday === 0 ? t('dashboard.stableVsYesterday', 'stable vs hier')
+              : `${Math.abs(deltas.onlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
           }
           barPct={onlinePct}
           barColor="#1edd8a"
         />
 
         <HeroCard
-          label={t('dashboard.offline')}
+          label={t('dashboard.offline', 'Hors ligne')}
           value={offline}
           color="text-text-secondary"
           delta={deltas?.offlineVsYesterday == null ? null : -deltas.offlineVsYesterday}
           deltaText={
-            deltas?.offlineVsYesterday == null ? `${offlinePct}% du parc`
-              : deltas.offlineVsYesterday === 0 ? 'stable'
-              : `${Math.abs(deltas.offlineVsYesterday)} vs hier`
+            deltas?.offlineVsYesterday == null ? `${offlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
+              : deltas.offlineVsYesterday === 0 ? t('dashboard.stable', 'stable')
+              : `${Math.abs(deltas.offlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
           }
           barPct={offlinePct}
           barColor="rgb(var(--c-text-muted))"
@@ -549,9 +642,9 @@ export function DashboardPage() {
           color="text-amber-400"
           delta={deltas?.pendingUpdatesVsWeek == null ? null : -deltas.pendingUpdatesVsWeek}
           deltaText={
-            deltas?.pendingUpdatesVsWeek == null ? `${updPct}% à patcher`
-              : deltas.pendingUpdatesVsWeek === 0 ? 'stable cette semaine'
-              : `${Math.abs(deltas.pendingUpdatesVsWeek)} cette semaine`
+            deltas?.pendingUpdatesVsWeek == null ? `${updPct}% ${t('dashboard.toPatch', 'à patcher')}`
+              : deltas.pendingUpdatesVsWeek === 0 ? t('dashboard.stableThisWeek', 'stable cette semaine')
+              : `${Math.abs(deltas.pendingUpdatesVsWeek)} ${t('dashboard.thisWeek', 'cette semaine')}`
           }
           barPct={updPct}
           barColor="#f5a623"
@@ -563,11 +656,11 @@ export function DashboardPage() {
           color="text-accent"
           delta={deltas?.staleVsYesterday == null ? null : -deltas.staleVsYesterday}
           deltaText={
-            stale === 0 ? 'tout le parc joignable'
-              : deltas?.staleVsYesterday == null ? `${stalePct}% injoignables`
-              : deltas.staleVsYesterday === 0 ? `${stale} stables`
-              : deltas.staleVsYesterday > 0 ? `${deltas.staleVsYesterday} nouveaux`
-              : `${Math.abs(deltas.staleVsYesterday)} récupérés`
+            stale === 0 ? t('dashboard.allReachable', 'tout le parc joignable')
+              : deltas?.staleVsYesterday == null ? `${stalePct}% ${t('dashboard.unreachable', 'injoignables')}`
+              : deltas.staleVsYesterday === 0 ? `${stale} ${t('dashboard.stable', 'stable')}`
+              : deltas.staleVsYesterday > 0 ? `${deltas.staleVsYesterday} ${t('dashboard.newCount', 'nouveaux')}`
+              : `${Math.abs(deltas.staleVsYesterday)} ${t('dashboard.recovered', 'récupérés')}`
           }
           barPct={stalePct}
           barColor="rgb(var(--c-accent))"
@@ -583,7 +676,7 @@ export function DashboardPage() {
                 {t('dashboard.fleetActivity', 'Activité du parc')}
               </div>
               <div className="text-[11px] font-mono text-text-muted tracking-wider">
-                {activityRange} · agents en ligne / hors ligne
+                {activityRange} · {t('dashboard.agentsOnlineOffline', 'agents en ligne / hors ligne')}
               </div>
             </div>
             <div className="ml-auto flex items-center gap-1 bg-bg-hover rounded-md p-0.5">
@@ -601,24 +694,32 @@ export function DashboardPage() {
           <ActivityChart data={activityData} />
           <div className="flex items-center gap-4 mt-2 text-[11px] font-mono text-text-muted">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-green-400" /> Online
+              <span className="w-3 h-0.5 bg-green-400" /> {t('dashboard.online', 'Online')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 border-t border-dashed border-text-muted" /> Offline
+              <span className="w-3 h-0.5 border-t border-dashed border-text-muted" /> {t('dashboard.offline', 'Offline')}
             </span>
           </div>
         </div>
 
-        <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
-          <div className="mb-4">
-            <div className="text-[15px] font-semibold text-text-primary">
-              {t('dashboard.osBreakdown', 'Répartition OS')}
+        <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)] flex flex-col gap-5">
+          <div>
+            <div className="mb-4">
+              <div className="text-[15px] font-semibold text-text-primary">
+                {t('dashboard.osBreakdown', 'Répartition OS')}
+              </div>
+              <div className="text-[11px] font-mono text-text-muted tracking-wider">
+                {t('dashboard.fleetTotal', 'parc total')}
+              </div>
             </div>
-            <div className="text-[11px] font-mono text-text-muted tracking-wider">
-              {t('dashboard.fleetTotal', 'parc total')}
-            </div>
+            <OsDonut slices={osSlices} total={total} />
           </div>
-          <OsDonut slices={osSlices} total={total} />
+          {/* Sibling card — connectivité par OS (online/offline split for each
+              OS family). Complements the donut by showing which OS bucket is
+              most unhealthy at a glance. */}
+          <div className="pt-4 border-t border-border">
+            <OsConnectivityCard data={summary?.osConnectivity} />
+          </div>
         </div>
       </div>
 
@@ -679,7 +780,7 @@ export function DashboardPage() {
                 {t('dashboard.groupView', 'Vue par groupe')}
               </div>
               <div className="text-[11px] font-mono text-text-muted tracking-wider">
-                online · alerts · conformité · MAJ
+                {t('dashboard.groupViewSub', 'online · alerts · conformité · MAJ')}
               </div>
             </div>
           </div>

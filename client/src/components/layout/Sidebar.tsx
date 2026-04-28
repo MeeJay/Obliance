@@ -125,7 +125,7 @@ function DraggableDeviceItem({
         to={`/devices/${device.id}`}
         style={{ paddingLeft }}
         className={cn(
-          'flex items-center gap-2 rounded-md py-1 pr-2 text-sm transition-colors',
+          'flex items-center gap-2 rounded-md py-1.5 pr-2 transition-colors',
           isActive
             ? 'bg-bg-active text-text-primary'
             : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -133,7 +133,7 @@ function DraggableDeviceItem({
         onClick={e => { if (isDragging) e.preventDefault(); }}
       >
         <DeviceStatusDot status={device.status} />
-        <span className="truncate flex-1 text-xs">{displayName}</span>
+        <span className="truncate flex-1 text-[13px]">{displayName}</span>
       </Link>
     </div>
   );
@@ -230,17 +230,17 @@ function GroupRow({
         {/* Group link */}
         <Link
           to={`/group/${group.id}`}
-          className="flex items-center gap-1.5 flex-1 py-1 min-w-0"
+          className="flex items-center gap-2 flex-1 py-1.5 min-w-0"
         >
-          <Server size={13} className="shrink-0 text-text-muted" />
-          <span className="truncate flex-1 text-xs font-medium">{anonymize(group.name)}</span>
+          <Server size={14} className="shrink-0 text-text-muted" />
+          <span className="truncate flex-1 text-[13px] font-medium">{anonymize(group.name)}</span>
           {groupDevices.length > 0 && (
-            <span className="flex items-center gap-1 shrink-0">
+            <span className="flex items-center gap-1.5 shrink-0">
               {onlineCount > 0 && (
-                <span className="text-[10px] text-green-400 font-medium">{onlineCount}</span>
+                <span className="text-[11px] text-green-400 font-mono font-medium">{onlineCount}</span>
               )}
               {offlineCount > 0 && (
-                <span className="text-[10px] text-gray-400 font-medium">{offlineCount}</span>
+                <span className="text-[11px] text-text-muted font-mono font-medium">{offlineCount}</span>
               )}
             </span>
           )}
@@ -291,7 +291,7 @@ function NavLink({ item }: { item: NavItem }) {
     <Link
       to={item.path}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+        'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] transition-colors',
         isActive
           ? 'bg-bg-active text-text-primary'
           : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -530,9 +530,9 @@ export function Sidebar() {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className={hideHeader ? '' : 'mt-2 pt-2 border-t border-border'}>
         {!hideHeader && (
-          <div className="px-2 py-1 flex items-center gap-1.5 text-xs font-medium text-text-muted uppercase tracking-wider">
+          <div className="px-2 py-1.5 flex items-center gap-2 text-[11px] font-mono font-medium text-text-muted uppercase tracking-[0.12em]">
             <Server size={12} />
-            {hideDeviceRows ? t('nav.groups', 'Groups') : t('nav.devices')}
+            {hideDeviceRows ? t('nav.groups', 'Groupes') : t('nav.devices')}
           </div>
         )}
 
@@ -681,25 +681,25 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Add agent button */}
-      <div className="px-3 pt-3">
+      {/* Add agent button — accent pill, matches mockup §4.2 */}
+      <div className="px-3 pt-2">
         <button
           onClick={openAddAgentModal}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-accent/12 hover:bg-accent/20 px-3 py-2 text-[13px] font-medium text-accent transition-colors"
         >
-          <Plus size={14} />
+          <Plus size={15} />
           {t('nav.addAgent')}
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-3">
+      <div className="px-3 py-2.5">
         <input
           type="text"
           placeholder={t('common.search')}
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full rounded-md border border-border bg-bg-tertiary px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+          className="w-full rounded-md bg-bg-tertiary px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
 

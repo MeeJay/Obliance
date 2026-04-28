@@ -1408,6 +1408,9 @@ export interface FleetSummary {
   agentOutdated: number;
   latestAgentVersion: string;
   osByType: { windows: number; macos: number; linux: number; other: number };
+  /** Per-OS connectivity counts. Used by the dashboard "Connectivité par OS"
+   *  card (horizontal stacked bars: online green, offline muted). */
+  osConnectivity?: Record<'windows' | 'macos' | 'linux' | 'other', { online: number; total: number }>;
   activeRemoteSessions: number;
   upcomingSchedules: number;
   staleDevices: number;
