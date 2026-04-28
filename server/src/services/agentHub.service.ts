@@ -66,10 +66,25 @@ class AgentHubService {
     // Ping all connected agents every 15 s so the WebSocket stays alive through
     // reverse proxies that close idle connections. 15 s covers proxies with
     // timeouts as low as ~20 s (e.g. cPanel/WHM Nginx custom configuration).
-    setInterval(() => {
+    //
+    // Side-effect: refresh last_seen_at on every connected device in a single
+    // batched UPDATE. The agent doesn't send proactive heartbeats over WS,
+    // so without this the "last seen" pill drifts past 5 min on a device
+    // whose only contact path is the WS command channel — even though it's
+    // demonstrably reachable (admin can run commands, browse files).
+    setInterval(async () => {
+      const liveIds: number[] = [];
       for (const [deviceId, conn] of this.byDevice) {
         if (conn.ws.readyState === 1 /* OPEN */) {
-          try { (conn.ws as any).ping(); } catch { this._unregister(deviceId, conn.ws); }
+          try { (conn.ws as any).ping(); } catch { this._unregister(deviceId, conn.ws); continue; }
+          liveIds.push(deviceId);
+        }
+      }
+      if (liveIds.length > 0) {
+        try {
+          await db('devices').whereIn('id', liveIds).update({ last_seen_at: new Date() });
+        } catch (e) {
+          logger.error(e, 'agentHub: keepalive last_seen_at refresh failed');
         }
       }
     }, 15_000);

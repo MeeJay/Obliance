@@ -881,20 +881,38 @@ class DeviceService {
   // ─── Offline detection ────────────────────────────────────────────────────
   async checkOfflineDevices() {
     try {
+      // Lazy import to avoid a circular module load — agentHub depends on
+      // device.service.ts indirectly via deviceService.handlePush().
+      const { agentHub } = await import('./agentHub.service');
+
       // Find online devices that haven't pushed in too long
       const devices = await db('devices')
         .where({ status: 'online', approval_status: 'approved' })
         .whereNotNull('last_push_at');
 
+      const now = new Date();
       for (const device of devices) {
         const pushInterval = device.push_interval_seconds || 60;
         const maxMissed = device.max_missed_pushes || 3;
-        const threshold = new Date(Date.now() - (pushInterval * maxMissed * 1000));
+        const threshold = new Date(now.getTime() - (pushInterval * maxMissed * 1000));
 
         if (new Date(device.last_push_at) < threshold) {
+          // The HTTP push is stale, but if the agent's WS command channel
+          // is still connected the device IS reachable (admins can run
+          // commands, browse files, etc.) — flipping it offline would lie
+          // to the dashboard. Refresh last_seen_at so the "5m ago" pill
+          // stays accurate and skip the offline transition.
+          if (agentHub.isConnected(device.id)) {
+            await db('devices').where({ id: device.id }).update({
+              last_seen_at: now,
+              updated_at: now,
+            });
+            continue;
+          }
+
           await db('devices').where({ id: device.id }).update({
             status: 'offline',
-            updated_at: new Date(),
+            updated_at: now,
           });
 
           if (this.io) {
