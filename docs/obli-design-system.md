@@ -108,11 +108,38 @@ Order from left to right:
    - Notification bell (icon button, red dot top-right when unread)
    - User badge — 26 × 26 avatar + username + role pill (small mono on the right of a 1px subtle vertical separator)
 
-### 4.2 Sidebar — 260 px expanded / 64 px collapsed
+### 4.2 Sidebar — 260 px expanded / 64 px collapsed / floating overlay
 
 **Critical**: collapsed mode must show **icons only, never disappear**. The
 collapse toggle is the panel icon top-right of the sidebar header (not in the
 topbar).
+
+#### 4.2.1 Three states, two flags
+
+The sidebar has three render modes driven by two booleans persisted in
+localStorage. **They are mutually exclusive.**
+
+| State                  | `sidebarCollapsed` | `sidebarFloating` | Render                              |
+|------------------------|--------------------|-------------------|-------------------------------------|
+| Pinned, expanded       | `false`            | `false`           | 260 px column, full content         |
+| Pinned, collapsed      | `true`             | `false`           | 64 px icon-only column              |
+| Floating overlay       | `false`            | `true`            | Auto-hide overlay, expanded content |
+
+**Rules** (enforce in the store, not just the UI — stale localStorage will
+otherwise resurrect the dual state):
+
+1. The **Collapse** button (`ChevronsLeft`) is hidden while `sidebarFloating`
+   is true.
+2. The **Pin/Float** button is hidden while `sidebarCollapsed` is true.
+3. Toggling EITHER flag forces the OTHER to `false` AND writes both keys to
+   localStorage.
+
+Why: if both are `true` the AppLayout draws a 260 px floating overlay that
+contains a 64 px Sidebar — leaving 200 px of empty drop-shadow visible on
+the right of the icon column. Ugly + confusing. The two-flag mutex prevents
+that mode from ever being reachable.
+
+#### 4.2.2 Layout
 
 Expanded structure (top to bottom):
 
@@ -200,6 +227,18 @@ suite reads as one product.
    Oblimap.
 4. **User avatar / name / role come from Obligate** — apps must NOT hardcode
    these locally; they reflect whatever Obligate returns.
+
+   The avatar is `user.avatar` on the auth payload (already populated by
+   Obligate, already used by GlobalChatPanel etc.). Render the image in:
+
+   - The topbar user badge (28 × 28 round, `object-cover`).
+   - The sidebar profile row (20 × 20 round in expanded mode, 24 × 24 in
+     collapsed mode).
+
+   Fallback when `user.avatar === null` is a gradient circle showing the
+   first uppercase letter of the username — same visual the chat panel
+   uses today, so the suite stays consistent for users who never set an
+   avatar.
 
 ---
 
