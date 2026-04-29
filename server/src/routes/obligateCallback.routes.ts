@@ -98,7 +98,8 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     obligateService.reportProvision(assertion.obligateUserId, localUserId).catch(() => {});
   }
 
-  // Sync tenants + capabilities from Obligate (every SSO login, not just first provision)
+  // Sync tenants + team memberships + capabilities from Obligate
+  // (every SSO login, not just first provision).
   for (const t of assertion.tenants) {
     const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
     if (tenant) {
@@ -107,12 +108,43 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
         .onConflict(['user_id', 'tenant_id'])
         .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
 
+      // Reconcile team_memberships for THIS tenant against assertion.teams.
+      // assertion.teams is a flat list of team NAMES across the user's tenants
+      // (Obligate's role-binding model). We match by name within this tenant_id
+      // so the same name in another tenant doesn't cross-contaminate.
+      const wantedTeamIds = (assertion.teams?.length)
+        ? await db('user_teams')
+            .where({ tenant_id: tenant.id })
+            .whereIn('name', assertion.teams)
+            .pluck('id') as number[]
+        : [];
+      const currentTeamIds = await db('team_memberships')
+        .join('user_teams', 'user_teams.id', 'team_memberships.team_id')
+        .where({ 'team_memberships.user_id': localUserId, 'user_teams.tenant_id': tenant.id })
+        .pluck('team_memberships.team_id') as number[];
+      const toAdd = wantedTeamIds.filter((id) => !currentTeamIds.includes(id));
+      const toRemove = currentTeamIds.filter((id) => !wantedTeamIds.includes(id));
+      if (toAdd.length > 0) {
+        await db('team_memberships')
+          .insert(toAdd.map((team_id) => ({ team_id, user_id: localUserId })))
+          .onConflict(['team_id', 'user_id'])
+          .ignore();
+      }
+      if (toRemove.length > 0) {
+        await db('team_memberships')
+          .where({ user_id: localUserId })
+          .whereIn('team_id', toRemove)
+          .del();
+      }
+
       // Sync capabilities to team_permissions for all teams the user is in for this tenant
       if (t.capabilities?.length) {
-        const userTeamIds = await db('team_memberships')
-          .join('user_teams', 'user_teams.id', 'team_memberships.team_id')
-          .where({ 'team_memberships.user_id': localUserId, 'user_teams.tenant_id': tenant.id })
-          .pluck('team_memberships.team_id') as number[];
+        const userTeamIds = wantedTeamIds.length > 0
+          ? wantedTeamIds
+          : await db('team_memberships')
+              .join('user_teams', 'user_teams.id', 'team_memberships.team_id')
+              .where({ 'team_memberships.user_id': localUserId, 'user_teams.tenant_id': tenant.id })
+              .pluck('team_memberships.team_id') as number[];
 
         for (const teamId of userTeamIds) {
           await db('team_permissions')

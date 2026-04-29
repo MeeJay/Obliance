@@ -34,6 +34,7 @@ import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
 import { restrictionApi, type RestrictionLevel, type RestrictionMap, type RestrictableAction, type ScopeMode } from '@/api/restriction.api';
 import { useAuthStore } from '@/store/authStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import toast from 'react-hot-toast';
@@ -53,6 +54,7 @@ export function AdminUsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const isPlatformAdmin = currentUser?.role === 'admin';
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
   const [tab, setTab] = useState<Tab>('users');
 
   // Data
@@ -84,8 +86,10 @@ export function AdminUsersPage() {
   const [teamPermissions, setTeamPermissions] = useState<TeamPermission[]>([]);
   const [rightTab, setRightTab] = useState<'members' | 'permissions'>('members');
 
-  // Team tenant filter (platform admin only)
-  const [teamTenantFilter, setTeamTenantFilter] = useState<number | 'all'>('all');
+  // Team tenant filter (platform admin only). Defaults to the current tenant
+  // selected in the topbar so switching tenants narrows the team list as
+  // expected; the user can manually switch to 'all' for the cross-tenant view.
+  const [teamTenantFilter, setTeamTenantFilter] = useState<number | 'all'>(currentTenantId ?? 'all');
 
   // Tenant assignment panel
   const [tenantPanelUser, setTenantPanelUser] = useState<User | null>(null);
@@ -112,6 +116,15 @@ export function AdminUsersPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Follow the topbar TenantSwitcher: when the user changes the active tenant,
+  // narrow the team list to that tenant. Doesn't fire if the user has manually
+  // chosen 'all' on this page (we only override when a real tenant is active).
+  useEffect(() => {
+    if (isPlatformAdmin && currentTenantId != null) {
+      setTeamTenantFilter(currentTenantId);
+    }
+  }, [currentTenantId, isPlatformAdmin]);
 
   const loadTeamDetails = async (teamId: number) => {
     try {

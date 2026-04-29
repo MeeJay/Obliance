@@ -151,16 +151,16 @@ export const teamsController = {
       if (!gated) return;
 
       const id = parseInt(req.params.id, 10);
-      const { userIds } = req.body as SetTeamMembersInput;
-      await teamService.setMembers(id, userIds);
+      const { memberIds } = req.body as SetTeamMembersInput;
+      await teamService.setMembers(id, memberIds);
       try {
         const { auditService } = await import('../services/audit.service');
         await auditService.logReq(req, 'team.members_changed', {
           resourceType: 'team', resourcePath: String(id),
-          details: { userCount: userIds.length, userIds },
+          details: { userCount: memberIds.length, memberIds },
         });
       } catch {}
-      res.json({ success: true, data: userIds });
+      res.json({ success: true, data: memberIds });
     } catch (err) {
       next(err);
     }

@@ -13,7 +13,7 @@ export const updateTeamSchema = z.object({
 });
 
 export const setTeamMembersSchema = z.object({
-  userIds: z.array(z.number().int().positive()),
+  memberIds: z.array(z.number().int().positive()),
 });
 
 export const setTeamPermissionsSchema = z.object({
