@@ -184,8 +184,35 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     req.session.username = user.username;
     req.session.role = user.role;
   }
-  const tenant = await tenantService.getFirstTenantForUser(localUserId);
-  req.session.currentTenantId = tenant?.id ?? 1;
+
+  // Cross-app handoff: prefer the tenant slug requested by the source app
+  // when the user has access to a tenant with that slug. Otherwise fall
+  // back to the first available tenant (existing behaviour).
+  let resolvedTenantId: number | null = null;
+  const requestedSlug = req.session.requestedTenantSlug;
+  if (requestedSlug) {
+    const match = await db('tenants as t')
+      .join('user_tenants as ut', 'ut.tenant_id', 't.id')
+      .where({ 't.slug': requestedSlug, 'ut.user_id': localUserId })
+      .select('t.id')
+      .first() as { id: number } | undefined;
+    if (match) {
+      resolvedTenantId = match.id;
+      logger.info({ userId: localUserId, slug: requestedSlug }, 'Cross-app handoff: tenant matched');
+    } else {
+      logger.info({ userId: localUserId, slug: requestedSlug },
+        'Cross-app handoff: requested tenant not accessible, falling back');
+    }
+    // Always clear so the value does not leak into a subsequent login that did
+    // not originate from a cross-app pill click.
+    delete req.session.requestedTenantSlug;
+  }
+
+  if (resolvedTenantId === null) {
+    const tenant = await tenantService.getFirstTenantForUser(localUserId);
+    resolvedTenantId = tenant?.id ?? 1;
+  }
+  req.session.currentTenantId = resolvedTenantId;
 
   return localUserId;
 }
@@ -253,6 +280,16 @@ router.get('/callback', async (req, res) => {
  */
 router.get('/sso-redirect', async (req, res) => {
   try {
+    // Cross-app tenant handoff: the source Obli* app appends ?tenant=<slug>
+    // when the user clicks the topbar switcher pill. Stash it in the session
+    // so /auth/callback can apply it once the user comes back from Obligate.
+    // Validate against the same regex the tenants table enforces — anything
+    // else is dropped silently (defence-in-depth, untrusted query input).
+    const requestedTenant = req.query.tenant;
+    if (typeof requestedTenant === 'string' && /^[a-z0-9-]{1,64}$/.test(requestedTenant)) {
+      req.session.requestedTenantSlug = requestedTenant;
+    }
+
     const raw = await (await import('../services/appConfig.service')).appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) {
       res.redirect('/login');

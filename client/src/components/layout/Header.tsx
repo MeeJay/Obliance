@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { anonymize } from '@/utils/anonymize';
 import { useSocketStore } from '@/store/socketStore';
 import { appConfigApi } from '@/api/appConfig.api';
@@ -43,6 +44,8 @@ export function Header() {
   const { t } = useTranslation();
   const { user, logout } = useAuthStore();
   const { status: socketStatus } = useSocketStore();
+  const tenants = useTenantStore((s) => s.tenants);
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
   const [connectedApps, setConnectedApps] = useState<Array<{ appType: string; name: string; baseUrl: string }>>([]);
   const [obligateUrl, setObligateUrl] = useState<string | null>(null);
 
@@ -66,11 +69,21 @@ export function Header() {
   const goApp = (app: AppEntry) => {
     if (app.type === CURRENT_APP) return;
     const target = connectedApps.find(c => c.appType === app.type);
-    if (target) window.location.href = `${target.baseUrl}/auth/sso-redirect`;
+    if (!target) return;
+    // Cross-app tenant handoff: append ?tenant=<slug> so the target app can
+    // restore the same tenant context post-SSO. Drops to the user's first
+    // tenant on the target app if no match.
+    const tenantSlug = tenants.find(t => t.id === currentTenantId)?.slug;
+    const url = new URL(`${target.baseUrl}/auth/sso-redirect`);
+    if (tenantSlug) url.searchParams.set('tenant', tenantSlug);
+    window.location.href = url.toString();
   };
 
   const username = user?.username ?? '';
-  const displayedUsername = anonymize(username.startsWith('og_') ? username.slice(3) : username);
+  const strippedUsername = username.startsWith('og_') ? username.slice(3) : username;
+  // Prefer displayName for the topbar badge — falls back to the username minus
+  // the og_ SSO prefix if no displayName is set.
+  const displayedUsername = anonymize(user?.displayName || strippedUsername);
 
   return (
     <header className="flex h-13 shrink-0 items-center gap-3 bg-bg-secondary px-4" style={{ height: 52 }}>

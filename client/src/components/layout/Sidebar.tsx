@@ -817,7 +817,14 @@ export function Sidebar() {
           ) : (
             <UserCircle size={18} />
           )}
-          <span className="truncate flex-1">{anonymize(user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username))}</span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-medium text-text-primary">
+              {anonymize(user?.displayName || (user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username))}
+            </div>
+            <div className="truncate font-mono text-[10px] text-text-muted">
+              {(user?.username?.startsWith('og_') ? user.username.slice(3) : user?.username) ?? ''} · {user?.role ?? ''}
+            </div>
+          </div>
         </Link>
 
         <button

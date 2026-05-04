@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -29,6 +30,11 @@ func (s *agentSvc) Execute(_ []string, r <-chan svc.ChangeRequest, status chan<-
 	// Ensure service recovery is configured (restart on failure).
 	// Covers agents installed before the MSI included this CustomAction.
 	ensureServiceRecovery()
+
+	// Register the service under SafeBoot\Network so it starts when the host
+	// boots into Safe Mode with Networking. Idempotent, runs every boot so
+	// existing agents pick up the registration without a fresh MSI install.
+	ensureSafeBootRegistration()
 
 	cfg := setupConfig(*s.urlFlag, *s.keyFlag)
 
@@ -64,6 +70,23 @@ func ensureServiceRecovery() {
 	// After the third failure Windows loops back to the last action (10 s).
 	_ = newCmd("sc", "failure", "OblianceAgent",
 		"reset=", "0", "actions=", "restart/10000/restart/10000/restart/10000").Run()
+}
+
+// ensureSafeBootRegistration writes HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\OblianceAgent
+// with default REG_SZ "Service" so the SCM starts the agent in Safe Mode with
+// Networking. Idempotent — safe to call on every service start. Lets existing
+// deployments gain Safe Mode support without a fresh MSI install.
+func ensureSafeBootRegistration() {
+	const path = `SYSTEM\CurrentControlSet\Control\SafeBoot\Network\OblianceAgent`
+	k, _, err := registry.CreateKey(registry.LOCAL_MACHINE, path, registry.SET_VALUE)
+	if err != nil {
+		log.Printf("ensureSafeBootRegistration: CreateKey failed: %v", err)
+		return
+	}
+	defer k.Close()
+	if err := k.SetStringValue("", "Service"); err != nil {
+		log.Printf("ensureSafeBootRegistration: SetStringValue failed: %v", err)
+	}
 }
 
 // runAsService detects Windows service mode and runs the SCM handler.

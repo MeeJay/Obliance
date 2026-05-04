@@ -11,6 +11,10 @@ declare module 'express-session' {
     oauthState: string;
     pendingMfaLinkToken?: string;
     pendingEmailOtp?: { code: string; email: string; expires: number };
+    // Cross-app tenant handoff: captured by /auth/sso-redirect when the source
+    // Obli* app appends ?tenant=<slug> to the redirect URL, applied by
+    // /auth/callback after the user comes back from Obligate, then cleared.
+    requestedTenantSlug?: string;
   }
 }
 
