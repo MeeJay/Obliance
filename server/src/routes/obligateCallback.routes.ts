@@ -188,19 +188,29 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
   // Cross-app handoff: prefer the tenant slug requested by the source app
   // when the user has access to a tenant with that slug. Otherwise fall
   // back to the first available tenant (existing behaviour).
+  //
+  // Platform admins (assertion.role === 'admin') have implicit access to all
+  // tenants and don't get user_tenants rows materialised, so the JOIN that
+  // gates regular users would always miss for them. We resolve by tenant
+  // existence only when the user is a platform admin; non-admins still need
+  // the access-check JOIN so the slug cannot be forged for a tenant they
+  // shouldn't reach.
   let resolvedTenantId: number | null = null;
   const requestedSlug = req.session.requestedTenantSlug;
   if (requestedSlug) {
-    const match = await db('tenants as t')
-      .join('user_tenants as ut', 'ut.tenant_id', 't.id')
-      .where({ 't.slug': requestedSlug, 'ut.user_id': localUserId })
-      .select('t.id')
-      .first() as { id: number } | undefined;
+    const isPlatformAdmin = assertion.role === 'admin';
+    const match = isPlatformAdmin
+      ? await db('tenants').where({ slug: requestedSlug }).select('id').first() as { id: number } | undefined
+      : await db('tenants as t')
+          .join('user_tenants as ut', 'ut.tenant_id', 't.id')
+          .where({ 't.slug': requestedSlug, 'ut.user_id': localUserId })
+          .select('t.id')
+          .first() as { id: number } | undefined;
     if (match) {
       resolvedTenantId = match.id;
-      logger.info({ userId: localUserId, slug: requestedSlug }, 'Cross-app handoff: tenant matched');
+      logger.info({ userId: localUserId, slug: requestedSlug, isPlatformAdmin }, 'Cross-app handoff: tenant matched');
     } else {
-      logger.info({ userId: localUserId, slug: requestedSlug },
+      logger.info({ userId: localUserId, slug: requestedSlug, isPlatformAdmin },
         'Cross-app handoff: requested tenant not accessible, falling back');
     }
     // Always clear so the value does not leak into a subsequent login that did
