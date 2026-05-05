@@ -547,13 +547,33 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     return m ? parseInt(m[1], 10) : NaN;
   };
 
+  // React Flow fires onNodesChange/onEdgesChange for every internal
+  // mutation, including:
+  //   - 'dimensions': fired once after the ResizeObserver measures each
+  //     node, immediately after a fresh load. Not a user edit.
+  //   - 'select': clicking a node to select it. Not a user edit.
+  //   - 'position' with `dragging: true`: incremental drag updates. Not
+  //     yet a user-confirmed move. We mark dirty on the FINAL drop only
+  //     (`dragging: false`) so a click-without-drag doesn't flip dirty.
+  // Filtering these out means a freshly-loaded graph stays "saved" and
+  // a click-only selection doesn't ghost-trigger the unsaved badge.
+  const isUserNodeChange = (c: NodeChange): boolean => {
+    if (c.type === 'dimensions' || c.type === 'select') return false;
+    if (c.type === 'position') return c.dragging === false; // drop, not in-flight drag
+    // 'add' / 'remove' / 'replace' are always user-initiated.
+    return true;
+  };
+  const isUserEdgeChange = (c: EdgeChange): boolean => {
+    if (c.type === 'select') return false;
+    return true;
+  };
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds) as Node<NodeData>[]);
-    setDirty(true);
+    if (changes.some(isUserNodeChange)) setDirty(true);
   }, []);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setEdges((eds) => applyEdgeChanges(changes, eds) as Edge<EdgeData>[]);
-    setDirty(true);
+    if (changes.some(isUserEdgeChange)) setDirty(true);
   }, []);
   const onConnect = useCallback((conn: Connection) => {
     setEdges((eds) => addEdge({

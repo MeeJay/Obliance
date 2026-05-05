@@ -159,6 +159,19 @@ export const scenarioService = {
     const rows = await baseQ.clone()
       .select(
         'scenarios.*',
+        // v2 graphs no longer use the legacy `scenario_steps` table —
+        // counting nodes (excluding passive trigger / terminator nodes)
+        // gives admins a meaningful "size" badge that matches what
+        // they see in the editor. Falls back to 0 cleanly for empty
+        // scenarios and for v1-only scenarios that haven't been
+        // migrated yet (those will still surface their step_count
+        // through the next subquery).
+        db.raw(`(
+          SELECT COUNT(*) FROM scenario_nodes
+          WHERE scenario_nodes.scenario_id = scenarios.id
+            AND scenario_nodes.type NOT LIKE 'trigger_%'
+            AND scenario_nodes.type NOT LIKE 'end_%'
+        ) as node_count`),
         db.raw('(SELECT COUNT(*) FROM scenario_steps WHERE scenario_steps.scenario_id = scenarios.id) as step_count'),
       )
       .orderBy('scenarios.created_at', 'desc')
@@ -184,11 +197,18 @@ export const scenarioService = {
     }
 
     return {
-      items: rows.map((r: any) => ({
-        ...rowToScenario(r),
-        stepCount: parseInt(String(r.step_count ?? 0)),
-        triggerCounts: triggerCountsByScenario.get(r.id) ?? {},
-      })),
+      items: rows.map((r: any) => {
+        const nodeCount = parseInt(String(r.node_count ?? 0));
+        const legacyStepCount = parseInt(String(r.step_count ?? 0));
+        return {
+          ...rowToScenario(r),
+          // Prefer the v2 node count; fall back to v1 step count for
+          // not-yet-migrated rows so they don't appear empty.
+          stepCount: nodeCount > 0 ? nodeCount : legacyStepCount,
+          nodeCount,
+          triggerCounts: triggerCountsByScenario.get(r.id) ?? {},
+        };
+      }),
       total,
     };
   },

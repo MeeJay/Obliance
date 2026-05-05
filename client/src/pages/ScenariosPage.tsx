@@ -994,10 +994,14 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         <div className="space-y-2">
           {scenarios.map((scenario) => {
             const expanded = expandedId === scenario.id;
-            // Prefer the COUNT returned by the list endpoint (`stepCount`);
-            // fall back to the detail-view `steps` array when the scenario
-            // was loaded via getById (edit form).
-            const stepCount = scenario.stepCount ?? scenario.steps?.length ?? 0;
+            // v2 graphs show their action-node count (excludes triggers
+            // and end_* terminators — those are passive "wiring" rather
+            // than meaningful work units). Falls back to v1's step
+            // count when the scenario hasn't been migrated yet.
+            const nodeCount = (scenario as { nodeCount?: number }).nodeCount;
+            const legacyStepCount = scenario.stepCount ?? scenario.steps?.length ?? 0;
+            const itemCount = nodeCount && nodeCount > 0 ? nodeCount : legacyStepCount;
+            const itemLabel = nodeCount && nodeCount > 0 ? 'node' : 'step';
             return (
               <div key={scenario.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
                 <div className="flex items-center gap-4 px-4 py-3">
@@ -1028,7 +1032,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                         : <TriggerBadge type={scenario.triggerType} />}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5 flex-wrap">
-                      <span>{stepCount} step{stepCount !== 1 ? 's' : ''}</span>
+                      <span>{itemCount} {itemLabel}{itemCount !== 1 ? 's' : ''}</span>
                       <span>
                         {scenario.targetType === 'all'
                           ? 'All devices'

@@ -1711,8 +1711,14 @@ export interface Scenario {
   variables: Record<string, string>;
   steps?: ScenarioStep[];
   /** Populated by the list endpoint (cheap COUNT subquery). The detail
-   *  endpoint returns the full `steps` array instead. */
+   *  endpoint returns the full `steps` array instead. Kept for
+   *  backwards-compat with v1-only scenarios that haven't been migrated
+   *  to the graph model. */
   stepCount?: number;
+  /** v2 list-only — count of action/logic nodes (excludes triggers and
+   *  end_* terminators). Replaces stepCount as the primary "size" badge
+   *  for graphs. */
+  nodeCount?: number;
   /** v2 graph — set by the detail endpoint. Mutually exclusive with `steps`
    *  in practice (after Phase 1B auto-migration, every scenario carries
    *  nodes/edges and `steps` is empty). */
