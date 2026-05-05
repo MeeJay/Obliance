@@ -134,21 +134,35 @@ export async function rearmWaitTimersOnBoot(): Promise<void> {
 
 export const scenarioGraphService = {
   /**
-   * Kick off a run for a scenario on a target device. Locates the trigger
-   * node, jumps straight to its first downstream neighbour, and executes.
-   * Returns the new run id.
+   * Kick off a run for a scenario on a target device. The caller passes
+   * the specific trigger node that fired (multi-trigger scenarios can
+   * have several `trigger_*` nodes side by side), and we walk from
+   * that node's first downstream neighbour. If `triggerNodeId` is
+   * omitted, we pick any trigger node — convenient for "start manually"
+   * commands when the scenario only has one trigger.
    */
   async startRun(scenarioId: number, deviceId: number, opts: {
     triggerType: string;
     triggerSource?: string;
+    triggerNodeId?: number;
   }): Promise<string> {
     const scenario = await db('scenarios').where({ id: scenarioId }).first();
     if (!scenario) throw new Error(`Scenario ${scenarioId} not found`);
 
-    const triggerNode = await db('scenario_nodes')
-      .where({ scenario_id: scenarioId })
-      .whereLike('type', 'trigger_%')
-      .first();
+    let triggerNode: { id: number } | undefined;
+    if (opts.triggerNodeId) {
+      triggerNode = await db('scenario_nodes')
+        .where({ id: opts.triggerNodeId, scenario_id: scenarioId })
+        .first() as { id: number } | undefined;
+    }
+    if (!triggerNode) {
+      // Fallback: first trigger of any kind. Used by "Run on device"
+      // shortcuts where the user didn't pick a specific trigger.
+      triggerNode = await db('scenario_nodes')
+        .where({ scenario_id: scenarioId })
+        .whereLike('type', 'trigger_%')
+        .first() as { id: number } | undefined;
+    }
     if (!triggerNode) throw new Error(`Scenario ${scenarioId} has no trigger node — graph is incomplete`);
 
     const [runRow] = await db('scenario_runs')

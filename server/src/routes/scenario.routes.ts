@@ -366,18 +366,31 @@ router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
 
 // POST /:id/start-graph-run — fire a manual run via the v2 engine on a
 // specific device (admin only; the device must belong to the tenant).
+// Optional triggerNodeId selects which trigger node to start from when
+// the scenario has several — defaults to the first manual trigger.
 router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
-    const { deviceId } = req.body as { deviceId?: number };
+    const { deviceId, triggerNodeId } = req.body as { deviceId?: number; triggerNodeId?: number };
     if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
     const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
     const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
     if (!device) return res.status(404).json({ error: 'Device not found' });
+    // Resolve a default trigger node when none was supplied: prefer a
+    // trigger_manual to avoid accidentally firing a schedule trigger's
+    // downstream graph.
+    let resolvedTriggerNodeId = triggerNodeId;
+    if (!resolvedTriggerNodeId) {
+      const manual = await db('scenario_nodes')
+        .where({ scenario_id: scenarioId, type: 'trigger_manual' })
+        .first() as { id: number } | undefined;
+      resolvedTriggerNodeId = manual?.id;
+    }
     const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
       triggerType: 'manual',
       triggerSource: 'graph-run',
+      triggerNodeId: resolvedTriggerNodeId,
     });
     res.status(202).json({ data: { runId } });
   } catch (err) { next(err); }

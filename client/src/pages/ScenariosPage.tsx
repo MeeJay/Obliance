@@ -9,8 +9,8 @@ import { useGroupStore } from '@/store/groupStore';
 import { getSocket } from '@/socket/socketClient';
 import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script, ScriptSchedule, DeviceGroupTreeNode, AutomationNotificationBinding, Device } from '@obliance/shared';
 import { deviceApi } from '@/api/device.api';
-import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
-import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+// Notifications + on_success/on_failure toggles retired — moved to per-node
+// `Send notification` configuration in the v2 graph editor.
 import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -91,10 +91,10 @@ const defaultStep: StepFormData = {
   retryCount: 0,
 };
 
-function TriggerBadge({ type }: { type: ScenarioTriggerType }) {
+function TriggerBadge({ type, count }: { type: ScenarioTriggerType; count?: number }) {
   return (
     <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', TRIGGER_COLORS[type])}>
-      {TRIGGER_LABELS[type]}
+      {TRIGGER_LABELS[type]}{count != null && count > 1 ? ` (${count})` : ''}
     </span>
   );
 }
@@ -651,7 +651,10 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Trigger Type</label>
+              <label className="text-xs font-medium text-text-muted uppercase">
+                Initial trigger
+                <span className="ml-1 text-text-muted/60 font-normal normal-case">(seed only — add / replace in the graph)</span>
+              </label>
               <select
                 value={form.triggerType}
                 onChange={(e) => {
@@ -823,26 +826,19 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
             </div>
           </div>
 
-          {/* Notifications */}
-          <div className="flex flex-wrap gap-6 pt-2 border-t border-border">
-            <ToggleSwitch
-              checked={form.notifyOnSuccess}
-              onChange={(v) => setForm({ ...form, notifyOnSuccess: v })}
-              label="Notify on success"
-            />
-            <ToggleSwitch
-              checked={form.notifyOnFailure}
-              onChange={(v) => setForm({ ...form, notifyOnFailure: v })}
-              label="Notify on failure"
-            />
-          </div>
-
-          {/* Notification channels */}
+          {/* Notifications — moved to the graph (Send notification node).
+              The legacy scenario-level toggles + channel bindings still
+              exist in the DB but are no longer read by the v2 engine.
+              Drop a small reminder so admins know where to configure
+              notifications now. */}
           <div className="pt-4 border-t border-border">
-            <NotificationChannelBindings
-              value={form.notificationChannels}
-              onChange={(next) => setForm({ ...form, notificationChannels: next })}
-            />
+            <div className="flex items-start gap-3 px-3 py-2 rounded-lg bg-bg-tertiary border border-border text-xs text-text-muted">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-medium text-text-primary">Notifications are configured in the graph editor</div>
+                Drop a <span className="font-mono px-1 py-0 rounded bg-bg-secondary border border-border">Send notification</span> node into your graph and wire it to the path you want to notify on. Per-node bindings replace the old scenario-level <span className="font-mono">notify_on_success</span>/<span className="font-mono">notify_on_failure</span> flags.
+              </div>
+            </div>
           </div>
 
           {/* Variables */}
@@ -1065,7 +1061,21 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-text-primary">{scenario.name}</span>
                       <ScenarioStatusBadge status={scenario.status} />
-                      <TriggerBadge type={scenario.triggerType} />
+                      {/* Multi-trigger: render one badge per type, with a
+                          (n) suffix when several nodes of the same type
+                          coexist. Falls back to the single legacy
+                          triggerType when no triggerCounts payload is
+                          available (defensive — the server always sends
+                          the counts now). */}
+                      {scenario.triggerCounts && Object.keys(scenario.triggerCounts).length > 0
+                        ? Object.entries(scenario.triggerCounts).map(([type, count]) => (
+                            <TriggerBadge
+                              key={type}
+                              type={type as ScenarioTriggerType}
+                              count={count > 1 ? count : undefined}
+                            />
+                          ))
+                        : <TriggerBadge type={scenario.triggerType} />}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5 flex-wrap">
                       <span>{stepCount} step{stepCount !== 1 ? 's' : ''}</span>

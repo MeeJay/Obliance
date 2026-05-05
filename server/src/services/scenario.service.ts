@@ -165,8 +165,30 @@ export const scenarioService = {
       .limit(limit)
       .offset((page - 1) * limit);
 
+    // Aggregate the per-scenario trigger node counts in one round-trip
+    // so the list view can badge "Schedule (2)" etc. without an N+1.
+    // Returns rows like { scenario_id, type, count } where type is the
+    // raw node type (e.g. 'trigger_schedule_cron').
+    const triggerRows = await db('scenario_nodes')
+      .whereIn('scenario_id', rows.map((r: any) => r.id))
+      .whereLike('type', 'trigger_%')
+      .select('scenario_id', 'type')
+      .count<{ scenario_id: number; type: string; count: string | number }[]>('* as count')
+      .groupBy('scenario_id', 'type');
+    const triggerCountsByScenario = new Map<number, Record<string, number>>();
+    for (const t of triggerRows) {
+      const key = String(t.type).replace(/^trigger_/, '');
+      const map = triggerCountsByScenario.get(t.scenario_id) ?? {};
+      map[key] = (map[key] ?? 0) + (typeof t.count === 'number' ? t.count : parseInt(t.count, 10));
+      triggerCountsByScenario.set(t.scenario_id, map);
+    }
+
     return {
-      items: rows.map((r: any) => ({ ...rowToScenario(r), stepCount: parseInt(String(r.step_count ?? 0)) })),
+      items: rows.map((r: any) => ({
+        ...rowToScenario(r),
+        stepCount: parseInt(String(r.step_count ?? 0)),
+        triggerCounts: triggerCountsByScenario.get(r.id) ?? {},
+      })),
       total,
     };
   },
@@ -345,41 +367,60 @@ export const scenarioService = {
   // ═══════════════════════════════════════════════════════════════════════════
 
   async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number }) {
-    // Find all active scenarios matching this trigger type for this tenant
-    const scenarios = await db('scenarios')
-      .where({ tenant_id: tenantId, trigger_type: triggerType, status: 'active' });
+    // Multi-trigger model: a single scenario may carry several trigger
+    // nodes of the same kind (e.g. two cron schedules) or a mix of
+    // kinds. The dispatcher therefore matches on scenario_nodes.type
+    // rather than scenarios.trigger_type, and fires startRun once per
+    // matching node so the engine starts at the right entry point.
+    const triggerNodeType = `trigger_${triggerType}`;
+    const triggerNodes = await db('scenario_nodes as n')
+      .join('scenarios as s', 's.id', 'n.scenario_id')
+      .where({ 's.tenant_id': tenantId, 's.status': 'active', 'n.type': triggerNodeType })
+      .select('n.id as node_id', 'n.config as node_config', 's.id as scenario_id') as Array<{
+        node_id: number; node_config: any; scenario_id: number;
+      }>;
 
-    for (const scenarioRow of scenarios) {
-      const scenario = rowToScenario(scenarioRow);
-
-      // Check target matching: does this device match the scenario targets?
-      if (!(await matchesTarget(scenario, deviceId, data?.groupId))) continue;
-
-      // For trigger configs with scheduleId filter (schedule_failure)
-      if (triggerType === 'schedule_failure' && scenario.triggerConfig.scheduleId) {
-        if (data?.scheduleId !== scenario.triggerConfig.scheduleId) continue;
-      }
-
-      // For trigger configs with groupIds filter (group_join)
-      if (triggerType === 'group_join' && scenario.triggerConfig.groupIds?.length) {
-        if (!data?.groupId || !scenario.triggerConfig.groupIds.includes(data.groupId)) continue;
-      }
-
-      // Dedup: for one-time triggers, skip if there's already a run for this device + scenario
-      if (triggerType === 'agent_approved') {
-        const existingRun = await db('scenario_runs')
-          .where({ scenario_id: scenario.id, device_id: deviceId })
-          .whereNot({ status: 'cancelled' })
-          .first();
-        if (existingRun) continue;
-      }
-
-      const triggerSource = `${triggerType}${data?.groupId ? `:group:${data.groupId}` : ''}${data?.scheduleId ? `:schedule:${data.scheduleId}` : ''}`;
-
+    for (const tn of triggerNodes) {
       try {
-        await scenarioService.triggerScenario(scenario.id, deviceId, tenantId, triggerType, triggerSource);
+        const scenarioRow = await db('scenarios').where({ id: tn.scenario_id }).first();
+        if (!scenarioRow) continue;
+        const scenario = rowToScenario(scenarioRow);
+
+        // Same target-match check as before — applies regardless of
+        // which trigger node fired.
+        if (!(await matchesTarget(scenario, deviceId, data?.groupId))) continue;
+
+        // Per-node config filters (replaces the old scenario-level
+        // triggerConfig). Each trigger node carries its own filters
+        // in its config JSON.
+        const nodeConfig = typeof tn.node_config === 'string' ? JSON.parse(tn.node_config) : (tn.node_config ?? {});
+        if (triggerType === 'schedule_failure' && nodeConfig.scheduleId) {
+          if (data?.scheduleId !== nodeConfig.scheduleId) continue;
+        }
+        if (triggerType === 'group_join' && Array.isArray(nodeConfig.groupIds) && nodeConfig.groupIds.length > 0) {
+          if (!data?.groupId || !nodeConfig.groupIds.includes(data.groupId)) continue;
+        }
+
+        // One-shot dedup for agent_approved — same semantics as v1
+        // but scoped to (scenario, device), not (trigger node, device),
+        // so two trigger_agent_approved nodes in the same scenario
+        // still share the dedup window.
+        if (triggerType === 'agent_approved') {
+          const existing = await db('scenario_runs')
+            .where({ scenario_id: scenario.id, device_id: deviceId })
+            .whereNot({ status: 'cancelled' })
+            .first();
+          if (existing) continue;
+        }
+
+        const triggerSource = `${triggerType}${data?.groupId ? `:group:${data.groupId}` : ''}${data?.scheduleId ? `:schedule:${data.scheduleId}` : ''}`;
+
+        const { scenarioGraphService } = await import('./scenarioGraph.service');
+        await scenarioGraphService.startRun(scenario.id, deviceId, {
+          triggerType, triggerSource, triggerNodeId: tn.node_id,
+        });
       } catch (err) {
-        logger.error(err, `Failed to trigger scenario ${scenario.id} for device ${deviceId}`);
+        logger.error(err, `Failed to fire trigger node ${tn.node_id} for device ${deviceId}`);
       }
     }
   },

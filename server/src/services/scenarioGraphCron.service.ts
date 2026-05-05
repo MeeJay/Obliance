@@ -34,84 +34,74 @@ class ScenarioGraphCron {
 
   private async tick(): Promise<void> {
     const now = new Date();
-    // Find every active scenario with a cron trigger that is either due
-    // or has never been scheduled yet (next_cron_run_at IS NULL — first
-    // tick after creation primes the column).
-    const scenarios = await db('scenarios')
-      .where({ trigger_type: 'schedule_cron', status: 'active' })
+    // Multi-trigger: every cron-trigger node has its OWN clock
+    // (next_cron_run_at + last_cron_fire_at on scenario_nodes). The
+    // tick scans the per-node columns and fires each due node
+    // independently — two cron triggers in the same scenario can
+    // therefore have entirely different schedules.
+    const nodes = await db('scenario_nodes as n')
+      .join('scenarios as s', 's.id', 'n.scenario_id')
+      .where({ 'n.type': 'trigger_schedule_cron', 's.status': 'active' })
       .where(function() {
-        this.whereNull('next_cron_run_at').orWhere('next_cron_run_at', '<=', now);
+        this.whereNull('n.next_cron_run_at').orWhere('n.next_cron_run_at', '<=', now);
       })
-      .select('id', 'tenant_id', 'next_cron_run_at', 'target_type', 'target_ids') as Array<{
-        id: number; tenant_id: number; next_cron_run_at: Date | null;
-        target_type: string; target_ids: any;
+      .select(
+        'n.id as node_id', 'n.config as node_config',
+        'n.next_cron_run_at as next_cron_run_at',
+        's.id as scenario_id', 's.tenant_id as tenant_id',
+        's.target_type as target_type', 's.target_ids as target_ids',
+      ) as Array<{
+        node_id: number; node_config: any; next_cron_run_at: Date | null;
+        scenario_id: number; tenant_id: number; target_type: string; target_ids: any;
       }>;
 
-    for (const s of scenarios) {
+    for (const n of nodes) {
       try {
-        await this.fireOne(s, now);
+        await this.fireOneNode(n, now);
       } catch (err) {
-        logger.error({ err, scenarioId: s.id }, 'Scenarios v2 cron fire-one failed');
+        logger.error({ err, nodeId: n.node_id }, 'Scenarios v2 cron fire-one (per-node) failed');
       }
     }
   }
 
-  private async fireOne(s: { id: number; tenant_id: number; next_cron_run_at: Date | null; target_type: string; target_ids: any }, now: Date): Promise<void> {
-    // Read the trigger node's config to extract the cron expression. The
-    // config lives on the node so admins edit it from the React Flow
-    // editor (Phase 1C) rather than from the legacy scenario form.
-    const triggerNode = await db('scenario_nodes')
-      .where({ scenario_id: s.id, type: 'trigger_schedule_cron' })
-      .first() as { config: any } | undefined;
-    if (!triggerNode) {
-      // No cron trigger node yet (probably a freshly migrated scenario
-      // whose UI hasn't set the expression). Park the schedule by
-      // setting next_cron_run_at far in the future so we don't busy-loop.
-      await db('scenarios').where({ id: s.id }).update({
-        next_cron_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      });
-      return;
-    }
-    const config = typeof triggerNode.config === 'string' ? JSON.parse(triggerNode.config) : (triggerNode.config ?? {});
+  private async fireOneNode(n: {
+    node_id: number; node_config: any; next_cron_run_at: Date | null;
+    scenario_id: number; tenant_id: number; target_type: string; target_ids: any;
+  }, now: Date): Promise<void> {
+    const config = typeof n.node_config === 'string' ? JSON.parse(n.node_config) : (n.node_config ?? {});
     const expression: string = config.cronExpression || '0 0 * * *';
     const timezone: string = config.timezone || 'UTC';
 
-    // Resolve target devices via the same selector v1 uses, so a scenario
-    // with target_type='group' fires on every approved device under that
-    // group's closure, etc.
-    const targetIds = typeof s.target_ids === 'string' ? JSON.parse(s.target_ids) : (s.target_ids ?? []);
-    const deviceIds = await this.resolveTargetDevices(s.tenant_id, s.target_type, targetIds);
+    const targetIds = typeof n.target_ids === 'string' ? JSON.parse(n.target_ids) : (n.target_ids ?? []);
+    const deviceIds = await this.resolveTargetDevices(n.tenant_id, n.target_type, targetIds);
 
-    // First-ever tick for this scenario (column was NULL): prime
-    // next_cron_run_at, do NOT fire — the cron tick semantics is
-    // "fire AT or AFTER the scheduled instant", and an instant in the
-    // past at boot shouldn't trigger surprise runs on every device.
-    if (s.next_cron_run_at == null) {
+    // First-ever tick for this trigger node (NULL): prime the next
+    // firing time without actually starting a run, so a node that
+    // was created hours ago doesn't fire immediately when the
+    // server learns about it.
+    if (n.next_cron_run_at == null) {
       const nextRun = nextRunFromExpression(expression, timezone, now);
-      await db('scenarios').where({ id: s.id }).update({
+      await db('scenario_nodes').where({ id: n.node_id }).update({
         next_cron_run_at: nextRun,
         last_cron_fire_at: null,
       });
       return;
     }
 
-    // Fire on every target device.
     for (const deviceId of deviceIds) {
       try {
-        await scenarioGraphService.startRun(s.id, deviceId, {
+        await scenarioGraphService.startRun(n.scenario_id, deviceId, {
           triggerType: 'schedule_cron',
           triggerSource: `cron:${expression}`,
+          triggerNodeId: n.node_id,
         });
       } catch (err) {
-        logger.error({ err, scenarioId: s.id, deviceId }, 'Scenarios v2 cron startRun failed');
+        logger.error({ err, nodeId: n.node_id, deviceId }, 'Scenarios v2 cron startRun failed');
       }
     }
 
-    // Recompute next firing time from "now" (not from the previous
-    // scheduled instant) so a cron job that ran 5 minutes late doesn't
-    // immediately re-fire to "catch up".
     const nextRun = nextRunFromExpression(expression, timezone, now);
-    await db('scenarios').where({ id: s.id }).update({
+    await db('scenario_nodes').where({ id: n.node_id }).update({
       next_cron_run_at: nextRun,
       last_cron_fire_at: now,
     });

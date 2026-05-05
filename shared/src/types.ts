@@ -1706,6 +1706,11 @@ export interface Scenario {
    *  nodes/edges and `steps` is empty). */
   nodes?: ScenarioNode[];
   edges?: ScenarioEdge[];
+  /** Per-trigger-type counts aggregated from scenario_nodes by the list
+   *  endpoint — drives the multi-trigger badges on the scenario card.
+   *  Keys match the trigger names without the `trigger_` prefix
+   *  (e.g. `manual: 1, schedule_cron: 2`). */
+  triggerCounts?: Partial<Record<ScenarioTriggerType, number>>;
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;

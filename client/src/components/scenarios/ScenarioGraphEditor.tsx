@@ -50,6 +50,9 @@ interface NodeData extends Record<string, unknown> {
   /** Live run viewer: set when SCENARIO_NODE_UPDATED arrives for this
    *  node during an active run. Drives the colored ring on the canvas. */
   runStatus?: 'running' | 'success' | 'failed' | null;
+  /** Validation warning surfaced by the editor's graph linter — orphan,
+   *  dead-end, missing config, etc. Painted as a ⚠️ badge by CustomNode. */
+  warning?: string;
 }
 
 interface EdgeData extends Record<string, unknown> {
@@ -95,6 +98,11 @@ function CustomNode({ data, selected }: NodeProps) {
         <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted flex-1">
           {meta?.label ?? d.scenarioType}
         </div>
+        {d.warning && (
+          <span title={d.warning} className="shrink-0">
+            <AlertCircle className="w-3 h-3 text-amber-400" />
+          </span>
+        )}
         {d.runStatus === 'running' && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
         {d.runStatus === 'success' && <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />}
         {d.runStatus === 'failed'  && <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
@@ -323,6 +331,159 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     } as Edge, eds) as Edge<EdgeData>[]);
     setDirty(true);
   }, []);
+
+  // Clipboard buffer for Ctrl+C / Ctrl+V. Stored in component state
+  // (not the OS clipboard) so a copy here doesn't pollute the user's
+  // real clipboard, and so the pasted node carries our exact config /
+  // type without any serialization round-trip.
+  const [clipboardNode, setClipboardNode] = useState<{ scenarioType: ScenarioNodeType; label: string; config: Record<string, unknown> } | null>(null);
+
+  // Keyboard shortcuts —
+  //   Ctrl+D / Cmd+D : duplicate selected node (clones config + label)
+  //   Ctrl+C / Cmd+C : copy selected node into the editor clipboard
+  //   Ctrl+V / Cmd+V : paste the clipboard at the centre of the viewport
+  //   Delete / Backspace : delete selection (node OR edge)
+  // All shortcuts no-op when the focus is inside an input / textarea /
+  // select so they don't fight the user's normal text editing.
+  useEffect(() => {
+    const isTypingTarget = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      if (!el) return false;
+      if (/input|textarea|select/i.test(el.tagName)) return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+    const cloneFromSelection = () => {
+      if (!selectedNode) return null;
+      return {
+        scenarioType: selectedNode.data.scenarioType,
+        label: selectedNode.data.label,
+        config: { ...(selectedNode.data.config ?? {}) },
+      };
+    };
+    const insertNode = (snap: { scenarioType: ScenarioNodeType; label: string; config: Record<string, unknown> }, atOffset = 40) => {
+      const id = `cn-${Math.random().toString(36).slice(2)}`;
+      // Anchor the new node either next to the selection (duplicate /
+      // copy-paste with selection) or at the viewport centre (paste
+      // with no selection).
+      let position = { x: 240, y: 120 };
+      if (selectedNode) {
+        position = { x: selectedNode.position.x + atOffset, y: selectedNode.position.y + atOffset };
+      } else {
+        try {
+          const wrap = canvasWrapRef.current;
+          if (wrap) {
+            const r = wrap.getBoundingClientRect();
+            const flow = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+            position = { x: flow.x, y: flow.y };
+          }
+        } catch { /* fallback */ }
+      }
+      setNodes((nds) => [...nds, {
+        id, type: 'custom', position,
+        data: { scenarioType: snap.scenarioType, label: snap.label, config: snap.config },
+      }]);
+      setDirty(true);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      if (ctrl && e.key.toLowerCase() === 'd') {
+        const snap = cloneFromSelection();
+        if (!snap) return;
+        e.preventDefault();
+        insertNode({ ...snap, label: `${snap.label} (copy)` });
+        return;
+      }
+      if (ctrl && e.key.toLowerCase() === 'c') {
+        const snap = cloneFromSelection();
+        if (!snap) return;
+        e.preventDefault();
+        setClipboardNode(snap);
+        toast.success('Node copied');
+        return;
+      }
+      if (ctrl && e.key.toLowerCase() === 'v') {
+        if (!clipboardNode) return;
+        e.preventDefault();
+        insertNode(clipboardNode);
+        return;
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNode) {
+          e.preventDefault();
+          setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+          setEdges((eds) => eds.filter((edg) => edg.source !== selectedNode.id && edg.target !== selectedNode.id));
+          setSelectedNode(null);
+          setDirty(true);
+        } else if (selectedEdge) {
+          e.preventDefault();
+          setEdges((eds) => eds.filter((edg) => edg.id !== selectedEdge.id));
+          setSelectedEdge(null);
+          setDirty(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedNode, selectedEdge, clipboardNode, rf]);
+
+  // Inline validation — produce a warning per node so the canvas can
+  // surface graph-design issues before save. Walks the graph once per
+  // edit; the result is consumed by CustomNode to paint a ⚠️ badge
+  // and the right sidebar to list everything in one place.
+  const validationWarnings = useMemo(() => {
+    const out = new Map<string, string>();
+    const incoming = new Map<string, number>();
+    const outgoing = new Map<string, number>();
+    for (const e of edges) {
+      incoming.set(e.target, (incoming.get(e.target) ?? 0) + 1);
+      outgoing.set(e.source, (outgoing.get(e.source) ?? 0) + 1);
+    }
+    for (const n of nodes) {
+      const meta = NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType];
+      if (!meta) continue;
+      const isTrigger = meta.category === 'trigger';
+      const isTerminator = meta.category === 'terminator';
+      // Orphans — non-trigger nodes that nothing points to are dead code.
+      if (!isTrigger && !(incoming.get(n.id) ?? 0)) {
+        out.set(n.id, 'Unreachable: no incoming edge');
+        continue;
+      }
+      // Dead-ends — non-terminator nodes that go nowhere will silently
+      // succeed-end the run, which is rarely the intent.
+      if (!isTerminator && !(outgoing.get(n.id) ?? 0)) {
+        out.set(n.id, 'Dead-end: no outgoing edge');
+        continue;
+      }
+      // Per-type config sanity checks.
+      const cfg = (n.data.config ?? {}) as Record<string, unknown>;
+      if (n.data.scenarioType === 'run_script' && !cfg.scriptId) {
+        out.set(n.id, 'No script selected');
+      }
+      if (n.data.scenarioType === 'run_command' && !cfg.commandType) {
+        out.set(n.id, 'No command type set');
+      }
+      if (n.data.scenarioType === 'trigger_schedule_cron' && !cfg.cronExpression) {
+        out.set(n.id, 'No cron expression set');
+      }
+    }
+    return out;
+  }, [nodes, edges]);
+
+  // Repaint validation status on the rendered nodes so CustomNode sees
+  // it. Re-runs whenever validation changes — cheap because we only
+  // mutate `data.warning` in-place.
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => {
+      const w = validationWarnings.get(n.id);
+      const cur = (n.data as any).warning;
+      if (w === cur) return n;
+      return { ...n, data: { ...n.data, warning: w } };
+    }));
+  }, [validationWarnings]);
 
   const addNode = (meta: NodeTypeMeta) => {
     const id = `cn-${Math.random().toString(36).slice(2)}`;
@@ -650,12 +811,17 @@ function NodeConfigForm({
             </>
           )}
           {f.kind === 'script' && (
-            <select value={(cfg[f.key] as number | undefined) ?? ''}
-              onChange={(e) => setField(f.key, e.target.value ? parseInt(e.target.value, 10) : null)}
-              className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent">
-              <option value="">— Pick a script —</option>
-              {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${s.purpose}` : ''}</option>)}
-            </select>
+            <>
+              <select value={(cfg[f.key] as number | undefined) ?? ''}
+                onChange={(e) => setField(f.key, e.target.value ? parseInt(e.target.value, 10) : null)}
+                className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent">
+                <option value="">— Pick a script —</option>
+                {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${s.purpose}` : ''}</option>)}
+              </select>
+              <ScriptInspector
+                script={scripts.find((s) => s.id === (cfg[f.key] as number | undefined))}
+              />
+            </>
           )}
           {f.kind === 'channels' && (
             <div className="text-[11px] text-text-muted italic px-2 py-1 border border-border rounded bg-bg-primary">
@@ -664,6 +830,72 @@ function NodeConfigForm({
           )}
         </label>
       ))}
+    </div>
+  );
+}
+
+// ── Script inspector ─────────────────────────────────────────────────────────
+// Fold-out panel showing the picked script's metadata + a 25-line preview.
+// Helps the admin remember the script's exit code contract without leaving
+// the editor for the script library.
+function ScriptInspector({ script }: { script: Script | undefined }) {
+  const [contentExpanded, setContentExpanded] = useState(false);
+  if (!script) {
+    return (
+      <div className="mt-2 px-2 py-1.5 text-[11px] text-text-muted/70 italic border border-dashed border-border rounded">
+        Pick a script above to inspect its contract.
+      </div>
+    );
+  }
+  const exitHint =
+    script.purpose === 'check'    ? '0 = condition met (no resolve needed) · non-zero = problem detected, branch will fire resolve' :
+    script.purpose === 'resolve'  ? '0 = remediation succeeded · non-zero = remediation failed (scenario step fails)' :
+    script.purpose === 'compliance' ? '0 = compliant · non-zero = non-compliant' :
+                                       `Expected exit code: ${script.expectedExitCode ?? 0} (anything else fails the node)`;
+  const preview = script.content?.split('\n').slice(0, contentExpanded ? Number.MAX_SAFE_INTEGER : 25);
+  const more = (script.content?.split('\n').length ?? 0) > 25;
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-bg-tertiary overflow-hidden">
+      <div className="px-3 py-2 border-b border-border space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted">Inspector</span>
+          {script.purpose && (
+            <span className={clsx(
+              'text-[10px] px-1.5 rounded-full border',
+              script.purpose === 'check'      && 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+              script.purpose === 'resolve'    && 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+              script.purpose === 'compliance' && 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+              script.purpose === 'execute'    && 'text-gray-400 bg-gray-400/10 border-gray-400/30',
+              script.purpose === 'metric'     && 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+            )}>{script.purpose}</span>
+          )}
+          <span className="text-[10px] text-text-muted">{script.platform} · {script.runtime}</span>
+        </div>
+        <div className="text-[12px] text-text-primary font-medium truncate">{script.name}</div>
+        {script.description && (
+          <div className="text-[11px] text-text-muted">{script.description}</div>
+        )}
+        <div className="text-[11px] text-text-muted leading-snug">
+          <span className="text-text-primary font-medium">Exit codes — </span>{exitHint}
+        </div>
+        {script.parameters && script.parameters.length > 0 && (
+          <div className="text-[11px] text-text-muted">
+            <span className="text-text-primary font-medium">Parameters: </span>
+            {script.parameters.map((p) => p.name).join(', ')}
+          </div>
+        )}
+      </div>
+      <div className="p-2">
+        <pre className="text-[10px] font-mono text-text-secondary whitespace-pre overflow-x-auto max-h-48 leading-tight">
+          {(preview ?? []).join('\n')}
+        </pre>
+        {more && (
+          <button onClick={() => setContentExpanded((e) => !e)}
+            className="mt-1 text-[10px] text-accent hover:underline">
+            {contentExpanded ? 'Show less' : `Show all ${script.content.split('\n').length} lines`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
