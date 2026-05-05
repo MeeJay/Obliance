@@ -271,7 +271,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
           <h1 className="text-2xl font-bold text-text-primary">{t('updates.title')}</h1>
           <p className="text-sm text-text-muted mt-0.5">{t('updates.subtitle')}</p>
         </div>
-        <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+        <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
           <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
         </button>
       </div>}

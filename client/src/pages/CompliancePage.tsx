@@ -591,7 +591,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
               Sync presets
             </button>
           )}
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+          <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
         </div>

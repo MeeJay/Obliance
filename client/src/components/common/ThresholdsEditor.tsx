@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { HardDrive, Cpu, MemoryStick } from 'lucide-react';
+import { HardDrive, Cpu, MemoryStick, type LucideIcon } from 'lucide-react';
 import type { MetricThresholds } from '@obliance/shared';
 import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 
@@ -11,7 +11,7 @@ import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 const METRICS: Array<{
   key: keyof MetricThresholds;
   label: string;
-  icon: React.ComponentType<{ className?: string; size?: number }>;
+  icon: LucideIcon;
 }> = [
   { key: 'disk', label: 'Disque', icon: HardDrive },
   { key: 'cpu',  label: 'CPU',    icon: Cpu },
@@ -95,7 +95,7 @@ function FragmentRow({
   label, Icon, warn, crit, warnPlaceholder, critPlaceholder, onWarnChange, onCritChange,
 }: {
   label: string;
-  Icon: React.ComponentType<{ className?: string; size?: number }>;
+  Icon: LucideIcon;
   warn: number | '';
   crit: number | '';
   warnPlaceholder: string;

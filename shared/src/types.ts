@@ -114,8 +114,11 @@ export type MetricThresholds = Partial<{
 }>;
 
 /** System defaults applied when neither the device nor the group sets a
- *  value. Hardcoded here so the agent and the dashboard stay aligned. */
-export const SYSTEM_DEFAULT_THRESHOLDS: Required<MetricThresholds> = {
+ *  value. Hardcoded here so the agent and the dashboard stay aligned. The
+ *  type forces every metric to carry both warn AND crit, so consumers
+ *  (e.g. the threshold cascade resolver) can treat the system layer as
+ *  a guaranteed fallback without extra null-checks. */
+export const SYSTEM_DEFAULT_THRESHOLDS: Record<keyof MetricThresholds, Required<MetricThreshold>> = {
   disk: { warn: 85, crit: 95 },
   cpu:  { warn: 80, crit: 95 },
   ram:  { warn: 80, crit: 95 },
