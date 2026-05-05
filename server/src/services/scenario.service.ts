@@ -400,6 +400,25 @@ export const scenarioService = {
       return null;
     }
 
+    // ── v2 dispatch ────────────────────────────────────────────────────
+    // Phase 1G: v2 is now the ONLY engine. The boot migration + the
+    // post-create / post-instantiate hook ensure every scenario has v2
+    // nodes. If we somehow get here without nodes, surface a clear
+    // error rather than silently falling through to the dead v1 step
+    // executor below. The v1 code paths past this point are dead code
+    // kept temporarily for rollback — see Phase 1H drop.
+    const hasV2 = await db('scenario_nodes').where({ scenario_id: scenarioId }).first();
+    if (!hasV2) {
+      logger.error({ scenarioId }, 'triggerScenario: scenario has no v2 nodes — graph migration may have failed');
+      throw new Error(`Scenario ${scenarioId} has no graph nodes. Open it in the graph editor and save once.`);
+    }
+    const { scenarioGraphService } = await import('./scenarioGraph.service');
+    const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
+      triggerType, triggerSource,
+    });
+    const runRow = await db('scenario_runs').where({ id: runId }).first();
+    return runRow ? rowToRun(runRow) : null;
+
     const steps = await db('scenario_steps')
       .where({ scenario_id: scenarioId })
       .orderBy('sort_order', 'asc');

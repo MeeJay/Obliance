@@ -244,6 +244,26 @@ async function main() {
   setTimeout(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), 90_000); // first run 1.5 min after startup
   setInterval(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), SW_COMPLIANCE_INTERVAL);
 
+  // ── Scenarios v2 — boot migration + cron tick ──────────────────────────
+  // Convert any leftover v1 (steps-based) scenarios to the new graph
+  // model, then start a per-minute tick that fires schedule_cron triggers.
+  // Both run with an exception barrier so a single broken scenario
+  // doesn't take the boot down.
+  (async () => {
+    try {
+      const { migrateAllV1Scenarios } = await import('./services/scenarioMigrate.service');
+      await migrateAllV1Scenarios();
+    } catch (err) { logger.error(err, 'Scenarios v2 boot migration failed'); }
+    try {
+      const { scenarioGraphCron } = await import('./services/scenarioGraphCron.service');
+      scenarioGraphCron.start();
+    } catch (err) { logger.error(err, 'Scenarios v2 cron scheduler failed to start'); }
+    try {
+      const { rearmWaitTimersOnBoot } = await import('./services/scenarioGraph.service');
+      await rearmWaitTimersOnBoot();
+    } catch (err) { logger.error(err, 'Scenarios v2 wait timer rearm failed'); }
+  })();
+
   server.listen(config.port, () => {
     logger.info({ port: config.port, env: config.nodeEnv }, `Obliance RMM started`);
 

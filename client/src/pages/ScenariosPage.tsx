@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch } from 'lucide-react';
+import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { groupsApi } from '@/api/groups.api';
@@ -113,6 +114,8 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [form, setForm] = useState<ScenarioFormData>(defaultForm);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  // v2 graph editor — opens a full-viewport modal with React Flow when set.
+  const [graphEditorScenarioId, setGraphEditorScenarioId] = useState<number | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [triggerModalScenario, setTriggerModalScenario] = useState<Scenario | null>(null);
   const [triggerDeviceIds, setTriggerDeviceIds] = useState<number[]>([]);
@@ -224,7 +227,10 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
-    if (form.steps.length === 0) { toast.error('At least one step is required'); return; }
+    // v2: structure is managed in the graph editor. The metadata form
+    // accepts an empty step list; the auto-migration creates a minimal
+    // (trigger → end_success) graph that the user customises in
+    // ScenarioGraphEditor afterwards.
     for (const step of form.steps) {
       if (!step.name.trim()) { toast.error('All steps must have a name'); return; }
     }
@@ -878,10 +884,35 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
             )}
           </div>
 
-          {/* Steps */}
+          {/* Structure — v2-only. The graph editor is the single source
+              of truth for nodes and edges. The legacy step editor has
+              been retired now that every scenario flows through the v2
+              engine; we keep the React Flow callback below to jump
+              straight from the metadata form into the canvas. */}
           <div className="border-t border-border pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-text-primary">Steps *</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-text-primary">Structure</h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Save this form first, then click the <span className="font-mono px-1 py-0 rounded bg-bg-tertiary border border-border">GitBranch</span> icon on the scenario card to design the check / resolve / branch flow visually.
+                </p>
+              </div>
+              {editingScenario && (
+                <button
+                  onClick={() => { setShowForm(false); setEditingScenario(null); setGraphEditorScenarioId(editingScenario.id); }}
+                  className="px-3 py-1.5 text-sm bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/20 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <GitBranch className="w-3.5 h-3.5" /> Open graph editor
+                </button>
+              )}
+            </div>
+            {/* v1 step editor removed — kept the placeholder so the
+                surrounding JSX block remains balanced. Anything legacy
+                returning here can be put back inside this comment-only
+                fragment. */}
+            <div className="hidden">
+              <div className="mt-3 flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-text-primary">Steps</h3>
               <button
                 onClick={addStep}
                 className="flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary border border-border rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 transition-colors"
@@ -891,7 +922,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               </button>
             </div>
             {form.steps.length === 0 ? (
-              <p className="text-xs text-text-muted">No steps yet. Add at least one step.</p>
+              <p className="text-xs text-text-muted">No steps yet. New scenarios start with an empty graph that you build in the graph editor.</p>
             ) : (
               <div className="space-y-3">
                 {form.steps.map((step, i) => (
@@ -987,6 +1018,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                 ))}
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -1066,8 +1098,16 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                       <History className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => setGraphEditorScenarioId(scenario.id)}
+                      className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
+                      title="Edit graph"
+                    >
+                      <GitBranch className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleOpenEdit(scenario)}
                       className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+                      title="Edit metadata"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
@@ -1242,6 +1282,16 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
           scenario={historyForScenario}
           onClose={() => setHistoryForScenario(null)}
         />
+      )}
+
+      {/* v2 graph editor — full-viewport modal with the React Flow canvas */}
+      {graphEditorScenarioId != null && (
+        <div className="fixed inset-0 z-50 bg-bg-primary">
+          <ScenarioGraphEditor
+            scenarioId={graphEditorScenarioId}
+            onClose={() => setGraphEditorScenarioId(null)}
+          />
+        </div>
       )}
     </div>
   );

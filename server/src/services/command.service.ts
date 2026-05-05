@@ -493,7 +493,7 @@ class CommandService {
         }
       }
 
-      // ── Scenario step orchestration ─────────────────────────────────────
+      // ── Scenario step orchestration (v1 — linear engine) ────────────────
       if (isTerminal && row && row.source_type?.startsWith('scenario_step_')) {
         try {
           const result = ack.result as any;
@@ -508,6 +508,25 @@ class CommandService {
           );
         } catch (scenarioErr) {
           logger.error(scenarioErr, 'Failed to process scenario step ack');
+        }
+      }
+
+      // ── Scenario node orchestration (v2 — graph engine) ─────────────────
+      // run_script / run_command nodes register their nodeRunId as
+      // command source_id with source_type='scenario_node'. The graph
+      // engine resumes the run from that node based on the exit code.
+      if (isTerminal && row && row.source_type === 'scenario_node') {
+        try {
+          const result = ack.result as any;
+          const { scenarioGraphService } = await import('./scenarioGraph.service');
+          await scenarioGraphService.handleNodeCommandAck(
+            row.source_id,
+            result?.exitCode ?? (ack.status === 'success' ? 0 : -1),
+            result?.stdout ?? '',
+            result?.stderr ?? result?.error ?? '',
+          );
+        } catch (graphErr) {
+          logger.error(graphErr, 'Failed to process scenario v2 node ack');
         }
       }
     }

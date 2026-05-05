@@ -1548,10 +1548,96 @@ export interface NotificationPluginMeta {
 
 // ─── SCENARIOS ──────────────────────────────────────────────────────────────
 
-export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'manual';
+export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'schedule_cron' | 'manual';
 export type ScenarioStatus = 'draft' | 'active' | 'disabled';
 export type ScenarioRunStatus = 'pending' | 'running' | 'success' | 'failure' | 'cancelled' | 'timeout';
 export type ScenarioStepRunStatus = 'pending' | 'check_running' | 'check_passed' | 'resolve_running' | 'recheck_running' | 'recheck_passed' | 'failed' | 'skipped' | 'success';
+
+// ─── SCENARIO V2 — GRAPH BUILDER ─────────────────────────────────────────────
+// Replacement of the linear v1 step model. A scenario is now a directed
+// graph of nodes connected by edges. The engine walks the graph from the
+// trigger node, evaluating each edge's `condition` against the previous
+// node's output to pick the next hop.
+//
+// `type` discriminates the executor; the shape of `config` per type lives
+// in the matching `ScenarioNodeConfig*` interfaces below. See
+// server/src/services/scenarioGraph.service.ts for the executor table.
+
+export type ScenarioNodeType =
+  // Triggers (start of the graph — exactly one per scenario)
+  | 'trigger_manual'
+  | 'trigger_session_login'
+  | 'trigger_machine_boot'
+  | 'trigger_agent_approved'
+  | 'trigger_group_join'
+  | 'trigger_schedule_failure'
+  | 'trigger_schedule_cron'
+  // Actions
+  | 'run_script'
+  | 'run_command'
+  | 'send_notification'
+  | 'wait'
+  | 'tag_device'
+  | 'move_device_to_group'
+  // Logic
+  | 'branch_exit_code'
+  | 'branch_on_device'
+  // Terminators
+  | 'end_success'
+  | 'end_failure';
+
+export interface ScenarioNode {
+  id: number;
+  uuid: string;
+  scenarioId: number;
+  type: ScenarioNodeType;
+  label: string | null;
+  config: Record<string, unknown>;
+  positionX: number;
+  positionY: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Discriminated condition for an edge. Evaluated against the previous
+ *  node's output. The first matching edge (sorted by sortOrder) wins. */
+export type ScenarioEdgeCondition =
+  | { kind: 'always' }
+  | { kind: 'default' }                      // taken only if no other edge matches
+  | { kind: 'exit_code_eq';  value: number }
+  | { kind: 'exit_code_in';  values: number[] }
+  | { kind: 'exit_code_neq'; value: number };
+
+export interface ScenarioEdge {
+  id: number;
+  uuid: string;
+  scenarioId: number;
+  sourceNodeId: number;
+  sourceHandle: string | null;
+  targetNodeId: number;
+  condition: ScenarioEdgeCondition;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Per-node trace recorded as the engine walks the graph. Powers the live
+ *  graph viewer (lights up nodes as they execute) and the post-run audit. */
+export interface ScenarioNodeRun {
+  id: string;
+  runId: string;
+  nodeId: number;
+  nodeType: ScenarioNodeType;
+  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+  commandId: string | null;
+  exitCode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
 
 export interface ScenarioTriggerConfig {
   groupIds?: number[];
@@ -1615,6 +1701,11 @@ export interface Scenario {
   /** Populated by the list endpoint (cheap COUNT subquery). The detail
    *  endpoint returns the full `steps` array instead. */
   stepCount?: number;
+  /** v2 graph — set by the detail endpoint. Mutually exclusive with `steps`
+   *  in practice (after Phase 1B auto-migration, every scenario carries
+   *  nodes/edges and `steps` is empty). */
+  nodes?: ScenarioNode[];
+  edges?: ScenarioEdge[];
   createdBy: number | null;
   updatedBy: number | null;
   createdAt: string;

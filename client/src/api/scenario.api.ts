@@ -1,5 +1,24 @@
 import apiClient from './client';
-import type { Scenario, ScenarioRun } from '@obliance/shared';
+import type { Scenario, ScenarioRun, ScenarioNode, ScenarioEdge } from '@obliance/shared';
+
+export interface ScenarioGraph { nodes: ScenarioNode[]; edges: ScenarioEdge[] }
+export interface ScenarioGraphSavePayload {
+  nodes: Array<{
+    clientId: string;
+    type: string;
+    label?: string | null;
+    config?: Record<string, unknown>;
+    positionX?: number;
+    positionY?: number;
+  }>;
+  edges: Array<{
+    sourceClientId: string;
+    targetClientId: string;
+    sourceHandle?: string | null;
+    condition?: any;
+    sortOrder?: number;
+  }>;
+}
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -61,6 +80,18 @@ export const scenarioApi = {
   },
   async instantiateTemplate(index: number, data: { name?: string; variables?: Record<string, string> }): Promise<Scenario> {
     const res = await apiClient.post<ApiResponse<Scenario>>(`/scenarios/templates/${index}/instantiate`, data);
+    return res.data.data!;
+  },
+  // ── v2 graph editor ───────────────────────────────────────────────
+  async getGraph(scenarioId: number): Promise<ScenarioGraph> {
+    const res = await apiClient.get<ApiResponse<ScenarioGraph>>(`/scenarios/${scenarioId}/graph`);
+    return res.data.data ?? { nodes: [], edges: [] };
+  },
+  async saveGraph(scenarioId: number, payload: ScenarioGraphSavePayload): Promise<void> {
+    await apiClient.put(`/scenarios/${scenarioId}/graph`, payload);
+  },
+  async startGraphRun(scenarioId: number, deviceId: number): Promise<{ runId: string }> {
+    const res = await apiClient.post<ApiResponse<{ runId: string }>>(`/scenarios/${scenarioId}/start-graph-run`, { deviceId });
     return res.data.data!;
   },
   async listForDevice(deviceId: number): Promise<Scenario[]> {

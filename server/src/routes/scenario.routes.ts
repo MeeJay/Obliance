@@ -83,6 +83,13 @@ router.post('/templates/:index/instantiate', requireRole('admin'), async (req, r
     };
 
     const scenario = await scenarioService.create(req.tenantId!, scenarioData, req.session.userId!);
+    // v2: convert the freshly created v1 scenario to the graph model
+    // immediately so the editor opens the React Flow canvas instead of the
+    // legacy step list. Skip silently if the scenario already has nodes.
+    try {
+      const { migrateScenarioToV2 } = await import('../services/scenarioMigrate.service');
+      await migrateScenarioToV2(scenario.id);
+    } catch {}
     res.status(201).json({ data: scenario });
   } catch (err) { next(err); }
 });
@@ -147,6 +154,13 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', requireRole('admin'), async (req, res, next) => {
   try {
     const scenario = await scenarioService.create(req.tenantId!, req.body, req.session.userId!);
+    // v2: convert the freshly created scenario into the graph model so
+    // the editor opens directly on the React Flow canvas. No-op if the
+    // body already shipped nodes/edges (Phase 1C UI saves graph-first).
+    try {
+      const { migrateScenarioToV2 } = await import('../services/scenarioMigrate.service');
+      await migrateScenarioToV2(scenario.id);
+    } catch {}
     try {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'scenario.created', {
@@ -240,6 +254,103 @@ router.get('/:id/runs', async (req, res, next) => {
   try {
     const runs = await scenarioService.listRuns(req.tenantId!, { scenarioId: parseInt(req.params.id) });
     res.json({ data: runs });
+  } catch (err) { next(err); }
+});
+
+// ── v2 — graph builder routes ───────────────────────────────────────────────
+// Phase 1A foundation: read/write the nodes + edges. The React Flow editor
+// (Phase 1C) saves the whole graph as one PUT — atomic replacement keeps
+// the data model trivial and the editor logic simple.
+
+import { db } from '../db';
+import { scenarioGraphService } from '../services/scenarioGraph.service';
+
+// GET /:id/graph — return nodes + edges for a scenario
+router.get('/:id/graph', async (req, res, next) => {
+  try {
+    const scenarioId = parseInt(req.params.id);
+    // Tenant scope: confirm the scenario belongs to the caller's tenant
+    // before exposing nodes/edges, since these don't carry tenant_id
+    // themselves (FK to scenarios is enough).
+    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
+    const [nodes, edges] = await Promise.all([
+      db('scenario_nodes').where({ scenario_id: scenarioId }).orderBy('id'),
+      db('scenario_edges').where({ scenario_id: scenarioId }).orderBy('sort_order'),
+    ]);
+    res.json({ data: { nodes, edges } });
+  } catch (err) { next(err); }
+});
+
+// PUT /:id/graph — atomic replacement of the whole graph
+// Body: { nodes: [...], edges: [...] }. Each node carries its
+// frontend-only `clientId` (any string) so edges can reference newly
+// created nodes before the DB hands out real ids. The server resolves
+// clientId → id when wiring edges.
+router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
+  try {
+    const scenarioId = parseInt(req.params.id);
+    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
+
+    const { nodes = [], edges = [] } = req.body as {
+      nodes: Array<{ clientId?: string; type: string; label?: string | null; config?: any; positionX?: number; positionY?: number }>;
+      edges: Array<{ sourceClientId?: string; targetClientId?: string; sourceHandle?: string | null; condition?: any; sortOrder?: number }>;
+    };
+
+    await db.transaction(async (trx) => {
+      // Wipe and rewrite — simplest semantics for a save-the-whole-graph
+      // editor. Cascade deletes scenario_edges via FK.
+      await trx('scenario_nodes').where({ scenario_id: scenarioId }).del();
+
+      const idByClientId = new Map<string, number>();
+      for (const n of nodes) {
+        const [row] = await trx('scenario_nodes').insert({
+          scenario_id: scenarioId,
+          type: n.type,
+          label: n.label ?? null,
+          config: JSON.stringify(n.config ?? {}),
+          position_x: n.positionX ?? 0,
+          position_y: n.positionY ?? 0,
+        }).returning('id') as Array<{ id: number }>;
+        if (n.clientId) idByClientId.set(n.clientId, row.id);
+      }
+
+      for (const e of edges) {
+        const sourceId = e.sourceClientId ? idByClientId.get(e.sourceClientId) : undefined;
+        const targetId = e.targetClientId ? idByClientId.get(e.targetClientId) : undefined;
+        if (!sourceId || !targetId) continue; // skip dangling edges silently
+        await trx('scenario_edges').insert({
+          scenario_id: scenarioId,
+          source_node_id: sourceId,
+          source_handle: e.sourceHandle ?? null,
+          target_node_id: targetId,
+          condition: JSON.stringify(e.condition ?? { kind: 'always' }),
+          sort_order: e.sortOrder ?? 0,
+        });
+      }
+    });
+
+    res.json({ data: { success: true } });
+  } catch (err) { next(err); }
+});
+
+// POST /:id/start-graph-run — fire a manual run via the v2 engine on a
+// specific device (admin only; the device must belong to the tenant).
+router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next) => {
+  try {
+    const scenarioId = parseInt(req.params.id);
+    const { deviceId } = req.body as { deviceId?: number };
+    if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
+    const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
+      triggerType: 'manual',
+      triggerSource: 'graph-run',
+    });
+    res.status(202).json({ data: { runId } });
   } catch (err) { next(err); }
 });
 

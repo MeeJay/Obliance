@@ -55,7 +55,8 @@ export const SocketEvents = {
 
   // Scenario events
   SCENARIO_RUN_UPDATED:   'SCENARIO_RUN_UPDATED',    // scenario run status changed
-  SCENARIO_STEP_UPDATED:  'SCENARIO_STEP_UPDATED',   // scenario step run status changed
+  SCENARIO_STEP_UPDATED:  'SCENARIO_STEP_UPDATED',   // scenario step run status changed (v1)
+  SCENARIO_NODE_UPDATED:  'SCENARIO_NODE_UPDATED',   // v2 graph: node run status changed (live viewer)
 
   // Client → Server
   DEVICE_SUBSCRIBE:       'DEVICE_SUBSCRIBE',
