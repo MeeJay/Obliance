@@ -274,10 +274,39 @@ router.get('/:id/graph', async (req, res, next) => {
     // themselves (FK to scenarios is enough).
     const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
-    const [nodes, edges] = await Promise.all([
+    const [nodeRows, edgeRows] = await Promise.all([
       db('scenario_nodes').where({ scenario_id: scenarioId }).orderBy('id'),
       db('scenario_edges').where({ scenario_id: scenarioId }).orderBy('sort_order'),
     ]);
+    // Convert snake_case DB rows to the camelCase shape the shared
+    // ScenarioNode / ScenarioEdge types declare. Without this the
+    // client receives `position_x` and reads `positionX` ⇒ undefined,
+    // which propagates as NaN through React Flow's node positions
+    // and explodes the SVG renderer with hundreds of "cx: NaN" errors.
+    const nodes = nodeRows.map((r: any) => ({
+      id: r.id,
+      uuid: r.uuid,
+      scenarioId: r.scenario_id,
+      type: r.type,
+      label: r.label,
+      config: typeof r.config === 'string' ? JSON.parse(r.config) : (r.config ?? {}),
+      positionX: r.position_x ?? 0,
+      positionY: r.position_y ?? 0,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+    const edges = edgeRows.map((r: any) => ({
+      id: r.id,
+      uuid: r.uuid,
+      scenarioId: r.scenario_id,
+      sourceNodeId: r.source_node_id,
+      sourceHandle: r.source_handle,
+      targetNodeId: r.target_node_id,
+      condition: typeof r.condition === 'string' ? JSON.parse(r.condition) : (r.condition ?? { kind: 'always' }),
+      sortOrder: r.sort_order,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
     res.json({ data: { nodes, edges } });
   } catch (err) { next(err); }
 });
