@@ -244,6 +244,11 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   const [scripts, setScripts] = useState<Script[]>([]);
   const [scriptCategories, setScriptCategories] = useState<ScriptCategory[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  // Devices the scenario *actually* targets (resolved through
+  // targetType + targetIds + group closure). The picker pins these
+  // to the top of the list so the user doesn't have to hunt for
+  // them in a fleet of hundreds.
+  const [targetedDeviceIds, setTargetedDeviceIds] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
@@ -298,11 +303,17 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       // bumping the window from the default 60 min to 24h covers a
       // typical dev/admin workday.
       scenarioApi.getActiveRuns(scenarioId, 24 * 60).catch(() => ({ runs: [], nodeRuns: [] })),
-    ]).then(([graph, scriptList, catList, deviceList, active]) => {
+      // Resolve the scenario's actual target device set (target_type +
+      // target_ids + group closure) so the run picker can highlight
+      // them at the top of the list rather than forcing the user to
+      // search through every approved device.
+      scenarioApi.resolvedTargets(scenarioId).catch(() => [] as number[]),
+    ]).then(([graph, scriptList, catList, deviceList, active, targets]) => {
       if (cancelled) return;
       setScripts(scriptList);
       setScriptCategories(catList);
       setDevices(deviceList);
+      setTargetedDeviceIds(new Set(targets));
 
       // Hydrate live-run state from the active-runs response. Only
       // 'running' runs feed activeRunIds — finished ones still
@@ -1118,6 +1129,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       {showRunPicker && (
         <RunPickerModal
           devices={devices}
+          targetedDeviceIds={targetedDeviceIds}
           mode={runMode}
           onCancel={() => { setShowRunPicker(false); setRunMode({ kind: 'graph' }); }}
           onPick={startTestRun}
@@ -1311,7 +1323,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       )}
 
       {/* ── Output panel — script-history-style per-device output ────── */}
-      {showOutputPanel && nodeOutputs.size > 0 && (
+      {/* Always render when the user opened the panel, even if no
+          outputs have arrived yet — a still-running node has no
+          stdout/stderr captured but we still want the panel visible
+          with a "Waiting on agent…" placeholder so the user knows
+          where to look once the script finishes. */}
+      {showOutputPanel && (
         <NodeOutputPanel
           nodes={nodes}
           devices={devices}
@@ -1676,9 +1693,13 @@ function ScriptPicker({
 // positioning so it escapes the editor's stacking context and can't be
 // hidden behind the React Flow canvas.
 function RunPickerModal({
-  devices, mode, onCancel, onPick,
+  devices, targetedDeviceIds, mode, onCancel, onPick,
 }: {
   devices: Device[];
+  /** IDs of devices the scenario actually targets via target_type +
+   *  target_ids. The picker pins these to a "Targeted" section at the
+   *  top with a coloured badge so the user lands on them first. */
+  targetedDeviceIds: Set<number>;
   mode: { kind: 'graph' } | { kind: 'from'; nodeClientId: string } | { kind: 'single'; nodeClientId: string };
   onCancel: () => void;
   onPick: (deviceIds: number[]) => void;
@@ -1694,6 +1715,16 @@ function RunPickerModal({
       .some((f) => String(f).toLowerCase().includes(q));
   });
 
+  // Split filtered results into "targeted" (sorted by display name)
+  // and "others" (everything else still selectable for ad-hoc test
+  // runs). The user explicitly asked for the targeted set on top so
+  // they don't scroll through hundreds of approved devices to find
+  // the three the scenario actually applies to.
+  const cmpName = (a: Device, b: Device) =>
+    (a.displayName || a.hostname || '').localeCompare(b.displayName || b.hostname || '');
+  const targeted = filtered.filter((d) => targetedDeviceIds.has(d.id)).sort(cmpName);
+  const others   = filtered.filter((d) => !targetedDeviceIds.has(d.id)).sort(cmpName);
+
   const toggle = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -1704,6 +1735,16 @@ function RunPickerModal({
   };
   const toggleAll = () => {
     setSelected((prev) => prev.size === filtered.length ? new Set() : new Set(filtered.map((d) => d.id)));
+  };
+  /** Convenience shortcut — select every targeted device that
+   *  matches the current search filter. Saves the user from clicking
+   *  10 boxes when the scenario targets a 10-device group. */
+  const selectAllTargeted = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const d of targeted) next.add(d.id);
+      return next;
+    });
   };
 
   const title = mode.kind === 'graph' ? 'Run on devices'
@@ -1741,25 +1782,80 @@ function RunPickerModal({
           {filtered.length === 0 ? (
             <div className="px-4 py-3 text-sm text-text-muted">No matching device</div>
           ) : (
-            filtered.slice(0, 500).map((d) => {
-              const checked = selected.has(d.id);
-              return (
-                <button key={d.id} onClick={() => toggle(d.id)}
-                  className={clsx(
-                    'w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors border-b border-border/50 last:border-b-0',
-                    checked ? 'bg-accent/10' : 'hover:bg-bg-hover',
-                  )}>
-                  <input type="checkbox" readOnly checked={checked} className="accent-accent" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-text-primary truncate">{d.displayName || d.hostname}</div>
-                    <div className="text-[11px] text-text-muted truncate">{d.osName || d.osType} · {d.ipLocal || '—'}</div>
+            <>
+              {/* "Targeted by scenario" section — pinned on top, with
+                  an accent badge per row + a one-click "Select all"
+                  shortcut. Hidden when the scenario has no resolved
+                  targets (e.g. targetType='all' on a small fleet
+                  where every device is targeted, or empty target_ids). */}
+              {targeted.length > 0 && (
+                <div>
+                  <div className="px-4 py-1.5 bg-accent/5 border-b border-accent/20 flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-accent">
+                      Targeted by scenario · {targeted.length}
+                    </span>
+                    <div className="flex-1" />
+                    <button type="button" onClick={selectAllTargeted}
+                      className="text-[10px] px-2 py-0.5 rounded bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors">
+                      Select all targeted
+                    </button>
                   </div>
-                </button>
-              );
-            })
+                  {targeted.slice(0, 500).map((d) => {
+                    const checked = selected.has(d.id);
+                    return (
+                      <button key={d.id} onClick={() => toggle(d.id)}
+                        className={clsx(
+                          'w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors border-b border-border/50',
+                          checked ? 'bg-accent/10' : 'hover:bg-bg-hover',
+                        )}>
+                        <input type="checkbox" readOnly checked={checked} className="accent-accent" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-text-primary truncate">{d.displayName || d.hostname}</span>
+                            <span className="text-[9px] font-mono text-accent border border-accent/30 bg-accent/10 rounded px-1 py-0">
+                              targeted
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-text-muted truncate">{d.osName || d.osType} · {d.ipLocal || '—'}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/* "Other devices" — every other approved device in the
+                  tenant, still selectable so admins can fire ad-hoc
+                  test runs on a non-targeted machine without editing
+                  the scenario's target_ids. */}
+              {others.length > 0 && (
+                <div>
+                  <div className="px-4 py-1.5 bg-bg-tertiary/40 border-b border-border flex items-center">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted">
+                      {targeted.length > 0 ? 'Other devices' : 'All devices'} · {others.length}
+                    </span>
+                  </div>
+                  {others.slice(0, 500).map((d) => {
+                    const checked = selected.has(d.id);
+                    return (
+                      <button key={d.id} onClick={() => toggle(d.id)}
+                        className={clsx(
+                          'w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors border-b border-border/50',
+                          checked ? 'bg-accent/10' : 'hover:bg-bg-hover',
+                        )}>
+                        <input type="checkbox" readOnly checked={checked} className="accent-accent" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-text-primary truncate">{d.displayName || d.hostname}</div>
+                          <div className="text-[11px] text-text-muted truncate">{d.osName || d.osType} · {d.ipLocal || '—'}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
-          {filtered.length > 500 && (
-            <div className="px-4 py-2 text-[11px] text-text-muted">Showing first 500 — narrow your search.</div>
+          {filtered.length > 1000 && (
+            <div className="px-4 py-2 text-[11px] text-text-muted">Long list — narrow your search if needed.</div>
           )}
         </div>
         <div className="px-4 py-3 border-t border-border flex items-center justify-between">
@@ -1860,12 +1956,18 @@ function NodeOutputPanel({
     if (!d) return `device #${id}`;
     return d.displayName || d.hostname || `device #${id}`;
   };
-  // Pick which node to display. Prefer the explicit focus (selection or
-  // last-active); fall back to the first node that has outputs.
+  // Pick which node to display. The user's explicit focus wins —
+  // even if that node has no outputs *yet* (a still-running script
+  // produces stdout only on completion), we still surface it with a
+  // "Waiting on agent…" placeholder so they see something. The dropdown
+  // candidates merge: nodes with captured outputs, nodes with live
+  // status (running), and the focused node itself.
   const focusDbId = focusNodeClientId ? Number(/^db-(\d+)$/.exec(focusNodeClientId)?.[1] ?? NaN) : NaN;
-  const candidateIds = [...outputs.keys()];
-  const activeDbId = Number.isFinite(focusDbId) && outputs.has(focusDbId) ? focusDbId : candidateIds[0];
-  const node = nodes.find((n) => n.id === `db-${activeDbId}`);
+  const candidateSet = new Set<number>([...outputs.keys(), ...statusByDevice.keys()]);
+  if (Number.isFinite(focusDbId)) candidateSet.add(focusDbId);
+  const candidateIds = [...candidateSet];
+  const activeDbId = Number.isFinite(focusDbId) ? focusDbId : candidateIds[0];
+  const node = activeDbId != null ? nodes.find((n) => n.id === `db-${activeDbId}`) : undefined;
   const meta = node ? NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType] : undefined;
   const perDevice = activeDbId != null ? (outputs.get(activeDbId) ?? new Map()) : new Map();
   const liveStatus = activeDbId != null ? (statusByDevice.get(activeDbId) ?? new Map()) : new Map();
@@ -1895,7 +1997,17 @@ function NodeOutputPanel({
       </div>
       <div className="flex-1 overflow-y-auto">
         {allDeviceIds.length === 0 ? (
-          <div className="px-3 py-3 text-[12px] text-text-muted">No output yet.</div>
+          <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
+            {node ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted/70 shrink-0" />
+                <span>
+                  Waiting on agent for <span className="text-text-primary font-medium">{node.data.label || meta?.label || `node ${activeDbId}`}</span>…
+                  Output appears once the script finishes (no live stdout streaming yet).
+                </span>
+              </>
+            ) : 'No output yet.'}
+          </div>
         ) : allDeviceIds.map((deviceId) => {
           const result = perDevice.get(deviceId);
           const status = (result?.status ?? liveStatus.get(deviceId) ?? 'running') as DeviceNodeStatus;
