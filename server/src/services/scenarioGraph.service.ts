@@ -134,36 +134,71 @@ export async function rearmWaitTimersOnBoot(): Promise<void> {
 
 export const scenarioGraphService = {
   /**
-   * Kick off a run for a scenario on a target device. The caller passes
-   * the specific trigger node that fired (multi-trigger scenarios can
-   * have several `trigger_*` nodes side by side), and we walk from
-   * that node's first downstream neighbour. If `triggerNodeId` is
-   * omitted, we pick any trigger node — convenient for "start manually"
-   * commands when the scenario only has one trigger.
+   * Kick off a run for a scenario on a target device. Three modes:
+   *
+   * 1. **Trigger-driven** (default): pass `triggerNodeId` (optional) — engine
+   *    walks from that trigger node's first downstream edge. Used by event
+   *    triggers + the editor's "Run on device" button.
+   * 2. **Mid-graph entry**: pass `startNodeId` to execute that exact node
+   *    directly (skipping any trigger walk). Used by the right-click
+   *    "Run from this node" action so admins can test the bottom half of
+   *    a graph without re-running the trigger preamble.
+   * 3. **Single-node test**: pass `singleNode: true` (with `startNodeId`
+   *    or `triggerNodeId`) to halt the run with success after the
+   *    selected node finishes — no edge walk after completion. The flag
+   *    is encoded into trigger_source as a `__single_node` marker so
+   *    `_advance` can short-circuit it without a schema migration.
+   *
+   * The scenario's status is intentionally NOT checked — admins must be
+   * able to test disabled/draft scenarios from the editor before flipping
+   * them to active.
    */
   async startRun(scenarioId: number, deviceId: number, opts: {
     triggerType: string;
     triggerSource?: string;
     triggerNodeId?: number;
+    /** Mid-graph entry: execute this node directly. */
+    startNodeId?: number;
+    /** Stop with success after the entry node completes (one-shot test). */
+    singleNode?: boolean;
   }): Promise<string> {
     const scenario = await db('scenarios').where({ id: scenarioId }).first();
     if (!scenario) throw new Error(`Scenario ${scenarioId} not found`);
 
-    let triggerNode: { id: number } | undefined;
-    if (opts.triggerNodeId) {
-      triggerNode = await db('scenario_nodes')
-        .where({ id: opts.triggerNodeId, scenario_id: scenarioId })
+    // Compose the trigger_source carrier so _advance can detect single-
+    // node test runs. Format: "<base>|__single_node" with empty base ok.
+    const baseSource = opts.triggerSource ?? null;
+    const triggerSource = opts.singleNode
+      ? `${baseSource ?? ''}|__single_node`
+      : baseSource;
+
+    // Resolve the entry node — either an explicit startNodeId (mid-graph)
+    // or the trigger flow.
+    let entryNodeId: number | undefined;
+    let walkFromTrigger = false;
+    if (opts.startNodeId) {
+      const node = await db('scenario_nodes')
+        .where({ id: opts.startNodeId, scenario_id: scenarioId })
         .first() as { id: number } | undefined;
+      if (!node) throw new Error(`Node ${opts.startNodeId} not found in scenario ${scenarioId}`);
+      entryNodeId = node.id;
+    } else {
+      let triggerNode: { id: number } | undefined;
+      if (opts.triggerNodeId) {
+        triggerNode = await db('scenario_nodes')
+          .where({ id: opts.triggerNodeId, scenario_id: scenarioId })
+          .first() as { id: number } | undefined;
+      }
+      if (!triggerNode) {
+        triggerNode = await db('scenario_nodes')
+          .where({ scenario_id: scenarioId })
+          .whereLike('type', 'trigger_%')
+          .first() as { id: number } | undefined;
+      }
+      if (!triggerNode) throw new Error(`Scenario ${scenarioId} has no trigger node — graph is incomplete`);
+      entryNodeId = triggerNode.id;
+      walkFromTrigger = true;
     }
-    if (!triggerNode) {
-      // Fallback: first trigger of any kind. Used by "Run on device"
-      // shortcuts where the user didn't pick a specific trigger.
-      triggerNode = await db('scenario_nodes')
-        .where({ scenario_id: scenarioId })
-        .whereLike('type', 'trigger_%')
-        .first() as { id: number } | undefined;
-    }
-    if (!triggerNode) throw new Error(`Scenario ${scenarioId} has no trigger node — graph is incomplete`);
 
     const [runRow] = await db('scenario_runs')
       .insert({
@@ -171,20 +206,26 @@ export const scenarioGraphService = {
         scenario_id: scenarioId,
         device_id: deviceId,
         trigger_type: opts.triggerType,
-        trigger_source: opts.triggerSource ?? null,
+        trigger_source: triggerSource,
         status: 'running',
         started_at: new Date(),
       })
       .returning('id') as Array<{ id: string }>;
 
-    // Trigger nodes are passive — advance to the first non-trigger neighbour.
-    const firstEdge = await pickNextEdge(scenarioId, triggerNode.id, null);
-    if (!firstEdge) {
-      await markRunFailure(runRow.id, 'Trigger node has no outgoing edge');
-      return runRow.id;
+    if (walkFromTrigger) {
+      // Trigger nodes are passive — advance to the first non-trigger
+      // neighbour. If a single-node test was asked from a trigger, the
+      // first downstream node is the one that runs and stops.
+      const firstEdge = await pickNextEdge(scenarioId, entryNodeId!, null);
+      if (!firstEdge) {
+        await markRunFailure(runRow.id, 'Trigger node has no outgoing edge');
+        return runRow.id;
+      }
+      await this.executeNode(runRow.id, firstEdge.targetNodeId);
+    } else {
+      // Mid-graph entry — run the named node directly.
+      await this.executeNode(runRow.id, entryNodeId!);
     }
-
-    await this.executeNode(runRow.id, firstEdge.targetNodeId);
     return runRow.id;
   },
 
@@ -227,6 +268,19 @@ export const scenarioGraphService = {
       started_at: new Date(),
     }).returning('id') as Array<{ id: string }>;
     const nodeRunId = nrRow.id;
+
+    // Live viewer — emit a 'running' event the moment the node starts so
+    // the editor lights up the matching node immediately. Without this
+    // the canvas only paints once the ack lands (i.e. only on script
+    // finish), and a long-running script never visibly enters 'running'.
+    try {
+      const io = getIO();
+      if (io) io.to(`tenant:${run.tenant_id}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
+        runId, nodeRunId, nodeId, status: 'running',
+        exitCode: null, stdout: null, stderr: null, errorMessage: null,
+        deviceId: run.device_id ?? null,
+      });
+    } catch { /* socket not ready — fine */ }
 
     const exec = EXECUTORS[typedNode.type];
     if (!exec) {
@@ -309,22 +363,39 @@ export const scenarioGraphService = {
       finished_at: new Date(),
     }).returning('*');
     // Mirror the last result on the run so the next branch_exit_code can
-    // see it without re-reading scenario_node_runs.
+    // see it without re-reading scenario_node_runs. Returning device_id
+    // and tenant_id lets the live socket payload identify which device
+    // the result belongs to (multi-device test runs need this to bucket
+    // outputs per agent in the editor's panel).
     const runRow = await db('scenario_runs').where({ id: runId }).update({
       last_exit_code: result.exitCode,
       last_stdout: result.stdout,
       last_stderr: result.stderr,
       updated_at: new Date(),
-    }).returning('tenant_id');
+    }).returning(['tenant_id', 'device_id']);
     // Live viewer broadcast — the editor listens for SCENARIO_NODE_UPDATED
-    // and highlights the matching node in the React Flow canvas.
+    // and highlights the matching node in the React Flow canvas. We
+    // include a truncated copy of stdout/stderr so the editor's output
+    // panel can render the script result inline without a follow-up
+    // HTTP fetch. Truncation keeps the websocket frame small even when a
+    // misbehaving script dumps megabytes.
     if (updated && runRow[0]) {
       try {
         const io = getIO();
-        if (io) io.to(`tenant:${runRow[0].tenant_id}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
-          runId, nodeRunId, nodeId: updated.node_id, status,
-          exitCode: result.exitCode,
-        });
+        if (io) {
+          const truncate = (s: string | null, max = 16 * 1024) => {
+            if (s == null) return null;
+            return s.length > max ? `${s.slice(0, max)}\n…[truncated, full output ${s.length} chars]` : s;
+          };
+          io.to(`tenant:${runRow[0].tenant_id}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
+            runId, nodeRunId, nodeId: updated.node_id, status,
+            exitCode: result.exitCode,
+            stdout: truncate(result.stdout),
+            stderr: truncate(result.stderr),
+            errorMessage: result.errorMessage,
+            deviceId: runRow[0].device_id ?? null,
+          });
+        }
       } catch { /* socket not ready at boot — fine */ }
     }
   },
@@ -333,10 +404,20 @@ export const scenarioGraphService = {
    * Internal: pick the next edge based on the previous node's exit code,
    * then execute the target. If no edge matches, we treat that as a
    * graph-design error and fail the run.
+   *
+   * Single-node test runs (trigger_source carries the `__single_node`
+   * marker) short-circuit here: the engine ends the run with success
+   * after the entry node completes, regardless of whether outgoing
+   * edges exist. Lets admins right-click a node and "run only this
+   * node" without polluting the rest of the graph.
    */
   async _advance(runId: string, fromNodeId: number, exitCode: number | null): Promise<void> {
     const run = await db('scenario_runs').where({ id: runId }).first();
     if (!run) return;
+    if (typeof run.trigger_source === 'string' && run.trigger_source.includes('__single_node')) {
+      await markRunSuccess(runId);
+      return;
+    }
     const next = await pickNextEdge(run.scenario_id, fromNodeId, exitCode);
     if (!next) {
       // No matching edge means the graph has nothing to do for this

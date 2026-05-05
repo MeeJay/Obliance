@@ -1037,7 +1037,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {scenario.triggerType === 'manual' && (
+                    {/* In v2, the Play icon shows whenever the scenario has
+                        a manual trigger in its graph (triggerCounts.manual > 0)
+                        OR the legacy triggerType is 'manual'. The legacy
+                        check covers freshly-created scenarios that haven't
+                        been migrated yet — it would otherwise be dropped
+                        and admins couldn't fire them from the list view. */}
+                    {((scenario.triggerCounts?.manual ?? 0) > 0 || scenario.triggerType === 'manual') && (
                       <button
                         onClick={() => handleTrigger(scenario)}
                         className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"

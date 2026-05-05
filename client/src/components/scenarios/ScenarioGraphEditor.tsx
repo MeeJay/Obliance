@@ -20,16 +20,49 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { deviceApi } from '@/api/device.api';
 import { getSocket } from '@/socket/socketClient';
-import type { ScenarioNodeType, ScenarioEdgeCondition, Script, Device } from '@obliance/shared';
+import type { ScenarioNodeType, ScenarioEdgeCondition, Script, Device, ScriptCategory } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { NODE_TYPES, NODE_TYPE_BY_KEY, isTriggerType, type NodeTypeMeta, type NodeFieldDef } from './scenarioNodeRegistry';
+
+// ── Aggregated run status across N parallel device runs ─────────────────────
+// Multi-device test runs spawn one scenario_run per device. The editor
+// tracks live state per run+device, then collapses each node down to a
+// single visible status using the priority below — failed dominates so
+// admins immediately see when one machine in the batch broke. Order:
+//   failed > running > success > skipped > null.
+type DeviceNodeStatus = 'running' | 'success' | 'failed' | 'skipped';
+function aggregateNodeStatus(perDevice: Map<number, DeviceNodeStatus>): DeviceNodeStatus | null {
+  if (perDevice.size === 0) return null;
+  let hasRunning = false; let hasSuccess = false;
+  for (const v of perDevice.values()) {
+    if (v === 'failed') return 'failed';
+    if (v === 'running') hasRunning = true;
+    else if (v === 'success') hasSuccess = true;
+  }
+  if (hasRunning) return 'running';
+  if (hasSuccess) return 'success';
+  return null;
+}
+
+// Per-node, per-device output captured from the live socket events. Used
+// by the output panel to render a script-history-like view: one row per
+// agent, expand to see stdout/stderr/exit code.
+interface DeviceNodeResult {
+  deviceId: number;
+  status: DeviceNodeStatus;
+  exitCode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  errorMessage: string | null;
+  finishedAt?: string | null;
+}
 
 // Phase 1C — graph editor for v2 scenarios. Wraps @xyflow/react with our
 // 16 node types, an inline config sidebar, and a save handler that posts
@@ -196,26 +229,94 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge<EdgeData> | null>(null);
   const [scripts, setScripts] = useState<Script[]>([]);
+  const [scriptCategories, setScriptCategories] = useState<ScriptCategory[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
-  // Live run viewer state — set when the user fires a "Run on device".
-  // The editor listens for SCENARIO_NODE_UPDATED for this run and paints
-  // the matching nodes. Tracking dbId → clientId so the events (which
-  // carry DB ids) can resolve to React Flow's own node ids.
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  // Live run viewer state — multi-device aware. activeRunIds is a set
+  // of every run we're currently tracking (the most recent batch + any
+  // older still-running ones from the active-runs hydrate). runDevices
+  // maps each run id to the device it targets so the per-node status
+  // map (nodeStatusByDevice) and output panel can label rows correctly.
+  const [activeRunIds, setActiveRunIds] = useState<Set<string>>(new Set());
+  const [runDevices, setRunDevices] = useState<Map<string, number>>(new Map());
+  const [nodeStatusByDevice, setNodeStatusByDevice] = useState<Map<number, Map<number, DeviceNodeStatus>>>(new Map());
+  const [nodeOutputs, setNodeOutputs] = useState<Map<number, Map<number, DeviceNodeResult>>>(new Map());
   const [showRunPicker, setShowRunPicker] = useState(false);
+  /** Run-picker mode: 'graph' = walk from triggers, 'from' = mid-graph
+   *  entry, 'single' = run only one node. nodeClientId is the React
+   *  Flow id (e.g. `db-42`); we parse the numeric DB id at submit time. */
+  const [runMode, setRunMode] = useState<
+    | { kind: 'graph' }
+    | { kind: 'from'; nodeClientId: string }
+    | { kind: 'single'; nodeClientId: string }
+  >({ kind: 'graph' });
+  /** Right-click context menu state. */
+  const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [paneMenu, setPaneMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
+  const [showOutputPanel, setShowOutputPanel] = useState(true);
+  /** Most recent node id with output — drives which node the output panel
+   *  shows by default. When the user explicitly selects a node, the panel
+   *  prefers the selection. */
+  const [lastActiveNodeId, setLastActiveNodeId] = useState<number | null>(null);
 
-  // Load the graph + scripts on mount.
+  // Load the graph + scripts + script categories + devices + any
+  // currently-running test runs in one go. The active-runs query
+  // re-seeds the per-node status map so closing and re-opening the
+  // editor mid-run lands us back on a canvas that mirrors the live
+  // engine state instead of a blank slate.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     Promise.all([
       scenarioApi.getGraph(scenarioId),
       scriptApi.list(),
-    ]).then(([graph, scriptList]) => {
+      scriptApi.listCategories().catch(() => [] as ScriptCategory[]),
+      deviceApi.listPaginated({ pageSize: 5000, approvalStatus: 'approved' }).then((r) => r.items).catch(() => [] as Device[]),
+      scenarioApi.getActiveRuns(scenarioId).catch(() => ({ runs: [], nodeRuns: [] })),
+    ]).then(([graph, scriptList, catList, deviceList, active]) => {
       if (cancelled) return;
       setScripts(scriptList);
+      setScriptCategories(catList);
+      setDevices(deviceList);
+
+      // Hydrate live-run state from the active-runs response. Only
+      // 'running' runs feed activeRunIds — finished ones still
+      // contribute to the per-node status map so the user sees the
+      // outcome of the last batch even after every run wrapped up.
+      const newActive = new Set<string>();
+      const newRunDevices = new Map<string, number>();
+      for (const r of active.runs) {
+        newRunDevices.set(r.id, r.deviceId);
+        if (r.status === 'running') newActive.add(r.id);
+      }
+      const newNodeStatus = new Map<number, Map<number, DeviceNodeStatus>>();
+      const newNodeOutputs = new Map<number, Map<number, DeviceNodeResult>>();
+      for (const nr of active.nodeRuns) {
+        const deviceId = newRunDevices.get(nr.runId);
+        if (deviceId == null) continue;
+        const status: DeviceNodeStatus = nr.status === 'running' ? 'running'
+          : nr.status === 'failed'  ? 'failed'
+          : nr.status === 'skipped' ? 'skipped'
+          : 'success';
+        if (!newNodeStatus.has(nr.nodeId)) newNodeStatus.set(nr.nodeId, new Map());
+        newNodeStatus.get(nr.nodeId)!.set(deviceId, status);
+        if (nr.stdout || nr.stderr || nr.errorMessage || nr.exitCode != null || status !== 'running') {
+          if (!newNodeOutputs.has(nr.nodeId)) newNodeOutputs.set(nr.nodeId, new Map());
+          newNodeOutputs.get(nr.nodeId)!.set(deviceId, {
+            deviceId, status,
+            exitCode: nr.exitCode,
+            stdout: nr.stdout, stderr: nr.stderr,
+            errorMessage: nr.errorMessage,
+            finishedAt: nr.finishedAt,
+          });
+        }
+      }
+      setActiveRunIds(newActive);
+      setRunDevices(newRunDevices);
+      setNodeStatusByDevice(newNodeStatus);
+      setNodeOutputs(newNodeOutputs);
       // Empty graph (shouldn't happen post-migration but the editor must
       // recover gracefully) — synthesise a minimal "trigger → end_success".
       if (graph.nodes.length === 0) {
@@ -269,28 +370,67 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     return () => clearTimeout(t);
   }, [loading, nodes.length, rf]);
 
-  // Live viewer subscription — when an activeRunId is set, listen for
-  // SCENARIO_NODE_UPDATED events and paint the matching node with
-  // running/success/failed. Cleans up automatically on unmount or
-  // when the active run id changes.
+  // Live viewer subscription — multi-device aware. The editor is
+  // permanently subscribed (no activeRunIds gate) so a run kicked off
+  // by another tab, or a freshly-hydrated active run, immediately
+  // paints. Each event carries a runId we use to match the right
+  // device via runDevices.
   useEffect(() => {
-    if (!activeRunId) return;
     const socket = getSocket();
     if (!socket) return;
-    const onNode = (payload: { runId: string; nodeId: number; status: string }) => {
-      if (payload.runId !== activeRunId) return;
-      const targetClientId = `db-${payload.nodeId}`;
-      setNodes((nds) => nds.map((n) => n.id === targetClientId
-        ? { ...n, data: { ...n.data, runStatus: payload.status as NodeData['runStatus'] } }
-        : n));
+    const onNode = (payload: {
+      runId: string; nodeId: number; status: string;
+      exitCode: number | null; stdout: string | null; stderr: string | null;
+      errorMessage: string | null; deviceId: number | null;
+    }) => {
+      const deviceId = payload.deviceId ?? runDevicesRef.current.get(payload.runId);
+      if (deviceId == null) return;
+      // Filter to scenarios we actually care about — runs not in our
+      // tracking sets are foreign (other scenario, other tab). The
+      // refs below hold the latest state without re-binding the socket
+      // every render.
+      if (!runDevicesRef.current.has(payload.runId)) return;
+      const status = (payload.status === 'running' ? 'running'
+        : payload.status === 'failed'  ? 'failed'
+        : payload.status === 'skipped' ? 'skipped'
+        : 'success') as DeviceNodeStatus;
+
+      setNodeStatusByDevice((prev) => {
+        const next = new Map(prev);
+        const inner = new Map(next.get(payload.nodeId) ?? new Map());
+        inner.set(deviceId, status);
+        next.set(payload.nodeId, inner);
+        return next;
+      });
+      // Capture stdout/stderr for the output panel. Only update on
+      // states that carry payload — running events don't.
+      if (status !== 'running') {
+        setNodeOutputs((prev) => {
+          const next = new Map(prev);
+          const inner = new Map(next.get(payload.nodeId) ?? new Map());
+          inner.set(deviceId, {
+            deviceId, status,
+            exitCode: payload.exitCode,
+            stdout: payload.stdout, stderr: payload.stderr,
+            errorMessage: payload.errorMessage,
+            finishedAt: new Date().toISOString(),
+          });
+          next.set(payload.nodeId, inner);
+          return next;
+        });
+      }
+      setLastActiveNodeId(payload.nodeId);
     };
     const onRun = (payload: { id: string; status: string }) => {
-      if (payload.id !== activeRunId) return;
+      if (!runDevicesRef.current.has(payload.id)) return;
       if (payload.status === 'success' || payload.status === 'failure') {
-        toast.success(`Run ${payload.status === 'success' ? 'succeeded' : 'failed'}`);
-        // Clear the activeRunId after a short delay so the user sees the
-        // final state on the canvas before the rings fade.
-        setTimeout(() => setActiveRunId(null), 5000);
+        // Drop this run from the active set; the per-node status map
+        // keeps its last result so the canvas stays painted.
+        setActiveRunIds((prev) => {
+          const next = new Set(prev);
+          next.delete(payload.id);
+          return next;
+        });
       }
     };
     socket.on(SocketEvents.SCENARIO_NODE_UPDATED, onNode);
@@ -299,19 +439,65 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       socket.off(SocketEvents.SCENARIO_NODE_UPDATED, onNode);
       socket.off(SocketEvents.SCENARIO_RUN_UPDATED, onRun);
     };
-  }, [activeRunId]);
+  }, []);
 
-  const startTestRun = async (deviceId: number) => {
+  // Refs that mirror runDevices/activeRunIds — needed inside the
+  // socket listener whose closure is captured once at mount. Without
+  // the ref, the listener would race with its own stale state map.
+  const runDevicesRef = useRef<Map<string, number>>(runDevices);
+  useEffect(() => { runDevicesRef.current = runDevices; }, [runDevices]);
+
+  /** Fire a test run on N devices. Mode controls whether we walk from a
+   *  trigger, jump mid-graph, or run a single node. Replaces the older
+   *  single-device startTestRun. */
+  const startTestRun = async (deviceIds: number[]) => {
+    if (deviceIds.length === 0) return;
     try {
-      // Reset any leftover paint from a previous run.
-      setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, runStatus: null } })));
-      const result = await scenarioApi.startGraphRun(scenarioId, deviceId);
-      setActiveRunId(result.runId);
+      // Reset any leftover output for the affected nodes — the new
+      // batch overwrites the previous one to avoid the panel showing
+      // stale rows from a prior test.
+      const opts: { startNodeId?: number; singleNode?: boolean } = {};
+      if (runMode.kind === 'from' || runMode.kind === 'single') {
+        const dbId = parseDbNodeId(runMode.nodeClientId);
+        if (!Number.isFinite(dbId)) {
+          // Unsaved nodes carry `cn-*` ids and have no DB row yet.
+          toast.error('Save the graph before running this node');
+          return;
+        }
+        opts.startNodeId = dbId;
+        if (runMode.kind === 'single') opts.singleNode = true;
+      }
+      const result = await scenarioApi.startGraphRun(scenarioId, deviceIds, opts);
+      // Add the new run ids to active tracking. Socket events for these
+      // ids will now be picked up by the live viewer.
+      setActiveRunIds((prev) => {
+        const next = new Set(prev);
+        for (const id of result.runIds) next.add(id);
+        return next;
+      });
+      setRunDevices((prev) => {
+        const next = new Map(prev);
+        for (let i = 0; i < result.runIds.length; i++) {
+          next.set(result.runIds[i], deviceIds[i]);
+        }
+        return next;
+      });
       setShowRunPicker(false);
-      toast.success('Run started — watch the graph');
+      setRunMode({ kind: 'graph' });
+      const label = runMode.kind === 'single' ? 'Single-node test' : runMode.kind === 'from' ? 'Run from node' : 'Run';
+      toast.success(`${label} started on ${deviceIds.length} device${deviceIds.length > 1 ? 's' : ''} — watch the graph`);
+      setShowOutputPanel(true);
     } catch {
       toast.error('Failed to start run');
     }
+  };
+
+  /** Resolve a numeric db-id from the editor's React Flow node id.
+   *  Unsaved nodes have `cn-*` ids and return NaN. */
+  const parseDbNodeId = (clientId: string | null): number => {
+    if (!clientId) return NaN;
+    const m = /^db-(\d+)$/.exec(clientId);
+    return m ? parseInt(m[1], 10) : NaN;
   };
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -485,6 +671,23 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     }));
   }, [validationWarnings]);
 
+  // Project the aggregated per-device status map onto the React Flow
+  // nodes' `data.runStatus`. CustomNode reads this for its ring colour.
+  // Pure derivation: every change to nodeStatusByDevice resyncs every
+  // node so a node that newly sees a 'failed' from one device flips red.
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => {
+      const dbId = parseDbNodeId(n.id);
+      if (!Number.isFinite(dbId)) return n;
+      const inner = nodeStatusByDevice.get(dbId);
+      const agg = inner ? aggregateNodeStatus(inner) : null;
+      const target = agg === 'skipped' ? null : agg;
+      const cur = (n.data as NodeData).runStatus ?? null;
+      if (cur === target) return n;
+      return { ...n, data: { ...n.data, runStatus: target as NodeData['runStatus'] } };
+    }));
+  }, [nodeStatusByDevice]);
+
   const addNode = (meta: NodeTypeMeta) => {
     const id = `cn-${Math.random().toString(36).slice(2)}`;
     // Spawn at the centre of what the user is currently viewing —
@@ -633,7 +836,30 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           onConnect={onConnect}
           onNodeClick={(_e: React.MouseEvent, n: Node) => { setSelectedNode(n as Node<NodeData>); setSelectedEdge(null); }}
           onEdgeClick={(_e: React.MouseEvent, e: Edge) => { setSelectedEdge(e as Edge<EdgeData>); setSelectedNode(null); }}
-          onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); }}
+          onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); setNodeMenu(null); setPaneMenu(null); }}
+          // Right-click handlers — open the context menu at the cursor
+          // and select the targeted node. RF doesn't preventDefault for
+          // us, so we have to suppress the browser's native menu here.
+          onNodeContextMenu={(e: React.MouseEvent, n: Node) => {
+            e.preventDefault();
+            setSelectedNode(n as Node<NodeData>);
+            setSelectedEdge(null);
+            setPaneMenu(null);
+            setNodeMenu({ x: e.clientX, y: e.clientY, nodeId: n.id });
+          }}
+          onPaneContextMenu={(e: React.MouseEvent | MouseEvent) => {
+            const ev = e as React.MouseEvent;
+            ev.preventDefault();
+            setNodeMenu(null);
+            // Translate the click point into flow coordinates so "Add
+            // node here" drops the node exactly under the cursor.
+            let flowX = 0; let flowY = 0;
+            try {
+              const p = rf.screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+              flowX = p.x; flowY = p.y;
+            } catch { /* RF not ready */ }
+            setPaneMenu({ x: ev.clientX, y: ev.clientY, flowX, flowY });
+          }}
           nodeTypes={NODE_TYPES_RF}
           // Dark colour mode — without this the Controls panel ships
           // with a white background + black icons, unreadable on our
@@ -675,10 +901,17 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               )}
-              <button onClick={() => setShowRunPicker(true)} disabled={dirty}
-                title={dirty ? 'Save the graph first' : 'Pick a device and run this scenario'}
+              {activeRunIds.size > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[11px] font-mono">
+                  <Loader2 className="w-3 h-3 animate-spin" /> {activeRunIds.size} run{activeRunIds.size > 1 ? 's' : ''}
+                </span>
+              )}
+              <button onClick={() => { setRunMode({ kind: 'graph' }); setShowRunPicker(true); }} disabled={dirty}
+                title={dirty
+                  ? 'Save the graph first'
+                  : 'Pick one or more devices and run this scenario from its triggers (works even when the scenario is disabled — runs are test-only)'}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium disabled:opacity-50">
-                <Play className="w-3.5 h-3.5" /> Run on device
+                <Play className="w-3.5 h-3.5" /> Run on device(s)
               </button>
               <button onClick={handleSave} disabled={saving || !dirty}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors text-[12px] font-medium disabled:opacity-50">
@@ -694,9 +927,129 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         </ReactFlow>
       </div>
 
-      {/* ── Run picker modal — pick a device, fire the v2 engine ────── */}
+      {/* ── Run picker modal — pick devices, fire the v2 engine ─────── */}
       {showRunPicker && (
-        <RunPickerModal onCancel={() => setShowRunPicker(false)} onPick={startTestRun} />
+        <RunPickerModal
+          devices={devices}
+          mode={runMode}
+          onCancel={() => { setShowRunPicker(false); setRunMode({ kind: 'graph' }); }}
+          onPick={startTestRun}
+        />
+      )}
+
+      {/* ── Node right-click menu ───────────────────────────────────── */}
+      {nodeMenu && (() => {
+        const target = nodes.find((n) => n.id === nodeMenu.nodeId);
+        if (!target) return null;
+        const close = () => setNodeMenu(null);
+        return (
+          <ContextMenu x={nodeMenu.x} y={nodeMenu.y} onClose={close}>
+            <ContextMenuItem icon={<Play className="w-3.5 h-3.5" />}
+              label="Run from this node…" hint="Bypass triggers — execute this node and continue the graph"
+              disabled={dirty || target.id.startsWith('cn-')}
+              onClick={() => { setRunMode({ kind: 'from', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
+            <ContextMenuItem icon={<FlaskConical className="w-3.5 h-3.5" />}
+              label="Run only this node…" hint="One-shot — engine stops after this node finishes"
+              disabled={dirty || target.id.startsWith('cn-') || isTriggerType(target.data.scenarioType)}
+              onClick={() => { setRunMode({ kind: 'single', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
+            <ContextMenuDivider />
+            <ContextMenuItem icon={<Files className="w-3.5 h-3.5" />} label="Duplicate" hint="Ctrl+D"
+              onClick={() => {
+                const snap = { scenarioType: target.data.scenarioType, label: `${target.data.label} (copy)`, config: { ...(target.data.config ?? {}) } };
+                const id = `cn-${Math.random().toString(36).slice(2)}`;
+                setNodes((nds) => [...nds, {
+                  id, type: 'custom',
+                  position: { x: target.position.x + 40, y: target.position.y + 40 },
+                  data: snap,
+                }]);
+                setDirty(true); close();
+              }} />
+            <ContextMenuItem icon={<Copy className="w-3.5 h-3.5" />} label="Copy" hint="Ctrl+C"
+              onClick={() => {
+                setClipboardNode({
+                  scenarioType: target.data.scenarioType,
+                  label: target.data.label,
+                  config: { ...(target.data.config ?? {}) },
+                });
+                toast.success('Node copied'); close();
+              }} />
+            <ContextMenuItem icon={<TerminalIcon className="w-3.5 h-3.5" />} label="Show output"
+              hint="Open the output panel for this node"
+              onClick={() => {
+                const dbId = parseDbNodeId(target.id);
+                if (Number.isFinite(dbId)) setLastActiveNodeId(dbId);
+                setShowOutputPanel(true); close();
+              }} />
+            <ContextMenuDivider />
+            <ContextMenuItem icon={<Trash2 className="w-3.5 h-3.5 text-red-400" />} label="Delete" hint="Del" danger
+              onClick={() => {
+                setNodes((nds) => nds.filter((n) => n.id !== target.id));
+                setEdges((eds) => eds.filter((edg) => edg.source !== target.id && edg.target !== target.id));
+                if (selectedNode?.id === target.id) setSelectedNode(null);
+                setDirty(true); close();
+              }} />
+          </ContextMenu>
+        );
+      })()}
+
+      {/* ── Empty-pane right-click menu ─────────────────────────────── */}
+      {paneMenu && (() => {
+        const close = () => setPaneMenu(null);
+        const dropAt = paneMenu;
+        const dropNode = (meta: NodeTypeMeta) => {
+          const id = `cn-${Math.random().toString(36).slice(2)}`;
+          setNodes((nds) => [...nds, {
+            id, type: 'custom',
+            position: { x: dropAt.flowX, y: dropAt.flowY },
+            data: { scenarioType: meta.type, label: meta.label, config: { ...meta.defaultConfig } },
+          }]);
+          setDirty(true); close();
+        };
+        return (
+          <ContextMenu x={paneMenu.x} y={paneMenu.y} onClose={close}>
+            <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-text-muted">Add a node here</div>
+            {(['trigger', 'action', 'logic', 'terminator'] as const).map((cat) => (
+              <div key={cat}>
+                <div className="px-3 py-0.5 text-[9px] font-mono uppercase tracking-[0.18em] text-text-muted/60">{cat}</div>
+                {palette[cat].map((m: NodeTypeMeta) => (
+                  <ContextMenuItem key={m.type} icon={<Plus className="w-3.5 h-3.5" />} label={m.label} hint={m.hint}
+                    onClick={() => dropNode(m)} />
+                ))}
+              </div>
+            ))}
+            <ContextMenuDivider />
+            {clipboardNode && (
+              <ContextMenuItem icon={<ClipboardPaste className="w-3.5 h-3.5" />} label="Paste node here" hint="Ctrl+V"
+                onClick={() => {
+                  const id = `cn-${Math.random().toString(36).slice(2)}`;
+                  setNodes((nds) => [...nds, {
+                    id, type: 'custom',
+                    position: { x: dropAt.flowX, y: dropAt.flowY },
+                    data: clipboardNode,
+                  }]);
+                  setDirty(true); close();
+                }} />
+            )}
+            <ContextMenuItem icon={<Crosshair className="w-3.5 h-3.5" />} label="Fit view"
+              onClick={() => { try { rf.fitView({ padding: 0.2, duration: 200 }); } catch {} close(); }} />
+          </ContextMenu>
+        );
+      })()}
+
+      {/* ── Output panel — script-history-style per-device output ────── */}
+      {showOutputPanel && nodeOutputs.size > 0 && (
+        <NodeOutputPanel
+          nodes={nodes}
+          devices={devices}
+          outputs={nodeOutputs}
+          statusByDevice={nodeStatusByDevice}
+          focusNodeClientId={selectedNode?.id ?? (lastActiveNodeId != null ? `db-${lastActiveNodeId}` : null)}
+          onSelectNode={(clientId) => {
+            const n = nodes.find((nn) => nn.id === clientId);
+            if (n) setSelectedNode(n);
+          }}
+          onClose={() => setShowOutputPanel(false)}
+        />
       )}
 
       {/* ── Sidebar ─────────────────────────────────────────────────── */}
@@ -705,6 +1058,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           <NodeConfigForm
             node={selectedNode}
             scripts={scripts}
+            categories={scriptCategories}
             onChange={(patch) => updateNodeData(selectedNode.id, patch)}
           />
         ) : selectedEdge ? (
@@ -739,10 +1093,11 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
 
 // ── Selected-node config form ───────────────────────────────────────────────
 function NodeConfigForm({
-  node, scripts, onChange,
+  node, scripts, categories, onChange,
 }: {
   node: Node<NodeData>;
   scripts: Script[];
+  categories: ScriptCategory[];
   onChange: (patch: Partial<NodeData>) => void;
 }) {
   const meta = NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType];
@@ -814,12 +1169,12 @@ function NodeConfigForm({
           )}
           {f.kind === 'script' && (
             <>
-              <select value={(cfg[f.key] as number | undefined) ?? ''}
-                onChange={(e) => setField(f.key, e.target.value ? parseInt(e.target.value, 10) : null)}
-                className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent">
-                <option value="">— Pick a script —</option>
-                {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${s.purpose}` : ''}</option>)}
-              </select>
+              <ScriptPicker
+                scripts={scripts}
+                categories={categories}
+                value={(cfg[f.key] as number | null | undefined) ?? null}
+                onChange={(id) => setField(f.key, id)}
+              />
               <ScriptInspector
                 script={scripts.find((s) => s.id === (cfg[f.key] as number | undefined))}
               />
@@ -902,21 +1257,158 @@ function ScriptInspector({ script }: { script: Script | undefined }) {
   );
 }
 
-// ── Run picker modal ─────────────────────────────────────────────────────────
-// Lightweight modal that lets the admin pick which device to run the
-// scenario on. Loads the visible device list once; for fleets >5k the
-// search box trims the dropdown client-side.
-function RunPickerModal({ onCancel, onPick }: { onCancel: () => void; onPick: (deviceId: number) => void }) {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(true);
+// ── Hierarchical script picker ──────────────────────────────────────────────
+// Mirrors the Script Library page tree: scripts are grouped by category
+// and indented under their parentScript so admins land on the same
+// vocabulary they use elsewhere. Includes a search box because the dump
+// from `scriptApi.list()` can run into hundreds of rows on big tenants.
+function ScriptPicker({
+  scripts, categories, value, onChange,
+}: {
+  scripts: Script[];
+  categories: ScriptCategory[];
+  value: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-
+  // Close on outside click; opening focuses the search input.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    deviceApi.listPaginated({ pageSize: 5000, approvalStatus: 'approved' })
-      .then((r) => setDevices(r.items))
-      .catch(() => setDevices([]))
-      .finally(() => setLoading(false));
-  }, []);
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    setTimeout(() => inputRef.current?.focus(), 0);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const selected = scripts.find((s) => s.id === value);
+  const catNameById = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+
+  // Filter by search across name + category. Empty query keeps the full
+  // tree so the structure is visible by default.
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? scripts.filter((s) => {
+        const name = s.name.toLowerCase();
+        const cat = (s.categoryId ? catNameById.get(s.categoryId) : 'Uncategorized')?.toLowerCase() ?? '';
+        return name.includes(q) || cat.includes(q);
+      })
+    : scripts;
+
+  // Group → tree (category → root scripts → child scripts via parentScriptId).
+  const grouped = new Map<string, Script[]>();
+  for (const s of filtered) {
+    const key = s.categoryId ? (catNameById.get(s.categoryId) ?? 'Uncategorized') : 'Uncategorized';
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(s);
+  }
+  const sortedGroups = [...grouped.entries()].sort(([a], [b]) => {
+    if (a === 'Uncategorized') return 1;
+    if (b === 'Uncategorized') return -1;
+    return a.localeCompare(b);
+  });
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-left text-text-primary focus:outline-none focus:border-accent flex items-center gap-2">
+        {selected ? (
+          <span className="flex-1 truncate">
+            {selected.name}
+            {selected.purpose && selected.purpose !== 'execute' && (
+              <span className="text-text-muted text-[11px] ml-1">· {selected.purpose}</span>
+            )}
+          </span>
+        ) : (
+          <span className="flex-1 text-text-muted">— Pick a script —</span>
+        )}
+        <ChevronDown className={clsx('w-3.5 h-3.5 text-text-muted transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-bg-secondary border border-border rounded-lg shadow-xl max-h-[360px] flex flex-col overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search scripts…"
+              className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent" />
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {value != null && (
+              <button type="button" onClick={() => { onChange(null); setOpen(false); }}
+                className="w-full text-left px-3 py-1.5 text-[11px] text-text-muted hover:bg-bg-hover border-b border-border/40">
+                Clear selection
+              </button>
+            )}
+            {sortedGroups.length === 0 ? (
+              <div className="px-3 py-2 text-[12px] text-text-muted">No script matches.</div>
+            ) : sortedGroups.map(([catName, list]) => {
+              // Build the tree within this category: parent scripts at
+              // depth 0, children indented under their parent. Same logic
+              // as ScriptLibraryPage so layout is consistent.
+              const idsInCat = new Set(list.map((s) => s.id));
+              const childrenOf = new Map<number | null, Script[]>();
+              for (const s of list) {
+                const key = s.parentScriptId != null && idsInCat.has(s.parentScriptId)
+                  ? s.parentScriptId
+                  : null;
+                if (!childrenOf.has(key)) childrenOf.set(key, []);
+                childrenOf.get(key)!.push(s);
+              }
+              const renderTree = (parentKey: number | null, depth: number): React.ReactNode[] => {
+                const arr = childrenOf.get(parentKey) ?? [];
+                return arr.flatMap((s) => [
+                  <button
+                    key={s.id} type="button"
+                    onClick={() => { onChange(s.id); setOpen(false); }}
+                    className={clsx(
+                      'w-full text-left px-2 py-1 text-[12px] hover:bg-bg-hover transition-colors flex items-center gap-2',
+                      value === s.id && 'bg-accent/10',
+                    )}
+                    style={{ paddingLeft: `${10 + depth * 14}px` }}>
+                    <span className="text-text-primary truncate">{s.name}</span>
+                    <span className="text-text-muted/70 text-[10px] ml-auto">{s.platform}/{s.runtime}</span>
+                    {s.purpose && s.purpose !== 'execute' && (
+                      <span className="text-[9px] font-mono text-text-muted/80 px-1 rounded border border-border">{s.purpose}</span>
+                    )}
+                  </button>,
+                  ...renderTree(s.id, depth + 1),
+                ]);
+              };
+              return (
+                <div key={catName}>
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-text-muted bg-bg-tertiary/50 border-b border-border/40">
+                    {catName} · {list.length}
+                  </div>
+                  {renderTree(null, 0)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Run picker modal ─────────────────────────────────────────────────────────
+// Modal for picking N devices to fire a test run on. Multi-select with a
+// search box; the title adapts to the run mode (whole graph vs from-node
+// vs single-node). Modal is portaled to document.body via inline fixed
+// positioning so it escapes the editor's stacking context and can't be
+// hidden behind the React Flow canvas.
+function RunPickerModal({
+  devices, mode, onCancel, onPick,
+}: {
+  devices: Device[];
+  mode: { kind: 'graph' } | { kind: 'from'; nodeClientId: string } | { kind: 'single'; nodeClientId: string };
+  onCancel: () => void;
+  onPick: (deviceIds: number[]) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const filtered = devices.filter((d) => {
     const q = query.trim().toLowerCase();
@@ -926,43 +1418,269 @@ function RunPickerModal({ onCancel, onPick }: { onCancel: () => void; onPick: (d
       .some((f) => String(f).toLowerCase().includes(q));
   });
 
+  const toggle = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleAll = () => {
+    setSelected((prev) => prev.size === filtered.length ? new Set() : new Set(filtered.map((d) => d.id)));
+  };
+
+  const title = mode.kind === 'graph' ? 'Run on devices'
+              : mode.kind === 'from'  ? 'Run from this node — pick devices'
+              :                          'Run only this node — pick devices';
+  const subtitle = mode.kind === 'graph' ? 'Fires the graph from its triggers on the selected devices.'
+                : mode.kind === 'from'  ? 'Skips the trigger walk and starts from the selected node, then continues the graph normally.'
+                :                          'Executes the selected node once on each device, then ends the run with success.';
+
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm">
-      <div className="w-[420px] max-h-[80vh] flex flex-col bg-bg-secondary border border-border rounded-xl shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-[480px] max-h-[80vh] flex flex-col bg-bg-secondary border border-border rounded-xl shadow-xl overflow-hidden"
+           onClick={(e) => e.stopPropagation()}>
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <div className="text-sm font-semibold text-text-primary">Run on device</div>
+          <div>
+            <div className="text-sm font-semibold text-text-primary">{title}</div>
+            <div className="text-[11px] text-text-muted mt-0.5">{subtitle}</div>
+          </div>
           <button onClick={onCancel} className="text-text-muted hover:text-text-primary">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-4 py-2 border-b border-border">
+        <div className="px-4 py-2 border-b border-border flex items-center gap-2">
           <input
             value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter by hostname, IP, OS, UUID…"
-            className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+            className="flex-1 px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
           />
+          <button type="button" onClick={toggleAll}
+            className="text-[11px] px-2 py-1 rounded bg-bg-tertiary border border-border text-text-muted hover:text-text-primary">
+            {selected.size === filtered.length && filtered.length > 0 ? 'Clear' : 'All'}
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="px-4 py-3 text-sm text-text-muted">Loading…</div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="px-4 py-3 text-sm text-text-muted">No matching device</div>
           ) : (
-            filtered.slice(0, 200).map((d) => (
-              <button key={d.id} onClick={() => onPick(d.id)}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-bg-hover transition-colors border-b border-border/50 last:border-b-0">
-                <div className="text-text-primary truncate">{d.displayName || d.hostname}</div>
-                <div className="text-[11px] text-text-muted truncate">{d.osName || d.osType} · {d.ipLocal || '—'}</div>
-              </button>
-            ))
+            filtered.slice(0, 500).map((d) => {
+              const checked = selected.has(d.id);
+              return (
+                <button key={d.id} onClick={() => toggle(d.id)}
+                  className={clsx(
+                    'w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors border-b border-border/50 last:border-b-0',
+                    checked ? 'bg-accent/10' : 'hover:bg-bg-hover',
+                  )}>
+                  <input type="checkbox" readOnly checked={checked} className="accent-accent" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-text-primary truncate">{d.displayName || d.hostname}</div>
+                    <div className="text-[11px] text-text-muted truncate">{d.osName || d.osType} · {d.ipLocal || '—'}</div>
+                  </div>
+                </button>
+              );
+            })
           )}
-          {filtered.length > 200 && (
-            <div className="px-4 py-2 text-[11px] text-text-muted">Showing first 200 — narrow your search.</div>
+          {filtered.length > 500 && (
+            <div className="px-4 py-2 text-[11px] text-text-muted">Showing first 500 — narrow your search.</div>
           )}
+        </div>
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+          <span className="text-[11px] text-text-muted">{selected.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button onClick={onCancel}
+              className="px-3 py-1.5 text-[12px] bg-bg-tertiary text-text-muted hover:text-text-primary rounded transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={() => onPick([...selected])}
+              disabled={selected.size === 0}
+              className="px-3 py-1.5 text-[12px] bg-accent text-white rounded hover:bg-accent/80 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5">
+              <Play className="w-3.5 h-3.5" /> Run on {selected.size} device{selected.size > 1 ? 's' : ''}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+// ── Right-click context menu primitives ─────────────────────────────────────
+function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClose: () => void; children: React.ReactNode }) {
+  // Close on outside click + escape. Position is clamped on render below
+  // so the menu stays inside the viewport even when right-clicking near
+  // the edge.
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      const root = document.getElementById('scenario-ctx-menu');
+      if (root && !root.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+  // Clamp so the menu is fully visible (rough; real browsers reflow if
+  // we're off by a few pixels — the bottom/right anchor below is enough).
+  const left = Math.min(x, window.innerWidth - 240);
+  const top  = Math.min(y, window.innerHeight - 360);
+  return (
+    <div id="scenario-ctx-menu"
+         style={{ position: 'fixed', left, top, zIndex: 90 }}
+         className="min-w-[220px] bg-bg-secondary border border-border rounded-lg shadow-xl overflow-hidden">
+      <div className="py-1">{children}</div>
+    </div>
+  );
+}
+function ContextMenuItem({
+  icon, label, hint, onClick, disabled, danger,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button" onClick={disabled ? undefined : onClick} disabled={disabled}
+      className={clsx(
+        'w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 transition-colors',
+        disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-bg-hover',
+        danger && !disabled && 'hover:bg-red-400/10',
+      )}>
+      {icon}
+      <span className={clsx('flex-1 truncate', danger && 'text-red-400')}>{label}</span>
+      {hint && <span className="text-[10px] text-text-muted/70 font-mono">{hint}</span>}
+    </button>
+  );
+}
+function ContextMenuDivider() {
+  return <div className="h-px bg-border my-1" />;
+}
+
+// ── Output panel — script-history-style multi-device viewer ────────────────
+// Bottom-anchored floating panel showing the selected node's per-device
+// outputs. Each device row is collapsible to view stdout/stderr/exit code,
+// mirroring the schedule history ergonomics.
+function NodeOutputPanel({
+  nodes, devices, outputs, statusByDevice, focusNodeClientId, onSelectNode, onClose,
+}: {
+  nodes: Node<NodeData>[];
+  devices: Device[];
+  outputs: Map<number, Map<number, DeviceNodeResult>>;
+  statusByDevice: Map<number, Map<number, DeviceNodeStatus>>;
+  focusNodeClientId: string | null;
+  onSelectNode: (clientId: string) => void;
+  onClose: () => void;
+}) {
+  const deviceLabel = (id: number) => {
+    const d = devices.find((x) => x.id === id);
+    if (!d) return `device #${id}`;
+    return d.displayName || d.hostname || `device #${id}`;
+  };
+  // Pick which node to display. Prefer the explicit focus (selection or
+  // last-active); fall back to the first node that has outputs.
+  const focusDbId = focusNodeClientId ? Number(/^db-(\d+)$/.exec(focusNodeClientId)?.[1] ?? NaN) : NaN;
+  const candidateIds = [...outputs.keys()];
+  const activeDbId = Number.isFinite(focusDbId) && outputs.has(focusDbId) ? focusDbId : candidateIds[0];
+  const node = nodes.find((n) => n.id === `db-${activeDbId}`);
+  const meta = node ? NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType] : undefined;
+  const perDevice = activeDbId != null ? (outputs.get(activeDbId) ?? new Map()) : new Map();
+  const liveStatus = activeDbId != null ? (statusByDevice.get(activeDbId) ?? new Map()) : new Map();
+  const allDeviceIds = Array.from(new Set([...perDevice.keys(), ...liveStatus.keys()])).sort((a, b) => a - b);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  return (
+    <div className="absolute left-3 right-[300px] bottom-3 z-20 max-h-[42%] flex flex-col bg-bg-secondary/95 backdrop-blur border border-border rounded-xl shadow-xl overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+        <TerminalIcon className="w-3.5 h-3.5 text-accent" />
+        <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Output</span>
+        {/* Node switcher — quick jump between any node that has output. */}
+        <select
+          value={activeDbId ?? ''} onChange={(e) => onSelectNode(`db-${e.target.value}`)}
+          className="text-[11px] bg-bg-primary border border-border rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent">
+          {candidateIds.map((dbId) => {
+            const n = nodes.find((nn) => nn.id === `db-${dbId}`);
+            const m = n ? NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType] : undefined;
+            return <option key={dbId} value={dbId}>{n?.data.label || m?.label || `node ${dbId}`}</option>;
+          })}
+        </select>
+        {meta && <span className="text-[10px] text-text-muted/60">· {meta.label}</span>}
+        <div className="flex-1" />
+        <button onClick={onClose} className="text-text-muted hover:text-text-primary">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {allDeviceIds.length === 0 ? (
+          <div className="px-3 py-3 text-[12px] text-text-muted">No output yet.</div>
+        ) : allDeviceIds.map((deviceId) => {
+          const result = perDevice.get(deviceId);
+          const status = (result?.status ?? liveStatus.get(deviceId) ?? 'running') as DeviceNodeStatus;
+          const isOpen = expanded === deviceId;
+          return (
+            <div key={deviceId} className="border-b border-border/40 last:border-b-0">
+              <button onClick={() => setExpanded((cur) => cur === deviceId ? null : deviceId)}
+                className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors">
+                {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-text-muted" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted" />}
+                <DeviceStatusDot status={status} />
+                <span className="text-text-primary truncate flex-1">{deviceLabel(deviceId)}</span>
+                {result?.exitCode != null && (
+                  <span className={clsx(
+                    'text-[10px] font-mono px-1.5 py-0 rounded border',
+                    result.exitCode === 0
+                      ? 'text-green-400 bg-green-400/10 border-green-400/30'
+                      : 'text-red-400 bg-red-400/10 border-red-400/30',
+                  )}>
+                    exit {result.exitCode}
+                  </span>
+                )}
+              </button>
+              {isOpen && result && (
+                <div className="px-3 pb-2 space-y-2">
+                  {result.errorMessage && (
+                    <div className="text-[11px] text-red-400 bg-red-400/10 border border-red-400/30 rounded px-2 py-1.5">
+                      {result.errorMessage}
+                    </div>
+                  )}
+                  {result.stdout && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stdout</div>
+                      <pre className="text-[11px] font-mono text-text-secondary whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{result.stdout}</pre>
+                    </div>
+                  )}
+                  {result.stderr && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stderr</div>
+                      <pre className="text-[11px] font-mono text-red-400/90 whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{result.stderr}</pre>
+                    </div>
+                  )}
+                  {!result.stdout && !result.stderr && !result.errorMessage && (
+                    <div className="text-[11px] text-text-muted italic">No output captured.</div>
+                  )}
+                </div>
+              )}
+              {isOpen && !result && (
+                <div className="px-3 pb-2 text-[11px] text-text-muted italic">Waiting on agent…</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function DeviceStatusDot({ status }: { status: DeviceNodeStatus }) {
+  if (status === 'running') return <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />;
+  if (status === 'success') return <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />;
+  if (status === 'failed')  return <XCircle className="w-3 h-3 text-red-400 shrink-0" />;
+  return <span className="w-3 h-3 rounded-full bg-text-muted/30 shrink-0" />;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

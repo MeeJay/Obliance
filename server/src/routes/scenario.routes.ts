@@ -364,35 +364,125 @@ router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /:id/start-graph-run — fire a manual run via the v2 engine on a
-// specific device (admin only; the device must belong to the tenant).
-// Optional triggerNodeId selects which trigger node to start from when
-// the scenario has several — defaults to the first manual trigger.
+// POST /:id/start-graph-run — fire a test run via the v2 engine on
+// one or more devices (admin only; devices must belong to the tenant).
+//
+// Body shape (legacy single-device callers still work via `deviceId`):
+//   { deviceIds?: number[], deviceId?: number,
+//     triggerNodeId?: number, startNodeId?: number, singleNode?: boolean }
+//
+// - `triggerNodeId`: start by walking from this trigger node. Default is
+//   the first `trigger_manual` (or any trigger when no manual exists).
+// - `startNodeId`: bypass triggers and execute this exact node directly
+//   — used by the right-click "Run from this node" action.
+// - `singleNode`: stop with success after the entry node finishes (one-
+//   shot test). Combine with startNodeId to test a single node in
+//   isolation.
+//
+// Scenario.status is intentionally NOT enforced — admins must be able
+// to test disabled or draft scenarios from the editor before going
+// live. Permission isn't bypassed: the requireRole('admin') guard above
+// still applies, plus the device tenant check below.
 router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
-    const { deviceId, triggerNodeId } = req.body as { deviceId?: number; triggerNodeId?: number };
-    if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+    const body = req.body as {
+      deviceId?: number;
+      deviceIds?: number[];
+      triggerNodeId?: number;
+      startNodeId?: number;
+      singleNode?: boolean;
+    };
+    const rawIds = Array.isArray(body.deviceIds) && body.deviceIds.length
+      ? body.deviceIds
+      : (body.deviceId != null ? [body.deviceId] : []);
+    const deviceIds = Array.from(new Set(rawIds.map((n) => Number(n)).filter((n) => Number.isFinite(n))));
+    if (deviceIds.length === 0) return res.status(400).json({ error: 'deviceIds required' });
+
     const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
-    const device = await db('devices').where({ id: deviceId, tenant_id: req.tenantId! }).first();
-    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const tenantDevices = await db('devices')
+      .whereIn('id', deviceIds)
+      .where({ tenant_id: req.tenantId! })
+      .select('id') as Array<{ id: number }>;
+    const validIds = new Set(tenantDevices.map((d) => d.id));
+    const missing = deviceIds.filter((id) => !validIds.has(id));
+    if (missing.length) return res.status(404).json({ error: `Devices not in tenant: ${missing.join(',')}` });
+
     // Resolve a default trigger node when none was supplied: prefer a
     // trigger_manual to avoid accidentally firing a schedule trigger's
-    // downstream graph.
-    let resolvedTriggerNodeId = triggerNodeId;
-    if (!resolvedTriggerNodeId) {
+    // downstream graph. `startNodeId` overrides this and skips the
+    // trigger walk entirely.
+    let resolvedTriggerNodeId = body.triggerNodeId;
+    if (!resolvedTriggerNodeId && !body.startNodeId) {
       const manual = await db('scenario_nodes')
         .where({ scenario_id: scenarioId, type: 'trigger_manual' })
         .first() as { id: number } | undefined;
       resolvedTriggerNodeId = manual?.id;
     }
-    const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
-      triggerType: 'manual',
-      triggerSource: 'graph-run',
-      triggerNodeId: resolvedTriggerNodeId,
+
+    // Start one run per device — same trigger source for the whole
+    // batch so the editor can group them, and so logs/audits can spot
+    // a multi-device test by the shared marker. The run ids are
+    // returned in deviceId order.
+    const batchMarker = `graph-run:batch:${Date.now()}`;
+    const runIds: string[] = [];
+    for (const deviceId of deviceIds) {
+      const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
+        triggerType: 'manual',
+        triggerSource: batchMarker,
+        triggerNodeId: resolvedTriggerNodeId,
+        startNodeId: body.startNodeId,
+        singleNode: body.singleNode,
+      });
+      runIds.push(runId);
+    }
+    res.status(202).json({ data: { runIds, runId: runIds[0] ?? null, batchMarker } });
+  } catch (err) { next(err); }
+});
+
+// GET /:id/active-runs — return recent or in-progress runs for the
+// scenario, plus their per-node-run trace, so the graph editor can
+// resume the live-viewer state when reopened mid-run. Defaults to
+// runs created within the last hour OR still in 'running' state.
+router.get('/:id/active-runs', requireRole('admin'), async (req, res, next) => {
+  try {
+    const scenarioId = parseInt(req.params.id);
+    const sinceMin = parseInt(String(req.query.sinceMinutes ?? '60')) || 60;
+    const cutoff = new Date(Date.now() - sinceMin * 60 * 1000);
+    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
+    const runs = await db('scenario_runs')
+      .where({ scenario_id: scenarioId, tenant_id: req.tenantId! })
+      .where(function () {
+        this.where('status', 'running').orWhere('started_at', '>=', cutoff);
+      })
+      .orderBy('started_at', 'desc')
+      .limit(200)
+      .select('id', 'device_id', 'status', 'trigger_source', 'started_at', 'finished_at', 'error_message') as Array<any>;
+    const runIds = runs.map((r) => r.id);
+    const nodeRuns = runIds.length
+      ? await db('scenario_node_runs')
+          .whereIn('run_id', runIds)
+          .select('id', 'run_id', 'node_id', 'node_type', 'status', 'exit_code', 'stdout', 'stderr', 'error_message', 'started_at', 'finished_at') as Array<any>
+      : [];
+    res.json({
+      data: {
+        runs: runs.map((r) => ({
+          id: r.id, deviceId: r.device_id, status: r.status,
+          triggerSource: r.trigger_source,
+          startedAt: r.started_at, finishedAt: r.finished_at,
+          errorMessage: r.error_message,
+        })),
+        nodeRuns: nodeRuns.map((nr) => ({
+          id: nr.id, runId: nr.run_id, nodeId: nr.node_id, nodeType: nr.node_type,
+          status: nr.status, exitCode: nr.exit_code,
+          stdout: nr.stdout, stderr: nr.stderr, errorMessage: nr.error_message,
+          startedAt: nr.started_at, finishedAt: nr.finished_at,
+        })),
+      },
     });
-    res.status(202).json({ data: { runId } });
   } catch (err) { next(err); }
 });
 

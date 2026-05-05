@@ -90,9 +90,32 @@ export const scenarioApi = {
   async saveGraph(scenarioId: number, payload: ScenarioGraphSavePayload): Promise<void> {
     await apiClient.put(`/scenarios/${scenarioId}/graph`, payload);
   },
-  async startGraphRun(scenarioId: number, deviceId: number): Promise<{ runId: string }> {
-    const res = await apiClient.post<ApiResponse<{ runId: string }>>(`/scenarios/${scenarioId}/start-graph-run`, { deviceId });
+  /**
+   * Fire a v2 graph run on one or more devices. Returns one run id per
+   * device so the editor can aggregate live status across the batch.
+   * - `startNodeId` skips the trigger walk and runs that node directly
+   *   (right-click "Run from this node").
+   * - `singleNode: true` halts with success after the entry node finishes
+   *   (right-click "Run only this node").
+   */
+  async startGraphRun(
+    scenarioId: number,
+    deviceIds: number[] | number,
+    opts?: { startNodeId?: number; triggerNodeId?: number; singleNode?: boolean },
+  ): Promise<{ runIds: string[]; runId: string | null; batchMarker: string }> {
+    const ids = Array.isArray(deviceIds) ? deviceIds : [deviceIds];
+    const res = await apiClient.post<ApiResponse<{ runIds: string[]; runId: string | null; batchMarker: string }>>(
+      `/scenarios/${scenarioId}/start-graph-run`,
+      { deviceIds: ids, ...(opts ?? {}) },
+    );
     return res.data.data!;
+  },
+  async getActiveRuns(scenarioId: number, sinceMinutes = 60): Promise<{
+    runs: Array<{ id: string; deviceId: number; status: string; triggerSource: string | null; startedAt: string; finishedAt: string | null; errorMessage: string | null }>;
+    nodeRuns: Array<{ id: string; runId: string; nodeId: number; nodeType: string; status: string; exitCode: number | null; stdout: string | null; stderr: string | null; errorMessage: string | null; startedAt: string; finishedAt: string | null }>;
+  }> {
+    const res = await apiClient.get(`/scenarios/${scenarioId}/active-runs`, { params: { sinceMinutes } });
+    return res.data.data ?? { runs: [], nodeRuns: [] };
   },
   async listForDevice(deviceId: number): Promise<Scenario[]> {
     const res = await apiClient.get<ApiResponse<Scenario[]>>(`/scenarios/for-device/${deviceId}`);
