@@ -5,6 +5,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
@@ -484,39 +485,46 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={20} size={1} color="rgba(255,255,255,0.06)" />
-          <Controls className="!bg-bg-secondary !border-border" />
-          <MiniMap nodeColor={() => 'rgb(var(--c-accent))'} className="!bg-bg-secondary !border-border" />
+          <Controls />
+          <MiniMap zoomable pannable />
+          {/* Toolbar via RF's Panel component — positioned WITHIN the
+              flow viewport so RF correctly handles z-index layering
+              and pointer-events propagation. The previous absolute-
+              positioned overlay used to occlude the trigger node at
+              (0,0) and capture clicks meant for the canvas. */}
+          <Panel position="top-left" className="!m-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-secondary/90 backdrop-blur border border-border">
+              {dirty && <span className="text-[11px] text-amber-400 font-mono">unsaved</span>}
+              {!dirty && <span className="text-[11px] text-text-muted font-mono">saved</span>}
+              <span className="text-text-muted/40">·</span>
+              <span className="text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
+            </div>
+          </Panel>
+          <Panel position="top-right" className="!m-3">
+            <div className="flex items-center gap-2">
+              {(selectedNode || selectedEdge) && (
+                <button onClick={deleteSelected}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors text-[12px] font-medium">
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              )}
+              <button onClick={() => setShowRunPicker(true)} disabled={dirty}
+                title={dirty ? 'Save the graph first' : 'Pick a device and run this scenario'}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium disabled:opacity-50">
+                <Play className="w-3.5 h-3.5" /> Run on device
+              </button>
+              <button onClick={handleSave} disabled={saving || !dirty}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors text-[12px] font-medium disabled:opacity-50">
+                <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save graph'}
+              </button>
+              {onClose && (
+                <button onClick={onClose} className="p-1.5 rounded-lg bg-bg-secondary/90 border border-border hover:bg-bg-hover transition-colors">
+                  <X className="w-4 h-4 text-text-muted" />
+                </button>
+              )}
+            </div>
+          </Panel>
         </ReactFlow>
-        {/* Top toolbar overlay */}
-        <div className="absolute top-3 left-3 right-3 flex items-center gap-2 pointer-events-none">
-          <div className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-secondary/90 backdrop-blur border border-border">
-            {dirty && <span className="text-[11px] text-amber-400 font-mono">unsaved</span>}
-            {!dirty && <span className="text-[11px] text-text-muted font-mono">saved</span>}
-            <span className="text-text-muted/40">·</span>
-            <span className="text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
-          </div>
-          <div className="flex-1" />
-          {(selectedNode || selectedEdge) && (
-            <button onClick={deleteSelected}
-              className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors text-[12px] font-medium">
-              <Trash2 className="w-3.5 h-3.5" /> Delete
-            </button>
-          )}
-          <button onClick={() => setShowRunPicker(true)} disabled={dirty}
-            title={dirty ? 'Save the graph first' : 'Pick a device and run this scenario'}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium disabled:opacity-50">
-            <Play className="w-3.5 h-3.5" /> Run on device
-          </button>
-          <button onClick={handleSave} disabled={saving || !dirty}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors text-[12px] font-medium disabled:opacity-50">
-            <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save graph'}
-          </button>
-          {onClose && (
-            <button onClick={onClose} className="pointer-events-auto p-1.5 rounded-lg bg-bg-secondary/90 border border-border hover:bg-bg-hover transition-colors">
-              <X className="w-4 h-4 text-text-muted" />
-            </button>
-          )}
-        </div>
       </div>
 
       {/* ── Run picker modal — pick a device, fire the v2 engine ────── */}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch } from 'lucide-react';
 import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
@@ -1286,18 +1287,23 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         />
       )}
 
-      {/* v2 graph editor — modal that respects the Obliance topbar
-          (52px) so the user can still see which tenant is active.
-          z-[60] is required to clear the floating sidebar (z-[51])
-          and the pinned sidebar (z-50); anything lower lets the
-          left edge of the sidebar bleed onto the canvas. */}
-      {graphEditorScenarioId != null && (
-        <div className="fixed left-0 right-0 bottom-0 top-[52px] z-[60] bg-bg-primary">
+      {/* v2 graph editor — rendered via createPortal directly into
+          <body> so the modal escapes any ancestor stacking context
+          (AppLayout, sidebar wrappers, etc.). Hardcoded z-index 200
+          + inline style guarantees the modal sits above the floating
+          sidebar (z-[51]) and the pinned sidebar (z-50). top: 52
+          leaves the Obliance topbar visible, like before. */}
+      {graphEditorScenarioId != null && createPortal(
+        <div
+          className="fixed left-0 right-0 bottom-0 bg-bg-primary"
+          style={{ top: 52, zIndex: 200 }}
+        >
           <ScenarioGraphEditor
             scenarioId={graphEditorScenarioId}
             onClose={() => setGraphEditorScenarioId(null)}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
