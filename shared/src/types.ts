@@ -1678,6 +1678,14 @@ export interface CustomSection {
    *                         styled dashboard panel.
    */
   renderMode: CustomSectionRenderMode;
+  /** HTML-mode only — when true, the client re-runs the script every
+   *  `autoRefreshIntervalSeconds` after the previous run exits, so the
+   *  panel behaves as a self-updating dashboard. Ignored for terminal mode. */
+  autoRefreshEnabled: boolean;
+  /** Cooldown between consecutive auto-refresh runs (seconds). The
+   *  cycle is "run → wait this many seconds → run", measured from
+   *  when the previous run exits, so a slow script doesn't overlap. */
+  autoRefreshIntervalSeconds: number;
   targetType: 'all' | 'group' | 'device';
   targetIds: number[];
   createdBy: number | null;

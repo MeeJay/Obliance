@@ -12,6 +12,8 @@ function rowToSection(r: any): CustomSection {
     runtime: r.runtime,
     usePty: !!r.use_pty,
     renderMode: (r.render_mode === 'html' ? 'html' : 'terminal'),
+    autoRefreshEnabled: !!r.auto_refresh_enabled,
+    autoRefreshIntervalSeconds: Number(r.auto_refresh_interval_seconds ?? 30),
     targetType: r.target_type,
     targetIds: typeof r.target_ids === 'string' ? JSON.parse(r.target_ids || '[]') : (r.target_ids || []),
     createdBy: r.created_by ?? null,
@@ -41,6 +43,8 @@ export const customSectionService = {
       runtime: data.runtime ?? 'bash',
       use_pty: data.usePty ?? true,
       render_mode: (data.renderMode === 'html' ? 'html' : 'terminal'),
+      auto_refresh_enabled: data.autoRefreshEnabled ?? false,
+      auto_refresh_interval_seconds: Math.max(1, Math.round(Number(data.autoRefreshIntervalSeconds ?? 30))),
       target_type: data.targetType ?? 'all',
       target_ids: JSON.stringify(data.targetIds ?? []),
       created_by: userId,
@@ -57,6 +61,10 @@ export const customSectionService = {
     if (data.runtime !== undefined) updates.runtime = data.runtime;
     if (data.usePty !== undefined) updates.use_pty = data.usePty;
     if (data.renderMode !== undefined) updates.render_mode = data.renderMode === 'html' ? 'html' : 'terminal';
+    if (data.autoRefreshEnabled !== undefined) updates.auto_refresh_enabled = !!data.autoRefreshEnabled;
+    if (data.autoRefreshIntervalSeconds !== undefined) {
+      updates.auto_refresh_interval_seconds = Math.max(1, Math.round(Number(data.autoRefreshIntervalSeconds)));
+    }
     if (data.targetType !== undefined) updates.target_type = data.targetType;
     if (data.targetIds !== undefined) updates.target_ids = JSON.stringify(data.targetIds);
     await db('custom_sections').where({ id, tenant_id: tenantId }).update(updates);

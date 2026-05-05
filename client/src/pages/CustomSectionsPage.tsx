@@ -16,6 +16,8 @@ interface FormData {
   runtime: 'bash' | 'sh' | 'powershell' | 'cmd';
   usePty: boolean;
   renderMode: CustomSectionRenderMode;
+  autoRefreshEnabled: boolean;
+  autoRefreshIntervalSeconds: number;
   targetType: 'all' | 'group' | 'device';
   targetIds: number[];
 }
@@ -28,6 +30,8 @@ const emptyForm: FormData = {
   runtime: 'bash',
   usePty: true,
   renderMode: 'terminal',
+  autoRefreshEnabled: false,
+  autoRefreshIntervalSeconds: 30,
   targetType: 'all',
   targetIds: [],
 };
@@ -94,6 +98,8 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
       runtime: s.runtime,
       usePty: s.usePty,
       renderMode: s.renderMode ?? 'terminal',
+      autoRefreshEnabled: s.autoRefreshEnabled ?? false,
+      autoRefreshIntervalSeconds: s.autoRefreshIntervalSeconds ?? 30,
       targetType: s.targetType,
       targetIds: s.targetIds ?? [],
     });
@@ -300,6 +306,39 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                   </p>
                 )}
               </div>
+
+              {/* Auto-refresh — HTML mode only. Cycle is "run → wait
+                  N seconds → run", measured from the previous run's
+                  exit, so a slow-running script never overlaps with
+                  itself. Useful for self-updating dashboards
+                  (uptime / inventory / latest events). */}
+              {form.renderMode === 'html' && (
+                <div className="rounded-lg border border-border p-3 space-y-2 bg-bg-tertiary/30">
+                  <ToggleSwitch
+                    checked={form.autoRefreshEnabled}
+                    onChange={(v) => setForm({ ...form, autoRefreshEnabled: v })}
+                    label="Auto refresh"
+                    description="Re-run the script at a fixed cadence so the panel acts as a live dashboard."
+                  />
+                  {form.autoRefreshEnabled && (
+                    <div>
+                      <label className="text-[11px] text-text-muted uppercase">Interval (seconds)</label>
+                      <input
+                        type="number" min={1} max={3600}
+                        value={form.autoRefreshIntervalSeconds}
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value, 10);
+                          setForm({ ...form, autoRefreshIntervalSeconds: Number.isFinite(n) && n > 0 ? n : 1 });
+                        }}
+                        className="w-32 mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent"
+                      />
+                      <p className="text-[10px] text-text-muted mt-1">
+                        The cycle starts when the previous run exits — a 30s interval on a 5s script means a refresh every ~35s. Minimum 1s, max 3600s (1h).
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="text-xs text-text-muted uppercase">Target</label>

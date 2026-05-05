@@ -183,10 +183,26 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
 function CustomSectionHtmlPanel({ deviceId, section }: Props) {
   const streamIdRef = useRef<string | null>(null);
   const bufferRef = useRef<string>('');
-  const [status, setStatus] = useState<'connecting' | 'live' | 'closed' | 'error'>('connecting');
+  const [status, setStatus] = useState<'connecting' | 'live' | 'closed' | 'error' | 'waiting'>('connecting');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [renderTick, setRenderTick] = useState(0);
   const flushTimerRef = useRef<number | null>(null);
+  /** Cycle counter — bumped after the cooldown elapses so the open
+   *  effect re-runs and a fresh stream is created. Auto-refresh is
+   *  effectively a "wait for close + N seconds, then ++cycle" loop;
+   *  the same effect therefore handles both the initial run and every
+   *  refresh, with no separate plumbing. */
+  const [cycle, setCycle] = useState(0);
+  const refreshTimerRef = useRef<number | null>(null);
+  /** Countdown shown in the status pill while we wait between runs. */
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
+
+  // Read auto-refresh config from the latest section snapshot. Saving
+  // the section while the tab is open updates this on the next mount;
+  // we don't watch it inside the running effect to keep things simple.
+  const autoRefreshEnabled = !!section.autoRefreshEnabled;
+  const autoRefreshSec = Math.max(1, Math.round(Number(section.autoRefreshIntervalSeconds ?? 30)));
 
   // Flush helper — re-paints the iframe from `bufferRef`. Debounced
   // when the buffer grows past 64 KB so a fast-streaming script doesn't
@@ -208,6 +224,17 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
       setErrorMsg('Socket not connected');
       return;
     }
+    // A new cycle starts. We DON'T clear the buffer here: that would
+    // unmount the iframe content for the brief moment between "stream
+    // open requested" and "first chunk arrived", causing visible
+    // flicker every refresh. Instead we mark it as stale and let the
+    // first onOutput chunk wipe it before appending — the iframe
+    // keeps showing the previous document up until the new content
+    // is ready to swap in.
+    let staleBuffer = bufferRef.current.length > 0;
+    setStatus('connecting');
+    setErrorMsg(null);
+
     const onOutput = (msg: { streamId: string; data: string }) => {
       if (!streamIdRef.current || msg.streamId !== streamIdRef.current) return;
       try {
@@ -218,17 +245,42 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        // First chunk of the new cycle: drop the stale previous-run
+        // content so the new document replaces it cleanly.
+        if (staleBuffer) {
+          bufferRef.current = '';
+          staleBuffer = false;
+        }
         bufferRef.current += text;
-        if (status !== 'live') setStatus('live');
+        setStatus('live');
         scheduleFlush();
       } catch {}
     };
     const onClosed = (msg: { streamId: string; code?: number }) => {
       if (msg.streamId !== streamIdRef.current) return;
-      setStatus('closed');
       // Force a final paint in case a chunk was still pending.
       if (flushTimerRef.current != null) { window.clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
       setRenderTick((t) => t + 1);
+      // Schedule the next cycle when auto-refresh is on. The cycle
+      // counter bumps after `autoRefreshSec` ms, which re-triggers the
+      // outer effect (cleanup → fresh open). A countdown ticker
+      // updates the status pill so the user sees "refresh in 27s".
+      if (autoRefreshEnabled) {
+        setStatus('waiting');
+        setSecondsUntilRefresh(autoRefreshSec);
+        let remaining = autoRefreshSec;
+        countdownTimerRef.current = window.setInterval(() => {
+          remaining -= 1;
+          setSecondsUntilRefresh(Math.max(0, remaining));
+        }, 1000);
+        refreshTimerRef.current = window.setTimeout(() => {
+          if (countdownTimerRef.current != null) { window.clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+          setSecondsUntilRefresh(null);
+          setCycle((c) => c + 1);
+        }, autoRefreshSec * 1000);
+      } else {
+        setStatus('closed');
+      }
     };
     socket.on('CUSTOM_SECTION_OUTPUT', onOutput);
     socket.on('CUSTOM_SECTION_CLOSED', onClosed);
@@ -250,17 +302,18 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
     );
 
     return () => {
-      if (flushTimerRef.current != null) window.clearTimeout(flushTimerRef.current);
+      if (flushTimerRef.current != null) { window.clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
+      if (refreshTimerRef.current != null) { window.clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
+      if (countdownTimerRef.current != null) { window.clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
       socket.off('CUSTOM_SECTION_OUTPUT', onOutput);
       socket.off('CUSTOM_SECTION_CLOSED', onClosed);
       if (streamIdRef.current) {
         socket.emit('CUSTOM_SECTION_CLOSE', { streamId: streamIdRef.current });
       }
-      bufferRef.current = '';
       streamIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId, section.id]);
+  }, [deviceId, section.id, cycle, autoRefreshEnabled, autoRefreshSec]);
 
   // Each renderTick triggers a re-render that recomputes the iframe's
   // srcDoc from the current buffer. We only emit a heading-shaped
@@ -299,16 +352,37 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
         <FileCode2 className="w-4 h-4 text-purple-400 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-text-primary truncate">{section.name}</div>
-          <div className="text-xs text-text-muted truncate">HTML render · {bufferRef.current.length.toLocaleString()} bytes</div>
+          <div className="text-xs text-text-muted truncate">
+            HTML render · {bufferRef.current.length.toLocaleString()} bytes
+            {autoRefreshEnabled && <> · auto-refresh every {autoRefreshSec}s</>}
+          </div>
         </div>
+        {/* Manual refresh button — visible whenever auto-refresh is
+            on so the user can skip the cooldown and re-fire now. */}
+        {autoRefreshEnabled && (status === 'waiting' || status === 'closed') && (
+          <button
+            onClick={() => {
+              if (refreshTimerRef.current != null) { window.clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
+              if (countdownTimerRef.current != null) { window.clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+              setSecondsUntilRefresh(null);
+              setCycle((c) => c + 1);
+            }}
+            title="Refresh now"
+            className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors">
+            Refresh now
+          </button>
+        )}
         <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-          status === 'live'    ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-          status === 'closed'  ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
-          status === 'error'   ? 'text-red-400 bg-red-400/10 border-red-400/30' :
-                                  'text-blue-400 bg-blue-400/10 border-blue-400/30'
+          status === 'live'     ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+          status === 'closed'   ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+          status === 'error'    ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+          status === 'waiting'  ? 'text-purple-400 bg-purple-400/10 border-purple-400/30' :
+                                   'text-blue-400 bg-blue-400/10 border-blue-400/30'
         }`}>
           {status === 'connecting' && <Loader2 className="w-2.5 h-2.5 animate-spin inline mr-1" />}
-          {status}
+          {status === 'waiting' && secondsUntilRefresh != null
+            ? `refresh in ${secondsUntilRefresh}s`
+            : status}
         </span>
       </div>
       {errorMsg && (
