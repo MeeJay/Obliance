@@ -4,7 +4,6 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
-  MiniMap,
   Panel,
   addEdge,
   applyNodeChanges,
@@ -486,7 +485,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         >
           <Background gap={20} size={1} color="rgba(255,255,255,0.06)" />
           <Controls />
-          <MiniMap zoomable pannable />
+          {/* MiniMap retiré : il causait une boucle de rendu avec des
+              `<rect>` x/y NaN tant que les nodes n'avaient pas leur
+              dimension mesurée par le ResizeObserver de RF, et il
+              affichait un blob rouge confus quand plusieurs nodes
+              étaient proches. Le canvas + Controls + le panel
+              indicateur "X nodes · Y edges" suffisent pour la nav. */}
           {/* Toolbar via RF's Panel component — positioned WITHIN the
               flow viewport so RF correctly handles z-index layering
               and pointer-events propagation. The previous absolute-
