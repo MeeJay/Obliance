@@ -629,8 +629,11 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       await scenarioApi.cancelRun(runId);
       toast.success('Run cancelled');
       await openHistoryPanel(true);
-    } catch {
-      toast.error('Failed to cancel run');
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      const detail = e?.response?.data?.error || e?.message || 'Unknown error';
+      console.error('cancelRun failed', err);
+      toast.error(`Failed to cancel run: ${detail}`);
     }
   };
 

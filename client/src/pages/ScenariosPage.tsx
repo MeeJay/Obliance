@@ -1064,8 +1064,15 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                             const r = await scenarioApi.cancelAllRuns(scenario.id);
                             toast.success(`Cancelled ${r.cancelled} run${r.cancelled !== 1 ? 's' : ''}`);
                             await load();
-                          } catch {
-                            toast.error('Failed to stop runs');
+                          } catch (err) {
+                            // Surface the real server message instead
+                            // of swallowing it — past iterations of
+                            // "Failed to start run" / "Failed to stop"
+                            // hid the actual cause.
+                            const e = err as { response?: { data?: { error?: string } }; message?: string };
+                            const detail = e?.response?.data?.error || e?.message || 'Unknown error';
+                            console.error('cancelAllRuns failed', err);
+                            toast.error(`Failed to stop runs: ${detail}`);
                           }
                         }}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-400/10 transition-colors"

@@ -935,76 +935,114 @@ export const scenarioService = {
   },
 
   async cancelRun(runId: string, tenantId: number): Promise<boolean> {
+    // Best-effort cancel: each section is wrapped so a partial
+    // failure (e.g. a stale row from an older schema) doesn't prevent
+    // us from at least flipping the parent run to 'cancelled'. The
+    // primary goal is to free the user from a stuck-running UI.
     const runRow = await db('scenario_runs').where({ id: runId, tenant_id: tenantId }).first();
-    if (!runRow || !['pending', 'running'].includes(runRow.status)) return false;
+    if (!runRow) {
+      logger.warn({ runId, tenantId }, 'cancelRun: run not found');
+      return false;
+    }
+    if (!['pending', 'running'].includes(runRow.status)) {
+      // Already terminal — idempotent no-op, treat as success so the
+      // caller's UI just flips the row to 'cancelled' without an
+      // error toast.
+      return true;
+    }
 
     const finishedAt = new Date();
-    await db('scenario_runs').where({ id: runId }).update({
-      status: 'cancelled',
-      finished_at: finishedAt,
-      updated_at: finishedAt,
-      error_message: 'Run cancelled by user',
-    });
 
-    // v1 — mark all in-flight step runs as skipped.
-    await db('scenario_step_runs')
-      .where({ run_id: runId })
-      .whereIn('status', ['pending', 'check_running', 'resolve_running', 'recheck_running'])
-      .update({
-        status: 'skipped',
+    try {
+      await db('scenario_runs').where({ id: runId }).update({
+        status: 'cancelled',
         finished_at: finishedAt,
+        updated_at: finishedAt,
+        error_message: 'Run cancelled by user',
       });
+    } catch (err) {
+      logger.error({ err, runId }, 'cancelRun: failed to update scenario_runs');
+      throw err;
+    }
+
+    // v1 — mark all in-flight step runs as skipped. Old enum has no
+    // 'cancelled' value; 'skipped' is the closest terminal state.
+    try {
+      await db('scenario_step_runs')
+        .where({ run_id: runId })
+        .whereIn('status', ['pending', 'check_running', 'resolve_running', 'recheck_running'])
+        .update({
+          status: 'skipped',
+          finished_at: finishedAt,
+        });
+    } catch (err) {
+      logger.error({ err, runId }, 'cancelRun: failed to update scenario_step_runs (non-fatal)');
+    }
 
     // v2 — mark in-flight node runs as cancelled and emit a socket
     // event per node so the editor unpaints the running ring and
-    // shows the terminal state.
-    const inflightNodeRuns = await db('scenario_node_runs')
-      .where({ run_id: runId })
-      .where('status', 'running')
-      .select('id', 'node_id') as Array<{ id: string; node_id: number }>;
-    if (inflightNodeRuns.length > 0) {
-      await db('scenario_node_runs')
-        .whereIn('id', inflightNodeRuns.map((r) => r.id))
-        .update({
-          status: 'cancelled',
-          error_message: 'Run cancelled by user',
-          finished_at: finishedAt,
-        });
-
-      // Cancel any pending command_queue rows tied to those node-runs
-      // so the agent doesn't pick up commands that no longer matter.
-      // 'sent' commands are already on the agent — those will fail
-      // naturally on the agent side; we can't reach in-flight scripts
-      // (the v2 engine doesn't support force-stop on the agent yet).
-      await db('command_queue')
-        .whereIn('source_id', inflightNodeRuns.map((r) => r.id))
-        .where('source_type', 'scenario_node')
-        .where('status', 'pending')
-        .update({ status: 'cancelled', updated_at: finishedAt });
-
-      // Push a socket event for each node so the editor live-viewer
-      // sees the cancellation immediately.
-      try {
-        const io = getIO();
-        if (io) {
-          for (const nr of inflightNodeRuns) {
-            io.to(`tenant:${tenantId}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
-              runId, nodeRunId: nr.id, nodeId: nr.node_id,
-              status: 'cancelled',
-              scenarioId: runRow.scenario_id,
-              exitCode: null,
-              stdout: null,
-              stderr: 'Run cancelled by user',
-              errorMessage: 'Run cancelled by user',
-              deviceId: runRow.device_id,
-            });
-          }
-        }
-      } catch { /* socket not ready */ }
+    // shows the terminal state. Any failure here is non-fatal — the
+    // parent run is already cancelled.
+    let inflightNodeRuns: Array<{ id: string; node_id: number }> = [];
+    try {
+      inflightNodeRuns = await db('scenario_node_runs')
+        .where({ run_id: runId })
+        .where('status', 'running')
+        .select('id', 'node_id') as Array<{ id: string; node_id: number }>;
+      if (inflightNodeRuns.length > 0) {
+        await db('scenario_node_runs')
+          .whereIn('id', inflightNodeRuns.map((r) => r.id))
+          .update({
+            status: 'cancelled',
+            error_message: 'Run cancelled by user',
+            finished_at: finishedAt,
+          });
+      }
+    } catch (err) {
+      logger.error({ err, runId }, 'cancelRun: failed to update scenario_node_runs (non-fatal)');
     }
 
-    const run = rowToRun({ ...runRow, status: 'cancelled', finished_at: finishedAt });
-    emitRunUpdate(tenantId, run);
+    // Cancel any pending command_queue rows tied to those node-runs
+    // so the agent doesn't pick up commands that no longer matter.
+    // 'sent' commands are already on the agent — those will fail
+    // naturally on the agent side or via the cleanup-job timeout.
+    if (inflightNodeRuns.length > 0) {
+      try {
+        await db('command_queue')
+          .whereIn('source_id', inflightNodeRuns.map((r) => r.id))
+          .where('source_type', 'scenario_node')
+          .where('status', 'pending')
+          .update({ status: 'cancelled', updated_at: finishedAt });
+      } catch (err) {
+        logger.error({ err, runId }, 'cancelRun: failed to cancel command_queue rows (non-fatal)');
+      }
+    }
+
+    // Push a socket event for each node so the editor live-viewer
+    // sees the cancellation immediately. Wrapped because getIO()
+    // may not be initialised in some test contexts.
+    try {
+      const io = getIO();
+      if (io) {
+        for (const nr of inflightNodeRuns) {
+          io.to(`tenant:${tenantId}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
+            runId, nodeRunId: nr.id, nodeId: nr.node_id,
+            status: 'cancelled',
+            scenarioId: runRow.scenario_id,
+            exitCode: null,
+            stdout: null,
+            stderr: 'Run cancelled by user',
+            errorMessage: 'Run cancelled by user',
+            deviceId: runRow.device_id,
+          });
+        }
+      }
+    } catch { /* socket not ready */ }
+
+    try {
+      const run = rowToRun({ ...runRow, status: 'cancelled', finished_at: finishedAt });
+      emitRunUpdate(tenantId, run);
+    } catch { /* socket not ready */ }
 
     return true;
   },
