@@ -284,10 +284,17 @@ export const scenarioGraphService = {
     // the editor lights up the matching node immediately. Without this
     // the canvas only paints once the ack lands (i.e. only on script
     // finish), and a long-running script never visibly enters 'running'.
+    //
+    // Including `scenarioId` lets the client filter incoming events by
+    // its own scenarioId rather than by a runId it might not yet know
+    // about — the synchronous `running` emit happens BEFORE the HTTP
+    // response carrying the runIds reaches the client, otherwise the
+    // event would be dropped.
     try {
       const io = getIO();
       if (io) io.to(`tenant:${run.tenant_id}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
         runId, nodeRunId, nodeId, status: 'running',
+        scenarioId: run.scenario_id,
         exitCode: null, stdout: null, stderr: null, errorMessage: null,
         deviceId: run.device_id ?? null,
       });
@@ -398,8 +405,13 @@ export const scenarioGraphService = {
             if (s == null) return null;
             return s.length > max ? `${s.slice(0, max)}\n…[truncated, full output ${s.length} chars]` : s;
           };
+          // Look up scenario_id once for the payload — _completeNode
+          // only updates scenario_runs columns, so we read it back
+          // alongside the tenant/device for the socket envelope.
+          const ridRow = await db('scenario_runs').where({ id: runId }).select('scenario_id').first();
           io.to(`tenant:${runRow[0].tenant_id}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
             runId, nodeRunId, nodeId: updated.node_id, status,
+            scenarioId: ridRow?.scenario_id ?? null,
             exitCode: result.exitCode,
             stdout: truncate(result.stdout),
             stderr: truncate(result.stderr),

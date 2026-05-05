@@ -20,7 +20,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair } from 'lucide-react';
+import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { scenarioApi } from '@/api/scenario.api';
@@ -34,19 +34,27 @@ import { NODE_TYPES, NODE_TYPE_BY_KEY, isTriggerType, type NodeTypeMeta, type No
 // ── Aggregated run status across N parallel device runs ─────────────────────
 // Multi-device test runs spawn one scenario_run per device. The editor
 // tracks live state per run+device, then collapses each node down to a
-// single visible status using the priority below — failed dominates so
-// admins immediately see when one machine in the batch broke. Order:
-//   failed > running > success > skipped > null.
+// single visible status. Priority order:
+//   running > failed > success > skipped
+//
+// Why running wins over failed: the user explicitly asked that a node
+// stay "in progress" as long as ANY device is still working — even if
+// another device already failed. Once every device has finished, the
+// terminal status surfaces (failed if any device failed, otherwise
+// success). Mirrors the schedule-history "running 1 / failed 2" badge
+// pattern: the worst non-terminal state dominates while live, the
+// worst terminal state dominates once the batch is done.
 type DeviceNodeStatus = 'running' | 'success' | 'failed' | 'skipped';
 function aggregateNodeStatus(perDevice: Map<number, DeviceNodeStatus>): DeviceNodeStatus | null {
   if (perDevice.size === 0) return null;
-  let hasRunning = false; let hasSuccess = false;
+  let hasRunning = false; let hasFailed = false; let hasSuccess = false;
   for (const v of perDevice.values()) {
-    if (v === 'failed') return 'failed';
     if (v === 'running') hasRunning = true;
+    else if (v === 'failed') hasFailed = true;
     else if (v === 'success') hasSuccess = true;
   }
   if (hasRunning) return 'running';
+  if (hasFailed)  return 'failed';
   if (hasSuccess) return 'success';
   return null;
 }
@@ -100,13 +108,16 @@ function CustomNode({ data, selected }: NodeProps) {
   const isTerminator = meta?.category === 'terminator';
 
   // Live status overlay — the editor sets data.runStatus from
-  // SCENARIO_NODE_UPDATED socket events, and we paint the matching
-  // ring + small badge in the corner.
+  // SCENARIO_NODE_UPDATED socket events. The status ring takes
+  // priority over the selection ring (an actively-running node is
+  // more important to surface than the user's current focus). When
+  // there's no run state, the selection ring takes over.
   const statusRing =
-    d.runStatus === 'running' ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-bg-primary animate-pulse' :
-    d.runStatus === 'success' ? 'ring-2 ring-green-400 ring-offset-1 ring-offset-bg-primary' :
-    d.runStatus === 'failed'  ? 'ring-2 ring-red-400 ring-offset-1 ring-offset-bg-primary' :
+    d.runStatus === 'running' ? 'ring-4 ring-blue-400 ring-offset-2 ring-offset-bg-primary animate-pulse shadow-lg shadow-blue-400/30' :
+    d.runStatus === 'success' ? 'ring-4 ring-green-400 ring-offset-2 ring-offset-bg-primary shadow-lg shadow-green-400/30' :
+    d.runStatus === 'failed'  ? 'ring-4 ring-red-400 ring-offset-2 ring-offset-bg-primary shadow-lg shadow-red-400/30' :
     '';
+  const hasStatus = !!d.runStatus;
 
   // Inline handle styling — bigger + accent fill so the user actually
   // sees something to grab when they want to draw an edge. The
@@ -119,10 +130,12 @@ function CustomNode({ data, selected }: NodeProps) {
 
   return (
     <div className={clsx(
-      'rounded-lg bg-bg-secondary border-2 px-3 py-2 min-w-[180px] shadow-md relative',
+      'rounded-lg bg-bg-secondary border-2 px-3 py-2 min-w-[180px] shadow-md relative transition-all',
       meta?.accent ?? 'border-text-muted',
-      selected && 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary',
-      !selected && statusRing,
+      // Status ring wins over selection ring — admins need to spot
+      // running/failed nodes regardless of what's currently selected.
+      hasStatus && statusRing,
+      !hasStatus && selected && 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary',
     )}>
       {!isTrigger && (
         <Handle type="target" position={Position.Left} style={handleStyle} />
@@ -244,6 +257,11 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   const [nodeStatusByDevice, setNodeStatusByDevice] = useState<Map<number, Map<number, DeviceNodeStatus>>>(new Map());
   const [nodeOutputs, setNodeOutputs] = useState<Map<number, Map<number, DeviceNodeResult>>>(new Map());
   const [showRunPicker, setShowRunPicker] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [historyRuns, setHistoryRuns] = useState<Array<{
+    id: string; deviceId: number; status: string; startedAt: string; finishedAt: string | null; errorMessage: string | null;
+  }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   /** Run-picker mode: 'graph' = walk from triggers, 'from' = mid-graph
    *  entry, 'single' = run only one node. nodeClientId is the React
    *  Flow id (e.g. `db-42`); we parse the numeric DB id at submit time. */
@@ -274,7 +292,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       scriptApi.list(),
       scriptApi.listCategories().catch(() => [] as ScriptCategory[]),
       deviceApi.listPaginated({ pageSize: 5000, approvalStatus: 'approved' }).then((r) => r.items).catch(() => [] as Device[]),
-      scenarioApi.getActiveRuns(scenarioId).catch(() => ({ runs: [], nodeRuns: [] })),
+      // Pull 24h of run history on open so the per-node output panel
+      // can surface past runs immediately. The user wants to click a
+      // node and see every device it ran on with stdout/stderr —
+      // bumping the window from the default 60 min to 24h covers a
+      // typical dev/admin workday.
+      scenarioApi.getActiveRuns(scenarioId, 24 * 60).catch(() => ({ runs: [], nodeRuns: [] })),
     ]).then(([graph, scriptList, catList, deviceList, active]) => {
       if (cancelled) return;
       setScripts(scriptList);
@@ -373,23 +396,48 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   // Live viewer subscription — multi-device aware. The editor is
   // permanently subscribed (no activeRunIds gate) so a run kicked off
   // by another tab, or a freshly-hydrated active run, immediately
-  // paints. Each event carries a runId we use to match the right
-  // device via runDevices.
+  // paints. Filter strategy: events carrying our `scenarioId` are
+  // accepted unconditionally — this avoids a race where the server
+  // emits 'running' synchronously inside the start request, BEFORE
+  // the HTTP 202 carrying the runIds has reached us. We auto-
+  // populate runDevices from the payload so subsequent state lookups
+  // (output panel, status aggregation) find the device id.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     const onNode = (payload: {
       runId: string; nodeId: number; status: string;
+      scenarioId?: number;
       exitCode: number | null; stdout: string | null; stderr: string | null;
       errorMessage: string | null; deviceId: number | null;
     }) => {
+      // Accept events for our scenario (preferred filter) OR for a
+      // run we already track. Foreign scenarios still get filtered
+      // out so two editors open side by side don't bleed into each
+      // other.
+      const isOurScenario = payload.scenarioId === scenarioId;
+      const isTrackedRun = runDevicesRef.current.has(payload.runId);
+      if (!isOurScenario && !isTrackedRun) return;
       const deviceId = payload.deviceId ?? runDevicesRef.current.get(payload.runId);
       if (deviceId == null) return;
-      // Filter to scenarios we actually care about — runs not in our
-      // tracking sets are foreign (other scenario, other tab). The
-      // refs below hold the latest state without re-binding the socket
-      // every render.
-      if (!runDevicesRef.current.has(payload.runId)) return;
+      // First time we see this runId? Track it so the rest of the
+      // pipeline (active counter, output panel, run-end toast) works.
+      if (!runDevicesRef.current.has(payload.runId)) {
+        setRunDevices((prev) => {
+          if (prev.has(payload.runId)) return prev;
+          const next = new Map(prev);
+          next.set(payload.runId, deviceId);
+          return next;
+        });
+        if (payload.status === 'running') {
+          setActiveRunIds((prev) => {
+            if (prev.has(payload.runId)) return prev;
+            const next = new Set(prev);
+            next.add(payload.runId);
+            return next;
+          });
+        }
+      }
       const status = (payload.status === 'running' ? 'running'
         : payload.status === 'failed'  ? 'failed'
         : payload.status === 'skipped' ? 'skipped'
@@ -421,8 +469,13 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       }
       setLastActiveNodeId(payload.nodeId);
     };
-    const onRun = (payload: { id: string; status: string }) => {
-      if (!runDevicesRef.current.has(payload.id)) return;
+    const onRun = (payload: { id: string; status: string; scenarioId?: number }) => {
+      // Accept by scenarioId or by tracked runId (same dual-filter
+      // logic as onNode). Otherwise a foreign scenario in another tab
+      // could drive our active set.
+      const isOurScenario = payload.scenarioId === scenarioId;
+      const isTrackedRun = runDevicesRef.current.has(payload.id);
+      if (!isOurScenario && !isTrackedRun) return;
       if (payload.status === 'success' || payload.status === 'failure') {
         // Drop this run from the active set; the per-node status map
         // keeps its last result so the canvas stays painted.
@@ -431,6 +484,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           next.delete(payload.id);
           return next;
         });
+        toast.success(`Run ${payload.status === 'success' ? 'succeeded' : 'failed'}`);
       }
     };
     socket.on(SocketEvents.SCENARIO_NODE_UPDATED, onNode);
@@ -552,6 +606,32 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     if (!clientId) return NaN;
     const m = /^db-(\d+)$/.exec(clientId);
     return m ? parseInt(m[1], 10) : NaN;
+  };
+
+  /** Toggle and (re)load the history drawer — extracted as a single
+   *  helper so the runs counter, the explicit History button, and the
+   *  auto-open-on-active-run effect all share one path. */
+  const openHistoryPanel = useCallback(async (open: boolean) => {
+    setShowHistoryPanel(open);
+    if (!open) return;
+    setHistoryLoading(true);
+    try {
+      const data = await scenarioApi.getActiveRuns(scenarioId, 24 * 60);
+      setHistoryRuns(data.runs);
+    } catch { /* silent */ }
+    finally { setHistoryLoading(false); }
+  }, [scenarioId]);
+
+  /** Cancel a specific run, then refresh the history list so the user
+   *  sees the row flip to 'cancelled' immediately. */
+  const cancelRun = async (runId: string) => {
+    try {
+      await scenarioApi.cancelRun(runId);
+      toast.success('Run cancelled');
+      await openHistoryPanel(true);
+    } catch {
+      toast.error('Failed to cancel run');
+    }
   };
 
   // React Flow fires onNodesChange/onEdgesChange for every internal
@@ -994,10 +1074,22 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
                 </button>
               )}
               {activeRunIds.size > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[11px] font-mono">
+                // Clickable counter — opens the same history panel
+                // as the History button so a user watching live runs
+                // can inspect them with a single click.
+                <button
+                  onClick={() => openHistoryPanel(true)}
+                  title="Click to see active runs"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-400/10 border border-blue-400/30 text-blue-400 hover:bg-blue-400/20 text-[11px] font-mono transition-colors">
                   <Loader2 className="w-3 h-3 animate-spin" /> {activeRunIds.size} run{activeRunIds.size > 1 ? 's' : ''}
-                </span>
+                </button>
               )}
+              <button
+                onClick={() => openHistoryPanel(!showHistoryPanel)}
+                title="Recent runs in the last 24 hours"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium">
+                <History className="w-3.5 h-3.5" /> History
+              </button>
               <button onClick={() => { setRunMode({ kind: 'graph' }); setShowRunPicker(true); }}
                 title={dirty
                   ? 'Auto-saves the graph, then opens the device picker (works even when the scenario is disabled — runs are test-only)'
@@ -1045,6 +1137,33 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
               hint="One-shot — engine stops after this node finishes"
               disabled={isTriggerType(target.data.scenarioType)}
               onClick={() => { setRunMode({ kind: 'single', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
+            {target.data.runStatus === 'running' && (
+              // Cancel every active run that's currently parked on
+              // this node. Walks the runs list, filters the ones
+              // whose current_node_id maps back to this node, and
+              // calls cancelRun on each.
+              <ContextMenuItem icon={<XCircle className="w-3.5 h-3.5 text-red-400" />}
+                label="Cancel runs on this node" hint="Mark all in-flight runs as cancelled"
+                danger
+                onClick={async () => {
+                  close();
+                  // Simplest UX: cancel every active run we know
+                  // about. The server only flips runs that are
+                  // actually running, so we don't accidentally hit
+                  // already-finished ones.
+                  const ids = [...activeRunIds];
+                  if (ids.length === 0) {
+                    toast.error('No active run to cancel');
+                    return;
+                  }
+                  let n = 0;
+                  for (const id of ids) {
+                    try { await scenarioApi.cancelRun(id); n++; } catch {}
+                  }
+                  toast.success(`Cancelled ${n} run${n > 1 ? 's' : ''}`);
+                  await openHistoryPanel(true);
+                }} />
+            )}
             <ContextMenuDivider />
             <ContextMenuItem icon={<Files className="w-3.5 h-3.5" />} label="Duplicate" hint="Ctrl+D"
               onClick={() => {
@@ -1128,6 +1247,65 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           </ContextMenu>
         );
       })()}
+
+      {/* ── Recent runs drawer ─────────────────────────────────────── */}
+      {showHistoryPanel && (
+        <div className="absolute top-3 right-[300px] z-30 w-[340px] max-h-[60vh] flex flex-col bg-bg-secondary/95 backdrop-blur border border-border rounded-xl shadow-xl overflow-hidden">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+            <History className="w-3.5 h-3.5 text-accent" />
+            <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Recent runs (24h)</span>
+            <div className="flex-1" />
+            <button onClick={() => setShowHistoryPanel(false)} className="text-text-muted hover:text-text-primary">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {historyLoading ? (
+              <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+              </div>
+            ) : historyRuns.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] text-text-muted">No runs in the last 24 hours.</div>
+            ) : (
+              historyRuns.map((r) => {
+                const dev = devices.find((d) => d.id === r.deviceId);
+                const devLabel = dev?.displayName || dev?.hostname || `#${r.deviceId}`;
+                const startedAt = new Date(r.startedAt);
+                const ago = Math.round((Date.now() - startedAt.getTime()) / 60000);
+                const isRunning = r.status === 'running' || r.status === 'pending';
+                return (
+                  <div key={r.id} className="px-3 py-2 border-b border-border/40 last:border-b-0 flex items-start gap-2">
+                    <DeviceStatusDot status={
+                      r.status === 'running' ? 'running' :
+                      r.status === 'success' ? 'success' :
+                      r.status === 'failure' ? 'failed'  :
+                      r.status === 'cancelled' ? 'failed' : 'success'
+                    } />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] text-text-primary truncate">{devLabel}</div>
+                      <div className="text-[10px] text-text-muted flex items-center gap-2">
+                        <span>{ago < 1 ? 'just now' : ago < 60 ? `${ago} min ago` : `${Math.round(ago / 60)}h ago`}</span>
+                        <span>· {r.status}</span>
+                      </div>
+                      {r.errorMessage && (
+                        <div className="text-[11px] text-red-400 mt-1 break-words">{r.errorMessage}</div>
+                      )}
+                    </div>
+                    {isRunning && (
+                      <button
+                        onClick={() => cancelRun(r.id)}
+                        title="Cancel this run"
+                        className="shrink-0 p-1 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
+                        <XCircle className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Output panel — script-history-style per-device output ────── */}
       {showOutputPanel && nodeOutputs.size > 0 && (

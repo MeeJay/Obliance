@@ -562,7 +562,12 @@ class CommandService {
       .update({ status: 'cancelled', updated_at: new Date() });
   }
 
-  // Expire timed-out commands
+  // Expire timed-out commands. Crucially, when a v2 scenario node's
+  // command times out, we MUST notify the engine so the run advances
+  // (or fails) — otherwise the scenario_runs row stays 'running'
+  // forever and the editor shows a permanently-pulsing ring with no
+  // stdout/stderr. The cleanup runs every minute; expired commands
+  // tied to scenario nodes get a synthetic ack with exitCode=-1.
   async startCleanupJob() {
     setInterval(async () => {
       try {
@@ -574,6 +579,32 @@ class CommandService {
 
         if (expired.length > 0) {
           logger.info({ count: expired.length }, 'Commands expired');
+        }
+
+        // For each expired scenario-node command, push a timeout ack
+        // into the v2 engine so the run advances/fails. We also do
+        // this for v1 scenario_step commands so legacy step-based
+        // scenarios surface timeouts in their UI too.
+        for (const cmd of expired) {
+          try {
+            if (cmd.source_type === 'scenario_node' && cmd.source_id) {
+              const { scenarioGraphService } = await import('./scenarioGraph.service');
+              await scenarioGraphService.handleNodeCommandAck(
+                cmd.source_id,
+                -1,
+                null,
+                'Command timed out — agent never acknowledged within the configured timeout window.',
+              );
+            } else if (typeof cmd.source_type === 'string' && cmd.source_type.startsWith('scenario_step_') && cmd.source_id) {
+              const { scenarioService } = await import('./scenario.service');
+              await scenarioService.handleScenarioCommandAck(
+                cmd.id, cmd.source_type, cmd.source_id, -1, '',
+                'Command timed out — agent never acknowledged within the configured timeout window.',
+              );
+            }
+          } catch (engineErr) {
+            logger.error({ engineErr, commandId: cmd.id, sourceType: cmd.source_type }, 'Failed to notify engine of command timeout');
+          }
         }
       } catch (err) {
         logger.error(err, 'Error in command cleanup job');

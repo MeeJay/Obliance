@@ -196,6 +196,20 @@ export const scenarioService = {
       triggerCountsByScenario.set(t.scenario_id, map);
     }
 
+    // Active-run count per scenario — drives the "Stop" button and
+    // the live spinner on the overview row when a graph is currently
+    // executing on one or more devices.
+    const activeRows = await db('scenario_runs')
+      .whereIn('scenario_id', rows.map((r: any) => r.id))
+      .whereIn('status', ['pending', 'running'])
+      .select('scenario_id')
+      .count<{ scenario_id: number; count: string | number }[]>('* as count')
+      .groupBy('scenario_id');
+    const activeRunsByScenario = new Map<number, number>();
+    for (const a of activeRows) {
+      activeRunsByScenario.set(a.scenario_id, typeof a.count === 'number' ? a.count : parseInt(a.count, 10));
+    }
+
     return {
       items: rows.map((r: any) => {
         const nodeCount = parseInt(String(r.node_count ?? 0));
@@ -207,6 +221,7 @@ export const scenarioService = {
           stepCount: nodeCount > 0 ? nodeCount : legacyStepCount,
           nodeCount,
           triggerCounts: triggerCountsByScenario.get(r.id) ?? {},
+          activeRunCount: activeRunsByScenario.get(r.id) ?? 0,
         };
       }),
       total,
@@ -923,25 +938,94 @@ export const scenarioService = {
     const runRow = await db('scenario_runs').where({ id: runId, tenant_id: tenantId }).first();
     if (!runRow || !['pending', 'running'].includes(runRow.status)) return false;
 
+    const finishedAt = new Date();
     await db('scenario_runs').where({ id: runId }).update({
       status: 'cancelled',
-      finished_at: new Date(),
-      updated_at: new Date(),
+      finished_at: finishedAt,
+      updated_at: finishedAt,
+      error_message: 'Run cancelled by user',
     });
 
-    // Mark all pending step runs as skipped
+    // v1 — mark all in-flight step runs as skipped.
     await db('scenario_step_runs')
       .where({ run_id: runId })
       .whereIn('status', ['pending', 'check_running', 'resolve_running', 'recheck_running'])
       .update({
         status: 'skipped',
-        finished_at: new Date(),
+        finished_at: finishedAt,
       });
 
-    const run = rowToRun({ ...runRow, status: 'cancelled', finished_at: new Date() });
+    // v2 — mark in-flight node runs as cancelled and emit a socket
+    // event per node so the editor unpaints the running ring and
+    // shows the terminal state.
+    const inflightNodeRuns = await db('scenario_node_runs')
+      .where({ run_id: runId })
+      .where('status', 'running')
+      .select('id', 'node_id') as Array<{ id: string; node_id: number }>;
+    if (inflightNodeRuns.length > 0) {
+      await db('scenario_node_runs')
+        .whereIn('id', inflightNodeRuns.map((r) => r.id))
+        .update({
+          status: 'cancelled',
+          error_message: 'Run cancelled by user',
+          finished_at: finishedAt,
+        });
+
+      // Cancel any pending command_queue rows tied to those node-runs
+      // so the agent doesn't pick up commands that no longer matter.
+      // 'sent' commands are already on the agent — those will fail
+      // naturally on the agent side; we can't reach in-flight scripts
+      // (the v2 engine doesn't support force-stop on the agent yet).
+      await db('command_queue')
+        .whereIn('source_id', inflightNodeRuns.map((r) => r.id))
+        .where('source_type', 'scenario_node')
+        .where('status', 'pending')
+        .update({ status: 'cancelled', updated_at: finishedAt });
+
+      // Push a socket event for each node so the editor live-viewer
+      // sees the cancellation immediately.
+      try {
+        const io = getIO();
+        if (io) {
+          for (const nr of inflightNodeRuns) {
+            io.to(`tenant:${tenantId}`).emit(SocketEvents.SCENARIO_NODE_UPDATED, {
+              runId, nodeRunId: nr.id, nodeId: nr.node_id,
+              status: 'cancelled',
+              scenarioId: runRow.scenario_id,
+              exitCode: null,
+              stdout: null,
+              stderr: 'Run cancelled by user',
+              errorMessage: 'Run cancelled by user',
+              deviceId: runRow.device_id,
+            });
+          }
+        }
+      } catch { /* socket not ready */ }
+    }
+
+    const run = rowToRun({ ...runRow, status: 'cancelled', finished_at: finishedAt });
     emitRunUpdate(tenantId, run);
 
     return true;
+  },
+
+  /**
+   * Cancel every in-flight run for a scenario. Returns the number of
+   * runs that were actually cancelled (some may already be terminal
+   * by the time we read them). Used by the "Stop scenario" button on
+   * the overview page when the user wants to abort everything at once.
+   */
+  async cancelAllRuns(scenarioId: number, tenantId: number): Promise<number> {
+    const inFlight = await db('scenario_runs')
+      .where({ scenario_id: scenarioId, tenant_id: tenantId })
+      .whereIn('status', ['pending', 'running'])
+      .select('id') as Array<{ id: string }>;
+    let cancelled = 0;
+    for (const r of inFlight) {
+      const ok = await this.cancelRun(r.id, tenantId);
+      if (ok) cancelled++;
+    }
+    return cancelled;
   },
 };
 

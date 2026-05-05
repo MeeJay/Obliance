@@ -111,6 +111,18 @@ router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) 
   } catch (err) { next(err); }
 });
 
+// POST /:id/cancel-runs — cancel every in-flight run for a scenario.
+// Used by the "Stop scenario" button on the scenarios overview when
+// the admin wants to abort all current runs at once. Returns the
+// number of runs that were transitioned to 'cancelled'.
+router.post('/:id/cancel-runs', requireRole('admin'), async (req, res, next) => {
+  try {
+    const scenarioId = parseInt(req.params.id);
+    const cancelled = await scenarioService.cancelAllRuns(scenarioId, req.tenantId!);
+    res.json({ data: { cancelled } });
+  } catch (err) { next(err); }
+});
+
 // GET /for-device/:deviceId — list scenarios targeting a device
 router.get('/for-device/:deviceId', async (req, res, next) => {
   try {

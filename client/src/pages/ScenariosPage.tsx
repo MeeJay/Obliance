@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
 import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
@@ -1054,6 +1054,25 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                         title="Trigger now"
                       >
                         <Play className="w-4 h-4" />
+                      </button>
+                    )}
+                    {(scenario.activeRunCount ?? 0) > 0 && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Stop ${scenario.activeRunCount} active run${scenario.activeRunCount! > 1 ? 's' : ''} of "${scenario.name}"?`)) return;
+                          try {
+                            const r = await scenarioApi.cancelAllRuns(scenario.id);
+                            toast.success(`Cancelled ${r.cancelled} run${r.cancelled !== 1 ? 's' : ''}`);
+                            await load();
+                          } catch {
+                            toast.error('Failed to stop runs');
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-400/10 transition-colors"
+                        title={`Stop ${scenario.activeRunCount} active run${scenario.activeRunCount! > 1 ? 's' : ''}`}
+                      >
+                        <StopCircle className="w-4 h-4" />
+                        <span className="text-[11px] font-mono">{scenario.activeRunCount}</span>
                       </button>
                     )}
                     <button

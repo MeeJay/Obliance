@@ -1719,6 +1719,9 @@ export interface Scenario {
    *  end_* terminators). Replaces stepCount as the primary "size" badge
    *  for graphs. */
   nodeCount?: number;
+  /** v2 list-only — number of runs currently in 'pending' or 'running'
+   *  status. Drives the Stop button + live spinner on the overview. */
+  activeRunCount?: number;
   /** v2 graph — set by the detail endpoint. Mutually exclusive with `steps`
    *  in practice (after Phase 1B auto-migration, every scenario carries
    *  nodes/edges and `steps` is empty). */

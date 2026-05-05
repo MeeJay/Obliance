@@ -74,6 +74,10 @@ export const scenarioApi = {
   async cancelRun(runId: string): Promise<void> {
     await apiClient.post(`/scenarios/runs/${runId}/cancel`);
   },
+  async cancelAllRuns(scenarioId: number): Promise<{ cancelled: number }> {
+    const res = await apiClient.post<ApiResponse<{ cancelled: number }>>(`/scenarios/${scenarioId}/cancel-runs`);
+    return res.data.data ?? { cancelled: 0 };
+  },
   async listTemplates(): Promise<any[]> {
     const res = await apiClient.get<ApiResponse<any[]>>('/scenarios/templates');
     return res.data.data ?? [];
