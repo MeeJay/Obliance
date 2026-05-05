@@ -569,6 +569,10 @@ export interface Script {
   uuid: string;
   tenantId: number | null;
   categoryId: number | null;
+  /** Optional parent script — when set, the library renders this script
+   *  indented directly under its parent (typical use: a `resolve` script
+   *  parented by its matching `check` script). null = top-level. */
+  parentScriptId: number | null;
   name: string;
   description: string | null;
   tags: string[];

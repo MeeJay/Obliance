@@ -12,7 +12,9 @@ import (
 // ensureWatchdogRegistered verifies that the "OblianceWatchdog" Scheduled
 // Task exists, and recreates it if missing. The task runs the watchdog
 // binary shipped alongside the agent, every 5 minutes, as SYSTEM.
-func ensureWatchdogRegistered() error {
+// cfg is currently unused on Windows (the MSI ships the binary), but the
+// signature matches the unix path so the call site stays portable.
+func ensureWatchdogRegistered(_ *Config) error {
 	// Query the task; if it exists, we're done.
 	out, err := exec.Command("schtasks", "/Query", "/TN", "OblianceWatchdog").CombinedOutput()
 	if err == nil && strings.Contains(string(out), "OblianceWatchdog") {

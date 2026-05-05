@@ -145,10 +145,13 @@ func ClearWatchdogInhibit() {
 // watchdog registration: if the Scheduled Task (Windows) or systemd timer
 // (Linux) has been removed by a user, we put it back. Implementation is
 // platform-specific (see watchdog_windows.go / watchdog_unix.go).
-// A noop/error-returning stub is provided for unsupported platforms so
-// the agent still starts.
-func EnsureWatchdogRegistered() {
-	if err := ensureWatchdogRegistered(); err != nil {
+//
+// Takes the agent's config so the platform-specific code can re-fetch the
+// watchdog binary from the server if it is missing on disk — useful on
+// Linux where the install.sh download silently fails on network glitches
+// and the user otherwise has to reinstall the agent to recover.
+func EnsureWatchdogRegistered(cfg *Config) {
+	if err := ensureWatchdogRegistered(cfg); err != nil {
 		log.Printf("[watchdog] self-heal failed: %v", err)
 	}
 }

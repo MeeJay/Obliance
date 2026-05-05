@@ -520,7 +520,11 @@ func mainLoop(cfg *Config) {
 	// Self-heal the watchdog registration in case the Scheduled Task
 	// (Windows) or systemd timer (Linux) was removed by a user. The agent
 	// keeps the watchdog alive as long as the agent itself is alive.
-	go EnsureWatchdogRegistered()
+	// cfg is passed so the unix branch can re-download the watchdog binary
+	// if it never landed on disk (install.sh silently skips on a 404 / net
+	// hiccup, which surfaced as repeated "self-heal failed: stat ...
+	// no such file or directory" log spam on Linux fleets).
+	go EnsureWatchdogRegistered(cfg)
 
 	addEvent("machine_boot", nil)
 

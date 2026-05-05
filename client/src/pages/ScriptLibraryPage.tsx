@@ -55,6 +55,10 @@ interface ScriptFormData {
   runAs: 'system' | 'user';
   tags: string;
   categoryId: number | null;
+  /** Optional parent script — turns this row into an indented child of
+   *  another script in the library list. Useful for check → resolve
+   *  chains. null = top-level. */
+  parentScriptId: number | null;
   availableInReach: boolean;
   purpose: ScriptPurpose;
 }
@@ -70,6 +74,7 @@ const defaultForm: ScriptFormData = {
   runAs: 'system',
   tags: '',
   categoryId: null,
+  parentScriptId: null,
   availableInReach: false,
   purpose: 'execute',
 };
@@ -140,6 +145,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
         runAs: form.runAs,
         tags,
         categoryId: form.categoryId,
+        parentScriptId: form.parentScriptId,
         availableInReach: form.availableInReach,
         purpose: form.purpose,
         tenantId: null,
@@ -194,12 +200,33 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
       runAs: script.runAs,
       tags: script.tags.join(', '),
       categoryId: script.categoryId,
+      parentScriptId: script.parentScriptId ?? null,
       availableInReach: script.availableInReach ?? false,
       purpose: script.purpose ?? 'execute',
     });
     setSelectedScript(script);
     setIsEditing(true);
     setIsCreating(false);
+  };
+
+  // Helper for the parent picker: collect IDs that would create a cycle
+  // if chosen as parent of `selfId`. That's `selfId` itself + every script
+  // that has `selfId` somewhere up its ancestry chain.
+  const descendantIds = (selfId: number | null): Set<number> => {
+    const out = new Set<number>();
+    if (selfId == null) return out;
+    out.add(selfId);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const s of scripts) {
+        if (s.parentScriptId != null && out.has(s.parentScriptId) && !out.has(s.id)) {
+          out.add(s.id);
+          changed = true;
+        }
+      }
+    }
+    return out;
   };
 
   // Filter scripts by purpose
@@ -296,34 +323,55 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                   </button>
                   {isExpanded && (
                     <div className="p-1.5">
-                      {catScripts.map((script) => (
-                        <button
-                          key={script.id}
-                          onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
-                          className={clsx(
-                            'w-full text-left p-2.5 rounded-lg transition-colors mb-0.5',
-                            selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
-                          )}
-                        >
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                            <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
-                            <span>{PLATFORM_LABELS[script.platform]}</span>
-                            <span>·</span>
-                            <span>{RUNTIME_LABELS[script.runtime]}</span>
-                            {script.purpose && script.purpose !== 'execute' && (
-                              <>
+                      {(() => {
+                        // Build the parent → children map within this category
+                        // and pick the roots (scripts whose parent is null OR
+                        // lives in another category — the latter happens
+                        // when an admin re-categorises only the parent).
+                        const idsInCat = new Set(catScripts.map((x) => x.id));
+                        const childrenOf = new Map<number | null, Script[]>();
+                        for (const s of catScripts) {
+                          const key = s.parentScriptId != null && idsInCat.has(s.parentScriptId)
+                            ? s.parentScriptId
+                            : null;
+                          if (!childrenOf.has(key)) childrenOf.set(key, []);
+                          childrenOf.get(key)!.push(s);
+                        }
+                        const renderTree = (parentKey: number | null, depth: number): JSX.Element[] => {
+                          const list = childrenOf.get(parentKey) ?? [];
+                          return list.flatMap((script) => [
+                            <button
+                              key={script.id}
+                              onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
+                              className={clsx(
+                                'w-full text-left p-2.5 rounded-lg transition-colors mb-0.5',
+                                selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
+                              )}
+                              style={depth > 0 ? { paddingLeft: `${10 + depth * 16}px` } : undefined}
+                            >
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                                <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
+                                <span>{PLATFORM_LABELS[script.platform]}</span>
                                 <span>·</span>
-                                <span className={clsx('px-1.5 py-0 rounded-full border text-[10px] font-medium', PURPOSE_COLORS[script.purpose])}>
-                                  {PURPOSE_LABELS[script.purpose]}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+                                <span>{RUNTIME_LABELS[script.runtime]}</span>
+                                {script.purpose && script.purpose !== 'execute' && (
+                                  <>
+                                    <span>·</span>
+                                    <span className={clsx('px-1.5 py-0 rounded-full border text-[10px] font-medium', PURPOSE_COLORS[script.purpose])}>
+                                      {PURPOSE_LABELS[script.purpose]}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </button>,
+                            ...renderTree(script.id, depth + 1),
+                          ]);
+                        };
+                        return renderTree(null, 0);
+                      })()}
                     </div>
                   )}
                 </div>
@@ -433,6 +481,33 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                   onChange={(catId) => setForm({ ...form, categoryId: catId })}
                   onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
                 />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-medium text-text-muted uppercase">Parent script (optional)</label>
+                {(() => {
+                  // Excluded: self + every descendant (would close a cycle).
+                  const blocked = descendantIds(selectedScript?.id ?? null);
+                  const candidates = scripts
+                    .filter((s) => !blocked.has(s.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                  return (
+                    <select
+                      value={form.parentScriptId ?? ''}
+                      onChange={(e) => setForm({ ...form, parentScriptId: e.target.value ? parseInt(e.target.value, 10) : null })}
+                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      <option value="">— No parent (top level) —</option>
+                      {candidates.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${PURPOSE_LABELS[s.purpose]}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+                <p className="text-[11px] text-text-muted">
+                  Pick a parent to indent this script under it in the library — useful for chaining a <span className="text-orange-400">resolve</span> directly under its <span className="text-blue-400">check</span>.
+                </p>
               </div>
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-medium text-text-muted uppercase">Tags (comma-separated)</label>

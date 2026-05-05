@@ -8,6 +8,7 @@ class ScriptService {
       uuid: row.uuid,
       tenantId: row.tenant_id,
       categoryId: row.category_id,
+      parentScriptId: row.parent_script_id ?? null,
       name: row.name,
       description: row.description,
       tags: row.tags || [],
@@ -68,11 +69,13 @@ class ScriptService {
     tags?: string[]; parameters?: Omit<ScriptParameter, 'id' | 'scriptId'>[];
     availableInReach?: boolean;
     purpose?: string;
+    parentScriptId?: number | null;
     createdBy?: number;
   }): Promise<Script> {
     const [row] = await db('scripts').insert({
       tenant_id: tenantId,
       category_id: data.categoryId,
+      parent_script_id: data.parentScriptId ?? null,
       name: data.name,
       description: data.description,
       tags: JSON.stringify(data.tags || []),
@@ -108,7 +111,9 @@ class ScriptService {
   async updateScript(id: number, tenantId: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; availableInReach: boolean; purpose: string; updatedBy: number;
+    tags: string[]; availableInReach: boolean; purpose: string;
+    parentScriptId: number | null;
+    updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -124,9 +129,39 @@ class ScriptService {
     if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
     if (data.purpose !== undefined) updates.purpose = data.purpose;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
+    if (data.parentScriptId !== undefined) {
+      // Reject self-reference and descendant cycles before writing.
+      if (data.parentScriptId !== null) {
+        if (data.parentScriptId === id) throw new Error('A script cannot be its own parent');
+        if (await this._isDescendant(id, data.parentScriptId, tenantId)) {
+          throw new Error('Cannot parent a script under one of its descendants');
+        }
+      }
+      updates.parent_script_id = data.parentScriptId;
+    }
 
     await db('scripts').where({ id, tenant_id: tenantId }).update(updates);
     return this.getScriptById(id, tenantId);
+  }
+
+  // Walks the parent chain starting from `candidateId`. Returns true if
+  // `id` is found anywhere in the chain — meaning making `candidateId` the
+  // parent of `id` would close a cycle.
+  private async _isDescendant(id: number, candidateId: number, tenantId: number): Promise<boolean> {
+    const seen = new Set<number>();
+    let cursor: number | null = candidateId;
+    while (cursor != null) {
+      if (cursor === id) return true;
+      if (seen.has(cursor)) return false; // pre-existing loop, bail safely
+      seen.add(cursor);
+      const row = await db('scripts')
+        .where({ id: cursor })
+        .where(function() { this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); })
+        .select('parent_script_id')
+        .first() as { parent_script_id: number | null } | undefined;
+      cursor = row?.parent_script_id ?? null;
+    }
+    return false;
   }
 
   async deleteScript(id: number, tenantId: number) {
@@ -138,7 +173,9 @@ class ScriptService {
   async updateSystemScript(id: number, data: Partial<{
     name: string; description: string; categoryId: number; platform: string;
     runtime: string; content: string; timeoutSeconds: number; expectedExitCode: number; runAs: string;
-    tags: string[]; availableInReach: boolean; purpose: string; updatedBy: number;
+    tags: string[]; availableInReach: boolean; purpose: string;
+    parentScriptId: number | null;
+    updatedBy: number;
   }>): Promise<Script | null> {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
@@ -154,6 +191,7 @@ class ScriptService {
     if (data.availableInReach !== undefined) updates.available_in_reach = data.availableInReach;
     if (data.purpose !== undefined) updates.purpose = data.purpose;
     if (data.updatedBy !== undefined) updates.updated_by = data.updatedBy;
+    if (data.parentScriptId !== undefined) updates.parent_script_id = data.parentScriptId;
 
     await db('scripts').where({ id, is_builtin: true }).update(updates);
     // Return with a null tenantId since it's a global script
