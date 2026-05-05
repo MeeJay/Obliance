@@ -156,8 +156,16 @@ func sendStreamClosed(streamID string, code int) {
 
 // readLoop streams from the given reader to the server, in reasonably
 // sized chunks. Exits on EOF / closed / stop signal.
+//
+// Buffer size matters for HTML render mode: PowerShell `ConvertTo-Html`
+// (and similar one-shot dumpers) can produce a 10–50 KB document in a
+// single write. With a 4 KB buffer the read loop has to iterate several
+// times AND each chunk goes as a separate WS message, increasing the
+// odds of one being lost or held back by a transient network hiccup.
+// 64 KB matches the typical OS pipe buffer ceiling and lets a small
+// dashboard land in one read + one frame.
 func readLoop(s *runningStream, r io.Reader) {
-	buf := make([]byte, 4096)
+	buf := make([]byte, 65536)
 	for {
 		select {
 		case <-s.done:

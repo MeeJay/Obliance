@@ -47,7 +47,13 @@ interface ActiveStream {
   dropped: boolean;
 }
 
-const THROTTLE_BYTES_PER_SEC = 10 * 1024;
+// 10 KB/s was the original safety net for an htop-style live terminal —
+// way too low for any HTML dashboard (a typical ConvertTo-Html document
+// is 10–50 KB delivered in one or two bursts). HTML mode skips the
+// throttle entirely (see handleAgentMessage). Terminal mode keeps a
+// limit but bumped to 256 KB/s so a `cat` of a small log file doesn't
+// silently truncate.
+const THROTTLE_BYTES_PER_SEC = 256 * 1024;
 
 class CustomSectionStreamService {
   private streams = new Map<string, ActiveStream>();
@@ -159,7 +165,10 @@ class CustomSectionStreamService {
       s.bytesLastSecond += size;
       if (s.bytesLastSecond > THROTTLE_BYTES_PER_SEC) {
         if (!s.dropped) {
-          logger.debug({ streamId }, 'custom section stream throttled');
+          logger.warn({
+            streamId, sectionId: s.sectionId, bytesLastSecond: s.bytesLastSecond,
+            limit: THROTTLE_BYTES_PER_SEC,
+          }, 'custom section stream throttled — chunk dropped');
           s.dropped = true;
         }
         return; // drop this chunk
