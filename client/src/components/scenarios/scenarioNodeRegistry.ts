@@ -45,6 +45,13 @@ export const NODE_TYPES: NodeTypeMeta[] = [
       { key: 'timezone',       label: 'Timezone',        kind: 'text', placeholder: 'UTC' },
     ],
   },
+  { type: 'trigger_agent_back_online', label: 'Agent back online', category: 'trigger', accent: 'border-emerald-400',
+    hint: 'Fires when an agent comes back after a sustained outage (debounced against flaps)',
+    defaultConfig: { offlineDelaySeconds: 60 },
+    fields: [
+      { key: 'offlineDelaySeconds', label: 'Minimum offline duration (seconds)', kind: 'number', placeholder: '60', required: true },
+    ],
+  },
 
   // ── Actions ──────────────────────────────────────────────────────────────
   { type: 'run_script', label: 'Run script', category: 'action', accent: 'border-accent', hint: 'Execute a script on the device',

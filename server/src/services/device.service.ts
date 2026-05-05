@@ -716,9 +716,10 @@ class DeviceService {
     const now = new Date();
 
     // Capture previous status + version to detect transitions
-    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled').first();
+    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id').first();
     const prevStatus = prev?.status as string | undefined;
     const prevVersion = prev?.agent_version as string | undefined;
+    const prevOfflineAt = prev?.last_offline_at ? new Date(prev.last_offline_at) : null;
     const prevPrivacy = !!prev?.privacy_mode_enabled;
     const prevAirgap = !!prev?.airgap_enabled;
 
@@ -776,6 +777,30 @@ class DeviceService {
         (prevStatus !== 'updating' || updatingCompleted);
       if (statusChanged) {
         this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
+      }
+
+      // Agent-back-online trigger: only fire when prevStatus was
+      // 'offline' AND the outage lasted long enough to clear the
+      // per-trigger-node debounce. fireTrigger does the per-node
+      // duration check (each trigger node carries its own
+      // `offlineDelaySeconds` config). We pass the duration in
+      // seconds so the dispatcher can drop flaps.
+      if (prevStatus === 'offline' && prevOfflineAt) {
+        const offlineSeconds = Math.round((now.getTime() - prevOfflineAt.getTime()) / 1000);
+        // Lazy import — scenario.service depends on us indirectly
+        // via the agent push pipeline.
+        import('./scenario.service').then(({ scenarioService }) => {
+          scenarioService.fireTrigger('agent_back_online', deviceId, tenantId, {
+            offlineSeconds,
+          } as any).catch((err: unknown) => {
+            logger.error({ err, deviceId, offlineSeconds }, 'Failed to fire agent_back_online trigger');
+          });
+        }).catch(() => { /* import error — non-fatal */ });
+      }
+      // Clear last_offline_at now that the device is back online so
+      // subsequent transitions get a clean slate.
+      if (prevStatus === 'offline') {
+        db('devices').where({ id: deviceId }).update({ last_offline_at: null }).catch(() => { /* swallow */ });
       }
 
       // Notify UI when privacy mode or airgap mode toggles via agent push
@@ -951,6 +976,11 @@ class DeviceService {
 
           await db('devices').where({ id: device.id }).update({
             status: 'offline',
+            // Record the moment this device went offline so the
+            // 'agent_back_online' trigger can compute the outage
+            // duration on the next push and decide whether the gap
+            // qualifies as a real outage vs a transient flap.
+            last_offline_at: now,
             updated_at: now,
           });
 

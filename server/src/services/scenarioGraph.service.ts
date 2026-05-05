@@ -483,6 +483,7 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   trigger_group_join:       async () => ({ exitCode: null }),
   trigger_schedule_failure: async () => ({ exitCode: null }),
   trigger_schedule_cron:    async () => ({ exitCode: null }),
+  trigger_agent_back_online: async () => ({ exitCode: null }),
 
   // ── run_script — fires an agent command and parks. Resumes via
   // handleNodeCommandAck once the ack lands. The exit code captured at
@@ -490,15 +491,37 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   run_script: async ({ run, node, nodeRunId }) => {
     const cfg = node.config as { scriptId?: number; parameters?: Record<string, string>; timeoutSeconds?: number };
     if (!cfg.scriptId) throw new Error('run_script node missing scriptId');
+    // Resolve the script row so the payload carries everything the
+    // agent's run_script handler expects. Sending only `scriptId`
+    // makes the agent reject with "runtime not specified" — the
+    // schedule and execute paths both resolve here.
+    const script = await db('scripts')
+      .where({ id: cfg.scriptId, tenant_id: run.tenant_id })
+      .first() as {
+        id: number; runtime: string; content: string;
+        timeout_seconds: number;
+        expected_exit_code: number | null;
+        run_as: string | null;
+      } | undefined;
+    if (!script) throw new Error(`run_script: script ${cfg.scriptId} not found in tenant`);
+    const effectiveTimeout = cfg.timeoutSeconds ?? script.timeout_seconds ?? 300;
     await commandService.enqueue({
       deviceId: run.device_id,
       tenantId: run.tenant_id,
       type: 'run_script',
-      payload: { scriptId: cfg.scriptId, parameters: cfg.parameters ?? {} },
+      payload: {
+        scriptId: script.id,
+        runtime: script.runtime,
+        content: script.content,
+        parameters: cfg.parameters ?? {},
+        timeoutSeconds: effectiveTimeout,
+        expectedExitCode: script.expected_exit_code ?? 0,
+        runAs: script.run_as,
+      },
       priority: 'high',
       sourceType: 'scenario_node',
       sourceId: nodeRunId,
-      expiresInSeconds: cfg.timeoutSeconds ?? 300,
+      expiresInSeconds: effectiveTimeout + 300,
     });
     return { awaitsAck: true };
   },

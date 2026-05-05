@@ -401,7 +401,7 @@ export const scenarioService = {
   // 2. Triggers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number }) {
+  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number; offlineSeconds?: number }) {
     // Multi-trigger model: a single scenario may carry several trigger
     // nodes of the same kind (e.g. two cron schedules) or a mix of
     // kinds. The dispatcher therefore matches on scenario_nodes.type
@@ -434,6 +434,20 @@ export const scenarioService = {
         }
         if (triggerType === 'group_join' && Array.isArray(nodeConfig.groupIds) && nodeConfig.groupIds.length > 0) {
           if (!data?.groupId || !nodeConfig.groupIds.includes(data.groupId)) continue;
+        }
+
+        // Agent-back-online debounce — each trigger node carries its
+        // own `offlineDelaySeconds` (default 60s). Outages shorter
+        // than that are flaps and we skip the run. This is the whole
+        // point of the trigger: filter network glitches out, only
+        // fire on real downtime returning to service.
+        if (triggerType === 'agent_back_online') {
+          const requiredSec = Number(nodeConfig.offlineDelaySeconds ?? 60);
+          const actualSec = Number(data?.offlineSeconds ?? 0);
+          if (!Number.isFinite(actualSec) || actualSec < requiredSec) {
+            logger.debug({ scenarioId: scenario.id, deviceId, requiredSec, actualSec }, 'agent_back_online: outage too short, skipping flap');
+            continue;
+          }
         }
 
         // One-shot dedup for agent_approved — same semantics as v1

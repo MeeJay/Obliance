@@ -59,17 +59,37 @@ function aggregateNodeStatus(perDevice: Map<number, DeviceNodeStatus>): DeviceNo
   return null;
 }
 
-// Per-node, per-device output captured from the live socket events. Used
-// by the output panel to render a script-history-like view: one row per
-// agent, expand to see stdout/stderr/exit code.
-interface DeviceNodeResult {
+/**
+ * One historical entry in the node-run timeline — produced for every
+ * (nodeRunId, runId, deviceId) tuple. The output panel groups these
+ * by their parent runId, sorted by startedAt desc, so admins can scroll
+ * back through past runs of the same node and see how each device
+ * behaved at each invocation. Filtering by hostname flattens the
+ * grouping into a per-agent feed across runs.
+ */
+interface NodeRunEntry {
+  nodeRunId: string;
+  runId: string;
+  nodeId: number;
   deviceId: number;
   status: DeviceNodeStatus;
   exitCode: number | null;
   stdout: string | null;
   stderr: string | null;
   errorMessage: string | null;
-  finishedAt?: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+/** Run-level metadata used by the output panel to label each grouping
+ *  with a date + trigger source ("manual · 14:32" / "schedule_cron · 03:00"). */
+interface RunMeta {
+  runId: string;
+  deviceId: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  triggerSource: string | null;
 }
 
 // Phase 1C — graph editor for v2 scenarios. Wraps @xyflow/react with our
@@ -260,7 +280,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   const [activeRunIds, setActiveRunIds] = useState<Set<string>>(new Set());
   const [runDevices, setRunDevices] = useState<Map<string, number>>(new Map());
   const [nodeStatusByDevice, setNodeStatusByDevice] = useState<Map<number, Map<number, DeviceNodeStatus>>>(new Map());
-  const [nodeOutputs, setNodeOutputs] = useState<Map<number, Map<number, DeviceNodeResult>>>(new Map());
+  /** Per-nodeRun history — keyed by nodeRunId so updates from socket
+   *  events can patch the right row without duplicating it. The output
+   *  panel buckets these by runId for the grouped view. */
+  const [nodeRunHistory, setNodeRunHistory] = useState<Map<string, NodeRunEntry>>(new Map());
+  /** Run-level metadata for the panel's group headers (date, trigger). */
+  const [runMetaByRunId, setRunMetaByRunId] = useState<Map<string, RunMeta>>(new Map());
   const [showRunPicker, setShowRunPicker] = useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<Array<{
@@ -321,12 +346,21 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       // outcome of the last batch even after every run wrapped up.
       const newActive = new Set<string>();
       const newRunDevices = new Map<string, number>();
+      const newRunMeta = new Map<string, RunMeta>();
       for (const r of active.runs) {
         newRunDevices.set(r.id, r.deviceId);
         if (r.status === 'running') newActive.add(r.id);
+        newRunMeta.set(r.id, {
+          runId: r.id,
+          deviceId: r.deviceId,
+          startedAt: r.startedAt,
+          finishedAt: r.finishedAt,
+          status: r.status,
+          triggerSource: r.triggerSource ?? null,
+        });
       }
       const newNodeStatus = new Map<number, Map<number, DeviceNodeStatus>>();
-      const newNodeOutputs = new Map<number, Map<number, DeviceNodeResult>>();
+      const newRunHistory = new Map<string, NodeRunEntry>();
       for (const nr of active.nodeRuns) {
         const deviceId = newRunDevices.get(nr.runId);
         if (deviceId == null) continue;
@@ -336,21 +370,28 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           : 'success';
         if (!newNodeStatus.has(nr.nodeId)) newNodeStatus.set(nr.nodeId, new Map());
         newNodeStatus.get(nr.nodeId)!.set(deviceId, status);
-        if (nr.stdout || nr.stderr || nr.errorMessage || nr.exitCode != null || status !== 'running') {
-          if (!newNodeOutputs.has(nr.nodeId)) newNodeOutputs.set(nr.nodeId, new Map());
-          newNodeOutputs.get(nr.nodeId)!.set(deviceId, {
-            deviceId, status,
-            exitCode: nr.exitCode,
-            stdout: nr.stdout, stderr: nr.stderr,
-            errorMessage: nr.errorMessage,
-            finishedAt: nr.finishedAt,
-          });
-        }
+        // Append-style history map keyed by nodeRunId — every
+        // historical visit of every node by every device ends up
+        // here, ready to be grouped under its runId in the panel.
+        newRunHistory.set(nr.id, {
+          nodeRunId: nr.id,
+          runId: nr.runId,
+          nodeId: nr.nodeId,
+          deviceId,
+          status,
+          exitCode: nr.exitCode,
+          stdout: nr.stdout,
+          stderr: nr.stderr,
+          errorMessage: nr.errorMessage,
+          startedAt: nr.startedAt,
+          finishedAt: nr.finishedAt,
+        });
       }
       setActiveRunIds(newActive);
       setRunDevices(newRunDevices);
+      setRunMetaByRunId(newRunMeta);
       setNodeStatusByDevice(newNodeStatus);
-      setNodeOutputs(newNodeOutputs);
+      setNodeRunHistory(newRunHistory);
       // Empty graph (shouldn't happen post-migration but the editor must
       // recover gracefully) — synthesise a minimal "trigger → end_success".
       if (graph.nodes.length === 0) {
@@ -417,7 +458,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     const socket = getSocket();
     if (!socket) return;
     const onNode = (payload: {
-      runId: string; nodeId: number; status: string;
+      runId: string; nodeRunId?: string; nodeId: number; status: string;
       scenarioId?: number;
       exitCode: number | null; stdout: string | null; stderr: string | null;
       errorMessage: string | null; deviceId: number | null;
@@ -461,23 +502,48 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         next.set(payload.nodeId, inner);
         return next;
       });
-      // Capture stdout/stderr for the output panel. Only update on
-      // states that carry payload — running events don't.
-      if (status !== 'running') {
-        setNodeOutputs((prev) => {
-          const next = new Map(prev);
-          const inner = new Map(next.get(payload.nodeId) ?? new Map());
-          inner.set(deviceId, {
-            deviceId, status,
-            exitCode: payload.exitCode,
-            stdout: payload.stdout, stderr: payload.stderr,
-            errorMessage: payload.errorMessage,
-            finishedAt: new Date().toISOString(),
-          });
-          next.set(payload.nodeId, inner);
-          return next;
+      // Append-style history — keyed by nodeRunId so the same row
+      // gets upserted as it transitions running → success/failed.
+      // Without nodeRunId we fall back to a synthetic key so old
+      // emissions (rare) still appear in the panel.
+      const nodeRunKey = payload.nodeRunId ?? `${payload.runId}:${payload.nodeId}:${deviceId}`;
+      const nowIso = new Date().toISOString();
+      setNodeRunHistory((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(nodeRunKey);
+        next.set(nodeRunKey, {
+          nodeRunId: nodeRunKey,
+          runId: payload.runId,
+          nodeId: payload.nodeId,
+          deviceId,
+          status,
+          // Carry over stdout/stderr from the previous entry if the
+          // new event doesn't have any (running → first running tick).
+          exitCode: payload.exitCode ?? existing?.exitCode ?? null,
+          stdout: payload.stdout ?? existing?.stdout ?? null,
+          stderr: payload.stderr ?? existing?.stderr ?? null,
+          errorMessage: payload.errorMessage ?? existing?.errorMessage ?? null,
+          startedAt: existing?.startedAt ?? nowIso,
+          finishedAt: status === 'running' ? null : nowIso,
         });
-      }
+        return next;
+      });
+      // Make sure the panel has run-level metadata for this runId so
+      // the group header shows a date + trigger source even if the
+      // initial load missed it (e.g. the run started after open).
+      setRunMetaByRunId((prev) => {
+        if (prev.has(payload.runId)) return prev;
+        const next = new Map(prev);
+        next.set(payload.runId, {
+          runId: payload.runId,
+          deviceId,
+          startedAt: nowIso,
+          finishedAt: null,
+          status: 'running',
+          triggerSource: null,
+        });
+        return next;
+      });
       setLastActiveNodeId(payload.nodeId);
     };
     const onRun = (payload: { id: string; status: string; scenarioId?: number }) => {
@@ -1332,8 +1398,8 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         <NodeOutputPanel
           nodes={nodes}
           devices={devices}
-          outputs={nodeOutputs}
-          statusByDevice={nodeStatusByDevice}
+          history={nodeRunHistory}
+          runMeta={runMetaByRunId}
           focusNodeClientId={selectedNode?.id ?? (lastActiveNodeId != null ? `db-${lastActiveNodeId}` : null)}
           onSelectNode={(clientId) => {
             const n = nodes.find((nn) => nn.id === clientId);
@@ -1936,17 +2002,29 @@ function ContextMenuDivider() {
   return <div className="h-px bg-border my-1" />;
 }
 
-// ── Output panel — script-history-style multi-device viewer ────────────────
-// Bottom-anchored floating panel showing the selected node's per-device
-// outputs. Each device row is collapsible to view stdout/stderr/exit code,
-// mirroring the schedule history ergonomics.
+// ── Output panel — runs grouped + per-device outputs + agent filter ────────
+// Bottom-anchored floating panel. Two view modes:
+//  - **Grouped** (default): nodes' run history is broken down by parent
+//    run. Each run header shows its date + trigger source ("manual ·
+//    14:32" / "schedule_cron · 03:00"). Devices that participated in
+//    that run sit underneath, expandable to view stdout / stderr.
+//  - **Filtered**: a non-empty agent filter flattens everything into a
+//    chronological per-row list keyed by hostname, with the run date
+//    on each line so the user can spot recurring failures on a single
+//    machine across runs.
+//
+// The panel is vertically resizable via a handle on its top edge —
+// drag to enlarge for big stdout dumps, shrink to keep the canvas
+// visible while a run is in progress. State is component-local so
+// each re-open returns to the default size; persistence is intentionally
+// not added (keeps the UI predictable across scenario switches).
 function NodeOutputPanel({
-  nodes, devices, outputs, statusByDevice, focusNodeClientId, onSelectNode, onClose,
+  nodes, devices, history, runMeta, focusNodeClientId, onSelectNode, onClose,
 }: {
   nodes: Node<NodeData>[];
   devices: Device[];
-  outputs: Map<number, Map<number, DeviceNodeResult>>;
-  statusByDevice: Map<number, Map<number, DeviceNodeStatus>>;
+  history: Map<string, NodeRunEntry>;
+  runMeta: Map<string, RunMeta>;
   focusNodeClientId: string | null;
   onSelectNode: (clientId: string) => void;
   onClose: () => void;
@@ -1956,30 +2034,102 @@ function NodeOutputPanel({
     if (!d) return `device #${id}`;
     return d.displayName || d.hostname || `device #${id}`;
   };
-  // Pick which node to display. The user's explicit focus wins —
-  // even if that node has no outputs *yet* (a still-running script
-  // produces stdout only on completion), we still surface it with a
-  // "Waiting on agent…" placeholder so they see something. The dropdown
-  // candidates merge: nodes with captured outputs, nodes with live
-  // status (running), and the focused node itself.
+
+  // ── Resize state ────────────────────────────────────────────────
+  // Default to ~38% of the viewport height; min 200px, max 80vh. The
+  // pointer-move listener is attached only while the user holds down
+  // the resize handle so we don't waste cycles when the panel is idle.
+  const [panelHeight, setPanelHeight] = useState<number>(() => Math.round(window.innerHeight * 0.38));
+  const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const onResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragStateRef.current = { startY: e.clientY, startHeight: panelHeight };
+    const onMove = (mv: MouseEvent) => {
+      if (!dragStateRef.current) return;
+      // Drag UP makes the panel taller, DOWN makes it shorter — the
+      // panel is anchored to the bottom of the viewport, so the new
+      // height is start - delta.
+      const delta = mv.clientY - dragStateRef.current.startY;
+      const next = Math.max(200, Math.min(window.innerHeight * 0.8, dragStateRef.current.startHeight - delta));
+      setPanelHeight(next);
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  // ── Active node + filter ───────────────────────────────────────
   const focusDbId = focusNodeClientId ? Number(/^db-(\d+)$/.exec(focusNodeClientId)?.[1] ?? NaN) : NaN;
-  const candidateSet = new Set<number>([...outputs.keys(), ...statusByDevice.keys()]);
-  if (Number.isFinite(focusDbId)) candidateSet.add(focusDbId);
-  const candidateIds = [...candidateSet];
+  // Build the candidate node list: every node that has at least one
+  // history entry, plus the focused node so it shows up even with
+  // zero entries (still-running with no stdout yet).
+  const nodeIdsInHistory = new Set<number>();
+  for (const e of history.values()) nodeIdsInHistory.add(e.nodeId);
+  if (Number.isFinite(focusDbId)) nodeIdsInHistory.add(focusDbId);
+  const candidateIds = [...nodeIdsInHistory];
   const activeDbId = Number.isFinite(focusDbId) ? focusDbId : candidateIds[0];
   const node = activeDbId != null ? nodes.find((n) => n.id === `db-${activeDbId}`) : undefined;
   const meta = node ? NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType] : undefined;
-  const perDevice = activeDbId != null ? (outputs.get(activeDbId) ?? new Map()) : new Map();
-  const liveStatus = activeDbId != null ? (statusByDevice.get(activeDbId) ?? new Map()) : new Map();
-  const allDeviceIds = Array.from(new Set([...perDevice.keys(), ...liveStatus.keys()])).sort((a, b) => a - b);
-  const [expanded, setExpanded] = useState<number | null>(null);
+
+  const [filter, setFilter] = useState('');
+  const filterQ = filter.trim().toLowerCase();
+  const filterIsActive = filterQ.length > 0;
+
+  // ── Bucket the history entries for this node ───────────────────
+  const entriesForNode: NodeRunEntry[] = activeDbId == null
+    ? []
+    : [...history.values()].filter((e) => e.nodeId === activeDbId);
+  // Apply hostname filter first (operates on the entry's deviceId).
+  const filteredEntries = filterIsActive
+    ? entriesForNode.filter((e) => {
+        const d = devices.find((x) => x.id === e.deviceId);
+        const hay = `${d?.displayName ?? ''} ${d?.hostname ?? ''} ${d?.ipLocal ?? ''} ${d?.osName ?? ''}`.toLowerCase();
+        return hay.includes(filterQ);
+      })
+    : entriesForNode;
+  // Sort newest first by startedAt so recent runs are at the top.
+  filteredEntries.sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
+
+  // Group by runId for the grouped view (active when no filter).
+  const groupedByRun = new Map<string, NodeRunEntry[]>();
+  for (const e of filteredEntries) {
+    if (!groupedByRun.has(e.runId)) groupedByRun.set(e.runId, []);
+    groupedByRun.get(e.runId)!.push(e);
+  }
+  const runIdsSorted = [...groupedByRun.keys()].sort((a, b) => {
+    // Headers ordered by their newest entry so a fresh ack pops to the top.
+    const aFirst = groupedByRun.get(a)![0];
+    const bFirst = groupedByRun.get(b)![0];
+    return aFirst.startedAt < bFirst.startedAt ? 1 : -1;
+  });
+
+  // ── Expand state ───────────────────────────────────────────────
+  // Keyed by nodeRunId so the same row stays open across re-renders.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (k: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    return next;
+  });
 
   return (
-    <div className="absolute left-3 right-[300px] bottom-3 z-20 max-h-[42%] flex flex-col bg-bg-secondary/95 backdrop-blur border border-border rounded-xl shadow-xl overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+    <div
+      className="absolute left-3 right-[300px] bottom-3 z-20 flex flex-col bg-bg-secondary/95 backdrop-blur border border-border rounded-xl shadow-xl overflow-hidden"
+      style={{ height: panelHeight }}>
+      {/* Drag handle on top — visible 6px strip with a centred grip. */}
+      <div
+        onMouseDown={onResizeStart}
+        title="Drag to resize"
+        className="h-1.5 bg-border/40 hover:bg-accent/40 cursor-ns-resize transition-colors flex items-center justify-center">
+        <div className="w-10 h-0.5 bg-text-muted/50 rounded-full" />
+      </div>
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2 flex-wrap">
         <TerminalIcon className="w-3.5 h-3.5 text-accent" />
         <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Output</span>
-        {/* Node switcher — quick jump between any node that has output. */}
         <select
           value={activeDbId ?? ''} onChange={(e) => onSelectNode(`db-${e.target.value}`)}
           className="text-[11px] bg-bg-primary border border-border rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent">
@@ -1991,14 +2141,22 @@ function NodeOutputPanel({
         </select>
         {meta && <span className="text-[10px] text-text-muted/60">· {meta.label}</span>}
         <div className="flex-1" />
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter agents…"
+          className="text-[11px] px-2 py-0.5 bg-bg-primary border border-border rounded text-text-primary placeholder-text-muted/60 focus:outline-none focus:border-accent w-[150px]"
+        />
         <button onClick={onClose} className="text-text-muted hover:text-text-primary">
           <X className="w-4 h-4" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {allDeviceIds.length === 0 ? (
+        {filteredEntries.length === 0 ? (
           <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
-            {node ? (
+            {filterIsActive ? (
+              <span>No agent matches <code className="font-mono text-text-primary">{filter}</code> in this node's history.</span>
+            ) : node ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted/70 shrink-0" />
                 <span>
@@ -2008,61 +2166,161 @@ function NodeOutputPanel({
               </>
             ) : 'No output yet.'}
           </div>
-        ) : allDeviceIds.map((deviceId) => {
-          const result = perDevice.get(deviceId);
-          const status = (result?.status ?? liveStatus.get(deviceId) ?? 'running') as DeviceNodeStatus;
-          const isOpen = expanded === deviceId;
-          return (
-            <div key={deviceId} className="border-b border-border/40 last:border-b-0">
-              <button onClick={() => setExpanded((cur) => cur === deviceId ? null : deviceId)}
-                className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors">
-                {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-text-muted" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted" />}
-                <DeviceStatusDot status={status} />
-                <span className="text-text-primary truncate flex-1">{deviceLabel(deviceId)}</span>
-                {result?.exitCode != null && (
-                  <span className={clsx(
-                    'text-[10px] font-mono px-1.5 py-0 rounded border',
-                    result.exitCode === 0
-                      ? 'text-green-400 bg-green-400/10 border-green-400/30'
-                      : 'text-red-400 bg-red-400/10 border-red-400/30',
-                  )}>
-                    exit {result.exitCode}
+        ) : filterIsActive ? (
+          // ── Filtered view: flat per-agent feed across runs.
+          //    Each row is a (deviceId, runId) tuple with date + run badge,
+          //    so an admin filtering for `srv01` can see every visit of
+          //    that machine at a glance, regardless of which run fired it.
+          filteredEntries.map((entry) => {
+            const isOpen = expanded.has(entry.nodeRunId);
+            const meta2 = runMeta.get(entry.runId);
+            return (
+              <NodeOutputRow
+                key={entry.nodeRunId}
+                entry={entry}
+                deviceLabel={deviceLabel(entry.deviceId)}
+                runDate={meta2?.startedAt ?? entry.startedAt}
+                runTrigger={meta2?.triggerSource ?? null}
+                isOpen={isOpen}
+                onToggle={() => toggle(entry.nodeRunId)}
+                showRunBadge
+              />
+            );
+          })
+        ) : (
+          // ── Grouped view: one section per run, devices nested.
+          //    The run header carries the date + trigger source so admins
+          //    can quickly tell "manual @ 14:32" vs "schedule_cron @ 03:00"
+          //    apart, and clicking a device row opens its stdout/stderr.
+          runIdsSorted.map((runId) => {
+            const meta2 = runMeta.get(runId);
+            const entries = groupedByRun.get(runId)!;
+            const startedAt = meta2?.startedAt ?? entries[0].startedAt;
+            const finishedAt = meta2?.finishedAt ?? entries[entries.length - 1].finishedAt;
+            const trigger = meta2?.triggerSource ?? null;
+            return (
+              <div key={runId} className="border-b border-border/40 last:border-b-0">
+                <div className="px-3 py-1.5 bg-bg-tertiary/40 border-b border-border/40 flex items-center gap-2 text-[11px]">
+                  <Loader2 className="w-3 h-3 text-text-muted/60 shrink-0" />
+                  <span className="text-text-primary font-mono">{formatRunDate(startedAt)}</span>
+                  {trigger && (
+                    <span className="text-[10px] px-1.5 py-0 rounded border border-border bg-bg-primary text-text-muted truncate max-w-[260px]" title={trigger}>
+                      {trigger}
+                    </span>
+                  )}
+                  <span className="text-text-muted/60">·</span>
+                  <span className="text-text-muted">
+                    {entries.length} device{entries.length > 1 ? 's' : ''}
                   </span>
-                )}
-              </button>
-              {isOpen && result && (
-                <div className="px-3 pb-2 space-y-2">
-                  {result.errorMessage && (
-                    <div className="text-[11px] text-red-400 bg-red-400/10 border border-red-400/30 rounded px-2 py-1.5">
-                      {result.errorMessage}
-                    </div>
-                  )}
-                  {result.stdout && (
-                    <div>
-                      <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stdout</div>
-                      <pre className="text-[11px] font-mono text-text-secondary whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{result.stdout}</pre>
-                    </div>
-                  )}
-                  {result.stderr && (
-                    <div>
-                      <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stderr</div>
-                      <pre className="text-[11px] font-mono text-red-400/90 whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{result.stderr}</pre>
-                    </div>
-                  )}
-                  {!result.stdout && !result.stderr && !result.errorMessage && (
-                    <div className="text-[11px] text-text-muted italic">No output captured.</div>
+                  {finishedAt && (
+                    <>
+                      <span className="text-text-muted/60">·</span>
+                      <span className="text-text-muted/70">finished {formatRunDate(finishedAt)}</span>
+                    </>
                   )}
                 </div>
-              )}
-              {isOpen && !result && (
-                <div className="px-3 pb-2 text-[11px] text-text-muted italic">Waiting on agent…</div>
-              )}
-            </div>
-          );
-        })}
+                {entries.map((entry) => {
+                  const isOpen = expanded.has(entry.nodeRunId);
+                  return (
+                    <NodeOutputRow
+                      key={entry.nodeRunId}
+                      entry={entry}
+                      deviceLabel={deviceLabel(entry.deviceId)}
+                      runDate={null}
+                      runTrigger={null}
+                      isOpen={isOpen}
+                      onToggle={() => toggle(entry.nodeRunId)}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
+}
+
+/** One agent line inside the output panel — same shape used by both
+ *  grouped and filtered views, the latter showing a run-date badge so
+ *  the row is self-describing without its parent group header. */
+function NodeOutputRow({
+  entry, deviceLabel, runDate, runTrigger, isOpen, onToggle, showRunBadge,
+}: {
+  entry: NodeRunEntry;
+  deviceLabel: string;
+  runDate: string | null;
+  runTrigger: string | null;
+  isOpen: boolean;
+  onToggle: () => void;
+  showRunBadge?: boolean;
+}) {
+  return (
+    <div className="border-b border-border/30 last:border-b-0">
+      <button onClick={onToggle}
+        className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors">
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+        <DeviceStatusDot status={entry.status} />
+        <span className="text-text-primary truncate flex-1">{deviceLabel}</span>
+        {showRunBadge && runDate && (
+          <span className="text-[10px] font-mono text-text-muted/80 shrink-0">{formatRunDate(runDate)}</span>
+        )}
+        {showRunBadge && runTrigger && (
+          <span className="text-[10px] text-text-muted/70 truncate max-w-[120px] shrink-0" title={runTrigger}>
+            · {runTrigger}
+          </span>
+        )}
+        {entry.exitCode != null && (
+          <span className={clsx(
+            'text-[10px] font-mono px-1.5 py-0 rounded border shrink-0',
+            entry.exitCode === 0
+              ? 'text-green-400 bg-green-400/10 border-green-400/30'
+              : 'text-red-400 bg-red-400/10 border-red-400/30',
+          )}>
+            exit {entry.exitCode}
+          </span>
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-2 space-y-2">
+          {entry.errorMessage && (
+            <div className="text-[11px] text-red-400 bg-red-400/10 border border-red-400/30 rounded px-2 py-1.5">
+              {entry.errorMessage}
+            </div>
+          )}
+          {entry.stdout && (
+            <div>
+              <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stdout</div>
+              <pre className="text-[11px] font-mono text-text-secondary whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{entry.stdout}</pre>
+            </div>
+          )}
+          {entry.stderr && (
+            <div>
+              <div className="text-[10px] font-mono uppercase text-text-muted mb-1">stderr</div>
+              <pre className="text-[11px] font-mono text-red-400/90 whitespace-pre-wrap bg-bg-primary border border-border rounded p-2 max-h-64 overflow-y-auto">{entry.stderr}</pre>
+            </div>
+          )}
+          {!entry.stdout && !entry.stderr && !entry.errorMessage && (
+            <div className="text-[11px] text-text-muted italic">
+              {entry.status === 'running' ? 'Waiting on agent…' : 'No output captured.'}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Compact run-date formatter — date + HH:MM:SS in the user's locale. */
+function formatRunDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    if (sameDay) return d.toLocaleTimeString();
+    return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+  } catch { return iso; }
 }
 function DeviceStatusDot({ status }: { status: DeviceNodeStatus }) {
   if (status === 'running') return <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />;
