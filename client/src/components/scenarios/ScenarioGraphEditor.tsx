@@ -2071,7 +2071,23 @@ function NodeOutputPanel({
   for (const e of history.values()) nodeIdsInHistory.add(e.nodeId);
   if (Number.isFinite(focusDbId)) nodeIdsInHistory.add(focusDbId);
   const candidateIds = [...nodeIdsInHistory];
-  const activeDbId = Number.isFinite(focusDbId) ? focusDbId : candidateIds[0];
+  // `activeDbId === 'all'` is the sentinel for "show every node's
+  // outputs in this panel" — the user picks it from the dropdown when
+  // they want a flat run-by-run view rather than zooming into a
+  // specific node. Defaults to the focused node when one is set,
+  // otherwise to "all" so opening the panel shows everything by
+  // default.
+  const [activeSelection, setActiveSelection] = useState<'all' | number>(
+    Number.isFinite(focusDbId) ? focusDbId : 'all',
+  );
+  // Whenever the focus changes (selection / right-click "show output"),
+  // realign the dropdown so the user sees the node they targeted.
+  useEffect(() => {
+    if (Number.isFinite(focusDbId)) setActiveSelection(focusDbId);
+  }, [focusDbId]);
+  const activeDbId: number | null = activeSelection === 'all'
+    ? null
+    : (typeof activeSelection === 'number' ? activeSelection : null);
   const node = activeDbId != null ? nodes.find((n) => n.id === `db-${activeDbId}`) : undefined;
   const meta = node ? NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType] : undefined;
 
@@ -2079,10 +2095,18 @@ function NodeOutputPanel({
   const filterQ = filter.trim().toLowerCase();
   const filterIsActive = filterQ.length > 0;
 
-  // ── Bucket the history entries for this node ───────────────────
+  // ── Bucket the history entries — either for the focused node, or
+  //    every node when the user picked "All nodes".
   const entriesForNode: NodeRunEntry[] = activeDbId == null
-    ? []
+    ? [...history.values()]
     : [...history.values()].filter((e) => e.nodeId === activeDbId);
+  // Helper to label a node row when rendering across all nodes.
+  const nodeLabelById = (id: number): string => {
+    const n = nodes.find((nn) => nn.id === `db-${id}`);
+    if (!n) return `node ${id}`;
+    const m = NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType];
+    return n.data.label || m?.label || `node ${id}`;
+  };
   // Apply hostname filter first (operates on the entry's deviceId).
   const filteredEntries = filterIsActive
     ? entriesForNode.filter((e) => {
@@ -2091,30 +2115,87 @@ function NodeOutputPanel({
         return hay.includes(filterQ);
       })
     : entriesForNode;
-  // Sort newest first by startedAt so recent runs are at the top.
-  filteredEntries.sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
+  // Filtered (per-agent) view: newest first across all runs so a
+  // recent failure surfaces at the top. Grouped view: each run's
+  // entries are sorted ASC inside the group (execution order — node
+  // 1 → node 2 → … → end_success), but the runs themselves are
+  // ordered DESC by their first event so the latest run leads.
+  const filteredDesc = [...filteredEntries].sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
 
-  // Group by runId for the grouped view (active when no filter).
-  const groupedByRun = new Map<string, NodeRunEntry[]>();
+  // Group by **batch** — when the server uses the `<type>:batch:<id>`
+  // convention in trigger_source, all device runs from a single
+  // multi-device fire share that string and collapse under one
+  // header ("Manual · 200 devices · 14:32"). Otherwise we fall back
+  // to grouping by runId so older runs without a batch marker still
+  // render as standalone groups.
+  const groupKeyFor = (entry: NodeRunEntry): string => {
+    const meta = runMeta.get(entry.runId);
+    const src = meta?.triggerSource ?? null;
+    if (src && src.includes(':batch:')) return `batch:${src}`;
+    return `run:${entry.runId}`;
+  };
+  const groupedByBatch = new Map<string, NodeRunEntry[]>();
   for (const e of filteredEntries) {
-    if (!groupedByRun.has(e.runId)) groupedByRun.set(e.runId, []);
-    groupedByRun.get(e.runId)!.push(e);
+    const k = groupKeyFor(e);
+    if (!groupedByBatch.has(k)) groupedByBatch.set(k, []);
+    groupedByBatch.get(k)!.push(e);
   }
-  const runIdsSorted = [...groupedByRun.keys()].sort((a, b) => {
-    // Headers ordered by their newest entry so a fresh ack pops to the top.
-    const aFirst = groupedByRun.get(a)![0];
-    const bFirst = groupedByRun.get(b)![0];
+  // Sort each group's entries chronologically ASC — execution order:
+  // the canvas runs trigger → node1 → node2 → … → terminator, so the
+  // panel mirrors that progression instead of flipping it.
+  for (const arr of groupedByBatch.values()) {
+    arr.sort((a, b) => (a.startedAt < b.startedAt ? -1 : 1));
+  }
+  const groupKeysSorted = [...groupedByBatch.keys()].sort((a, b) => {
+    // Headers ordered by their FIRST entry desc — newest batch on top.
+    const aFirst = groupedByBatch.get(a)![0];
+    const bFirst = groupedByBatch.get(b)![0];
     return aFirst.startedAt < bFirst.startedAt ? 1 : -1;
   });
 
   // ── Expand state ───────────────────────────────────────────────
-  // Keyed by nodeRunId so the same row stays open across re-renders.
+  // Keyed by nodeRunId so the same device row stays open across
+  // re-renders, plus a separate set for collapsed BATCH groups so
+  // the user can fold older batches and only keep the latest open.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setExpanded((prev) => {
     const next = new Set(prev);
     next.has(k) ? next.delete(k) : next.add(k);
     return next;
   });
+  /** Group keys explicitly collapsed by the user. By default the
+   *  most recent group is expanded and all others are collapsed
+   *  (computed below from the sorted list — the user can toggle
+   *  any of them). */
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (k: string) => setCollapsedGroups((prev) => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    return next;
+  });
+  // Track which group keys we've seen so we can auto-collapse new
+  // older groups as fresh runs arrive — without this, opening the
+  // panel on a long-running scenario shows every past batch
+  // expanded, drowning the latest batch in noise.
+  const seenGroupsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    setCollapsedGroups((prev) => {
+      let mutated = false;
+      const next = new Set(prev);
+      // First time we see a group AND it's not the freshest: collapse it.
+      // (The freshest is index 0 in groupKeysSorted.)
+      for (let i = 1; i < groupKeysSorted.length; i++) {
+        const k = groupKeysSorted[i];
+        if (!seenGroupsRef.current.has(k)) {
+          next.add(k);
+          mutated = true;
+        }
+      }
+      for (const k of groupKeysSorted) seenGroupsRef.current.add(k);
+      return mutated ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupKeysSorted.join('|')]);
 
   return (
     <div
@@ -2131,15 +2212,27 @@ function NodeOutputPanel({
         <TerminalIcon className="w-3.5 h-3.5 text-accent" />
         <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Output</span>
         <select
-          value={activeDbId ?? ''} onChange={(e) => onSelectNode(`db-${e.target.value}`)}
+          value={activeSelection === 'all' ? '__all__' : String(activeSelection)}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === '__all__') {
+              setActiveSelection('all');
+            } else {
+              const n = Number(v);
+              setActiveSelection(n);
+              onSelectNode(`db-${n}`);
+            }
+          }}
           className="text-[11px] bg-bg-primary border border-border rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent">
-          {candidateIds.map((dbId) => {
-            const n = nodes.find((nn) => nn.id === `db-${dbId}`);
-            const m = n ? NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType] : undefined;
-            return <option key={dbId} value={dbId}>{n?.data.label || m?.label || `node ${dbId}`}</option>;
-          })}
+          <option value="__all__">— All nodes —</option>
+          {candidateIds.map((dbId) => (
+            <option key={dbId} value={dbId}>{nodeLabelById(dbId)}</option>
+          ))}
         </select>
         {meta && <span className="text-[10px] text-text-muted/60">· {meta.label}</span>}
+        {activeDbId == null && (
+          <span className="text-[10px] text-text-muted/60">· every node, every run</span>
+        )}
         <div className="flex-1" />
         <input
           value={filter}
@@ -2171,7 +2264,7 @@ function NodeOutputPanel({
           //    Each row is a (deviceId, runId) tuple with date + run badge,
           //    so an admin filtering for `srv01` can see every visit of
           //    that machine at a glance, regardless of which run fired it.
-          filteredEntries.map((entry) => {
+          filteredDesc.map((entry) => {
             const isOpen = expanded.has(entry.nodeRunId);
             const meta2 = runMeta.get(entry.runId);
             return (
@@ -2179,6 +2272,7 @@ function NodeOutputPanel({
                 key={entry.nodeRunId}
                 entry={entry}
                 deviceLabel={deviceLabel(entry.deviceId)}
+                nodeLabel={activeDbId == null ? nodeLabelById(entry.nodeId) : undefined}
                 runDate={meta2?.startedAt ?? entry.startedAt}
                 runTrigger={meta2?.triggerSource ?? null}
                 isOpen={isOpen}
@@ -2188,44 +2282,76 @@ function NodeOutputPanel({
             );
           })
         ) : (
-          // ── Grouped view: one section per run, devices nested.
-          //    The run header carries the date + trigger source so admins
-          //    can quickly tell "manual @ 14:32" vs "schedule_cron @ 03:00"
-          //    apart, and clicking a device row opens its stdout/stderr.
-          runIdsSorted.map((runId) => {
-            const meta2 = runMeta.get(runId);
-            const entries = groupedByRun.get(runId)!;
-            const startedAt = meta2?.startedAt ?? entries[0].startedAt;
-            const finishedAt = meta2?.finishedAt ?? entries[entries.length - 1].finishedAt;
-            const trigger = meta2?.triggerSource ?? null;
+          // ── Grouped view: one section per BATCH (collapsible),
+          //    devices nested. A multi-device manual fire shows up as
+          //    one header "Manual · 200 devices · 14:32" instead of
+          //    200 separate "1 device" rows. Only the latest batch is
+          //    expanded by default; older batches auto-collapse so the
+          //    panel stays focused on the freshest run.
+          groupKeysSorted.map((groupKey) => {
+            const entries = groupedByBatch.get(groupKey)!;
+            // Aggregate group-level metadata from the first entry's
+            // run meta (all entries in a batch share trigger_source).
+            const firstMeta = runMeta.get(entries[0].runId);
+            const startedAt = firstMeta?.startedAt ?? entries[0].startedAt;
+            // Aggregate finishedAt — the LATEST finishedAt across all
+            // device entries in the batch is the moment the whole
+            // batch wrapped up. Null while any entry is still running.
+            const allFinished = entries.every((e) => e.finishedAt != null);
+            const finishedAt = allFinished
+              ? entries.reduce<string | null>((acc, e) => (!acc || (e.finishedAt && e.finishedAt > acc)) ? e.finishedAt : acc, null)
+              : null;
+            const trigger = firstMeta?.triggerSource ?? null;
+            // Count unique devices in the batch + a brief outcome
+            // breakdown for the collapsed-state summary line.
+            const deviceCount = new Set(entries.map((e) => e.deviceId)).size;
+            const successCount = new Set(entries.filter((e) => e.status === 'success').map((e) => e.deviceId)).size;
+            const failedCount = new Set(entries.filter((e) => e.status === 'failed').map((e) => e.deviceId)).size;
+            const runningCount = new Set(entries.filter((e) => e.status === 'running').map((e) => e.deviceId)).size;
+            const isCollapsed = collapsedGroups.has(groupKey);
             return (
-              <div key={runId} className="border-b border-border/40 last:border-b-0">
-                <div className="px-3 py-1.5 bg-bg-tertiary/40 border-b border-border/40 flex items-center gap-2 text-[11px]">
-                  <Loader2 className="w-3 h-3 text-text-muted/60 shrink-0" />
+              <div key={groupKey} className="border-b border-border/40 last:border-b-0">
+                <button
+                  onClick={() => toggleGroup(groupKey)}
+                  className="w-full text-left px-3 py-1.5 bg-bg-tertiary/40 border-b border-border/40 flex items-center gap-2 text-[11px] hover:bg-bg-tertiary/70 transition-colors">
+                  {isCollapsed
+                    ? <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />}
                   <span className="text-text-primary font-mono">{formatRunDate(startedAt)}</span>
                   {trigger && (
-                    <span className="text-[10px] px-1.5 py-0 rounded border border-border bg-bg-primary text-text-muted truncate max-w-[260px]" title={trigger}>
+                    <span className="text-[10px] px-1.5 py-0 rounded border border-border bg-bg-primary text-text-muted truncate max-w-[220px]" title={trigger}>
                       {trigger}
                     </span>
                   )}
                   <span className="text-text-muted/60">·</span>
                   <span className="text-text-muted">
-                    {entries.length} device{entries.length > 1 ? 's' : ''}
+                    {deviceCount} device{deviceCount > 1 ? 's' : ''}
                   </span>
-                  {finishedAt && (
-                    <>
-                      <span className="text-text-muted/60">·</span>
-                      <span className="text-text-muted/70">finished {formatRunDate(finishedAt)}</span>
-                    </>
+                  {/* Outcome chips — quick-glance summary while the
+                      group is collapsed. */}
+                  {successCount > 0 && (
+                    <span className="text-[10px] text-green-400">{successCount} ok</span>
                   )}
-                </div>
-                {entries.map((entry) => {
+                  {failedCount > 0 && (
+                    <span className="text-[10px] text-red-400">{failedCount} failed</span>
+                  )}
+                  {runningCount > 0 && (
+                    <span className="text-[10px] text-blue-400 inline-flex items-center gap-1">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> {runningCount} running
+                    </span>
+                  )}
+                  {finishedAt && (
+                    <span className="text-text-muted/70 ml-auto">finished {formatRunDate(finishedAt)}</span>
+                  )}
+                </button>
+                {!isCollapsed && entries.map((entry) => {
                   const isOpen = expanded.has(entry.nodeRunId);
                   return (
                     <NodeOutputRow
                       key={entry.nodeRunId}
                       entry={entry}
                       deviceLabel={deviceLabel(entry.deviceId)}
+                      nodeLabel={activeDbId == null ? nodeLabelById(entry.nodeId) : undefined}
                       runDate={null}
                       runTrigger={null}
                       isOpen={isOpen}
@@ -2246,10 +2372,14 @@ function NodeOutputPanel({
  *  grouped and filtered views, the latter showing a run-date badge so
  *  the row is self-describing without its parent group header. */
 function NodeOutputRow({
-  entry, deviceLabel, runDate, runTrigger, isOpen, onToggle, showRunBadge,
+  entry, deviceLabel, nodeLabel, runDate, runTrigger, isOpen, onToggle, showRunBadge,
 }: {
   entry: NodeRunEntry;
   deviceLabel: string;
+  /** Node label rendered as a chip on the row — used only when the
+   *  panel is in "all nodes" mode so admins can tell which step of
+   *  the graph produced the output. */
+  nodeLabel?: string;
   runDate: string | null;
   runTrigger: string | null;
   isOpen: boolean;
@@ -2262,6 +2392,11 @@ function NodeOutputRow({
         className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors">
         {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
         <DeviceStatusDot status={entry.status} />
+        {nodeLabel && (
+          <span className="text-[10px] font-mono text-accent border border-accent/30 bg-accent/10 rounded px-1.5 py-0 shrink-0 truncate max-w-[120px]" title={nodeLabel}>
+            {nodeLabel}
+          </span>
+        )}
         <span className="text-text-primary truncate flex-1">{deviceLabel}</span>
         {showRunBadge && runDate && (
           <span className="text-[10px] font-mono text-text-muted/80 shrink-0">{formatRunDate(runDate)}</span>

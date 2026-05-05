@@ -549,10 +549,20 @@ export const scenarioService = {
       targets = await scenarioService.resolveTargetDevices(scenarioId, tenantId);
     }
 
+    // Shared batch marker — every device run created from this call
+    // carries the same trigger_source so the editor's history panel
+    // can collapse them under a single batch header ("Manual · 200
+    // devices · 14:32") instead of rendering 200 separate "1 device"
+    // run groups. Format mirrors the graph-editor batch marker:
+    //   <triggerType>:batch:<unique-id>
+    // The id is timestamp + random suffix so concurrent triggers
+    // remain distinguishable.
+    const batchMarker = `manual:batch:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const runs: ScenarioRun[] = [];
     for (const deviceId of targets) {
       try {
-        const run = await scenarioService.triggerScenario(scenarioId, deviceId, tenantId, 'manual', 'manual');
+        const run = await scenarioService.triggerScenario(scenarioId, deviceId, tenantId, 'manual', batchMarker);
         if (run) runs.push(run);
       } catch (err) {
         logger.error(err, `Failed to manually trigger scenario ${scenarioId} on device ${deviceId}`);
@@ -944,6 +954,44 @@ export const scenarioService = {
         sr.step = stepMap.get(sr.stepId);
       }
     }
+
+    // v2 — attach scenario_node_runs joined with their node definition
+    // so the history modal can render node-by-node output. The legacy
+    // stepRuns array stays empty for v2 graphs since they don't use
+    // scenario_steps; the client checks both arrays and displays
+    // whichever has rows.
+    const nodeRunRows = await db('scenario_node_runs as nr')
+      .leftJoin('scenario_nodes as n', 'n.id', 'nr.node_id')
+      .where({ 'nr.run_id': runId })
+      .orderBy('nr.started_at', 'asc')
+      .select(
+        'nr.id as id',
+        'nr.run_id as run_id',
+        'nr.node_id as node_id',
+        'nr.node_type as node_type',
+        'nr.status as status',
+        'nr.exit_code as exit_code',
+        'nr.stdout as stdout',
+        'nr.stderr as stderr',
+        'nr.error_message as error_message',
+        'nr.started_at as started_at',
+        'nr.finished_at as finished_at',
+        'n.label as node_label',
+      ) as Array<any>;
+    (run as any).nodeRuns = nodeRunRows.map((r) => ({
+      id: r.id,
+      runId: r.run_id,
+      nodeId: r.node_id,
+      nodeType: r.node_type,
+      nodeLabel: r.node_label ?? null,
+      status: r.status,
+      exitCode: r.exit_code,
+      stdout: r.stdout,
+      stderr: r.stderr,
+      errorMessage: r.error_message,
+      startedAt: r.started_at,
+      finishedAt: r.finished_at,
+    }));
 
     return run;
   },

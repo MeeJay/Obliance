@@ -146,8 +146,17 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
   const { fetchGroups } = useGroupStore();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  /**
+   * Reload scenarios + scripts + schedules.
+   *
+   * `silent` skips the loading-spinner toggle so background refreshes
+   * driven by socket events don't flick the page on a 200-device
+   * fleet (where SCENARIO_RUN_UPDATED fires nonstop). The first
+   * mount keeps the spinner; subsequent socket-driven reloads use
+   * silent=true and just swap the data underneath.
+   */
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [scenarioList, scriptList, scheduleList] = await Promise.all([
         scenarioApi.list().catch(() => []),
@@ -158,29 +167,36 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
       setScripts(Array.isArray(scriptList) ? scriptList : []);
       setSchedules(Array.isArray(scheduleList) ? scheduleList : []);
     } catch {
-      toast.error('Failed to load scenarios');
+      if (!silent) toast.error('Failed to load scenarios');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
-  // Live refresh on scenario run / step updates emitted by the orchestrator.
+  // Live refresh on scenario run / step updates emitted by the
+  // orchestrator. On a 200-device fleet these events fire dozens of
+  // times per second; we coalesce with a 1500ms debounce (was 400ms)
+  // and reload silently so the list rows don't flick to a loading
+  // state. The user sees the active-run counter tick down naturally
+  // as runs complete without losing scroll position.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const debounced = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => load(), 400);
+      timer = setTimeout(() => load(true), 1500);
     };
     socket.on('SCENARIO_RUN_UPDATED', debounced);
     socket.on('SCENARIO_STEP_UPDATED', debounced);
+    socket.on('SCENARIO_NODE_UPDATED', debounced);
     return () => {
       socket.off('SCENARIO_RUN_UPDATED', debounced);
       socket.off('SCENARIO_STEP_UPDATED', debounced);
+      socket.off('SCENARIO_NODE_UPDATED', debounced);
       if (timer) clearTimeout(timer);
     };
   }, [load]);
@@ -470,7 +486,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
             <p className="text-sm text-text-muted mt-0.5">Automate multi-step check-and-resolve workflows</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+            <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
               <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
             </button>
             <button
@@ -493,7 +509,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
       {embedded && (
         <div className="flex items-center justify-end gap-2">
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+          <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
           <button
@@ -1465,7 +1481,61 @@ function ScenarioHistoryModal({ scenario, onClose }: { scenario: Scenario; onClo
                     {selectedRun.errorMessage}
                   </div>
                 )}
-                {(selectedRun.stepRuns ?? []).length === 0 ? (
+                {/* v2 graphs populate `nodeRuns`; v1 scenarios use the
+                    legacy `stepRuns`. We render whichever is non-empty;
+                    if both are empty, the run truly has no trace yet. */}
+                {(selectedRun.nodeRuns ?? []).length > 0 ? (
+                  (selectedRun.nodeRuns ?? []).map((nr) => (
+                    <div key={nr.id} className="border border-border rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary flex-wrap">
+                        <span className={clsx(
+                          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium',
+                          statusColor(nr.status === 'failed' ? 'failure' : nr.status),
+                        )}>
+                          {statusIcon(nr.status === 'failed' ? 'failure' : nr.status)}
+                          {nr.status}
+                        </span>
+                        <span className="text-xs font-medium text-text-primary truncate flex-1 min-w-0">
+                          {nr.nodeLabel || nr.nodeType}
+                        </span>
+                        <span className="text-[10px] text-text-muted/70 font-mono">
+                          {nr.nodeType.replace(/^trigger_/, 'trigger:').replace(/^run_/, 'run:').replace(/^end_/, 'end:')}
+                        </span>
+                        {typeof nr.exitCode === 'number' && (
+                          <span className={clsx(
+                            'text-[10px] font-mono px-1.5 py-0 rounded border',
+                            nr.exitCode === 0
+                              ? 'text-green-400 bg-green-400/10 border-green-400/30'
+                              : 'text-red-400 bg-red-400/10 border-red-400/30',
+                          )}>
+                            exit {nr.exitCode}
+                          </span>
+                        )}
+                      </div>
+                      {(nr.stdout || nr.stderr || nr.errorMessage) && (
+                        <div className="px-3 py-2 text-[11px] font-mono space-y-2 bg-bg-primary">
+                          {nr.errorMessage && (
+                            <div className="text-red-400 bg-red-400/10 border border-red-400/30 rounded px-2 py-1.5">
+                              {nr.errorMessage}
+                            </div>
+                          )}
+                          {nr.stdout && (
+                            <div>
+                              <div className="text-text-muted flex items-center gap-1"><Terminal className="w-3 h-3" />stdout</div>
+                              <pre className="whitespace-pre-wrap text-text-primary">{nr.stdout.slice(-2000)}</pre>
+                            </div>
+                          )}
+                          {nr.stderr && (
+                            <div>
+                              <div className="text-red-400/70">stderr</div>
+                              <pre className="whitespace-pre-wrap text-red-400/80">{nr.stderr.slice(-2000)}</pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (selectedRun.stepRuns ?? []).length === 0 ? (
                   <div className="text-xs text-text-muted">No step runs recorded.</div>
                 ) : (
                   (selectedRun.stepRuns ?? []).map((sr) => (

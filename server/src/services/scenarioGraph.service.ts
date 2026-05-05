@@ -314,15 +314,26 @@ export const scenarioGraphService = {
       if (result.awaitsAck) return;
 
       // Terminal? End the run right here.
+      //
+      // Capture the executor's `errorMessage` (used by end_success and
+      // end_failure to surface the admin-defined message) into the
+      // node-run trace so the history modal renders it instead of
+      // showing a blank "no output" terminator. Convention:
+      //   - end_success: store message as stdout (it's a positive
+      //     completion note — "Deployment finished" — and lives
+      //     alongside any earlier node's stdout in the trace).
+      //   - end_failure: store message as errorMessage so the red
+      //     banner highlights it the way runtime errors are surfaced.
       if (result.terminate) {
+        const isSuccess = result.terminate === 'success';
         await this._completeNode(runId, nodeRunId, {
           exitCode: result.exitCode ?? null,
-          stdout: null,
-          stderr: null,
-          errorMessage: null,
-        }, 'success');
-        if (result.terminate === 'success') await markRunSuccess(runId);
-        else                                 await markRunFailure(runId, result.errorMessage ?? 'Scenario ended in failure node');
+          stdout:  isSuccess ? (result.errorMessage ?? null) : null,
+          stderr:  null,
+          errorMessage: isSuccess ? null : (result.errorMessage ?? null),
+        }, isSuccess ? 'success' : 'failed');
+        if (isSuccess) await markRunSuccess(runId);
+        else           await markRunFailure(runId, result.errorMessage ?? 'Scenario ended in failure node');
         return;
       }
 

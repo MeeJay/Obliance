@@ -1772,6 +1772,27 @@ export interface ScenarioRun {
   scenario?: Pick<Scenario, 'id' | 'name'>;
   device?: { id: number; hostname: string; displayName: string | null; osType: string };
   stepRuns?: ScenarioStepRun[];
+  /** v2 graph runs — populated by getRunById alongside stepRuns. The
+   *  history modal prefers this when non-empty (v1 step rows never
+   *  exist for v2 scenarios). */
+  nodeRuns?: ScenarioRunNodeRun[];
+}
+
+/** Trace row attached to a v2 ScenarioRun by getRunById — one entry
+ *  per node visit in the run, with its captured stdout/stderr. */
+export interface ScenarioRunNodeRun {
+  id: string;
+  runId: string;
+  nodeId: number;
+  nodeType: string;
+  nodeLabel: string | null;
+  status: string;
+  exitCode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
 }
 
 export interface ScenarioStepRun {
