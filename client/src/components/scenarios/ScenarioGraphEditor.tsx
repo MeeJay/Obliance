@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -178,6 +178,11 @@ function EdgeConditionEditor({ value, onChange }: { value: ScenarioEdgeCondition
 // ── Main editor ──────────────────────────────────────────────────────────────
 function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number; onClose?: () => void }) {
   const rf = useReactFlow();
+  // Ref to the canvas wrapper so addNode can convert "screen centre"
+  // to flow coordinates via rf.screenToFlowPosition. Without an actual
+  // bounding rect to anchor to, viewport math returns 0/0 and every
+  // new node lands at the top-left.
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
   const [edges, setEdges] = useState<Edge<EdgeData>[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
@@ -321,17 +326,20 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
 
   const addNode = (meta: NodeTypeMeta) => {
     const id = `cn-${Math.random().toString(36).slice(2)}`;
-    // Spawn at the viewport's centre rather than a fixed top-left
-    // pixel — that's where the user is looking, so they actually see
-    // the new node land. Add a small jitter so successive adds don't
-    // perfectly overlap.
+    // Spawn at the centre of what the user is currently viewing —
+    // computed from the canvas wrapper's bounding rect via RF's
+    // screenToFlowPosition helper. Falls back to (240, 120) if the
+    // wrapper isn't mounted yet.
     let position = { x: 240, y: 120 };
     try {
-      const vp = rf.getViewport();
-      const w = window.innerWidth, h = window.innerHeight;
-      const cx = (-vp.x + w * 0.4) / vp.zoom;
-      const cy = (-vp.y + h * 0.4) / vp.zoom;
-      position = { x: cx + Math.random() * 40 - 20, y: cy + Math.random() * 40 - 20 };
+      const wrap = canvasWrapRef.current;
+      if (wrap) {
+        const r = wrap.getBoundingClientRect();
+        const screenX = r.left + r.width / 2;
+        const screenY = r.top + r.height / 2;
+        const flow = rf.screenToFlowPosition({ x: screenX, y: screenY });
+        position = { x: flow.x + Math.random() * 40 - 20, y: flow.y + Math.random() * 40 - 20 };
+      }
     } catch { /* fall back to default */ }
     setNodes((nds) => [...nds, {
       id,
@@ -443,8 +451,18 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           drag handlers don't bind correctly (they rely on a real
           bounding rect). h-full doesn't always cascade through flex
           containers when the parent itself is `position: fixed`. */}
-      <div className="flex-1 relative min-w-0" style={{ height: '100%' }}>
+      <div ref={canvasWrapRef} className="flex-1 relative min-w-0" style={{ height: '100%' }}>
         <ReactFlow
+          // Re-key on scenarioId so opening a different scenario
+          // forces a fresh mount with a re-measured wrapper rect —
+          // RF caches dimensions on mount, and a stale 0×0 measurement
+          // breaks every interaction silently.
+          key={scenarioId}
+          // Explicit dimensions belt-and-braces — relying on the parent
+          // h-full alone has caused 0×0 measurements in fixed-modal
+          // contexts where the parent's height isn't applied yet at
+          // RF's first measurement tick.
+          style={{ width: '100%', height: '100%' }}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -454,23 +472,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           onEdgeClick={(_e: React.MouseEvent, e: Edge) => { setSelectedEdge(e as Edge<EdgeData>); setSelectedNode(null); }}
           onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); }}
           nodeTypes={NODE_TYPES_RF}
+          // Dark colour mode — without this the Controls panel ships
+          // with a white background + black icons, unreadable on our
+          // dark theme. RF v12 supports this prop natively.
+          colorMode="dark"
           fitView
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.1}
           maxZoom={2.5}
-          // Explicit interaction defaults — React Flow ships with these
-          // as defaults but pinning them here protects against any
-          // global CSS / strict-mode quirk that might silently disable
-          // them, and documents the intended UX.
-          nodesDraggable
-          nodesConnectable
-          elementsSelectable
-          panOnDrag
-          panOnScroll={false}
-          zoomOnScroll
-          zoomOnPinch
-          zoomOnDoubleClick
-          selectionOnDrag={false}
           deleteKeyCode={null}
           proOptions={{ hideAttribution: true }}
         >

@@ -1288,10 +1288,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
 
       {/* v2 graph editor — modal that respects the Obliance topbar
           (52px) so the user can still see which tenant is active.
-          z-40 keeps it above the page content but below toasts and
-          the user-menu dropdown. */}
+          z-[60] is required to clear the floating sidebar (z-[51])
+          and the pinned sidebar (z-50); anything lower lets the
+          left edge of the sidebar bleed onto the canvas. */}
       {graphEditorScenarioId != null && (
-        <div className="fixed left-0 right-0 bottom-0 top-[52px] z-40 bg-bg-primary">
+        <div className="fixed left-0 right-0 bottom-0 top-[52px] z-[60] bg-bg-primary">
           <ScenarioGraphEditor
             scenarioId={graphEditorScenarioId}
             onClose={() => setGraphEditorScenarioId(null)}
