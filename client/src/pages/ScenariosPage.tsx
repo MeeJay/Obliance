@@ -110,7 +110,10 @@ function ScenarioStatusBadge({ status }: { status: ScenarioStatus }) {
 export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
-  const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
+  // schedules previously fed the schedule_failure trigger picker —
+  // retired now that triggers live entirely in the graph editor. Kept
+  // the setter so the existing fetch in load() doesn't need to change.
+  const [, setSchedules] = useState<ScriptSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
@@ -650,64 +653,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                 <option value="disabled">Disabled</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">
-                Initial trigger
-                <span className="ml-1 text-text-muted/60 font-normal normal-case">(seed only — add / replace in the graph)</span>
-              </label>
-              <select
-                value={form.triggerType}
-                onChange={(e) => {
-                  const next = e.target.value as ScenarioTriggerType;
-                  // Event-driven triggers fire on a specific device; the
-                  // sensible default is to run the action on that same
-                  // device. The admin can still flip to All / Group /
-                  // Device later if they want a broadcast.
-                  const eventDriven = ['session_login', 'machine_boot', 'agent_approved', 'group_join'].includes(next);
-                  setForm({
-                    ...form,
-                    triggerType: next,
-                    triggerConfig: {},
-                    ...(eventDriven ? { targetType: 'self', targetIds: [] } : {}),
-                  });
-                }}
-                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-              >
-                {Object.entries(TRIGGER_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Conditional trigger config */}
-            {form.triggerType === 'group_join' && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">
-                  Fire when joining…
-                </label>
-                <GroupTreeMultiSelect
-                  selectedIds={form.triggerConfig.groupIds ?? []}
-                  onChange={(ids) => setForm({ ...form, triggerConfig: { ...form.triggerConfig, groupIds: ids } })}
-                />
-                <p className="text-[11px] text-text-muted">
-                  Leave empty to fire on any group join. Otherwise the trigger only fires
-                  when a device joins one of these groups (or any descendant).
-                </p>
-              </div>
-            )}
-            {form.triggerType === 'schedule_failure' && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Schedule</label>
-                <select
-                  value={form.triggerConfig.scheduleId ?? ''}
-                  onChange={(e) => setForm({ ...form, triggerConfig: { scheduleId: e.target.value ? parseInt(e.target.value, 10) : undefined } })}
-                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="">Select schedule...</option>
-                  {schedules.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            )}
+            {/* Trigger config moved entirely to the graph editor in v2.
+                New scenarios get a default `trigger_manual` node from the
+                auto-migration; the user adds / replaces / multiplies
+                triggers from the React Flow canvas. The form keeps only
+                metadata (name, description, status, target, variables). */}
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Target</label>

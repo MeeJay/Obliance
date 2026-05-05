@@ -537,12 +537,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     setDirty(true);
   };
 
-  // Validation before save: exactly one trigger, every node reachable
-  // from the trigger, every dangling edge cleaned up.
+  // Validation before save: at least one trigger node. Multiple
+  // triggers are intentionally supported in v2 — a scenario can mix a
+  // manual trigger, several cron schedules, and event triggers
+  // (machine_boot, session_login, …) so the same workflow fires from
+  // different entry points without duplicating its body.
   const validate = (): string | null => {
     const triggers = nodes.filter((n) => isTriggerType(n.data.scenarioType));
-    if (triggers.length === 0) return 'Graph needs exactly one trigger node';
-    if (triggers.length > 1)  return 'Graph cannot have more than one trigger node';
+    if (triggers.length === 0) return 'Graph needs at least one trigger node';
     return null;
   };
 
