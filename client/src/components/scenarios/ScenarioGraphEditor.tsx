@@ -448,25 +448,72 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   useEffect(() => { runDevicesRef.current = runDevices; }, [runDevices]);
 
   /** Fire a test run on N devices. Mode controls whether we walk from a
-   *  trigger, jump mid-graph, or run a single node. Replaces the older
-   *  single-device startTestRun. */
+   *  trigger, jump mid-graph, or run a single node.
+   *
+   *  Dirty state handling: rather than blocking the run when the graph
+   *  has unsaved edits, we auto-save first. For 'from' / 'single' modes
+   *  the save reassigns DB ids (the server wipes and reinserts), so we
+   *  capture a snapshot of the targeted node BEFORE saving and re-
+   *  resolve its new id by matching (type, label, positionX, positionY)
+   *  against the freshly-loaded graph. */
   const startTestRun = async (deviceIds: number[]) => {
     if (deviceIds.length === 0) return;
     try {
-      // Reset any leftover output for the affected nodes — the new
-      // batch overwrites the previous one to avoid the panel showing
-      // stale rows from a prior test.
       const opts: { startNodeId?: number; singleNode?: boolean } = {};
+
+      // Snapshot the target node BEFORE the auto-save mutates ids.
+      let targetSnapshot: { type: string; label: string; px: number; py: number } | null = null;
       if (runMode.kind === 'from' || runMode.kind === 'single') {
-        const dbId = parseDbNodeId(runMode.nodeClientId);
-        if (!Number.isFinite(dbId)) {
-          // Unsaved nodes carry `cn-*` ids and have no DB row yet.
-          toast.error('Save the graph before running this node');
+        const target = nodes.find((n) => n.id === runMode.nodeClientId);
+        if (!target) {
+          toast.error('Target node not found — was it deleted?');
+          return;
+        }
+        targetSnapshot = {
+          type: String(target.data.scenarioType),
+          label: target.data.label ?? '',
+          px: Math.round(target.position.x),
+          py: Math.round(target.position.y),
+        };
+      }
+
+      // Auto-save if dirty so the engine sees the user's latest
+      // edits. A failed save aborts the run (handleSave already
+      // toasts the error).
+      let freshNodes: { id: number; type: string; label: string | null; positionX: number; positionY: number }[] | null = null;
+      if (dirty) {
+        const fresh = await handleSave(true);
+        if (!fresh) return;
+        freshNodes = fresh.nodes;
+        toast.success('Graph saved — starting run');
+      }
+
+      // Resolve startNodeId. If we just saved, prefer the fresh
+      // graph's node ids (post-save, the in-memory `db-*` ids on
+      // selectedNode etc. are stale). Otherwise the in-memory id is
+      // already a `db-*` we can parse directly.
+      if (targetSnapshot) {
+        let dbId: number | null = null;
+        if (freshNodes) {
+          const match = freshNodes.find((n) =>
+            n.type === targetSnapshot!.type &&
+            (n.label ?? '') === targetSnapshot!.label &&
+            n.positionX === targetSnapshot!.px &&
+            n.positionY === targetSnapshot!.py
+          );
+          if (match) dbId = match.id;
+        } else {
+          const parsed = parseDbNodeId(runMode.kind === 'graph' ? null : runMode.nodeClientId);
+          if (Number.isFinite(parsed)) dbId = parsed;
+        }
+        if (dbId == null) {
+          toast.error('Could not resolve the target node after save — try again from the right-click menu.');
           return;
         }
         opts.startNodeId = dbId;
         if (runMode.kind === 'single') opts.singleNode = true;
       }
+
       const result = await scenarioApi.startGraphRun(scenarioId, deviceIds, opts);
       // Add the new run ids to active tracking. Socket events for these
       // ids will now be picked up by the live viewer.
@@ -751,9 +798,19 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     return null;
   };
 
-  const handleSave = async () => {
+  /**
+   * Persist the current canvas to the server, then re-key the local
+   * state with the freshly-assigned db ids. Returns the fresh graph so
+   * callers (the auto-save-then-run path) can resolve a freshly saved
+   * node's new id without an extra round-trip.
+   *
+   * `silent` skips the success toast — used when the save is part of a
+   * larger action like "Run on device" so the user doesn't get a double
+   * "saved → running" notification.
+   */
+  const handleSave = async (silent = false): Promise<{ nodes: { id: number; type: string; label: string | null; positionX: number; positionY: number }[] } | null> => {
     const err = validate();
-    if (err) { toast.error(err); return; }
+    if (err) { toast.error(err); return null; }
     setSaving(true);
     try {
       await scenarioApi.saveGraph(scenarioId, {
@@ -791,10 +848,18 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         data: { condition: e.condition },
         label: edgeConditionLabel(e.condition),
       })));
-      toast.success('Graph saved');
+      if (!silent) toast.success('Graph saved');
       setDirty(false);
+      return {
+        nodes: fresh.nodes.map((n) => ({
+          id: n.id, type: n.type as string,
+          label: n.label ?? null,
+          positionX: n.positionX, positionY: n.positionY,
+        })),
+      };
     } catch {
       toast.error('Failed to save graph');
+      return null;
     } finally {
       setSaving(false);
     }
@@ -906,14 +971,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
                   <Loader2 className="w-3 h-3 animate-spin" /> {activeRunIds.size} run{activeRunIds.size > 1 ? 's' : ''}
                 </span>
               )}
-              <button onClick={() => { setRunMode({ kind: 'graph' }); setShowRunPicker(true); }} disabled={dirty}
+              <button onClick={() => { setRunMode({ kind: 'graph' }); setShowRunPicker(true); }}
                 title={dirty
-                  ? 'Save the graph first'
+                  ? 'Auto-saves the graph, then opens the device picker (works even when the scenario is disabled — runs are test-only)'
                   : 'Pick one or more devices and run this scenario from its triggers (works even when the scenario is disabled — runs are test-only)'}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium disabled:opacity-50">
-                <Play className="w-3.5 h-3.5" /> Run on device(s)
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium">
+                <Play className="w-3.5 h-3.5" /> {dirty ? 'Save & run' : 'Run on device(s)'}
               </button>
-              <button onClick={handleSave} disabled={saving || !dirty}
+              <button onClick={() => handleSave()} disabled={saving || !dirty}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors text-[12px] font-medium disabled:opacity-50">
                 <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save graph'}
               </button>
@@ -945,12 +1010,13 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
         return (
           <ContextMenu x={nodeMenu.x} y={nodeMenu.y} onClose={close}>
             <ContextMenuItem icon={<Play className="w-3.5 h-3.5" />}
-              label="Run from this node…" hint="Bypass triggers — execute this node and continue the graph"
-              disabled={dirty || target.id.startsWith('cn-')}
+              label={dirty ? 'Save & run from this node…' : 'Run from this node…'}
+              hint="Bypass triggers — execute this node and continue the graph"
               onClick={() => { setRunMode({ kind: 'from', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
             <ContextMenuItem icon={<FlaskConical className="w-3.5 h-3.5" />}
-              label="Run only this node…" hint="One-shot — engine stops after this node finishes"
-              disabled={dirty || target.id.startsWith('cn-') || isTriggerType(target.data.scenarioType)}
+              label={dirty ? 'Save & run only this node…' : 'Run only this node…'}
+              hint="One-shot — engine stops after this node finishes"
+              disabled={isTriggerType(target.data.scenarioType)}
               onClick={() => { setRunMode({ kind: 'single', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
             <ContextMenuDivider />
             <ContextMenuItem icon={<Files className="w-3.5 h-3.5" />} label="Duplicate" hint="Ctrl+D"
