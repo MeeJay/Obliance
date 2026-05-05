@@ -1278,7 +1278,9 @@ function ScriptPicker({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      // `Node` from @xyflow/react shadows the global DOM Node here, so
+      // we cast to globalThis.Node for the contains() check.
+      if (!wrapRef.current?.contains(e.target as globalThis.Node)) setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -1514,7 +1516,7 @@ function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClos
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       const root = document.getElementById('scenario-ctx-menu');
-      if (root && !root.contains(e.target as Node)) onClose();
+      if (root && !root.contains(e.target as globalThis.Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     setTimeout(() => document.addEventListener('mousedown', onDoc), 0);

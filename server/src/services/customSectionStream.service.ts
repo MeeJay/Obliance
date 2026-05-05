@@ -34,6 +34,13 @@ interface ActiveStream {
   tenantId: number;
   socketId: string;
   userId: number;
+  /**
+   * Render mode chosen by the section. HTML-mode streams are bursty by
+   * nature (a `ConvertTo-Html` script dumps the whole document at once)
+   * so we skip the per-second throttle for them — otherwise the
+   * trailing chunks of a >10KB document would be silently dropped.
+   */
+  renderMode: 'terminal' | 'html';
   createdAt: number;
   bytesLastSecond: number;
   lastRateReset: number;
@@ -58,6 +65,7 @@ class CustomSectionStreamService {
     if (!section) return { error: 'Section not found' };
 
     const streamId = randomUUID();
+    const renderMode = section.renderMode === 'html' ? 'html' : 'terminal';
     this.streams.set(streamId, {
       streamId,
       sectionId: params.sectionId,
@@ -65,11 +73,18 @@ class CustomSectionStreamService {
       tenantId: params.tenantId,
       socketId: params.socketId,
       userId: params.userId,
+      renderMode,
       createdAt: Date.now(),
       bytesLastSecond: 0,
       lastRateReset: Date.now(),
       dropped: false,
     });
+
+    // HTML mode forces non-PTY: terminal control sequences mangle the
+    // document, and most HTML scripts (PowerShell `ConvertTo-Html`) only
+    // emit a single document in one shot — no need for line-buffered
+    // PTY behaviour.
+    const effectiveUsePty = renderMode === 'html' ? false : section.usePty;
 
     const pushed = agentHub.push(params.deviceId, {
       type: 'command',
@@ -79,7 +94,7 @@ class CustomSectionStreamService {
         streamId,
         command: section.command,
         runtime: section.runtime,
-        usePty: section.usePty,
+        usePty: effectiveUsePty,
         cols: params.cols,
         rows: params.rows,
       },
@@ -127,22 +142,28 @@ class CustomSectionStreamService {
       return;
     }
 
-    // Throttle check (simple sliding window of 1s)
-    const now = Date.now();
-    if (now - s.lastRateReset >= 1000) {
-      s.bytesLastSecond = 0;
-      s.lastRateReset = now;
-      s.dropped = false;
-    }
     const data: string = payload?.data || '';
-    const size = Math.ceil(data.length * 3 / 4); // base64 -> bytes
-    s.bytesLastSecond += size;
-    if (s.bytesLastSecond > THROTTLE_BYTES_PER_SEC) {
-      if (!s.dropped) {
-        logger.debug({ streamId }, 'custom section stream throttled');
-        s.dropped = true;
+
+    // Throttle check (simple sliding window of 1s). Skipped for HTML
+    // streams: those typically arrive as one or two big bursts that
+    // exceed the 10 KB/s budget, and dropping the tail truncates the
+    // document.
+    if (s.renderMode !== 'html') {
+      const now = Date.now();
+      if (now - s.lastRateReset >= 1000) {
+        s.bytesLastSecond = 0;
+        s.lastRateReset = now;
+        s.dropped = false;
       }
-      return; // drop this chunk
+      const size = Math.ceil(data.length * 3 / 4); // base64 -> bytes
+      s.bytesLastSecond += size;
+      if (s.bytesLastSecond > THROTTLE_BYTES_PER_SEC) {
+        if (!s.dropped) {
+          logger.debug({ streamId }, 'custom section stream throttled');
+          s.dropped = true;
+        }
+        return; // drop this chunk
+      }
     }
 
     try {

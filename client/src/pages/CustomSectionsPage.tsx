@@ -6,7 +6,7 @@ import { customSectionApi } from '@/api/customSection.api';
 import { groupsApi } from '@/api/groups.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
-import type { CustomSection, DeviceGroupTreeNode } from '@obliance/shared';
+import type { CustomSection, CustomSectionRenderMode, DeviceGroupTreeNode } from '@obliance/shared';
 
 interface FormData {
   name: string;
@@ -15,6 +15,7 @@ interface FormData {
   platform: 'all' | 'windows' | 'linux' | 'macos';
   runtime: 'bash' | 'sh' | 'powershell' | 'cmd';
   usePty: boolean;
+  renderMode: CustomSectionRenderMode;
   targetType: 'all' | 'group' | 'device';
   targetIds: number[];
 }
@@ -26,9 +27,28 @@ const emptyForm: FormData = {
   platform: 'linux',
   runtime: 'bash',
   usePty: true,
+  renderMode: 'terminal',
   targetType: 'all',
   targetIds: [],
 };
+
+/**
+ * Squash the multi-line script body into a single short preview for the
+ * list row. Long PowerShell scripts otherwise produce a 200-char one-
+ * liner via the row's `truncate` and a horizontal scrollbar that hides
+ * the action buttons on the right. We grab the first non-empty line and
+ * cap it at ~120 chars; full body remains visible in the tooltip and
+ * inside the edit form.
+ */
+function commandPreview(cmd: string): { preview: string; isMultiline: boolean } {
+  const lines = (cmd ?? '').split(/\r?\n/);
+  const firstReal = lines.find((l) => l.trim().length > 0) ?? '';
+  const trimmed = firstReal.trim();
+  const cap = 120;
+  const preview = trimmed.length > cap ? `${trimmed.slice(0, cap)}…` : trimmed;
+  const isMultiline = lines.length > 1 && lines.slice(1).some((l) => l.trim().length > 0);
+  return { preview, isMultiline };
+}
 
 export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
   const [sections, setSections] = useState<CustomSection[]>([]);
@@ -73,6 +93,7 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
       platform: s.platform,
       runtime: s.runtime,
       usePty: s.usePty,
+      renderMode: s.renderMode ?? 'terminal',
       targetType: s.targetType,
       targetIds: s.targetIds ?? [],
     });
@@ -156,29 +177,38 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
             No custom sections yet. Click "New section" to create one.
           </div>
         ) : (
-          sections.map((s) => (
-            <div key={s.id} className="p-3 bg-bg-secondary border border-border rounded-lg flex items-center gap-3">
-              <TerminalSquare className="w-4 h-4 text-accent shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary truncate">{s.name}</span>
-                  <span className="text-[10px] text-text-muted uppercase">{s.platform}</span>
-                  <span className="text-[10px] text-text-muted uppercase">{s.runtime}</span>
-                  {s.usePty && <span className="text-[10px] text-accent">pty</span>}
+          sections.map((s) => {
+            const { preview, isMultiline } = commandPreview(s.command);
+            return (
+              <div key={s.id} className="p-3 bg-bg-secondary border border-border rounded-lg flex items-center gap-3 min-w-0">
+                <TerminalSquare className="w-4 h-4 text-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-text-primary truncate">{s.name}</span>
+                    <span className="text-[10px] text-text-muted uppercase">{s.platform}</span>
+                    <span className="text-[10px] text-text-muted uppercase">{s.runtime}</span>
+                    {s.usePty && <span className="text-[10px] text-accent">pty</span>}
+                    {s.renderMode === 'html' && (
+                      <span className="text-[10px] px-1.5 py-0 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 uppercase tracking-wide">html</span>
+                    )}
+                    {isMultiline && (
+                      <span className="text-[10px] px-1.5 py-0 rounded-full border border-border text-text-muted">multi-line script</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-text-muted font-mono truncate mt-0.5" title={s.command}>{preview || <em className="text-text-muted/60">(empty)</em>}</div>
+                  <div className="text-[10px] text-text-muted mt-0.5">
+                    Target: {s.targetType === 'all' ? 'all devices' : s.targetType === 'group' ? `${s.targetIds.length} group(s)` : `${s.targetIds.length} device(s)`}
+                  </div>
                 </div>
-                <div className="text-xs text-text-muted font-mono truncate mt-0.5" title={s.command}>{s.command}</div>
-                <div className="text-[10px] text-text-muted mt-0.5">
-                  Target: {s.targetType === 'all' ? 'all devices' : s.targetType === 'group' ? `${s.targetIds.length} group(s)` : `${s.targetIds.length} device(s)`}
-                </div>
+                <button onClick={() => openEdit(s)} className="p-1.5 text-text-muted hover:text-accent rounded transition-colors shrink-0" title="Edit">
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => handleDelete(s)} className="p-1.5 text-text-muted hover:text-red-400 rounded transition-colors shrink-0" title="Delete">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button onClick={() => openEdit(s)} className="p-1.5 text-text-muted hover:text-accent rounded transition-colors" title="Edit">
-                <Edit className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => handleDelete(s)} className="p-1.5 text-text-muted hover:text-red-400 rounded transition-colors" title="Delete">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -205,10 +235,13 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                   className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="text-xs text-text-muted uppercase">Command</label>
+                <label className="text-xs text-text-muted uppercase">Command or script</label>
                 <textarea value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })}
-                  rows={3} placeholder="htop"
-                  className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent font-mono" />
+                  rows={form.command.includes('\n') ? 12 : 4} placeholder={'htop\n\n# or paste a full script — PowerShell, bash, …'}
+                  className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent font-mono whitespace-pre" />
+                <p className="text-[10px] text-text-muted mt-1">
+                  Initially intended for a single command (htop, top, etc.) but accepts a full script too. PowerShell scripts can output an HTML document — see render mode below.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -238,6 +271,35 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                 label="Use PTY"
                 description="Required for curses apps: htop, top, less, watch..."
               />
+
+              <div>
+                <label className="text-xs text-text-muted uppercase">Render mode</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button type="button"
+                    onClick={() => setForm({ ...form, renderMode: 'terminal', usePty: form.usePty })}
+                    className={clsx(
+                      'p-2.5 text-left rounded-lg border transition-colors',
+                      form.renderMode === 'terminal' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                    )}>
+                    <div className="text-sm font-semibold">Terminal stream</div>
+                    <div className="text-[10px] mt-0.5">Live xterm console — htop, tail -f, anything CLI.</div>
+                  </button>
+                  <button type="button"
+                    onClick={() => setForm({ ...form, renderMode: 'html', usePty: false })}
+                    className={clsx(
+                      'p-2.5 text-left rounded-lg border transition-colors',
+                      form.renderMode === 'html' ? 'bg-purple-400/10 border-purple-400 text-purple-400' : 'border-border text-text-muted hover:border-purple-400/50',
+                    )}>
+                    <div className="text-sm font-semibold">HTML document</div>
+                    <div className="text-[10px] mt-0.5">Script writes a full HTML page (e.g. PowerShell <code className="font-mono">ConvertTo-Html</code>) — rendered in a sandboxed panel.</div>
+                  </button>
+                </div>
+                {form.renderMode === 'html' && (
+                  <p className="text-[10px] text-text-muted mt-2">
+                    PTY is forced off for HTML output — terminal control sequences corrupt the document. Sandboxed iframe means scripts/forms are blocked, only static HTML + CSS render.
+                  </p>
+                )}
+              </div>
 
               <div>
                 <label className="text-xs text-text-muted uppercase">Target</label>

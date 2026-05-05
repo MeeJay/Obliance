@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, TerminalSquare } from 'lucide-react';
+import { Loader2, TerminalSquare, FileCode2 } from 'lucide-react';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
@@ -12,12 +12,27 @@ interface Props {
 }
 
 /**
- * Custom Section Tab — read-only terminal that streams the live output
+ * Custom Section Tab — read-only viewer that streams the live output
  * of a server-side command for as long as the tab is mounted. Leaving
  * the tab (navigation, tab switch, component unmount) closes the stream
  * and kills the process on the agent.
+ *
+ * Two render modes:
+ *  - 'terminal' (default): xterm.js console for ANSI-rich live output.
+ *  - 'html': accumulates the entire stdout and renders it inside a
+ *    sandboxed iframe so PowerShell `ConvertTo-Html` (and similar) can
+ *    drive a styled dashboard panel. The iframe sandbox blocks scripts,
+ *    forms, popups — only static HTML/CSS renders.
  */
 export function CustomSectionTab({ deviceId, section }: Props) {
+  const renderMode = section.renderMode ?? 'terminal';
+  if (renderMode === 'html') {
+    return <CustomSectionHtmlPanel deviceId={deviceId} section={section} />;
+  }
+  return <CustomSectionTerminalPanel deviceId={deviceId} section={section} />;
+}
+
+function CustomSectionTerminalPanel({ deviceId, section }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -144,6 +159,180 @@ export function CustomSectionTab({ deviceId, section }: Props) {
         className="p-2"
         style={{ background: '#0f1419', height: 'calc(100vh - 340px)', minHeight: '400px' }}
       />
+    </div>
+  );
+}
+
+/**
+ * HTML render mode — accumulates the entire script's stdout into a single
+ * UTF-8 buffer, then drops it into a sandboxed iframe via `srcDoc`.
+ *
+ * Why iframe over inline innerHTML / DOMPurify:
+ *  - `sandbox="allow-same-origin"` (no `allow-scripts`) blocks every
+ *    script tag the document might contain, even if we missed something
+ *    a sanitizer would have caught. Static HTML + CSS still renders.
+ *  - Same-origin lets the parent read `contentDocument.body.scrollHeight`
+ *    so we can auto-grow the iframe to fit the whole document instead
+ *    of forcing an internal scrollbar inside another scrollbar.
+ *  - No new dependency to add (no DOMPurify, no Sanitize-HTML).
+ *
+ * The buffer is flushed to the iframe on every chunk; for very large
+ * documents this could thrash, so we debounce updates to once every
+ * 250 ms once the document grows past 64 KB.
+ */
+function CustomSectionHtmlPanel({ deviceId, section }: Props) {
+  const streamIdRef = useRef<string | null>(null);
+  const bufferRef = useRef<string>('');
+  const [status, setStatus] = useState<'connecting' | 'live' | 'closed' | 'error'>('connecting');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [renderTick, setRenderTick] = useState(0);
+  const flushTimerRef = useRef<number | null>(null);
+
+  // Flush helper — re-paints the iframe from `bufferRef`. Debounced
+  // when the buffer grows past 64 KB so a fast-streaming script doesn't
+  // re-parse the whole document on every chunk.
+  const scheduleFlush = () => {
+    const big = bufferRef.current.length > 64 * 1024;
+    if (flushTimerRef.current != null) return;
+    const delay = big ? 250 : 30;
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null;
+      setRenderTick((t) => t + 1);
+    }, delay);
+  };
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) {
+      setStatus('error');
+      setErrorMsg('Socket not connected');
+      return;
+    }
+    const onOutput = (msg: { streamId: string; data: string }) => {
+      if (!streamIdRef.current || msg.streamId !== streamIdRef.current) return;
+      try {
+        // Server delivers chunks base64-encoded — decode and append as
+        // UTF-8. atob() yields a binary string; decoding with TextDecoder
+        // keeps multi-byte characters intact.
+        const bin = atob(msg.data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        bufferRef.current += text;
+        if (status !== 'live') setStatus('live');
+        scheduleFlush();
+      } catch {}
+    };
+    const onClosed = (msg: { streamId: string; code?: number }) => {
+      if (msg.streamId !== streamIdRef.current) return;
+      setStatus('closed');
+      // Force a final paint in case a chunk was still pending.
+      if (flushTimerRef.current != null) { window.clearTimeout(flushTimerRef.current); flushTimerRef.current = null; }
+      setRenderTick((t) => t + 1);
+    };
+    socket.on('CUSTOM_SECTION_OUTPUT', onOutput);
+    socket.on('CUSTOM_SECTION_CLOSED', onClosed);
+
+    socket.emit(
+      'CUSTOM_SECTION_OPEN',
+      // PTY makes no sense for HTML output (terminal control sequences
+      // would corrupt the document) — explicitly request a non-PTY
+      // pipe so the agent gets clean stdout regardless of section flags.
+      { deviceId, sectionId: section.id, cols: 0, rows: 0, ptyOverride: false },
+      (res: { streamId?: string; error?: string }) => {
+        if (res?.error || !res?.streamId) {
+          setStatus('error');
+          setErrorMsg(res?.error || 'Failed to open stream');
+          return;
+        }
+        streamIdRef.current = res.streamId;
+      },
+    );
+
+    return () => {
+      if (flushTimerRef.current != null) window.clearTimeout(flushTimerRef.current);
+      socket.off('CUSTOM_SECTION_OUTPUT', onOutput);
+      socket.off('CUSTOM_SECTION_CLOSED', onClosed);
+      if (streamIdRef.current) {
+        socket.emit('CUSTOM_SECTION_CLOSE', { streamId: streamIdRef.current });
+      }
+      bufferRef.current = '';
+      streamIdRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId, section.id]);
+
+  // Each renderTick triggers a re-render that recomputes the iframe's
+  // srcDoc from the current buffer. We only emit a heading-shaped
+  // wrapper when the script's output doesn't already include a `<html>`
+  // tag, so a full ConvertTo-Html document is rendered as-is.
+  const looksLikeFullHtml = /<\s*html[\s>]/i.test(bufferRef.current.slice(0, 4096));
+  const srcDoc = looksLikeFullHtml
+    ? bufferRef.current
+    : `<!doctype html><html><head><meta charset="utf-8"><style>
+        :root { color-scheme: dark; }
+        body {
+          margin: 0;
+          padding: 16px;
+          font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+          font-size: 13px;
+          line-height: 1.55;
+          background: #0f1419;
+          color: #e6e1cf;
+        }
+        a { color: #7dd3fc; }
+        table { border-collapse: collapse; margin: 8px 0; }
+        th, td { border: 1px solid #334155; padding: 6px 10px; }
+        th { background: #1e293b; text-align: left; }
+        code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
+        pre { background: #1e293b; padding: 8px; border-radius: 6px; overflow-x: auto; }
+      </style></head><body>${bufferRef.current}</body></html>`;
+  // renderTick triggers re-render via setState; reading it via the
+  // closure isn't necessary, the change is communicated through the
+  // updated bufferRef + new srcDoc string. Reference it once with
+  // void so the unused-variable lint doesn't flag the state.
+  void renderTick;
+
+  return (
+    <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden flex flex-col">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+        <FileCode2 className="w-4 h-4 text-purple-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-text-primary truncate">{section.name}</div>
+          <div className="text-xs text-text-muted truncate">HTML render · {bufferRef.current.length.toLocaleString()} bytes</div>
+        </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+          status === 'live'    ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+          status === 'closed'  ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+          status === 'error'   ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+                                  'text-blue-400 bg-blue-400/10 border-blue-400/30'
+        }`}>
+          {status === 'connecting' && <Loader2 className="w-2.5 h-2.5 animate-spin inline mr-1" />}
+          {status}
+        </span>
+      </div>
+      {errorMsg && (
+        <div className="px-4 py-2 text-xs text-red-400 bg-red-400/5 border-b border-red-400/20">
+          {errorMsg}
+        </div>
+      )}
+      {bufferRef.current.length === 0 && status === 'connecting' ? (
+        <div className="flex items-center justify-center text-text-muted text-sm" style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
+          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Waiting for first output…
+        </div>
+      ) : (
+        <iframe
+          // sandbox="allow-same-origin" disables script execution, form
+          // submission, popups, and top-level navigation. allow-same-
+          // origin is needed only because some PowerShell-generated
+          // pages rely on relative URLs and CSS that reference document
+          // root — leaving it out renders the page in an opaque origin.
+          sandbox="allow-same-origin"
+          srcDoc={srcDoc}
+          className="w-full bg-[#0f1419]"
+          style={{ height: 'calc(100vh - 340px)', minHeight: '400px', border: 'none' }}
+        />
+      )}
     </div>
   );
 }

@@ -1656,6 +1656,8 @@ export interface AutomationNotificationBinding {
   mode: AutomationNotificationMode;
 }
 
+export type CustomSectionRenderMode = 'terminal' | 'html';
+
 export interface CustomSection {
   id: number;
   tenantId: number;
@@ -1665,6 +1667,16 @@ export interface CustomSection {
   platform: 'all' | 'windows' | 'linux' | 'macos';
   runtime: 'bash' | 'sh' | 'powershell' | 'cmd';
   usePty: boolean;
+  /**
+   * How the device tab renders the streamed output.
+   *  - 'terminal' (default): live xterm console, ideal for htop/top/long-running CLIs.
+   *  - 'html'             : the script writes a full HTML document to stdout
+   *                         (e.g. PowerShell `ConvertTo-Html`). The client
+   *                         accumulates the bytes and renders them in a
+   *                         sandboxed iframe, turning the section into a
+   *                         styled dashboard panel.
+   */
+  renderMode: CustomSectionRenderMode;
   targetType: 'all' | 'group' | 'device';
   targetIds: number[];
   createdBy: number | null;
