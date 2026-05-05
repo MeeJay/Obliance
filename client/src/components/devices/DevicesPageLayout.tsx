@@ -5,11 +5,17 @@ import { DeviceTable } from './DeviceTable';
 interface DevicesPageLayoutProps {
   mode: 'monitoring' | 'admin';
   initialStatusFilter?: string;
+  initialOsFilter?: string;
+  initialStaleHours?: number;
+  initialPendingUpdates?: boolean;
   initialGroupId?: number | null;
   onGroupChange?: (groupId: number | null) => void;
 }
 
-export function DevicesPageLayout({ mode, initialStatusFilter, initialGroupId = null, onGroupChange }: DevicesPageLayoutProps) {
+export function DevicesPageLayout({
+  mode, initialStatusFilter, initialOsFilter, initialStaleHours, initialPendingUpdates,
+  initialGroupId = null, onGroupChange,
+}: DevicesPageLayoutProps) {
   const [groupId, setGroupId] = useState<number | null>(initialGroupId);
 
   // Keep local state in sync when URL-provided initial groupId changes
@@ -33,6 +39,9 @@ export function DevicesPageLayout({ mode, initialStatusFilter, initialGroupId = 
         <DeviceTable
           mode={mode}
           initialStatusFilter={initialStatusFilter}
+          initialOsFilter={initialOsFilter}
+          initialStaleHours={initialStaleHours}
+          initialPendingUpdates={initialPendingUpdates}
           groupId={groupId}
           onGroupChange={handleGroupChange}
         />

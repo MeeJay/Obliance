@@ -212,6 +212,13 @@ async function main() {
   deviceService.snapshotFleetDaily().catch(() => {});
   setInterval(() => deviceService.snapshotFleetDaily(), 24 * 60 * 60 * 1000);
 
+  // Hourly fleet snapshot — feeds the 24h "Activité du parc" view. Run once
+  // on boot (so the dashboard has at least 1 historical point right away)
+  // and every hour after that. Retention is handled by the job itself
+  // (7 days of hourly history, kept ~168 rows per tenant max).
+  deviceService.snapshotFleetHourly().catch(() => {});
+  setInterval(() => deviceService.snapshotFleetHourly(), 60 * 60 * 1000);
+
   // Self-healing: purge orphaned records from tables whose device no longer exists (every 4h)
   deviceService.cleanOrphans().catch(() => {}); // run once at startup
   setInterval(() => deviceService.cleanOrphans(), 4 * 60 * 60 * 1000);

@@ -85,8 +85,12 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const [expandedDevices, setExpandedDevices] = useState<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>>([]);
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  // Silent reloads (e.g. socket-driven refresh on a scan_updates ack) skip
+  // the spinner so the active tab doesn't flash empty every time an agent's
+  // update scan completes — at fleet scale this was producing visible
+  // flickering on the Policies → Updates tab.
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true);
     try {
       const [aggData, policiesData] = await Promise.all([
         updateApi.listAggregated({
@@ -104,22 +108,31 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
     } catch {
       toast.error(t('updates.toast.loadFailed'));
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }, [selectedSeverity, selectedSource, selectedGroupId, aggPage, aggPageSize, t]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setAggPage(1); }, [selectedSeverity, selectedSource, selectedGroupId, aggPageSize]);
 
-  // Real-time: reload on scan completion
+  // Real-time: reload on scan completion. Debounced to 2 s + silent so a
+  // fleet-wide update scan (many parallel acks) does not trigger a
+  // reload-storm that flashes the spinner on every successful agent.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const onCmd = (cmd: Command) => {
-      if (cmd.type === 'scan_updates' && cmd.status === 'success') load();
+      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => load({ silent: true }), 2000);
+      }
     };
     socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
-    return () => { socket.off(SocketEvents.COMMAND_UPDATED, onCmd); };
+    return () => {
+      socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
+      if (timer) clearTimeout(timer);
+    };
   }, [load]);
 
   // Expand a row to show affected devices

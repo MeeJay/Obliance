@@ -4,10 +4,11 @@ import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
   AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, Box,
 } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
 import {
   deviceApi,
-  type GroupStats, type FleetTimeseriesPoint,
+  type GroupStats, type FleetTimeseriesPoint, type FleetHourlyPoint,
   type AgentVersionRow, type DiskSaturationResult,
 } from '@/api/device.api';
 import { useTranslation } from 'react-i18next';
@@ -103,7 +104,7 @@ function HeroCard({ label, value, color, delta, deltaText, barPct, barColor }: {
 
 // ── Donut ────────────────────────────────────────────────────────────────────
 
-interface DonutSlice { name: string; value: number; color: string }
+interface DonutSlice { name: string; value: number; color: string; to?: string }
 
 function OsDonut({ slices, total }: { slices: DonutSlice[]; total: number }) {
   let cumulative = 0;
@@ -130,11 +131,21 @@ function OsDonut({ slices, total }: { slices: DonutSlice[]; total: number }) {
       <div className="flex-1 flex flex-col gap-2">
         {slices.map((s) => {
           const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
-          return (
-            <div key={s.name} className="flex items-center gap-3 text-[13px]">
+          const Inner = (
+            <>
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: s.color }} />
               <span className="text-text-primary font-medium flex-1">{s.name}</span>
               <span className="text-text-muted font-mono text-[11px]">{s.value} · {pct}%</span>
+            </>
+          );
+          return s.to ? (
+            <Link key={s.name} to={s.to}
+              className="flex items-center gap-3 text-[13px] -mx-1.5 px-1.5 py-0.5 rounded hover:bg-bg-hover transition-colors">
+              {Inner}
+            </Link>
+          ) : (
+            <div key={s.name} className="flex items-center gap-3 text-[13px]">
+              {Inner}
             </div>
           );
         })}
@@ -147,7 +158,11 @@ function OsDonut({ slices, total }: { slices: DonutSlice[]; total: number }) {
 
 type ActivityRange = '24h' | '7j' | '14j' | '30j';
 
-function ActivityChart({ data }: { data: FleetTimeseriesPoint[] }) {
+// Unified shape so the chart can render both daily and hourly snapshots
+// without branching internally — the parent maps each input to this.
+interface ActivityPoint { label: string; online: number; offline: number; total: number }
+
+function ActivityChart({ data }: { data: ActivityPoint[] }) {
   const { t } = useTranslation();
   if (data.length < 2) {
     return (
@@ -191,7 +206,7 @@ function ActivityChart({ data }: { data: FleetTimeseriesPoint[] }) {
       {/* X axis labels (first / mid / last only) */}
       {[0, Math.floor(data.length / 2), data.length - 1].map(i => (
         <text key={i} x={xOf(i)} y={h - 8} fontSize="10" fontFamily="JetBrains Mono" fill="rgb(var(--c-text-muted))" textAnchor="middle">
-          {data[i].day.slice(5)}
+          {data[i].label}
         </text>
       ))}
     </svg>
@@ -292,7 +307,7 @@ function DiskSaturationCard({ data }: { data: DiskSaturationResult }) {
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.diskSaturated', 'Disques saturés')}</div>
-          <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.diskSaturatedSub', '> {{threshold}}% utilisés', { threshold: data.threshold })}</div>
+          <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.diskSaturatedSub', 'au-dessus du seuil défini')}</div>
         </div>
         <div className={`font-display text-[30px] font-semibold ${data.count > 0 ? 'text-amber-400' : 'text-text-muted'} leading-none`}>{data.count}</div>
       </div>
@@ -431,11 +446,11 @@ function OsConnectivityCard({ data }: {
   data: Record<'windows' | 'macos' | 'linux' | 'other', { online: number; total: number }> | undefined;
 }) {
   const { t } = useTranslation();
-  const rows: { name: string; color: string; online: number; total: number }[] = [
-    { name: 'Windows',                              color: '#4f7bff', online: data?.windows.online ?? 0, total: data?.windows.total ?? 0 },
-    { name: 'Linux',                                color: '#f5a623', online: data?.linux.online   ?? 0, total: data?.linux.total   ?? 0 },
-    { name: 'macOS',                                color: '#1edd8a', online: data?.macos.online   ?? 0, total: data?.macos.total   ?? 0 },
-    { name: t('dashboard.osOther', 'Autres'),       color: 'rgba(255,255,255,0.20)', online: data?.other.online ?? 0, total: data?.other.total ?? 0 },
+  const rows: { name: string; color: string; online: number; total: number; to: string }[] = [
+    { name: 'Windows',                              color: '#4f7bff', online: data?.windows.online ?? 0, total: data?.windows.total ?? 0, to: '/devices?os=windows' },
+    { name: 'Linux',                                color: '#f5a623', online: data?.linux.online   ?? 0, total: data?.linux.total   ?? 0, to: '/devices?os=linux' },
+    { name: 'macOS',                                color: '#1edd8a', online: data?.macos.online   ?? 0, total: data?.macos.total   ?? 0, to: '/devices?os=macos' },
+    { name: t('dashboard.osOther', 'Autres'),       color: 'rgba(255,255,255,0.20)', online: data?.other.online ?? 0, total: data?.other.total ?? 0, to: '/devices?os=other' },
   ].filter(r => r.total > 0);
 
   const max = Math.max(...rows.map(r => r.total), 1);
@@ -456,7 +471,9 @@ function OsConnectivityCard({ data }: {
             const offlinePct = (offline  / max) * 100;
             const upPct = r.total > 0 ? Math.round((r.online / r.total) * 100) : 0;
             return (
-              <div key={r.name} className="flex items-center gap-3" title={t('dashboard.tooltipOnline', '{{online}} en ligne sur {{total}} ({{pct}}%)', { online: r.online, total: r.total, pct: upPct })}>
+              <Link key={r.name} to={r.to}
+                className="flex items-center gap-3 -mx-1.5 px-1.5 py-0.5 rounded hover:bg-bg-hover transition-colors"
+                title={t('dashboard.tooltipOnline', '{{online}} en ligne sur {{total}} ({{pct}}%)', { online: r.online, total: r.total, pct: upPct })}>
                 <span className="flex items-center gap-1.5 w-20 shrink-0">
                   <span className="w-2 h-2 rounded-sm" style={{ background: r.color }} />
                   <span className="text-[12px] text-text-secondary truncate">{r.name}</span>
@@ -469,7 +486,7 @@ function OsConnectivityCard({ data }: {
                   <span className="text-green-400">{r.online}</span>
                   <span className="text-text-muted">/{r.total}</span>
                 </span>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -484,11 +501,13 @@ export function DashboardPage() {
   const { t } = useTranslation();
   const { fetchDevices, summary, fetchSummary } = useDeviceStore();
   const { openAddAgentModal } = useUiStore();
+  const isAdmin = useAuthStore((s) => s.isAdmin)();
   const [isLoading, setIsLoading] = useState(true);
   const [groupStats, setGroupStats] = useState<GroupStats[]>([]);
   const [series, setSeries] = useState<FleetTimeseriesPoint[]>([]);
+  const [hourlySeries, setHourlySeries] = useState<FleetHourlyPoint[]>([]);
   const [versions, setVersions] = useState<AgentVersionRow[]>([]);
-  const [disks, setDisks] = useState<DiskSaturationResult>({ count: 0, threshold: 85, top: [] });
+  const [disks, setDisks] = useState<DiskSaturationResult>({ count: 0, threshold: 0, top: [] });
   const [activityRange, setActivityRange] = useState<ActivityRange>('14j');
 
   useEffect(() => {
@@ -499,8 +518,12 @@ export function DashboardPage() {
         fetchSummary(),
         deviceApi.getGroupStats().then(setGroupStats).catch(() => {}),
         deviceApi.getFleetTimeseries(30).then(setSeries).catch(() => {}),
+        deviceApi.getFleetHourly(24).then(setHourlySeries).catch(() => {}),
         deviceApi.getAgentVersions().then(setVersions).catch(() => {}),
-        deviceApi.getDiskSaturated(85).then(setDisks).catch(() => {}),
+        // Lot D.2: pass 0 as the floor so per-device thresholds resolved
+        // server-side dictate the alert level — a kiosk with warn=70 shows up
+        // at 70 %, a 10 TB server with warn=90 only at 90 %.
+        deviceApi.getDiskSaturated(0).then(setDisks).catch(() => {}),
       ]);
       setIsLoading(false);
     };
@@ -527,18 +550,34 @@ export function DashboardPage() {
   const updPct     = total > 0 ? Math.round((pendingUpd / total) * 100) : 0;
   const stalePct   = total > 0 ? Math.round((stale / total) * 100) : 0;
 
-  // OS donut data
+  // OS donut data — each slice carries the /devices?os=<family> URL so the
+  // legend rows are clickable shortcuts to the filtered device list.
   const os = summary?.osByType ?? { windows: 0, macos: 0, linux: 0, other: 0 };
   const osSlices: DonutSlice[] = useMemo(() => [
-    { name: 'Windows', value: os.windows, color: '#4f7bff' },
-    { name: 'Linux',   value: os.linux,   color: '#f5a623' },
-    { name: 'macOS',   value: os.macos,   color: '#1edd8a' },
-    { name: t('dashboard.osOther', 'Autres'), value: os.other, color: 'rgba(255,255,255,0.20)' },
+    { name: 'Windows', value: os.windows, color: '#4f7bff', to: '/devices?os=windows' },
+    { name: 'Linux',   value: os.linux,   color: '#f5a623', to: '/devices?os=linux' },
+    { name: 'macOS',   value: os.macos,   color: '#1edd8a', to: '/devices?os=macos' },
+    { name: t('dashboard.osOther', 'Autres'), value: os.other, color: 'rgba(255,255,255,0.20)', to: '/devices?os=other' },
   ], [os, t]);
 
-  // Activity chart data (slice timeseries by selected range)
+  // Activity chart data — branches on the requested range:
+  //   24h → hourly snapshots (intra-day resolution)
+  //   7j/14j/30j → daily snapshots
+  // Both feed the unified ActivityPoint shape so ActivityChart stays simple.
   const rangeDays = activityRange === '24h' ? 1 : activityRange === '7j' ? 7 : activityRange === '14j' ? 14 : 30;
-  const activityData = useMemo(() => series.slice(-rangeDays), [series, rangeDays]);
+  const activityData: ActivityPoint[] = useMemo(() => {
+    if (activityRange === '24h') {
+      return hourlySeries.map((p) => {
+        const d = new Date(p.hour);
+        const hh = String(d.getHours()).padStart(2, '0');
+        return { label: `${hh}h`, online: p.online, offline: p.offline, total: p.total };
+      });
+    }
+    return series.slice(-rangeDays).map((p) => ({
+      label: p.day.slice(5),
+      online: p.online, offline: p.offline, total: p.total,
+    }));
+  }, [activityRange, series, hourlySeries, rangeDays]);
 
   // Featured hero — last 4 days from timeseries (or pad with synth values)
   const featuredDays = useMemo(() => {
@@ -551,14 +590,33 @@ export function DashboardPage() {
   }, [series]);
   const featuredSeries = useMemo(() => series.slice(-7).map(p => p.total), [series]);
 
-  // Tree of groups
-  const groupTree = useMemo(() => {
-    // Build a parent->children map. We don't have parent_id from group-stats yet,
-    // so for now we render flat at top level. Hierarchical view requires the
-    // groups tree endpoint which already exists (groups.tree()). Future work.
-    return [...groupStats]
-      .filter(g => g.groupId !== null)
-      .sort((a, b) => b.total - a.total);
+  // Hierarchical group tree — group-stats now ships parent_id + sort_order so
+  // we can render Group1 → Sub1 → Sub2 with the admin-defined ordering and
+  // proper depth indentation, instead of a flat "biggest first" list.
+  type GroupNode = GroupStats & { children: GroupNode[] };
+  const groupTree = useMemo<GroupNode[]>(() => {
+    const nodes = new Map<number, GroupNode>();
+    for (const g of groupStats) {
+      if (g.groupId == null) continue;
+      nodes.set(g.groupId, { ...g, children: [] });
+    }
+    const roots: GroupNode[] = [];
+    for (const node of nodes.values()) {
+      if (node.parentId != null && nodes.has(node.parentId)) {
+        nodes.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    // Sort siblings by sortOrder (server pre-sorted but a re-sort guarantees
+    // stability after concurrent edits to the group list).
+    const sortRec = (list: GroupNode[]) => {
+      list.sort((a, b) => a.sortOrder - b.sortOrder
+        || (a.groupName ?? '').localeCompare(b.groupName ?? ''));
+      for (const n of list) sortRec(n.children);
+    };
+    sortRec(roots);
+    return roots;
   }, [groupStats]);
 
   if (isLoading) {
@@ -581,13 +639,15 @@ export function DashboardPage() {
           {total} {t('dashboard.devicesManaged', 'appareils gérés')}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={openAddAgentModal}
-            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-bg-hover hover:bg-bg-active text-[13px] font-medium text-text-primary transition-colors"
-          >
-            <Plus size={14} />
-            {t('nav.addAgent')}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={openAddAgentModal}
+              className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-bg-hover hover:bg-bg-active text-[13px] font-medium text-text-primary transition-colors"
+            >
+              <Plus size={14} />
+              {t('nav.addAgent')}
+            </button>
+          )}
           <Link
             to="/devices"
             className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-accent/12 hover:bg-accent/20 text-[13px] font-medium text-accent transition-colors"
@@ -598,73 +658,85 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Hero row — featured Total + 4 KPIs with deltas */}
+      {/* Hero row — featured Total + 4 KPIs with deltas. Each card is a Link
+          to the matching filtered /devices view so the user can drill into
+          the underlying agents in one click. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <HeroFeatured
-          label={t('dashboard.totalDevices', 'Appareils total')}
-          value={total}
-          color="text-accent"
-          series={featuredSeries.length > 1 ? featuredSeries : [total, total]}
-          days={featuredDays.length > 0 ? featuredDays : [{ short: 'NOW', value: total }]}
-        />
+        <Link to="/devices" className="block hover:opacity-95 transition-opacity">
+          <HeroFeatured
+            label={t('dashboard.totalDevices', 'Appareils total')}
+            value={total}
+            color="text-accent"
+            series={featuredSeries.length > 1 ? featuredSeries : [total, total]}
+            days={featuredDays.length > 0 ? featuredDays : [{ short: 'NOW', value: total }]}
+          />
+        </Link>
 
-        <HeroCard
-          label={t('dashboard.online', 'En ligne')}
-          value={online}
-          color="text-green-400"
-          delta={deltas?.onlineVsYesterday ?? null}
-          deltaText={
-            deltas?.onlineVsYesterday == null ? `${onlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
-              : deltas.onlineVsYesterday === 0 ? t('dashboard.stableVsYesterday', 'stable vs hier')
-              : `${Math.abs(deltas.onlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
-          }
-          barPct={onlinePct}
-          barColor="#1edd8a"
-        />
+        <Link to="/devices?status=online" className="block hover:opacity-95 transition-opacity">
+          <HeroCard
+            label={t('dashboard.online', 'En ligne')}
+            value={online}
+            color="text-green-400"
+            delta={deltas?.onlineVsYesterday ?? null}
+            deltaText={
+              deltas?.onlineVsYesterday == null ? `${onlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
+                : deltas.onlineVsYesterday === 0 ? t('dashboard.stableVsYesterday', 'stable vs hier')
+                : `${Math.abs(deltas.onlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
+            }
+            barPct={onlinePct}
+            barColor="#1edd8a"
+          />
+        </Link>
 
-        <HeroCard
-          label={t('dashboard.offline', 'Hors ligne')}
-          value={offline}
-          color="text-text-secondary"
-          delta={deltas?.offlineVsYesterday == null ? null : -deltas.offlineVsYesterday}
-          deltaText={
-            deltas?.offlineVsYesterday == null ? `${offlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
-              : deltas.offlineVsYesterday === 0 ? t('dashboard.stable', 'stable')
-              : `${Math.abs(deltas.offlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
-          }
-          barPct={offlinePct}
-          barColor="rgb(var(--c-text-muted))"
-        />
+        <Link to="/devices?status=offline" className="block hover:opacity-95 transition-opacity">
+          <HeroCard
+            label={t('dashboard.offline', 'Hors ligne')}
+            value={offline}
+            color="text-text-secondary"
+            delta={deltas?.offlineVsYesterday == null ? null : -deltas.offlineVsYesterday}
+            deltaText={
+              deltas?.offlineVsYesterday == null ? `${offlinePct}% ${t('dashboard.ofFleet', 'du parc')}`
+                : deltas.offlineVsYesterday === 0 ? t('dashboard.stable', 'stable')
+                : `${Math.abs(deltas.offlineVsYesterday)} ${t('dashboard.vsYesterday', 'vs hier')}`
+            }
+            barPct={offlinePct}
+            barColor="rgb(var(--c-text-muted))"
+          />
+        </Link>
 
-        <HeroCard
-          label={t('dashboard.pendingUpdates', 'MAJ en attente')}
-          value={pendingUpd}
-          color="text-amber-400"
-          delta={deltas?.pendingUpdatesVsWeek == null ? null : -deltas.pendingUpdatesVsWeek}
-          deltaText={
-            deltas?.pendingUpdatesVsWeek == null ? `${updPct}% ${t('dashboard.toPatch', 'à patcher')}`
-              : deltas.pendingUpdatesVsWeek === 0 ? t('dashboard.stableThisWeek', 'stable cette semaine')
-              : `${Math.abs(deltas.pendingUpdatesVsWeek)} ${t('dashboard.thisWeek', 'cette semaine')}`
-          }
-          barPct={updPct}
-          barColor="#f5a623"
-        />
+        <Link to="/devices?pendingUpdates=1" className="block hover:opacity-95 transition-opacity">
+          <HeroCard
+            label={t('dashboard.pendingUpdates', 'MAJ en attente')}
+            value={pendingUpd}
+            color="text-amber-400"
+            delta={deltas?.pendingUpdatesVsWeek == null ? null : -deltas.pendingUpdatesVsWeek}
+            deltaText={
+              deltas?.pendingUpdatesVsWeek == null ? `${updPct}% ${t('dashboard.toPatch', 'à patcher')}`
+                : deltas.pendingUpdatesVsWeek === 0 ? t('dashboard.stableThisWeek', 'stable cette semaine')
+                : `${Math.abs(deltas.pendingUpdatesVsWeek)} ${t('dashboard.thisWeek', 'cette semaine')}`
+            }
+            barPct={updPct}
+            barColor="#f5a623"
+          />
+        </Link>
 
-        <HeroCard
-          label={t('dashboard.staleDevices', 'Injoignables 72h')}
-          value={stale}
-          color="text-accent"
-          delta={deltas?.staleVsYesterday == null ? null : -deltas.staleVsYesterday}
-          deltaText={
-            stale === 0 ? t('dashboard.allReachable', 'tout le parc joignable')
-              : deltas?.staleVsYesterday == null ? `${stalePct}% ${t('dashboard.unreachable', 'injoignables')}`
-              : deltas.staleVsYesterday === 0 ? `${stale} ${t('dashboard.stable', 'stable')}`
-              : deltas.staleVsYesterday > 0 ? `${deltas.staleVsYesterday} ${t('dashboard.newCount', 'nouveaux')}`
-              : `${Math.abs(deltas.staleVsYesterday)} ${t('dashboard.recovered', 'récupérés')}`
-          }
-          barPct={stalePct}
-          barColor="rgb(var(--c-accent))"
-        />
+        <Link to="/devices?stale=72" className="block hover:opacity-95 transition-opacity">
+          <HeroCard
+            label={t('dashboard.staleDevices', 'Injoignables 72h')}
+            value={stale}
+            color="text-accent"
+            delta={deltas?.staleVsYesterday == null ? null : -deltas.staleVsYesterday}
+            deltaText={
+              stale === 0 ? t('dashboard.allReachable', 'tout le parc joignable')
+                : deltas?.staleVsYesterday == null ? `${stalePct}% ${t('dashboard.unreachable', 'injoignables')}`
+                : deltas.staleVsYesterday === 0 ? `${stale} ${t('dashboard.stable', 'stable')}`
+                : deltas.staleVsYesterday > 0 ? `${deltas.staleVsYesterday} ${t('dashboard.newCount', 'nouveaux')}`
+                : `${Math.abs(deltas.staleVsYesterday)} ${t('dashboard.recovered', 'récupérés')}`
+            }
+            barPct={stalePct}
+            barColor="rgb(var(--c-accent))"
+          />
+        </Link>
       </div>
 
       {/* Two-col row: Activity chart (2/3) + OS donut (1/3) */}
@@ -675,20 +747,44 @@ export function DashboardPage() {
               <div className="text-[15px] font-semibold text-text-primary">
                 {t('dashboard.fleetActivity', 'Activité du parc')}
               </div>
+              {/* Subtitle surfaces how much history is actually available —
+                  daily snapshots for 7j/14j/30j, hourly for 24h — so
+                  identical curves on long ranges (when only N<14 daily
+                  snapshots exist) are immediately explainable. */}
               <div className="text-[11px] font-mono text-text-muted tracking-wider">
                 {activityRange} · {t('dashboard.agentsOnlineOffline', 'agents en ligne / hors ligne')}
+                {' · '}
+                {activityRange === '24h'
+                  ? t('dashboard.historyAvailableHours', '{{count}} h disponibles', { count: hourlySeries.length })
+                  : t('dashboard.historyAvailable', '{{count}} j disponibles', { count: series.length })}
               </div>
             </div>
             <div className="ml-auto flex items-center gap-1 bg-bg-hover rounded-md p-0.5">
-              {(['24h', '7j', '14j', '30j'] as ActivityRange[]).map(r => (
-                <button
-                  key={r}
-                  onClick={() => setActivityRange(r)}
-                  className={`px-2.5 py-1 text-[11px] font-mono rounded transition-colors ${
-                    activityRange === r ? 'bg-bg-active text-text-primary' : 'text-text-muted hover:text-text-primary'
-                  }`}
-                >{r}</button>
-              ))}
+              {(['24h', '7j', '14j', '30j'] as ActivityRange[]).map(r => {
+                // Disable ranges we can't fill yet. 24h pulls from the hourly
+                // snapshot table (separate cron), the others from daily.
+                const need = r === '24h' ? 2 : r === '7j' ? 2 : r === '14j' ? 8 : 15;
+                const have = r === '24h' ? hourlySeries.length : series.length;
+                const enabled = have >= need;
+                const isActive = activityRange === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => enabled && setActivityRange(r)}
+                    disabled={!enabled}
+                    title={enabled
+                      ? r
+                      : t('dashboard.notEnoughForRange', 'Historique insuffisant ({{have}}/{{need}})', { have, need })}
+                    className={`px-2.5 py-1 text-[11px] font-mono rounded transition-colors ${
+                      isActive
+                        ? 'bg-bg-active text-text-primary'
+                        : enabled
+                          ? 'text-text-muted hover:text-text-primary'
+                          : 'text-text-muted/40 cursor-not-allowed'
+                    }`}
+                  >{r}</button>
+                );
+              })}
             </div>
           </div>
           <ActivityChart data={activityData} />
@@ -770,7 +866,9 @@ export function DashboardPage() {
         <RemoteSessionsCard active={remoteSess} />
       </div>
 
-      {/* Vue par groupe */}
+      {/* Vue par groupe — hierarchical, root → children indented by depth.
+          Sibling order respects each group's admin-defined sortOrder so the
+          dashboard reads exactly like the group tree elsewhere in the app. */}
       <div className="rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2">
@@ -794,11 +892,31 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {groupTree.map(g => <GroupCard key={g.groupId} group={g} />)}
+            {groupTree.map(g => renderGroupNode(g, 0))}
           </div>
         )}
       </div>
 
+    </div>
+  );
+}
+
+// Recursively render a group node with its children, indented by depth so
+// the hierarchy reads at a glance. Children appear directly below their
+// parent in the same flat column (no nested cards) — keeps the visual
+// rhythm consistent across depths.
+function renderGroupNode(
+  node: GroupStats & { children: Array<GroupStats & { children: any[] }> },
+  depth: number,
+): React.ReactNode {
+  return (
+    <div key={node.groupId} style={{ paddingLeft: depth > 0 ? `${Math.min(depth, 4) * 18}px` : undefined }}>
+      <GroupCard group={node} depth={depth} />
+      {node.children.length > 0 && (
+        <div className="flex flex-col gap-2.5 mt-2.5">
+          {node.children.map((c) => renderGroupNode(c, depth + 1))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,15 +1,20 @@
 import { Router } from 'express';
 import { reportService } from '../services/report.service';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import fs from 'fs';
 
 const router = Router();
+
+// All report routes require either platform admin or the tenant-scoped
+// 'manage_reports' capability granted via a team. Non-admins thus opt in
+// via the team-permissions matrix without needing global admin rights.
+router.use(requireTenantCapability('manage_reports'));
 
 router.get('/', async (req, res, next) => {
   try { res.json(await reportService.getReports(req.tenantId!)); } catch (err) { next(err); }
 });
 
-router.post('/', requireRole('admin'), async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const report = await reportService.createReport(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -18,14 +23,21 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const updated = await reportService.updateReport(parseInt(req.params.id), req.tenantId!, req.body);
+    res.json(updated);
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id', async (req, res, next) => {
   try {
     await reportService.deleteReport(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
   } catch (err) { next(err); }
 });
 
-router.post('/:id/generate', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/generate', async (req, res, next) => {
   try {
     const output = await reportService.generateReport(parseInt(req.params.id), req.tenantId!);
     res.status(202).json(output);

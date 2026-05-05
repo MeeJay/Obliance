@@ -6,6 +6,10 @@ interface ApiResponse<T> { data?: T; error?: string; }
 export interface GroupStats {
   groupId: number | null;
   groupName: string | null;
+  /** Parent group id — null for root groups and the "ungrouped" pseudo-row. */
+  parentId: number | null;
+  /** Admin-defined order within siblings. Drives the dashboard hierarchy. */
+  sortOrder: number;
   online: number;
   offline: number;
   warning: number;
@@ -18,6 +22,16 @@ export interface GroupStats {
 
 export interface FleetTimeseriesPoint {
   day: string;
+  total: number;
+  online: number;
+  offline: number;
+  pendingUpdates: number;
+  stale72: number;
+}
+
+export interface FleetHourlyPoint {
+  /** ISO timestamp of the hour boundary (rounded down to :00). */
+  hour: string;
   total: number;
   online: number;
   offline: number;
@@ -61,6 +75,16 @@ export const deviceApi = {
      *  "Ungrouped" pseudo-entry in the group sidebar so admins can quickly
      *  bulk-assign a group to stray devices. */
     ungrouped?: boolean;
+    /** Filter rows whose last_seen_at is older than this threshold (in hours).
+     *  Used by the dashboard "Injoignables 72h" hero card click-through. */
+    staleHours?: number;
+    /** Filter to only devices with at least one available device_update. Used
+     *  by the dashboard "MAJ en attente" hero card click-through. */
+    pendingUpdates?: boolean;
+    /** Lot C 3-tier OS filter: exact match on the marketing name. */
+    osName?: string;
+    /** Lot C 3-tier OS filter: exact match on the build/version string. */
+    osVersion?: string;
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
@@ -118,8 +142,16 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<FleetTimeseriesPoint[]>>('/devices/fleet-timeseries', { params: { days } });
     return res.data.data ?? [];
   },
+  async getFleetHourly(hours = 24): Promise<FleetHourlyPoint[]> {
+    const res = await apiClient.get<ApiResponse<FleetHourlyPoint[]>>('/devices/fleet-hourly', { params: { hours } });
+    return res.data.data ?? [];
+  },
   async getAgentVersions(): Promise<AgentVersionRow[]> {
     const res = await apiClient.get<ApiResponse<AgentVersionRow[]>>('/devices/agent-versions');
+    return res.data.data ?? [];
+  },
+  async getOsFacets(): Promise<Array<{ osType: string; osName: string | null; osVersion: string | null; count: number }>> {
+    const res = await apiClient.get<ApiResponse<Array<{ osType: string; osName: string | null; osVersion: string | null; count: number }>>>('/devices/os-facets');
     return res.data.data ?? [];
   },
   async getDiskSaturated(threshold = 85): Promise<DiskSaturationResult> {
@@ -130,7 +162,7 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);
     return res.data.data!;
   },
-  async update(id: number, data: Partial<Pick<Device, 'displayName' | 'description' | 'groupId' | 'tags' | 'customFields' | 'displayConfig' | 'pushIntervalSeconds' | 'scanIntervalSeconds' | 'overrideGroupSettings' | 'maxMissedPushes' | 'notificationTypes' | 'sensorDisplayNames' | 'complianceRemediationEnabled' | 'purchaseDate' | 'warrantyExpiry' | 'warrantyVendor' | 'warrantyStatus' | 'expectedLifetimeYears' | 'lifecycleStatus'>>): Promise<Device> {
+  async update(id: number, data: Partial<Pick<Device, 'displayName' | 'description' | 'groupId' | 'tags' | 'customFields' | 'displayConfig' | 'pushIntervalSeconds' | 'scanIntervalSeconds' | 'overrideGroupSettings' | 'maxMissedPushes' | 'notificationTypes' | 'sensorDisplayNames' | 'complianceRemediationEnabled' | 'purchaseDate' | 'warrantyExpiry' | 'warrantyVendor' | 'warrantyStatus' | 'expectedLifetimeYears' | 'lifecycleStatus' | 'thresholdsOverride'>>): Promise<Device> {
     const res = await apiClient.patch<ApiResponse<Device>>(`/devices/${id}`, data);
     return res.data.data!;
   },

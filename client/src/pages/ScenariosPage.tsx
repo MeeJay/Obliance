@@ -9,6 +9,7 @@ import type { Scenario, ScenarioTriggerType, ScenarioStatus, ScenarioRun, Script
 import { deviceApi } from '@/api/device.api';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -749,6 +750,15 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">Target Groups</label>
                 <GroupTreeMultiSelect
+                  selectedIds={form.targetIds}
+                  onChange={(ids) => setForm({ ...form, targetIds: ids })}
+                />
+              </div>
+            )}
+            {form.targetType === 'device' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Target Devices</label>
+                <DeviceMultiSelect
                   selectedIds={form.targetIds}
                   onChange={(ids) => setForm({ ...form, targetIds: ids })}
                 />

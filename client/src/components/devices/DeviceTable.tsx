@@ -15,18 +15,39 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { anonymize } from '@/utils/anonymize';
+import { shortenOsName } from '@/utils/osLabel';
+import {
+  LINE2_FIELDS,
+  loadVisibleFields,
+  saveVisibleFields,
+  defaultVisibleFields,
+} from '@/utils/deviceLine2Fields';
+
+interface OsFacet { osType: string; osName: string | null; osVersion: string | null; count: number }
 
 type ApprovalFilter = '' | 'approved' | 'pending' | 'refused' | 'suspended';
-type SortField = 'name' | 'status' | 'os' | 'lastSeen' | 'version' | 'group' | 'cpu' | 'ram' | 'disk';
+// Empty string = "no explicit sort" → server falls back to enrolment order
+// (devices.id ASC) and the table renders in tree-view mode (grouped).
+type SortField = '' | 'name' | 'status' | 'os' | 'lastSeen' | 'version' | 'group' | 'cpu' | 'ram' | 'disk';
 
 interface DeviceTableProps {
   mode: 'monitoring' | 'admin';
   initialStatusFilter?: string;
+  initialOsFilter?: string;
+  /** Initial "stale since N hours" filter — seeded from the URL by dashboard
+   *  click-throughs (e.g. /devices?stale=72 from the "Injoignables 72h" hero). */
+  initialStaleHours?: number;
+  /** Initial "only devices with pending updates" filter — from the URL
+   *  ?pendingUpdates=1 dashboard click-through. */
+  initialPendingUpdates?: boolean;
   groupId?: number | null;
   onGroupChange?: (id: number | null) => void;
 }
 
-export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupId, onGroupChange }: DeviceTableProps) {
+export function DeviceTable({
+  mode, initialStatusFilter, initialOsFilter, initialStaleHours, initialPendingUpdates,
+  groupId: externalGroupId, onGroupChange,
+}: DeviceTableProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAdmin } = useAuthStore();
@@ -38,9 +59,43 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
     if (initialStatusFilter) return new Set([initialStatusFilter]);
     return new Set();
   });
-  const [osFilters, setOsFilters] = useState<Set<string>>(new Set());
+  const [osFilters, setOsFilters] = useState<Set<string>>(() => {
+    if (initialOsFilter) return new Set([initialOsFilter]);
+    return new Set();
+  });
+  // URL-driven filters from dashboard click-throughs. They flow straight to
+  // the server query — no toggle UI here yet, the user clears them by
+  // navigating away or removing the query param.
+  const [staleHours, setStaleHours] = useState<number | undefined>(initialStaleHours);
+  const [pendingUpdatesOnly, setPendingUpdatesOnly] = useState<boolean>(!!initialPendingUpdates);
+  // Lot C 3-tier OS filter: osType (existing chip) → osName → osVersion. The
+  // sub-filters reset when the parent changes so the user never lands on a
+  // (Linux + Windows-build) combination that matches nothing.
+  const [osNameFilter, setOsNameFilter] = useState<string>('');
+  const [osVersionFilter, setOsVersionFilter] = useState<string>('');
+  const [osFacets, setOsFacets] = useState<OsFacet[]>([]);
+  // Lot D.1 — user-configurable line-2 fields. Persisted in localStorage so
+  // the choice survives reloads. Toggling a checkbox in the popover writes
+  // through immediately (no Save button).
+  const [visibleFields, setVisibleFields] = useState<Set<string>>(() => loadVisibleFields());
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const toggleColumn = (key: string) => {
+    setVisibleFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      saveVisibleFields(next);
+      return next;
+    });
+  };
+  const resetColumns = () => {
+    const def = defaultVisibleFields();
+    saveVisibleFields(def);
+    setVisibleFields(def);
+  };
   const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(mode === 'admin' ? '' : 'approved');
-  const [sortBy, setSortBy] = useState<SortField>('name');
+  // Default = no explicit sort → enrolment order, tree-grouped. Clicking a
+  // column cycles asc → desc → back to default (empty).
+  const [sortBy, setSortBy] = useState<SortField>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Data — `devices` is the accumulated list across infinite-scroll
@@ -134,15 +189,14 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   const ungroupedOnly = groupId === -1;
 
   // Tree view is active when the admin is in the "default landing" shape:
-  // no search, no ungrouped filter, and the default name-asc sort. Any
-  // other sort (CPU, RAM, Status, …) breaks the drawer metaphor because
-  // devices end up ordered across groups — we switch to the flat list
-  // with infinite scroll so the ordering holds across the whole fleet.
+  // no search, no ungrouped filter, and no explicit sort. Any explicit
+  // sort (Name asc/desc, CPU, RAM, Status, …) breaks the drawer metaphor
+  // because devices end up ordered across groups — we switch to the flat
+  // list with infinite scroll so the ordering holds across the whole fleet.
   const treeViewActive =
     !debouncedSearch.trim() &&
     !ungroupedOnly &&
-    sortBy === 'name' &&
-    sortOrder === 'asc';
+    sortBy === '';
   const TREE_MAX = 2000;
 
   // Flat mode uses cumulative fetches: every scroll-triggered append
@@ -164,10 +218,14 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
         search: debouncedSearch || undefined,
         status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
         osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
+        osName: osNameFilter || undefined,
+        osVersion: osVersionFilter || undefined,
         groupId: ungroupedOnly ? undefined : (groupId ?? undefined),
         includeSubgroups: ungroupedOnly ? undefined : (groupId ? true : undefined),
         ungrouped: ungroupedOnly ? true : undefined,
         approvalStatus: approvalFilter || undefined,
+        staleHours: staleHours,
+        pendingUpdates: pendingUpdatesOnly || undefined,
         page: pageToFetch,
         pageSize: size,
         sortBy,
@@ -189,7 +247,16 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
       if (reset) setIsLoading(false);
       else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, t]);
+  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, t]);
+
+  // Sync URL-driven filters when the parent prop changes (e.g. user clicks
+  // a different dashboard hero card while /devices is already mounted —
+  // react-router keeps the page but the search params change).
+  useEffect(() => { setStaleHours(initialStaleHours); }, [initialStaleHours]);
+  useEffect(() => { setPendingUpdatesOnly(!!initialPendingUpdates); }, [initialPendingUpdates]);
+  useEffect(() => {
+    setOsFilters(initialOsFilter ? new Set([initialOsFilter]) : new Set());
+  }, [initialOsFilter]);
 
   // Refetch from scratch whenever any filter/sort input changes. The
   // dep is `load` itself, which rebuilds every time its inputs change,
@@ -202,6 +269,22 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   useEffect(() => {
     groupsApi.tree().then(setTree).catch(() => setTree([]));
   }, []);
+
+  // Fetch OS facets once. Drives the dynamic 3-tier OS filter — only
+  // values that have devices are shown, so an empty Win 2003 bucket is
+  // simply hidden instead of cluttering the UI.
+  useEffect(() => {
+    deviceApi.getOsFacets().then(setOsFacets).catch(() => setOsFacets([]));
+  }, []);
+
+  // Reset osName when osType changes; reset osVersion when osName changes.
+  // Otherwise a stale "Win 11 build X" sub-filter would survive a switch to
+  // Linux and result in zero rows.
+  useEffect(() => {
+    setOsNameFilter('');
+    setOsVersionFilter('');
+  }, [osFilters]);
+  useEffect(() => { setOsVersionFilter(''); }, [osNameFilter]);
 
   // Infinite-scroll sentinel — a 1 px div below the flat list. When it
   // enters the viewport (± 200 px early-load margin), we append the
@@ -306,11 +389,15 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
   const allChecked = devices.length > 0 && devices.every(d => selectedIds.has(d.id));
   const someChecked = selectedIds.size > 0 && !allChecked;
 
-  const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0;
+  const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || !!osNameFilter || !!osVersionFilter;
 
   const handleSort = (field: SortField) => {
-    if (sortBy === field) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
-    else {
+    if (field === '') return;
+    if (sortBy === field) {
+      // Cycle: asc → desc → no sort (back to enrolment order, tree view).
+      if (sortOrder === 'asc') setSortOrder('desc');
+      else { setSortBy(''); setSortOrder('asc'); }
+    } else {
       setSortBy(field);
       // Metric sorts default to desc (highest first) — that's the useful
       // direction (see which machines are busiest). Alpha fields default asc.
@@ -326,11 +413,45 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
     { key: 'updating', label: t('deviceStatus.updating', 'Updating'), color: 'bg-blue-400' },
     { key: 'update_error', label: t('deviceStatus.update_error', 'Update error'), color: 'bg-orange-500' },
   ];
-  const OS_CHIPS = [
+  // Dynamic OS chips: hide families with zero devices in the tenant. The
+  // facet API drives this — no facet = no chip. Counts shown next to the
+  // label so admins immediately see the fleet shape.
+  const osTypesPresent = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of osFacets) m.set(f.osType, (m.get(f.osType) ?? 0) + f.count);
+    return m;
+  }, [osFacets]);
+  const OS_CHIPS_ALL = [
     { key: 'windows', label: 'Windows' },
     { key: 'linux', label: 'Linux' },
     { key: 'macos', label: 'macOS' },
+    { key: 'other', label: t('os.other', 'Autres') },
   ];
+  const OS_CHIPS = OS_CHIPS_ALL.filter(c => (osTypesPresent.get(c.key) ?? 0) > 0);
+
+  // OS sub-filter dropdowns: derived from facets, scoped to the currently
+  // selected family (for osName) and the selected name (for osVersion).
+  const selectedOsType = osFilters.size === 1 ? [...osFilters][0] : '';
+  const osNameOptions = useMemo(() => {
+    if (!selectedOsType) return [];
+    const m = new Map<string, number>();
+    for (const f of osFacets) {
+      if (f.osType !== selectedOsType) continue;
+      const key = f.osName ?? '';
+      m.set(key, (m.get(key) ?? 0) + f.count);
+    }
+    return [...m.entries()]
+      .filter(([k]) => k !== '')
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([osName, count]) => ({ osName, count }));
+  }, [osFacets, selectedOsType]);
+  const osVersionOptions = useMemo(() => {
+    if (!selectedOsType || !osNameFilter) return [];
+    return osFacets
+      .filter(f => f.osType === selectedOsType && f.osName === osNameFilter && f.osVersion)
+      .map(f => ({ osVersion: f.osVersion as string, count: f.count }))
+      .sort((a, b) => a.osVersion.localeCompare(b.osVersion));
+  }, [osFacets, selectedOsType, osNameFilter]);
 
   return (
     <div className="space-y-3">
@@ -366,7 +487,13 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
           </div>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setStatusFilters(new Set()); setOsFilters(new Set()); }}
+            <button onClick={() => {
+              setSearch('');
+              setStatusFilters(new Set());
+              setOsFilters(new Set());
+              setOsNameFilter('');
+              setOsVersionFilter('');
+            }}
               className="p-2 text-text-muted hover:text-text-primary"><X className="w-3.5 h-3.5" /></button>
           )}
           <div className="relative">
@@ -406,6 +533,50 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
             {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
           </button>
+          {/* Lot D.1 — column toggle popover. Lets the user opt-in to extra
+              fields on each row (IP WAN, MAC, geo, lifecycle, warranty, …).
+              Choices are persisted in localStorage. */}
+          <div className="relative">
+            <button
+              onClick={() => setColumnsMenuOpen(v => !v)}
+              className={clsx(
+                'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors',
+                columnsMenuOpen
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-bg-secondary border-border text-text-muted hover:text-text-primary hover:border-accent/40',
+              )}
+              title={t('devices.columns.title', 'Colonnes affichées')}
+            >
+              <SortAsc className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('devices.columns.button', 'Colonnes')}</span>
+            </button>
+            {columnsMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setColumnsMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-56 bg-bg-secondary border border-border rounded-lg shadow-xl z-20 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+                      {t('devices.columns.title', 'Colonnes affichées')}
+                    </span>
+                    <button onClick={resetColumns} className="text-[11px] text-accent hover:underline">
+                      {t('common.reset', 'Réinit.')}
+                    </button>
+                  </div>
+                  {LINE2_FIELDS.map(f => (
+                    <label key={f.key} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={visibleFields.has(f.key)}
+                        onChange={() => toggleColumn(f.key)}
+                        className="accent-accent"
+                      />
+                      <span>{f.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
             <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
@@ -422,15 +593,44 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               {label}
             </button>
           ))}
-          <div className="w-px h-4 bg-border mx-1" />
+          {OS_CHIPS.length > 0 && <div className="w-px h-4 bg-border mx-1" />}
           {OS_CHIPS.map(({ key, label }) => (
             <button key={key} onClick={() => toggleOs(key)}
               className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
                 osFilters.has(key) ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/30',
               )}>
-              {label}
+              {label} <span className="text-text-muted/70 ml-0.5">{osTypesPresent.get(key) ?? 0}</span>
             </button>
           ))}
+
+          {/* Lot C cascading sub-filters: osName once a family is picked, then
+              osVersion once a name is picked. Both dropdowns surface live
+              counts so admins know the fleet shape before drilling. */}
+          {osNameOptions.length > 0 && (
+            <select
+              value={osNameFilter}
+              onChange={(e) => setOsNameFilter(e.target.value)}
+              className="ml-1 max-w-[260px] truncate px-2 py-1 text-xs rounded-full border border-border bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50"
+            >
+              <option value="">{t('devices.filters.allOsNames', 'Toutes les versions')}</option>
+              {osNameOptions.map(({ osName, count }) => (
+                <option key={osName} value={osName}>{shortenOsName(osName)} ({count})</option>
+              ))}
+            </select>
+          )}
+          {osVersionOptions.length > 0 && (
+            <select
+              value={osVersionFilter}
+              onChange={(e) => setOsVersionFilter(e.target.value)}
+              className="max-w-[200px] truncate px-2 py-1 text-xs rounded-full border border-border bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50"
+            >
+              <option value="">{t('devices.filters.allBuilds', 'Tous les builds')}</option>
+              {osVersionOptions.map(({ osVersion, count }) => (
+                <option key={osVersion} value={osVersion}>{osVersion} ({count})</option>
+              ))}
+            </select>
+          )}
+
           <span className="ml-auto text-xs text-text-muted">{total} device{total !== 1 ? 's' : ''}</span>
         </div>
       </div>
@@ -557,6 +757,7 @@ export function DeviceTable({ mode, initialStatusFilter, groupId: externalGroupI
               onNavigate={id => navigate(`/devices/${id}`)}
               onGroupChange={onGroupChange}
               selectionMode={selectionMode}
+              visibleFields={visibleFields}
             />
           </div>
         </div>
@@ -829,6 +1030,9 @@ type GroupRenderContext = {
   onNavigate: (id: number) => void;
   onGroupChange?: (id: number | null) => void;
   selectionMode: boolean;
+  /** Lot D.1 — which optional line-2 fields the user has enabled. Threaded
+   *  through to every DeviceRow render. */
+  visibleFields: Set<string>;
 };
 
 function hasDevicesRecursive(
@@ -894,6 +1098,7 @@ function renderTreeNode(
             onNavigate={ctx.onNavigate}
             onGroupClick={ctx.onGroupChange}
             selectionMode={ctx.selectionMode}
+            visibleFields={ctx.visibleFields}
           />
         </div>,
       );
@@ -906,6 +1111,7 @@ function DeviceListBody({
   devices, tree, groupId, searchActive,
   collapsedGroupIds, onToggleGroup,
   mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
+  visibleFields,
 }: {
   devices: Device[];
   tree: DeviceGroupTreeNode[];
@@ -919,6 +1125,7 @@ function DeviceListBody({
   onNavigate: (id: number) => void;
   onGroupChange?: (id: number | null) => void;
   selectionMode: boolean;
+  visibleFields: Set<string>;
 }) {
   const { t } = useTranslation();
   // Hooks MUST run unconditionally (Rules of Hooks), so build the maps and
@@ -960,6 +1167,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
+            visibleFields={visibleFields}
           />
         ))}
       </>
@@ -969,6 +1177,7 @@ function DeviceListBody({
   const ctx: GroupRenderContext = {
     devicesByGroupId, collapsedGroupIds, onToggleGroup,
     mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
+    visibleFields,
   };
 
   // Fallback when the tree is empty or hasn't loaded yet — behave like the
@@ -983,6 +1192,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
+            visibleFields={visibleFields}
           />
         ))}
       </>
@@ -1010,6 +1220,7 @@ function DeviceListBody({
               isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
               onNavigate={onNavigate} onGroupClick={onGroupChange}
               selectionMode={selectionMode}
+              visibleFields={visibleFields}
             />
           ))}
         </div>

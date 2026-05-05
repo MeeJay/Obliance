@@ -1,11 +1,12 @@
 import { memo, type MouseEvent } from 'react';
-import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff } from 'lucide-react';
+import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp } from '@/utils/anonymize';
+import { shortenOsName } from '@/utils/osLabel';
 
 interface DeviceRowProps {
   device: Device;
@@ -18,6 +19,10 @@ interface DeviceRowProps {
    *  a dark checkbox is always visible on the left. Enabled by the "Select"
    *  toggle in DeviceTable. */
   selectionMode?: boolean;
+  /** Lot D.1 — set of optional line-2 field keys that should be rendered.
+   *  When undefined, the catalog defaults are used (so existing call sites
+   *  not yet wired to the popover keep working). */
+  visibleFields?: Set<string>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -73,8 +78,14 @@ export const DeviceRow = memo(function DeviceRow({
   onNavigate,
   onGroupClick,
   selectionMode = false,
+  visibleFields,
 }: DeviceRowProps) {
   const { t } = useTranslation();
+  // When the parent doesn't pass a visibleFields set, fall back to "show
+  // everything that was visible before D.1 landed" so legacy callers keep
+  // their previous look.
+  const fieldOn = (key: string): boolean =>
+    visibleFields ? visibleFields.has(key) : ['ipLocal', 'os', 'agentVersion', 'group', 'lastUser'].includes(key);
   const metrics = device.latestMetrics;
   const cpuPct = metrics?.cpu?.percent;
   const ramPct = metrics?.memory?.percent;
@@ -86,7 +97,15 @@ export const DeviceRow = memo(function DeviceRow({
   const visibleTags = tags.slice(0, 2);
   const overflowCount = tags.length - 2;
 
+  // Display: shortened OS label fits the narrow column ("Microsoft Windows 10
+  // IoT Enterprise LTSC 2021" → "MS Win 10 IoT Ent LTSC 21"). The original
+  // full name is preserved in osFullTextRaw and shown via tooltip.
   const osFullText = [
+    shortenOsName(device.osName) || device.osType,
+    device.osVersion,
+    device.osArch,
+  ].filter(Boolean).join(' ');
+  const osFullTextRaw = [
     device.osName || device.osType,
     device.osVersion,
     device.osArch,
@@ -235,42 +254,108 @@ export const DeviceRow = memo(function DeviceRow({
         </button>
       </div>
 
-      {/* Line 2 */}
-      <div className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset)}>
-        <span className="font-mono truncate max-w-[120px]">{anonymizeIp(device.ipLocal || device.ipPublic) || '\u2014'}</span>
-        <span className="text-text-muted/50">&middot;</span>
-        <span className="truncate max-w-[180px]">{osFullText || '\u2014'}</span>
-        <span className="text-text-muted/50">&middot;</span>
-        <span>v{device.agentVersion || '?'}</span>
-        <span className="text-text-muted/50">&middot;</span>
-        <span className="inline-flex items-center gap-1">
-          <FolderOpen className="w-3 h-3" />
-          {device.groupId && device.groupName ? (
-            <button
-              onClick={handleGroupClick}
-              className="hover:text-accent transition-colors"
-            >
-              {anonymize(device.groupName)}
-            </button>
-          ) : (
-            <span>{'\u2014'}</span>
-          )}
-        </span>
-        <span className="text-text-muted/50">&middot;</span>
-        <span className="inline-flex items-center gap-1">
-          <User className="w-3 h-3" />
-          <span className="truncate max-w-[100px]">{anonymize(device.lastLoggedInUser) || '\u2014'}</span>
-        </span>
-        {device.geoCity && (
-          <>
-            <span className="text-text-muted/50">&middot;</span>
-            <span className="inline-flex items-center gap-1">
+      {/* Line 2 — composed dynamically from the user's column toggles
+          (Lot D.1). A small helper builds the array of nodes and inserts
+          a middot between each, so empty/disabled entries don't leave a
+          stray separator behind. */}
+      <Line2Fields className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset)}
+        nodes={[
+          fieldOn('ipLocal') && (
+            <span key="ipLocal" className="font-mono truncate max-w-[120px]" title="IP LAN">
+              <Wifi className="w-3 h-3 inline mr-1 opacity-60" />
+              {anonymizeIp(device.ipLocal) || '\u2014'}
+            </span>
+          ),
+          fieldOn('ipPublic') && (
+            <span key="ipPublic" className="font-mono truncate max-w-[120px]" title="IP WAN">
+              <Network className="w-3 h-3 inline mr-1 opacity-60" />
+              {anonymizeIp(device.ipPublic) || '\u2014'}
+            </span>
+          ),
+          fieldOn('macAddress') && (
+            <span key="mac" className="font-mono truncate max-w-[140px]" title="MAC">
+              {device.macAddress || '\u2014'}
+            </span>
+          ),
+          fieldOn('os') && (
+            <span key="os" className="truncate max-w-[180px]" title={osFullTextRaw}>{osFullText || '\u2014'}</span>
+          ),
+          fieldOn('agentVersion') && (
+            <span key="agent">v{device.agentVersion || '?'}</span>
+          ),
+          fieldOn('group') && (
+            <span key="group" className="inline-flex items-center gap-1">
+              <FolderOpen className="w-3 h-3" />
+              {device.groupId && device.groupName ? (
+                <button onClick={handleGroupClick} className="hover:text-accent transition-colors">
+                  {anonymize(device.groupName)}
+                </button>
+              ) : (
+                <span>{'\u2014'}</span>
+              )}
+            </span>
+          ),
+          fieldOn('lastUser') && (
+            <span key="lastUser" className="inline-flex items-center gap-1">
+              <User className="w-3 h-3" />
+              <span className="truncate max-w-[100px]">{anonymize(device.lastLoggedInUser) || '\u2014'}</span>
+            </span>
+          ),
+          fieldOn('geoCity') && device.geoCity && (
+            <span key="geo" className="inline-flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               <span className="truncate max-w-[120px]">{anonymize(device.geoCity)}{device.geoCountry ? `, ${anonymize(device.geoCountry)}` : ''}</span>
             </span>
-          </>
-        )}
-      </div>
+          ),
+          fieldOn('lastReboot') && device.lastRebootAt && (
+            <span key="lastReboot" className="inline-flex items-center gap-1" title={t('devices.lastReboot', 'Dernier reboot')}>
+              <History className="w-3 h-3" />
+              <span>{formatRelative(device.lastRebootAt)}</span>
+            </span>
+          ),
+          fieldOn('lifecycle') && device.lifecycleStatus && device.lifecycleStatus !== 'unknown' && (
+            <span key="lifecycle" className="inline-flex items-center gap-1" title="Lifecycle">
+              <Calendar className="w-3 h-3" />
+              <span className="capitalize">{device.lifecycleStatus.replace(/_/g, ' ')}</span>
+            </span>
+          ),
+          fieldOn('warranty') && device.warrantyStatus && device.warrantyStatus !== 'unknown' && (
+            <span key="warranty" className={clsx('inline-flex items-center gap-1', device.warrantyStatus === 'expired' && 'text-amber-400')} title="Garantie">
+              <ShieldCheck className="w-3 h-3" />
+              <span className="capitalize">{device.warrantyStatus}</span>
+            </span>
+          ),
+        ]}
+      />
     </div>
   );
 });
+
+// ── Helpers (kept colocated with DeviceRow since they are not used elsewhere) ─
+
+/** Render a list of nodes joined by middot separators, skipping any falsy
+ *  entries so toggled-off Lot D.1 fields don't leave a stray "·" behind. */
+function Line2Fields({ nodes, className }: { nodes: Array<React.ReactNode | false>; className?: string }) {
+  const visible = nodes.filter(Boolean) as React.ReactNode[];
+  return (
+    <div className={className}>
+      {visible.map((node, i) => (
+        <span key={i} className="inline-flex items-center gap-1.5">
+          {i > 0 && <span className="text-text-muted/50">&middot;</span>}
+          {node}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function formatRelative(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 0) return 'soon';
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days >= 1) return `${days}d`;
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours >= 1) return `${hours}h`;
+  const mins = Math.max(1, Math.floor(diffMs / 60_000));
+  return `${mins}m`;
+}

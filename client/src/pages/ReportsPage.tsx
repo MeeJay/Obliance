@@ -35,6 +35,16 @@ const REPORT_TYPES: ReportType[] = ['fleet', 'compliance', 'scripts', 'updates',
 const REPORT_FORMATS: ReportFormat[] = ['pdf', 'csv', 'excel', 'html', 'json'];
 const REPORT_SECTIONS: ReportSection[] = ['hardware', 'software', 'updates', 'compliance', 'scripts_history', 'network'];
 
+// Cron presets — same set as the script-schedule UI so admins don't have to
+// learn a different vocabulary depending on which scheduler they're using.
+const COMMON_CRONS = [
+  { label: 'Every hour', value: '0 * * * *' },
+  { label: 'Every day at 2am', value: '0 2 * * *' },
+  { label: 'Every Monday at 9am', value: '0 9 * * 1' },
+  { label: 'Every Sunday at midnight', value: '0 0 * * 0' },
+  { label: 'Every 15 minutes', value: '*/15 * * * *' },
+];
+
 interface ReportFormData {
   name: string;
   description: string;
@@ -43,6 +53,12 @@ interface ReportFormData {
   scopeType: 'tenant' | 'group' | 'device';
   scopeId: number | null;
   sections: ReportSection[];
+  // Tri-state run mode mirrors the scripts-schedule form: an admin can pick
+  // recurring (cron), one-shot at a future time (not implemented yet — falls
+  // back to cron), or "now" (save the definition and immediately fire one
+  // generate run, no schedule). 'now' is the equivalent of the user's
+  // "rapport à l'instant T" request.
+  runMode: 'cron' | 'now';
   scheduleCron: string;
   timezone: string;
   isEnabled: boolean;
@@ -56,6 +72,7 @@ const defaultForm: ReportFormData = {
   scopeType: 'tenant',
   scopeId: null,
   sections: ['hardware', 'software', 'updates'],
+  runMode: 'cron',
   scheduleCron: '',
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   isEnabled: true,
@@ -148,6 +165,7 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
       scopeType: report.scopeType,
       scopeId: report.scopeId,
       sections: report.sections,
+      runMode: report.scheduleCron ? 'cron' : 'now',
       scheduleCron: report.scheduleCron ?? '',
       timezone: report.timezone,
       isEnabled: report.isEnabled,
@@ -168,18 +186,30 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
         scopeType: form.scopeType,
         scopeId: form.scopeId,
         sections: form.sections,
-        scheduleCron: form.scheduleCron || null,
+        // 'now' mode = save the definition without a recurring schedule and
+        // fire one generate run immediately. The user picks "à l'instant T"
+        // and gets a finished output in the outputs list within seconds.
+        scheduleCron: form.runMode === 'now' ? null : (form.scheduleCron || null),
         timezone: form.timezone,
         isEnabled: form.isEnabled,
         filters: {},
         tenantId: 0,
       };
+      let savedReport: Report | undefined;
       if (editingReport) {
-        await reportApi.update(editingReport.id, payload);
+        savedReport = await reportApi.update(editingReport.id, payload);
         toast.success('Report updated');
       } else {
-        await reportApi.create(payload as any);
+        savedReport = await reportApi.create(payload as any);
         toast.success('Report created');
+      }
+      // Fire an immediate generation when the user chose 'now'. Errors here
+      // are non-fatal — the report definition is already saved.
+      if (form.runMode === 'now' && savedReport?.id) {
+        try {
+          await reportApi.generate(savedReport.id);
+          toast.success('Generation started');
+        } catch { toast.error('Failed to start generation'); }
       }
       setShowForm(false);
       setEditingReport(null);
@@ -326,15 +356,54 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
                 <option value="device">Specific device</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Schedule (cron)</label>
-              <input
-                value={form.scheduleCron}
-                onChange={(e) => setForm({ ...form, scheduleCron: e.target.value })}
-                placeholder="e.g. 0 8 * * 1 (optional)"
-                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
-              />
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium text-text-muted uppercase">When to run</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, runMode: 'cron' })}
+                  className={clsx(
+                    'flex-1 py-2 text-sm rounded-lg border transition-colors',
+                    form.runMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                  )}
+                >
+                  Recurring (cron)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, runMode: 'now' })}
+                  className={clsx(
+                    'flex-1 py-2 text-sm rounded-lg border transition-colors',
+                    form.runMode === 'now' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
+                  )}
+                >
+                  Generate now
+                </button>
+              </div>
             </div>
+            {form.runMode === 'cron' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Schedule (cron)</label>
+                <input
+                  value={form.scheduleCron}
+                  onChange={(e) => setForm({ ...form, scheduleCron: e.target.value })}
+                  placeholder="e.g. 0 8 * * 1"
+                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
+                />
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {COMMON_CRONS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, scheduleCron: c.value })}
+                      className="text-xs px-2 py-0.5 bg-bg-tertiary border border-border rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Timezone</label>
               <input

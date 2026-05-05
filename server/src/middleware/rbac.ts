@@ -95,6 +95,25 @@ export function requireDeviceWriteParam(paramName = 'id') {
 }
 
 /**
+ * Tenant-scoped capability check — admin always passes; non-admin must
+ * have the named capability on at least one of their team_permissions
+ * rows. Used by /admin/supervision tab routes (reports, history,
+ * remote-sessions list) where access is page-level, not device-level.
+ */
+export function requireTenantCapability(capability: string) {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (req.session.role === 'admin') return next();
+      const ok = await permissionService.userHasTenantCapability(req.session.userId!, capability);
+      if (!ok) return next(new AppError(403, 'Insufficient permissions'));
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
  * Require canCreate permission (for creating new devices/groups).
  */
 export function requireCanCreate() {

@@ -87,6 +87,9 @@ class DeviceService {
       timezone: row.timezone ?? null,
       tags: row.tags || [],
       customFields: row.custom_fields || {},
+      thresholdsOverride: row.thresholds_override
+        ? (typeof row.thresholds_override === 'string' ? JSON.parse(row.thresholds_override) : row.thresholds_override)
+        : {},
       displayConfig: row.display_config || {},
       sensorDisplayNames: row.sensor_display_names || {},
       notificationTypes: row.notification_types || {},
@@ -117,6 +120,18 @@ class DeviceService {
     /** When true, only return devices with NULL group_id (the "Ungrouped"
      *  pseudo-group in the sidebar). Takes precedence over groupId. */
     ungrouped?: boolean;
+    /** Dashboard hero "Injoignables 72h" → /devices?stale=72. Filter rows
+     *  whose last_seen_at is older than the threshold (in hours). */
+    staleHours?: number;
+    /** Dashboard hero "MAJ en attente" → /devices?pendingUpdates=1. Filter
+     *  to only devices with at least one device_updates row in 'available'. */
+    pendingUpdates?: boolean;
+    /** Lot C 3-tier OS filter: marketing name (e.g. "Microsoft Windows 10
+     *  IoT Enterprise LTSC 2021") — exact match. Sub-filter under osType. */
+    osName?: string;
+    /** Lot C 3-tier OS filter: build / version string (e.g. "10.0.19044.7184").
+     *  Exact match. Sub-filter under osName. */
+    osVersion?: string;
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     // Cap is intentionally high to support the sidebar which needs to render
@@ -148,10 +163,21 @@ class DeviceService {
     }
     if (filters?.status) q = q.where({ 'devices.status': filters.status });
     if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
+    if (filters?.osName) q = q.where({ 'devices.os_name': filters.osName });
+    if (filters?.osVersion) q = q.where({ 'devices.os_version': filters.osVersion });
     if (filters?.approvalStatus === 'suspended') {
       q = q.where({ 'devices.status': 'suspended' });
     } else if (filters?.approvalStatus) {
       q = q.where({ 'devices.approval_status': filters.approvalStatus });
+    }
+    if (typeof filters?.staleHours === 'number' && filters.staleHours > 0) {
+      const cutoff = new Date(Date.now() - filters.staleHours * 60 * 60 * 1000);
+      q = q.where('devices.last_seen_at', '<', cutoff);
+    }
+    if (filters?.pendingUpdates) {
+      q = q.whereIn('devices.id', db('device_updates')
+        .where({ tenant_id: tenantId, status: 'available' })
+        .distinct('device_id'));
     }
     if (filters?.search) q = q.where(function() {
       const pat = `%${filters.search}%`;
@@ -181,6 +207,11 @@ class DeviceService {
     // Sortable columns. "cpu" / "ram" / "disk" dig into the latest_metrics
     // JSONB blob to sort by the most recent sample percentage. NULL metrics
     // are pushed to the end so online devices bubble up first.
+    //
+    // Empty/missing sortBy falls back to the device's enrolment order
+    // (devices.id ASC), which is "the order they were added" — the user
+    // expects this default rather than alpha-sort by hostname when no
+    // explicit sort column is selected.
     const SORT_MAP: Record<string, string> = {
       name: 'devices.hostname', status: 'devices.status', os: 'devices.os_type',
       lastSeen: 'devices.last_seen_at', version: 'devices.agent_version', group: 'device_groups.name',
@@ -198,9 +229,11 @@ class DeviceService {
     const wantsMetric = filters?.sortBy && metricSortExpr[filters.sortBy];
     if (wantsMetric) {
       qOrdered = qOrdered.orderByRaw(`${metricSortExpr[filters!.sortBy!]} ${sortDir} ${nullsOrder}`);
+    } else if (filters?.sortBy && SORT_MAP[filters.sortBy]) {
+      qOrdered = qOrdered.orderBy(SORT_MAP[filters.sortBy], sortDir);
     } else {
-      const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
-      qOrdered = qOrdered.orderBy(sortCol, sortDir);
+      // No explicit sort → enrolment order (devices.id ASC).
+      qOrdered = qOrdered.orderBy('devices.id', 'asc');
     }
 
     const rows = await qOrdered
@@ -310,12 +343,14 @@ class DeviceService {
       name: 'devices.hostname', status: 'devices.status', os: 'devices.os_type',
       lastSeen: 'devices.last_seen_at', version: 'devices.agent_version', group: 'device_groups.name',
     };
-    const sortCol = SORT_MAP[filters?.sortBy ?? ''] ?? 'devices.hostname';
     const sortDir = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
+    // Same default as getDevices: empty/missing sortBy → enrolment order.
+    const sortCol = (filters?.sortBy && SORT_MAP[filters.sortBy]) ? SORT_MAP[filters.sortBy] : 'devices.id';
+    const exportDir = (filters?.sortBy && SORT_MAP[filters.sortBy]) ? sortDir : 'asc';
 
     const rows = await q
       .select('devices.*', 'device_groups.name as group_name')
-      .orderBy(sortCol, sortDir);
+      .orderBy(sortCol, exportDir);
 
     const items = rows.map((row: any) => {
       const device = this.rowToDevice(row);
@@ -359,6 +394,9 @@ class DeviceService {
     warrantyStatus: string | null;
     expectedLifetimeYears: number | null;
     lifecycleStatus: string | null;
+    /** Lot D.2 — per-device override of metric thresholds. Empty object
+     *  resets the override and falls back to group/system defaults. */
+    thresholdsOverride: import('@obliance/shared').MetricThresholds;
   }>) {
     const updates: any = { updated_at: new Date() };
     if (data.displayName !== undefined) updates.display_name = data.displayName;
@@ -380,6 +418,7 @@ class DeviceService {
     if (data.warrantyStatus !== undefined) updates.warranty_status = data.warrantyStatus;
     if (data.expectedLifetimeYears !== undefined) updates.expected_lifetime_years = data.expectedLifetimeYears;
     if (data.lifecycleStatus !== undefined) updates.lifecycle_status = data.lifecycleStatus;
+    if (data.thresholdsOverride !== undefined) updates.thresholds_override = JSON.stringify(data.thresholdsOverride);
 
     await db('devices').where({ id, tenant_id: tenantId }).update(updates);
     const updated = await this.getDeviceById(id, tenantId);
@@ -975,6 +1014,31 @@ class DeviceService {
     }
   }
 
+  // ─── OS facets (Lot C 3-tier filter) ──────────────────────────────────────
+  // Returns the (osType, osName, osVersion) triplets present in the tenant's
+  // approved fleet, with a count of matching devices for each. The client
+  // uses these to populate the cascading filter dropdowns and to hide
+  // options that no longer have any devices behind them.
+  async getOsFacets(tenantId: number): Promise<Array<{
+    osType: string; osName: string | null; osVersion: string | null; count: number;
+  }>> {
+    const rows = await db('devices')
+      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .select('os_type', 'os_name', 'os_version')
+      .count<{ os_type: string; os_name: string | null; os_version: string | null; count: string | number }[]>('* as count')
+      .groupBy('os_type', 'os_name', 'os_version')
+      .orderBy('os_type', 'asc')
+      .orderBy('os_name', 'asc')
+      .orderBy('os_version', 'asc');
+    return rows.map((r) => ({
+      osType: r.os_type,
+      osName: r.os_name,
+      osVersion: r.os_version,
+      count: typeof r.count === 'number' ? r.count : parseInt(r.count, 10),
+    }));
+  }
+
   // ─── Fleet summary ────────────────────────────────────────────────────────
   async getFleetSummary(tenantId: number) {
     const rows = await db('devices')
@@ -1054,7 +1118,16 @@ class DeviceService {
       .first()
       .then(r => parseInt(String((r as any)?.count ?? 0)));
 
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    // Total reflects the active managed fleet — devices the user can act on
+    // today. pending (waiting for admin approval), suspended (admin-disabled),
+    // and pending_uninstall (being removed) are admin/lifecycle states tracked
+    // separately by the mini-stats and supervision pages, NOT part of the
+    // daily-ops fleet. Excluding them keeps the breakdown cards (online +
+    // offline + warning + critical + ...) summing to the displayed Total.
+    const adminOnlyStatuses = new Set(['pending', 'suspended', 'pending_uninstall']);
+    const total = Object.entries(counts)
+      .filter(([s]) => !adminOnlyStatuses.has(s))
+      .reduce((sum, [, c]) => sum + c, 0);
 
     // ── Deltas vs yesterday + week ago ─────────────────────────────────────
     // Read the two most recent snapshots so the dashboard can show
@@ -1158,30 +1231,46 @@ class DeviceService {
   // Walks each device's `latest_metrics.disks[]` and surfaces those where
   // any disk's used_percent crosses the threshold. Heavy-ish (full table
   // scan + JSON parse) — fine at fleet sizes <10k, paginate if it grows.
-  async getDiskSaturation(tenantId: number, threshold: number) {
+  // Lot D.2: each device's saturation threshold is resolved through
+  // device.thresholds_override → group.thresholds → SYSTEM_DEFAULT, so a
+  // 10 TB server can keep a 90 % warn while a kiosk still alarms at 85 %.
+  // The legacy `threshold` query param is now a "minimum visible" floor —
+  // any per-device threshold below it is bumped up. Default 0 = pure
+  // resolved-threshold mode.
+  async getDiskSaturation(tenantId: number, minThresholdFloor: number) {
     const rows = await db('devices')
       .where({ tenant_id: tenantId, approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .whereNotNull('latest_metrics')
-      .select('id', 'hostname', 'display_name', 'latest_metrics');
+      .select('id', 'hostname', 'display_name', 'latest_metrics') as Array<{
+        id: number; hostname: string; display_name: string | null; latest_metrics: unknown;
+      }>;
 
-    const saturated: { deviceId: number; hostname: string; displayName: string | null; pct: number; mountpoint: string }[] = [];
+    if (rows.length === 0) {
+      return { count: 0, threshold: minThresholdFloor, top: [] };
+    }
+
+    const { thresholdService } = await import('./threshold.service');
+    const thresholdMap = await thresholdService.resolveMany(rows.map(r => r.id));
+
+    const saturated: { deviceId: number; hostname: string; displayName: string | null; pct: number; mountpoint: string; warn: number }[] = [];
 
     for (const r of rows) {
       try {
         const m = typeof r.latest_metrics === 'string' ? JSON.parse(r.latest_metrics) : r.latest_metrics;
-        const disks = (m?.disks ?? []) as { mountpoint?: string; usedPercent?: number; used_percent?: number }[];
+        const resolved = thresholdMap.get(r.id);
+        const warn = Math.max(resolved?.disk.warn ?? 85, minThresholdFloor);
+        const disks = (m?.disks ?? []) as { mount?: string; percent?: number }[];
         for (const d of disks) {
-          const pct = typeof d.usedPercent === 'number' ? d.usedPercent
-                     : typeof d.used_percent === 'number' ? d.used_percent
-                     : 0;
-          if (pct >= threshold) {
+          const pct = typeof d.percent === 'number' ? d.percent : 0;
+          if (pct >= warn) {
             saturated.push({
               deviceId: r.id,
               hostname: r.hostname,
               displayName: r.display_name,
               pct: Math.round(pct),
-              mountpoint: d.mountpoint ?? '/',
+              mountpoint: d.mount ?? '/',
+              warn,
             });
             break; // Only count each device once even if multiple disks saturate
           }
@@ -1192,9 +1281,80 @@ class DeviceService {
     saturated.sort((a, b) => b.pct - a.pct);
     return {
       count: saturated.length,
-      threshold,
+      threshold: minThresholdFloor,
       top: saturated.slice(0, 5),
     };
+  }
+
+  // ─── Hourly snapshot job ─────────────────────────────────────────────────
+  // Called once per hour by the cron in index.ts. Writes one row per tenant
+  // in fleet_hourly_snapshot, used by the dashboard "Activité du parc" 24h
+  // view. Retention is 7 days — older rows are pruned in the same job so
+  // the table stays small (~168 rows per tenant max).
+  async snapshotFleetHourly() {
+    try {
+      // Round to the current hour boundary so onConflict-merge keeps a
+      // single row per hour even across multiple boots / clock skew.
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      const tenants = await db('tenants').select('id');
+      for (const t of tenants) {
+        const summary = await this.getFleetSummary(t.id);
+        await db('fleet_hourly_snapshot')
+          .insert({
+            tenant_id: t.id,
+            hour: now,
+            total: summary.total,
+            online: summary.online,
+            offline: summary.offline,
+            warning: summary.warning,
+            critical: summary.critical,
+            pending_updates: summary.pendingUpdates,
+            stale_72h: summary.staleDevices,
+            active_remote_sessions: summary.activeRemoteSessions,
+          })
+          .onConflict(['tenant_id', 'hour'])
+          .merge();
+      }
+      // Retention sweep: keep 7 days of hourly history. The daily table
+      // covers anything beyond that.
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await db('fleet_hourly_snapshot').where('hour', '<', cutoff).del();
+      logger.info({ tenants: tenants.length }, 'Fleet hourly snapshot complete');
+    } catch (err) {
+      logger.error(err, 'Fleet hourly snapshot failed');
+    }
+  }
+
+  // Returns up to N most-recent hourly points for the dashboard 24h view.
+  // The current hour is always synthesised from live state so the chart
+  // ends on "now" regardless of the cron cadence, mirroring the daily flow.
+  async getFleetHourlySeries(tenantId: number, hours: number) {
+    const cap = Math.min(168, Math.max(2, hours));
+    const cutoff = new Date(Date.now() - cap * 60 * 60 * 1000);
+    const rows = await db('fleet_hourly_snapshot')
+      .where({ tenant_id: tenantId })
+      .where('hour', '>=', cutoff)
+      .orderBy('hour', 'asc')
+      .select('hour', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72') as Array<{
+        hour: Date | string; total: number; online: number; offline: number; pendingUpdates: number; stale72: number;
+      }>;
+
+    const live = await this.getFleetSummary(tenantId);
+    const nowHour = new Date();
+    nowHour.setMinutes(0, 0, 0);
+    const liveRow = {
+      hour: nowHour.toISOString(),
+      total: live.total,
+      online: live.online,
+      offline: live.offline,
+      pendingUpdates: live.pendingUpdates,
+      stale72: live.staleDevices,
+    };
+    const filtered = rows
+      .map((r) => ({ ...r, hour: typeof r.hour === 'string' ? r.hour : r.hour.toISOString() }))
+      .filter((r) => r.hour !== liveRow.hour);
+    return [...filtered, liveRow];
   }
 
   // ─── Daily snapshot job ──────────────────────────────────────────────────

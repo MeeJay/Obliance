@@ -6,6 +6,10 @@ export type PermissionLevel = 'ro' | 'rw';
 export interface UserPermissions {
   canCreate: boolean;
   permissions: Record<string, PermissionLevel>;
+  /** Tenant-scoped capabilities aggregated across all the user's teams.
+   *  Examples: 'supervision_remote', 'supervision_history', 'manage_reports'.
+   *  Empty for platform admins (they bypass the check). */
+  tenantCapabilities?: string[];
 }
 import { authApi, type LoginResult } from '../api/auth.api';
 import { connectSocket, disconnectSocket } from '../socket/socketClient';

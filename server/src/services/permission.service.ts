@@ -74,6 +74,39 @@ export const permissionService = {
    * Admins always have all capabilities.
    * Checks both direct device permissions and inherited group permissions.
    */
+  /**
+   * Tenant-wide capability check — true if the user has the named capability
+   * on AT LEAST ONE team_permissions row across all their team memberships.
+   * Used to gate non-device-scoped pages (Supervision tabs, etc.) where
+   * a coarse "team has this cap somewhere" is the right semantic.
+   */
+  async userHasTenantCapability(userId: number, capability: string): Promise<boolean> {
+    const row = await db('team_memberships as tm')
+      .join('team_permissions as tp', 'tp.team_id', 'tm.team_id')
+      .where('tm.user_id', userId)
+      .whereRaw('tp.capabilities::jsonb ? ?', [capability])
+      .first();
+    return !!row;
+  },
+
+  /**
+   * Bulk variant — returns the set of tenant-wide capabilities the user
+   * has across all their teams. Used by /auth/me so the client can gate
+   * supervision tabs without N round-trips.
+   */
+  async listUserTenantCapabilities(userId: number): Promise<string[]> {
+    const rows = await db('team_memberships as tm')
+      .join('team_permissions as tp', 'tp.team_id', 'tm.team_id')
+      .where('tm.user_id', userId)
+      .select('tp.capabilities') as Array<{ capabilities: string | string[] }>;
+    const out = new Set<string>();
+    for (const r of rows) {
+      const caps = typeof r.capabilities === 'string' ? JSON.parse(r.capabilities) : r.capabilities;
+      if (Array.isArray(caps)) for (const c of caps) out.add(String(c));
+    }
+    return [...out];
+  },
+
   async canUseCapability(userId: number, deviceId: number, isAdmin: boolean, capability: string): Promise<boolean> {
     if (isAdmin) return true;
 
@@ -239,7 +272,7 @@ export const permissionService = {
    */
   async getUserPermissions(userId: number, isAdmin: boolean): Promise<UserPermissions> {
     if (isAdmin) {
-      return { canCreate: true, teams: [], permissions: {} };
+      return { canCreate: true, teams: [], permissions: {}, tenantCapabilities: [] };
     }
 
     const teamIds = await this.getUserTeamIds(userId);
@@ -258,7 +291,9 @@ export const permissionService = {
       }
     }
 
-    return { canCreate, teams: teamIds, permissions };
+    const tenantCapabilities = await this.listUserTenantCapabilities(userId);
+
+    return { canCreate, teams: teamIds, permissions, tenantCapabilities };
   },
 
   /**

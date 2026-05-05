@@ -14,6 +14,7 @@ import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
 import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
 import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
+import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -2192,6 +2193,8 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
     warrantyExpiry: device.warrantyExpiry ?? '',
     warrantyVendor: device.warrantyVendor ?? '',
     expectedLifetimeYears: device.expectedLifetimeYears ?? null as number | null,
+    // Lot D.2 — per-device threshold override (inherits from group then system)
+    thresholdsOverride: { ...(device.thresholdsOverride ?? {}) } as import('@obliance/shared').MetricThresholds,
   });
   const [saving, setSaving] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -2234,6 +2237,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
           warrantyExpiry: f.warrantyExpiry || null,
           warrantyVendor: f.warrantyVendor || null,
           expectedLifetimeYears: f.expectedLifetimeYears,
+          thresholdsOverride: f.thresholdsOverride,
         });
         onSaved();
       } catch {
@@ -2339,6 +2343,18 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
               onBlur={autoSave} className={inputCls} />
           </label>
         </div>
+      </div>
+
+      {/* ── Lot D.2 — per-device threshold override ──
+          Inherits from the device's group (which itself inherits from the
+          system default). Empty fields mean "stay inherited". */}
+      <div className={cardCls}>
+        <h3 className={headCls}>Seuils personnalisés</h3>
+        <ThresholdsEditor
+          value={form.thresholdsOverride}
+          onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
+          layer="device"
+        />
       </div>
 
       {/* ── Tags ── */}

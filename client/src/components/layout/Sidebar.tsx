@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
+import { deviceMatchesSearch } from '@/utils/deviceSearch';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
@@ -186,11 +187,12 @@ function GroupRow({
   const isGroupActive = location.pathname === `/group/${group.id}`;
   const groupDevices = devices.filter(d => d.groupId === group.id);
 
-  // Apply search filter
+  // Apply search filter — same field set as the /devices server search
+  // (hostname, displayName, IP local/public, MAC, last user, OS, agent
+  // version, geo, UUID, tags, group name) so the user can find a device
+  // from the sidebar by anything they would type into the main search.
   const filteredDevices = searchQuery
-    ? groupDevices.filter(d =>
-        (d.displayName ?? d.hostname).toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+    ? groupDevices.filter(d => deviceMatchesSearch(d, searchQuery))
     : groupDevices;
 
   const onlineCount = groupDevices.filter(d => d.status === 'online').length;
@@ -313,7 +315,14 @@ function NavLink({ item }: { item: NavItem }) {
 export function Sidebar() {
   const { t } = useTranslation();
   const location = useLocation();
-  const { user, isAdmin } = useAuthStore();
+  const { user, isAdmin, permissions } = useAuthStore();
+  // Tenant capabilities surface non-admin grants for /admin/supervision tabs
+  // (manage_reports, supervision_history, supervision_remote). When a
+  // non-admin has any of them we still want the page reachable from the
+  // sidebar even though the rest of /admin/* is admin-gated.
+  const tenantCaps = new Set(permissions?.tenantCapabilities ?? []);
+  const hasSupervisionAccess = ['manage_reports', 'supervision_history', 'supervision_remote']
+    .some((c) => tenantCaps.has(c));
   const { sidebarFloating, toggleSidebarFloating, sidebarCollapsed, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
 
   const admin = isAdmin();
@@ -503,6 +512,12 @@ export function Sidebar() {
     { label: t('nav.devices'),     path: '/devices',    icon: <Monitor size={18} /> },
     { label: t('nav.automations', 'Automations'), path: '/automations', icon: <CalendarClock size={18} /> },
     { label: t('nav.policies'),    path: '/policies',   icon: <ShieldCheck size={18} /> },
+    // Surface /admin/supervision in the main nav when a non-admin has been
+    // granted any supervision tab capability (admins see it via adminNavItems
+    // below, so we skip it for them to avoid duplication).
+    ...(!admin && hasSupervisionAccess
+      ? [{ label: t('nav.supervision'), path: '/admin/supervision', icon: <Laptop size={18} /> } as NavItem]
+      : []),
   ];
 
   const adminNavItems: NavItem[] = [
@@ -517,9 +532,7 @@ export function Sidebar() {
   // ── Ungrouped devices ──────────────────────────────────────────────────────
   const ungroupedDevices = devices.filter(d => d.groupId === null);
   const filteredUngrouped = search
-    ? ungroupedDevices.filter(d =>
-        (d.displayName ?? d.hostname).toLowerCase().includes(search.toLowerCase()),
-      )
+    ? ungroupedDevices.filter(d => deviceMatchesSearch(d, search))
     : ungroupedDevices;
 
   // ── Device tree content ────────────────────────────────────────────────────
@@ -580,15 +593,17 @@ export function Sidebar() {
           </button>
         </div>
 
-        <div className="px-2 pt-1">
-          <button
-            onClick={openAddAgentModal}
-            title={t('nav.addAgent')}
-            className="flex h-10 w-full items-center justify-center rounded-md bg-accent/12 text-accent transition-colors hover:bg-accent/20"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        {admin && (
+          <div className="px-2 pt-1">
+            <button
+              onClick={openAddAgentModal}
+              title={t('nav.addAgent')}
+              className="flex h-10 w-full items-center justify-center rounded-md bg-accent/12 text-accent transition-colors hover:bg-accent/20"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        )}
 
         <nav className="flex-1 overflow-y-auto px-2 pt-3 space-y-1">
           {allItems.map((item) => {
@@ -681,16 +696,20 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Add agent button — accent pill, matches mockup §4.2 */}
-      <div className="px-3 pt-2">
-        <button
-          onClick={openAddAgentModal}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-accent/12 hover:bg-accent/20 px-3 py-2 text-[13px] font-medium text-accent transition-colors"
-        >
-          <Plus size={15} />
-          {t('nav.addAgent')}
-        </button>
-      </div>
+      {/* Add agent button — accent pill, matches mockup §4.2. Gated to platform
+          admins: enrolling a new agent requires API-key generation, which the
+          server gates behind requireRole('admin'). Non-admins see no button. */}
+      {admin && (
+        <div className="px-3 pt-2">
+          <button
+            onClick={openAddAgentModal}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent/12 hover:bg-accent/20 px-3 py-2 text-[13px] font-medium text-accent transition-colors"
+          >
+            <Plus size={15} />
+            {t('nav.addAgent')}
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-3 py-2.5">

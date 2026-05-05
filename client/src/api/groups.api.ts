@@ -17,6 +17,9 @@ interface UpdateGroupRequest {
   sortOrder?: number;
   groupNotifications?: boolean;
   groupConfig?: DeviceGroup['groupConfig'];
+  /** Lot D.2 — group-level metric thresholds (warn / crit per metric kind).
+   *  Empty object resets to system default. */
+  thresholds?: DeviceGroup['thresholds'];
 }
 
 export const groupsApi = {

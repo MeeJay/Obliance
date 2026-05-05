@@ -8,6 +8,7 @@ import { useGroupStore } from '@/store/groupStore';
 import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -472,7 +473,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
             <div className="space-y-1">
               <label className="text-xs font-medium text-text-muted uppercase">Target</label>
               <div className="flex gap-2">
-                {(['all', 'group'] as const).map((t) => (
+                {(['all', 'group', 'device'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setForm({ ...form, targetType: t, targetIds: [] })}
@@ -481,7 +482,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                       form.targetType === t ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/50',
                     )}
                   >
-                    {t === 'all' ? 'All devices' : 'By group'}
+                    {t === 'all' ? 'All devices' : t === 'group' ? 'By group' : 'By device'}
                   </button>
                 ))}
               </div>
@@ -490,6 +491,15 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-text-muted uppercase">Groups</label>
                 <GroupTreeMultiSelect
+                  selectedIds={form.targetIds}
+                  onChange={(ids) => setForm({ ...form, targetIds: ids })}
+                />
+              </div>
+            )}
+            {form.targetType === 'device' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-text-muted uppercase">Devices</label>
+                <DeviceMultiSelect
                   selectedIds={form.targetIds}
                   onChange={(ids) => setForm({ ...form, targetIds: ids })}
                 />

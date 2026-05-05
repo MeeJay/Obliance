@@ -92,10 +92,34 @@ export interface DeviceGroup {
   sortOrder: number;
   groupNotifications: boolean;
   groupConfig: DeviceGroupConfig;
+  /** Lot D.2 — per-group metric thresholds. Empty object means "use system
+   *  default". Each metric key may set a `warn` and/or `crit` percentage. */
+  thresholds: MetricThresholds;
   uuid: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Lot D.2 — Pair of warn/crit percentages applied to a single metric.
+ *  Either field may be undefined; the resolver substitutes the inherited
+ *  level (group → tenant default) for any missing field. */
+export interface MetricThreshold { warn?: number; crit?: number }
+
+/** Lot D.2 — Map of metric kind → threshold pair. Stored verbatim in JSONB
+ *  on both `device_groups.thresholds` and `devices.thresholds_override`. */
+export type MetricThresholds = Partial<{
+  disk: MetricThreshold;
+  cpu: MetricThreshold;
+  ram: MetricThreshold;
+}>;
+
+/** System defaults applied when neither the device nor the group sets a
+ *  value. Hardcoded here so the agent and the dashboard stay aligned. */
+export const SYSTEM_DEFAULT_THRESHOLDS: Required<MetricThresholds> = {
+  disk: { warn: 85, crit: 95 },
+  cpu:  { warn: 80, crit: 95 },
+  ram:  { warn: 80, crit: 95 },
+};
 
 export interface DeviceGroupConfig {
   pushIntervalSeconds?: number;
@@ -197,6 +221,10 @@ export interface Device {
   // Metadata
   tags: string[];
   customFields: Record<string, string>;
+  /** Lot D.2 — per-device override of group-level metric thresholds.
+   *  Fields not present here fall back to the group's setting, then to
+   *  the system default. Empty object = inherit everything. */
+  thresholdsOverride: MetricThresholds;
   displayConfig: DeviceDisplayConfig;
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
@@ -1442,6 +1470,11 @@ export interface UserPermissions {
   canCreate: boolean;
   teams: number[];
   permissions: Record<string, PermissionLevel>;
+  /** Tenant-scoped capabilities aggregated across all the user's teams.
+   *  Used by the client to gate non-device-scoped pages (e.g. the
+   *  /admin/supervision tabs: 'supervision_remote', 'supervision_history',
+   *  'manage_reports'). Always empty for platform admins — they bypass. */
+  tenantCapabilities: string[];
 }
 
 export interface UserTenantAssignment {

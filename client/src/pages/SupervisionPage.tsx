@@ -1,22 +1,52 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Laptop, History, FileBarChart2 } from 'lucide-react';
 import { RemoteSessionsPage } from './RemoteSessionsPage';
 import { HistoryPage } from './HistoryPage';
 import { ReportsPage } from './ReportsPage';
+import { useAuthStore } from '@/store/authStore';
 import { clsx } from 'clsx';
 
 type Tab = 'remote' | 'history' | 'reports';
 
+const TAB_CAPABILITY: Record<Tab, string> = {
+  remote:  'supervision_remote',
+  history: 'supervision_history',
+  reports: 'manage_reports',
+};
+
 export function SupervisionPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('remote');
+  const { isAdmin, permissions } = useAuthStore();
+  const admin = isAdmin();
+  const tenantCaps = useMemo(
+    () => new Set(permissions?.tenantCapabilities ?? []),
+    [permissions?.tenantCapabilities],
+  );
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-    { id: 'remote', label: t('supervision.tabRemote'), icon: <Laptop size={16} /> },
-    { id: 'history', label: t('supervision.tabHistory'), icon: <History size={16} /> },
-    { id: 'reports', label: t('supervision.tabReports'), icon: <FileBarChart2 size={16} /> },
-  ];
+  // Only render tabs the user has access to (admins see everything).
+  const tabs = useMemo<Array<{ id: Tab; label: string; icon: React.ReactNode }>>(() => {
+    const all: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+      { id: 'remote',  label: t('supervision.tabRemote'),  icon: <Laptop size={16} /> },
+      { id: 'history', label: t('supervision.tabHistory'), icon: <History size={16} /> },
+      { id: 'reports', label: t('supervision.tabReports'), icon: <FileBarChart2 size={16} /> },
+    ];
+    return admin ? all : all.filter((tab) => tenantCaps.has(TAB_CAPABILITY[tab.id]));
+  }, [t, admin, tenantCaps]);
+
+  const [tab, setTab] = useState<Tab>(tabs[0]?.id ?? 'remote');
+
+  // Snap the active tab back into the visible set if the user's caps change
+  // (e.g. an admin revoked a team capability while the page was open).
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t2) => t2.id === tab)) setTab(tabs[0].id);
+  }, [tabs, tab]);
+
+  if (tabs.length === 0) {
+    // User has no supervision access at all → bounce them off the page.
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="p-6 space-y-6">

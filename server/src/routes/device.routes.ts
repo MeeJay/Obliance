@@ -20,16 +20,18 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, includeSubgroups, status, approvalStatus, search, osType, page, pageSize, sortBy, sortOrder, ungrouped } = req.query as any;
+    const { groupId, includeSubgroups, status, approvalStatus, search, osType, osName, osVersion, page, pageSize, sortBy, sortOrder, ungrouped, staleHours, pendingUpdates } = req.query as any;
 
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
       includeSubgroups: includeSubgroups === 'true',
-      status, approvalStatus, search, osType,
+      status, approvalStatus, search, osType, osName, osVersion,
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
       sortBy, sortOrder,
       ungrouped: ungrouped === 'true' || ungrouped === true,
+      staleHours: staleHours ? parseInt(staleHours) : undefined,
+      pendingUpdates: pendingUpdates === 'true' || pendingUpdates === '1' || pendingUpdates === true,
     });
 
     // Filter by visible devices for non-admins
@@ -195,6 +197,18 @@ router.get('/fleet-timeseries', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/fleet-hourly?hours=24
+// Hourly granularity timeseries for the dashboard "Activité du parc" 24h
+// view. Returns one point per hour (capped 7d), each with total / online /
+// offline / pending_updates / stale_72h.
+router.get('/fleet-hourly', async (req, res, next) => {
+  try {
+    const hours = Math.min(168, Math.max(2, parseInt(String(req.query.hours ?? '24')) || 24));
+    const series = await deviceService.getFleetHourlySeries(req.tenantId!, hours);
+    res.json({ data: series });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/agent-versions
 // Top N agent versions by device count. Used by the dashboard "Top versions
 // agent" mini chart so admins spot devices stuck on old auto-update cycles.
@@ -205,12 +219,25 @@ router.get('/agent-versions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/devices/disk-saturated?threshold=85
-// Devices whose latest hardware snapshot reports any disk above the
-// threshold. Used by the dashboard "Disques saturés" card.
+// GET /api/devices/os-facets
+// Grouped facets used by the /devices 3-tier OS filter (family → name → build).
+// Returns one row per (osType, osName, osVersion) triplet with a count, so the
+// client can render dropdowns showing only options that actually have devices.
+router.get('/os-facets', async (req, res, next) => {
+  try {
+    const facets = await deviceService.getOsFacets(req.tenantId!);
+    res.json({ data: facets });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/disk-saturated?threshold=0
+// Devices whose latest hardware snapshot reports any disk above their
+// resolved per-device threshold (Lot D.2). The optional `threshold` query
+// param is a floor — useful when the dashboard wants a single "show me
+// anything ≥ N" override regardless of per-group/per-device settings.
 router.get('/disk-saturated', async (req, res, next) => {
   try {
-    const threshold = Math.min(Math.max(parseInt(String(req.query.threshold ?? '85')) || 85, 50), 99);
+    const threshold = Math.min(Math.max(parseInt(String(req.query.threshold ?? '0')) || 0, 0), 99);
     const result = await deviceService.getDiskSaturation(req.tenantId!, threshold);
     res.json({ data: result });
   } catch (err) { next(err); }
@@ -255,17 +282,25 @@ router.get('/group-stats', async (req, res, next) => {
       GROUP BY d.group_id
     `, [tenantId]);
 
-    // Group names
+    // Group metadata (parent + sortOrder feed the dashboard's hierarchical
+    // "Vue par groupe" — root → children indented by depth, ordered by the
+    // admin-defined sort_order rather than device count).
     const groups = await db('device_groups')
       .where({ tenant_id: tenantId })
-      .select('id', 'name', 'parent_id');
+      .select('id', 'name', 'parent_id', 'sort_order') as Array<{
+        id: number; name: string; parent_id: number | null; sort_order: number;
+      }>;
 
     // Build stats map
     const statsMap = new Map<number | null, any>();
 
     const getOrCreate = (gid: number | null) => {
       if (!statsMap.has(gid)) {
-        statsMap.set(gid, { groupId: gid, groupName: null, online: 0, offline: 0, warning: 0, critical: 0, total: 0, complianceScore: null, policyCount: 0, pendingUpdates: 0 });
+        statsMap.set(gid, {
+          groupId: gid, groupName: null, parentId: null, sortOrder: 0,
+          online: 0, offline: 0, warning: 0, critical: 0, total: 0,
+          complianceScore: null, policyCount: 0, pendingUpdates: 0,
+        });
       }
       return statsMap.get(gid)!;
     };
@@ -292,13 +327,28 @@ router.get('/group-stats', async (req, res, next) => {
       s.pendingUpdates = parseInt(row.devices_with_updates);
     }
 
-    // Set group names
-    const groupMap = new Map(groups.map((g: any) => [g.id, g.name]));
+    // Make sure every group has a stats row even if it has no devices —
+    // the hierarchical render still wants the empty group to appear.
+    for (const g of groups) getOrCreate(g.id);
+
+    // Set group names + parent + sortOrder
+    const groupMap = new Map(groups.map((g) => [g.id, g]));
     for (const [gid, stats] of statsMap) {
-      stats.groupName = gid ? (groupMap.get(gid) ?? 'Unknown') : null;
+      if (gid != null) {
+        const g = groupMap.get(gid);
+        stats.groupName = g?.name ?? 'Unknown';
+        stats.parentId = g?.parent_id ?? null;
+        stats.sortOrder = g?.sort_order ?? 0;
+      }
     }
 
-    res.json({ data: Array.from(statsMap.values()).sort((a: any, b: any) => b.total - a.total) });
+    // Pre-sort by (parentId nulls first, then sortOrder) so the client can
+    // build the tree in linear order without a second pass.
+    res.json({ data: Array.from(statsMap.values()).sort((a: any, b: any) => {
+      if ((a.parentId ?? -1) !== (b.parentId ?? -1)) return (a.parentId ?? -1) - (b.parentId ?? -1);
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return (a.groupName ?? '').localeCompare(b.groupName ?? '');
+    }) });
   } catch (err) { next(err); }
 });
 

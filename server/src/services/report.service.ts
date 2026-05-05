@@ -22,6 +22,23 @@ class ReportService {
     return rows.map(this.rowToReport.bind(this));
   }
 
+  async updateReport(reportId: number, tenantId: number, data: Partial<Report>) {
+    const updates: Record<string, unknown> = { updated_at: new Date() };
+    if (data.name !== undefined)        updates.name = data.name;
+    if (data.description !== undefined) updates.description = data.description;
+    if (data.type !== undefined)        updates.type = data.type;
+    if (data.format !== undefined)      updates.format = data.format;
+    if (data.scopeType !== undefined)   updates.scope_type = data.scopeType;
+    if (data.scopeId !== undefined)     updates.scope_id = data.scopeId;
+    if (data.sections !== undefined)    updates.sections = JSON.stringify(data.sections);
+    if (data.filters !== undefined)     updates.filters = JSON.stringify(data.filters);
+    if (data.scheduleCron !== undefined) updates.schedule_cron = data.scheduleCron;
+    if (data.timezone !== undefined)    updates.timezone = data.timezone;
+    if (data.isEnabled !== undefined)   updates.is_enabled = data.isEnabled;
+    const [row] = await db('reports').where({ id: reportId, tenant_id: tenantId }).update(updates).returning('*');
+    return row ? this.rowToReport(row) : null;
+  }
+
   async createReport(tenantId: number, data: Partial<Report> & { name: string; createdBy?: number }) {
     const [row] = await db('reports').insert({
       tenant_id: tenantId, name: data.name, description: data.description,

@@ -307,8 +307,11 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const [ignoredRules, setIgnoredRules] = useState<Record<number, Record<number, string[]>>>({});
   const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  // Silent reloads (e.g. socket-driven refresh on a check_compliance ack)
+  // skip the spinner so the active tab doesn't flash empty and re-render
+  // every time another agent's compliance scan finishes.
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true);
     try {
       const [policiesData, resultsData, presetsData] = await Promise.all([
         complianceApi.listPolicies(),
@@ -321,7 +324,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
     } catch {
       toast.error(t('compliance.failedLoad'));
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }, [t]);
 
@@ -341,6 +344,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   useEffect(() => { load(); }, [load]);
 
   // Refresh compliance results live when a check_compliance command acks.
+  // Debounced to 2 s so a fleet-wide scan (many parallel acks) doesn't trigger
+  // a reload-storm; the reload is silent so the visible tab keeps its content.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -348,7 +353,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
     const debounced = (cmd?: any) => {
       if (cmd && cmd.type && cmd.type !== 'check_compliance') return;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => load(), 500);
+      timer = setTimeout(() => load({ silent: true }), 2000);
     };
     socket.on('COMMAND_UPDATED', debounced);
     return () => {

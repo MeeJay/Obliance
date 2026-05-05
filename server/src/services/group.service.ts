@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { DeviceGroup, DeviceGroupTreeNode, DeviceGroupConfig } from '@obliance/shared';
+import type { DeviceGroup, DeviceGroupTreeNode, DeviceGroupConfig, MetricThresholds } from '@obliance/shared';
 
 interface GroupRow {
   id: number;
@@ -11,6 +11,7 @@ interface GroupRow {
   sort_order: number;
   group_notifications: boolean;
   group_config: DeviceGroupConfig | null;
+  thresholds: MetricThresholds | string | null;
   uuid: string;
   created_at: Date;
   updated_at: Date;
@@ -28,6 +29,9 @@ function rowToGroup(row: GroupRow): DeviceGroup {
     groupNotifications: row.group_notifications,
     groupConfig: row.group_config
       ? (typeof row.group_config === 'string' ? JSON.parse(row.group_config) : row.group_config)
+      : {},
+    thresholds: row.thresholds
+      ? (typeof row.thresholds === 'string' ? JSON.parse(row.thresholds) : row.thresholds)
       : {},
     uuid: row.uuid,
     createdAt: row.created_at.toISOString(),
@@ -118,6 +122,7 @@ export const groupService = {
       sortOrder?: number;
       groupNotifications?: boolean;
       groupConfig?: DeviceGroupConfig;
+      thresholds?: MetricThresholds;
     },
   ): Promise<DeviceGroup | null> {
     const updateData: Record<string, unknown> = { updated_at: new Date() };
@@ -130,6 +135,7 @@ export const groupService = {
     if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder;
     if (data.groupNotifications !== undefined) updateData.group_notifications = data.groupNotifications;
     if (data.groupConfig !== undefined) updateData.group_config = JSON.stringify(data.groupConfig);
+    if (data.thresholds !== undefined) updateData.thresholds = JSON.stringify(data.thresholds);
 
     const [row] = await db<GroupRow>('device_groups')
       .where({ id })

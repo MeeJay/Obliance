@@ -13,6 +13,8 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { NotificationBindingsPanel } from '@/components/notifications/NotificationBindingsPanel';
 import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindowList';
+import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
+import type { MetricThresholds } from '@obliance/shared';
 import { cn } from '@/utils/cn';
 import toast from 'react-hot-toast';
 
@@ -353,6 +355,51 @@ export function GroupEditPage() {
           defaultScopeId={groupId}
           title={`Maintenance for "${group.name}"`}
         />
+      </div>
+
+      {/* Lot D.2 — group-level metric thresholds. Saved via groupsApi.update,
+          inherited by every device that does not set its own override. */}
+      <GroupThresholdsCard groupId={groupId} initial={group.thresholds} groupName={group.name} onSaved={(next) => setGroup((g) => g ? { ...g, thresholds: next } : g)} />
+    </div>
+  );
+}
+
+function GroupThresholdsCard({
+  groupId, initial, groupName, onSaved,
+}: { groupId: number; initial: MetricThresholds; groupName: string; onSaved: (t: MetricThresholds) => void }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<MetricThresholds>(initial);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await groupsApi.update(groupId, { thresholds: draft });
+      onSaved(draft);
+      toast.success(t('thresholds.saved', 'Seuils mis à jour'));
+    } catch {
+      toast.error(t('thresholds.failedSave', 'Échec de la mise à jour des seuils'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-lg border border-border bg-bg-secondary p-4">
+      <div className="mb-3 text-base font-semibold text-text-primary">
+        {t('thresholds.titleGroup', 'Seuils')} — "{groupName}"
+      </div>
+      <ThresholdsEditor value={draft} onChange={setDraft} layer="group" />
+      <div className="mt-4 flex justify-end gap-2">
+        {dirty && (
+          <Button variant="secondary" onClick={() => setDraft(initial)} disabled={saving}>
+            {t('common.cancel', 'Annuler')}
+          </Button>
+        )}
+        <Button onClick={save} disabled={!dirty || saving}>
+          {saving ? t('common.saving', 'Enregistrement...') : t('common.save', 'Enregistrer')}
+        </Button>
       </div>
     </div>
   );

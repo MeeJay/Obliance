@@ -37,6 +37,10 @@ const AVAILABLE_CAPABILITIES: CapabilityDef[] = [
   { key: 'reports', label: 'Reports' },
   { key: 'settings', label: 'Settings' },
   { key: 'users.manage', label: 'User Management' },
+  // Supervision tabs (matches the Obligate capability schema list).
+  { key: 'supervision_remote',  label: 'Supervision · Remote sessions' },
+  { key: 'supervision_history', label: 'Supervision · Activity history' },
+  { key: 'manage_reports',      label: 'Supervision · Manage reports' },
 ];
 
 function rowToPermissionSet(row: PermissionSetRow): PermissionSet {

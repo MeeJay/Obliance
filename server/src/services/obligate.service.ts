@@ -202,6 +202,13 @@ export const obligateService = {
       { key: 'remote', label: 'Remote Access', sortOrder: 2 },
       { key: 'files', label: 'File Management', sortOrder: 3 },
       { key: 'power', label: 'Power Control', sortOrder: 4 },
+      // Tenant-wide supervision capabilities — checked via
+      // permissionService.userHasTenantCapability(...). They grant access to
+      // the matching tab on /admin/supervision regardless of which device
+      // permissions the team holds.
+      { key: 'supervision_remote',  label: 'Supervision · Remote sessions list', sortOrder: 10 },
+      { key: 'supervision_history', label: 'Supervision · Activity history',     sortOrder: 11 },
+      { key: 'manage_reports',      label: 'Supervision · Manage reports',       sortOrder: 12 },
     ];
 
     try {
