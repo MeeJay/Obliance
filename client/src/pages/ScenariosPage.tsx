@@ -1286,9 +1286,12 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         />
       )}
 
-      {/* v2 graph editor — full-viewport modal with the React Flow canvas */}
+      {/* v2 graph editor — modal that respects the Obliance topbar
+          (52px) so the user can still see which tenant is active.
+          z-40 keeps it above the page content but below toasts and
+          the user-menu dropdown. */}
       {graphEditorScenarioId != null && (
-        <div className="fixed inset-0 z-50 bg-bg-primary">
+        <div className="fixed left-0 right-0 bottom-0 top-[52px] z-40 bg-bg-primary">
           <ScenarioGraphEditor
             scenarioId={graphEditorScenarioId}
             onClose={() => setGraphEditorScenarioId(null)}

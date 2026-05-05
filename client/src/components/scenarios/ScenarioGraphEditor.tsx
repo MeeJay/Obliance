@@ -10,6 +10,7 @@ import {
   applyEdgeChanges,
   Handle,
   Position,
+  useReactFlow,
   type Node,
   type Edge,
   type NodeChange,
@@ -56,7 +57,7 @@ interface EdgeData extends Record<string, unknown> {
 }
 
 // ── Custom node component — single renderer parameterised by registry ───────
-function CustomNode({ id, data, selected }: NodeProps) {
+function CustomNode({ data, selected }: NodeProps) {
   const d = data as NodeData;
   const meta = NODE_TYPE_BY_KEY[d.scenarioType];
   const isTrigger = meta?.category === 'trigger';
@@ -71,6 +72,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
     d.runStatus === 'failed'  ? 'ring-2 ring-red-400 ring-offset-1 ring-offset-bg-primary' :
     '';
 
+  // Inline handle styling — bigger + accent fill so the user actually
+  // sees something to grab when they want to draw an edge. The
+  // default RF size (~6px transparent) is too small to find with a
+  // mouse on a dense graph.
+  const handleStyle: React.CSSProperties = {
+    width: 12, height: 12, background: 'rgb(var(--c-accent))',
+    border: '2px solid rgb(var(--c-bg-primary))',
+  };
+
   return (
     <div className={clsx(
       'rounded-lg bg-bg-secondary border-2 px-3 py-2 min-w-[180px] shadow-md relative',
@@ -79,7 +89,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       !selected && statusRing,
     )}>
       {!isTrigger && (
-        <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-text-muted" />
+        <Handle type="target" position={Position.Left} style={handleStyle} />
       )}
       <div className="flex items-center gap-1.5 mb-0.5">
         <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted flex-1">
@@ -93,7 +103,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
         {d.label || meta?.label || d.scenarioType}
       </div>
       {!isTerminator && (
-        <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-text-muted" id={`out-${id}`} />
+        // No `id` on the handle — single source port per node, defaults
+        // are sufficient. Setting an explicit id requires every edge
+        // to carry a sourceHandle that matches, which we don't generate.
+        <Handle type="source" position={Position.Right} style={handleStyle} />
       )}
     </div>
   );
@@ -164,6 +177,7 @@ function EdgeConditionEditor({ value, onChange }: { value: ScenarioEdgeCondition
 
 // ── Main editor ──────────────────────────────────────────────────────────────
 function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number; onClose?: () => void }) {
+  const rf = useReactFlow();
   const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
   const [edges, setEdges] = useState<Edge<EdgeData>[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
@@ -227,6 +241,20 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
     });
     return () => { cancelled = true; };
   }, [scenarioId]);
+
+  // After nodes load, frame the whole graph in the viewport. RF's own
+  // `fitView` prop only runs on first render — by the time our async
+  // load finishes, the canvas already rendered with [] nodes so fitView
+  // had nothing to fit. Calling it here once nodes appear gives the
+  // user a sensible initial zoom/pan instead of nodes stuck off-screen.
+  useEffect(() => {
+    if (loading) return;
+    if (nodes.length === 0) return;
+    const t = setTimeout(() => {
+      try { rf.fitView({ padding: 0.2, duration: 200 }); } catch { /* RF not ready */ }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [loading, nodes.length, rf]);
 
   // Live viewer subscription — when an activeRunId is set, listen for
   // SCENARIO_NODE_UPDATED events and paint the matching node with
@@ -293,10 +321,22 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
 
   const addNode = (meta: NodeTypeMeta) => {
     const id = `cn-${Math.random().toString(36).slice(2)}`;
+    // Spawn at the viewport's centre rather than a fixed top-left
+    // pixel — that's where the user is looking, so they actually see
+    // the new node land. Add a small jitter so successive adds don't
+    // perfectly overlap.
+    let position = { x: 240, y: 120 };
+    try {
+      const vp = rf.getViewport();
+      const w = window.innerWidth, h = window.innerHeight;
+      const cx = (-vp.x + w * 0.4) / vp.zoom;
+      const cy = (-vp.y + h * 0.4) / vp.zoom;
+      position = { x: cx + Math.random() * 40 - 20, y: cy + Math.random() * 40 - 20 };
+    } catch { /* fall back to default */ }
     setNodes((nds) => [...nds, {
       id,
       type: 'custom',
-      position: { x: 240 + Math.random() * 80, y: 80 + Math.random() * 80 },
+      position,
       data: { scenarioType: meta.type, label: meta.label, config: { ...meta.defaultConfig } },
     }]);
     setDirty(true);
@@ -397,9 +437,13 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   }
 
   return (
-    <div className="flex h-full bg-bg-primary">
-      {/* ── Canvas ──────────────────────────────────────────────────── */}
-      <div className="flex-1 relative">
+    <div className="flex bg-bg-primary" style={{ height: '100%', width: '100%' }}>
+      {/* ── Canvas — explicit dimensions are required by React Flow.
+          Without them the canvas falls back to 0px and pan / zoom /
+          drag handlers don't bind correctly (they rely on a real
+          bounding rect). h-full doesn't always cascade through flex
+          containers when the parent itself is `position: fixed`. */}
+      <div className="flex-1 relative min-w-0" style={{ height: '100%' }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -411,6 +455,22 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); }}
           nodeTypes={NODE_TYPES_RF}
           fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.1}
+          maxZoom={2.5}
+          // Explicit interaction defaults — React Flow ships with these
+          // as defaults but pinning them here protects against any
+          // global CSS / strict-mode quirk that might silently disable
+          // them, and documents the intended UX.
+          nodesDraggable
+          nodesConnectable
+          elementsSelectable
+          panOnDrag
+          panOnScroll={false}
+          zoomOnScroll
+          zoomOnPinch
+          zoomOnDoubleClick
+          selectionOnDrag={false}
           deleteKeyCode={null}
           proOptions={{ hideAttribution: true }}
         >
