@@ -418,49 +418,6 @@ export const scenarioService = {
     });
     const runRow = await db('scenario_runs').where({ id: runId }).first();
     return runRow ? rowToRun(runRow) : null;
-
-    const steps = await db('scenario_steps')
-      .where({ scenario_id: scenarioId })
-      .orderBy('sort_order', 'asc');
-
-    if (!steps.length) {
-      logger.warn({ scenarioId }, 'Scenario has no steps, skipping trigger');
-      return null;
-    }
-
-    const scenarioObj = rowToScenario(scenario);
-    const variables = scenarioObj.variables || {};
-
-    // Create the run
-    const [runRow] = await db('scenario_runs').insert({
-      tenant_id: tenantId,
-      scenario_id: scenarioId,
-      device_id: deviceId,
-      trigger_type: triggerType,
-      trigger_source: triggerSource,
-      status: 'running',
-      current_step: 0,
-      variables: JSON.stringify(variables),
-      started_at: new Date(),
-    }).returning('*');
-
-    // Create step runs
-    const stepRunInserts = steps.map((s: any) => ({
-      run_id: runRow.id,
-      step_id: s.id,
-      sort_order: s.sort_order,
-      status: 'pending' as ScenarioStepRunStatus,
-      retry_attempt: 0,
-    }));
-    await db('scenario_step_runs').insert(stepRunInserts);
-
-    const run = rowToRun(runRow);
-    emitRunUpdate(tenantId, run);
-
-    // Start the state machine
-    await scenarioService.executeNextStep(runRow.id);
-
-    return run;
   },
 
   async resolveTargetDevices(scenarioId: number, tenantId: number): Promise<number[]> {

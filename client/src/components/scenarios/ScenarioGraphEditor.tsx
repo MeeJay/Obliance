@@ -28,7 +28,7 @@ import { deviceApi } from '@/api/device.api';
 import { getSocket } from '@/socket/socketClient';
 import type { ScenarioNodeType, ScenarioEdgeCondition, Script, Device } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
-import { NODE_TYPES, NODE_TYPE_BY_KEY, isTriggerType, type NodeTypeMeta } from './scenarioNodeRegistry';
+import { NODE_TYPES, NODE_TYPE_BY_KEY, isTriggerType, type NodeTypeMeta, type NodeFieldDef } from './scenarioNodeRegistry';
 
 // Phase 1C — graph editor for v2 scenarios. Wraps @xyflow/react with our
 // 16 node types, an inline config sidebar, and a save handler that posts
@@ -317,14 +317,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
 
   const updateNodeData = (nodeId: string, patch: Partial<NodeData>) => {
     setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...patch } } : n));
-    setSelectedNode((cur) => cur && cur.id === nodeId ? { ...cur, data: { ...cur.data, ...patch } } : cur);
+    setSelectedNode((cur: Node<NodeData> | null) => cur && cur.id === nodeId ? { ...cur, data: { ...cur.data, ...patch } } : cur);
     setDirty(true);
   };
 
   const updateEdgeData = (edgeId: string, condition: ScenarioEdgeCondition) => {
     const style = { stroke: edgeStrokeColor(condition), strokeWidth: 1.6 };
     setEdges((eds) => eds.map((e) => e.id === edgeId ? { ...e, data: { condition }, label: edgeConditionLabel(condition), style } : e));
-    setSelectedEdge((cur) => cur && cur.id === edgeId ? { ...cur, data: { condition }, label: edgeConditionLabel(condition), style } : cur);
+    setSelectedEdge((cur: Edge<EdgeData> | null) => cur && cur.id === edgeId ? { ...cur, data: { condition }, label: edgeConditionLabel(condition), style } : cur);
     setDirty(true);
   };
 
@@ -406,8 +406,8 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={(_, n) => { setSelectedNode(n as Node<NodeData>); setSelectedEdge(null); }}
-          onEdgeClick={(_, e) => { setSelectedEdge(e as Edge<EdgeData>); setSelectedNode(null); }}
+          onNodeClick={(_e: React.MouseEvent, n: Node) => { setSelectedNode(n as Node<NodeData>); setSelectedEdge(null); }}
+          onEdgeClick={(_e: React.MouseEvent, e: Edge) => { setSelectedEdge(e as Edge<EdgeData>); setSelectedNode(null); }}
           onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); }}
           nodeTypes={NODE_TYPES_RF}
           fitView
@@ -501,8 +501,8 @@ function NodeConfigForm({
   scripts: Script[];
   onChange: (patch: Partial<NodeData>) => void;
 }) {
-  const meta = NODE_TYPE_BY_KEY[node.data.scenarioType];
-  const cfg = node.data.config ?? {};
+  const meta = NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType];
+  const cfg = (node.data.config ?? {}) as Record<string, unknown>;
 
   const setField = (key: string, value: unknown) => {
     onChange({ config: { ...cfg, [key]: value } });
@@ -524,7 +524,7 @@ function NodeConfigForm({
           className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
         />
       </label>
-      {meta?.fields.map((f) => (
+      {meta?.fields.map((f: NodeFieldDef) => (
         <label key={f.key} className="block">
           <span className="text-xs text-text-muted mb-1 block">{f.label}{f.required && <span className="text-red-400 ml-1">*</span>}</span>
           {f.kind === 'text' && (

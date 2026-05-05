@@ -20,6 +20,7 @@ const TRIGGER_LABELS: Record<ScenarioTriggerType, string> = {
   agent_approved: 'Agent Approved',
   group_join: 'Group Join',
   schedule_failure: 'Schedule Failure',
+  schedule_cron: 'Cron Schedule',
   manual: 'Manual',
 };
 
@@ -29,6 +30,7 @@ const TRIGGER_COLORS: Record<ScenarioTriggerType, string> = {
   agent_approved: 'text-green-400 bg-green-400/10 border-green-400/30',
   group_join: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
   schedule_failure: 'text-red-400 bg-red-400/10 border-red-400/30',
+  schedule_cron: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
   manual: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
 };
 
