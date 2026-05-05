@@ -32,6 +32,7 @@ const TRIGGER_NODE_TYPE: Record<ScenarioTriggerType, ScenarioNodeType> = {
   group_join:       'trigger_group_join',
   schedule_failure: 'trigger_schedule_failure',
   schedule_cron:    'trigger_schedule_cron',
+  agent_back_online: 'trigger_agent_back_online',
 };
 
 /**
