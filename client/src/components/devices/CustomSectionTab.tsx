@@ -315,36 +315,74 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId, section.id, cycle, autoRefreshEnabled, autoRefreshSec]);
 
-  // Each renderTick triggers a re-render that recomputes the iframe's
-  // srcDoc from the current buffer. We only emit a heading-shaped
-  // wrapper when the script's output doesn't already include a `<html>`
-  // tag, so a full ConvertTo-Html document is rendered as-is.
-  const looksLikeFullHtml = /<\s*html[\s>]/i.test(bufferRef.current.slice(0, 4096));
-  const srcDoc = looksLikeFullHtml
-    ? bufferRef.current
-    : `<!doctype html><html><head><meta charset="utf-8"><style>
-        :root { color-scheme: dark; }
-        body {
-          margin: 0;
-          padding: 16px;
-          font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
-          font-size: 13px;
-          line-height: 1.55;
-          background: #0f1419;
-          color: #e6e1cf;
-        }
-        a { color: #7dd3fc; }
-        table { border-collapse: collapse; margin: 8px 0; }
-        th, td { border: 1px solid #334155; padding: 6px 10px; }
-        th { background: #1e293b; text-align: left; }
-        code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
-        pre { background: #1e293b; padding: 8px; border-radius: 6px; overflow-x: auto; }
-      </style></head><body>${bufferRef.current}</body></html>`;
-  // renderTick triggers re-render via setState; reading it via the
-  // closure isn't necessary, the change is communicated through the
-  // updated bufferRef + new srcDoc string. Reference it once with
-  // void so the unused-variable lint doesn't flag the state.
-  void renderTick;
+  // Anti-flicker rendering: the iframe is mounted ONCE and never
+  // unmounts. On every refresh tick we patch its DOM in place
+  // (`documentElement.innerHTML = …`) instead of swapping `srcDoc`,
+  // which would force a full document reload — visible white flash,
+  // lost scroll position, layout reflow, painful at 1Hz refresh.
+  // Same-origin sandbox lets the parent reach into contentDocument
+  // safely; the missing `allow-scripts` keeps any <script> the dump
+  // contains inert (sanitised by absence, not by parsing).
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeInitedRef = useRef(false);
+  /** Stylesheet shared by every render — written once into the iframe
+   *  on first mount, never touched again. The script's HTML is
+   *  injected as the body content (or as documentElement.innerHTML
+   *  when it's a full <html>...</html> document) so styles persist
+   *  across refreshes without re-parsing. */
+  const baseStyles = `
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.55;
+      background: #0f1419;
+      color: #e6e1cf;
+    }
+    a { color: #7dd3fc; }
+    table { border-collapse: collapse; margin: 8px 0; }
+    th, td { border: 1px solid #334155; padding: 6px 10px; }
+    th { background: #1e293b; text-align: left; }
+    code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    pre { background: #1e293b; padding: 8px; border-radius: 6px; overflow-x: auto; }
+  `;
+  // Patch the iframe DOM whenever renderTick changes. First call
+  // primes the document with our boilerplate (head + empty body);
+  // every subsequent call replaces only the body's innerHTML so the
+  // `<style>` block survives intact.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+    if (!iframeInitedRef.current) {
+      doc.open();
+      doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>${baseStyles}</style></head><body></body></html>`);
+      doc.close();
+      iframeInitedRef.current = true;
+    }
+    const html = bufferRef.current;
+    if (!html) return;
+    const looksLikeFullHtml = /<\s*html[\s>]/i.test(html.slice(0, 4096));
+    try {
+      if (looksLikeFullHtml) {
+        // Replace everything inside <html> in one assignment — head
+        // and body update together, no document reload. This keeps
+        // any <link rel="stylesheet"> / <style> the dump brings.
+        const inner = /<html[^>]*>([\s\S]*?)<\/html>/i.exec(html);
+        doc.documentElement.innerHTML = inner ? inner[1] : html;
+      } else {
+        // Fragment — leave the boilerplate <head>/<style> alone, swap
+        // body content. Our base styles persist across refreshes.
+        doc.body.innerHTML = html;
+      }
+    } catch { /* contentDocument may be cross-origin during teardown */ }
+    // Reading renderTick keeps it active in the dep list so the
+    // patch fires on every flush.
+    void renderTick;
+  }, [renderTick, baseStyles]);
 
   return (
     <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden flex flex-col">
@@ -390,23 +428,29 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
           {errorMsg}
         </div>
       )}
-      {bufferRef.current.length === 0 && status === 'connecting' ? (
-        <div className="flex items-center justify-center text-text-muted text-sm" style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
-          <Loader2 className="w-4 h-4 animate-spin mr-2" /> Waiting for first output…
-        </div>
-      ) : (
+      {/* The iframe is mounted ONCE and stays in the DOM for the life
+          of the panel — refreshes patch its contentDocument in place
+          via the effect above, no srcDoc swap, no flicker. The
+          loading placeholder is overlaid on top until the first
+          chunk arrives. */}
+      <div className="relative" style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
         <iframe
+          ref={iframeRef}
           // sandbox="allow-same-origin" disables script execution, form
           // submission, popups, and top-level navigation. allow-same-
-          // origin is needed only because some PowerShell-generated
-          // pages rely on relative URLs and CSS that reference document
-          // root — leaving it out renders the page in an opaque origin.
+          // origin lets the parent reach into contentDocument so we can
+          // patch its DOM directly across refreshes (no reload, no
+          // flash). Scripts the dump contains stay inert.
           sandbox="allow-same-origin"
-          srcDoc={srcDoc}
-          className="w-full bg-[#0f1419]"
-          style={{ height: 'calc(100vh - 340px)', minHeight: '400px', border: 'none' }}
+          className="w-full h-full bg-[#0f1419]"
+          style={{ border: 'none' }}
         />
-      )}
+        {bufferRef.current.length === 0 && status === 'connecting' && (
+          <div className="absolute inset-0 flex items-center justify-center text-text-muted text-sm bg-[#0f1419]">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Waiting for first output…
+          </div>
+        )}
+      </div>
     </div>
   );
 }
