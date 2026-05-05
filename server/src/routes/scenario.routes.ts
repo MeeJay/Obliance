@@ -422,23 +422,60 @@ router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next)
       resolvedTriggerNodeId = manual?.id;
     }
 
+    // Pre-flight: if the caller asked for a manual trigger walk but the
+    // scenario carries zero trigger nodes at all, bail with a precise
+    // 400 — otherwise startRun would throw deep in the engine and the
+    // user would only see a generic 500.
+    if (!body.startNodeId && !resolvedTriggerNodeId) {
+      const anyTrigger = await db('scenario_nodes')
+        .where({ scenario_id: scenarioId })
+        .whereLike('type', 'trigger_%')
+        .first();
+      if (!anyTrigger) {
+        return res.status(400).json({
+          error: 'Graph has no trigger node — add a Manual trigger (or any other trigger) and connect it to your first action.',
+        });
+      }
+    }
+
     // Start one run per device — same trigger source for the whole
     // batch so the editor can group them, and so logs/audits can spot
     // a multi-device test by the shared marker. The run ids are
-    // returned in deviceId order.
+    // returned in deviceId order. If a single device fails to start
+    // (e.g. node config invalid, agent unreachable for an immediate
+    // sync executor) we collect the error so the client can show it
+    // alongside the runs that DID start, instead of failing the whole
+    // batch and leaving partial state.
     const batchMarker = `graph-run:batch:${Date.now()}`;
     const runIds: string[] = [];
+    const failures: Array<{ deviceId: number; error: string }> = [];
     for (const deviceId of deviceIds) {
-      const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
-        triggerType: 'manual',
-        triggerSource: batchMarker,
-        triggerNodeId: resolvedTriggerNodeId,
-        startNodeId: body.startNodeId,
-        singleNode: body.singleNode,
-      });
-      runIds.push(runId);
+      try {
+        const runId = await scenarioGraphService.startRun(scenarioId, deviceId, {
+          triggerType: 'manual',
+          triggerSource: batchMarker,
+          triggerNodeId: resolvedTriggerNodeId,
+          startNodeId: body.startNodeId,
+          singleNode: body.singleNode,
+        });
+        runIds.push(runId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push({ deviceId, error: message });
+      }
     }
-    res.status(202).json({ data: { runIds, runId: runIds[0] ?? null, batchMarker } });
+
+    // Whole batch failed → 400 so the client surfaces the message
+    // instead of silently swallowing.
+    if (runIds.length === 0 && failures.length > 0) {
+      return res.status(400).json({
+        error: `All ${failures.length} run${failures.length > 1 ? 's' : ''} failed to start: ${failures.map((f) => f.error).join('; ')}`,
+      });
+    }
+
+    res.status(202).json({
+      data: { runIds, runId: runIds[0] ?? null, batchMarker, failures: failures.length ? failures : undefined },
+    });
   } catch (err) { next(err); }
 });
 

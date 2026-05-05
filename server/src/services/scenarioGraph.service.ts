@@ -212,19 +212,30 @@ export const scenarioGraphService = {
       })
       .returning('id') as Array<{ id: string }>;
 
-    if (walkFromTrigger) {
-      // Trigger nodes are passive — advance to the first non-trigger
-      // neighbour. If a single-node test was asked from a trigger, the
-      // first downstream node is the one that runs and stops.
-      const firstEdge = await pickNextEdge(scenarioId, entryNodeId!, null);
-      if (!firstEdge) {
-        await markRunFailure(runRow.id, 'Trigger node has no outgoing edge');
-        return runRow.id;
+    // The whole executeNode chain is wrapped here as a safety net:
+    // executeNode already catches per-node executor errors, but a
+    // failure in its own bookkeeping (markRunFailure / _completeNode
+    // hitting an unexpected DB state) would otherwise propagate up and
+    // turn the route into a 500. Catching here lets us still return a
+    // runId so the caller can render the failed run in the UI.
+    try {
+      if (walkFromTrigger) {
+        // Trigger nodes are passive — advance to the first non-trigger
+        // neighbour. If a single-node test was asked from a trigger, the
+        // first downstream node is the one that runs and stops.
+        const firstEdge = await pickNextEdge(scenarioId, entryNodeId!, null);
+        if (!firstEdge) {
+          await markRunFailure(runRow.id, 'Trigger node has no outgoing edge');
+          return runRow.id;
+        }
+        await this.executeNode(runRow.id, firstEdge.targetNodeId);
+      } else {
+        // Mid-graph entry — run the named node directly.
+        await this.executeNode(runRow.id, entryNodeId!);
       }
-      await this.executeNode(runRow.id, firstEdge.targetNodeId);
-    } else {
-      // Mid-graph entry — run the named node directly.
-      await this.executeNode(runRow.id, entryNodeId!);
+    } catch (err) {
+      logger.error({ err, runId: runRow.id, scenarioId }, 'startRun: engine top-level threw — marking run failed');
+      try { await markRunFailure(runRow.id, err instanceof Error ? err.message : String(err)); } catch { /* swallow secondary failure */ }
     }
     return runRow.id;
   },

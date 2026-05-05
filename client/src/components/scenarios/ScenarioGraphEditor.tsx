@@ -534,8 +534,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       const label = runMode.kind === 'single' ? 'Single-node test' : runMode.kind === 'from' ? 'Run from node' : 'Run';
       toast.success(`${label} started on ${deviceIds.length} device${deviceIds.length > 1 ? 's' : ''} — watch the graph`);
       setShowOutputPanel(true);
-    } catch {
-      toast.error('Failed to start run');
+    } catch (err) {
+      // Surface the actual server error so the user can act on it
+      // instead of staring at a generic "Failed to start run". axios
+      // wraps the response under `err.response.data.error`; we fall
+      // back to the message string and finally a generic label.
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      const detail = e?.response?.data?.error || e?.message || 'Unknown error';
+      console.error('startGraphRun failed', err);
+      toast.error(`Failed to start run: ${detail}`);
     }
   };
 
