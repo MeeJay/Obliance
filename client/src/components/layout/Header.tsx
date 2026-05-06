@@ -6,7 +6,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { anonymize } from '@/utils/anonymize';
 import { useSocketStore } from '@/store/socketStore';
-import { appConfigApi } from '@/api/appConfig.api';
 import { NotificationCenter } from './NotificationCenter';
 import { TenantSwitcher } from './TenantSwitcher';
 import { cn } from '@/utils/cn';
@@ -47,7 +46,6 @@ export function Header() {
   const tenants = useTenantStore((s) => s.tenants);
   const currentTenantId = useTenantStore((s) => s.currentTenantId);
   const [connectedApps, setConnectedApps] = useState<Array<{ appType: string; name: string; baseUrl: string }>>([]);
-  const [obligateUrl, setObligateUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/connected-apps', { credentials: 'include' })
@@ -55,9 +53,6 @@ export function Header() {
       .then((d: { success: boolean; data?: Array<{ appType: string; name: string; baseUrl: string }> }) => {
         if (d.success && d.data) setConnectedApps(d.data);
       })
-      .catch(() => {});
-    appConfigApi.getConfig()
-      .then(cfg => setObligateUrl(cfg.obligate_url ?? null))
       .catch(() => {});
   }, []);
 
@@ -99,30 +94,31 @@ export function Header() {
           context that gets carried across apps. */}
       <TenantSwitcher />
 
-      {/* App switcher pills */}
+      {/* App switcher pills — only the current app + the apps the user
+          actually has access to via Obligate are rendered. Hiding the
+          unreachable ones entirely (rather than dimming them) matches
+          the pre-Obligate behaviour: an admin without Oblimap rights
+          shouldn't even see the Oblimap pill, since there's no path to
+          enable it from here. */}
       {!isNativeApp && (
         <nav className="flex items-center gap-1 ml-1">
-          {APP_ORDER.map((app) => {
+          {APP_ORDER.filter((app) => app.type === CURRENT_APP || reachable.has(app.type)).map((app) => {
             const isCurrent = app.type === CURRENT_APP;
-            const isReachable = reachable.has(app.type);
-            const dimmed = !isReachable && !isCurrent;
             return (
               <button
                 key={app.type}
                 type="button"
                 onClick={() => goApp(app)}
-                disabled={dimmed}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
                   isCurrent
                     ? 'text-[color:var(--app-current)]'
                     : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
-                  dimmed && 'opacity-40 cursor-not-allowed hover:bg-transparent hover:text-text-muted',
                 )}
                 style={isCurrent
                   ? ({ '--app-current': app.color, backgroundColor: hexA(app.color, 0.12) } as React.CSSProperties)
                   : undefined}
-                title={obligateUrl && !isReachable ? `${app.label} — not connected to Obligate` : app.label}
+                title={app.label}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full shrink-0"
