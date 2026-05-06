@@ -1930,6 +1930,23 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 			return nil, err
 		}
 		return map[string]string{"message": "airgap disabled"}, nil
+	case "live_metrics":
+		// Mirror of the HandleCommand case — required because incoming WS
+		// commands flow through ExecuteSync, not HandleCommand. Without
+		// this branch the live-metrics command falls into `default` and
+		// the agent rejects it with "unknown command type", so the page
+		// never sees a `metrics_sample` and CPU/RAM look frozen.
+		mode, _ := cmd.Payload["mode"].(string)
+		if mode == "live" {
+			windowSec := 60.0
+			if w, ok := cmd.Payload["windowSec"].(float64); ok && w > 0 {
+				windowSec = w
+			}
+			TriggerLiveMetrics(int(windowSec))
+		} else {
+			TriggerImmediatePush()
+		}
+		return map[string]string{"message": "live metrics ack"}, nil
 	default:
 		return nil, fmt.Errorf("unknown command type: %s", cmd.Type)
 	}
