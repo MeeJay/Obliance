@@ -34,6 +34,13 @@ export function AppLayout() {
     if (previous == null) return;                  // app boot — keep deep link
     if (currentTenantId == null) return;           // logout / mid-fetch
     if (previous === currentTenantId) return;       // unchanged — no-op
+    // The "open device on another tenant" CTA in DeviceDetailPage explicitly
+    // wants the URL to survive the tenant switch — it sets this flag right
+    // before calling setCurrentTenant. Honour it once and clear it.
+    if (sessionStorage.getItem('skipTenantSwitchRedirect') === '1') {
+      sessionStorage.removeItem('skipTenantSwitchRedirect');
+      return;
+    }
     navigate('/', { replace: true });
   }, [currentTenantId, navigate]);
 

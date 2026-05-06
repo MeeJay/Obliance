@@ -1,12 +1,74 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { tenantService } from '../services/tenant.service';
+import { permissionService } from '../services/permission.service';
+import { db } from '../db';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
 // All tenant routes require auth
 router.use(requireAuth);
+
+// ── Locate a device across the user's tenants ─────────────────────────────
+// GET /api/tenants/locate-device/:id
+//
+// Resolves which tenant a device belongs to, used when the user follows a
+// shared deep-link (`/devices/123`) while connected to the wrong tenant.
+// We deliberately collapse "device doesn't exist" and "user has no access"
+// into the same 404 to avoid leaking the existence of devices the caller
+// can't see.
+//
+// Returns: { deviceId, hostname, displayName, tenantId, tenantName,
+//            tenantSlug, currentTenantId } on success.
+router.get('/locate-device/:id', async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    if (!Number.isFinite(deviceId)) throw new AppError(400, 'Invalid device ID');
+
+    const userId = req.session.userId!;
+    const isPlatformAdmin = req.session.role === 'admin';
+
+    const row = await db('devices')
+      .leftJoin('tenants', 'devices.tenant_id', 'tenants.id')
+      .where('devices.id', deviceId)
+      .first(
+        'devices.id as id',
+        'devices.tenant_id as tenantId',
+        'devices.hostname as hostname',
+        'devices.display_name as displayName',
+        'tenants.name as tenantName',
+        'tenants.slug as tenantSlug',
+      );
+
+    if (!row) return res.status(404).json({ error: 'Device not found' });
+
+    // Access gate: platform admins always pass; otherwise the user must
+    // be a member of the device's tenant AND have device-read permission
+    // through one of their teams. Mirrors the requireDeviceRead middleware
+    // used by /api/devices/:id, so no privilege escalation here.
+    let allowed = isPlatformAdmin;
+    if (!allowed) {
+      const hasTenantMembership = await tenantService.userHasAccess(userId, row.tenantId);
+      if (hasTenantMembership) {
+        allowed = await permissionService.canReadDevice(userId, deviceId, false);
+      }
+    }
+    if (!allowed) return res.status(404).json({ error: 'Device not found' });
+
+    res.json({
+      data: {
+        deviceId: row.id,
+        hostname: row.hostname,
+        displayName: row.displayName,
+        tenantId: row.tenantId,
+        tenantName: row.tenantName,
+        tenantSlug: row.tenantSlug,
+        currentTenantId: req.session.currentTenantId ?? null,
+      },
+    });
+  } catch (err) { next(err); }
+});
 
 // ── Tenant switch ──────────────────────────────────────────────────────────
 // POST /api/tenant/switch  { tenantId: number }

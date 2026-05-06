@@ -1358,6 +1358,11 @@
   },
   "deviceDetail": {
     "tabSettings": "Settings",
+    "notFound": "Device not found",
+    "locate": {
+      "switching": "Switching to {{tenant}}…",
+      "backLink": "← Back to devices"
+    },
     "settings": {
       "identity": "Identity",
       "displayName": "Display name",

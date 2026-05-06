@@ -898,6 +898,11 @@
       "autoRemediationDesc": "Konformitätsrichtlinien erlauben, Korrekturskripte auf diesem Gerät auszuführen. Deaktivieren Sie dies, wenn das Gerät in einem bestimmten Zustand bleiben muss.",
       "autoRemediationDisabledWarning": "Automatische Behebung ist deaktiviert. Fehlgeschlagene Regeln werden gemeldet, aber keine Skripte ausgeführt.",
       "saveSettings": "Einstellungen speichern"
+    },
+    "notFound": "Gerät nicht gefunden",
+    "locate": {
+      "switching": "Wechsel zu {{tenant}}…",
+      "backLink": "← Zurück zu den Geräten"
     }
   },
   "users": {

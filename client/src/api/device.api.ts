@@ -183,6 +183,26 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);
     return res.data.data!;
   },
+  /** Resolve which tenant a device lives in. Used when the user follows a
+   *  shared deep-link to a device on another tenant — we offer to switch
+   *  rather than just showing "Device not found". Returns null if the
+   *  device doesn't exist or the user has no access to it. */
+  async locate(deviceId: number): Promise<{
+    deviceId: number;
+    hostname: string;
+    displayName: string | null;
+    tenantId: number;
+    tenantName: string;
+    tenantSlug: string;
+    currentTenantId: number | null;
+  } | null> {
+    try {
+      const res = await apiClient.get<ApiResponse<any>>(`/tenants/locate-device/${deviceId}`);
+      return res.data.data ?? null;
+    } catch {
+      return null;
+    }
+  },
   async update(id: number, data: Partial<Pick<Device, 'displayName' | 'description' | 'groupId' | 'tags' | 'customFields' | 'displayConfig' | 'pushIntervalSeconds' | 'scanIntervalSeconds' | 'overrideGroupSettings' | 'maxMissedPushes' | 'notificationTypes' | 'sensorDisplayNames' | 'complianceRemediationEnabled' | 'purchaseDate' | 'warrantyExpiry' | 'warrantyVendor' | 'warrantyStatus' | 'expectedLifetimeYears' | 'lifecycleStatus' | 'thresholdsOverride'>>): Promise<Device> {
     const res = await apiClient.patch<ApiResponse<Device>>(`/devices/${id}`, data);
     return res.data.data!;

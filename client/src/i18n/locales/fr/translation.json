@@ -1358,6 +1358,11 @@
   },
   "deviceDetail": {
     "tabSettings": "Paramètres",
+    "notFound": "Appareil introuvable",
+    "locate": {
+      "switching": "Bascule vers {{tenant}}…",
+      "backLink": "← Retour aux appareils"
+    },
     "settings": {
       "identity": "Identité",
       "displayName": "Nom d'affichage",

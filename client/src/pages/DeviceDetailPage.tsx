@@ -33,6 +33,7 @@ import { remoteApi, type ObliReachSession } from '@/api/remote.api';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { useChatStore } from '@/store/chatStore';
 import { useDeviceStore } from '@/store/deviceStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
@@ -4287,6 +4288,14 @@ export function DeviceDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Cross-tenant auto-switch: when the deep-link points to a device that
+  // isn't visible under the active tenant, ask the server which tenant
+  // owns it. The server only answers when the caller actually has access
+  // to that tenant, so we can silently switch without a confirmation
+  // step. While the switch is in flight we show a small "switching"
+  // loader instead of the dead-end "Device not found".
+  const [tenantSwitchTarget, setTenantSwitchTarget] = useState<string | null>(null);
+
   // Inline rename + note editing (header-level).
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -4584,14 +4593,53 @@ export function DeviceDetailPage() {
     }
   };
 
+  // Re-fetch when the tenant changes so the device load retries after a
+  // silent cross-tenant switch (deviceId stays the same, only the tenant
+  // flips).
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       setIsLoading(true);
-      await fetchDevice(deviceId);
+      setTenantSwitchTarget(null);
+      const dev = await fetchDevice(deviceId);
+      if (cancelled) return;
+      if (dev) {
+        setIsLoading(false);
+        return;
+      }
+      // Device not visible under the current tenant — try to locate it.
+      // The server only returns the tenant when the caller has access to
+      // it; otherwise we fall through to the regular "Device not found".
+      const located = await deviceApi.locate(deviceId);
+      if (cancelled) return;
+      if (located && located.currentTenantId !== located.tenantId) {
+        // Silent switch: keep isLoading true so the UI shows the spinner
+        // (with the target tenant name) instead of "Device not found"
+        // mid-flight. AppLayout's reset-to-/ effect is suppressed via
+        // sessionStorage so the URL survives the tenant change.
+        setTenantSwitchTarget(located.tenantName);
+        sessionStorage.setItem('skipTenantSwitchRedirect', '1');
+        try {
+          await useTenantStore.getState().setCurrentTenant(located.tenantId);
+          // The currentTenantId dep change will re-run this effect; we
+          // just need to keep the loading state until that happens.
+        } catch {
+          // Server refused the switch (rare — would mean the access
+          // check raced). Drop the spinner and show "Device not found".
+          if (!cancelled) {
+            sessionStorage.removeItem('skipTenantSwitchRedirect');
+            setTenantSwitchTarget(null);
+            setIsLoading(false);
+          }
+        }
+        return;
+      }
       setIsLoading(false);
     };
     load();
-  }, [deviceId, fetchDevice]);
+    return () => { cancelled = true; };
+  }, [deviceId, fetchDevice, currentTenantId]);
 
   const device = selectedDevice;
 
@@ -4670,8 +4718,14 @@ export function DeviceDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
         <RefreshCw className="w-6 h-6 animate-spin text-text-muted" />
+        {tenantSwitchTarget && (
+          <p className="text-sm text-text-muted">
+            {t('deviceDetail.locate.switching', { tenant: tenantSwitchTarget })
+              || `Switching to ${tenantSwitchTarget}…`}
+          </p>
+        )}
       </div>
     );
   }
@@ -4679,8 +4733,10 @@ export function DeviceDetailPage() {
   if (!device) {
     return (
       <div className="p-6 text-center">
-        <p className="text-text-muted">Device not found</p>
-        <Link to="/devices" className="mt-2 inline-block text-sm text-accent">← Back to devices</Link>
+        <p className="text-text-muted">{t('deviceDetail.notFound') || 'Device not found'}</p>
+        <Link to="/devices" className="mt-2 inline-block text-sm text-accent">
+          {t('deviceDetail.locate.backLink') || '← Back to devices'}
+        </Link>
       </div>
     );
   }

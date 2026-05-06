@@ -898,6 +898,11 @@
       "autoRemediationDesc": "Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off).",
       "autoRemediationDisabledWarning": "Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.",
       "saveSettings": "Save settings"
+    },
+    "notFound": "Nie znaleziono urządzenia",
+    "locate": {
+      "switching": "Przełączanie na {{tenant}}…",
+      "backLink": "← Powrót do urządzeń"
     }
   },
   "users": {

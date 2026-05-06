@@ -1130,6 +1130,11 @@
       "autoRemediationDesc": "Permitir que las políticas de cumplimiento ejecuten scripts de corrección automáticamente. Deshabilite si este dispositivo debe permanecer en un estado específico.",
       "autoRemediationDisabledWarning": "La remediación automática está deshabilitada.",
       "saveSettings": "Guardar configuración"
+    },
+    "notFound": "Dispositivo no encontrado",
+    "locate": {
+      "switching": "Cambiando a {{tenant}}…",
+      "backLink": "← Volver a dispositivos"
     }
   },
   "updates": {
