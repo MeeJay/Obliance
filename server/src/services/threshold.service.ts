@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { MetricThresholds, MetricThreshold } from '@obliance/shared';
+import type { MetricThresholds, MetricThreshold, GenericMetricKind } from '@obliance/shared';
 import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 
 // Lot D.2 — Threshold cascade resolver.
@@ -24,15 +24,28 @@ interface ResolverInput {
   deviceOverride?: MetricThresholds | null;
 }
 
+/**
+ * Resolved thresholds for a single device — every metric carries a
+ * fully-populated { warn, crit }. `diskByMount` is the per-mount-point
+ * override map (tighter / looser thresholds on a specific drive); the
+ * default `disk` slot still applies to mounts not listed.
+ */
+export interface ResolvedThresholds {
+  cpu:  Required<MetricThreshold>;
+  ram:  Required<MetricThreshold>;
+  disk: Required<MetricThreshold>;
+  diskByMount: Record<string, Required<MetricThreshold>>;
+}
+
 export const thresholdService = {
   /**
    * Merge the cascade for a single metric kind. Returns a fully-populated
    * { warn, crit } pair so callers never have to deal with undefined.
    */
-  resolveMetric(metric: keyof typeof SYSTEM_DEFAULT_THRESHOLDS, input: ResolverInput): Required<MetricThreshold> {
+  resolveMetric(metric: GenericMetricKind, input: ResolverInput): Required<MetricThreshold> {
     const sys = SYSTEM_DEFAULT_THRESHOLDS[metric];
-    const grp = (input.groupThresholds ?? {})[metric] ?? {};
-    const dev = (input.deviceOverride  ?? {})[metric] ?? {};
+    const grp = ((input.groupThresholds ?? {})[metric] ?? {}) as MetricThreshold;
+    const dev = ((input.deviceOverride  ?? {})[metric] ?? {}) as MetricThreshold;
     return {
       warn: dev.warn ?? grp.warn ?? sys.warn,
       crit: dev.crit ?? grp.crit ?? sys.crit,
@@ -45,7 +58,7 @@ export const thresholdService = {
    * dashboards (e.g. saturated-disks scan) prefer `resolveMany` which uses
    * a single grouped query.
    */
-  async resolveForDevice(deviceId: number): Promise<Record<keyof typeof SYSTEM_DEFAULT_THRESHOLDS, Required<MetricThreshold>>> {
+  async resolveForDevice(deviceId: number): Promise<ResolvedThresholds> {
     const row = await db('devices as d')
       .leftJoin('device_groups as g', 'g.id', 'd.group_id')
       .where('d.id', deviceId)
@@ -59,8 +72,8 @@ export const thresholdService = {
    * dashboard saturated-disks card so we don't issue N queries on a fleet
    * scan. Returns a Map keyed by deviceId.
    */
-  async resolveMany(deviceIds: number[]): Promise<Map<number, Record<keyof typeof SYSTEM_DEFAULT_THRESHOLDS, Required<MetricThreshold>>>> {
-    const out = new Map<number, Record<keyof typeof SYSTEM_DEFAULT_THRESHOLDS, Required<MetricThreshold>>>();
+  async resolveMany(deviceIds: number[]): Promise<Map<number, ResolvedThresholds>> {
+    const out = new Map<number, ResolvedThresholds>();
     if (deviceIds.length === 0) return out;
     const rows = await db('devices as d')
       .leftJoin('device_groups as g', 'g.id', 'd.group_id')
@@ -76,15 +89,114 @@ export const thresholdService = {
     return out;
   },
 
-  _merge(deviceOverride: MetricThresholds | null, groupThresholds: MetricThresholds | null): Record<keyof typeof SYSTEM_DEFAULT_THRESHOLDS, Required<MetricThreshold>> {
+  _merge(deviceOverride: MetricThresholds | null, groupThresholds: MetricThresholds | null): ResolvedThresholds {
     const input = { groupThresholds, deviceOverride };
+    // Merge per-mount disk overrides — device wins per key over group.
+    const byMount: Record<string, Required<MetricThreshold>> = {};
+    const baseDisk = this.resolveMetric('disk', input);
+    const merged: Record<string, MetricThreshold> = {
+      ...(groupThresholds?.diskByMount ?? {}),
+      ...(deviceOverride?.diskByMount ?? {}),
+    };
+    for (const [mount, t] of Object.entries(merged)) {
+      byMount[mount] = { warn: t.warn ?? baseDisk.warn, crit: t.crit ?? baseDisk.crit };
+    }
     return {
-      disk: this.resolveMetric('disk', input),
+      disk: baseDisk,
       cpu:  this.resolveMetric('cpu',  input),
       ram:  this.resolveMetric('ram',  input),
+      diskByMount: byMount,
     };
   },
+
+  /**
+   * Compute the worst metric severity for a single push. Iterates cpu /
+   * ram / max disk percent, compares to the resolved thresholds, returns
+   * 'critical' if any metric is at-or-above its crit slot, else 'warning'
+   * if at-or-above warn, else 'ok'. Disk severity is taken from the
+   * fullest filesystem reported in the push so a single saturated drive
+   * pulls the device into warning even if the others are quiet.
+   *
+   * Also returns the breach details (which metric, at what %, against
+   * which threshold) for the notification body.
+   */
+  computeMetricStatus(
+    metrics: { cpu?: { percent?: number | null }; memory?: { percent?: number | null }; disks?: Array<{ mount?: string; percent?: number | null; fstype?: string; removable?: boolean }> } | null | undefined,
+    thresholds: ResolvedThresholds,
+  ): { status: 'ok' | 'warning' | 'critical'; breaches: Array<{ metric: 'cpu' | 'ram' | 'disk'; percent: number; level: 'warning' | 'critical'; mount?: string }> } {
+    const breaches: Array<{ metric: 'cpu' | 'ram' | 'disk'; percent: number; level: 'warning' | 'critical'; mount?: string }> = [];
+    if (!metrics) return { status: 'ok', breaches };
+
+    const evalAgainst = (metric: 'cpu' | 'ram' | 'disk', pct: number | null | undefined, t: Required<MetricThreshold>, mount?: string) => {
+      if (pct == null || !Number.isFinite(pct)) return;
+      if (pct >= t.crit)      breaches.push({ metric, percent: pct, level: 'critical', mount });
+      else if (pct >= t.warn) breaches.push({ metric, percent: pct, level: 'warning', mount });
+    };
+    evalAgainst('cpu', metrics.cpu?.percent ?? null, thresholds.cpu);
+    evalAgainst('ram', metrics.memory?.percent ?? null, thresholds.ram);
+    if (Array.isArray(metrics.disks) && metrics.disks.length > 0) {
+      // Per-mount: every disk is evaluated against its specific
+      // override (or the default disk threshold when no override is
+      // set). Each saturated mount produces its own breach so the
+      // notification body and the trigger filter both know which
+      // drive crossed. Removable / optical disks are skipped — a 100%
+      // full ISO is normal, and a USB key shouldn't trigger fleet-wide
+      // alerts the way a system disk does.
+      for (const d of metrics.disks) {
+        if (isExcludedDisk(d)) continue;
+        const mount = d.mount;
+        const pct = typeof d.percent === 'number' ? d.percent : null;
+        const t = (mount && thresholds.diskByMount[mount]) ? thresholds.diskByMount[mount] : thresholds.disk;
+        evalAgainst('disk', pct, t, mount);
+      }
+    }
+
+    let status: 'ok' | 'warning' | 'critical' = 'ok';
+    for (const b of breaches) {
+      if (b.level === 'critical') { status = 'critical'; break; }
+      if (b.level === 'warning')  status = 'warning';
+    }
+    return { status, breaches };
+  },
 };
+
+/**
+ * Decide whether a disk should be skipped by every threshold pipeline
+ * (notifications, status flip, dashboard saturated card, scenario
+ * triggers). Three signals:
+ *
+ *   1. Agent-reported `removable` flag (Windows GetDriveType, Linux
+ *      /sys/block/*\/removable, macOS DiskArbitration). Most reliable
+ *      when present.
+ *   2. Filesystem type — iso9660 / udf / cdfs are optical media, full
+ *      by nature.
+ *   3. Mount-path heuristic — covers older agents that don't yet
+ *      populate `removable`/`fstype`. Conservative: only matches paths
+ *      that are unambiguously external (`/media/<user>/`, `/mnt/`,
+ *      `/run/media/`, macOS `/Volumes/*` except boot, Windows mounts
+ *      without a stable letter aren't filterable here — they need
+ *      the agent flag).
+ *
+ * The whole helper is exported so the dashboard's saturated-disks
+ * scan reuses the same logic.
+ */
+export function isExcludedDisk(d: { mount?: string; fstype?: string; removable?: boolean }): boolean {
+  if (d.removable === true) return true;
+  const fs = (d.fstype ?? '').toLowerCase();
+  if (fs === 'iso9660' || fs === 'udf' || fs === 'cdfs') return true;
+  const mount = d.mount ?? '';
+  // Linux convention — mount points under /media or /mnt are usually
+  // user-mounted external drives. We exclude /run/media/ for the same
+  // reason (systemd's auto-mount path).
+  if (/^\/(media|mnt|run\/media)(\/|$)/.test(mount)) return true;
+  // macOS mounts every external volume under /Volumes; the boot disk
+  // is the special "Macintosh HD" or the user-renamed equivalent
+  // attached at /. We can't tell from path alone whether a /Volumes/*
+  // entry is the boot volume or a USB key, so we exclude all of them
+  // for safety. The boot disk itself shows up at `/`.
+  if (/^\/Volumes\//.test(mount)) return true;
+  return false;
+}
 
 function parseJson(value: unknown): MetricThresholds | null {
   if (value == null) return null;

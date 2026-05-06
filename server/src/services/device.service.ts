@@ -90,6 +90,7 @@ class DeviceService {
       thresholdsOverride: row.thresholds_override
         ? (typeof row.thresholds_override === 'string' ? JSON.parse(row.thresholds_override) : row.thresholds_override)
         : {},
+      metricAlertsEnabled: typeof row.metric_alerts_enabled === 'boolean' ? row.metric_alerts_enabled : null,
       displayConfig: row.display_config || {},
       sensorDisplayNames: row.sensor_display_names || {},
       notificationTypes: row.notification_types || {},
@@ -411,6 +412,8 @@ class DeviceService {
     /** Lot D.2 — per-device override of metric thresholds. Empty object
      *  resets the override and falls back to group/system defaults. */
     thresholdsOverride: import('@obliance/shared').MetricThresholds;
+    /** Tri-state metric alert toggle. `null` inherits from the group. */
+    metricAlertsEnabled: boolean | null;
   }>) {
     const updates: any = { updated_at: new Date() };
     if (data.displayName !== undefined) updates.display_name = data.displayName;
@@ -433,6 +436,7 @@ class DeviceService {
     if (data.expectedLifetimeYears !== undefined) updates.expected_lifetime_years = data.expectedLifetimeYears;
     if (data.lifecycleStatus !== undefined) updates.lifecycle_status = data.lifecycleStatus;
     if (data.thresholdsOverride !== undefined) updates.thresholds_override = JSON.stringify(data.thresholdsOverride);
+    if (data.metricAlertsEnabled !== undefined) updates.metric_alerts_enabled = data.metricAlertsEnabled;
 
     await db('devices').where({ id, tenant_id: tenantId }).update(updates);
     const updated = await this.getDeviceById(id, tenantId);
@@ -730,10 +734,13 @@ class DeviceService {
     const now = new Date();
 
     // Capture previous status + version to detect transitions
-    const prev = await db('devices').where({ id: deviceId }).select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id').first();
+    const prev = await db('devices').where({ id: deviceId })
+      .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'metric_alerts_enabled')
+      .first();
     const prevStatus = prev?.status as string | undefined;
     const prevVersion = prev?.agent_version as string | undefined;
     const prevOfflineAt = prev?.last_offline_at ? new Date(prev.last_offline_at) : null;
+    const prevMetricStatus = (prev?.last_metric_status ?? null) as 'ok' | 'warning' | 'critical' | null;
     const prevPrivacy = !!prev?.privacy_mode_enabled;
     const prevAirgap = !!prev?.airgap_enabled;
 
@@ -762,6 +769,114 @@ class DeviceService {
       .where({ id: deviceId })
       .whereNot({ status: 'pending_uninstall' })
       .update({ status: 'online', update_started_at: null });
+
+    // ── Metric thresholds → device status + alerts ────────────────────────
+    // After the device is back to 'online' from the push, compare the
+    // freshly-pushed cpu/ram/disk percentages against the resolved
+    // thresholds (system → group → device override) and lift the
+    // status to 'warning' or 'critical' when one of them breaches.
+    // We touch the status only when the device is in a "clean" state
+    // (online / warning / critical) — never overwrite a manual
+    // `suspended` or in-flight `updating` etc.
+    //
+    // Notifications fire ONLY on transition (e.g. ok → warning,
+    // warning → critical, anything → ok recovery) to avoid flooding
+    // the user when a metric stays bad for hours.
+    try {
+      // Cascade enable flag: device > group > default(true). NULL means
+      // "inherit from parent layer". Group's null also means "use the
+      // system default" (true).
+      let alertsEnabled = true;
+      if (typeof prev?.metric_alerts_enabled === 'boolean') {
+        alertsEnabled = prev.metric_alerts_enabled;
+      } else if (prev?.group_id) {
+        const grp = await db('device_groups').where({ id: prev.group_id }).select('metric_alerts_enabled').first() as { metric_alerts_enabled: boolean | null } | undefined;
+        if (typeof grp?.metric_alerts_enabled === 'boolean') alertsEnabled = grp.metric_alerts_enabled;
+      }
+
+      if (alertsEnabled && push.metrics) {
+        const { thresholdService } = await import('./threshold.service');
+        const thresholds = await thresholdService.resolveForDevice(deviceId);
+        const { status: metricStatus, breaches } = thresholdService.computeMetricStatus(push.metrics as any, thresholds);
+
+        // Resolve target status. Skip overrides when the device is in a
+        // protected state (in-flight updates, suspended, pending uninstall).
+        const PROTECTED = new Set(['pending_uninstall', 'updating', 'update_error', 'suspended', 'pending']);
+        const dbRow = await db('devices').where({ id: deviceId }).select('status').first() as { status: string } | undefined;
+        const currentDbStatus = dbRow?.status ?? 'online';
+        const protectedNow = PROTECTED.has(currentDbStatus);
+
+        // Map metric severity → device status. 'ok' rolls back to online.
+        const targetStatus = metricStatus === 'critical' ? 'critical' : (metricStatus === 'warning' ? 'warning' : 'online');
+        if (!protectedNow && currentDbStatus !== targetStatus) {
+          await db('devices').where({ id: deviceId }).update({ status: targetStatus });
+          if (this.io) {
+            this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: targetStatus });
+          }
+        }
+
+        // Fire a notification only on transitions of the metric status,
+        // not at every push that stays in the same severity. We persist
+        // the latest metric status separately from the device status so
+        // a user-triggered reboot to 'updating' doesn't reset the diff.
+        if (prevMetricStatus !== metricStatus) {
+          await db('devices').where({ id: deviceId }).update({ last_metric_status: metricStatus });
+          // Only notify on entering or exiting a non-ok state — silent
+          // ok→ok transitions are obviously not worth a ping.
+          const becameBad = metricStatus !== 'ok' && (prevMetricStatus == null || prevMetricStatus === 'ok' || (prevMetricStatus === 'warning' && metricStatus === 'critical'));
+          const recovered = metricStatus === 'ok' && prevMetricStatus !== 'ok' && prevMetricStatus != null;
+          if (becameBad || recovered) {
+            try {
+              const { notificationService } = await import('./notification.service');
+              const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
+              const name = dev?.display_name || dev?.hostname || `#${deviceId}`;
+              const violations = breaches.map((b) => {
+                const pct = Math.round(b.percent);
+                const t = thresholds[b.metric];
+                const limit = b.level === 'critical' ? t.crit : t.warn;
+                const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
+                return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
+              });
+              // sendForAgent fires only on transition (it diffs newStatus
+              // vs previousStatus). 'alert' ↔ 'up' are the agreed event
+              // names — match the existing schedule-failure path.
+              await notificationService.sendForAgent(
+                deviceId,
+                name,
+                recovered ? 'up' : 'alert',
+                prevMetricStatus ?? 'ok',
+                violations,
+                metricStatus === 'critical' ? 'alert' : (metricStatus === 'warning' ? 'alert' : 'up'),
+              );
+            } catch (notifyErr) {
+              logger.error(notifyErr, 'metric-threshold notification failed');
+            }
+
+            // Scenario trigger — only on transitions INTO warning or
+            // critical. Recoveries don't fire (admins don't usually
+            // automate "everything is fine again"). The trigger node's
+            // graph receives the breach details via trigger_source so
+            // downstream nodes can read which metric tripped.
+            if (becameBad) {
+              try {
+                const { scenarioService } = await import('./scenario.service');
+                const triggerType = metricStatus === 'critical' ? 'metric_critical' : 'metric_warning';
+                await scenarioService.fireTrigger(triggerType, deviceId, tenantId, {
+                  // Pass the breach summary so a future per-trigger-node
+                  // filter ("only fire on disk crit") could match. For
+                  // now the engine just records it in trigger_source.
+                  metricBreaches: breaches,
+                } as any);
+              } catch (triggerErr) {
+                logger.error(triggerErr, 'metric-threshold scenario trigger failed');
+              }
+            }
+          }
+        }
+      }
+    } catch (thresholdErr) {
+      logger.error(thresholdErr, 'metric-threshold evaluation failed');
+    }
 
     // Watchdog: if the agent reports that it was restarted by the watchdog
     // since the last push, increment the running total and store the latest
@@ -1316,7 +1431,7 @@ class DeviceService {
       return { count: 0, threshold: minThresholdFloor, top: [] };
     }
 
-    const { thresholdService } = await import('./threshold.service');
+    const { thresholdService, isExcludedDisk } = await import('./threshold.service');
     const thresholdMap = await thresholdService.resolveMany(rows.map(r => r.id));
 
     const saturated: { deviceId: number; hostname: string; displayName: string | null; pct: number; mountpoint: string; warn: number }[] = [];
@@ -1325,9 +1440,20 @@ class DeviceService {
       try {
         const m = typeof r.latest_metrics === 'string' ? JSON.parse(r.latest_metrics) : r.latest_metrics;
         const resolved = thresholdMap.get(r.id);
-        const warn = Math.max(resolved?.disk.warn ?? 85, minThresholdFloor);
-        const disks = (m?.disks ?? []) as { mount?: string; percent?: number }[];
+        const baseWarn = Math.max(resolved?.disk.warn ?? 85, minThresholdFloor);
+        const disks = (m?.disks ?? []) as { mount?: string; percent?: number; fstype?: string; removable?: boolean }[];
         for (const d of disks) {
+          // Skip USB sticks, optical media and other removable mounts —
+          // a 100% full ISO is normal and a saturated USB key would
+          // pollute the dashboard "disque saturé" card forever.
+          if (isExcludedDisk(d)) continue;
+          // Per-mount threshold override — if the admin set a tighter
+          // (or looser) value for this specific mount on this device
+          // / its group, we evaluate against that one rather than the
+          // generic disk warn. We still floor with `minThresholdFloor`
+          // so the dashboard's "minimum visible" knob keeps working.
+          const perMount = d.mount && resolved?.diskByMount[d.mount] ? resolved.diskByMount[d.mount].warn : null;
+          const warn = Math.max(perMount ?? baseWarn, minThresholdFloor);
           const pct = typeof d.percent === 'number' ? d.percent : 0;
           if (pct >= warn) {
             saturated.push({

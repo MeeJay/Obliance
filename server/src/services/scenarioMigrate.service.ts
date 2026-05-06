@@ -33,6 +33,8 @@ const TRIGGER_NODE_TYPE: Record<ScenarioTriggerType, ScenarioNodeType> = {
   schedule_failure: 'trigger_schedule_failure',
   schedule_cron:    'trigger_schedule_cron',
   agent_back_online: 'trigger_agent_back_online',
+  metric_warning:    'trigger_metric_warning',
+  metric_critical:   'trigger_metric_critical',
 };
 
 /**

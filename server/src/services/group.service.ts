@@ -33,6 +33,7 @@ function rowToGroup(row: GroupRow): DeviceGroup {
     thresholds: row.thresholds
       ? (typeof row.thresholds === 'string' ? JSON.parse(row.thresholds) : row.thresholds)
       : {},
+    metricAlertsEnabled: typeof (row as any).metric_alerts_enabled === 'boolean' ? (row as any).metric_alerts_enabled : null,
     uuid: row.uuid,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -123,6 +124,8 @@ export const groupService = {
       groupNotifications?: boolean;
       groupConfig?: DeviceGroupConfig;
       thresholds?: MetricThresholds;
+      /** Tri-state metric alerts toggle. `null` = use system default (true). */
+      metricAlertsEnabled?: boolean | null;
     },
   ): Promise<DeviceGroup | null> {
     const updateData: Record<string, unknown> = { updated_at: new Date() };
@@ -136,6 +139,7 @@ export const groupService = {
     if (data.groupNotifications !== undefined) updateData.group_notifications = data.groupNotifications;
     if (data.groupConfig !== undefined) updateData.group_config = JSON.stringify(data.groupConfig);
     if (data.thresholds !== undefined) updateData.thresholds = JSON.stringify(data.thresholds);
+    if (data.metricAlertsEnabled !== undefined) updateData.metric_alerts_enabled = data.metricAlertsEnabled;
 
     const [row] = await db<GroupRow>('device_groups')
       .where({ id })

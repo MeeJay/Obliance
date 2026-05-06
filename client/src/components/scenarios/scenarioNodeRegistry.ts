@@ -52,6 +52,22 @@ export const NODE_TYPES: NodeTypeMeta[] = [
       { key: 'offlineDelaySeconds', label: 'Minimum offline duration (seconds)', kind: 'number', placeholder: '60', required: true },
     ],
   },
+  { type: 'trigger_metric_warning',  label: 'Metric → warning', category: 'trigger', accent: 'border-amber-400',
+    hint: 'Fires when CPU/RAM/Disk crosses the warn threshold (transition only)',
+    defaultConfig: { metric: '', mount: '' },
+    fields: [
+      { key: 'metric', label: 'Metric (cpu/ram/disk, blank=any)', kind: 'text', placeholder: 'disk' },
+      { key: 'mount',  label: 'Disk mount filter (blank=any drive)',  kind: 'text', placeholder: '/var or D:' },
+    ],
+  },
+  { type: 'trigger_metric_critical', label: 'Metric → critical', category: 'trigger', accent: 'border-red-400',
+    hint: 'Fires when CPU/RAM/Disk crosses the crit threshold (transition only)',
+    defaultConfig: { metric: '', mount: '' },
+    fields: [
+      { key: 'metric', label: 'Metric (cpu/ram/disk, blank=any)', kind: 'text', placeholder: 'disk' },
+      { key: 'mount',  label: 'Disk mount filter (blank=any drive)',  kind: 'text', placeholder: '/var or D:' },
+    ],
+  },
 
   // ── Actions ──────────────────────────────────────────────────────────────
   { type: 'run_script', label: 'Run script', category: 'action', accent: 'border-accent', hint: 'Execute a script on the device',

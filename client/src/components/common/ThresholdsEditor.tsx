@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { HardDrive, Cpu, MemoryStick, type LucideIcon } from 'lucide-react';
-import type { MetricThresholds } from '@obliance/shared';
+import type { MetricThresholds, GenericMetricKind } from '@obliance/shared';
 import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 
 // Lot D.2 — Threshold editor reused on the GroupEditPage and the
@@ -9,7 +9,7 @@ import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 // itself inherits the system default).
 
 const METRICS: Array<{
-  key: keyof MetricThresholds;
+  key: GenericMetricKind;
   label: string;
   icon: LucideIcon;
 }> = [
@@ -33,7 +33,7 @@ interface Props {
 export function ThresholdsEditor({ value, onChange, inheritedFrom, layer = 'group' }: Props) {
   const { t } = useTranslation();
 
-  const setSlot = (metric: keyof MetricThresholds, slot: 'warn' | 'crit', raw: string) => {
+  const setSlot = (metric: GenericMetricKind, slot: 'warn' | 'crit', raw: string) => {
     const next: MetricThresholds = { ...value };
     const m = { ...(next[metric] ?? {}) };
     if (raw === '') {
@@ -51,7 +51,7 @@ export function ThresholdsEditor({ value, onChange, inheritedFrom, layer = 'grou
     onChange(next);
   };
 
-  const placeholder = (metric: keyof MetricThresholds, slot: 'warn' | 'crit'): string => {
+  const placeholder = (metric: GenericMetricKind, slot: 'warn' | 'crit'): string => {
     const inherited = inheritedFrom?.[metric]?.[slot];
     if (inherited != null) return String(inherited);
     return String(SYSTEM_DEFAULT_THRESHOLDS[metric][slot]);

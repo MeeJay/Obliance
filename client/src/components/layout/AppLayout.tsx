@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { DesktopUpdateBanner } from './DesktopUpdateBanner';
@@ -8,12 +8,34 @@ import { GlobalAddAgentModal } from './GlobalAddAgentModal';
 import { GlobalChatPanel } from './GlobalChatPanel';
 import { GlobalShellPanel } from './GlobalShellPanel';
 import { useUiStore } from '@/store/uiStore';
+import { useTenantStore } from '@/store/tenantStore';
 import { useSocket } from '@/hooks/useSocket';
 import { cn } from '@/utils/cn';
 
 export function AppLayout() {
   // Global socket subscriptions — always active regardless of which page is open
   useSocket();
+
+  // ── Tenant-switch safety net ──────────────────────────────────────────────
+  // Tenant-scoped pages (device detail, group detail, scenario edit, etc.)
+  // hold an ID in the URL that only resolves under the active tenant. When
+  // the user switches tenants, that ID becomes a 404 ("Device not found")
+  // because the row is invisible behind the tenant filter. Sending the user
+  // back to the dashboard avoids the dead-end and is a sensible reset
+  // regardless of where they were — every tenant has a fresh dashboard.
+  // The very first transition (null → first tenant on app boot) is skipped
+  // so we don't bounce away from a deep-link the user hit while logging in.
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  const previousTenantIdRef = useRef<number | null>(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const previous = previousTenantIdRef.current;
+    previousTenantIdRef.current = currentTenantId;
+    if (previous == null) return;                  // app boot — keep deep link
+    if (currentTenantId == null) return;           // logout / mid-fetch
+    if (previous === currentTenantId) return;       // unchanged — no-op
+    navigate('/', { replace: true });
+  }, [currentTenantId, navigate]);
 
   const { sidebarOpen, sidebarWidth, setSidebarWidth, sidebarFloating, sidebarCollapsed } = useUiStore();
   const dragging = useRef(false);

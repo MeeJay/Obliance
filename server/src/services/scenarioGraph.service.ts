@@ -495,6 +495,8 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   trigger_schedule_failure: async () => ({ exitCode: null }),
   trigger_schedule_cron:    async () => ({ exitCode: null }),
   trigger_agent_back_online: async () => ({ exitCode: null }),
+  trigger_metric_warning:    async () => ({ exitCode: null }),
+  trigger_metric_critical:   async () => ({ exitCode: null }),
 
   // ── run_script — fires an agent command and parks. Resumes via
   // handleNodeCommandAck once the ack lands. The exit code captured at

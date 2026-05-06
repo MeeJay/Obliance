@@ -44,6 +44,16 @@ type DiskMetrics struct {
 	Percent          float64 `json:"percent"`
 	ReadBytesPerSec  uint64  `json:"readBytesPerSec,omitempty"`
 	WriteBytesPerSec uint64  `json:"writeBytesPerSec,omitempty"`
+	// Fstype is the filesystem type as seen by the OS (ext4, ntfs,
+	// iso9660, udf, vfat …). The server pipeline uses it to skip
+	// optical media (iso9660 / udf / cdfs) for threshold alerts —
+	// they're full by design.
+	Fstype string `json:"fstype,omitempty"`
+	// Removable is true when the OS reports the disk as removable
+	// (USB stick, SD card, external drive, optical media). The server
+	// excludes these from threshold evaluation to avoid noise: a
+	// saturated USB key shouldn't fire a fleet alert.
+	Removable bool `json:"removable,omitempty"`
 }
 
 type NetworkInterface struct {
@@ -590,6 +600,14 @@ func collectMetrics() Metrics {
 				TotalGB: math.Round(float64(usage.Total)/1073741824*10) / 10,
 				UsedGB:  math.Round(float64(usage.Used)/1073741824*10) / 10,
 				Percent: math.Round(usage.UsedPercent*10) / 10,
+				Fstype:  p.Fstype,
+				// Removable detection — best-effort across platforms.
+				// The agent passes the call through to a per-OS helper
+				// that uses the most reliable signal available
+				// (Windows GetDriveType, Linux /sys/block/X/removable,
+				// macOS DiskArbitration). Returns false when unsure so
+				// a real internal disk is never silently excluded.
+				Removable: isRemovableDisk(p.Device, p.Mountpoint, p.Fstype),
 			}
 
 			// Resolve device key for IOCounters map

@@ -401,7 +401,7 @@ export const scenarioService = {
   // 2. Triggers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number; offlineSeconds?: number }) {
+  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number; offlineSeconds?: number; metricBreaches?: Array<{ metric: string; percent: number; level: string; mount?: string }> }) {
     // Multi-trigger model: a single scenario may carry several trigger
     // nodes of the same kind (e.g. two cron schedules) or a mix of
     // kinds. The dispatcher therefore matches on scenario_nodes.type
@@ -446,6 +446,30 @@ export const scenarioService = {
           const actualSec = Number(data?.offlineSeconds ?? 0);
           if (!Number.isFinite(actualSec) || actualSec < requiredSec) {
             logger.debug({ scenarioId: scenario.id, deviceId, requiredSec, actualSec }, 'agent_back_online: outage too short, skipping flap');
+            continue;
+          }
+        }
+
+        // Metric warning / critical filter — each trigger node may
+        // restrict to a specific metric (cpu/ram/disk) or, for disk,
+        // a specific mount point. Empty filter = match anything. We
+        // keep the node only if at least ONE breach in the payload
+        // satisfies its filter; otherwise skip.
+        if (triggerType === 'metric_warning' || triggerType === 'metric_critical') {
+          const wantMetric = String(nodeConfig.metric ?? '').toLowerCase().trim();
+          const wantMount  = String(nodeConfig.mount ?? '').trim();
+          const breaches = Array.isArray(data?.metricBreaches) ? data!.metricBreaches : [];
+          // Severity must match the trigger type — a 'warning' breach
+          // alone can't fire trigger_metric_critical.
+          const wantLevel = triggerType === 'metric_critical' ? 'critical' : 'warning';
+          const matches = breaches.some((b) => {
+            if (b.level !== wantLevel) return false;
+            if (wantMetric && b.metric !== wantMetric) return false;
+            if (wantMount && (b.metric !== 'disk' || b.mount !== wantMount)) return false;
+            return true;
+          });
+          if (!matches) {
+            logger.debug({ scenarioId: scenario.id, deviceId, wantMetric, wantMount, breaches }, 'metric trigger: no breach matched node filter');
             continue;
           }
         }

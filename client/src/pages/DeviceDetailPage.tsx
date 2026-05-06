@@ -15,6 +15,8 @@ import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
 import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
 import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
+import { PerDiskThresholdsEditor } from '@/components/common/PerDiskThresholdsEditor';
+import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -2348,6 +2350,25 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
           onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
           layer="device"
         />
+        {/* Per-disk overrides — only shown when the agent has reported
+            at least one mount. Removable/optical drives are filtered
+            out by the editor itself. The "global" disk threshold above
+            still applies to mounts not listed here. */}
+        {(device.latestMetrics?.disks?.length ?? 0) > 0 && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <div className="text-xs uppercase text-text-muted tracking-wider mb-2">Override par disque</div>
+            <PerDiskThresholdsEditor
+              disks={device.latestMetrics!.disks!}
+              value={form.thresholdsOverride}
+              onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
+              inheritedDisk={
+                form.thresholdsOverride.disk?.warn != null && form.thresholdsOverride.disk?.crit != null
+                  ? { warn: form.thresholdsOverride.disk.warn, crit: form.thresholdsOverride.disk.crit }
+                  : SYSTEM_DEFAULT_THRESHOLDS.disk
+              }
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Tags ── */}
@@ -4222,6 +4243,25 @@ export function DeviceDetailPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuthStore();
   const fetchDevice = useDeviceStore((s) => s.fetchDevice);
+  const updateDeviceMetrics = useDeviceStore((s) => s.updateDeviceMetrics);
+  // Live metrics refresh — the agent push pipeline emits
+  // DEVICE_METRICS_PUSHED on every push, but the page wasn't subscribed
+  // so the displayed CPU/RAM/disk values stayed frozen until a manual
+  // refresh. We patch the in-memory device's `latestMetrics` so the
+  // metric bars + sensor cards re-render automatically.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const onMetrics = (msg: { deviceId: number; metrics: unknown }) => {
+      if (msg.deviceId !== deviceId) return;
+      // Defensive parse — the server normally sends a typed object,
+      // but legacy callers occasionally stringify it.
+      const metrics = (typeof msg.metrics === 'string' ? JSON.parse(msg.metrics) : msg.metrics) as import('@obliance/shared').DeviceMetrics;
+      updateDeviceMetrics(deviceId, metrics);
+    };
+    socket.on('DEVICE_METRICS_PUSHED', onMetrics);
+    return () => { socket.off('DEVICE_METRICS_PUSHED', onMetrics); };
+  }, [deviceId, updateDeviceMetrics]);
   // Explicit selector — Zustand re-renders this component whenever the
   // device row is mutated in the store (via socket events, push updates,
   // or local fetches). Without the selector, destructuring getDevice

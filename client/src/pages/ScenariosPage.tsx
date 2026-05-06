@@ -24,6 +24,8 @@ const TRIGGER_LABELS: Record<ScenarioTriggerType, string> = {
   schedule_cron: 'Cron Schedule',
   manual: 'Manual',
   agent_back_online: 'Agent Back Online',
+  metric_warning: 'Metric Warning',
+  metric_critical: 'Metric Critical',
 };
 
 const TRIGGER_COLORS: Record<ScenarioTriggerType, string> = {
@@ -35,6 +37,8 @@ const TRIGGER_COLORS: Record<ScenarioTriggerType, string> = {
   schedule_cron: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
   manual: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
   agent_back_online: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  metric_warning: 'text-amber-400 bg-amber-400/10 border-amber-400/30',
+  metric_critical: 'text-red-400 bg-red-400/10 border-red-400/30',
 };
 
 const STATUS_COLORS: Record<ScenarioStatus, string> = {

@@ -95,6 +95,10 @@ export interface DeviceGroup {
   /** Lot D.2 — per-group metric thresholds. Empty object means "use system
    *  default". Each metric key may set a `warn` and/or `crit` percentage. */
   thresholds: MetricThresholds;
+  /** Whether metric-threshold-driven status flips and notifications fire
+   *  for devices in this group, unless the device overrides individually.
+   *  `null` = use system default (true). */
+  metricAlertsEnabled: boolean | null;
   uuid: string;
   createdAt: string;
   updatedAt: string;
@@ -106,11 +110,18 @@ export interface DeviceGroup {
 export interface MetricThreshold { warn?: number; crit?: number }
 
 /** Lot D.2 — Map of metric kind → threshold pair. Stored verbatim in JSONB
- *  on both `device_groups.thresholds` and `devices.thresholds_override`. */
+ *  on both `device_groups.thresholds` and `devices.thresholds_override`.
+ *
+ *  `diskByMount` lets admins set per-mount-point overrides — e.g. tighter
+ *  thresholds on `/var` or `D:` than the default disk slot. Mounts not
+ *  listed fall back to the generic `disk` threshold, then to the system
+ *  default. cpu / ram stay generic; the breakdown isn't useful enough to
+ *  carry the same UX cost as disk. */
 export type MetricThresholds = Partial<{
   disk: MetricThreshold;
   cpu: MetricThreshold;
   ram: MetricThreshold;
+  diskByMount: Record<string, MetricThreshold>;
 }>;
 
 /** System defaults applied when neither the device nor the group sets a
@@ -118,7 +129,12 @@ export type MetricThresholds = Partial<{
  *  type forces every metric to carry both warn AND crit, so consumers
  *  (e.g. the threshold cascade resolver) can treat the system layer as
  *  a guaranteed fallback without extra null-checks. */
-export const SYSTEM_DEFAULT_THRESHOLDS: Record<keyof MetricThresholds, Required<MetricThreshold>> = {
+/** Generic-metric defaults — keyed by the three "always-scalar" metric
+ *  kinds (cpu / ram / disk). `diskByMount` is intentionally excluded
+ *  here: it's an OPTIONAL override map applied on top of `disk`,
+ *  resolved at run-time. */
+export type GenericMetricKind = 'disk' | 'cpu' | 'ram';
+export const SYSTEM_DEFAULT_THRESHOLDS: Record<GenericMetricKind, Required<MetricThreshold>> = {
   disk: { warn: 85, crit: 95 },
   cpu:  { warn: 80, crit: 95 },
   ram:  { warn: 80, crit: 95 },
@@ -228,6 +244,12 @@ export interface Device {
    *  Fields not present here fall back to the group's setting, then to
    *  the system default. Empty object = inherit everything. */
   thresholdsOverride: MetricThresholds;
+  /** Whether metric-threshold-driven status flips and notifications
+   *  fire for this device. `null` = inherit from group; `false` = silent
+   *  even if the group is enabled; `true` = enabled even if the group
+   *  is disabled. Default behaviour with everything `null` is enabled
+   *  (the system default). */
+  metricAlertsEnabled: boolean | null;
   displayConfig: DeviceDisplayConfig;
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
@@ -346,7 +368,25 @@ export interface DeviceNotificationTypes {
 export interface DeviceMetrics {
   cpu?: { percent: number; cores?: number[]; model?: string; freqMhz?: number };
   memory?: { usedMb: number; totalMb: number; percent: number; cachedMb?: number; buffersMb?: number; swapTotalMb?: number; swapUsedMb?: number };
-  disks?: Array<{ mount: string; usedGb: number; totalGb: number; percent: number; readBytesPerSec?: number; writeBytesPerSec?: number }>;
+  disks?: Array<{
+    mount: string;
+    usedGb: number;
+    totalGb: number;
+    percent: number;
+    readBytesPerSec?: number;
+    writeBytesPerSec?: number;
+    /** Filesystem type as reported by the OS — e.g. ext4, ntfs, iso9660,
+     *  udf, vfat. Used by the threshold pipeline to skip optical media
+     *  (iso9660 / udf / cdfs) which are full by nature. Older agents
+     *  that don't report this field fall back to mount-path heuristics. */
+    fstype?: string;
+    /** True when the OS reports the disk as removable (USB stick, SD card,
+     *  external drive). Set by the agent via OS-specific APIs (Windows
+     *  GetDriveType, Linux sysfs `removable` flag, macOS DA framework).
+     *  Older agents leave this undefined; the server falls back to mount-
+     *  path heuristics. */
+    removable?: boolean;
+  }>;
   network?: { inBytesPerSec: number; outBytesPerSec: number; interfaces?: Array<{ name: string; inBytesPerSec: number; outBytesPerSec: number }> };
   gpus?: Array<{ model: string; utilizationPct: number; vramUsedMb: number; vramTotalMb: number; engines?: Array<{ label: string; pct: number }> }>;
   loadAvg?: number;
@@ -1548,7 +1588,7 @@ export interface NotificationPluginMeta {
 
 // ─── SCENARIOS ──────────────────────────────────────────────────────────────
 
-export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'schedule_cron' | 'manual' | 'agent_back_online';
+export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'schedule_cron' | 'manual' | 'agent_back_online' | 'metric_warning' | 'metric_critical';
 export type ScenarioStatus = 'draft' | 'active' | 'disabled';
 export type ScenarioRunStatus = 'pending' | 'running' | 'success' | 'failure' | 'cancelled' | 'timeout';
 export type ScenarioStepRunStatus = 'pending' | 'check_running' | 'check_passed' | 'resolve_running' | 'recheck_running' | 'recheck_passed' | 'failed' | 'skipped' | 'success';
@@ -1573,6 +1613,8 @@ export type ScenarioNodeType =
   | 'trigger_schedule_failure'
   | 'trigger_schedule_cron'
   | 'trigger_agent_back_online'
+  | 'trigger_metric_warning'
+  | 'trigger_metric_critical'
   // Actions
   | 'run_script'
   | 'run_command'
