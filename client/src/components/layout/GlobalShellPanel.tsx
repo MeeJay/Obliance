@@ -14,6 +14,7 @@ import { deviceApi } from '@/api/device.api';
 import { getSocket } from '@/socket/socketClient';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 import type { Device } from '@obliance/shared';
+import { isAgentReachable } from '@/utils/deviceStatus';
 import toast from 'react-hot-toast';
 
 // Per-session runtime state held in refs (xterm, ws, fit) — zustand can't
@@ -553,7 +554,7 @@ export function GlobalShellPanel() {
         const recentMap = new Map(recent.map((id, i) => [id, i]));
         const q = pickerSearch.trim().toLowerCase();
         const filtered = pickerDevices
-          .filter((d) => d.status === 'online' || d.status === 'warning' || d.status === 'critical')
+          .filter((d) => isAgentReachable(d.status))
           .filter((d) => {
             if (!q) return true;
             const name = (d.displayName || d.hostname || '').toLowerCase();

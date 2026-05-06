@@ -401,7 +401,7 @@ export const scenarioService = {
   // 2. Triggers
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number; offlineSeconds?: number; metricBreaches?: Array<{ metric: string; percent: number; level: string; mount?: string }> }) {
+  async fireTrigger(triggerType: ScenarioTriggerType, deviceId: number, tenantId: number, data?: { groupId?: number; scheduleId?: number; offlineSeconds?: number; metricBreaches?: Array<{ metric: string; percent: number; level: string; mount?: string }>; metrics?: { cpu?: { percent: number }; memory?: { percent: number }; disks?: Array<{ mount: string; percent: number; fstype?: string; removable?: boolean }> } }) {
     // Multi-trigger model: a single scenario may carry several trigger
     // nodes of the same kind (e.g. two cron schedules) or a mix of
     // kinds. The dispatcher therefore matches on scenario_nodes.type
@@ -474,6 +474,56 @@ export const scenarioService = {
           }
         }
 
+        // Metric custom — admin-defined comparator+threshold against
+        // the freshest cpu/memory/disk percentage. Unlike warning/
+        // critical (which fire on transition only), this fires on
+        // every push that satisfies the condition. Combine it with
+        // `cooldownSeconds` below to throttle re-runs.
+        if (triggerType === 'metric_custom') {
+          const wantMetric = String(nodeConfig.metric ?? '').toLowerCase().trim();
+          const comparator = nodeConfig.comparator === 'below' ? 'below' : 'above';
+          const thresholdRaw = nodeConfig.threshold;
+          const threshold = typeof thresholdRaw === 'number'
+            ? thresholdRaw
+            : (typeof thresholdRaw === 'string' && thresholdRaw.trim() !== '' ? Number(thresholdRaw) : NaN);
+          if (!wantMetric || !Number.isFinite(threshold)) {
+            logger.debug({ scenarioId: scenario.id, nodeId: tn.node_id }, 'metric_custom: incomplete config, skipping');
+            continue;
+          }
+          const m = data?.metrics;
+          let measured: number | null = null;
+          if (wantMetric === 'cpu') {
+            measured = typeof m?.cpu?.percent === 'number' ? m.cpu.percent : null;
+          } else if (wantMetric === 'memory' || wantMetric === 'ram') {
+            measured = typeof m?.memory?.percent === 'number' ? m.memory.percent : null;
+          } else if (wantMetric === 'disk') {
+            const wantMount = String(nodeConfig.mount ?? '').trim();
+            const disks = Array.isArray(m?.disks) ? m!.disks : [];
+            // Exclude removable / optical mounts so a USB stick at 99 %
+            // can't trip a maintenance scenario by accident.
+            const eligible = disks.filter((d) => !d.removable && d.fstype !== 'cdfs' && d.fstype !== 'iso9660' && d.fstype !== 'udf');
+            if (wantMount) {
+              const match = eligible.find((d) => d.mount === wantMount);
+              measured = match ? match.percent : null;
+            } else {
+              // No mount filter — pick the worst (highest for above, lowest
+              // for below) so we always evaluate against the most extreme
+              // disk on the host.
+              if (eligible.length > 0) {
+                measured = comparator === 'above'
+                  ? Math.max(...eligible.map((d) => d.percent))
+                  : Math.min(...eligible.map((d) => d.percent));
+              }
+            }
+          }
+          if (measured == null) {
+            logger.debug({ scenarioId: scenario.id, nodeId: tn.node_id, wantMetric }, 'metric_custom: no value for metric, skipping');
+            continue;
+          }
+          const matches = comparator === 'above' ? measured > threshold : measured < threshold;
+          if (!matches) continue;
+        }
+
         // One-shot dedup for agent_approved — same semantics as v1
         // but scoped to (scenario, device), not (trigger node, device),
         // so two trigger_agent_approved nodes in the same scenario
@@ -484,6 +534,29 @@ export const scenarioService = {
             .whereNot({ status: 'cancelled' })
             .first();
           if (existing) continue;
+        }
+
+        // Generic per-trigger-node cooldown — prevents re-firing the
+        // scenario on the same device when the previous run started
+        // less than `cooldownSeconds` ago. The check happens BEFORE
+        // any command is dispatched to the agent, so the platform's
+        // own scenario_runs table is the source of truth — no script
+        // round-trip needed. `0` (default) disables the check, which
+        // keeps backwards compat for existing trigger nodes.
+        const cooldownSec = Number(nodeConfig.cooldownSeconds ?? 0);
+        if (cooldownSec > 0) {
+          const lastRun = await db('scenario_runs')
+            .where({ scenario_id: scenario.id, device_id: deviceId })
+            .whereNot({ status: 'cancelled' })
+            .orderBy('started_at', 'desc')
+            .first();
+          if (lastRun) {
+            const elapsedSec = Math.floor((Date.now() - new Date(lastRun.started_at).getTime()) / 1000);
+            if (elapsedSec < cooldownSec) {
+              logger.debug({ scenarioId: scenario.id, deviceId, cooldownSec, elapsedSec }, 'cooldown active, skipping trigger fire');
+              continue;
+            }
+          }
         }
 
         const triggerSource = `${triggerType}${data?.groupId ? `:group:${data.groupId}` : ''}${data?.scheduleId ? `:schedule:${data.scheduleId}` : ''}`;

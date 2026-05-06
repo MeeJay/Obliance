@@ -35,6 +35,7 @@ const TRIGGER_NODE_TYPE: Record<ScenarioTriggerType, ScenarioNodeType> = {
   agent_back_online: 'trigger_agent_back_online',
   metric_warning:    'trigger_metric_warning',
   metric_critical:   'trigger_metric_critical',
+  metric_custom:     'trigger_metric_custom',
 };
 
 /**

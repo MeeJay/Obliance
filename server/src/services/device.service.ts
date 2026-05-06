@@ -738,7 +738,6 @@ class DeviceService {
       .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'metric_alerts_enabled')
       .first();
     const prevStatus = prev?.status as string | undefined;
-    const prevVersion = prev?.agent_version as string | undefined;
     const prevOfflineAt = prev?.last_offline_at ? new Date(prev.last_offline_at) : null;
     const prevMetricStatus = (prev?.last_metric_status ?? null) as 'ok' | 'warning' | 'critical' | null;
     const prevPrivacy = !!prev?.privacy_mode_enabled;
@@ -752,130 +751,129 @@ class DeviceService {
       agent_version: push.agentVersion || db.raw('agent_version'),
       updated_at: now,
     });
-    // Don't flip 'updating' back to 'online' unless the agent version actually changed
-    // (meaning the update completed). This prevents the flickering:
-    // updating → online (last push before death) → offline → online
-    // Any push = agent is alive → online.
-    // - updating  → agent came back after self-update: we're done.
-    // - update_error → agent recovered on its own: back online.
-    // - anything else (except pending_uninstall) → standard alive ping.
-    // If the agent is actually still outdated, the normal update-check flow
-    // will re-trigger an update and re-enter the 'updating' cycle.
-    let updatingCompleted = false;
-    if (prevStatus === 'updating' || prevStatus === 'update_error') {
-      updatingCompleted = true;
-    }
-    await db('devices')
-      .where({ id: deviceId })
-      .whereNot({ status: 'pending_uninstall' })
-      .update({ status: 'online', update_started_at: null });
-
-    // ── Metric thresholds → device status + alerts ────────────────────────
-    // After the device is back to 'online' from the push, compare the
-    // freshly-pushed cpu/ram/disk percentages against the resolved
-    // thresholds (system → group → device override) and lift the
-    // status to 'warning' or 'critical' when one of them breaches.
-    // We touch the status only when the device is in a "clean" state
-    // (online / warning / critical) — never overwrite a manual
-    // `suspended` or in-flight `updating` etc.
+    // ── Status resolution (single authority) ──────────────────────────────
+    // Push handling used to FORCE status='online' first, then let the
+    // threshold check flip it back. That created two problems:
+    //   (a) any user-triggered push (the manual refresh button, which
+    //       fires `live_metrics push_now`) momentarily shunted a
+    //       genuine 'critical' device to 'online' for as long as a
+    //       single snapshot didn't breach — and the UI gating treats
+    //       only literal 'online' as "remote control allowed", so
+    //       admins lost SSH/Reach/PowerShell on a critical box exactly
+    //       when they wanted to investigate.
+    //   (b) it caused a brief 'online' flicker on every push for
+    //       sustained-warning/critical devices.
+    // The threshold result is now the SOLE source of truth. We compute
+    // the target status once and apply it once, preserving 'pending',
+    // 'pending_uninstall' and 'suspended' which carry admin intent.
     //
-    // Notifications fire ONLY on transition (e.g. ok → warning,
-    // warning → critical, anything → ok recovery) to avoid flooding
-    // the user when a metric stays bad for hours.
-    try {
-      // Cascade enable flag: device > group > default(true). NULL means
-      // "inherit from parent layer". Group's null also means "use the
-      // system default" (true).
-      let alertsEnabled = true;
-      if (typeof prev?.metric_alerts_enabled === 'boolean') {
-        alertsEnabled = prev.metric_alerts_enabled;
-      } else if (prev?.group_id) {
-        const grp = await db('device_groups').where({ id: prev.group_id }).select('metric_alerts_enabled').first() as { metric_alerts_enabled: boolean | null } | undefined;
-        if (typeof grp?.metric_alerts_enabled === 'boolean') alertsEnabled = grp.metric_alerts_enabled;
-      }
+    // Cascade enable flag: device > group > default(true). NULL means
+    // "inherit from parent layer". Group's null also means "use the
+    // system default" (true).
+    let alertsEnabled = true;
+    if (typeof prev?.metric_alerts_enabled === 'boolean') {
+      alertsEnabled = prev.metric_alerts_enabled;
+    } else if (prev?.group_id) {
+      const grp = await db('device_groups').where({ id: prev.group_id }).select('metric_alerts_enabled').first() as { metric_alerts_enabled: boolean | null } | undefined;
+      if (typeof grp?.metric_alerts_enabled === 'boolean') alertsEnabled = grp.metric_alerts_enabled;
+    }
 
+    let metricStatus: 'ok' | 'warning' | 'critical' = 'ok';
+    let breaches: Array<{ metric: 'cpu' | 'memory' | 'disk'; level: 'warning' | 'critical'; percent: number; mount?: string }> = [];
+    let thresholds: any = null;
+    try {
       if (alertsEnabled && push.metrics) {
         const { thresholdService } = await import('./threshold.service');
-        const thresholds = await thresholdService.resolveForDevice(deviceId);
-        const { status: metricStatus, breaches } = thresholdService.computeMetricStatus(push.metrics as any, thresholds);
-
-        // Resolve target status. Skip overrides when the device is in a
-        // protected state (in-flight updates, suspended, pending uninstall).
-        const PROTECTED = new Set(['pending_uninstall', 'updating', 'update_error', 'suspended', 'pending']);
-        const dbRow = await db('devices').where({ id: deviceId }).select('status').first() as { status: string } | undefined;
-        const currentDbStatus = dbRow?.status ?? 'online';
-        const protectedNow = PROTECTED.has(currentDbStatus);
-
-        // Map metric severity → device status. 'ok' rolls back to online.
-        const targetStatus = metricStatus === 'critical' ? 'critical' : (metricStatus === 'warning' ? 'warning' : 'online');
-        if (!protectedNow && currentDbStatus !== targetStatus) {
-          await db('devices').where({ id: deviceId }).update({ status: targetStatus });
-          if (this.io) {
-            this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: targetStatus });
-          }
-        }
-
-        // Fire a notification only on transitions of the metric status,
-        // not at every push that stays in the same severity. We persist
-        // the latest metric status separately from the device status so
-        // a user-triggered reboot to 'updating' doesn't reset the diff.
-        if (prevMetricStatus !== metricStatus) {
-          await db('devices').where({ id: deviceId }).update({ last_metric_status: metricStatus });
-          // Only notify on entering or exiting a non-ok state — silent
-          // ok→ok transitions are obviously not worth a ping.
-          const becameBad = metricStatus !== 'ok' && (prevMetricStatus == null || prevMetricStatus === 'ok' || (prevMetricStatus === 'warning' && metricStatus === 'critical'));
-          const recovered = metricStatus === 'ok' && prevMetricStatus !== 'ok' && prevMetricStatus != null;
-          if (becameBad || recovered) {
-            try {
-              const { notificationService } = await import('./notification.service');
-              const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
-              const name = dev?.display_name || dev?.hostname || `#${deviceId}`;
-              const violations = breaches.map((b) => {
-                const pct = Math.round(b.percent);
-                const t = thresholds[b.metric];
-                const limit = b.level === 'critical' ? t.crit : t.warn;
-                const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
-                return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
-              });
-              // sendForAgent fires only on transition (it diffs newStatus
-              // vs previousStatus). 'alert' ↔ 'up' are the agreed event
-              // names — match the existing schedule-failure path.
-              await notificationService.sendForAgent(
-                deviceId,
-                name,
-                recovered ? 'up' : 'alert',
-                prevMetricStatus ?? 'ok',
-                violations,
-                metricStatus === 'critical' ? 'alert' : (metricStatus === 'warning' ? 'alert' : 'up'),
-              );
-            } catch (notifyErr) {
-              logger.error(notifyErr, 'metric-threshold notification failed');
-            }
-
-            // Scenario trigger — only on transitions INTO warning or
-            // critical. Recoveries don't fire (admins don't usually
-            // automate "everything is fine again"). The trigger node's
-            // graph receives the breach details via trigger_source so
-            // downstream nodes can read which metric tripped.
-            if (becameBad) {
-              try {
-                const { scenarioService } = await import('./scenario.service');
-                const triggerType = metricStatus === 'critical' ? 'metric_critical' : 'metric_warning';
-                await scenarioService.fireTrigger(triggerType, deviceId, tenantId, {
-                  // Pass the breach summary so a future per-trigger-node
-                  // filter ("only fire on disk crit") could match. For
-                  // now the engine just records it in trigger_source.
-                  metricBreaches: breaches,
-                } as any);
-              } catch (triggerErr) {
-                logger.error(triggerErr, 'metric-threshold scenario trigger failed');
-              }
-            }
-          }
-        }
+        thresholds = await thresholdService.resolveForDevice(deviceId);
+        const r = thresholdService.computeMetricStatus(push.metrics as any, thresholds);
+        metricStatus = r.status;
+        breaches = r.breaches as any;
       }
     } catch (thresholdErr) {
       logger.error(thresholdErr, 'metric-threshold evaluation failed');
+    }
+
+    // Map metric severity → reachable status. A device that's pushing IS
+    // reachable by definition; the only question is whether to label it
+    // online / warning / critical based on the freshest threshold check.
+    const reachableTarget: 'online' | 'warning' | 'critical' =
+      metricStatus === 'critical' ? 'critical'
+      : (metricStatus === 'warning' ? 'warning' : 'online');
+
+    // Resolve final status. Protected states carry admin intent and we
+    // never silently override them; everything else follows the threshold.
+    const PROTECTED = new Set(['pending', 'pending_uninstall', 'suspended']);
+    const updatingCompleted = prevStatus === 'updating' || prevStatus === 'update_error';
+    const targetStatus = PROTECTED.has(prevStatus ?? '') ? (prevStatus as string) : reachableTarget;
+    const statusChanged = !!prevStatus && prevStatus !== targetStatus;
+
+    const statusUpdate: Record<string, unknown> = {};
+    if (statusChanged) statusUpdate.status = targetStatus;
+    if (updatingCompleted) statusUpdate.update_started_at = null;
+    if (Object.keys(statusUpdate).length > 0) {
+      await db('devices')
+        .where({ id: deviceId })
+        .whereNot({ status: 'pending_uninstall' })
+        .update(statusUpdate);
+    }
+
+    // Persist the latest metric status separately from device status so
+    // notifications + scenario triggers fire on metric-state transitions
+    // (ok→warning, warning→critical, …→ok) regardless of the device
+    // status (which may legitimately stay protected as 'suspended' etc).
+    if (prevMetricStatus !== metricStatus) {
+      await db('devices').where({ id: deviceId }).update({ last_metric_status: metricStatus });
+      const becameBad = metricStatus !== 'ok' && (prevMetricStatus == null || prevMetricStatus === 'ok' || (prevMetricStatus === 'warning' && metricStatus === 'critical'));
+      const recovered = metricStatus === 'ok' && prevMetricStatus !== 'ok' && prevMetricStatus != null;
+      if ((becameBad || recovered) && thresholds) {
+        try {
+          const { notificationService } = await import('./notification.service');
+          const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
+          const name = dev?.display_name || dev?.hostname || `#${deviceId}`;
+          const violations = breaches.map((b) => {
+            const pct = Math.round(b.percent);
+            const t = thresholds[b.metric];
+            const limit = b.level === 'critical' ? t.crit : t.warn;
+            const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
+            return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
+          });
+          await notificationService.sendForAgent(
+            deviceId, name,
+            recovered ? 'up' : 'alert',
+            prevMetricStatus ?? 'ok',
+            violations,
+            metricStatus === 'critical' ? 'alert' : (metricStatus === 'warning' ? 'alert' : 'up'),
+          );
+        } catch (notifyErr) {
+          logger.error(notifyErr, 'metric-threshold notification failed');
+        }
+
+        // Scenario trigger — only on transitions INTO warning/critical.
+        // Recoveries don't fire (admins don't usually automate "all good").
+        if (becameBad) {
+          try {
+            const { scenarioService } = await import('./scenario.service');
+            const triggerType = metricStatus === 'critical' ? 'metric_critical' : 'metric_warning';
+            await scenarioService.fireTrigger(triggerType, deviceId, tenantId, { metricBreaches: breaches } as any);
+          } catch (triggerErr) {
+            logger.error(triggerErr, 'metric-threshold scenario trigger failed');
+          }
+        }
+      }
+    }
+
+    // metric_custom triggers fire on EVERY push that satisfies the
+    // node's comparator+threshold (not just transitions). Spam is
+    // controlled per trigger node via `cooldownSeconds`. We pass the
+    // raw metrics so the trigger filter can evaluate cpu/memory/disk
+    // values against the configured threshold.
+    if (push.metrics) {
+      try {
+        const { scenarioService } = await import('./scenario.service');
+        await scenarioService.fireTrigger('metric_custom', deviceId, tenantId, { metrics: push.metrics as any } as any);
+      } catch (triggerErr) {
+        logger.error(triggerErr, 'metric-custom scenario trigger failed');
+      }
     }
 
     // Watchdog: if the agent reports that it was restarted by the watchdog
@@ -897,15 +895,12 @@ class DeviceService {
         deviceId,
         metrics: push.metrics,
       });
-      // Notify UI of status change (e.g. update_error → online, offline → online).
-      // Also emit when updating → online transition completes (version bumped).
-      const statusChanged =
-        prevStatus &&
-        prevStatus !== 'online' &&
-        prevStatus !== 'pending_uninstall' &&
-        (prevStatus !== 'updating' || updatingCompleted);
+      // Notify UI of any status change (offline→online, updating→online,
+      // online→warning, warning→critical, critical→online, …). The
+      // threshold-resolver above is the single source of truth — we just
+      // forward whatever it produced.
       if (statusChanged) {
-        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: 'online' });
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, { deviceId, status: targetStatus });
       }
 
       // Agent-back-online trigger: only fire when prevStatus was

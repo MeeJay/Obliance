@@ -42,6 +42,7 @@ import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution,
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
+import { isAgentReachable } from '@/utils/deviceStatus';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -2601,8 +2602,8 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
                     setTimeout(onSaved, 1500);
                   } catch { toast.error('Failed to send enable command'); }
                 }}
-                disabled={device.status !== 'online'}
-                title={device.status !== 'online' ? 'Agent must be online' : undefined}
+                disabled={!isAgentReachable(device.status)}
+                title={!isAgentReachable(device.status) ? 'Agent must be online' : undefined}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -2648,8 +2649,8 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
             {!device.privacyPasswordSet && (
               <button
                 onClick={() => onManagePrivacyPassword?.('set')}
-                disabled={device.privacyModeEnabled || device.status !== 'online'}
-                title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+                title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -2660,8 +2661,8 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
               <>
                 <button
                   onClick={() => onManagePrivacyPassword?.('change')}
-                  disabled={device.privacyModeEnabled || device.status !== 'online'}
-                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <Lock className="w-3.5 h-3.5" />
@@ -2669,8 +2670,8 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
                 </button>
                 <button
                   onClick={() => onManagePrivacyPassword?.('remove')}
-                  disabled={device.privacyModeEnabled || device.status !== 'online'}
-                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : device.status !== 'online' ? 'Agent must be online' : undefined}
+                  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -3090,7 +3091,7 @@ function RemoteTab({ device }: { device: Device }) {
     }
   };
 
-  const isOnline = device.status === 'online';
+  const isOnline = isAgentReachable(device.status);
 
   return (
     <>
@@ -4473,7 +4474,7 @@ export function DeviceDetailPage() {
     // Oblireach: if not installed redirect to install command; if installed check sessions.
     if (protocol === 'oblireach') {
       if (headerOrInstalled === false) {
-        if (device?.status !== 'online') { toast.error('Device is offline'); return; }
+        if (!isAgentReachable(device?.status)) { toast.error('Device is offline'); return; }
         try {
           await commandApi.enqueue(deviceId, 'install_oblireach', {}, 'high');
           toast.success('Install command sent — Oblireach will deploy shortly.');
@@ -5045,7 +5046,7 @@ export function DeviceDetailPage() {
               {/* ── Scan All ── */}
               <button
                 onClick={handleScanAll}
-                disabled={isScanningAll || device.status !== 'online'}
+                disabled={isScanningAll || !isAgentReachable(device.status)}
                 title="Scan All — triggers inventory, updates and compliance scans"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
@@ -5131,7 +5132,7 @@ export function DeviceDetailPage() {
                     }
                     useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
                   }}
-                  disabled={device.status !== 'online' || headerOrInstalled === false || device.privacyModeEnabled}
+                  disabled={!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled}
                   title={
                     headerOrInstalled === false
                       ? 'ObliReach is not deployed on this device — chat is unavailable'
@@ -5168,7 +5169,7 @@ export function DeviceDetailPage() {
                       {opts.length === 1 ? (
                         <button
                           onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || remoteHardBlocked}
+                          disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
                           title={`${label(opts[0])} Remote`}
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
@@ -5180,7 +5181,7 @@ export function DeviceDetailPage() {
                       ) : (
                         <button
                           onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
-                          disabled={isStartingRemote || headerRemoteOpen || device.status !== 'online' || remoteHardBlocked}
+                          disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
                           title="Remote Control"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >

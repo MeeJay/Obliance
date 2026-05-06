@@ -1588,7 +1588,7 @@ export interface NotificationPluginMeta {
 
 // ─── SCENARIOS ──────────────────────────────────────────────────────────────
 
-export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'schedule_cron' | 'manual' | 'agent_back_online' | 'metric_warning' | 'metric_critical';
+export type ScenarioTriggerType = 'session_login' | 'machine_boot' | 'agent_approved' | 'group_join' | 'schedule_failure' | 'schedule_cron' | 'manual' | 'agent_back_online' | 'metric_warning' | 'metric_critical' | 'metric_custom';
 export type ScenarioStatus = 'draft' | 'active' | 'disabled';
 export type ScenarioRunStatus = 'pending' | 'running' | 'success' | 'failure' | 'cancelled' | 'timeout';
 export type ScenarioStepRunStatus = 'pending' | 'check_running' | 'check_passed' | 'resolve_running' | 'recheck_running' | 'recheck_passed' | 'failed' | 'skipped' | 'success';
@@ -1615,6 +1615,7 @@ export type ScenarioNodeType =
   | 'trigger_agent_back_online'
   | 'trigger_metric_warning'
   | 'trigger_metric_critical'
+  | 'trigger_metric_custom'
   // Actions
   | 'run_script'
   | 'run_command'

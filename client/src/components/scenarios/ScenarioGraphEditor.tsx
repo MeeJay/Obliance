@@ -1480,7 +1480,12 @@ function NodeConfigForm({
           className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
         />
       </label>
-      {meta?.fields.map((f: NodeFieldDef) => (
+      {meta?.fields
+        // Hide fields whose `showWhen` predicate evaluates false against
+        // the current config — keeps the panel uncluttered (e.g. the
+        // disk mount filter only shows when metric=disk).
+        .filter((f: NodeFieldDef) => !f.showWhen || f.showWhen(cfg))
+        .map((f: NodeFieldDef) => (
         <label key={f.key} className="block">
           <span className="text-xs text-text-muted mb-1 block">{f.label}{f.required && <span className="text-red-400 ml-1">*</span>}</span>
           {f.kind === 'text' && (
@@ -1492,6 +1497,28 @@ function NodeConfigForm({
             <input type="number" value={(cfg[f.key] as number) ?? ''} placeholder={f.placeholder}
               onChange={(e) => setField(f.key, e.target.value === '' ? null : parseInt(e.target.value, 10))}
               className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent" />
+          )}
+          {f.kind === 'select' && (
+            <select
+              value={(() => {
+                const v = cfg[f.key];
+                if (v === undefined || v === null) return '';
+                return String(v);
+              })()}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Numeric-looking option values (cooldownSeconds presets)
+                // come back as strings — coerce so the saved config has
+                // the expected type.
+                const looksNumeric = (f.options ?? []).every((o) => /^-?\d+$/.test(o.value)) && (f.options ?? []).length > 0;
+                setField(f.key, looksNumeric && raw !== '' ? Number(raw) : raw);
+              }}
+              className="w-full px-2 py-1 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+            >
+              {(f.options ?? []).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           )}
           {f.kind === 'textarea' && (
             <textarea rows={3} value={(cfg[f.key] as string) ?? ''} placeholder={f.placeholder}
@@ -1541,6 +1568,9 @@ function NodeConfigForm({
             <div className="text-[11px] text-text-muted italic px-2 py-1 border border-border rounded bg-bg-primary">
               Configure notification channels in tenant settings; this node will use the scenario's globally bound channels.
             </div>
+          )}
+          {f.hint && (
+            <span className="block mt-1 text-[10px] text-text-muted italic leading-snug">{f.hint}</span>
           )}
         </label>
       ))}
