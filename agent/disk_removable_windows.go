@@ -19,9 +19,12 @@ const (
 	driveRamdisk     = 6
 )
 
+// Renamed from `kernel32` to avoid the collision with tunnel_shell_windows.go's
+// own kernel32 lazy DLL. Each translation unit just needs its own resolver
+// for the proc it cares about — sharing isn't beneficial.
 var (
-	kernel32          = syscall.NewLazyDLL("kernel32.dll")
-	procGetDriveTypeW = kernel32.NewProc("GetDriveTypeW")
+	kernel32Disk      = syscall.NewLazyDLL("kernel32.dll")
+	procGetDriveTypeW = kernel32Disk.NewProc("GetDriveTypeW")
 )
 
 // isRemovableDisk asks Windows for the drive type. Anything that isn't
