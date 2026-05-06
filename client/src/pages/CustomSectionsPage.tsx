@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, TerminalSquare, X, Loader2, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, TerminalSquare, X, Loader2, FolderOpen, ChevronRight, ChevronDown, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { customSectionApi } from '@/api/customSection.api';
 import { groupsApi } from '@/api/groups.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+import { DashboardBuilder } from '@/components/customSections/DashboardBuilder';
 import type { CustomSection, CustomSectionRenderMode, DeviceGroupTreeNode } from '@obliance/shared';
 
 interface FormData {
@@ -62,6 +63,8 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
+  /** Dashboard builder modal — only meaningful for HTML render mode. */
+  const [builderOpen, setBuilderOpen] = useState(false);
   const { getDeviceList, fetchDevices } = useDeviceStore();
 
   const load = useCallback(async () => {
@@ -241,14 +244,49 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                   className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="text-xs text-text-muted uppercase">Command or script</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-text-muted uppercase">Command or script</label>
+                  {/* Dashboard builder shortcut — only useful for HTML
+                      render mode; the generated script outputs the
+                      Obliance-branded dashboard markup. Hidden in
+                      terminal mode where a hand-written one-liner
+                      (htop / tail -f) is the whole point. */}
+                  {form.renderMode === 'html' && (
+                    <button
+                      type="button"
+                      onClick={() => setBuilderOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-md border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors"
+                    >
+                      <Wand2 className="w-3 h-3" /> Dashboard builder
+                    </button>
+                  )}
+                </div>
                 <textarea value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })}
                   rows={form.command.includes('\n') ? 12 : 4} placeholder={'htop\n\n# or paste a full script — PowerShell, bash, …'}
                   className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent font-mono whitespace-pre" />
                 <p className="text-[10px] text-text-muted mt-1">
-                  Initially intended for a single command (htop, top, etc.) but accepts a full script too. PowerShell scripts can output an HTML document — see render mode below.
+                  Initially intended for a single command (htop, top, etc.) but accepts a full script too. PowerShell scripts can output an HTML document — see render mode below. The <strong>Dashboard builder</strong> generates a self-contained script from a sample output if you want a kickstart.
                 </p>
               </div>
+              {builderOpen && (
+                <DashboardBuilder
+                  runtime={form.runtime === 'powershell' ? 'powershell' : 'sh'}
+                  initialCommand={form.command}
+                  initialTitle={form.name}
+                  onClose={() => setBuilderOpen(false)}
+                  onInsert={(generated, runtime) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      command: generated,
+                      runtime: runtime === 'powershell' ? 'powershell' : 'bash',
+                      // Builder always produces HTML output.
+                      renderMode: 'html',
+                      usePty: false,
+                    }));
+                    setBuilderOpen(false);
+                  }}
+                />
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-text-muted uppercase">Platform</label>
