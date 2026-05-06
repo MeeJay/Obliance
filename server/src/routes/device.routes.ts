@@ -20,7 +20,13 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, includeSubgroups, status, approvalStatus, search, osType, osName, osVersion, page, pageSize, sortBy, sortOrder, ungrouped, staleHours, pendingUpdates } = req.query as any;
+    const { groupId, includeSubgroups, status, approvalStatus, search, osType, osName, osVersion, page, pageSize, sortBy, sortOrder, ungrouped, staleHours, pendingUpdates, tags } = req.query as any;
+
+    // Tags arrive either as repeated query params (`?tags=a&tags=b`)
+    // → already an array — or as a comma-separated string. Normalise.
+    let tagsArr: string[] | undefined;
+    if (Array.isArray(tags)) tagsArr = tags.map(String).filter(Boolean);
+    else if (typeof tags === 'string' && tags.length > 0) tagsArr = tags.split(',').map((t) => t.trim()).filter(Boolean);
 
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
@@ -32,6 +38,7 @@ router.get('/', async (req, res, next) => {
       ungrouped: ungrouped === 'true' || ungrouped === true,
       staleHours: staleHours ? parseInt(staleHours) : undefined,
       pendingUpdates: pendingUpdates === 'true' || pendingUpdates === '1' || pendingUpdates === true,
+      tags: tagsArr,
     });
 
     // Filter by visible devices for non-admins
@@ -227,6 +234,17 @@ router.get('/os-facets', async (req, res, next) => {
   try {
     const facets = await deviceService.getOsFacets(req.tenantId!);
     res.json({ data: facets });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/tags
+// Distinct tag list for the tenant with per-tag device counts. Drives the
+// /devices tag-filter chip popover so admins pick from existing tags
+// (typo-free) rather than retyping. Returns [{ tag, count }] desc by count.
+router.get('/tags', async (req, res, next) => {
+  try {
+    const tags = await deviceService.getTagFacets(req.tenantId!);
+    res.json({ data: tags });
   } catch (err) { next(err); }
 });
 

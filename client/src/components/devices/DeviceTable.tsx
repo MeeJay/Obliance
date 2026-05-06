@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
@@ -59,6 +59,20 @@ export function DeviceTable({
     if (initialStatusFilter) return new Set([initialStatusFilter]);
     return new Set();
   });
+  // Tag filter — set of selected tags. Populated by the popover from
+  // /devices/tags so admins pick from existing tags only. Filter is
+  // applied server-side via deviceApi.listPaginated({ tags }) so the
+  // restriction spans the whole fleet, not just the visible page.
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+  const [tagFacets, setTagFacets] = useState<Array<{ tag: string; count: number }>>([]);
+  const [tagsMenuOpen, setTagsMenuOpen] = useState(false);
+  const toggleTagFilter = (tag: string) => {
+    setTagFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag); else next.add(tag);
+      return next;
+    });
+  };
   const [osFilters, setOsFilters] = useState<Set<string>>(() => {
     if (initialOsFilter) return new Set([initialOsFilter]);
     return new Set();
@@ -226,6 +240,7 @@ export function DeviceTable({
         approvalStatus: approvalFilter || undefined,
         staleHours: staleHours,
         pendingUpdates: pendingUpdatesOnly || undefined,
+        tags: tagFilters.size > 0 ? [...tagFilters] : undefined,
         page: pageToFetch,
         pageSize: size,
         sortBy,
@@ -247,7 +262,7 @@ export function DeviceTable({
       if (reset) setIsLoading(false);
       else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, t]);
+  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, t]);
 
   // Sync URL-driven filters when the parent prop changes (e.g. user clicks
   // a different dashboard hero card while /devices is already mounted —
@@ -332,7 +347,7 @@ export function DeviceTable({
   useEffect(() => {
     setSelectedIds(new Set());
     setSelectAllGroup(false);
-  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, sortBy, sortOrder]);
+  }, [debouncedSearch, statusFilters, osFilters, groupId, approvalFilter, sortBy, sortOrder, tagFilters]);
 
   // Toggle filter chips
   const toggleStatus = (s: string) => {
@@ -389,7 +404,7 @@ export function DeviceTable({
   const allChecked = devices.length > 0 && devices.every(d => selectedIds.has(d.id));
   const someChecked = selectedIds.size > 0 && !allChecked;
 
-  const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || !!osNameFilter || !!osVersionFilter;
+  const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || !!osNameFilter || !!osVersionFilter || tagFilters.size > 0;
 
   const handleSort = (field: SortField) => {
     if (field === '') return;
@@ -630,6 +645,78 @@ export function DeviceTable({
               ))}
             </select>
           )}
+
+          {/* Tag filter — popover listing every tag currently applied
+              to a device, with per-tag counts. Selecting one or more
+              tags filters server-side via the JSONB ?| operator
+              (OR-semantics: device matches if it has ANY selected
+              tag). Mirrors the columns popover's UX. */}
+          <div className="relative">
+            <button
+              onClick={async () => {
+                const next = !tagsMenuOpen;
+                setTagsMenuOpen(next);
+                if (next && tagFacets.length === 0) {
+                  // Lazy fetch: avoid a request on every page mount.
+                  try {
+                    const list = await deviceApi.listTags();
+                    setTagFacets(list);
+                  } catch { /* silent */ }
+                }
+              }}
+              className={clsx(
+                'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+                tagFilters.size > 0
+                  ? 'bg-accent/10 border-accent text-accent'
+                  : 'border-border text-text-muted hover:border-accent/30',
+              )}
+              title={t('devices.filters.tags', 'Filtrer par tag')}
+            >
+              <Tag className="w-3 h-3" />
+              {t('devices.filters.tagsLabel', 'Tags')}
+              {tagFilters.size > 0 && (
+                <span className="text-[10px] text-accent/80">{tagFilters.size}</span>
+              )}
+            </button>
+            {tagsMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setTagsMenuOpen(false)} />
+                <div className="absolute left-0 top-full mt-1 w-64 max-h-[320px] flex flex-col bg-bg-secondary border border-border rounded-lg shadow-xl z-20 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+                      {t('devices.filters.tagsTitle', 'Tags appliqués')}
+                    </span>
+                    {tagFilters.size > 0 && (
+                      <button
+                        onClick={() => setTagFilters(new Set())}
+                        className="text-[11px] text-accent hover:underline"
+                      >
+                        {t('common.clear', 'Effacer')}
+                      </button>
+                    )}
+                  </div>
+                  <div className="overflow-y-auto">
+                    {tagFacets.length === 0 ? (
+                      <div className="px-3 py-3 text-[12px] text-text-muted italic">
+                        {t('devices.filters.noTags', 'Aucun tag dans la flotte')}
+                      </div>
+                    ) : tagFacets.map((f) => (
+                      <label key={f.tag} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagFilters.has(f.tag)}
+                          onChange={() => toggleTagFilter(f.tag)}
+                          className="accent-accent"
+                        />
+                        <span className="flex-1 truncate">{f.tag}</span>
+                        <span className="text-[10px] text-text-muted">{f.count}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <span className="ml-auto text-xs text-text-muted">{total} device{total !== 1 ? 's' : ''}</span>
         </div>

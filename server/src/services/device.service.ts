@@ -132,6 +132,10 @@ class DeviceService {
     /** Lot C 3-tier OS filter: build / version string (e.g. "10.0.19044.7184").
      *  Exact match. Sub-filter under osName. */
     osVersion?: string;
+    /** Restrict to devices carrying ANY of these tags (OR semantics).
+     *  Empty/missing means no filter. Tags are matched against the
+     *  JSONB array stored on `devices.tags`. */
+    tags?: string[];
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     // Cap is intentionally high to support the sidebar which needs to render
@@ -178,6 +182,16 @@ class DeviceService {
       q = q.whereIn('devices.id', db('device_updates')
         .where({ tenant_id: tenantId, status: 'available' })
         .distinct('device_id'));
+    }
+    // Tags filter — `tags` is a JSONB array of strings on the
+    // devices table. The Postgres `?|` operator returns true when
+    // the JSONB value contains ANY of the given keys, which is the
+    // OR-semantics we want for the chip-style filter ("show devices
+    // with any of these tags"). The `?|` operator collides with
+    // knex's own `?` parameter placeholder, so we escape it as
+    // `\\?|`. The text[] cast lets us pass a JS array directly.
+    if (Array.isArray(filters?.tags) && filters!.tags.length > 0) {
+      q = q.whereRaw('devices.tags \\?| ?::text[]', [filters!.tags]);
     }
     if (filters?.search) q = q.where(function() {
       const pat = `%${filters.search}%`;
@@ -1067,6 +1081,28 @@ class DeviceService {
       osVersion: r.os_version,
       count: typeof r.count === 'number' ? r.count : parseInt(r.count, 10),
     }));
+  }
+
+  // ─── Tag facets ──────────────────────────────────────────────────────────
+  // Distinct tag list for the tenant with per-tag device counts. Used by
+  // the /devices filter popover so admins pick from existing tags
+  // (typo-free) and see which ones are actually populated.
+  //
+  // `tags` is a JSONB array on devices — `jsonb_array_elements_text`
+  // unnests it so we can group by individual tag. The query skips
+  // pending_uninstall to avoid surfacing stale data.
+  async getTagFacets(tenantId: number): Promise<Array<{ tag: string; count: number }>> {
+    const rows = await db.raw(
+      `SELECT t.tag::text AS tag, COUNT(*)::int AS count
+         FROM devices d, jsonb_array_elements_text(COALESCE(d.tags, '[]'::jsonb)) AS t(tag)
+        WHERE d.tenant_id = ?
+          AND d.approval_status = 'approved'
+          AND d.status <> 'pending_uninstall'
+        GROUP BY t.tag
+        ORDER BY count DESC, tag ASC`,
+      [tenantId],
+    ) as { rows: Array<{ tag: string; count: number }> };
+    return rows.rows.map((r) => ({ tag: r.tag, count: Number(r.count) }));
   }
 
   // ─── Fleet summary ────────────────────────────────────────────────────────

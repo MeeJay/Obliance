@@ -325,6 +325,21 @@ export const DeviceRow = memo(function DeviceRow({
               <span className="capitalize">{device.warrantyStatus}</span>
             </span>
           ),
+          // Tags — rendered as a row of small chips when the user has
+          // opted into the "Tags" column. Empty array → render nothing
+          // so the line2 separator pipeline doesn't drop a stray dot.
+          fieldOn('tags') && Array.isArray(device.tags) && device.tags.length > 0 && (
+            <span key="tags" className="inline-flex items-center gap-1 flex-wrap" title={`Tags: ${device.tags.join(', ')}`}>
+              {device.tags.slice(0, 5).map((t) => (
+                <span key={t} className="px-1.5 py-0 rounded-full border border-border bg-bg-tertiary text-text-muted text-[10px]">
+                  {t}
+                </span>
+              ))}
+              {device.tags.length > 5 && (
+                <span className="text-[10px] text-text-muted/60">+{device.tags.length - 5}</span>
+              )}
+            </span>
+          ),
         ]}
       />
     </div>

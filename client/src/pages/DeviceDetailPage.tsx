@@ -401,16 +401,9 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
         </div>
       </div>
 
-      {/* Tags */}
-      {device.tags && device.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {device.tags.map((tag) => (
-            <span key={tag} className="px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-full text-text-muted">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Tags now live inline next to the status pill at the top of
+          the page (see header section). The duplicate row that used
+          to sit here was removed to declutter the overview tab. */}
     </div>
   );
 }
@@ -4809,6 +4802,24 @@ export function DeviceDetailPage() {
             )}
             <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
             <LastSeenPill lastSeenAt={device.lastSeenAt} />
+            {/* Tags — surfaced inline next to the status so admins
+                spot at a glance which functional buckets a device
+                belongs to. Same compact chip style as the device
+                table column option. The detached row of tags below
+                still shows them larger; this is the quick-glance
+                version. */}
+            {Array.isArray(device.tags) && device.tags.length > 0 && (
+              <div className="inline-flex items-center gap-1 flex-wrap">
+                {device.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 text-xs rounded-full border border-border bg-bg-tertiary text-text-muted"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             {device.privacyModeEnabled && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
                 <Shield className="w-3 h-3" />

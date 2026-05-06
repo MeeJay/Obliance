@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, TerminalSquare, FileCode2 } from 'lucide-react';
+import { Loader2, TerminalSquare, FileCode2, FileDown } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
@@ -315,6 +316,32 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId, section.id, cycle, autoRefreshEnabled, autoRefreshSec]);
 
+  /**
+   * Export the iframe's current content as a PDF via the browser's
+   * native print dialog. The user picks "Save as PDF" in the
+   * destination dropdown — no extra dependency, no server roundtrip,
+   * faithful rendering with whatever fonts/colours/CSS the dashboard
+   * defines (including any `@media print` overrides the script
+   * happens to ship with).
+   *
+   * Called on the iframe's contentWindow rather than from inside the
+   * iframe itself — sandboxed iframes block `print()` without
+   * `allow-modals`, but the parent has no such restriction. We
+   * `focus()` first to make sure print() targets that frame and not
+   * the host page.
+   */
+  const handleExportPdf = () => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (err) {
+      console.error('PDF export failed', err);
+      toast.error('Could not open the print dialog');
+    }
+  };
+
   // Anti-flicker rendering: the iframe is mounted ONCE and never
   // unmounts. On every refresh tick we patch its DOM in place
   // (`documentElement.innerHTML = …`) instead of swapping `srcDoc`,
@@ -410,6 +437,15 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
             Refresh now
           </button>
         )}
+        {/* Export PDF — disabled until the first chunk has landed,
+            otherwise the print dialog would render an empty page. */}
+        <button
+          onClick={handleExportPdf}
+          disabled={bufferRef.current.length === 0}
+          title="Open the print dialog (pick 'Save as PDF' as the destination)"
+          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-border bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <FileDown className="w-3 h-3" /> Export PDF
+        </button>
         <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
           status === 'live'     ? 'text-green-400 bg-green-400/10 border-green-400/30' :
           status === 'closed'   ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :

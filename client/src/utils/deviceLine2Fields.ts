@@ -25,6 +25,7 @@ export const LINE2_FIELDS: Line2FieldDef[] = [
   { key: 'lastReboot',   label: 'Dernier reboot',   defaultVisible: false },
   { key: 'lifecycle',    label: 'Lifecycle',        defaultVisible: false },
   { key: 'warranty',     label: 'Garantie',         defaultVisible: false },
+  { key: 'tags',         label: 'Tags',             defaultVisible: false },
 ];
 
 const STORAGE_KEY = 'obliance:deviceLine2Fields';

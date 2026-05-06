@@ -85,9 +85,18 @@ export const deviceApi = {
     osName?: string;
     /** Lot C 3-tier OS filter: exact match on the build/version string. */
     osVersion?: string;
+    /** Restrict to devices carrying ANY of these tags (OR semantics). */
+    tags?: string[];
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
+  },
+  /** Distinct tags currently applied to any device in the tenant — drives the
+   *  tag-filter chip popover so admins pick from existing tags rather than
+   *  having to remember spelling. Counts attached for UI sorting. */
+  async listTags(): Promise<Array<{ tag: string; count: number }>> {
+    const res = await apiClient.get<ApiResponse<Array<{ tag: string; count: number }>>>('/devices/tags');
+    return res.data.data ?? [];
   },
   async listCustomMetrics(id: number): Promise<import('@obliance/shared').DeviceCustomMetric[]> {
     const res = await apiClient.get<ApiResponse<import('@obliance/shared').DeviceCustomMetric[]>>(`/devices/${id}/custom-metrics`);
