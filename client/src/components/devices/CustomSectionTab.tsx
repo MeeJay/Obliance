@@ -422,9 +422,15 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
             {autoRefreshEnabled && <> · auto-refresh every {autoRefreshSec}s</>}
           </div>
         </div>
-        {/* Manual refresh button — visible whenever auto-refresh is
-            on so the user can skip the cooldown and re-fire now. */}
-        {autoRefreshEnabled && (status === 'waiting' || status === 'closed') && (
+        {/* Manual refresh button — kept mounted at all auto-refresh
+            cadences ≥ 5s so it doesn't pop in/out every cycle and
+            shift neighbouring controls. Disabled while a refresh is
+            in flight (the click would race the in-progress run).
+            Below 5s it's removed entirely: the cycle is too short
+            for manual interaction to make sense and rendering it
+            would still cause a visible flicker on the disabled
+            transition every second. */}
+        {autoRefreshEnabled && autoRefreshSec >= 5 && (
           <button
             onClick={() => {
               if (refreshTimerRef.current != null) { window.clearTimeout(refreshTimerRef.current); refreshTimerRef.current = null; }
@@ -432,8 +438,9 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
               setSecondsUntilRefresh(null);
               setCycle((c) => c + 1);
             }}
+            disabled={status === 'connecting' || status === 'live'}
             title="Refresh now"
-            className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors">
+            className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Refresh now
           </button>
         )}
@@ -446,7 +453,13 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
           className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-border bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           <FileDown className="w-3 h-3" /> Export PDF
         </button>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+        {/* Fixed-width status pill so the text swap
+            'live' ↔ 'connecting' ↔ 'refresh in Ns' doesn't ripple
+            into the neighbouring buttons. tabular-nums keeps the
+            countdown digits aligned monospace-style. */}
+        <span
+          style={{ minWidth: 96 }}
+          className={`text-[10px] px-2 py-0.5 rounded-full border font-medium tabular-nums text-center inline-flex items-center justify-center ${
           status === 'live'     ? 'text-green-400 bg-green-400/10 border-green-400/30' :
           status === 'closed'   ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
           status === 'error'    ? 'text-red-400 bg-red-400/10 border-red-400/30' :
