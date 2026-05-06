@@ -270,14 +270,14 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
                 <label className="text-[11px] text-text-muted uppercase">Command</label>
                 <textarea value={command} onChange={(e) => setCommand(e.target.value)}
                   rows={2}
-                  placeholder={activeRuntime === 'powershell' ? 'Invoke-RestMethod http://localhost:8080/status' : 'curl -sf http://127.0.0.1:17899/summary'}
+                  placeholder={activeRuntime === 'powershell' ? 'Get-PSDrive -PSProvider FileSystem | Select-Object Name,Used,Free' : 'df -h --output=source,size,used,avail,pcent | head -n 5'}
                   className="w-full mt-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent font-mono whitespace-pre" />
               </div>
             ) : (
               <div className="mt-3 space-y-2">
                 <label className="text-[11px] text-text-muted uppercase">File path</label>
                 <input value={filePath} onChange={(e) => setFilePath(e.target.value)}
-                  placeholder={activeRuntime === 'powershell' ? 'C:\\Logs\\miner.log' : '/var/log/miner/stats.log'}
+                  placeholder={activeRuntime === 'powershell' ? 'C:\\Windows\\Logs\\CBS\\CBS.log' : '/var/log/syslog'}
                   className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg focus:outline-none focus:border-accent font-mono" />
                 <div className="flex items-center gap-2">
                   {(['tail', 'head', 'all'] as const).map((m) => (
@@ -464,7 +464,7 @@ export function DashboardBuilder({ runtime, initialCommand, initialTitle, onClos
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="text-[11px] text-text-muted uppercase">Title</label>
                 <input value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Qubic Mining Monitor"
+                  placeholder="Disk Usage Dashboard"
                   className="flex-1 px-2 py-1 text-xs bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent" />
                 <button type="button" onClick={suggestLayout}
                   className="px-2 py-1 text-[11px] rounded border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20">
