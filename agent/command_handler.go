@@ -291,6 +291,25 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 			result = map[string]string{"message": "privacy mode enabled"}
 		}
 
+	case "live_metrics":
+		// Two modes:
+		//   - push_now: trigger one immediate metrics push. Used by
+		//     the manual refresh button on the device detail page.
+		//   - live    : enter fast-push mode (3s cadence) for the
+		//     window passed in payload.windowSec. Reverts to the
+		//     configured push_interval when the window expires.
+		mode, _ := cmd.Payload["mode"].(string)
+		if mode == "live" {
+			windowSec := 60.0
+			if w, ok := cmd.Payload["windowSec"].(float64); ok && w > 0 {
+				windowSec = w
+			}
+			TriggerLiveMetrics(int(windowSec))
+		} else {
+			TriggerImmediatePush()
+		}
+		result = map[string]string{"message": "live metrics ack"}
+
 	case "enable_airgap":
 		serverIPs, _ := cmd.Payload["serverIPs"].([]interface{})
 		ips := make([]string, 0, len(serverIPs))

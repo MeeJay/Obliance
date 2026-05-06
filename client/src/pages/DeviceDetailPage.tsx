@@ -4262,6 +4262,23 @@ export function DeviceDetailPage() {
     socket.on('DEVICE_METRICS_PUSHED', onMetrics);
     return () => { socket.off('DEVICE_METRICS_PUSHED', onMetrics); };
   }, [deviceId, updateDeviceMetrics]);
+
+  // Live mode — while the device detail page is open, ask the agent
+  // to push every ~3s so the user actually sees CPU/RAM moving. The
+  // server enforces a fixed window (60s) so a stale tab can't keep a
+  // device in fast-push forever; we re-arm every 30s as long as the
+  // page stays mounted. Reverting to the configured push_interval is
+  // automatic on unmount (no command needed — the window expires).
+  useEffect(() => {
+    let cancelled = false;
+    const arm = async () => {
+      if (cancelled) return;
+      try { await deviceApi.requestLiveMetrics(deviceId, 'live', 60); } catch { /* offline agent — silent */ }
+    };
+    arm();
+    const id = window.setInterval(arm, 30 * 1000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [deviceId]);
   // Explicit selector — Zustand re-renders this component whenever the
   // device row is mutated in the store (via socket events, push updates,
   // or local fetches). Without the selector, destructuring getDevice
@@ -5212,8 +5229,20 @@ export function DeviceDetailPage() {
           )}
 
           <button
-            onClick={() => fetchDevice(deviceId)}
+            onClick={async () => {
+              // Two-part refresh: re-fetch the device row from the
+              // server (hostname/group/tags/etc. that change rarely)
+              // AND ask the agent to push fresh metrics immediately.
+              // Without the second step, the row already shows the
+              // last-pushed metrics — clicking would change nothing
+              // visible until the next push tick (potentially 60s).
+              await Promise.all([
+                fetchDevice(deviceId),
+                deviceApi.requestLiveMetrics(deviceId, 'push_now').catch(() => null),
+              ]);
+            }}
             className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
+            title="Refresh device + force agent metrics push"
           >
             <RefreshCw className="w-4 h-4" />
           </button>

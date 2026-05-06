@@ -399,12 +399,27 @@ export function Sidebar() {
     const socket = getSocket();
     if (!socket) return;
 
-    const onDeviceUpdated = (data: { deviceId: number; status: DeviceStatus; groupId: number | null; hostname: string; displayName: string | null }) => {
-      setDevices(prev => prev.map(d =>
-        d.id === data.deviceId
-          ? { ...d, status: data.status, groupId: data.groupId, hostname: data.hostname, displayName: data.displayName }
-          : d,
-      ));
+    const onDeviceUpdated = (data: { deviceId: number; status?: DeviceStatus; groupId?: number | null; hostname?: string; displayName?: string | null; privacyModeEnabled?: boolean; airgapEnabled?: boolean }) => {
+      // The server emits DEVICE_UPDATED with PARTIAL payloads from
+      // multiple call sites (handlePush, threshold flips, privacy/
+      // airgap toggles, etc.). Spreading data into the device row
+      // unconditionally overwrites missing fields with `undefined`,
+      // which then makes the device fail every later filter
+      // (groupId becomes undefined → drops out of every group →
+      // the agent visually "disappears" before reappearing on the
+      // next full refetch). Patch only the fields actually present
+      // so a status-only update doesn't wipe hostname/groupId.
+      setDevices(prev => prev.map(d => {
+        if (d.id !== data.deviceId) return d;
+        const next = { ...d };
+        if (data.status !== undefined)              next.status = data.status;
+        if (data.groupId !== undefined)             next.groupId = data.groupId;
+        if (data.hostname !== undefined)            next.hostname = data.hostname;
+        if (data.displayName !== undefined)         next.displayName = data.displayName;
+        if (data.privacyModeEnabled !== undefined)  next.privacyModeEnabled = data.privacyModeEnabled;
+        if (data.airgapEnabled !== undefined)       next.airgapEnabled = data.airgapEnabled;
+        return next;
+      }));
     };
 
     const onDeviceOnline = (data: { deviceId: number }) => {

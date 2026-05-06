@@ -165,6 +165,28 @@ class AgentHubService {
               msg,
             );
           }
+        } else if ((msg as any).type === 'metrics_sample') {
+          // Live-mode lightweight metrics (cpu/ram/disks) streamed over
+          // WS while a user is watching this device's detail page.
+          // Forward straight to socket.io as DEVICE_METRICS_PUSHED so
+          // the same client listener handles both HTTP-push samples
+          // and live-WS samples uniformly. NO database write, NO
+          // threshold evaluation — those stay on the heavier HTTP
+          // push pipeline at its configured cadence.
+          const sample = (msg as any).metrics;
+          if (sample && typeof sample === 'object') {
+            try {
+              const { getIO } = await import('../socket');
+              const { SocketEvents } = await import('@obliance/shared');
+              const io = getIO();
+              if (io) {
+                io.to(`tenant:${conn.tenantId}`).emit(SocketEvents.DEVICE_METRICS_PUSHED, {
+                  deviceId: conn.deviceId,
+                  metrics: sample,
+                });
+              }
+            } catch { /* socket not ready — drop the sample */ }
+          }
         }
       } catch { /* malformed JSON — ignore */ }
     });

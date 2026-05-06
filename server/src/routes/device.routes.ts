@@ -634,6 +634,25 @@ router.get('/:id', requireDeviceRead(), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/:id/live-metrics
+// Toggles a "live mode" on the device — the agent pushes metrics every
+// ~3 seconds until the window expires (default 60s, refreshed by every
+// new request). Used by the device detail page so the user sees CPU
+// actually moving instead of waiting for the next 60s push tick. With
+// `mode: 'push_now'` the agent fires a single immediate push instead,
+// which is what the manual refresh button hooks into.
+router.post('/:id/live-metrics', requireDeviceRead('id'), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const mode = (req.body?.mode === 'live' ? 'live' : 'push_now') as 'live' | 'push_now';
+    const windowSec = mode === 'live'
+      ? Math.max(5, Math.min(600, Number(req.body?.windowSec ?? 60)))
+      : undefined;
+    const sent = await deviceService.requestLiveMetrics(deviceId, req.tenantId!, mode, windowSec);
+    res.json({ data: { sent, mode, windowSec } });
+  } catch (err) { next(err); }
+});
+
 // PATCH /api/devices/:id
 router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
   try {

@@ -98,6 +98,18 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<Array<{ tag: string; count: number }>>>('/devices/tags');
     return res.data.data ?? [];
   },
+  /** Live-metrics control — kicks the agent to push immediately
+   *  (`mode='push_now'`, used by the manual refresh button) or to
+   *  enter fast-push mode for a short window (`mode='live'`, used
+   *  while the device detail page is open). Returns false if the
+   *  agent's WS channel isn't connected. */
+  async requestLiveMetrics(deviceId: number, mode: 'push_now' | 'live' = 'push_now', windowSec?: number): Promise<{ sent: boolean; mode: string; windowSec?: number }> {
+    const res = await apiClient.post<ApiResponse<{ sent: boolean; mode: string; windowSec?: number }>>(
+      `/devices/${deviceId}/live-metrics`,
+      { mode, windowSec },
+    );
+    return res.data.data ?? { sent: false, mode };
+  },
   async listCustomMetrics(id: number): Promise<import('@obliance/shared').DeviceCustomMetric[]> {
     const res = await apiClient.get<ApiResponse<import('@obliance/shared').DeviceCustomMetric[]>>(`/devices/${id}/custom-metrics`);
     return res.data.data ?? [];

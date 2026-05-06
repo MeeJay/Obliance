@@ -1071,6 +1071,27 @@ class DeviceService {
     return appConfig?.value === 'true';
   }
 
+  // ─── Live metrics request ────────────────────────────────────────────────
+  // Sends a `live_metrics` command over the agent WS so the device
+  // either fires an immediate push (`push_now`, hooked to the manual
+  // refresh button) or enters fast-push mode for `windowSec` seconds
+  // (`live`, used while the device detail page is open). Returns true
+  // when the command was actually pushed onto a live agent channel —
+  // false when the agent is offline (the front-end then knows it
+  // can't expect fresh data).
+  async requestLiveMetrics(deviceId: number, tenantId: number, mode: 'push_now' | 'live', windowSec?: number): Promise<boolean> {
+    const device = await db('devices').where({ id: deviceId, tenant_id: tenantId }).first();
+    if (!device) return false;
+    const { agentHub } = await import('./agentHub.service');
+    const { randomUUID } = await import('crypto');
+    return agentHub.push(deviceId, {
+      type: 'command',
+      id: randomUUID(),
+      commandType: 'live_metrics',
+      payload: { mode, windowSec },
+    });
+  }
+
   // ─── Offline detection ────────────────────────────────────────────────────
   async checkOfflineDevices() {
     try {

@@ -623,7 +623,13 @@ func mainLoop(cfg *Config) {
 			}()
 			push(cfg)
 		}()
-		time.Sleep(time.Duration(cfg.CheckIntervalSeconds) * time.Second)
+		// Configured cadence between HTTP pushes — interruptible by
+		// the immediate-push pulse so the manual refresh button gets
+		// fresh metrics without waiting up to push_interval_seconds.
+		// The live-mode metrics streaming is a SEPARATE goroutine
+		// (live_metrics.go) that pushes lightweight cpu/ram/disk
+		// samples over the WS channel without involving this loop.
+		WaitForNextPushOrPulse(time.Duration(cfg.CheckIntervalSeconds) * time.Second)
 	}
 }
 
