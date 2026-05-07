@@ -1655,6 +1655,11 @@ export type ScenarioNodeType =
   // Logic
   | 'branch_exit_code'
   | 'branch_on_device'
+  // Gating — pacing primitives applied to whatever flows through them.
+  // Cooldown is shared across upstream triggers (a manual fire 1h after
+  // a boot trigger fired sees the same window) and persisted per
+  // (scenario, device, cooldown node) in `scenario_cooldown_state`.
+  | 'cooldown'
   // Terminators
   | 'end_success'
   | 'end_failure';

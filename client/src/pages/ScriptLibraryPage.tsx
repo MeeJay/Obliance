@@ -15,842 +15,842 @@ import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
 const PLATFORM_LABELS: Record<ScriptPlatform, string> = {
-  windows: 'Windows',
-  macos: 'macOS',
-  linux: 'Linux',
-  freebsd: 'FreeBSD',
-  all: 'All platforms',
+ windows: 'Windows',
+ macos: 'macOS',
+ linux: 'Linux',
+ freebsd: 'FreeBSD',
+ all: 'All platforms',
 };
 
 const RUNTIME_LABELS: Record<ScriptRuntime, string> = {
-  powershell: 'PowerShell',
-  pwsh: 'PowerShell Core',
-  cmd: 'CMD',
-  bash: 'Bash',
-  zsh: 'Zsh',
-  sh: 'Shell',
-  python: 'Python',
-  python3: 'Python 3',
-  perl: 'Perl',
-  ruby: 'Ruby',
+ powershell: 'PowerShell',
+ pwsh: 'PowerShell Core',
+ cmd: 'CMD',
+ bash: 'Bash',
+ zsh: 'Zsh',
+ sh: 'Shell',
+ python: 'Python',
+ python3: 'Python 3',
+ perl: 'Perl',
+ ruby: 'Ruby',
 };
 
 const PURPOSE_LABELS: Record<ScriptPurpose, string> = {
-  check: 'Check',
-  resolve: 'Resolve',
-  execute: 'Execute',
-  compliance: 'Compliance',
-  metric: 'Custom Metric',
+ check: 'Check',
+ resolve: 'Resolve',
+ execute: 'Execute',
+ compliance: 'Compliance',
+ metric: 'Custom Metric',
 };
 
 const PURPOSE_COLORS: Record<ScriptPurpose, string> = {
-  check: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
-  resolve: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-  execute: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
-  compliance: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
-  metric: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+ check: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+ resolve: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+ execute: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
+ compliance: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+ metric: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
 };
 
 interface ScriptFormData {
-  name: string;
-  description: string;
-  platform: ScriptPlatform;
-  runtime: ScriptRuntime;
-  content: string;
-  timeoutSeconds: number;
-  expectedExitCode: number;
-  runAs: 'system' | 'user';
-  tags: string;
-  categoryId: number | null;
-  /** Optional parent script — turns this row into an indented child of
-   *  another script in the library list. Useful for check → resolve
-   *  chains. null = top-level. */
-  parentScriptId: number | null;
-  availableInReach: boolean;
-  purpose: ScriptPurpose;
-  /** Master-only fan-out: extra tenants the script becomes visible to
-   *  in read-only. Null when the script is local. */
-  targetTenantIds: number[] | null;
+ name: string;
+ description: string;
+ platform: ScriptPlatform;
+ runtime: ScriptRuntime;
+ content: string;
+ timeoutSeconds: number;
+ expectedExitCode: number;
+ runAs: 'system' | 'user';
+ tags: string;
+ categoryId: number | null;
+ /** Optional parent script — turns this row into an indented child of
+ * another script in the library list. Useful for check → resolve
+ * chains. null = top-level. */
+ parentScriptId: number | null;
+ availableInReach: boolean;
+ purpose: ScriptPurpose;
+ /** Master-only fan-out: extra tenants the script becomes visible to
+ * in read-only. Null when the script is local. */
+ targetTenantIds: number[] | null;
 }
 
 const defaultForm: ScriptFormData = {
-  name: '',
-  description: '',
-  platform: 'all',
-  runtime: 'powershell',
-  content: '',
-  timeoutSeconds: 300,
-  expectedExitCode: 0,
-  runAs: 'system',
-  tags: '',
-  categoryId: null,
-  parentScriptId: null,
-  availableInReach: false,
-  purpose: 'execute',
-  targetTenantIds: null,
+ name: '',
+ description: '',
+ platform: 'all',
+ runtime: 'powershell',
+ content: '',
+ timeoutSeconds: 300,
+ expectedExitCode: 0,
+ runAs: 'system',
+ tags: '',
+ categoryId: null,
+ parentScriptId: null,
+ availableInReach: false,
+ purpose: 'execute',
+ targetTenantIds: null,
 };
 
 export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
-  const currentTenantId = useTenantStore((s) => s.currentTenantId);
-  /** A script is read-only for the active tenant when it's owned by a
-   *  different tenant AND the caller isn't on the master tenant (master
-   *  has god-view + edit rights everywhere). Built-ins (tenantId=null)
-   *  are also treated as read-only here — they're shipped with the
-   *  product, not editable per-tenant. */
-  const isReadOnlyForCaller = (s: Script): boolean => {
-    if (currentTenantId === MASTER_TENANT_ID) return false;
-    if (s.tenantId == null) return true;
-    return s.tenantId !== currentTenantId;
-  };
-  const [scripts, setScripts] = useState<Script[]>([]);
-  const [categories, setCategories] = useState<ScriptCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('');
-  const [selectedPurpose, setSelectedPurpose] = useState<string>('');
-  const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState<ScriptFormData>(defaultForm);
-  const [isSaving, setIsSaving] = useState(false);
-  // Persist which category folders are expanded across sessions. Default:
-  // everything collapsed — the user can open what they want and the state
-  // survives reloads.
-  const [expandedCategoryList, setExpandedCategoryList] = usePersistedState<string[]>('scriptLib:expandedCategories', []);
-  const expandedCategories = new Set(expandedCategoryList);
-  const toggleCategoryCollapse = (catName: string) => {
-    setExpandedCategoryList((prev) => {
-      const s = new Set(prev);
-      if (s.has(catName)) s.delete(catName);
-      else s.add(catName);
-      return Array.from(s);
-    });
-  };
+ const currentTenantId = useTenantStore((s) => s.currentTenantId);
+ /** A script is read-only for the active tenant when it's owned by a
+ * different tenant AND the caller isn't on the master tenant (master
+ * has god-view + edit rights everywhere). Built-ins (tenantId=null)
+ * are also treated as read-only here — they're shipped with the
+ * product, not editable per-tenant. */
+ const isReadOnlyForCaller = (s: Script): boolean => {
+ if (currentTenantId === MASTER_TENANT_ID) return false;
+ if (s.tenantId == null) return true;
+ return s.tenantId !== currentTenantId;
+ };
+ const [scripts, setScripts] = useState<Script[]>([]);
+ const [categories, setCategories] = useState<ScriptCategory[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [search, setSearch] = useState('');
+ const [selectedPlatform, setSelectedPlatform] = useState<string>('');
+ const [selectedPurpose, setSelectedPurpose] = useState<string>('');
+ const [selectedScript, setSelectedScript] = useState<Script | null>(null);
+ const [isEditing, setIsEditing] = useState(false);
+ const [isCreating, setIsCreating] = useState(false);
+ const [form, setForm] = useState<ScriptFormData>(defaultForm);
+ const [isSaving, setIsSaving] = useState(false);
+ // Persist which category folders are expanded across sessions. Default:
+ // everything collapsed — the user can open what they want and the state
+ // survives reloads.
+ const [expandedCategoryList, setExpandedCategoryList] = usePersistedState<string[]>('scriptLib:expandedCategories', []);
+ const expandedCategories = new Set(expandedCategoryList);
+ const toggleCategoryCollapse = (catName: string) => {
+ setExpandedCategoryList((prev) => {
+ const s = new Set(prev);
+ if (s.has(catName)) s.delete(catName);
+ else s.add(catName);
+ return Array.from(s);
+ });
+ };
 
-  const { fetchDevices } = useDeviceStore();
+ const { fetchDevices } = useDeviceStore();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [scriptList, catList] = await Promise.all([
-        scriptApi.list({ platform: selectedPlatform || undefined, search: search || undefined }),
-        scriptApi.listCategories(),
-      ]);
-      setScripts(scriptList);
-      setCategories(catList);
-    } catch {
-      toast.error('Failed to load scripts');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedPlatform, search]);
+ const load = useCallback(async () => {
+ setIsLoading(true);
+ try {
+ const [scriptList, catList] = await Promise.all([
+ scriptApi.list({ platform: selectedPlatform || undefined, search: search || undefined }),
+ scriptApi.listCategories(),
+ ]);
+ setScripts(scriptList);
+ setCategories(catList);
+ } catch {
+ toast.error('Failed to load scripts');
+ } finally {
+ setIsLoading(false);
+ }
+ }, [selectedPlatform, search]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+ useEffect(() => { load(); }, [load]);
+ useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.content.trim()) {
-      toast.error('Name and content are required');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
-      const data = {
-        name: form.name,
-        description: form.description || null,
-        platform: form.platform,
-        runtime: form.runtime,
-        content: form.content,
-        timeoutSeconds: form.timeoutSeconds,
-        expectedExitCode: form.expectedExitCode,
-        runAs: form.runAs,
-        tags,
-        categoryId: form.categoryId,
-        parentScriptId: form.parentScriptId,
-        availableInReach: form.availableInReach,
-        purpose: form.purpose,
-        // Master-only fan-out: server ignores this value from non-master
-        // callers, so it's safe to always pass through.
-        targetTenantIds: form.targetTenantIds,
-        tenantId: null,
-      };
-      if (isCreating) {
-        await scriptApi.create(data as any);
-        toast.success('Script created');
-      } else if (selectedScript) {
-        await scriptApi.update(selectedScript.id, data);
-        toast.success('Script updated');
-      }
-      setIsEditing(false);
-      setIsCreating(false);
-      setSelectedScript(null);
-      setForm(defaultForm);
-      await load();
-    } catch {
-      toast.error('Failed to save script');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+ const handleSave = async () => {
+ if (!form.name.trim() || !form.content.trim()) {
+ toast.error('Name and content are required');
+ return;
+ }
+ setIsSaving(true);
+ try {
+ const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
+ const data = {
+ name: form.name,
+ description: form.description || null,
+ platform: form.platform,
+ runtime: form.runtime,
+ content: form.content,
+ timeoutSeconds: form.timeoutSeconds,
+ expectedExitCode: form.expectedExitCode,
+ runAs: form.runAs,
+ tags,
+ categoryId: form.categoryId,
+ parentScriptId: form.parentScriptId,
+ availableInReach: form.availableInReach,
+ purpose: form.purpose,
+ // Master-only fan-out: server ignores this value from non-master
+ // callers, so it's safe to always pass through.
+ targetTenantIds: form.targetTenantIds,
+ tenantId: null,
+ };
+ if (isCreating) {
+ await scriptApi.create(data as any);
+ toast.success('Script created');
+ } else if (selectedScript) {
+ await scriptApi.update(selectedScript.id, data);
+ toast.success('Script updated');
+ }
+ setIsEditing(false);
+ setIsCreating(false);
+ setSelectedScript(null);
+ setForm(defaultForm);
+ await load();
+ } catch {
+ toast.error('Failed to save script');
+ } finally {
+ setIsSaving(false);
+ }
+ };
 
-  const handleDelete = async (script: Script) => {
-    if (!confirm(`Delete script "${script.name}"?`)) return;
-    try {
-      await scriptApi.delete(script.id);
-      if (selectedScript?.id === script.id) setSelectedScript(null);
-      toast.success('Script deleted');
-      await load();
-    } catch {
-      toast.error('Failed to delete script');
-    }
-  };
+ const handleDelete = async (script: Script) => {
+ if (!confirm(`Delete script "${script.name}"?`)) return;
+ try {
+ await scriptApi.delete(script.id);
+ if (selectedScript?.id === script.id) setSelectedScript(null);
+ toast.success('Script deleted');
+ await load();
+ } catch {
+ toast.error('Failed to delete script');
+ }
+ };
 
-  const handleStartCreate = () => {
-    setForm(defaultForm);
-    setIsCreating(true);
-    setIsEditing(true);
-    setSelectedScript(null);
-  };
+ const handleStartCreate = () => {
+ setForm(defaultForm);
+ setIsCreating(true);
+ setIsEditing(true);
+ setSelectedScript(null);
+ };
 
-  const handleStartEdit = (script: Script) => {
-    setForm({
-      name: script.name,
-      description: script.description ?? '',
-      platform: script.platform,
-      runtime: script.runtime,
-      content: script.content,
-      timeoutSeconds: script.timeoutSeconds,
-      expectedExitCode: script.expectedExitCode ?? 0,
-      runAs: script.runAs,
-      tags: script.tags.join(', '),
-      categoryId: script.categoryId,
-      parentScriptId: script.parentScriptId ?? null,
-      availableInReach: script.availableInReach ?? false,
-      purpose: script.purpose ?? 'execute',
-      targetTenantIds: script.targetTenantIds ?? null,
-    });
-    setSelectedScript(script);
-    setIsEditing(true);
-    setIsCreating(false);
-  };
+ const handleStartEdit = (script: Script) => {
+ setForm({
+ name: script.name,
+ description: script.description ?? '',
+ platform: script.platform,
+ runtime: script.runtime,
+ content: script.content,
+ timeoutSeconds: script.timeoutSeconds,
+ expectedExitCode: script.expectedExitCode ?? 0,
+ runAs: script.runAs,
+ tags: script.tags.join(', '),
+ categoryId: script.categoryId,
+ parentScriptId: script.parentScriptId ?? null,
+ availableInReach: script.availableInReach ?? false,
+ purpose: script.purpose ?? 'execute',
+ targetTenantIds: script.targetTenantIds ?? null,
+ });
+ setSelectedScript(script);
+ setIsEditing(true);
+ setIsCreating(false);
+ };
 
-  // Helper for the parent picker: collect IDs that would create a cycle
-  // if chosen as parent of `selfId`. That's `selfId` itself + every script
-  // that has `selfId` somewhere up its ancestry chain.
-  const descendantIds = (selfId: number | null): Set<number> => {
-    const out = new Set<number>();
-    if (selfId == null) return out;
-    out.add(selfId);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const s of scripts) {
-        if (s.parentScriptId != null && out.has(s.parentScriptId) && !out.has(s.id)) {
-          out.add(s.id);
-          changed = true;
-        }
-      }
-    }
-    return out;
-  };
+ // Helper for the parent picker: collect IDs that would create a cycle
+ // if chosen as parent of `selfId`. That's `selfId` itself + every script
+ // that has `selfId` somewhere up its ancestry chain.
+ const descendantIds = (selfId: number | null): Set<number> => {
+ const out = new Set<number>();
+ if (selfId == null) return out;
+ out.add(selfId);
+ let changed = true;
+ while (changed) {
+ changed = false;
+ for (const s of scripts) {
+ if (s.parentScriptId != null && out.has(s.parentScriptId) && !out.has(s.id)) {
+ out.add(s.id);
+ changed = true;
+ }
+ }
+ }
+ return out;
+ };
 
-  // Master narrow filter — chip row above the list. URL-synced.
-  const tenantFilter = useTenantFilter();
+ // Master narrow filter — chip row above the list. URL-synced.
+ const tenantFilter = useTenantFilter();
 
-  // Filter scripts by purpose + tenant. Built-ins (tenantId = null)
-  // pass the tenant filter unconditionally — they're library presets,
-  // not tenant property.
-  const filteredScripts = scripts
-    .filter((s) => !selectedPurpose || (s.purpose ?? 'execute') === selectedPurpose)
-    .filter((s) => {
-      if (tenantFilter.value.size === 0) return true;
-      if (s.tenantId == null) return true;
-      return tenantFilter.value.has(s.tenantId);
-    });
+ // Filter scripts by purpose + tenant. Built-ins (tenantId = null)
+ // pass the tenant filter unconditionally — they're library presets,
+ // not tenant property.
+ const filteredScripts = scripts
+ .filter((s) => !selectedPurpose || (s.purpose ?? 'execute') === selectedPurpose)
+ .filter((s) => {
+ if (tenantFilter.value.size === 0) return true;
+ if (s.tenantId == null) return true;
+ return tenantFilter.value.has(s.tenantId);
+ });
 
-  // Group scripts by category
-  const catMap = new Map(categories.map((c) => [c.id, c.name]));
-  const grouped = new Map<string, { catId: number | null; scripts: Script[] }>();
-  for (const s of filteredScripts) {
-    const key = s.categoryId ? (catMap.get(s.categoryId) ?? 'Uncategorized') : 'Uncategorized';
-    const catId = s.categoryId ?? null;
-    if (!grouped.has(key)) grouped.set(key, { catId, scripts: [] });
-    grouped.get(key)!.scripts.push(s);
-  }
-  // Sort: named categories first (alphabetical), then Uncategorized
-  const sortedGroups = [...grouped.entries()].sort(([a], [b]) => {
-    if (a === 'Uncategorized') return 1;
-    if (b === 'Uncategorized') return -1;
-    return a.localeCompare(b);
-  });
+ // Group scripts by category
+ const catMap = new Map(categories.map((c) => [c.id, c.name]));
+ const grouped = new Map<string, { catId: number | null; scripts: Script[] }>();
+ for (const s of filteredScripts) {
+ const key = s.categoryId ? (catMap.get(s.categoryId) ?? 'Uncategorized') : 'Uncategorized';
+ const catId = s.categoryId ?? null;
+ if (!grouped.has(key)) grouped.set(key, { catId, scripts: [] });
+ grouped.get(key)!.scripts.push(s);
+ }
+ // Sort: named categories first (alphabetical), then Uncategorized
+ const sortedGroups = [...grouped.entries()].sort(([a], [b]) => {
+ if (a === 'Uncategorized') return 1;
+ if (b === 'Uncategorized') return -1;
+ return a.localeCompare(b);
+ });
 
-  return (
-    <div className={embedded ? 'flex overflow-hidden rounded-xl border border-border' : 'flex h-full overflow-hidden'}>
-      {/* Left panel: filter + categorized list */}
-      <div className="w-72 shrink-0 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold text-text-primary">Scripts</h1>
-            <div className="flex gap-1">
-              <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary rounded-lg transition-colors">
-                <RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />
-              </button>
-              <button
-                onClick={handleStartCreate}
-                className="p-1.5 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-            />
-          </div>
-          <select
-            value={selectedPlatform}
-            onChange={(e) => setSelectedPlatform(e.target.value)}
-            className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-          >
-            <option value="">All platforms</option>
-            {Object.entries(PLATFORM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <select
-            value={selectedPurpose}
-            onChange={(e) => setSelectedPurpose(e.target.value)}
-            className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-          >
-            <option value="">All purposes</option>
-            {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </div>
+ return (
+ <div className={embedded ? 'flex overflow-hidden rounded-xl' : 'flex h-full overflow-hidden'}>
+ {/* Left panel: filter + categorized list */}
+ <div className="w-72 shrink-0 flex flex-col">
+ <div className="p-4 space-y-3">
+ <div className="flex items-center justify-between">
+ <h1 className="text-lg font-bold text-text-primary">Scripts</h1>
+ <div className="flex gap-1">
+ <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary rounded-lg transition-colors">
+ <RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+ </button>
+ <button
+ onClick={handleStartCreate}
+ className="p-1.5 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
+ >
+ <Plus className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
+ <div className="relative">
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+ <input
+ value={search}
+ onChange={(e) => setSearch(e.target.value)}
+ placeholder="Search..."
+ className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
+ <select
+ value={selectedPlatform}
+ onChange={(e) => setSelectedPlatform(e.target.value)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="">All platforms</option>
+ {Object.entries(PLATFORM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+ </select>
+ <select
+ value={selectedPurpose}
+ onChange={(e) => setSelectedPurpose(e.target.value)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="">All purposes</option>
+ {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+ </select>
+ </div>
 
-        {/* Master tenant chip filter — hidden outside master. Lets the
-            admin narrow the library to one tenant's scripts when
-            scanning a fleet of 8+ tenants. */}
-        <div className="px-4 pb-2">
-          <TenantFilterChips
-            value={tenantFilter.value}
-            onChange={tenantFilter.setValue}
-            availableTenantIds={[...new Set(scripts.map((s) => s.tenantId).filter((id): id is number => id != null))]}
-          />
-        </div>
+ {/* Master tenant chip filter — hidden outside master. Lets the
+ admin narrow the library to one tenant's scripts when
+ scanning a fleet of 8+ tenants. */}
+ <div className="px-4 pb-2">
+ <TenantFilterChips
+ value={tenantFilter.value}
+ onChange={tenantFilter.setValue}
+ availableTenantIds={[...new Set(scripts.map((s) => s.tenantId).filter((id): id is number => id != null))]}
+ />
+ </div>
 
-        {/* Script list grouped by category (drawers) */}
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-24">
-              <RefreshCw className="w-4 h-4 animate-spin text-text-muted" />
-            </div>
-          ) : filteredScripts.length === 0 ? (
-            <p className="text-center text-text-muted text-sm py-8">No scripts found</p>
-          ) : (
-            sortedGroups.map(([catName, { scripts: catScripts }]) => {
-              const isExpanded = expandedCategories.has(catName);
-              return (
-                <div key={catName}>
-                  <button
-                    onClick={() => toggleCategoryCollapse(catName)}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left border-b border-border bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
-                  >
-                    {isExpanded
-                      ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
-                      : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
-                    }
-                    <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                    <span className="text-xs font-semibold text-text-primary uppercase tracking-wide flex-1 truncate">{catName}</span>
-                    <span className="text-[10px] text-text-muted shrink-0">{catScripts.length}</span>
-                  </button>
-                  {isExpanded && (
-                    <div className="p-1.5">
-                      {(() => {
-                        // Build the parent → children map within this category
-                        // and pick the roots (scripts whose parent is null OR
-                        // lives in another category — the latter happens
-                        // when an admin re-categorises only the parent).
-                        const idsInCat = new Set(catScripts.map((x) => x.id));
-                        const childrenOf = new Map<number | null, Script[]>();
-                        for (const s of catScripts) {
-                          const key = s.parentScriptId != null && idsInCat.has(s.parentScriptId)
-                            ? s.parentScriptId
-                            : null;
-                          if (!childrenOf.has(key)) childrenOf.set(key, []);
-                          childrenOf.get(key)!.push(s);
-                        }
-                        const renderTree = (parentKey: number | null, depth: number): JSX.Element[] => {
-                          const list = childrenOf.get(parentKey) ?? [];
-                          return list.flatMap((script) => [
-                            <button
-                              key={script.id}
-                              onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
-                              className={clsx(
-                                'w-full text-left p-2.5 rounded-lg transition-colors mb-0.5',
-                                selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
-                              )}
-                              style={depth > 0 ? { paddingLeft: `${10 + depth * 16}px` } : undefined}
-                            >
-                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                                <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
-                                <TenantBadge tenantId={script.tenantId} />
-                                {/* Usage chip — null/0 means unused. We
-                                    render an explicit "Unused" pill in
-                                    that case so admins can spot
-                                    orphans during clean-up runs. */}
-                                {(() => {
-                                  const u = script.usage;
-                                  if (!u) return null;
-                                  if (u.scenarios === 0 && u.schedules === 0 && !script.isBuiltin) {
-                                    return (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] uppercase tracking-wider rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400">
-                                        Unused
-                                      </span>
-                                    );
-                                  }
-                                  if (u.scenarios === 0 && u.schedules === 0) return null;
-                                  return (
-                                    <span
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full border border-accent/30 bg-accent/10 text-accent"
-                                      title={`${u.scenarios} scenario(s), ${u.schedules} schedule(s)`}
-                                    >
-                                      {u.scenarios > 0 && <span>{u.scenarios}× scenario{u.scenarios > 1 ? 's' : ''}</span>}
-                                      {u.scenarios > 0 && u.schedules > 0 && <span>·</span>}
-                                      {u.schedules > 0 && <span>{u.schedules}× schedule{u.schedules > 1 ? 's' : ''}</span>}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
-                                <span>{PLATFORM_LABELS[script.platform]}</span>
-                                <span>·</span>
-                                <span>{RUNTIME_LABELS[script.runtime]}</span>
-                                {script.purpose && script.purpose !== 'execute' && (
-                                  <>
-                                    <span>·</span>
-                                    <span className={clsx('px-1.5 py-0 rounded-full border text-[10px] font-medium', PURPOSE_COLORS[script.purpose])}>
-                                      {PURPOSE_LABELS[script.purpose]}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </button>,
-                            ...renderTree(script.id, depth + 1),
-                          ]);
-                        };
-                        return renderTree(null, 0);
-                      })()}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+ {/* Script list grouped by category (drawers) */}
+ <div className="flex-1 overflow-y-auto">
+ {isLoading ? (
+ <div className="flex items-center justify-center h-24">
+ <RefreshCw className="w-4 h-4 animate-spin text-text-muted" />
+ </div>
+ ) : filteredScripts.length === 0 ? (
+ <p className="text-center text-text-muted text-sm py-8">No scripts found</p>
+ ) : (
+ sortedGroups.map(([catName, { scripts: catScripts }]) => {
+ const isExpanded = expandedCategories.has(catName);
+ return (
+ <div key={catName}>
+ <button
+ onClick={() => toggleCategoryCollapse(catName)}
+ className="w-full flex items-center gap-2 px-4 py-2 text-left bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
+ >
+ {isExpanded
+ ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
+ : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />
+ }
+ <FolderOpen className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <span className="text-xs font-semibold text-text-primary uppercase tracking-wide flex-1 truncate">{catName}</span>
+ <span className="text-[10px] text-text-muted shrink-0">{catScripts.length}</span>
+ </button>
+ {isExpanded && (
+ <div className="p-1.5">
+ {(() => {
+ // Build the parent → children map within this category
+ // and pick the roots (scripts whose parent is null OR
+ // lives in another category — the latter happens
+ // when an admin re-categorises only the parent).
+ const idsInCat = new Set(catScripts.map((x) => x.id));
+ const childrenOf = new Map<number | null, Script[]>();
+ for (const s of catScripts) {
+ const key = s.parentScriptId != null && idsInCat.has(s.parentScriptId)
+ ? s.parentScriptId
+ : null;
+ if (!childrenOf.has(key)) childrenOf.set(key, []);
+ childrenOf.get(key)!.push(s);
+ }
+ const renderTree = (parentKey: number | null, depth: number): JSX.Element[] => {
+ const list = childrenOf.get(parentKey) ?? [];
+ return list.flatMap((script) => [
+ <button
+ key={script.id}
+ onClick={() => { setSelectedScript(script); setIsEditing(false); setIsCreating(false); }}
+ className={clsx(
+ 'w-full text-left p-2.5 rounded-lg transition-colors mb-0.5',
+ selectedScript?.id === script.id && !isCreating ? 'bg-accent/10 border border-accent/30' : 'hover:bg-bg-tertiary',
+ )}
+ style={depth > 0 ? { paddingLeft: `${10 + depth * 16}px` } : undefined}
+ >
+ <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+ <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
+ <TenantBadge tenantId={script.tenantId} />
+ {/* Usage chip — null/0 means unused. We
+ render an explicit "Unused" pill in
+ that case so admins can spot
+ orphans during clean-up runs. */}
+ {(() => {
+ const u = script.usage;
+ if (!u) return null;
+ if (u.scenarios === 0 && u.schedules === 0 && !script.isBuiltin) {
+ return (
+ <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] uppercase tracking-wider rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400">
+ Unused
+ </span>
+ );
+ }
+ if (u.scenarios === 0 && u.schedules === 0) return null;
+ return (
+ <span
+ className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full border border-accent/30 bg-accent/10 text-accent"
+ title={`${u.scenarios} scenario(s), ${u.schedules} schedule(s)`}
+ >
+ {u.scenarios > 0 && <span>{u.scenarios}× scenario{u.scenarios > 1 ? 's' : ''}</span>}
+ {u.scenarios > 0 && u.schedules > 0 && <span>·</span>}
+ {u.schedules > 0 && <span>{u.schedules}× schedule{u.schedules > 1 ? 's' : ''}</span>}
+ </span>
+ );
+ })()}
+ </div>
+ <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
+ <span>{PLATFORM_LABELS[script.platform]}</span>
+ <span>·</span>
+ <span>{RUNTIME_LABELS[script.runtime]}</span>
+ {script.purpose && script.purpose !== 'execute' && (
+ <>
+ <span>·</span>
+ <span className={clsx('px-1.5 py-0 rounded-full border text-[10px] font-medium', PURPOSE_COLORS[script.purpose])}>
+ {PURPOSE_LABELS[script.purpose]}
+ </span>
+ </>
+ )}
+ </div>
+ </button>,
+ ...renderTree(script.id, depth + 1),
+ ]);
+ };
+ return renderTree(null, 0);
+ })()}
+ </div>
+ )}
+ </div>
+ );
+ })
+ )}
+ </div>
+ </div>
 
-      {/* Right panel: script detail / form */}
-      <div className="flex-1 overflow-y-auto">
-        {isEditing ? (
-          <div className="p-6 space-y-4 max-w-3xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-text-primary">{isCreating ? 'New Script' : 'Edit Script'}</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setIsEditing(false); setIsCreating(false); }}
-                  className="px-4 py-2 text-sm text-text-muted hover:text-text-primary bg-bg-secondary border border-border rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
+ {/* Right panel: script detail / form */}
+ <div className="flex-1 overflow-y-auto">
+ {isEditing ? (
+ <div className="p-6 space-y-4 max-w-3xl">
+ <div className="flex items-center justify-between">
+ <h2 className="text-lg font-semibold text-text-primary">{isCreating ? 'New Script' : 'Edit Script'}</h2>
+ <div className="flex gap-2">
+ <button
+ onClick={() => { setIsEditing(false); setIsCreating(false); }}
+ className="px-4 py-2 text-sm text-text-muted hover:text-text-primary bg-bg-secondary rounded-lg transition-colors"
+ >
+ Cancel
+ </button>
+ <button
+ onClick={handleSave}
+ disabled={isSaving}
+ className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors"
+ >
+ {isSaving ? 'Saving...' : 'Save'}
+ </button>
+ </div>
+ </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Name *</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Platform</label>
-                <select
-                  value={form.platform}
-                  onChange={(e) => setForm({ ...form, platform: e.target.value as ScriptPlatform })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  {Object.entries(PLATFORM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Runtime</label>
-                <select
-                  value={form.runtime}
-                  onChange={(e) => setForm({ ...form, runtime: e.target.value as ScriptRuntime })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  {Object.entries(RUNTIME_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Timeout (seconds)</label>
-                <input
-                  type="number"
-                  value={form.timeoutSeconds}
-                  onChange={(e) => setForm({ ...form, timeoutSeconds: parseInt(e.target.value, 10) || 300 })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Expected exit code</label>
-                <input
-                  type="number"
-                  value={form.expectedExitCode}
-                  onChange={(e) => setForm({ ...form, expectedExitCode: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                  title="The agent marks the execution as 'success' only when the script exits with this code (default: 0)"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Run As</label>
-                <select
-                  value={form.runAs}
-                  onChange={(e) => setForm({ ...form, runAs: e.target.value as 'system' | 'user' })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="system">System</option>
-                  <option value="user">User</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Purpose</label>
-                <select
-                  value={form.purpose}
-                  onChange={(e) => setForm({ ...form, purpose: e.target.value as ScriptPurpose })}
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                >
-                  {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-text-muted uppercase">Category</label>
-                <CategoryCombobox
-                  categories={categories}
-                  value={form.categoryId}
-                  onChange={(catId) => setForm({ ...form, categoryId: catId })}
-                  onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
-                />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-medium text-text-muted uppercase">Parent script (optional)</label>
-                {(() => {
-                  // Excluded: self + every descendant (would close a cycle).
-                  const blocked = descendantIds(selectedScript?.id ?? null);
-                  const candidates = scripts
-                    .filter((s) => !blocked.has(s.id))
-                    .sort((a, b) => a.name.localeCompare(b.name));
-                  return (
-                    <select
-                      value={form.parentScriptId ?? ''}
-                      onChange={(e) => setForm({ ...form, parentScriptId: e.target.value ? parseInt(e.target.value, 10) : null })}
-                      className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                    >
-                      <option value="">— No parent (top level) —</option>
-                      {candidates.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${PURPOSE_LABELS[s.purpose]}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  );
-                })()}
-                <p className="text-[11px] text-text-muted">
-                  Pick a parent to indent this script under it in the library — useful for chaining a <span className="text-orange-400">resolve</span> directly under its <span className="text-blue-400">check</span>.
-                </p>
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-medium text-text-muted uppercase">Tags (comma-separated)</label>
-                <input
-                  value={form.tags}
-                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                  placeholder="e.g. security, audit, cleanup"
-                  className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={form.availableInReach}
-                    onChange={(e) => setForm({ ...form, availableInReach: e.target.checked })}
-                    className="w-4 h-4 rounded border-border accent-accent"
-                  />
-                  <span className="text-sm text-text-primary">Available in Reach</span>
-                  <span className="text-xs text-text-muted">— show this script in the Oblireach desktop client</span>
-                </label>
-              </div>
-              {/* Master-only fan-out picker. Hidden automatically on
-                  child tenants (the component returns null), so the
-                  form layout stays unchanged for non-master admins. */}
-              <div className="md:col-span-2">
-                <TargetTenantsPicker
-                  value={form.targetTenantIds}
-                  onChange={(next) => setForm({ ...form, targetTenantIds: next })}
-                />
-              </div>
-            </div>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Name *</label>
+ <input
+ value={form.name}
+ onChange={(e) => setForm({ ...form, name: e.target.value })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Platform</label>
+ <select
+ value={form.platform}
+ onChange={(e) => setForm({ ...form, platform: e.target.value as ScriptPlatform })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ {Object.entries(PLATFORM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+ </select>
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Runtime</label>
+ <select
+ value={form.runtime}
+ onChange={(e) => setForm({ ...form, runtime: e.target.value as ScriptRuntime })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ {Object.entries(RUNTIME_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+ </select>
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Timeout (seconds)</label>
+ <input
+ type="number"
+ value={form.timeoutSeconds}
+ onChange={(e) => setForm({ ...form, timeoutSeconds: parseInt(e.target.value, 10) || 300 })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Expected exit code</label>
+ <input
+ type="number"
+ value={form.expectedExitCode}
+ onChange={(e) => setForm({ ...form, expectedExitCode: parseInt(e.target.value, 10) || 0 })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ title="The agent marks the execution as 'success' only when the script exits with this code (default: 0)"
+ />
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Run As</label>
+ <select
+ value={form.runAs}
+ onChange={(e) => setForm({ ...form, runAs: e.target.value as 'system' | 'user' })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="system">System</option>
+ <option value="user">User</option>
+ </select>
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Purpose</label>
+ <select
+ value={form.purpose}
+ onChange={(e) => setForm({ ...form, purpose: e.target.value as ScriptPurpose })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ {Object.entries(PURPOSE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+ </select>
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Category</label>
+ <CategoryCombobox
+ categories={categories}
+ value={form.categoryId}
+ onChange={(catId) => setForm({ ...form, categoryId: catId })}
+ onCategoryCreated={(cat) => setCategories((prev) => [...prev, cat])}
+ />
+ </div>
+ <div className="space-y-1 md:col-span-2">
+ <label className="text-xs font-medium text-text-muted uppercase">Parent script (optional)</label>
+ {(() => {
+ // Excluded: self + every descendant (would close a cycle).
+ const blocked = descendantIds(selectedScript?.id ?? null);
+ const candidates = scripts
+ .filter((s) => !blocked.has(s.id))
+ .sort((a, b) => a.name.localeCompare(b.name));
+ return (
+ <select
+ value={form.parentScriptId ?? ''}
+ onChange={(e) => setForm({ ...form, parentScriptId: e.target.value ? parseInt(e.target.value, 10) : null })}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="">— No parent (top level) —</option>
+ {candidates.map((s) => (
+ <option key={s.id} value={s.id}>
+ {s.name}{s.purpose && s.purpose !== 'execute' ? ` · ${PURPOSE_LABELS[s.purpose]}` : ''}
+ </option>
+ ))}
+ </select>
+ );
+ })()}
+ <p className="text-[11px] text-text-muted">
+ Pick a parent to indent this script under it in the library — useful for chaining a <span className="text-orange-400">resolve</span> directly under its <span className="text-blue-400">check</span>.
+ </p>
+ </div>
+ <div className="space-y-1 md:col-span-2">
+ <label className="text-xs font-medium text-text-muted uppercase">Tags (comma-separated)</label>
+ <input
+ value={form.tags}
+ onChange={(e) => setForm({ ...form, tags: e.target.value })}
+ placeholder="e.g. security, audit, cleanup"
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
+ <div className="md:col-span-2">
+ <label className="flex items-center gap-3 cursor-pointer select-none">
+ <input
+ type="checkbox"
+ checked={form.availableInReach}
+ onChange={(e) => setForm({ ...form, availableInReach: e.target.checked })}
+ className="w-4 h-4 rounded border-transparent accent-accent"
+ />
+ <span className="text-sm text-text-primary">Available in Reach</span>
+ <span className="text-xs text-text-muted">— show this script in the Oblireach desktop client</span>
+ </label>
+ </div>
+ {/* Master-only fan-out picker. Hidden automatically on
+ child tenants (the component returns null), so the
+ form layout stays unchanged for non-master admins. */}
+ <div className="md:col-span-2">
+ <TargetTenantsPicker
+ value={form.targetTenantIds}
+ onChange={(next) => setForm({ ...form, targetTenantIds: next })}
+ />
+ </div>
+ </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Description</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent resize-none"
-              />
-            </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Description</label>
+ <textarea
+ value={form.description}
+ onChange={(e) => setForm({ ...form, description: e.target.value })}
+ rows={2}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent resize-none"
+ />
+ </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Content *</label>
-              <textarea
-                value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
-                rows={20}
-                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent resize-y font-mono"
-                placeholder={form.runtime === 'powershell' || form.runtime === 'pwsh' ? '# PowerShell script\nWrite-Host "Hello World"' : '#!/bin/bash\necho "Hello World"'}
-              />
-            </div>
-          </div>
-        ) : selectedScript ? (
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-text-primary">
-                  {selectedScript.name}
-                  {/* Master-owned badge — surfaces when the caller is on
-                      a child tenant and this script is fan-outed from
-                      Default. Edit/Delete are disabled below since the
-                      server enforces tenant_id = req.tenantId for writes. */}
-                  {isReadOnlyForCaller(selectedScript) && (
-                    <span className="ml-2 inline-flex items-center gap-1 align-middle px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
-                      🔒 Master
-                    </span>
-                  )}
-                  <span className="ml-2 align-middle">
-                    <FanOutChips targetTenantIds={selectedScript.targetTenantIds} />
-                  </span>
-                </h2>
-                <p className="text-sm text-text-muted mt-1">
-                  {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · exit code {selectedScript.expectedExitCode ?? 0} · run as {selectedScript.runAs}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleStartEdit(selectedScript)}
-                  disabled={isReadOnlyForCaller(selectedScript)}
-                  title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      const cloned = await scriptApi.clone(selectedScript.id);
-                      toast.success(`Cloned as "${cloned.name}"`);
-                      await load();
-                      setSelectedScript(cloned);
-                    } catch { toast.error('Failed to clone'); }
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  Clone
-                </button>
-                {!selectedScript.isBuiltin && (
-                  <button
-                    onClick={() => handleDelete(selectedScript)}
-                    disabled={isReadOnlyForCaller(selectedScript)}
-                    title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Content *</label>
+ <textarea
+ value={form.content}
+ onChange={(e) => setForm({ ...form, content: e.target.value })}
+ rows={20}
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent resize-y font-mono"
+ placeholder={form.runtime === 'powershell' || form.runtime === 'pwsh' ? '# PowerShell script\nWrite-Host "Hello World"' : '#!/bin/bash\necho "Hello World"'}
+ />
+ </div>
+ </div>
+ ) : selectedScript ? (
+ <div className="p-6 space-y-4">
+ <div className="flex items-center justify-between">
+ <div>
+ <h2 className="text-xl font-bold text-text-primary">
+ {selectedScript.name}
+ {/* Master-owned badge — surfaces when the caller is on
+ a child tenant and this script is fan-outed from
+ Default. Edit/Delete are disabled below since the
+ server enforces tenant_id = req.tenantId for writes. */}
+ {isReadOnlyForCaller(selectedScript) && (
+ <span className="ml-2 inline-flex items-center gap-1 align-middle px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
+ 🔒 Master
+ </span>
+ )}
+ <span className="ml-2 align-middle">
+ <FanOutChips targetTenantIds={selectedScript.targetTenantIds} />
+ </span>
+ </h2>
+ <p className="text-sm text-text-muted mt-1">
+ {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · exit code {selectedScript.expectedExitCode ?? 0} · run as {selectedScript.runAs}
+ </p>
+ </div>
+ <div className="flex gap-2">
+ <button
+ onClick={() => handleStartEdit(selectedScript)}
+ disabled={isReadOnlyForCaller(selectedScript)}
+ title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+ >
+ <Edit className="w-3.5 h-3.5" />
+ Edit
+ </button>
+ <button
+ onClick={async () => {
+ try {
+ const cloned = await scriptApi.clone(selectedScript.id);
+ toast.success(`Cloned as "${cloned.name}"`);
+ await load();
+ setSelectedScript(cloned);
+ } catch { toast.error('Failed to clone'); }
+ }}
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+ >
+ <Copy className="w-3.5 h-3.5" />
+ Clone
+ </button>
+ {!selectedScript.isBuiltin && (
+ <button
+ onClick={() => handleDelete(selectedScript)}
+ disabled={isReadOnlyForCaller(selectedScript)}
+ title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+ >
+ <Trash2 className="w-3.5 h-3.5" />
+ Delete
+ </button>
+ )}
+ </div>
+ </div>
 
-            {selectedScript.description && (
-              <p className="text-sm text-text-muted">{selectedScript.description}</p>
-            )}
+ {selectedScript.description && (
+ <p className="text-sm text-text-muted">{selectedScript.description}</p>
+ )}
 
-            {selectedScript.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedScript.tags.map((tag) => (
-                  <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-xs bg-bg-tertiary border border-border rounded-full text-text-muted">
-                    <Tag className="w-2.5 h-2.5" />
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+ {selectedScript.tags.length > 0 && (
+ <div className="flex flex-wrap gap-2">
+ {selectedScript.tags.map((tag) => (
+ <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-xs bg-bg-tertiary rounded-full text-text-muted">
+ <Tag className="w-2.5 h-2.5" />
+ {tag}
+ </span>
+ ))}
+ </div>
+ )}
 
-            <div className="bg-bg-tertiary border border-border rounded-xl overflow-hidden">
-              <div className="px-4 py-2 border-b border-border flex items-center gap-2">
-                <Code className="w-4 h-4 text-text-muted" />
-                <span className="text-xs text-text-muted font-medium">{RUNTIME_LABELS[selectedScript.runtime]}</span>
-                <span className="ml-auto text-xs text-text-muted">{selectedScript.content.split('\n').length} lines</span>
-              </div>
-              <pre className="p-4 text-sm font-mono text-text-primary overflow-x-auto whitespace-pre-wrap max-h-[32rem]">{selectedScript.content}</pre>
-            </div>
+ <div className="bg-bg-tertiary rounded-xl overflow-hidden">
+ <div className="px-4 py-2 flex items-center gap-2">
+ <Code className="w-4 h-4 text-text-muted" />
+ <span className="text-xs text-text-muted font-medium">{RUNTIME_LABELS[selectedScript.runtime]}</span>
+ <span className="ml-auto text-xs text-text-muted">{selectedScript.content.split('\n').length} lines</span>
+ </div>
+ <pre className="p-4 text-sm font-mono text-text-primary overflow-x-auto whitespace-pre-wrap max-h-[32rem]">{selectedScript.content}</pre>
+ </div>
 
-            <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
-              <span>Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}</span>
-              {selectedScript.purpose && (
-                <span className={clsx('px-1.5 py-0.5 rounded border text-[10px] font-medium', PURPOSE_COLORS[selectedScript.purpose])}>
-                  {PURPOSE_LABELS[selectedScript.purpose]}
-                </span>
-              )}
-              {selectedScript.isBuiltin && <span className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-text-muted">Built-in</span>}
-              {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400">Available in Reach</span>}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-text-muted">
-            <Terminal className="w-12 h-12 mb-3 opacity-30" />
-            <p>Select a script or create a new one</p>
-            <button
-              onClick={handleStartCreate}
-              className="mt-4 flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              New Script
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+ <div className="text-xs text-text-muted flex items-center gap-2 flex-wrap">
+ <span>Created {new Date(selectedScript.createdAt).toLocaleDateString()} · Updated {new Date(selectedScript.updatedAt).toLocaleDateString()}</span>
+ {selectedScript.purpose && (
+ <span className={clsx('px-1.5 py-0.5 rounded border text-[10px] font-medium', PURPOSE_COLORS[selectedScript.purpose])}>
+ {PURPOSE_LABELS[selectedScript.purpose]}
+ </span>
+ )}
+ {selectedScript.isBuiltin && <span className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted">Built-in</span>}
+ {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400">Available in Reach</span>}
+ </div>
+ </div>
+ ) : (
+ <div className="flex flex-col items-center justify-center h-full text-text-muted">
+ <Terminal className="w-12 h-12 mb-3 opacity-30" />
+ <p>Select a script or create a new one</p>
+ <button
+ onClick={handleStartCreate}
+ className="mt-4 flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors text-sm"
+ >
+ <Plus className="w-4 h-4" />
+ New Script
+ </button>
+ </div>
+ )}
+ </div>
+ </div>
+ );
 }
 
 // ── Category Combobox with search + inline create ──
 
 function CategoryCombobox({
-  categories,
-  value,
-  onChange,
-  onCategoryCreated,
+ categories,
+ value,
+ onChange,
+ onCategoryCreated,
 }: {
-  categories: ScriptCategory[];
-  value: number | null;
-  onChange: (catId: number | null) => void;
-  onCategoryCreated: (cat: ScriptCategory) => void;
+ categories: ScriptCategory[];
+ value: number | null;
+ onChange: (catId: number | null) => void;
+ onCategoryCreated: (cat: ScriptCategory) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+ const [open, setOpen] = useState(false);
+ const [query, setQuery] = useState('');
+ const [creating, setCreating] = useState(false);
+ const ref = useRef<HTMLDivElement>(null);
+ const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedName = categories.find((c) => c.id === value)?.name ?? '';
+ const selectedName = categories.find((c) => c.id === value)?.name ?? '';
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+ useEffect(() => {
+ if (!open) return;
+ const handler = (e: MouseEvent) => {
+ if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+ };
+ document.addEventListener('mousedown', handler);
+ return () => document.removeEventListener('mousedown', handler);
+ }, [open]);
 
-  const filtered = categories.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
-  );
-  const exactMatch = categories.some((c) => c.name.toLowerCase() === query.trim().toLowerCase());
+ const filtered = categories.filter((c) =>
+ c.name.toLowerCase().includes(query.toLowerCase())
+ );
+ const exactMatch = categories.some((c) => c.name.toLowerCase() === query.trim().toLowerCase());
 
-  const handleCreate = async () => {
-    if (!query.trim() || creating) return;
-    setCreating(true);
-    try {
-      const cat = await scriptApi.createCategory(query.trim());
-      onCategoryCreated(cat);
-      onChange(cat.id);
-      setQuery('');
-      setOpen(false);
-    } catch {
-      toast.error('Failed to create category');
-    } finally {
-      setCreating(false);
-    }
-  };
+ const handleCreate = async () => {
+ if (!query.trim() || creating) return;
+ setCreating(true);
+ try {
+ const cat = await scriptApi.createCategory(query.trim());
+ onCategoryCreated(cat);
+ onChange(cat.id);
+ setQuery('');
+ setOpen(false);
+ } catch {
+ toast.error('Failed to create category');
+ } finally {
+ setCreating(false);
+ }
+ };
 
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => { setOpen(!open); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-left text-text-primary hover:border-accent/50 transition-colors focus:outline-none focus:border-accent"
-      >
-        {selectedName || <span className="text-text-muted">No category</span>}
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-full bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden">
-          <div className="p-2">
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search or create..."
-              className="w-full px-2.5 py-1.5 text-sm bg-bg-tertiary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && query.trim() && !exactMatch) { e.preventDefault(); handleCreate(); }
-              }}
-            />
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            <button
-              onClick={() => { onChange(null); setOpen(false); }}
-              className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === null && 'text-accent')}
-            >
-              No category
-            </button>
-            {filtered.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => { onChange(cat.id); setOpen(false); }}
-                className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === cat.id && 'text-accent font-medium')}
-              >
-                {cat.name}
-              </button>
-            ))}
-            {query.trim() && !exactMatch && (
-              <button
-                onClick={handleCreate}
-                disabled={creating}
-                className="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-accent/5 transition-colors border-t border-border"
-              >
-                {creating ? 'Creating...' : `+ Create "${query.trim()}"`}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+ return (
+ <div ref={ref} className="relative">
+ <button
+ type="button"
+ onClick={() => { setOpen(!open); setQuery(''); setTimeout(() => inputRef.current?.focus(), 50); }}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-left text-text-primary hover:border-accent/50 transition-colors focus:outline-none focus:border-accent"
+ >
+ {selectedName || <span className="text-text-muted">No category</span>}
+ </button>
+ {open && (
+ <div className="absolute top-full left-0 mt-1 z-50 w-full bg-bg-secondary rounded-lg shadow-lg overflow-hidden">
+ <div className="p-2">
+ <input
+ ref={inputRef}
+ value={query}
+ onChange={(e) => setQuery(e.target.value)}
+ placeholder="Search or create..."
+ className="w-full px-2.5 py-1.5 text-sm bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
+ onKeyDown={(e) => {
+ if (e.key === 'Enter' && query.trim() && !exactMatch) { e.preventDefault(); handleCreate(); }
+ }}
+ />
+ </div>
+ <div className="max-h-48 overflow-y-auto">
+ <button
+ onClick={() => { onChange(null); setOpen(false); }}
+ className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === null && 'text-accent')}
+ >
+ No category
+ </button>
+ {filtered.map((cat) => (
+ <button
+ key={cat.id}
+ onClick={() => { onChange(cat.id); setOpen(false); }}
+ className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === cat.id && 'text-accent font-medium')}
+ >
+ {cat.name}
+ </button>
+ ))}
+ {query.trim() && !exactMatch && (
+ <button
+ onClick={handleCreate}
+ disabled={creating}
+ className="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-accent/5 transition-colors "
+ >
+ {creating ? 'Creating...' : `+ Create "${query.trim()}"`}
+ </button>
+ )}
+ </div>
+ </div>
+ )}
+ </div>
+ );
 }

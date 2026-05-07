@@ -32,13 +32,29 @@ export function DevicesPageLayout({
     onGroupChange?.(gid);
   };
 
+  // Layout shape:
+  //   ┌──────────────────────────────────────────────────────────────┐
+  //   │ <main> (flex-1 of AppLayout, already constrained to viewport)│
+  //   │ ┌────────────┬───────────────────────────────────────────────┐│
+  //   │ │ GroupSide  │ filters / search / chips / select  (sticky)   ││
+  //   │ │  Panel     │───────────────────────────────────────────────┤│
+  //   │ │  (h-full,  │ device list (this is the only scrollable area)││
+  //   │ │   internal │                                               ││
+  //   │ │   scroll)  │                                               ││
+  //   │ └────────────┴───────────────────────────────────────────────┘│
+  //   └──────────────────────────────────────────────────────────────┘
+  //
+  // Both panes use `min-h-0` so flex doesn't stretch them past their
+  // parent (without that the inner overflow-y-auto never kicks in and
+  // the scroll bubbles up to <main>, which is exactly the behaviour the
+  // user complained about — sidebar scrolling away with the page).
   return (
-    <div className="flex gap-0">
+    <div className="flex h-full min-h-0 overflow-hidden">
       <GroupSidePanel
         groupId={groupId}
         onGroupChange={handleGroupChange}
       />
-      <div className="flex-1 min-w-0 p-6">
+      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
         <DeviceTable
           mode={mode}
           initialStatusFilter={initialStatusFilter}

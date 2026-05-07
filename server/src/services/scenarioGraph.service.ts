@@ -499,6 +499,47 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   trigger_metric_critical:   async () => ({ exitCode: null }),
   trigger_metric_custom:     async () => ({ exitCode: null }),
 
+  // ── cooldown — pacing gate. Rather than spreading cooldownSeconds
+  // across each trigger, the admin drops a single cooldown node
+  // downstream of the trigger fan-in; every path through that node
+  // observes the same window per (scenario, device, node). On hit
+  // (within the window) we terminate the run as `success` so the row
+  // shows up clean in the audit log without firing any side-effects;
+  // on miss we stamp last_pass_at = now and let the engine advance.
+  cooldown: async ({ run, node }) => {
+    const cfg = node.config as { duration?: number | string; unit?: string };
+    const seconds = cooldownToSeconds(cfg);
+    // 0 / negative / NaN → behaves like a no-op pass-through. We don't
+    // 400 here because the UI lets users dial down to 0 to temporarily
+    // disable a cooldown without rewiring the graph.
+    if (seconds <= 0) {
+      return { exitCode: 0 };
+    }
+    const existing = await db('scenario_cooldown_state')
+      .where({ scenario_id: run.scenario_id, device_id: run.device_id, node_id: node.id })
+      .first<{ last_pass_at: Date } | undefined>();
+    if (existing) {
+      const elapsedMs = Date.now() - new Date(existing.last_pass_at).getTime();
+      if (elapsedMs < seconds * 1000) {
+        return {
+          terminate: 'success',
+          exitCode: -1,
+          stdout: `cooldown active (${Math.floor((seconds * 1000 - elapsedMs) / 1000)}s remaining)`,
+        };
+      }
+    }
+    await db('scenario_cooldown_state')
+      .insert({
+        scenario_id: run.scenario_id,
+        device_id: run.device_id,
+        node_id: node.id,
+        last_pass_at: new Date(),
+      })
+      .onConflict(['scenario_id', 'device_id', 'node_id'])
+      .merge({ last_pass_at: new Date() });
+    return { exitCode: 0 };
+  },
+
   // ── run_script — fires an agent command and parks. Resumes via
   // handleNodeCommandAck once the ack lands. The exit code captured at
   // ack time drives every downstream branch_exit_code.
@@ -752,4 +793,23 @@ function emitRunUpdate(runRow: any): void {
       errorMessage: runRow.error_message,
     });
   } catch { /* socket not ready — non-fatal */ }
+}
+
+// Convert a cooldown node's `{duration, unit}` config to seconds. The
+// supported units are the same set offered by the editor's dropdown
+// (seconds / minutes / hours / days / months) so the JSON shape stays
+// portable across exports and the UI never picks a unit the executor
+// doesn't understand. Falls back to 0 on invalid / non-numeric input
+// — that's interpreted as "no cooldown" by the caller.
+function cooldownToSeconds(cfg: { duration?: number | string; unit?: string }): number {
+  const n = typeof cfg.duration === 'number' ? cfg.duration : parseFloat(String(cfg.duration ?? ''));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  switch (String(cfg.unit ?? 'minutes')) {
+    case 'seconds': return Math.floor(n);
+    case 'minutes': return Math.floor(n * 60);
+    case 'hours':   return Math.floor(n * 3600);
+    case 'days':    return Math.floor(n * 86400);
+    case 'months':  return Math.floor(n * 86400 * 30);
+    default:        return Math.floor(n * 60);
+  }
 }

@@ -12,43 +12,43 @@ import { clsx } from 'clsx';
 type Tab = 'schedules' | 'scenarios' | 'scripts' | 'run' | 'history';
 
 export function SchedulesPage() {
-  const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
-  const rawTab = searchParams.get('tab');
-  const initialTab: Tab = ['scenarios', 'scripts', 'run', 'history'].includes(rawTab ?? '') ? rawTab as Tab : 'schedules';
-  const [tab, setTab] = useState<Tab>(initialTab);
+ const { t } = useTranslation();
+ const [searchParams] = useSearchParams();
+ const rawTab = searchParams.get('tab');
+ const initialTab: Tab = ['scenarios', 'scripts', 'run', 'history'].includes(rawTab ?? '') ? rawTab as Tab : 'schedules';
+ const [tab, setTab] = useState<Tab>(initialTab);
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-    { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
-    { id: 'scenarios', label: 'Scenarios', icon: <Zap size={16} /> },
-    { id: 'scripts', label: t('schedules.tabScripts'), icon: <Code2 size={16} /> },
-    { id: 'run', label: t('schedules.tabRun'), icon: <Play size={16} /> },
-    { id: 'history', label: t('schedules.tabHistory'), icon: <History size={16} /> },
-  ];
+ const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+ { id: 'schedules', label: t('schedules.tabSchedules'), icon: <CalendarClock size={16} /> },
+ { id: 'scenarios', label: 'Scenarios', icon: <Zap size={16} /> },
+ { id: 'scripts', label: t('schedules.tabScripts'), icon: <Code2 size={16} /> },
+ { id: 'run', label: t('schedules.tabRun'), icon: <Play size={16} /> },
+ { id: 'history', label: t('schedules.tabHistory'), icon: <History size={16} /> },
+ ];
 
-  return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary">{t('automations.title', 'Automations')}</h1>
-      <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-        {tabs.map((t2) => (
-          <button
-            key={t2.id}
-            onClick={() => setTab(t2.id)}
-            className={clsx(
-              'flex items-center gap-2 flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors justify-center',
-              tab === t2.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
-            )}
-          >
-            {t2.icon}
-            {t2.label}
-          </button>
-        ))}
-      </div>
-      {tab === 'schedules' && <ScriptSchedulesPage embedded />}
-      {tab === 'scenarios' && <ScenariosPage embedded />}
-      {tab === 'scripts' && <ScriptLibraryPage embedded />}
-      {tab === 'run' && <ScriptRunPage embedded />}
-      {tab === 'history' && <ScriptHistoryPage embedded />}
-    </div>
-  );
+ return (
+ <div className="p-6 space-y-6">
+ <h1 className="text-2xl font-bold text-text-primary">{t('automations.title', 'Automations')}</h1>
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
+ {tabs.map((t2) => (
+ <button
+ key={t2.id}
+ onClick={() => setTab(t2.id)}
+ className={clsx(
+ 'flex items-center gap-2 flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors justify-center',
+ tab === t2.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ {t2.icon}
+ {t2.label}
+ </button>
+ ))}
+ </div>
+ {tab === 'schedules' && <ScriptSchedulesPage embedded />}
+ {tab === 'scenarios' && <ScenariosPage embedded />}
+ {tab === 'scripts' && <ScriptLibraryPage embedded />}
+ {tab === 'run' && <ScriptRunPage embedded />}
+ {tab === 'history' && <ScriptHistoryPage embedded />}
+ </div>
+ );
 }

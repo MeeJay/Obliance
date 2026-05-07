@@ -552,7 +552,8 @@ export const scenarioService = {
     return {
       // Format version — bump when the importer needs to fork on shape
       // changes. The importer rejects unknown major versions.
-      formatVersion: 1,
+      // v2: cooldown moved out of trigger config into its own node type.
+      formatVersion: 2,
       exportedAt: new Date().toISOString(),
       scenario: {
         uuid: scenario.uuid,
@@ -621,7 +622,20 @@ export const scenarioService = {
     | { kind: 'commit'; scenario: Scenario }
   > {
     if (!payload || typeof payload !== 'object') throw new Error('Invalid import payload');
-    if (payload.formatVersion !== 1) throw new Error(`Unsupported export format version: ${payload.formatVersion}`);
+    // v1 = original shape, with cooldownSeconds piggybacking on triggers.
+    // v2 = cooldown is its own node (`type='cooldown'`). We accept v1
+    // payloads but rewrite them in-memory before validation: each
+    // trigger.cooldownSeconds becomes a fresh cooldown node injected
+    // between the trigger and its previous downstream targets, mirroring
+    // what migration 087 does to rows already in the DB. Anything beyond
+    // 2 is rejected — admins on older installs must export from a v2-
+    // aware build.
+    if (payload.formatVersion !== 1 && payload.formatVersion !== 2) {
+      throw new Error(`Unsupported export format version: ${payload.formatVersion}`);
+    }
+    if (payload.formatVersion === 1) {
+      payload = migrateV1ToV2(payload);
+    }
     const meta = payload.scenario;
     if (!meta?.name) throw new Error('scenario.name is required');
     const nodes: any[] = Array.isArray(payload.nodes) ? payload.nodes : [];
@@ -646,6 +660,7 @@ export const scenarioService = {
       'trigger_metric_critical', 'trigger_metric_custom',
       'run_script', 'run_command', 'send_notification', 'wait', 'tag_device',
       'move_device_to_group', 'branch_exit_code', 'branch_on_device',
+      'cooldown',
       'end_success', 'end_failure',
     ]);
     for (let i = 0; i < nodes.length; i++) {
@@ -939,9 +954,9 @@ export const scenarioService = {
     // LLM (and future maintainers) see it. See CLAUDE.md
     // "How to add a new scenario node type" for the full checklist.
     return {
-      formatVersion: 1,
+      formatVersion: 2,
       exportedAt: new Date().toISOString(),
-      _comment: 'Skeleton export — paste this whole document into an LLM prompt to teach it the shape, then ask it to produce a scenario in the same format. Drop the `_comment` keys before importing. Every node type currently supported is documented below; ignore the ones you don\'t need (the example "scenario" only wires up a subset).',
+      _comment: 'Skeleton export — paste this whole document into an LLM prompt to teach it the shape, then ask it to produce a scenario in the same format. Drop the `_comment` keys before importing. Every node type currently supported is documented below; ignore the ones you don\'t need (the example "scenario" only wires up a subset). v2: cooldown is its own node type now (`cooldown`), not a `cooldownSeconds` field on the trigger.',
       scenario: {
         _comment: 'Top-level scenario metadata. uuid is optional on import (server allocates one if omitted). status is always reset to "draft" on import — set it to "active" manually after review.',
         uuid: null,
@@ -964,19 +979,19 @@ export const scenarioService = {
       nodes: [
         // ── Triggers (exactly ONE trigger node per scenario in real use, all listed here for documentation) ──
         {
-          _comment: 'TRIGGER: trigger_manual — fires when an admin clicks "Run" on the scenario. Most flexible, no conditions. config.cooldownSeconds throttles re-runs per device (0 = no throttle).',
+          _comment: 'TRIGGER: trigger_manual — fires when an admin clicks "Run" on the scenario. Most flexible, no conditions. To throttle re-runs, place a `cooldown` node downstream (works for ANY trigger).',
           clientId: 'doc-trigger-manual',
           type: 'trigger_manual',
           label: 'Manual trigger',
-          config: { cooldownSeconds: 0 },
+          config: {},
           positionX: 100, positionY: 100,
         },
         {
-          _comment: 'TRIGGER: trigger_session_login — fires every time a new WTS session opens on the device (Windows/RDP). Useful for kiosk reset, login banners, etc. cooldownSeconds prevents spamming on rapid reconnects.',
+          _comment: 'TRIGGER: trigger_session_login — fires every time a new WTS session opens on the device (Windows/RDP). Useful for kiosk reset, login banners, etc.',
           clientId: 'doc-trigger-session-login',
           type: 'trigger_session_login',
           label: 'On session login',
-          config: { cooldownSeconds: 0 },
+          config: {},
           positionX: 100, positionY: 200,
         },
         {
@@ -984,7 +999,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-machine-boot',
           type: 'trigger_machine_boot',
           label: 'On machine boot',
-          config: { cooldownSeconds: 0 },
+          config: {},
           positionX: 100, positionY: 300,
         },
         {
@@ -992,7 +1007,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-agent-approved',
           type: 'trigger_agent_approved',
           label: 'On agent approved',
-          config: { cooldownSeconds: 0 },
+          config: {},
           positionX: 100, positionY: 400,
         },
         {
@@ -1000,7 +1015,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-group-join',
           type: 'trigger_group_join',
           label: 'On group join',
-          config: { groupIds: [], cooldownSeconds: 0 },
+          config: { groupIds: [] },
           positionX: 100, positionY: 500,
         },
         {
@@ -1008,7 +1023,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-schedule-failure',
           type: 'trigger_schedule_failure',
           label: 'On schedule failure',
-          config: { scheduleId: null, cooldownSeconds: 0 },
+          config: { scheduleId: null },
           positionX: 100, positionY: 600,
         },
         {
@@ -1016,7 +1031,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-schedule-cron',
           type: 'trigger_schedule_cron',
           label: 'On cron',
-          config: { cronExpression: '0 2 * * *', timezone: 'UTC', cooldownSeconds: 0 },
+          config: { cronExpression: '0 2 * * *', timezone: 'UTC' },
           positionX: 100, positionY: 700,
         },
         {
@@ -1024,7 +1039,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-agent-back-online',
           type: 'trigger_agent_back_online',
           label: 'On agent back online',
-          config: { offlineDelaySeconds: 60, cooldownSeconds: 0 },
+          config: { offlineDelaySeconds: 60 },
           positionX: 100, positionY: 800,
         },
         {
@@ -1032,7 +1047,7 @@ export const scenarioService = {
           clientId: 'doc-trigger-metric-warning',
           type: 'trigger_metric_warning',
           label: 'On metric warning',
-          config: { metric: '', mount: '', cooldownSeconds: 0 },
+          config: { metric: '', mount: '' },
           positionX: 100, positionY: 900,
         },
         {
@@ -1040,16 +1055,24 @@ export const scenarioService = {
           clientId: 'doc-trigger-metric-critical',
           type: 'trigger_metric_critical',
           label: 'On metric critical',
-          config: { metric: '', mount: '', cooldownSeconds: 0 },
+          config: { metric: '', mount: '' },
           positionX: 100, positionY: 1000,
         },
         {
-          _comment: 'TRIGGER: trigger_metric_custom — fires on EVERY push that satisfies the comparator (not transition-based). PAIR WITH cooldownSeconds to avoid loops. metric: cpu|ram|disk. comparator: above|below. threshold: 0-100.',
+          _comment: 'TRIGGER: trigger_metric_custom — fires on EVERY push that satisfies the comparator (not transition-based). PAIR WITH a downstream cooldown node to avoid loops. metric: cpu|ram|disk. comparator: above|below. threshold: 0-100.',
           clientId: 'doc-trigger-metric-custom',
           type: 'trigger_metric_custom',
           label: 'On metric custom',
-          config: { metric: 'cpu', comparator: 'above', threshold: 90, mount: '', cooldownSeconds: 3600 },
+          config: { metric: 'cpu', comparator: 'above', threshold: 90, mount: '' },
           positionX: 100, positionY: 1100,
+        },
+        {
+          _comment: 'GATING: cooldown — pacing primitive shared across upstream paths. Place after a trigger fan-in to enforce a single window; if the same device hits this node within the window the run terminates as success without firing downstream nodes. config.duration is a positive number, config.unit is one of seconds/minutes/hours/days/months. State is keyed per (scenario, device, this-node-id) so multiple cooldown nodes in one scenario act independently.',
+          clientId: 'doc-cooldown',
+          type: 'cooldown',
+          label: '5h cooldown',
+          config: { duration: 5, unit: 'hours' },
+          positionX: 350, positionY: 100,
         },
 
         // ── Actions ──
@@ -1391,28 +1414,13 @@ export const scenarioService = {
           if (existing) continue;
         }
 
-        // Generic per-trigger-node cooldown — prevents re-firing the
-        // scenario on the same device when the previous run started
-        // less than `cooldownSeconds` ago. The check happens BEFORE
-        // any command is dispatched to the agent, so the platform's
-        // own scenario_runs table is the source of truth — no script
-        // round-trip needed. `0` (default) disables the check, which
-        // keeps backwards compat for existing trigger nodes.
-        const cooldownSec = Number(nodeConfig.cooldownSeconds ?? 0);
-        if (cooldownSec > 0) {
-          const lastRun = await db('scenario_runs')
-            .where({ scenario_id: scenario.id, device_id: deviceId })
-            .whereNot({ status: 'cancelled' })
-            .orderBy('started_at', 'desc')
-            .first();
-          if (lastRun) {
-            const elapsedSec = Math.floor((Date.now() - new Date(lastRun.started_at).getTime()) / 1000);
-            if (elapsedSec < cooldownSec) {
-              logger.debug({ scenarioId: scenario.id, deviceId, cooldownSec, elapsedSec }, 'cooldown active, skipping trigger fire');
-              continue;
-            }
-          }
-        }
+        // Cooldown used to live here as a per-trigger-node field
+        // (`cooldownSeconds`). It moved to a first-class graph node
+        // (`type='cooldown'`) so multiple triggers fanning into the
+        // same cooldown share one window — see migration 087 +
+        // EXECUTORS.cooldown in scenarioGraph.service.ts. Legacy
+        // configs are auto-rewired by 087 so we don't honour
+        // `cooldownSeconds` here anymore.
 
         const triggerSource = `${triggerType}${data?.groupId ? `:group:${data.groupId}` : ''}${data?.scheduleId ? `:schedule:${data.scheduleId}` : ''}`;
 
@@ -2200,4 +2208,61 @@ async function markRunFailed(runId: string, tenantId: number, errorMessage: stri
     emitRunUpdate(tenantId, run);
     await dispatchScenarioChannelNotification(runId, tenantId, 'failure');
   }
+}
+
+// Rewrite a v1 import payload into v2 shape: every trigger config that
+// carries a non-zero `cooldownSeconds` field gets a sibling cooldown
+// node injected immediately downstream, with the trigger's existing
+// outbound edges re-pointed at the cooldown node. Mirrors what the
+// scenario_cooldown_node migration does on rows already in the DB so
+// imports from older exports keep behaving the same.
+function migrateV1ToV2(payload: any): any {
+  const out = { ...payload, formatVersion: 2 };
+  const nodes: any[] = Array.isArray(payload.nodes) ? [...payload.nodes] : [];
+  const edges: any[] = Array.isArray(payload.edges) ? [...payload.edges] : [];
+  const triggerTypes = new Set([
+    'trigger_manual', 'trigger_session_login', 'trigger_machine_boot',
+    'trigger_agent_approved', 'trigger_group_join', 'trigger_schedule_failure',
+    'trigger_schedule_cron', 'trigger_agent_back_online', 'trigger_metric_warning',
+    'trigger_metric_critical', 'trigger_metric_custom',
+  ]);
+
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (!n || typeof n !== 'object') continue;
+    if (!triggerTypes.has(n.type)) continue;
+    const cfg = (n.config && typeof n.config === 'object') ? { ...n.config } : {};
+    const seconds = Number(cfg.cooldownSeconds);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      delete cfg.cooldownSeconds;
+      n.config = cfg;
+      continue;
+    }
+    delete cfg.cooldownSeconds;
+    n.config = cfg;
+    const cdId = `${n.clientId}__cooldown_v1mig`;
+    nodes.push({
+      clientId: cdId,
+      type: 'cooldown',
+      label: 'Cooldown (v1-migrated)',
+      config: { duration: seconds, unit: 'seconds' },
+      positionX: (n.positionX ?? 0) + 200,
+      positionY: n.positionY ?? 0,
+    });
+    // Re-point every outbound edge of the trigger to the cooldown node.
+    for (const e of edges) {
+      if (e && e.sourceNodeClientId === n.clientId) {
+        e.sourceNodeClientId = cdId;
+      }
+    }
+    // Bridge trigger -> cooldown so the chain reconnects.
+    edges.push({
+      sourceNodeClientId: n.clientId,
+      targetNodeClientId: cdId,
+      condition: { kind: 'always' },
+    });
+  }
+  out.nodes = nodes;
+  out.edges = edges;
+  return out;
 }

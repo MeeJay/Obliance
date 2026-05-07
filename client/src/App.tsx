@@ -33,71 +33,71 @@ import { TwoFactorGate } from '@/components/common/TwoFactorGate';
 import '@/i18n';
 
 export default function App() {
-  const { checkSession } = useAuthStore();
-  const nativeTop = useNativeTopOffset();
+ const { checkSession } = useAuthStore();
+ const nativeTop = useNativeTopOffset();
 
-  useEffect(() => {
-    checkSession();
-  }, [checkSession]);
+ useEffect(() => {
+ checkSession();
+ }, [checkSession]);
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        {/* Protected */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/enroll" element={<EnrollmentPage />} />
-          <Route element={<AppLayout />}>
-            {/* Main RMM */}
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/devices" element={<DeviceListPage />} />
-            <Route path="/devices/:id" element={<DeviceDetailPage />} />
-            <Route path="/automations" element={<SchedulesPage />} />
-            {/* Legacy alias — redirect old /schedules URLs to /automations */}
-            <Route path="/schedules" element={<Navigate to="/automations" replace />} />
-            <Route path="/policies" element={<PoliciesPage />} />
-            {/* Groups */}
-            <Route path="/group/:id" element={<GroupDetailPage />} />
-            <Route path="/group/:id/edit" element={<GroupEditPage />} />
-            {/* User */}
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/download" element={<DownloadPage />} />
+ return (
+ <BrowserRouter>
+ <Routes>
+ {/* Public */}
+ <Route path="/login" element={<LoginPage />} />
+ <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+ <Route path="/reset-password" element={<ResetPasswordPage />} />
+ {/* Protected */}
+ <Route element={<ProtectedRoute />}>
+ <Route path="/enroll" element={<EnrollmentPage />} />
+ <Route element={<AppLayout />}>
+ {/* Main RMM */}
+ <Route path="/" element={<DashboardPage />} />
+ <Route path="/devices" element={<DeviceListPage />} />
+ <Route path="/devices/:id" element={<DeviceDetailPage />} />
+ <Route path="/automations" element={<SchedulesPage />} />
+ {/* Legacy alias — redirect old /schedules URLs to /automations */}
+ <Route path="/schedules" element={<Navigate to="/automations" replace />} />
+ <Route path="/policies" element={<PoliciesPage />} />
+ {/* Groups */}
+ <Route path="/group/:id" element={<GroupDetailPage />} />
+ <Route path="/group/:id/edit" element={<GroupEditPage />} />
+ {/* User */}
+ <Route path="/profile" element={<ProfilePage />} />
+ <Route path="/download" element={<DownloadPage />} />
 
-            {/* Admin-only */}
-            <Route element={<ProtectedRoute requiredRole="admin" />}>
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/devices" element={<AdminDevicesPage />} />
-              <Route path="/admin/supervision" element={<SupervisionPage />} />
-              <Route path="/admin/import-export" element={<ImportExportPage />} />
-              <Route path="/admin/tenants" element={<AdminTenantsPage />} />
-              <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
-              {/* Legacy direct routes kept for backward compat; new menu uses /admin/security */}
-              <Route path="/admin/approvals" element={<ApprovalsPage />} />
-              <Route path="/admin/audit-log" element={<AuditLogPage />} />
-              <Route path="/admin/security" element={<SecurityPage />} />
-            </Route>
-          </Route>
-        </Route>
+ {/* Admin-only */}
+ <Route element={<ProtectedRoute requiredRole="admin" />}>
+ <Route path="/settings" element={<SettingsPage />} />
+ <Route path="/admin/users" element={<AdminUsersPage />} />
+ <Route path="/admin/devices" element={<AdminDevicesPage />} />
+ <Route path="/admin/supervision" element={<SupervisionPage />} />
+ <Route path="/admin/import-export" element={<ImportExportPage />} />
+ <Route path="/admin/tenants" element={<AdminTenantsPage />} />
+ <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
+ {/* Legacy direct routes kept for backward compat; new menu uses /admin/security */}
+ <Route path="/admin/approvals" element={<ApprovalsPage />} />
+ <Route path="/admin/audit-log" element={<AuditLogPage />} />
+ <Route path="/admin/security" element={<SecurityPage />} />
+ </Route>
+ </Route>
+ </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+ <Route path="*" element={<NotFoundPage />} />
+ </Routes>
 
-      <Toaster
-        position="top-right"
-        containerStyle={nativeTop ? { top: nativeTop + 8 } : undefined}
-        toastOptions={{
-          className: '!bg-bg-secondary !text-text-primary !border !border-border',
-          duration: 4000,
-        }}
-      />
+ <Toaster
+ position="top-right"
+ containerStyle={nativeTop ? { top: nativeTop + 8 } : undefined}
+ toastOptions={{
+ className: '!bg-bg-secondary !text-text-primary !border !border-transparent',
+ duration: 4000,
+ }}
+ />
 
-      {/* Singleton modal that pops whenever the server replies
-          401 twoFactorRequired — no need to wire anything at call sites. */}
-      <TwoFactorGate />
-    </BrowserRouter>
-  );
+ {/* Singleton modal that pops whenever the server replies
+ 401 twoFactorRequired — no need to wire anything at call sites. */}
+ <TwoFactorGate />
+ </BrowserRouter>
+ );
 }

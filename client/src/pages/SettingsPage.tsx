@@ -16,751 +16,751 @@ import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
 
 function AboutRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-text-muted">{label}</span>
-      <span className="font-mono text-xs text-text-primary">{value}</span>
-    </div>
-  );
+ return (
+ <div className="flex items-center justify-between gap-4">
+ <span className="text-xs text-text-muted">{label}</span>
+ <span className="font-mono text-xs text-text-primary">{value}</span>
+ </div>
+ );
 }
 
 type SmtpFormMode = 'create' | 'edit' | null;
 
 interface SmtpForm {
-  name: string;
-  host: string;
-  port: string;
-  secure: boolean;
-  username: string;
-  password: string;
-  fromAddress: string;
+ name: string;
+ host: string;
+ port: string;
+ secure: boolean;
+ username: string;
+ password: string;
+ fromAddress: string;
 }
 
 const emptySmtpForm = (): SmtpForm => ({
-  name: '',
-  host: '',
-  port: '587',
-  secure: false,
-  username: '',
-  password: '',
-  fromAddress: '',
+ name: '',
+ host: '',
+ port: '587',
+ secure: false,
+ username: '',
+ password: '',
+ fromAddress: '',
 });
 
 export function SettingsPage() {
-  const { t } = useTranslation();
-  const { isAdmin } = useAuthStore();
-  const admin = isAdmin();
+ const { t } = useTranslation();
+ const { isAdmin } = useAuthStore();
+ const admin = isAdmin();
 
-  // ── SMTP Servers ──
-  const [servers, setServers] = useState<SmtpServer[]>([]);
-  const [smtpMode, setSmtpMode] = useState<SmtpFormMode>(null);
-  const [editingServer, setEditingServer] = useState<SmtpServer | null>(null);
-  const [smtpForm, setSmtpForm] = useState<SmtpForm>(emptySmtpForm());
-  const [showPassword, setShowPassword] = useState(false);
-  const [smtpSaving, setSmtpSaving] = useState(false);
-  const [testingId, setTestingId] = useState<number | null>(null);
+ // ── SMTP Servers ──
+ const [servers, setServers] = useState<SmtpServer[]>([]);
+ const [smtpMode, setSmtpMode] = useState<SmtpFormMode>(null);
+ const [editingServer, setEditingServer] = useState<SmtpServer | null>(null);
+ const [smtpForm, setSmtpForm] = useState<SmtpForm>(emptySmtpForm());
+ const [showPassword, setShowPassword] = useState(false);
+ const [smtpSaving, setSmtpSaving] = useState(false);
+ const [testingId, setTestingId] = useState<number | null>(null);
 
-  // ── App Config (2FA) ──
-  const [appConfig, setAppConfig] = useState<AppConfigData | null>(null);
-  const [configSaving, setConfigSaving] = useState(false);
+ // ── App Config (2FA) ──
+ const [appConfig, setAppConfig] = useState<AppConfigData | null>(null);
+ const [configSaving, setConfigSaving] = useState(false);
 
-  // ── System info (About section) ──
-  const [systemInfo, setSystemInfo]               = useState<SystemInfo | null>(null);
-  const [systemInfoLoading, setSystemInfoLoading] = useState(false);
+ // ── System info (About section) ──
+ const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+ const [systemInfoLoading, setSystemInfoLoading] = useState(false);
 
-  // ── Obligate SSO Integration ──
-  const [obligateCfg,     setObligateCfg]     = useState<ObligateConfig | null>(null);
-  const [obligateUrl,     setObligateUrl]     = useState('');
-  const [obligateApiKey,  setObligateApiKey]  = useState('');
-  const [showObligateKey, setShowObligateKey] = useState(false);
+ // ── Obligate SSO Integration ──
+ const [obligateCfg, setObligateCfg] = useState<ObligateConfig | null>(null);
+ const [obligateUrl, setObligateUrl] = useState('');
+ const [obligateApiKey, setObligateApiKey] = useState('');
+ const [showObligateKey, setShowObligateKey] = useState(false);
 
-  useEffect(() => {
-    if (!admin) return;
-    setSystemInfoLoading(true);
-    systemApi.getInfo().then(setSystemInfo).catch(() => {}).finally(() => setSystemInfoLoading(false));
-    smtpServerApi.list().then(setServers).catch(() => {});
-    appConfigApi.getConfig().then(setAppConfig).catch(() => {});
-    appConfigApi.getObligateConfig().then((cfg) => {
-      setObligateCfg(cfg);
-      setObligateUrl(cfg.url ?? '');
-    }).catch(() => {});
-  }, [admin]);
+ useEffect(() => {
+ if (!admin) return;
+ setSystemInfoLoading(true);
+ systemApi.getInfo().then(setSystemInfo).catch(() => {}).finally(() => setSystemInfoLoading(false));
+ smtpServerApi.list().then(setServers).catch(() => {});
+ appConfigApi.getConfig().then(setAppConfig).catch(() => {});
+ appConfigApi.getObligateConfig().then((cfg) => {
+ setObligateCfg(cfg);
+ setObligateUrl(cfg.url ?? '');
+ }).catch(() => {});
+ }, [admin]);
 
-  function openCreate() {
-    setEditingServer(null);
-    setSmtpForm(emptySmtpForm());
-    setShowPassword(false);
-    setSmtpMode('create');
-  }
+ function openCreate() {
+ setEditingServer(null);
+ setSmtpForm(emptySmtpForm());
+ setShowPassword(false);
+ setSmtpMode('create');
+ }
 
-  function openEdit(server: SmtpServer) {
-    setEditingServer(server);
-    setSmtpForm({
-      name: server.name,
-      host: server.host,
-      port: String(server.port),
-      secure: server.secure,
-      username: server.username ?? '',
-      password: '',
-      fromAddress: server.fromAddress ?? '',
-    });
-    setShowPassword(false);
-    setSmtpMode('edit');
-  }
+ function openEdit(server: SmtpServer) {
+ setEditingServer(server);
+ setSmtpForm({
+ name: server.name,
+ host: server.host,
+ port: String(server.port),
+ secure: server.secure,
+ username: server.username ?? '',
+ password: '',
+ fromAddress: server.fromAddress ?? '',
+ });
+ setShowPassword(false);
+ setSmtpMode('edit');
+ }
 
-  function closeSmtpModal() {
-    setSmtpMode(null);
-    setEditingServer(null);
-  }
+ function closeSmtpModal() {
+ setSmtpMode(null);
+ setEditingServer(null);
+ }
 
-  async function handleSmtpSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSmtpSaving(true);
-    try {
-      const data: CreateSmtpServerRequest = {
-        name: smtpForm.name,
-        host: smtpForm.host,
-        port: parseInt(smtpForm.port, 10),
-        secure: smtpForm.secure,
-        username: smtpForm.username,
-        password: smtpForm.password,
-        fromAddress: smtpForm.fromAddress,
-      };
-      if (smtpMode === 'create') {
-        const created = await smtpServerApi.create(data);
-        setServers((prev) => [...prev, created]);
-        toast.success(t('settings.smtp.created'));
-      } else if (editingServer) {
-        const payload = smtpForm.password ? data : { ...data, password: undefined };
-        const updated = await smtpServerApi.update(editingServer.id, payload);
-        setServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-        toast.success(t('settings.smtp.updated'));
-      }
-      closeSmtpModal();
-    } catch {
-      toast.error(t('settings.smtp.failedSave'));
-    } finally {
-      setSmtpSaving(false);
-    }
-  }
+ async function handleSmtpSubmit(e: FormEvent) {
+ e.preventDefault();
+ setSmtpSaving(true);
+ try {
+ const data: CreateSmtpServerRequest = {
+ name: smtpForm.name,
+ host: smtpForm.host,
+ port: parseInt(smtpForm.port, 10),
+ secure: smtpForm.secure,
+ username: smtpForm.username,
+ password: smtpForm.password,
+ fromAddress: smtpForm.fromAddress,
+ };
+ if (smtpMode === 'create') {
+ const created = await smtpServerApi.create(data);
+ setServers((prev) => [...prev, created]);
+ toast.success(t('settings.smtp.created'));
+ } else if (editingServer) {
+ const payload = smtpForm.password ? data : { ...data, password: undefined };
+ const updated = await smtpServerApi.update(editingServer.id, payload);
+ setServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+ toast.success(t('settings.smtp.updated'));
+ }
+ closeSmtpModal();
+ } catch {
+ toast.error(t('settings.smtp.failedSave'));
+ } finally {
+ setSmtpSaving(false);
+ }
+ }
 
-  async function handleDelete(server: SmtpServer) {
-    if (!confirm(`Delete SMTP server "${server.name}"?`)) return;
-    try {
-      await smtpServerApi.delete(server.id);
-      setServers((prev) => prev.filter((s) => s.id !== server.id));
-      toast.success(t('settings.smtp.deleted'));
-    } catch {
-      toast.error(t('settings.smtp.failedDelete'));
-    }
-  }
+ async function handleDelete(server: SmtpServer) {
+ if (!confirm(`Delete SMTP server "${server.name}"?`)) return;
+ try {
+ await smtpServerApi.delete(server.id);
+ setServers((prev) => prev.filter((s) => s.id !== server.id));
+ toast.success(t('settings.smtp.deleted'));
+ } catch {
+ toast.error(t('settings.smtp.failedDelete'));
+ }
+ }
 
-  async function handleTest(server: SmtpServer) {
-    setTestingId(server.id);
-    try {
-      await smtpServerApi.test(server.id);
-      toast.success(t('settings.smtp.testOk', { name: server.name }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t('settings.smtp.testFailed');
-      toast.error(msg);
-    } finally {
-      setTestingId(null);
-    }
-  }
+ async function handleTest(server: SmtpServer) {
+ setTestingId(server.id);
+ try {
+ await smtpServerApi.test(server.id);
+ toast.success(t('settings.smtp.testOk', { name: server.name }));
+ } catch (err: unknown) {
+ const msg = err instanceof Error ? err.message : t('settings.smtp.testFailed');
+ toast.error(msg);
+ } finally {
+ setTestingId(null);
+ }
+ }
 
-  async function setConfigKey(key: keyof AppConfigData, value: boolean | number | null) {
-    if (!appConfig) return;
-    setConfigSaving(true);
-    try {
-      await appConfigApi.setConfig(key, value);
-      setAppConfig((prev) => prev ? { ...prev, [key]: String(value) } : prev);
-    } catch {
-      toast.error(t('settings.failedUpdate'));
-    } finally {
-      setConfigSaving(false);
-    }
-  }
+ async function setConfigKey(key: keyof AppConfigData, value: boolean | number | null) {
+ if (!appConfig) return;
+ setConfigSaving(true);
+ try {
+ await appConfigApi.setConfig(key, value);
+ setAppConfig((prev) => prev ? { ...prev, [key]: String(value) } : prev);
+ } catch {
+ toast.error(t('settings.failedUpdate'));
+ } finally {
+ setConfigSaving(false);
+ }
+ }
 
-  async function saveObligateConfig() {
-    try {
-      const trimmedUrl = obligateUrl.trim().replace(/\/$/, '');
-      if (trimmedUrl && trimmedUrl === window.location.origin.replace(/\/$/, '')) {
-        toast.error('Obligate URL cannot point to this application. Enter the URL of your Obligate SSO gateway.');
-        return;
-      }
-      const patch: { url?: string | null; apiKey?: string | null; enabled?: boolean } = { url: trimmedUrl || null };
-      if (obligateApiKey.trim()) patch.apiKey = obligateApiKey.trim();
-      const updated = await appConfigApi.patchObligateConfig(patch);
-      setObligateCfg(updated);
-      setObligateApiKey('');
-      toast.success('Obligate configuration saved');
-    } catch {
-      toast.error('Failed to save Obligate configuration');
-    }
-  }
+ async function saveObligateConfig() {
+ try {
+ const trimmedUrl = obligateUrl.trim().replace(/\/$/, '');
+ if (trimmedUrl && trimmedUrl === window.location.origin.replace(/\/$/, '')) {
+ toast.error('Obligate URL cannot point to this application. Enter the URL of your Obligate SSO gateway.');
+ return;
+ }
+ const patch: { url?: string | null; apiKey?: string | null; enabled?: boolean } = { url: trimmedUrl || null };
+ if (obligateApiKey.trim()) patch.apiKey = obligateApiKey.trim();
+ const updated = await appConfigApi.patchObligateConfig(patch);
+ setObligateCfg(updated);
+ setObligateApiKey('');
+ toast.success('Obligate configuration saved');
+ } catch {
+ toast.error('Failed to save Obligate configuration');
+ }
+ }
 
-  function formatUptime(seconds: number): string {
-    const d = Math.floor(seconds / 86400);
-    const h = Math.floor((seconds % 86400) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const parts: string[] = [];
-    if (d > 0) parts.push(`${d}d`);
-    if (h > 0) parts.push(`${h}h`);
-    parts.push(`${m}m`);
-    return parts.join(' ');
-  }
+ function formatUptime(seconds: number): string {
+ const d = Math.floor(seconds / 86400);
+ const h = Math.floor((seconds % 86400) / 3600);
+ const m = Math.floor((seconds % 3600) / 60);
+ const parts: string[] = [];
+ if (d > 0) parts.push(`${d}d`);
+ if (h > 0) parts.push(`${h}h`);
+ parts.push(`${m}m`);
+ return parts.join(' ');
+ }
 
-  return (
-    <div className="p-6 min-w-0 space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-text-primary mb-2">{t('settings.title')}</h1>
-        <p className="text-sm text-text-muted">
-          {t('settings.globalDesc')}
-        </p>
-      </div>
+ return (
+ <div className="p-6 min-w-0 space-y-8">
+ <div>
+ <h1 className="text-2xl font-semibold text-text-primary mb-2">{t('settings.title')}</h1>
+ <p className="text-sm text-text-muted">
+ {t('settings.globalDesc')}
+ </p>
+ </div>
 
-      {/* ── About ── */}
-      {admin && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Info size={18} className="text-accent" />
-            <h2 className="text-lg font-semibold text-text-primary">{t('about.title')}</h2>
-          </div>
-          <div className="rounded-lg border border-border bg-bg-secondary p-5">
-            {systemInfoLoading ? (
-              <p className="text-sm text-text-muted animate-pulse">{t('about.loading')}</p>
-            ) : systemInfo ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-                <div className="space-y-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Server size={12} /> {t('about.versions')}
-                  </p>
-                  <AboutRow label={t('about.server')}  value={`v${systemInfo.appVersion}`} />
-                  <AboutRow label={t('about.client')}  value={`v${__APP_VERSION__}`} />
-                  <AboutRow label={t('about.agent')}   value={`v${systemInfo.agentVersion}`} />
-                  <AboutRow label={t('about.reach')}   value={`v${systemInfo.oblireachVersion}`} />
-                  <AboutRow label="Node.js" value={systemInfo.nodeVersion} />
-                </div>
-                <div className="space-y-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Clock size={12} /> {t('about.instance')}
-                  </p>
-                  <AboutRow label={t('about.uptime')}      value={formatUptime(systemInfo.uptimeSeconds)} />
-                  <AboutRow label={t('about.environment')} value={systemInfo.environment.isDocker ? 'Docker' : 'Native'} />
-                  <AboutRow label={t('about.platform')}    value={systemInfo.environment.platform} />
-                  <AboutRow label={t('about.cpuCores')}    value={String(systemInfo.cpu.cores)} />
-                </div>
-                <div className="space-y-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <HardDrive size={12} /> {t('about.memory')}
-                  </p>
-                  <AboutRow label={t('about.processRss')} value={`${systemInfo.memory.processRssMb} MB`} />
-                  <AboutRow label={t('about.heapUsed')}   value={`${systemInfo.memory.processHeapMb} MB`} />
-                  <AboutRow label={t('about.systemFree')} value={`${systemInfo.memory.systemFreeMb} / ${systemInfo.memory.systemTotalMb} MB`} />
-                </div>
-                <div className="space-y-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Cpu size={12} /> {t('about.cpuLoad')}
-                  </p>
-                  <AboutRow label="1 min"  value={String(systemInfo.cpu.loadAvg1)} />
-                  <AboutRow label="5 min"  value={String(systemInfo.cpu.loadAvg5)} />
-                  <AboutRow label="15 min" value={String(systemInfo.cpu.loadAvg15)} />
-                </div>
-                <div className="space-y-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
-                    <Database size={12} /> {t('about.database')}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-muted">PostgreSQL</span>
-                    <span className={cn(
-                      'flex items-center gap-1.5 text-xs font-medium',
-                      systemInfo.environment.dbStatus === 'ok' ? 'text-status-up' : 'text-status-down',
-                    )}>
-                      <span className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        systemInfo.environment.dbStatus === 'ok' ? 'bg-status-up' : 'bg-status-down',
-                      )} />
-                      {systemInfo.environment.dbStatus === 'ok' ? t('about.connected') : t('about.error')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-text-muted">{t('about.loadFailed')}</p>
-            )}
-          </div>
-        </div>
-      )}
+ {/* ── About ── */}
+ {admin && (
+ <div>
+ <div className="flex items-center gap-2 mb-4">
+ <Info size={18} className="text-accent" />
+ <h2 className="text-lg font-semibold text-text-primary">{t('about.title')}</h2>
+ </div>
+ <div className="rounded-lg bg-bg-secondary p-5">
+ {systemInfoLoading ? (
+ <p className="text-sm text-text-muted animate-pulse">{t('about.loading')}</p>
+ ) : systemInfo ? (
+ <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+ <div className="space-y-2">
+ <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+ <Server size={12} /> {t('about.versions')}
+ </p>
+ <AboutRow label={t('about.server')} value={`v${systemInfo.appVersion}`} />
+ <AboutRow label={t('about.client')} value={`v${__APP_VERSION__}`} />
+ <AboutRow label={t('about.agent')} value={`v${systemInfo.agentVersion}`} />
+ <AboutRow label={t('about.reach')} value={`v${systemInfo.oblireachVersion}`} />
+ <AboutRow label="Node.js" value={systemInfo.nodeVersion} />
+ </div>
+ <div className="space-y-2">
+ <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+ <Clock size={12} /> {t('about.instance')}
+ </p>
+ <AboutRow label={t('about.uptime')} value={formatUptime(systemInfo.uptimeSeconds)} />
+ <AboutRow label={t('about.environment')} value={systemInfo.environment.isDocker ? 'Docker' : 'Native'} />
+ <AboutRow label={t('about.platform')} value={systemInfo.environment.platform} />
+ <AboutRow label={t('about.cpuCores')} value={String(systemInfo.cpu.cores)} />
+ </div>
+ <div className="space-y-2">
+ <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+ <HardDrive size={12} /> {t('about.memory')}
+ </p>
+ <AboutRow label={t('about.processRss')} value={`${systemInfo.memory.processRssMb} MB`} />
+ <AboutRow label={t('about.heapUsed')} value={`${systemInfo.memory.processHeapMb} MB`} />
+ <AboutRow label={t('about.systemFree')} value={`${systemInfo.memory.systemFreeMb} / ${systemInfo.memory.systemTotalMb} MB`} />
+ </div>
+ <div className="space-y-2">
+ <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+ <Cpu size={12} /> {t('about.cpuLoad')}
+ </p>
+ <AboutRow label="1 min" value={String(systemInfo.cpu.loadAvg1)} />
+ <AboutRow label="5 min" value={String(systemInfo.cpu.loadAvg5)} />
+ <AboutRow label="15 min" value={String(systemInfo.cpu.loadAvg15)} />
+ </div>
+ <div className="space-y-2">
+ <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-3">
+ <Database size={12} /> {t('about.database')}
+ </p>
+ <div className="flex items-center justify-between">
+ <span className="text-xs text-text-muted">PostgreSQL</span>
+ <span className={cn(
+ 'flex items-center gap-1.5 text-xs font-medium',
+ systemInfo.environment.dbStatus === 'ok' ? 'text-status-up' : 'text-status-down',
+ )}>
+ <span className={cn(
+ 'h-1.5 w-1.5 rounded-full',
+ systemInfo.environment.dbStatus === 'ok' ? 'bg-status-up' : 'bg-status-down',
+ )} />
+ {systemInfo.environment.dbStatus === 'ok' ? t('about.connected') : t('about.error')}
+ </span>
+ </div>
+ </div>
+ </div>
+ ) : (
+ <p className="text-sm text-text-muted">{t('about.loadFailed')}</p>
+ )}
+ </div>
+ </div>
+ )}
 
-      {/* ── Default Monitor Settings ── */}
-      <SettingsPanel scope="global" scopeId={null} title={t('settings.defaultMonitorSettings')} />
+ {/* ── Default Monitor Settings ── */}
+ <SettingsPanel scope="global" scopeId={null} title={t('settings.defaultMonitorSettings')} />
 
-      {admin && (
-        <>
-          {/* ── Quick Reply Templates ── */}
-          <QuickReplyTemplatesSection />
+ {admin && (
+ <>
+ {/* ── Quick Reply Templates ── */}
+ <QuickReplyTemplatesSection />
 
-          {/* ── SMTP Servers ── */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-text-primary">{t('settings.smtp.title')}</h2>
-              <Button size="sm" onClick={openCreate}>
-                <Plus size={14} className="mr-1" /> {t('settings.smtp.addServer')}
-              </Button>
-            </div>
-            {servers.length === 0 ? (
-              <div className="rounded-lg border border-border bg-bg-secondary p-5 text-sm text-text-muted flex items-center gap-3">
-                <Server size={16} className="shrink-0" />
-                {t('settings.smtp.noServers')}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-border bg-bg-secondary overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colName')}</th>
-                      <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colHost')}</th>
-                      <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colFrom')}</th>
-                      <th className="px-4 py-2.5 font-medium text-text-secondary text-right">{t('settings.smtp.colActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {servers.map((server) => (
-                      <tr key={server.id} className="border-b border-border last:border-0 hover:bg-bg-hover transition-colors">
-                        <td className="px-4 py-3 text-text-primary font-medium">{server.name}</td>
-                        <td className="px-4 py-3 text-text-secondary">
-                          {server.host}:{server.port}
-                          {server.secure && <span className="ml-1.5 text-xs bg-green-500/10 text-green-400 rounded px-1">{t('settings.smtp.tlsBadge')}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-text-muted">{server.fromAddress}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleTest(server)}
-                              disabled={testingId === server.id}
-                              className="p-1.5 rounded text-text-muted hover:text-blue-400 hover:bg-blue-400/10 transition-colors disabled:opacity-50"
-                              title={t('settings.smtp.testConnection')}
-                            >
-                              <Wifi size={14} />
-                            </button>
-                            <button
-                              onClick={() => openEdit(server)}
-                              className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-                              title={t('common.edit')}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(server)}
-                              className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                              title={t('common.delete')}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+ {/* ── SMTP Servers ── */}
+ <div>
+ <div className="flex items-center justify-between mb-4">
+ <h2 className="text-lg font-semibold text-text-primary">{t('settings.smtp.title')}</h2>
+ <Button size="sm" onClick={openCreate}>
+ <Plus size={14} className="mr-1" /> {t('settings.smtp.addServer')}
+ </Button>
+ </div>
+ {servers.length === 0 ? (
+ <div className="rounded-lg bg-bg-secondary p-5 text-sm text-text-muted flex items-center gap-3">
+ <Server size={16} className="shrink-0" />
+ {t('settings.smtp.noServers')}
+ </div>
+ ) : (
+ <div className="rounded-lg bg-bg-secondary overflow-hidden">
+ <table className="w-full text-sm">
+ <thead>
+ <tr className=" text-left">
+ <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colName')}</th>
+ <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colHost')}</th>
+ <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colFrom')}</th>
+ <th className="px-4 py-2.5 font-medium text-text-secondary text-right">{t('settings.smtp.colActions')}</th>
+ </tr>
+ </thead>
+ <tbody>
+ {servers.map((server) => (
+ <tr key={server.id} className=" last:border-0 hover:bg-bg-hover transition-colors">
+ <td className="px-4 py-3 text-text-primary font-medium">{server.name}</td>
+ <td className="px-4 py-3 text-text-secondary">
+ {server.host}:{server.port}
+ {server.secure && <span className="ml-1.5 text-xs bg-green-500/10 text-green-400 rounded px-1">{t('settings.smtp.tlsBadge')}</span>}
+ </td>
+ <td className="px-4 py-3 text-text-muted">{server.fromAddress}</td>
+ <td className="px-4 py-3">
+ <div className="flex items-center justify-end gap-1.5">
+ <button
+ onClick={() => handleTest(server)}
+ disabled={testingId === server.id}
+ className="p-1.5 rounded text-text-muted hover:text-blue-400 hover:bg-blue-400/10 transition-colors disabled:opacity-50"
+ title={t('settings.smtp.testConnection')}
+ >
+ <Wifi size={14} />
+ </button>
+ <button
+ onClick={() => openEdit(server)}
+ className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+ title={t('common.edit')}
+ >
+ <Pencil size={14} />
+ </button>
+ <button
+ onClick={() => handleDelete(server)}
+ className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
+ title={t('common.delete')}
+ >
+ <Trash2 size={14} />
+ </button>
+ </div>
+ </td>
+ </tr>
+ ))}
+ </tbody>
+ </table>
+ </div>
+ )}
+ </div>
 
-          {/* ── Security / 2FA ── */}
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary mb-4">{t('settings.security.title')}</h2>
-            <div className="rounded-lg border border-border bg-bg-secondary divide-y divide-border">
-              <div className="flex items-start justify-between gap-4 p-4">
-                <div className="flex items-start gap-3">
-                  <Shield size={16} className="text-text-muted mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{t('settings.security.allow2fa')}</p>
-                    <p className="text-xs text-text-muted mt-0.5">{t('settings.security.allow2faDesc')}</p>
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={(appConfig?.allow_2fa ?? false) as boolean | "true" | "false" | "mixed"}
-                  disabled={configSaving || !appConfig}
-                  onClick={() => setConfigKey('allow_2fa', !appConfig?.allow_2fa)}
-                  className={cn(
-                    'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
-                    appConfig?.allow_2fa ? 'bg-primary' : 'bg-bg-tertiary',
-                  )}
-                >
-                  <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.allow_2fa ? 'translate-x-4' : 'translate-x-0')} />
-                </button>
-              </div>
+ {/* ── Security / 2FA ── */}
+ <div>
+ <h2 className="text-lg font-semibold text-text-primary mb-4">{t('settings.security.title')}</h2>
+ <div className="rounded-lg bg-bg-secondary divide-y divide-border">
+ <div className="flex items-start justify-between gap-4 p-4">
+ <div className="flex items-start gap-3">
+ <Shield size={16} className="text-text-muted mt-0.5 shrink-0" />
+ <div>
+ <p className="text-sm font-medium text-text-primary">{t('settings.security.allow2fa')}</p>
+ <p className="text-xs text-text-muted mt-0.5">{t('settings.security.allow2faDesc')}</p>
+ </div>
+ </div>
+ <button
+ role="switch"
+ aria-checked={(appConfig?.allow_2fa ?? false) as boolean | "true" | "false" | "mixed"}
+ disabled={configSaving || !appConfig}
+ onClick={() => setConfigKey('allow_2fa', !appConfig?.allow_2fa)}
+ className={cn(
+ 'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+ appConfig?.allow_2fa ? 'bg-primary' : 'bg-bg-tertiary',
+ )}
+ >
+ <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.allow_2fa ? 'translate-x-4' : 'translate-x-0')} />
+ </button>
+ </div>
 
-              <div className={cn('flex items-start justify-between gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
-                <div className="flex items-start gap-3">
-                  <Shield size={16} className="text-text-muted mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{t('settings.security.force2fa')}</p>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {t('settings.security.force2faDesc').split('\n')[0]}
-                      {' '}
-                      Bypass via <code className="text-xs font-mono">DISABLE_2FA_FORCE=true</code> in .env.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={(appConfig?.force_2fa ?? false) as boolean | "true" | "false" | "mixed"}
-                  disabled={configSaving || !appConfig || !appConfig.allow_2fa}
-                  onClick={() => setConfigKey('force_2fa', !appConfig?.force_2fa)}
-                  className={cn(
-                    'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
-                    appConfig?.force_2fa ? 'bg-primary' : 'bg-bg-tertiary',
-                  )}
-                >
-                  <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.force_2fa ? 'translate-x-4' : 'translate-x-0')} />
-                </button>
-              </div>
+ <div className={cn('flex items-start justify-between gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
+ <div className="flex items-start gap-3">
+ <Shield size={16} className="text-text-muted mt-0.5 shrink-0" />
+ <div>
+ <p className="text-sm font-medium text-text-primary">{t('settings.security.force2fa')}</p>
+ <p className="text-xs text-text-muted mt-0.5">
+ {t('settings.security.force2faDesc').split('\n')[0]}
+ {' '}
+ Bypass via <code className="text-xs font-mono">DISABLE_2FA_FORCE=true</code> in .env.
+ </p>
+ </div>
+ </div>
+ <button
+ role="switch"
+ aria-checked={(appConfig?.force_2fa ?? false) as boolean | "true" | "false" | "mixed"}
+ disabled={configSaving || !appConfig || !appConfig.allow_2fa}
+ onClick={() => setConfigKey('force_2fa', !appConfig?.force_2fa)}
+ className={cn(
+ 'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+ appConfig?.force_2fa ? 'bg-primary' : 'bg-bg-tertiary',
+ )}
+ >
+ <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform', appConfig?.force_2fa ? 'translate-x-4' : 'translate-x-0')} />
+ </button>
+ </div>
 
-              <div className={cn('flex items-start gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
-                <Server size={16} className="text-text-muted mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary">{t('settings.security.otpSmtp')}</p>
-                  <p className="text-xs text-text-muted mt-0.5">{t('settings.security.otpSmtpDesc')}</p>
-                  <select
-                    className="mt-2 w-full max-w-xs rounded-md border border-border bg-bg-primary px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                    value={appConfig?.otp_smtp_server_id ?? ''}
-                    disabled={configSaving || !appConfig || !appConfig.allow_2fa}
-                    onChange={(e) => setConfigKey('otp_smtp_server_id', e.target.value ? parseInt(e.target.value, 10) : null)}
-                  >
-                    <option value="">{t('settings.security.noneOption')}</option>
-                    {servers.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
+ <div className={cn('flex items-start gap-4 p-4', !appConfig?.allow_2fa && 'opacity-50 pointer-events-none')}>
+ <Server size={16} className="text-text-muted mt-0.5 shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-medium text-text-primary">{t('settings.security.otpSmtp')}</p>
+ <p className="text-xs text-text-muted mt-0.5">{t('settings.security.otpSmtpDesc')}</p>
+ <select
+ className="mt-2 w-full max-w-xs rounded-md bg-bg-primary px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+ value={appConfig?.otp_smtp_server_id ?? ''}
+ disabled={configSaving || !appConfig || !appConfig.allow_2fa}
+ onChange={(e) => setConfigKey('otp_smtp_server_id', e.target.value ? parseInt(e.target.value, 10) : null)}
+ >
+ <option value="">{t('settings.security.noneOption')}</option>
+ {servers.map((s) => (
+ <option key={s.id} value={s.id}>{s.name}</option>
+ ))}
+ </select>
+ </div>
+ </div>
+ </div>
+ </div>
 
-          {/* ── Obligate SSO Gateway ── */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <ArrowLeftRight size={16} className="text-text-muted" />
-              <h2 className="text-lg font-semibold text-text-primary">Obligate SSO Gateway</h2>
-            </div>
-            <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
-              <p className="text-sm text-text-muted">
-                {t('settings.obligate.description', 'Connect this app to your Obligate SSO gateway for centralized authentication and cross-app navigation. Register this app in Obligate first, then paste the API key here.')}
-              </p>
-              <div className="bg-status-pending-bg border border-status-pending/30 rounded-md p-3 text-sm text-status-pending">
-                {t('settings.obligate.warning', 'When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback.')}
-              </div>
+ {/* ── Obligate SSO Gateway ── */}
+ <div>
+ <div className="flex items-center gap-2 mb-4">
+ <ArrowLeftRight size={16} className="text-text-muted" />
+ <h2 className="text-lg font-semibold text-text-primary">Obligate SSO Gateway</h2>
+ </div>
+ <div className="rounded-lg bg-bg-secondary p-5 space-y-4">
+ <p className="text-sm text-text-muted">
+ {t('settings.obligate.description', 'Connect this app to your Obligate SSO gateway for centralized authentication and cross-app navigation. Register this app in Obligate first, then paste the API key here.')}
+ </p>
+ <div className="bg-status-pending-bg border border-status-pending/30 rounded-md p-3 text-sm text-status-pending">
+ {t('settings.obligate.warning', 'When enabled, local authentication is disabled. Users must sign in through the Obligate gateway. If the gateway becomes unreachable, local authentication is automatically restored as a fallback.')}
+ </div>
 
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="text-sm font-medium text-text-secondary">Obligate URL</label>
-                  {obligateCfg?.url && (
-                    <a href={obligateCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
-                  )}
-                </div>
-                <input
-                  type="url"
-                  placeholder="https://obligate.example.com"
-                  value={obligateUrl}
-                  onChange={(e) => setObligateUrl(e.target.value)}
-                  onBlur={() => void saveObligateConfig()}
-                  className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
-                />
-              </div>
+ <div>
+ <div className="flex items-center gap-2 mb-1">
+ <label className="text-sm font-medium text-text-secondary">Obligate URL</label>
+ {obligateCfg?.url && (
+ <a href={obligateCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
+ )}
+ </div>
+ <input
+ type="url"
+ placeholder="https://obligate.example.com"
+ value={obligateUrl}
+ onChange={(e) => setObligateUrl(e.target.value)}
+ onBlur={() => void saveObligateConfig()}
+ className="w-full rounded-lg bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+ />
+ </div>
 
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">
-                  API Key
-                  {obligateCfg?.apiKeySet && (
-                    <span className="ml-2 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20">SET</span>
-                  )}
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type={showObligateKey ? 'text' : 'password'}
-                      placeholder={obligateCfg?.apiKeySet ? '••••••••••••••••••••••••••••••••••••' : 'Paste the API key from Obligate\u2026'}
-                      value={obligateApiKey}
-                      onChange={(e) => setObligateApiKey(e.target.value)}
-                      onBlur={() => { if (obligateApiKey.trim()) void saveObligateConfig(); }}
-                      className="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowObligateKey((v) => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-                    >
-                      {showObligateKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-                <p className="mt-1.5 text-xs text-text-muted">
-                  Generate this key in{' '}
-                  <span className="text-text-secondary font-medium">Obligate → Connected Apps → Add App</span>.
-                </p>
-              </div>
+ <div>
+ <label className="block text-sm font-medium text-text-secondary mb-1">
+ API Key
+ {obligateCfg?.apiKeySet && (
+ <span className="ml-2 text-[10px] font-semibold rounded px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20">SET</span>
+ )}
+ </label>
+ <div className="flex gap-2">
+ <div className="relative flex-1">
+ <input
+ type={showObligateKey ? 'text' : 'password'}
+ placeholder={obligateCfg?.apiKeySet ? '••••••••••••••••••••••••••••••••••••' : 'Paste the API key from Obligate\u2026'}
+ value={obligateApiKey}
+ onChange={(e) => setObligateApiKey(e.target.value)}
+ onBlur={() => { if (obligateApiKey.trim()) void saveObligateConfig(); }}
+ className="w-full rounded-lg bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+ />
+ <button
+ type="button"
+ onClick={() => setShowObligateKey((v) => !v)}
+ className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+ >
+ {showObligateKey ? <EyeOff size={14} /> : <Eye size={14} />}
+ </button>
+ </div>
+ </div>
+ <p className="mt-1.5 text-xs text-text-muted">
+ Generate this key in{' '}
+ <span className="text-text-secondary font-medium">Obligate → Connected Apps → Add App</span>.
+ </p>
+ </div>
 
-              {obligateCfg?.url && obligateCfg.apiKeySet && (
-                <div className="pt-4 border-t border-border mt-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">Enable SSO</p>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        When enabled, the login page redirects to Obligate for authentication.
-                        Users are auto-provisioned on first login. Cross-app navigation buttons appear in the header.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={appConfig?.obligate_enabled === 'true'}
-                      disabled={configSaving || !appConfig}
-                      onClick={() => setConfigKey('obligate_enabled', appConfig?.obligate_enabled === 'true' ? false : true)}
-                      className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', appConfig?.obligate_enabled === 'true' ? 'bg-primary' : 'bg-bg-hover')}
-                    >
-                      <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform', appConfig?.obligate_enabled === 'true' ? 'translate-x-6' : 'translate-x-1')} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+ {obligateCfg?.url && obligateCfg.apiKeySet && (
+ <div className="pt-4 mt-4">
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <p className="text-sm font-medium text-text-primary">Enable SSO</p>
+ <p className="text-xs text-text-muted mt-0.5">
+ When enabled, the login page redirects to Obligate for authentication.
+ Users are auto-provisioned on first login. Cross-app navigation buttons appear in the header.
+ </p>
+ </div>
+ <button
+ type="button"
+ role="switch"
+ aria-checked={appConfig?.obligate_enabled === 'true'}
+ disabled={configSaving || !appConfig}
+ onClick={() => setConfigKey('obligate_enabled', appConfig?.obligate_enabled === 'true' ? false : true)}
+ className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', appConfig?.obligate_enabled === 'true' ? 'bg-primary' : 'bg-bg-hover')}
+ >
+ <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform', appConfig?.obligate_enabled === 'true' ? 'translate-x-6' : 'translate-x-1')} />
+ </button>
+ </div>
+ </div>
+ )}
+ </div>
+ </div>
+ </>
+ )}
 
-      {smtpMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-bg-secondary rounded-xl shadow-2xl border border-border w-full max-w-md">
-            <div className="px-5 py-4 border-b border-border">
-              <h3 className="text-base font-semibold text-text-primary">
-                {smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}
-              </h3>
-            </div>
-            <form onSubmit={handleSmtpSubmit} className="p-5 space-y-3">
-              <Input
-                label={t('settings.smtp.nameLabel')}
-                value={smtpForm.name}
-                onChange={(e) => setSmtpForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder={t('settings.smtp.namePlaceholder')}
-                required
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <Input
-                    label={t('settings.smtp.hostLabel')}
-                    value={smtpForm.host}
-                    onChange={(e) => setSmtpForm((f) => ({ ...f, host: e.target.value }))}
-                    placeholder={t('settings.smtp.hostPlaceholder')}
-                    required
-                  />
-                </div>
-                <Input
-                  label={t('settings.smtp.portLabel')}
-                  type="number"
-                  value={smtpForm.port}
-                  onChange={(e) => setSmtpForm((f) => ({ ...f, port: e.target.value }))}
-                  placeholder={t('settings.smtp.portPlaceholder')}
-                  required
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={smtpForm.secure}
-                  onChange={(e) => setSmtpForm((f) => ({ ...f, secure: e.target.checked }))}
-                  className="rounded border-border"
-                />
-                {t('settings.smtp.tlsLabel')}
-              </label>
-              <Input
-                label={t('settings.smtp.usernameLabel')}
-                value={smtpForm.username}
-                onChange={(e) => setSmtpForm((f) => ({ ...f, username: e.target.value }))}
-                required
-              />
-              <div className="relative">
-                <Input
-                  label={smtpMode === 'edit' ? t('settings.smtp.passwordEditLabel') : t('settings.smtp.passwordLabel')}
-                  type={showPassword ? 'text' : 'password'}
-                  value={smtpForm.password}
-                  onChange={(e) => setSmtpForm((f) => ({ ...f, password: e.target.value }))}
-                  required={smtpMode === 'create'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 bottom-2 text-text-muted hover:text-text-primary"
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              <Input
-                label={t('settings.smtp.fromLabel')}
-                type="email"
-                value={smtpForm.fromAddress}
-                onChange={(e) => setSmtpForm((f) => ({ ...f, fromAddress: e.target.value }))}
-                placeholder={t('settings.smtp.fromPlaceholder')}
-                required
-              />
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="ghost" onClick={closeSmtpModal}>{t('common.cancel')}</Button>
-                <Button type="submit" disabled={smtpSaving}>
-                  {smtpSaving ? t('common.saving') : smtpMode === 'create' ? t('common.create') : t('common.save')}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+ {smtpMode && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+ <div className="bg-bg-secondary rounded-xl shadow-2xl border border-transparent w-full max-w-md">
+ <div className="px-5 py-4 ">
+ <h3 className="text-base font-semibold text-text-primary">
+ {smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}
+ </h3>
+ </div>
+ <form onSubmit={handleSmtpSubmit} className="p-5 space-y-3">
+ <Input
+ label={t('settings.smtp.nameLabel')}
+ value={smtpForm.name}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, name: e.target.value }))}
+ placeholder={t('settings.smtp.namePlaceholder')}
+ required
+ />
+ <div className="grid grid-cols-3 gap-3">
+ <div className="col-span-2">
+ <Input
+ label={t('settings.smtp.hostLabel')}
+ value={smtpForm.host}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, host: e.target.value }))}
+ placeholder={t('settings.smtp.hostPlaceholder')}
+ required
+ />
+ </div>
+ <Input
+ label={t('settings.smtp.portLabel')}
+ type="number"
+ value={smtpForm.port}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, port: e.target.value }))}
+ placeholder={t('settings.smtp.portPlaceholder')}
+ required
+ />
+ </div>
+ <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
+ <input
+ type="checkbox"
+ checked={smtpForm.secure}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, secure: e.target.checked }))}
+ className="rounded border-transparent"
+ />
+ {t('settings.smtp.tlsLabel')}
+ </label>
+ <Input
+ label={t('settings.smtp.usernameLabel')}
+ value={smtpForm.username}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, username: e.target.value }))}
+ required
+ />
+ <div className="relative">
+ <Input
+ label={smtpMode === 'edit' ? t('settings.smtp.passwordEditLabel') : t('settings.smtp.passwordLabel')}
+ type={showPassword ? 'text' : 'password'}
+ value={smtpForm.password}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, password: e.target.value }))}
+ required={smtpMode === 'create'}
+ />
+ <button
+ type="button"
+ onClick={() => setShowPassword((v) => !v)}
+ className="absolute right-2.5 bottom-2 text-text-muted hover:text-text-primary"
+ >
+ {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+ </button>
+ </div>
+ <Input
+ label={t('settings.smtp.fromLabel')}
+ type="email"
+ value={smtpForm.fromAddress}
+ onChange={(e) => setSmtpForm((f) => ({ ...f, fromAddress: e.target.value }))}
+ placeholder={t('settings.smtp.fromPlaceholder')}
+ required
+ />
+ <div className="flex justify-end gap-2 pt-2">
+ <Button type="button" variant="ghost" onClick={closeSmtpModal}>{t('common.cancel')}</Button>
+ <Button type="submit" disabled={smtpSaving}>
+ {smtpSaving ? t('common.saving') : smtpMode === 'create' ? t('common.create') : t('common.save')}
+ </Button>
+ </div>
+ </form>
+ </div>
+ </div>
+ )}
 
-      {/* ── File explorer editable extensions ── */}
-      {admin && <EditableExtensionsSection />}
+ {/* ── File explorer editable extensions ── */}
+ {admin && <EditableExtensionsSection />}
 
-      {/* ── Import / Export ── */}
-      {admin && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <PackageOpen size={18} className="text-accent" />
-            <h2 className="text-lg font-semibold text-text-primary">{t('importExport.title')}</h2>
-          </div>
-          <div className="rounded-lg border border-border bg-bg-secondary p-5">
-            <ImportExportPage embedded />
-          </div>
-        </div>
-      )}
+ {/* ── Import / Export ── */}
+ {admin && (
+ <div>
+ <div className="flex items-center gap-2 mb-4">
+ <PackageOpen size={18} className="text-accent" />
+ <h2 className="text-lg font-semibold text-text-primary">{t('importExport.title')}</h2>
+ </div>
+ <div className="rounded-lg bg-bg-secondary p-5">
+ <ImportExportPage embedded />
+ </div>
+ </div>
+ )}
 
-      {/* ── Scenarios bulk export / import ── */}
-      {admin && <ScenariosBulkSection />}
-    </div>
-  );
+ {/* ── Scenarios bulk export / import ── */}
+ {admin && <ScenariosBulkSection />}
+ </div>
+ );
 }
 
 // ─── Editable Extensions Section ────────────────────────────────────────────
 
 function EditableExtensionsSection() {
-  const [extensions, setExtensions] = useState<string[]>([]);
-  const [defaults, setDefaults] = useState<string[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+ const [extensions, setExtensions] = useState<string[]>([]);
+ const [defaults, setDefaults] = useState<string[]>([]);
+ const [input, setInput] = useState('');
+ const [loading, setLoading] = useState(true);
+ const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    appConfigApi.getEditableExtensions()
-      .then(({ extensions, defaults }) => {
-        setExtensions(extensions);
-        setDefaults(defaults);
-      })
-      .catch(() => toast.error('Failed to load editable extensions'))
-      .finally(() => setLoading(false));
-  }, []);
+ useEffect(() => {
+ appConfigApi.getEditableExtensions()
+ .then(({ extensions, defaults }) => {
+ setExtensions(extensions);
+ setDefaults(defaults);
+ })
+ .catch(() => toast.error('Failed to load editable extensions'))
+ .finally(() => setLoading(false));
+ }, []);
 
-  const normalise = (raw: string): string[] =>
-    raw
-      .split(/[,\s]+/)
-      .map((e) => e.trim().toLowerCase().replace(/^\./, ''))
-      .filter((e) => e.length > 0);
+ const normalise = (raw: string): string[] =>
+ raw
+ .split(/[,\s]+/)
+ .map((e) => e.trim().toLowerCase().replace(/^\./, ''))
+ .filter((e) => e.length > 0);
 
-  const add = () => {
-    const toAdd = normalise(input);
-    if (toAdd.length === 0) return;
-    setExtensions((prev) => Array.from(new Set([...prev, ...toAdd])).sort());
-    setInput('');
-  };
+ const add = () => {
+ const toAdd = normalise(input);
+ if (toAdd.length === 0) return;
+ setExtensions((prev) => Array.from(new Set([...prev, ...toAdd])).sort());
+ setInput('');
+ };
 
-  const remove = (ext: string) => {
-    setExtensions((prev) => prev.filter((e) => e !== ext));
-  };
+ const remove = (ext: string) => {
+ setExtensions((prev) => prev.filter((e) => e !== ext));
+ };
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const saved = await appConfigApi.setEditableExtensions(extensions);
-      setExtensions(saved);
-      toast.success('Editable extensions updated');
-    } catch {
-      toast.error('Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
+ const save = async () => {
+ setSaving(true);
+ try {
+ const saved = await appConfigApi.setEditableExtensions(extensions);
+ setExtensions(saved);
+ toast.success('Editable extensions updated');
+ } catch {
+ toast.error('Failed to save');
+ } finally {
+ setSaving(false);
+ }
+ };
 
-  const resetToDefaults = () => {
-    setExtensions([...defaults].sort());
-  };
+ const resetToDefaults = () => {
+ setExtensions([...defaults].sort());
+ };
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <FolderOpen size={18} className="text-accent" />
-        <h2 className="text-lg font-semibold text-text-primary">File explorer — editable extensions</h2>
-      </div>
-      <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-3">
-        <p className="text-xs text-text-muted">
-          Files with these extensions open in the inline text editor instead of forcing a download.
-          Comma or space separated. Case-insensitive. Applies across all tenants.
-        </p>
+ return (
+ <div>
+ <div className="flex items-center gap-2 mb-4">
+ <FolderOpen size={18} className="text-accent" />
+ <h2 className="text-lg font-semibold text-text-primary">File explorer — editable extensions</h2>
+ </div>
+ <div className="rounded-lg bg-bg-secondary p-5 space-y-3">
+ <p className="text-xs text-text-muted">
+ Files with these extensions open in the inline text editor instead of forcing a download.
+ Comma or space separated. Case-insensitive. Applies across all tenants.
+ </p>
 
-        {loading ? (
-          <p className="text-sm text-text-muted">Loading...</p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-1.5 p-2 bg-bg-tertiary border border-border rounded-lg min-h-[44px]">
-              {extensions.length === 0 && (
-                <span className="text-xs text-text-muted italic">No extensions configured</span>
-              )}
-              {extensions.map((ext) => (
-                <span
-                  key={ext}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-bg-secondary border border-border text-text-primary"
-                >
-                  .{ext}
-                  <button onClick={() => remove(ext)} className="hover:text-red-400">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
+ {loading ? (
+ <p className="text-sm text-text-muted">Loading...</p>
+ ) : (
+ <>
+ <div className="flex flex-wrap gap-1.5 p-2 bg-bg-tertiary rounded-lg min-h-[44px]">
+ {extensions.length === 0 && (
+ <span className="text-xs text-text-muted italic">No extensions configured</span>
+ )}
+ {extensions.map((ext) => (
+ <span
+ key={ext}
+ className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-bg-secondary border border-transparent text-text-primary"
+ >
+ .{ext}
+ <button onClick={() => remove(ext)} className="hover:text-red-400">
+ <X className="w-3 h-3" />
+ </button>
+ </span>
+ ))}
+ </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-                placeholder="Add extension(s)... e.g. conf, properties, xyz"
-                className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
-              />
-              <button
-                onClick={add}
-                className="px-4 py-2 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
-              >
-                Add
-              </button>
-            </div>
+ <div className="flex gap-2">
+ <input
+ type="text"
+ value={input}
+ onChange={(e) => setInput(e.target.value)}
+ onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+ placeholder="Add extension(s)... e.g. conf, properties, xyz"
+ className="flex-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+ />
+ <button
+ onClick={add}
+ className="px-4 py-2 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+ >
+ Add
+ </button>
+ </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-border/50">
-              <button
-                onClick={resetToDefaults}
-                className="text-xs text-text-muted hover:text-text-primary transition-colors"
-              >
-                Reset to defaults ({defaults.length} extensions)
-              </button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="px-4 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+ <div className="flex items-center justify-between pt-2 /50">
+ <button
+ onClick={resetToDefaults}
+ className="text-xs text-text-muted hover:text-text-primary transition-colors"
+ >
+ Reset to defaults ({defaults.length} extensions)
+ </button>
+ <button
+ onClick={save}
+ disabled={saving}
+ className="px-4 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
+ >
+ {saving ? 'Saving...' : 'Save'}
+ </button>
+ </div>
+ </>
+ )}
+ </div>
+ </div>
+ );
 }
 
 // ─── Scenarios bulk export/import section ───────────────────────────────────
@@ -769,126 +769,126 @@ function EditableExtensionsSection() {
 // stay on /automations (Download icon next to each row); this is the
 // "give me a tarball of every automation" flow + the bulk re-import.
 function ScenariosBulkSection() {
-  const [exporting, setExporting] = useState(false);
-  const [importBusy, setImportBusy] = useState(false);
-  const [importResult, setImportResult] = useState<null | {
-    results: Array<{ name: string; ok: boolean; error?: string; scenarioId?: number }>;
-    total: number;
-    succeeded: number;
-  }>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+ const [exporting, setExporting] = useState(false);
+ const [importBusy, setImportBusy] = useState(false);
+ const [importResult, setImportResult] = useState<null | {
+ results: Array<{ name: string; ok: boolean; error?: string; scenarioId?: number }>;
+ total: number;
+ succeeded: number;
+ }>(null);
+ const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const handleExport = async (includeScripts: boolean) => {
-    setExporting(true);
-    try {
-      const data = await scenarioApi.exportAll({ includeScripts });
-      const ts = new Date().toISOString().slice(0, 10);
-      const suffix = includeScripts ? '-with-scripts' : '';
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `obliance-scenarios-${ts}${suffix}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Exported ${data.count} scenario${data.count > 1 ? 's' : ''}`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to export scenarios');
-    } finally {
-      setExporting(false);
-    }
-  };
+ const handleExport = async (includeScripts: boolean) => {
+ setExporting(true);
+ try {
+ const data = await scenarioApi.exportAll({ includeScripts });
+ const ts = new Date().toISOString().slice(0, 10);
+ const suffix = includeScripts ? '-with-scripts' : '';
+ const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = `obliance-scenarios-${ts}${suffix}.json`;
+ a.click();
+ URL.revokeObjectURL(url);
+ toast.success(`Exported ${data.count} scenario${data.count > 1 ? 's' : ''}`);
+ } catch (err: any) {
+ toast.error(err?.response?.data?.error || 'Failed to export scenarios');
+ } finally {
+ setExporting(false);
+ }
+ };
 
-  const handlePickImport = () => fileRef.current?.click();
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
-    if (!f) return;
-    setImportBusy(true);
-    setImportResult(null);
-    try {
-      const text = await f.text();
-      const bundle = JSON.parse(text);
-      // Bulk import skips the per-script conflict UI for now — sane
-      // default is `skip` (don't touch existing scripts) so the
-      // operator can re-run the import if they want overwrite. This
-      // matches the safe behavior users expect from a "restore
-      // backup" button.
-      const result = await scenarioApi.importBulk(bundle, {});
-      setImportResult(result);
-      if (result.succeeded === result.total) {
-        toast.success(`Imported ${result.succeeded} / ${result.total} scenarios`);
-      } else {
-        toast.error(`Imported ${result.succeeded} / ${result.total} — see report below`);
-      }
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
-    } finally {
-      setImportBusy(false);
-    }
-  };
+ const handlePickImport = () => fileRef.current?.click();
+ const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const f = e.target.files?.[0];
+ e.target.value = '';
+ if (!f) return;
+ setImportBusy(true);
+ setImportResult(null);
+ try {
+ const text = await f.text();
+ const bundle = JSON.parse(text);
+ // Bulk import skips the per-script conflict UI for now — sane
+ // default is `skip` (don't touch existing scripts) so the
+ // operator can re-run the import if they want overwrite. This
+ // matches the safe behavior users expect from a "restore
+ // backup" button.
+ const result = await scenarioApi.importBulk(bundle, {});
+ setImportResult(result);
+ if (result.succeeded === result.total) {
+ toast.success(`Imported ${result.succeeded} / ${result.total} scenarios`);
+ } else {
+ toast.error(`Imported ${result.succeeded} / ${result.total} — see report below`);
+ }
+ } catch (err: any) {
+ toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
+ } finally {
+ setImportBusy(false);
+ }
+ };
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <GitBranch size={18} className="text-accent" />
-        <h2 className="text-lg font-semibold text-text-primary">Scenarios — bulk export / import</h2>
-      </div>
-      <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
-        <p className="text-xs text-text-muted leading-relaxed">
-          Per-scenario export is on the <b>Automations → Scenarios</b> page (one click per row).
-          Use this section to dump <b>every</b> scenario in the current tenant in a single JSON,
-          or to restore from such a dump after migrating tenant.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => handleExport(false)}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-border bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
-          >
-            <Download size={14} />
-            Export all (lean)
-          </button>
-          <button
-            onClick={() => handleExport(true)}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-border bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
-          >
-            <Download size={14} />
-            Export all (with scripts)
-          </button>
-          <span className="w-px h-4 bg-border mx-1" />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <button
-            onClick={handlePickImport}
-            disabled={importBusy}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-50"
-          >
-            <Upload size={14} />
-            {importBusy ? 'Importing…' : 'Import bulk JSON'}
-          </button>
-        </div>
-        {importResult && (
-          <div className="border border-border rounded-lg p-3 bg-bg-tertiary/50 space-y-1">
-            <div className="text-xs text-text-muted">
-              {importResult.succeeded} of {importResult.total} imported
-            </div>
-            {importResult.results.map((r, i) => (
-              <div key={i} className={`text-[11px] flex items-center gap-2 ${r.ok ? 'text-text-secondary' : 'text-red-400'}`}>
-                <span>{r.ok ? '✓' : '✗'}</span>
-                <span className="font-medium">{r.name}</span>
-                {r.error && <span className="text-text-muted truncate">— {r.error}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+ return (
+ <div>
+ <div className="flex items-center gap-2 mb-4">
+ <GitBranch size={18} className="text-accent" />
+ <h2 className="text-lg font-semibold text-text-primary">Scenarios — bulk export / import</h2>
+ </div>
+ <div className="rounded-lg bg-bg-secondary p-5 space-y-4">
+ <p className="text-xs text-text-muted leading-relaxed">
+ Per-scenario export is on the <b>Automations → Scenarios</b> page (one click per row).
+ Use this section to dump <b>every</b> scenario in the current tenant in a single JSON,
+ or to restore from such a dump after migrating tenant.
+ </p>
+ <div className="flex flex-wrap items-center gap-2">
+ <button
+ onClick={() => handleExport(false)}
+ disabled={exporting}
+ className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+ >
+ <Download size={14} />
+ Export all (lean)
+ </button>
+ <button
+ onClick={() => handleExport(true)}
+ disabled={exporting}
+ className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+ >
+ <Download size={14} />
+ Export all (with scripts)
+ </button>
+ <span className="w-px h-4 bg-border mx-1" />
+ <input
+ ref={fileRef}
+ type="file"
+ accept="application/json,.json"
+ className="hidden"
+ onChange={handleImportFile}
+ />
+ <button
+ onClick={handlePickImport}
+ disabled={importBusy}
+ className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-50"
+ >
+ <Upload size={14} />
+ {importBusy ? 'Importing…' : 'Import bulk JSON'}
+ </button>
+ </div>
+ {importResult && (
+ <div className="rounded-lg p-3 bg-bg-tertiary/50 space-y-1">
+ <div className="text-xs text-text-muted">
+ {importResult.succeeded} of {importResult.total} imported
+ </div>
+ {importResult.results.map((r, i) => (
+ <div key={i} className={`text-[11px] flex items-center gap-2 ${r.ok ? 'text-text-secondary' : 'text-red-400'}`}>
+ <span>{r.ok ? '✓' : '✗'}</span>
+ <span className="font-medium">{r.name}</span>
+ {r.error && <span className="text-text-muted truncate">— {r.error}</span>}
+ </div>
+ ))}
+ </div>
+ )}
+ </div>
+ </div>
+ );
 }

@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
-  Monitor, ArrowLeft, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
-  Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
-  Scan, WifiOff, Clock, Network, CircuitBoard, X,
-  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
-  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
-  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
-  ArrowRightLeft, Pencil, Check, StickyNote,
+ Monitor, ArrowLeft, RefreshCw, Cpu, MemoryStick, HardDrive, Plus,
+ Terminal, Package, Shield, ShieldCheck, ShieldOff, MonitorPlay, History,
+ Scan, WifiOff, Clock, Network, CircuitBoard, X,
+ Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
+ AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
+ ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
+ ArrowRightLeft, Pencil, Check, StickyNote,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
@@ -50,17 +50,17 @@ import { clsx } from 'clsx';
 type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'settings' | `cs:${number}`;
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
-  { id: 'overview', label: 'Overview', icon: Monitor },
-  { id: 'inventory', label: 'Inventory', icon: HardDrive },
-  { id: 'scripts', label: 'Scripts', icon: Terminal },
-  { id: 'updates', label: 'Updates', icon: Package },
-  { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
-  { id: 'remote', label: 'Remote', icon: MonitorPlay },
-  { id: 'files', label: 'Explorer', icon: FolderOpen },
-  { id: 'services', label: 'Services', icon: Server },
-  { id: 'processes', label: 'Processes', icon: Activity },
-  { id: 'commands', label: 'Tasks', icon: History },
-  { id: 'settings', label: 'Settings', icon: Settings },
+ { id: 'overview', label: 'Overview', icon: Monitor },
+ { id: 'inventory', label: 'Inventory', icon: HardDrive },
+ { id: 'scripts', label: 'Scripts', icon: Terminal },
+ { id: 'updates', label: 'Updates', icon: Package },
+ { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
+ { id: 'remote', label: 'Remote', icon: MonitorPlay },
+ { id: 'files', label: 'Explorer', icon: FolderOpen },
+ { id: 'services', label: 'Services', icon: Server },
+ { id: 'processes', label: 'Processes', icon: Activity },
+ { id: 'commands', label: 'Tasks', icon: History },
+ { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 // ─── Last-seen pill ─────────────────────────────────────────────────────────
@@ -70,63 +70,63 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
 // the device list uses, so the two views agree at a glance.
 
 function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
-  // Tick the component every 30 s so the relative-time label drifts on its
-  // own — without this the pill is computed once at first render and the
-  // user sees "1m" even after sitting on the page for 5 minutes (then a
-  // manual refresh resets it). Pairs with the metrics-push handler in
-  // useSocket.ts which also advances `device.lastSeenAt` on every push,
-  // so an actively talking agent shows "1m" continuously.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
+ // Tick the component every 30 s so the relative-time label drifts on its
+ // own — without this the pill is computed once at first render and the
+ // user sees "1m" even after sitting on the page for 5 minutes (then a
+ // manual refresh resets it). Pairs with the metrics-push handler in
+ // useSocket.ts which also advances `device.lastSeenAt` on every push,
+ // so an actively talking agent shows "1m" continuously.
+ const [, setTick] = useState(0);
+ useEffect(() => {
+ const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
+ return () => window.clearInterval(id);
+ }, []);
 
-  if (!lastSeenAt) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border"
-        title="Never seen"
-      >
-        <Clock className="w-3 h-3" />
-        —
-      </span>
-    );
-  }
-  const date = new Date(lastSeenAt);
-  const diffMs = Date.now() - date.getTime();
-  const mins  = Math.floor(diffMs / 60_000);
-  const hours = Math.floor(diffMs / 3_600_000);
-  const days  = Math.floor(diffMs / 86_400_000);
+ if (!lastSeenAt) {
+ return (
+ <span
+ className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-transparent"
+ title="Never seen"
+ >
+ <Clock className="w-3 h-3" />
+ —
+ </span>
+ );
+ }
+ const date = new Date(lastSeenAt);
+ const diffMs = Date.now() - date.getTime();
+ const mins = Math.floor(diffMs / 60_000);
+ const hours = Math.floor(diffMs / 3_600_000);
+ const days = Math.floor(diffMs / 86_400_000);
 
-  let text: string;
-  let color: string;
-  if (mins < 5) {
-    text = `${Math.max(mins, 1)}m`;
-    color = 'bg-green-400/10 text-green-400 border-green-400/30';
-  } else if (mins < 60) {
-    text = `${mins}m`;
-    color = 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
-  } else if (hours < 24) {
-    text = `${hours}h`;
-    color = 'bg-orange-400/10 text-orange-400 border-orange-400/30';
-  } else {
-    text = `${days}d`;
-    color = 'bg-red-400/10 text-red-400 border-red-400/30';
-  }
+ let text: string;
+ let color: string;
+ if (mins < 5) {
+ text = `${Math.max(mins, 1)}m`;
+ color = 'bg-green-400/10 text-green-400 border-green-400/30';
+ } else if (mins < 60) {
+ text = `${mins}m`;
+ color = 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30';
+ } else if (hours < 24) {
+ text = `${hours}h`;
+ color = 'bg-orange-400/10 text-orange-400 border-orange-400/30';
+ } else {
+ text = `${days}d`;
+ color = 'bg-red-400/10 text-red-400 border-red-400/30';
+ }
 
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
-        color,
-      )}
-      title={`Last seen ${date.toLocaleString()}`}
-    >
-      <Clock className="w-3 h-3" />
-      {text}
-    </span>
-  );
+ return (
+ <span
+ className={clsx(
+ 'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
+ color,
+ )}
+ title={`Last seen ${date.toLocaleString()}`}
+ >
+ <Clock className="w-3 h-3" />
+ {text}
+ </span>
+ );
 }
 
 // ─── Note banner ────────────────────────────────────────────────────────────
@@ -139,1983 +139,1983 @@ function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
 // by the parent).
 
 function NoteBanner({
-  description,
-  editing,
-  draft,
-  onDraftChange,
-  onStart,
-  onSave,
-  onCancel,
-  onDelete,
+ description,
+ editing,
+ draft,
+ onDraftChange,
+ onStart,
+ onSave,
+ onCancel,
+ onDelete,
 }: {
-  description: string | null;
-  editing: boolean;
-  draft: string;
-  onDraftChange: (v: string) => void;
-  onStart: () => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
+ description: string | null;
+ editing: boolean;
+ draft: string;
+ onDraftChange: (v: string) => void;
+ onStart: () => void;
+ onSave: () => void;
+ onCancel: () => void;
+ onDelete: () => void;
 }) {
-  const hasNote = !!description && description.trim().length > 0;
-  if (!editing && !hasNote) return null;
+ const hasNote = !!description && description.trim().length > 0;
+ if (!editing && !hasNote) return null;
 
-  if (editing) {
-    return (
-      <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-rose-500/10 border border-rose-500/30">
-        <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => onDraftChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') onCancel();
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
-          }}
-          rows={2}
-          placeholder="Add a note about this device..."
-          className="flex-1 px-2 py-1 text-xs bg-bg-primary border border-border rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
-        />
-        <div className="flex flex-col gap-1 flex-shrink-0">
-          <button
-            onClick={onSave}
-            className="p-1 rounded text-green-400 hover:bg-bg-secondary"
-            title="Save (Ctrl+Enter)"
-          >
-            <Check className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onCancel}
-            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
-            title="Cancel (Esc)"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-          {description && (
-            <button
-              onClick={onDelete}
-              className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-bg-secondary"
-              title="Delete note"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+ if (editing) {
+ return (
+ <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-rose-500/10 border border-rose-500/30">
+ <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
+ <textarea
+ autoFocus
+ value={draft}
+ onChange={(e) => onDraftChange(e.target.value)}
+ onKeyDown={(e) => {
+ if (e.key === 'Escape') onCancel();
+ if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
+ }}
+ rows={2}
+ placeholder="Add a note about this device..."
+ className="flex-1 px-2 py-1 text-xs bg-bg-primary rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+ />
+ <div className="flex flex-col gap-1 flex-shrink-0">
+ <button
+ onClick={onSave}
+ className="p-1 rounded text-green-400 hover:bg-bg-secondary"
+ title="Save (Ctrl+Enter)"
+ >
+ <Check className="w-3.5 h-3.5" />
+ </button>
+ <button
+ onClick={onCancel}
+ className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+ title="Cancel (Esc)"
+ >
+ <X className="w-3.5 h-3.5" />
+ </button>
+ {description && (
+ <button
+ onClick={onDelete}
+ className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-bg-secondary"
+ title="Delete note"
+ >
+ <Trash2 className="w-3.5 h-3.5" />
+ </button>
+ )}
+ </div>
+ </div>
+ );
+ }
 
-  return (
-    <button
-      onClick={onStart}
-      className="mt-2 w-full flex items-start gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/15 transition-colors text-left"
-      title="Edit note"
-    >
-      <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
-      <span className="flex-1 whitespace-pre-wrap break-words">{description}</span>
-    </button>
-  );
+ return (
+ <button
+ onClick={onStart}
+ className="mt-2 w-full flex items-start gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/15 transition-colors text-left"
+ title="Edit note"
+ >
+ <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
+ <span className="flex-1 whitespace-pre-wrap break-words">{description}</span>
+ </button>
+ );
 }
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
-  const metrics = device.latestMetrics;
+ const metrics = device.latestMetrics;
 
-  // Custom metrics (script-driven)
-  const [customMetrics, setCustomMetrics] = useState<Array<{ id: number; scheduleId: number; name: string; value: string; unit: string | null; status: string; updatedAt: string }>>([]);
-  useEffect(() => {
-    let cancelled = false;
-    deviceApi.listCustomMetrics(device.id).then((list) => {
-      if (!cancelled) setCustomMetrics(list as any);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [device.id]);
+ // Custom metrics (script-driven)
+ const [customMetrics, setCustomMetrics] = useState<Array<{ id: number; scheduleId: number; name: string; value: string; unit: string | null; status: string; updatedAt: string }>>([]);
+ useEffect(() => {
+ let cancelled = false;
+ deviceApi.listCustomMetrics(device.id).then((list) => {
+ if (!cancelled) setCustomMetrics(list as any);
+ }).catch(() => {});
+ return () => { cancelled = true; };
+ }, [device.id]);
 
-  // Live update via socket
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const handler = (msg: { deviceId: number; scheduleId: number; name?: string; value?: string; unit?: string | null; status?: string }) => {
-      if (msg.deviceId !== device.id) return;
-      setCustomMetrics((prev) => {
-        const idx = prev.findIndex((m) => m.scheduleId === msg.scheduleId);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...next[idx], name: msg.name ?? next[idx].name, value: msg.value ?? next[idx].value, unit: msg.unit ?? next[idx].unit, status: msg.status ?? next[idx].status, updatedAt: new Date().toISOString() };
-          return next;
-        }
-        if (msg.value !== undefined && msg.name) {
-          return [...prev, { id: Date.now(), scheduleId: msg.scheduleId, name: msg.name, value: msg.value, unit: msg.unit ?? null, status: msg.status ?? 'ok', updatedAt: new Date().toISOString() }];
-        }
-        return prev;
-      });
-    };
-    socket.on('CUSTOM_METRIC_UPDATED', handler);
-    return () => { socket.off('CUSTOM_METRIC_UPDATED', handler); };
-  }, [device.id]);
+ // Live update via socket
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
+ const handler = (msg: { deviceId: number; scheduleId: number; name?: string; value?: string; unit?: string | null; status?: string }) => {
+ if (msg.deviceId !== device.id) return;
+ setCustomMetrics((prev) => {
+ const idx = prev.findIndex((m) => m.scheduleId === msg.scheduleId);
+ if (idx >= 0) {
+ const next = [...prev];
+ next[idx] = { ...next[idx], name: msg.name ?? next[idx].name, value: msg.value ?? next[idx].value, unit: msg.unit ?? next[idx].unit, status: msg.status ?? next[idx].status, updatedAt: new Date().toISOString() };
+ return next;
+ }
+ if (msg.value !== undefined && msg.name) {
+ return [...prev, { id: Date.now(), scheduleId: msg.scheduleId, name: msg.name, value: msg.value, unit: msg.unit ?? null, status: msg.status ?? 'ok', updatedAt: new Date().toISOString() }];
+ }
+ return prev;
+ });
+ };
+ socket.on('CUSTOM_METRIC_UPDATED', handler);
+ return () => { socket.off('CUSTOM_METRIC_UPDATED', handler); };
+ }, [device.id]);
 
-  return (
-    <div className="space-y-6">
-      {/* Device info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
-          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Identity</h3>
-          <dl className="space-y-2">
-            {[
-              ['Hostname', anonymize(device.hostname)],
-              ['Display Name', anonymize(device.displayName) || '—'],
-              ['OS', device.osName ?? device.osType],
-              ['OS Version', device.osVersion ?? '—'],
-              ['Architecture', device.osArch ?? '—'],
-              ['Agent Version', device.agentVersion ?? '—'],
-              ['Last Logged In', anonymize(device.lastLoggedInUser) || '—'],
-              ['Agent UUID', device.uuid ?? '—'],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-2 text-sm">
-                <dt className="text-text-muted shrink-0">{k}</dt>
-                <dd className={clsx('text-text-primary font-medium truncate', k === 'Agent UUID' && 'font-mono text-xs')} title={k === 'Agent UUID' ? (v as string) : undefined}>{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
-          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Network</h3>
-          <dl className="space-y-2">
-            {[
-              ['Local IP', anonymizeIp(device.ipLocal) || '—'],
-              ['Public IP', anonymizeIp(device.ipPublic) || '—'],
-              ['MAC Address', anonymizeMac(device.macAddress) || '—'],
-              ['Timezone', device.timezone ?? '—'],
-              ['Location', device.geoCity ? `${device.geoCity}, ${device.geoRegion ?? ''} ${device.geoCountry ?? ''}`.trim() : '—'],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between text-sm">
-                <dt className="text-text-muted">{k}</dt>
-                <dd className="text-text-primary font-mono text-xs">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        {/* Notes card removed — replaced by the rose NotePill in the
-            page header (inline edit, keeps the overview compact). */}
-      </div>
+ return (
+ <div className="space-y-6">
+ {/* Device info */}
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="p-4 bg-bg-secondary rounded-xl space-y-3">
+ <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Identity</h3>
+ <dl className="space-y-2">
+ {[
+ ['Hostname', anonymize(device.hostname)],
+ ['Display Name', anonymize(device.displayName) || '—'],
+ ['OS', device.osName ?? device.osType],
+ ['OS Version', device.osVersion ?? '—'],
+ ['Architecture', device.osArch ?? '—'],
+ ['Agent Version', device.agentVersion ?? '—'],
+ ['Last Logged In', anonymize(device.lastLoggedInUser) || '—'],
+ ['Agent UUID', device.uuid ?? '—'],
+ ].map(([k, v]) => (
+ <div key={k} className="flex justify-between gap-2 text-sm">
+ <dt className="text-text-muted shrink-0">{k}</dt>
+ <dd className={clsx('text-text-primary font-medium truncate', k === 'Agent UUID' && 'font-mono text-xs')} title={k === 'Agent UUID' ? (v as string) : undefined}>{v}</dd>
+ </div>
+ ))}
+ </dl>
+ </div>
+ <div className="p-4 bg-bg-secondary rounded-xl space-y-3">
+ <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Network</h3>
+ <dl className="space-y-2">
+ {[
+ ['Local IP', anonymizeIp(device.ipLocal) || '—'],
+ ['Public IP', anonymizeIp(device.ipPublic) || '—'],
+ ['MAC Address', anonymizeMac(device.macAddress) || '—'],
+ ['Timezone', device.timezone ?? '—'],
+ ['Location', device.geoCity ? `${device.geoCity}, ${device.geoRegion ?? ''} ${device.geoCountry ?? ''}`.trim() : '—'],
+ ].map(([k, v]) => (
+ <div key={k} className="flex justify-between text-sm">
+ <dt className="text-text-muted">{k}</dt>
+ <dd className="text-text-primary font-mono text-xs">{v}</dd>
+ </div>
+ ))}
+ </dl>
+ </div>
+ {/* Notes card removed — replaced by the rose NotePill in the
+ page header (inline edit, keeps the overview compact). */}
+ </div>
 
-      {/* Metrics */}
-      {(metrics || customMetrics.length > 0) && (
-        <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
-          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Live Metrics</h3>
-          {metrics && <DeviceMetricsBar metrics={metrics} />}
-          {customMetrics.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
-              {customMetrics.map((m) => {
-                const statusColor =
-                  m.status === 'critical' ? 'border-red-400/40 text-red-400' :
-                  m.status === 'warning'  ? 'border-yellow-400/40 text-yellow-400' :
-                  m.status === 'error'    ? 'border-gray-400/40 text-gray-400' :
-                                             'border-cyan-400/40 text-cyan-400';
-                return (
-                  <div key={m.id} className={clsx('p-2.5 bg-bg-tertiary border rounded-lg', statusColor)}>
-                    <p className="text-[10px] text-text-muted uppercase tracking-wide truncate" title={m.name}>{m.name}</p>
-                    <p className="text-sm font-mono font-semibold truncate" title={`${m.value}${m.unit ? ' ' + m.unit : ''}`}>
-                      {m.value}
-                      {m.unit && <span className="text-[11px] text-text-muted ml-1">{m.unit}</span>}
-                    </p>
-                    <p className="text-[9px] text-text-muted/70">
-                      {new Date(m.updatedAt).toLocaleTimeString()}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+ {/* Metrics */}
+ {(metrics || customMetrics.length > 0) && (
+ <div className="p-4 bg-bg-secondary rounded-xl space-y-3">
+ <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">Live Metrics</h3>
+ {metrics && <DeviceMetricsBar metrics={metrics} />}
+ {customMetrics.length > 0 && (
+ <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
+ {customMetrics.map((m) => {
+ const statusColor =
+ m.status === 'critical' ? 'border-red-400/40 text-red-400' :
+ m.status === 'warning' ? 'border-yellow-400/40 text-yellow-400' :
+ m.status === 'error' ? 'border-gray-400/40 text-gray-400' :
+ 'border-cyan-400/40 text-cyan-400';
+ return (
+ <div key={m.id} className={clsx('p-2.5 bg-bg-tertiary border rounded-lg', statusColor)}>
+ <p className="text-[10px] text-text-muted uppercase tracking-wide truncate" title={m.name}>{m.name}</p>
+ <p className="text-sm font-mono font-semibold truncate" title={`${m.value}${m.unit ? ' ' + m.unit : ''}`}>
+ {m.value}
+ {m.unit && <span className="text-[11px] text-text-muted ml-1">{m.unit}</span>}
+ </p>
+ <p className="text-[9px] text-text-muted/70">
+ {new Date(m.updatedAt).toLocaleTimeString()}
+ </p>
+ </div>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ )}
 
-      {/* Quick info cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <Clock className="w-4 h-4 text-rose-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Seen</p>
-            <p className="text-xs text-text-primary font-medium truncate">
-              {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : '—'}
-            </p>
-          </div>
-        </div>
-        <div className={clsx('p-3 border rounded-xl flex items-center gap-2.5', device.rebootPending ? 'bg-orange-500/5 border-orange-500/30' : 'bg-bg-secondary border-border')}>
-          <Power className={clsx('w-4 h-4 shrink-0', device.rebootPending ? 'text-orange-400' : 'text-orange-400')} />
-          <div className="min-w-0">
-            <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Reboot</p>
-            <p className="text-xs text-text-primary font-medium truncate">
-              {device.lastRebootAt ? new Date(device.lastRebootAt).toLocaleString() : '—'}
-            </p>
-            {device.rebootPending && (
-              <p className="text-[10px] text-orange-400 font-medium">Restart required</p>
-            )}
-          </div>
-        </div>
-        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <Plus className="w-4 h-4 text-blue-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] text-text-muted uppercase tracking-wide">Added</p>
-            <p className="text-xs text-text-primary font-medium truncate">
-              {new Date(device.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <Cpu className="w-4 h-4 text-cyan-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] text-text-muted uppercase tracking-wide">CPU</p>
-            <p className="text-xs text-text-primary font-medium truncate" title={device.cpuModel ?? undefined}>{device.cpuModel ?? '—'}</p>
-            {device.cpuCores && <p className="text-[10px] text-text-muted">{device.cpuCores} cores</p>}
-          </div>
-        </div>
-        <div className="p-3 bg-bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-          <MemoryStick className="w-4 h-4 text-green-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] text-text-muted uppercase tracking-wide">RAM</p>
-            <p className="text-xs text-text-primary font-medium">{device.ramTotalGb ? `${device.ramTotalGb} GB` : '—'}</p>
-          </div>
-        </div>
-      </div>
+ {/* Quick info cards */}
+ <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+ <div className="p-3 bg-bg-secondary rounded-xl flex items-center gap-2.5">
+ <Clock className="w-4 h-4 text-rose-400 shrink-0" />
+ <div className="min-w-0">
+ <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Seen</p>
+ <p className="text-xs text-text-primary font-medium truncate">
+ {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : '—'}
+ </p>
+ </div>
+ </div>
+ <div className={clsx('p-3 border rounded-xl flex items-center gap-2.5', device.rebootPending ? 'bg-orange-500/5 border-orange-500/30' : 'bg-bg-secondary border-transparent')}>
+ <Power className={clsx('w-4 h-4 shrink-0', device.rebootPending ? 'text-orange-400' : 'text-orange-400')} />
+ <div className="min-w-0">
+ <p className="text-[10px] text-text-muted uppercase tracking-wide">Last Reboot</p>
+ <p className="text-xs text-text-primary font-medium truncate">
+ {device.lastRebootAt ? new Date(device.lastRebootAt).toLocaleString() : '—'}
+ </p>
+ {device.rebootPending && (
+ <p className="text-[10px] text-orange-400 font-medium">Restart required</p>
+ )}
+ </div>
+ </div>
+ <div className="p-3 bg-bg-secondary rounded-xl flex items-center gap-2.5">
+ <Plus className="w-4 h-4 text-blue-400 shrink-0" />
+ <div className="min-w-0">
+ <p className="text-[10px] text-text-muted uppercase tracking-wide">Added</p>
+ <p className="text-xs text-text-primary font-medium truncate">
+ {new Date(device.createdAt).toLocaleDateString()}
+ </p>
+ </div>
+ </div>
+ <div className="p-3 bg-bg-secondary rounded-xl flex items-center gap-2.5">
+ <Cpu className="w-4 h-4 text-cyan-400 shrink-0" />
+ <div className="min-w-0">
+ <p className="text-[10px] text-text-muted uppercase tracking-wide">CPU</p>
+ <p className="text-xs text-text-primary font-medium truncate" title={device.cpuModel ?? undefined}>{device.cpuModel ?? '—'}</p>
+ {device.cpuCores && <p className="text-[10px] text-text-muted">{device.cpuCores} cores</p>}
+ </div>
+ </div>
+ <div className="p-3 bg-bg-secondary rounded-xl flex items-center gap-2.5">
+ <MemoryStick className="w-4 h-4 text-green-400 shrink-0" />
+ <div className="min-w-0">
+ <p className="text-[10px] text-text-muted uppercase tracking-wide">RAM</p>
+ <p className="text-xs text-text-primary font-medium">{device.ramTotalGb ? `${device.ramTotalGb} GB` : '—'}</p>
+ </div>
+ </div>
+ </div>
 
-      {/* Asset Management */}
-      <div className="p-4 bg-bg-secondary border border-border rounded-xl">
-        <h4 className="text-sm font-semibold text-text-muted mb-3">Asset Management</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <span className="text-[10px] text-text-muted uppercase block mb-1">Purchase Date</span>
-            <span className="text-sm text-text-primary">{device.purchaseDate ? new Date(device.purchaseDate).toLocaleDateString() : '—'}</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-text-muted uppercase block mb-1">Warranty</span>
-            <span className={clsx('text-sm font-medium',
-              device.warrantyStatus === 'active' ? 'text-green-400' :
-              device.warrantyStatus === 'expired' ? 'text-red-400' : 'text-text-muted'
-            )}>
-              {device.warrantyStatus === 'active' ? 'Active' : device.warrantyStatus === 'expired' ? 'Expired' : 'Unknown'}
-              {device.warrantyExpiry && ` (${new Date(device.warrantyExpiry).toLocaleDateString()})`}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-text-muted uppercase block mb-1">Device Age</span>
-            <span className="text-sm text-text-primary">
-              {device.purchaseDate ? `${Math.floor((Date.now() - new Date(device.purchaseDate).getTime()) / (365.25 * 86400000))} years` : '—'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-text-muted uppercase block mb-1">Lifecycle</span>
-            <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium',
-              device.lifecycleStatus === 'active' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-              device.lifecycleStatus === 'aging' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' :
-              device.lifecycleStatus === 'end_of_life' ? 'text-red-400 bg-red-400/10 border-red-400/30' :
-              'text-text-muted bg-bg-tertiary border-border'
-            )}>
-              {device.lifecycleStatus ?? 'Unknown'}
-            </span>
-          </div>
-        </div>
-      </div>
+ {/* Asset Management */}
+ <div className="p-4 bg-bg-secondary rounded-xl">
+ <h4 className="text-sm font-semibold text-text-muted mb-3">Asset Management</h4>
+ <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+ <div>
+ <span className="text-[10px] text-text-muted uppercase block mb-1">Purchase Date</span>
+ <span className="text-sm text-text-primary">{device.purchaseDate ? new Date(device.purchaseDate).toLocaleDateString() : '—'}</span>
+ </div>
+ <div>
+ <span className="text-[10px] text-text-muted uppercase block mb-1">Warranty</span>
+ <span className={clsx('text-sm font-medium',
+ device.warrantyStatus === 'active' ? 'text-green-400' :
+ device.warrantyStatus === 'expired' ? 'text-red-400' : 'text-text-muted'
+ )}>
+ {device.warrantyStatus === 'active' ? 'Active' : device.warrantyStatus === 'expired' ? 'Expired' : 'Unknown'}
+ {device.warrantyExpiry && ` (${new Date(device.warrantyExpiry).toLocaleDateString()})`}
+ </span>
+ </div>
+ <div>
+ <span className="text-[10px] text-text-muted uppercase block mb-1">Device Age</span>
+ <span className="text-sm text-text-primary">
+ {device.purchaseDate ? `${Math.floor((Date.now() - new Date(device.purchaseDate).getTime()) / (365.25 * 86400000))} years` : '—'}
+ </span>
+ </div>
+ <div>
+ <span className="text-[10px] text-text-muted uppercase block mb-1">Lifecycle</span>
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium',
+ device.lifecycleStatus === 'active' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+ device.lifecycleStatus === 'aging' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' :
+ device.lifecycleStatus === 'end_of_life' ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+ 'text-text-muted bg-bg-tertiary border-transparent'
+ )}>
+ {device.lifecycleStatus ?? 'Unknown'}
+ </span>
+ </div>
+ </div>
+ </div>
 
-      {/* Tags now live inline next to the status pill at the top of
-          the page (see header section). The duplicate row that used
-          to sit here was removed to declutter the overview tab. */}
-    </div>
-  );
+ {/* Tags now live inline next to the status pill at the top of
+ the page (see header section). The duplicate row that used
+ to sit here was removed to declutter the overview tab. */}
+ </div>
+ );
 }
 
 // ─── Inventory Tab ──────────────────────────────────────────────────────────────
 
 function InventoryTab({ deviceId }: { deviceId: number }) {
-  const [hardware, setHardware] = useState<HardwareInventory | null>(null);
-  const [software, setSoftware] = useState<SoftwareEntry[]>([]);
-  const [softwareTotal, setSoftwareTotal] = useState(0);
-  const [softwareSearch, setSoftwareSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'hardware' | 'software'>('hardware');
-  const [licenses, setLicenses] = useState<DeviceLicense[]>([]);
-  const [showLicenseForm, setShowLicenseForm] = useState(false);
-  const [licenseForm, setLicenseForm] = useState({ softwareName: '', licenseKey: '', licenseType: 'per_device' as string, vendor: '', expiryDate: '', notes: '' });
+ const [hardware, setHardware] = useState<HardwareInventory | null>(null);
+ const [software, setSoftware] = useState<SoftwareEntry[]>([]);
+ const [softwareTotal, setSoftwareTotal] = useState(0);
+ const [softwareSearch, setSoftwareSearch] = useState('');
+ const [isLoading, setIsLoading] = useState(true);
+ const [activeSection, setActiveSection] = useState<'hardware' | 'software'>('hardware');
+ const [licenses, setLicenses] = useState<DeviceLicense[]>([]);
+ const [showLicenseForm, setShowLicenseForm] = useState(false);
+ const [licenseForm, setLicenseForm] = useState({ softwareName: '', licenseKey: '', licenseType: 'per_device' as string, vendor: '', expiryDate: '', notes: '' });
 
-  const loadLicenses = useCallback(() => {
-    licenseApi.listForDevice(deviceId).then(setLicenses).catch(() => {});
-  }, [deviceId]);
-  useEffect(() => { loadLicenses(); }, [loadLicenses]);
+ const loadLicenses = useCallback(() => {
+ licenseApi.listForDevice(deviceId).then(setLicenses).catch(() => {});
+ }, [deviceId]);
+ useEffect(() => { loadLicenses(); }, [loadLicenses]);
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const [hw, sw] = await Promise.all([
-          inventoryApi.getHardware(deviceId),
-          inventoryApi.getSoftware(deviceId, { search: softwareSearch }),
-        ]);
-        setHardware(hw);
-        setSoftware(sw.items);
-        setSoftwareTotal(sw.total);
-      } catch {
-        toast.error('Failed to load inventory');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [deviceId, softwareSearch]);
+ useEffect(() => {
+ const load = async () => {
+ setIsLoading(true);
+ try {
+ const [hw, sw] = await Promise.all([
+ inventoryApi.getHardware(deviceId),
+ inventoryApi.getSoftware(deviceId, { search: softwareSearch }),
+ ]);
+ setHardware(hw);
+ setSoftware(sw.items);
+ setSoftwareTotal(sw.total);
+ } catch {
+ toast.error('Failed to load inventory');
+ } finally {
+ setIsLoading(false);
+ }
+ };
+ load();
+ }, [deviceId, softwareSearch]);
 
-  const handleScan = async () => {
-    try {
-      await inventoryApi.triggerScan(deviceId);
-      toast.success('Inventory scan queued');
-    } catch {
-      toast.error('Failed to queue scan');
-    }
-  };
+ const handleScan = async () => {
+ try {
+ await inventoryApi.triggerScan(deviceId);
+ toast.success('Inventory scan queued');
+ } catch {
+ toast.error('Failed to queue scan');
+ }
+ };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
-  }
+ if (isLoading) {
+ return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+ }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveSection('hardware')}
-            className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'hardware' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
-          >
-            Hardware
-          </button>
-          <button
-            onClick={() => setActiveSection('software')}
-            className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'software' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
-          >
-            Software ({softwareTotal})
-          </button>
-        </div>
-        <button
-          onClick={handleScan}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
-        >
-          <Scan className="w-3.5 h-3.5" />
-          Scan now
-        </button>
-      </div>
+ return (
+ <div className="space-y-4">
+ <div className="flex items-center justify-between">
+ <div className="flex gap-2">
+ <button
+ onClick={() => setActiveSection('hardware')}
+ className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'hardware' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ >
+ Hardware
+ </button>
+ <button
+ onClick={() => setActiveSection('software')}
+ className={clsx('px-3 py-1.5 text-sm rounded-lg transition-colors', activeSection === 'software' ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ >
+ Software ({softwareTotal})
+ </button>
+ </div>
+ <button
+ onClick={handleScan}
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
+ >
+ <Scan className="w-3.5 h-3.5" />
+ Scan now
+ </button>
+ </div>
 
-      {activeSection === 'hardware' && hardware && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* OS Details */}
-          {hardware.os && hardware.os.edition && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />Operating System</h4>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
-                {[
-                  ['Edition', hardware.os.edition],
-                  ['Version', hardware.os.displayVersion ? `${hardware.os.displayVersion}${hardware.os.buildNumber ? ` (${hardware.os.buildNumber})` : ''}` : null],
-                  hardware.os.windowsKey ? ['Windows Key', hardware.os.windowsKey] : null,
-                  hardware.os.officeVersion ? ['Office', hardware.os.officeVersion] : null,
-                  hardware.os.officeKey ? ['Office Key', `XXXXX-XXXXX-XXXXX-XXXXX-${hardware.os.officeKey}`] : null,
-                ].filter((x): x is [string, string] => Array.isArray(x) && !!x[1]).map(([k, v]) => (
-                  <div key={k as string} className="flex justify-between text-sm">
-                    <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
-                    <dd className="text-text-primary font-medium text-right truncate select-all">{v as string}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-          {/* CPU */}
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl">
-            <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Cpu className="w-4 h-4" />CPU</h4>
-            <p className="text-text-primary">{hardware.cpu.model}</p>
-            <p className="text-sm text-text-muted">{hardware.cpu.cores} cores / {hardware.cpu.threads} threads @ {hardware.cpu.speed} GHz</p>
-          </div>
-          {/* Memory */}
-          <div className="p-4 bg-bg-secondary border border-border rounded-xl">
-            <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><MemoryStick className="w-4 h-4" />Memory</h4>
-            <p className="text-text-primary">{((hardware.memory.total ?? 0) / 1024 / 1024 / 1024).toFixed(1)} GB total</p>
-            <div className="mt-2 space-y-1">
-              {(hardware.memory.slots ?? []).map((slot, i) => (
-                <p key={i} className="text-xs text-text-muted">{slot.bank}: {((slot.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB {slot.type} @ {slot.speed} MHz</p>
-              ))}
-            </div>
-          </div>
-          {/* Disks */}
-          {(hardware.disks ?? []).length > 0 && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />Disks</h4>
-              <div className="space-y-2">
-                {(hardware.disks ?? []).map((disk, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm">
-                    <span className="text-text-primary">{disk.model ?? disk.device}</span>
-                    <span className="text-text-muted text-xs">{disk.type}</span>
-                    <span className="text-text-muted text-xs">{((disk.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB</span>
-                    <span className="text-text-muted text-xs">{(disk.mounts ?? []).map((m) => m.mount).join(', ')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* GPU */}
-          {(hardware.gpu ?? []).length > 0 && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />GPU</h4>
-              <div className="space-y-2">
-                {(hardware.gpu ?? []).map((gpu, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className="text-text-primary font-medium">{gpu.name}</span>
-                    {gpu.vram > 0 && (
-                      <span className="text-text-muted text-xs">
-                        {gpu.vram >= 1024 * 1024 * 1024
-                          ? `${(gpu.vram / 1024 / 1024 / 1024).toFixed(1)} GB VRAM`
-                          : `${(gpu.vram / 1024 / 1024).toFixed(0)} MB VRAM`}
-                      </span>
-                    )}
-                    {gpu.driver && <span className="text-text-muted text-xs">Driver {gpu.driver}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Network Interfaces */}
-          {(hardware.networkInterfaces ?? []).length > 0 && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Network className="w-4 h-4" />Network Interfaces</h4>
-              <div className="space-y-2">
-                {(hardware.networkInterfaces ?? []).map((iface, i) => (
-                  <div key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
-                    <span className="text-text-primary font-medium">{anonymize(iface.name)}</span>
-                    {iface.mac && <span className="text-text-muted text-xs font-mono">{anonymizeMac(iface.mac)}</span>}
-                    {iface.type && <span className="text-text-muted text-xs">{iface.type}</span>}
-                    {(iface.addresses ?? []).length > 0 && (
-                      <span className="text-text-muted text-xs">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Motherboard & BIOS */}
-          {(hardware.motherboard?.manufacturer || hardware.motherboard?.model || hardware.bios?.vendor || hardware.tpm) && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><CircuitBoard className="w-4 h-4" />Motherboard, BIOS & TPM</h4>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
-                {[
-                  ['Board', [hardware.motherboard?.manufacturer, hardware.motherboard?.model].filter(Boolean).join(' ') || null],
-                  ['Revision', hardware.motherboard?.version ?? null],
-                  ['BIOS', hardware.bios?.vendor ? `${hardware.bios.vendor}${hardware.bios.version ? ` · ${hardware.bios.version}` : ''}` : null],
-                  ['BIOS Date', hardware.bios?.date ?? null],
-                  ['Serial', hardware.motherboard?.serial ?? null],
-                  ['TPM', hardware.tpm?.present
-                    ? `${hardware.tpm.version || hardware.tpm.specVersion || 'Present'} — ${hardware.tpm.status ?? 'Unknown'}${hardware.tpm.manufacturerName ? ` (${hardware.tpm.manufacturerName})` : ''}`
-                    : hardware.tpm ? 'Not present' : null],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k as string} className="flex justify-between text-sm">
-                    <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
-                    <dd className="text-text-primary font-medium text-right truncate">{v as string}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
+ {activeSection === 'hardware' && hardware && (
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ {/* OS Details */}
+ {hardware.os && hardware.os.edition && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />Operating System</h4>
+ <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+ {[
+ ['Edition', hardware.os.edition],
+ ['Version', hardware.os.displayVersion ? `${hardware.os.displayVersion}${hardware.os.buildNumber ? ` (${hardware.os.buildNumber})` : ''}` : null],
+ hardware.os.windowsKey ? ['Windows Key', hardware.os.windowsKey] : null,
+ hardware.os.officeVersion ? ['Office', hardware.os.officeVersion] : null,
+ hardware.os.officeKey ? ['Office Key', `XXXXX-XXXXX-XXXXX-XXXXX-${hardware.os.officeKey}`] : null,
+ ].filter((x): x is [string, string] => Array.isArray(x) && !!x[1]).map(([k, v]) => (
+ <div key={k as string} className="flex justify-between text-sm">
+ <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
+ <dd className="text-text-primary font-medium text-right truncate select-all">{v as string}</dd>
+ </div>
+ ))}
+ </dl>
+ </div>
+ )}
+ {/* CPU */}
+ <div className="p-4 bg-bg-secondary rounded-xl">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Cpu className="w-4 h-4" />CPU</h4>
+ <p className="text-text-primary">{hardware.cpu.model}</p>
+ <p className="text-sm text-text-muted">{hardware.cpu.cores} cores / {hardware.cpu.threads} threads @ {hardware.cpu.speed} GHz</p>
+ </div>
+ {/* Memory */}
+ <div className="p-4 bg-bg-secondary rounded-xl">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><MemoryStick className="w-4 h-4" />Memory</h4>
+ <p className="text-text-primary">{((hardware.memory.total ?? 0) / 1024 / 1024 / 1024).toFixed(1)} GB total</p>
+ <div className="mt-2 space-y-1">
+ {(hardware.memory.slots ?? []).map((slot, i) => (
+ <p key={i} className="text-xs text-text-muted">{slot.bank}: {((slot.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB {slot.type} @ {slot.speed} MHz</p>
+ ))}
+ </div>
+ </div>
+ {/* Disks */}
+ {(hardware.disks ?? []).length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />Disks</h4>
+ <div className="space-y-2">
+ {(hardware.disks ?? []).map((disk, i) => (
+ <div key={i} className="flex items-center gap-3 text-sm">
+ <span className="text-text-primary">{disk.model ?? disk.device}</span>
+ <span className="text-text-muted text-xs">{disk.type}</span>
+ <span className="text-text-muted text-xs">{((disk.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB</span>
+ <span className="text-text-muted text-xs">{(disk.mounts ?? []).map((m) => m.mount).join(', ')}</span>
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ {/* GPU */}
+ {(hardware.gpu ?? []).length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Monitor className="w-4 h-4" />GPU</h4>
+ <div className="space-y-2">
+ {(hardware.gpu ?? []).map((gpu, i) => (
+ <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
+ <span className="text-text-primary font-medium">{gpu.name}</span>
+ {gpu.vram > 0 && (
+ <span className="text-text-muted text-xs">
+ {gpu.vram >= 1024 * 1024 * 1024
+ ? `${(gpu.vram / 1024 / 1024 / 1024).toFixed(1)} GB VRAM`
+ : `${(gpu.vram / 1024 / 1024).toFixed(0)} MB VRAM`}
+ </span>
+ )}
+ {gpu.driver && <span className="text-text-muted text-xs">Driver {gpu.driver}</span>}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ {/* Network Interfaces */}
+ {(hardware.networkInterfaces ?? []).length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Network className="w-4 h-4" />Network Interfaces</h4>
+ <div className="space-y-2">
+ {(hardware.networkInterfaces ?? []).map((iface, i) => (
+ <div key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-sm">
+ <span className="text-text-primary font-medium">{anonymize(iface.name)}</span>
+ {iface.mac && <span className="text-text-muted text-xs font-mono">{anonymizeMac(iface.mac)}</span>}
+ {iface.type && <span className="text-text-muted text-xs">{iface.type}</span>}
+ {(iface.addresses ?? []).length > 0 && (
+ <span className="text-text-muted text-xs">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
+ )}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ {/* Motherboard & BIOS */}
+ {(hardware.motherboard?.manufacturer || hardware.motherboard?.model || hardware.bios?.vendor || hardware.tpm) && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><CircuitBoard className="w-4 h-4" />Motherboard, BIOS & TPM</h4>
+ <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+ {[
+ ['Board', [hardware.motherboard?.manufacturer, hardware.motherboard?.model].filter(Boolean).join(' ') || null],
+ ['Revision', hardware.motherboard?.version ?? null],
+ ['BIOS', hardware.bios?.vendor ? `${hardware.bios.vendor}${hardware.bios.version ? ` · ${hardware.bios.version}` : ''}` : null],
+ ['BIOS Date', hardware.bios?.date ?? null],
+ ['Serial', hardware.motherboard?.serial ?? null],
+ ['TPM', hardware.tpm?.present
+ ? `${hardware.tpm.version || hardware.tpm.specVersion || 'Present'} — ${hardware.tpm.status ?? 'Unknown'}${hardware.tpm.manufacturerName ? ` (${hardware.tpm.manufacturerName})` : ''}`
+ : hardware.tpm ? 'Not present' : null],
+ ].filter(([, v]) => v).map(([k, v]) => (
+ <div key={k as string} className="flex justify-between text-sm">
+ <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
+ <dd className="text-text-primary font-medium text-right truncate">{v as string}</dd>
+ </div>
+ ))}
+ </dl>
+ </div>
+ )}
 
-          {/* BitLocker */}
-          {hardware.bitlocker && hardware.bitlocker.length > 0 && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />BitLocker</h4>
-              <div className="space-y-3">
-                {hardware.bitlocker.map((vol) => {
-                  const isInProgress = vol.status === 'EncryptionInProgress' || vol.status === 'DecryptionInProgress';
-                  const statusLabel = vol.status === 'FullyEncrypted' ? 'Encrypted' :
-                    vol.status === 'FullyDecrypted' ? 'Decrypted' :
-                    vol.status === 'EncryptionInProgress' ? 'Encrypting…' :
-                    vol.status === 'DecryptionInProgress' ? 'Decrypting…' :
-                    vol.status === 'EncryptionPaused' ? 'Encryption paused' :
-                    vol.status === 'DecryptionPaused' ? 'Decryption paused' :
-                    vol.status;
-                  const statusColor = vol.status === 'FullyEncrypted' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-                    vol.status === 'FullyDecrypted' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
-                    isInProgress ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' :
-                    'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
-                  return (
-                    <div key={vol.driveLetter} className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
-                        <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusColor)}>
-                          {statusLabel}
-                        </span>
-                        {vol.protectionStatus && vol.protectionStatus !== 'Unknown' && (
-                          <span className={clsx('text-[10px] px-1.5 py-0.5 rounded border',
-                            vol.protectionStatus === 'On' ? 'text-green-400 border-green-400/30' : 'text-orange-400 border-orange-400/30'
-                          )}>
-                            Protection {vol.protectionStatus}
-                          </span>
-                        )}
-                      </div>
-                      {isInProgress && vol.encryptionPercentage != null && (
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 max-w-48 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${vol.encryptionPercentage}%` }} />
-                          </div>
-                          <span className="text-xs text-blue-400 font-medium tabular-nums">{vol.encryptionPercentage}%</span>
-                        </div>
-                      )}
-                      {vol.recoveryKeys.length > 0 && (
-                        <div className="space-y-0.5">
-                          {vol.recoveryKeys.map((key, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {/* Battery Health */}
-          {hardware.battery?.present && (
-            <div className="p-4 bg-bg-secondary border border-border rounded-xl md:col-span-2">
-              <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="6" width="18" height="12" rx="2" /><line x1="23" y1="10" x2="23" y2="14" />
-                </svg>
-                Battery
-              </h4>
-              <div className="flex flex-wrap items-center gap-6">
-                {hardware.battery.healthPercent != null && (
-                  <div>
-                    <p className={clsx('text-2xl font-bold', hardware.battery.healthPercent >= 80 ? 'text-green-400' : hardware.battery.healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400')}>
-                      {hardware.battery.healthPercent.toFixed(1)}%
-                    </p>
-                    <p className="text-xs text-text-muted">Health</p>
-                  </div>
-                )}
-                {hardware.battery.cycleCount != null && hardware.battery.cycleCount > 0 && (
-                  <div>
-                    <p className="text-xl font-bold text-text-primary">{hardware.battery.cycleCount}</p>
-                    <p className="text-xs text-text-muted">Cycles</p>
-                  </div>
-                )}
-                {hardware.battery.designCapacity != null && hardware.battery.designCapacity > 0 && (
-                  <div>
-                    <p className="text-sm text-text-primary">{(hardware.battery.designCapacity / 1000).toFixed(1)} Wh</p>
-                    <p className="text-xs text-text-muted">Design capacity</p>
-                  </div>
-                )}
-                {hardware.battery.fullCapacity != null && hardware.battery.fullCapacity > 0 && (
-                  <div>
-                    <p className="text-sm text-text-primary">{(hardware.battery.fullCapacity / 1000).toFixed(1)} Wh</p>
-                    <p className="text-xs text-text-muted">Current max capacity</p>
-                  </div>
-                )}
-                {hardware.battery.status && (
-                  <div>
-                    <p className="text-sm text-text-primary">{hardware.battery.status}</p>
-                    <p className="text-xs text-text-muted">Status</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+ {/* BitLocker */}
+ {hardware.bitlocker && hardware.bitlocker.length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />BitLocker</h4>
+ <div className="space-y-3">
+ {hardware.bitlocker.map((vol) => {
+ const isInProgress = vol.status === 'EncryptionInProgress' || vol.status === 'DecryptionInProgress';
+ const statusLabel = vol.status === 'FullyEncrypted' ? 'Encrypted' :
+ vol.status === 'FullyDecrypted' ? 'Decrypted' :
+ vol.status === 'EncryptionInProgress' ? 'Encrypting…' :
+ vol.status === 'DecryptionInProgress' ? 'Decrypting…' :
+ vol.status === 'EncryptionPaused' ? 'Encryption paused' :
+ vol.status === 'DecryptionPaused' ? 'Decryption paused' :
+ vol.status;
+ const statusColor = vol.status === 'FullyEncrypted' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+ vol.status === 'FullyDecrypted' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+ isInProgress ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' :
+ 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
+ return (
+ <div key={vol.driveLetter} className="space-y-1.5">
+ <div className="flex items-center gap-2">
+ <span className="text-sm font-medium text-text-primary">{vol.driveLetter}</span>
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusColor)}>
+ {statusLabel}
+ </span>
+ {vol.protectionStatus && vol.protectionStatus !== 'Unknown' && (
+ <span className={clsx('text-[10px] px-1.5 py-0.5 rounded border',
+ vol.protectionStatus === 'On' ? 'text-green-400 border-green-400/30' : 'text-orange-400 border-orange-400/30'
+ )}>
+ Protection {vol.protectionStatus}
+ </span>
+ )}
+ </div>
+ {isInProgress && vol.encryptionPercentage != null && (
+ <div className="flex items-center gap-2">
+ <div className="flex-1 max-w-48 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+ <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${vol.encryptionPercentage}%` }} />
+ </div>
+ <span className="text-xs text-blue-400 font-medium tabular-nums">{vol.encryptionPercentage}%</span>
+ </div>
+ )}
+ {vol.recoveryKeys.length > 0 && (
+ <div className="space-y-0.5">
+ {vol.recoveryKeys.map((key, i) => (
+ <div key={i} className="flex items-center gap-2">
+ <code className="text-xs text-text-muted font-mono bg-bg-tertiary px-2 py-0.5 rounded select-all">{anonymize(key)}</code>
+ </div>
+ ))}
+ </div>
+ )}
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ )}
+ {/* Battery Health */}
+ {hardware.battery?.present && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2">
+ <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+ <rect x="1" y="6" width="18" height="12" rx="2" /><line x1="23" y1="10" x2="23" y2="14" />
+ </svg>
+ Battery
+ </h4>
+ <div className="flex flex-wrap items-center gap-6">
+ {hardware.battery.healthPercent != null && (
+ <div>
+ <p className={clsx('text-2xl font-bold', hardware.battery.healthPercent >= 80 ? 'text-green-400' : hardware.battery.healthPercent >= 50 ? 'text-yellow-400' : 'text-red-400')}>
+ {hardware.battery.healthPercent.toFixed(1)}%
+ </p>
+ <p className="text-xs text-text-muted">Health</p>
+ </div>
+ )}
+ {hardware.battery.cycleCount != null && hardware.battery.cycleCount > 0 && (
+ <div>
+ <p className="text-xl font-bold text-text-primary">{hardware.battery.cycleCount}</p>
+ <p className="text-xs text-text-muted">Cycles</p>
+ </div>
+ )}
+ {hardware.battery.designCapacity != null && hardware.battery.designCapacity > 0 && (
+ <div>
+ <p className="text-sm text-text-primary">{(hardware.battery.designCapacity / 1000).toFixed(1)} Wh</p>
+ <p className="text-xs text-text-muted">Design capacity</p>
+ </div>
+ )}
+ {hardware.battery.fullCapacity != null && hardware.battery.fullCapacity > 0 && (
+ <div>
+ <p className="text-sm text-text-primary">{(hardware.battery.fullCapacity / 1000).toFixed(1)} Wh</p>
+ <p className="text-xs text-text-muted">Current max capacity</p>
+ </div>
+ )}
+ {hardware.battery.status && (
+ <div>
+ <p className="text-sm text-text-primary">{hardware.battery.status}</p>
+ <p className="text-xs text-text-muted">Status</p>
+ </div>
+ )}
+ </div>
+ </div>
+ )}
+ </div>
+ )}
 
-      {activeSection === 'software' && (
-        <div className="space-y-3">
-          <input
-            type="text"
-            value={softwareSearch}
-            onChange={(e) => setSoftwareSearch(e.target.value)}
-            placeholder="Search software..."
-            className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
-          />
-          <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Version</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Publisher</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {software.map((sw) => (
-                  <tr key={sw.id} className="hover:bg-bg-tertiary transition-colors">
-                    <td className="px-4 py-2 text-sm text-text-primary">{sw.name}</td>
-                    <td className="px-4 py-2 text-sm text-text-muted hidden md:table-cell">{sw.version ?? '—'}</td>
-                    <td className="px-4 py-2 text-sm text-text-muted hidden lg:table-cell">{sw.publisher ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+ {activeSection === 'software' && (
+ <div className="space-y-3">
+ <input
+ type="text"
+ value={softwareSearch}
+ onChange={(e) => setSoftwareSearch(e.target.value)}
+ placeholder="Search software..."
+ className="w-full px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
+ />
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <table className="w-full">
+ <thead>
+ <tr className="">
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Name</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">Version</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Publisher</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-border">
+ {software.map((sw) => (
+ <tr key={sw.id} className="hover:bg-bg-tertiary transition-colors">
+ <td className="px-4 py-2 text-sm text-text-primary">{sw.name}</td>
+ <td className="px-4 py-2 text-sm text-text-muted hidden md:table-cell">{sw.version ?? '—'}</td>
+ <td className="px-4 py-2 text-sm text-text-muted hidden lg:table-cell">{sw.publisher ?? '—'}</td>
+ </tr>
+ ))}
+ </tbody>
+ </table>
+ </div>
+ </div>
+ )}
 
-      {activeSection === 'hardware' && !hardware && (
-        <p className="text-text-muted text-center py-8">No inventory data. Click "Scan now" to collect hardware info.</p>
-      )}
+ {activeSection === 'hardware' && !hardware && (
+ <p className="text-text-muted text-center py-8">No inventory data. Click "Scan now" to collect hardware info.</p>
+ )}
 
-      {/* Licenses */}
-      <div className="p-4 bg-bg-secondary border border-border rounded-xl">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold text-text-muted">Licenses</h4>
-          <button onClick={() => setShowLicenseForm(!showLicenseForm)} className="text-xs text-accent hover:underline">
-            + Add License
-          </button>
-        </div>
-        {showLicenseForm && (
-          <div className="space-y-2 mb-3 p-3 bg-bg-tertiary rounded-lg">
-            <input type="text" placeholder="Software name" value={licenseForm.softwareName}
-              onChange={e => setLicenseForm(f => ({ ...f, softwareName: e.target.value }))}
-              className="w-full px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-            <input type="text" placeholder="License key" value={licenseForm.licenseKey}
-              onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))}
-              className="w-full px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-            <div className="grid grid-cols-2 gap-2">
-              <select value={licenseForm.licenseType}
-                onChange={e => setLicenseForm(f => ({ ...f, licenseType: e.target.value }))}
-                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent">
-                <option value="per_device">Per Device</option>
-                <option value="per_user">Per User</option>
-                <option value="volume">Volume</option>
-                <option value="subscription">Subscription</option>
-                <option value="other">Other</option>
-              </select>
-              <input type="text" placeholder="Vendor" value={licenseForm.vendor}
-                onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))}
-                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="date" placeholder="Expiry date" value={licenseForm.expiryDate}
-                onChange={e => setLicenseForm(f => ({ ...f, expiryDate: e.target.value }))}
-                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-              <input type="text" placeholder="Notes" value={licenseForm.notes}
-                onChange={e => setLicenseForm(f => ({ ...f, notes: e.target.value }))}
-                className="px-3 py-1.5 text-sm bg-bg-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <button onClick={() => setShowLicenseForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">Cancel</button>
-              <button onClick={async () => {
-                if (!licenseForm.softwareName.trim()) return;
-                try {
-                  await licenseApi.create(deviceId, {
-                    softwareName: licenseForm.softwareName,
-                    licenseKey: licenseForm.licenseKey || null,
-                    licenseType: (licenseForm.licenseType || null) as DeviceLicense['licenseType'],
-                    vendor: licenseForm.vendor || null,
-                    expiryDate: licenseForm.expiryDate || null,
-                    notes: licenseForm.notes || null,
-                  });
-                  setLicenseForm({ softwareName: '', licenseKey: '', licenseType: 'per_device', vendor: '', expiryDate: '', notes: '' });
-                  setShowLicenseForm(false);
-                  loadLicenses();
-                } catch { toast.error('Failed to add license'); }
-              }} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90">Save</button>
-            </div>
-          </div>
-        )}
-        {licenses.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-text-muted border-b border-border">
-              <th className="text-left py-1">Software</th>
-              <th className="text-left py-1">Key</th>
-              <th className="text-left py-1">Type</th>
-              <th className="text-left py-1">Expiry</th>
-              <th className="w-8"></th>
-            </tr></thead>
-            <tbody>{licenses.map(lic => (
-              <tr key={lic.id} className="border-b border-border">
-                <td className="py-1.5 text-text-primary">{lic.softwareName}</td>
-                <td className="py-1.5 font-mono text-text-muted">{lic.licenseKey ? '••••' + lic.licenseKey.slice(-4) : '—'}</td>
-                <td className="py-1.5 text-text-muted">{lic.licenseType ?? '—'}</td>
-                <td className="py-1.5 text-text-muted">{lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : '—'}</td>
-                <td><button onClick={async () => {
-                  try { await licenseApi.remove(lic.id); loadLicenses(); } catch { toast.error('Failed to delete license'); }
-                }} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button></td>
-              </tr>
-            ))}</tbody>
-          </table>
-        ) : (
-          <p className="text-xs text-text-muted">No licenses recorded</p>
-        )}
-      </div>
-    </div>
-  );
+ {/* Licenses */}
+ <div className="p-4 bg-bg-secondary rounded-xl">
+ <div className="flex items-center justify-between mb-3">
+ <h4 className="text-sm font-semibold text-text-muted">Licenses</h4>
+ <button onClick={() => setShowLicenseForm(!showLicenseForm)} className="text-xs text-accent hover:underline">
+ + Add License
+ </button>
+ </div>
+ {showLicenseForm && (
+ <div className="space-y-2 mb-3 p-3 bg-bg-tertiary rounded-lg">
+ <input type="text" placeholder="Software name" value={licenseForm.softwareName}
+ onChange={e => setLicenseForm(f => ({ ...f, softwareName: e.target.value }))}
+ className="w-full px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ <input type="text" placeholder="License key" value={licenseForm.licenseKey}
+ onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))}
+ className="w-full px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ <div className="grid grid-cols-2 gap-2">
+ <select value={licenseForm.licenseType}
+ onChange={e => setLicenseForm(f => ({ ...f, licenseType: e.target.value }))}
+ className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent">
+ <option value="per_device">Per Device</option>
+ <option value="per_user">Per User</option>
+ <option value="volume">Volume</option>
+ <option value="subscription">Subscription</option>
+ <option value="other">Other</option>
+ </select>
+ <input type="text" placeholder="Vendor" value={licenseForm.vendor}
+ onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))}
+ className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ </div>
+ <div className="grid grid-cols-2 gap-2">
+ <input type="date" placeholder="Expiry date" value={licenseForm.expiryDate}
+ onChange={e => setLicenseForm(f => ({ ...f, expiryDate: e.target.value }))}
+ className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ <input type="text" placeholder="Notes" value={licenseForm.notes}
+ onChange={e => setLicenseForm(f => ({ ...f, notes: e.target.value }))}
+ className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ </div>
+ <div className="flex justify-end gap-2 pt-1">
+ <button onClick={() => setShowLicenseForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary">Cancel</button>
+ <button onClick={async () => {
+ if (!licenseForm.softwareName.trim()) return;
+ try {
+ await licenseApi.create(deviceId, {
+ softwareName: licenseForm.softwareName,
+ licenseKey: licenseForm.licenseKey || null,
+ licenseType: (licenseForm.licenseType || null) as DeviceLicense['licenseType'],
+ vendor: licenseForm.vendor || null,
+ expiryDate: licenseForm.expiryDate || null,
+ notes: licenseForm.notes || null,
+ });
+ setLicenseForm({ softwareName: '', licenseKey: '', licenseType: 'per_device', vendor: '', expiryDate: '', notes: '' });
+ setShowLicenseForm(false);
+ loadLicenses();
+ } catch { toast.error('Failed to add license'); }
+ }} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90">Save</button>
+ </div>
+ </div>
+ )}
+ {licenses.length > 0 ? (
+ <table className="w-full text-sm">
+ <thead><tr className="text-xs text-text-muted ">
+ <th className="text-left py-1">Software</th>
+ <th className="text-left py-1">Key</th>
+ <th className="text-left py-1">Type</th>
+ <th className="text-left py-1">Expiry</th>
+ <th className="w-8"></th>
+ </tr></thead>
+ <tbody>{licenses.map(lic => (
+ <tr key={lic.id} className="">
+ <td className="py-1.5 text-text-primary">{lic.softwareName}</td>
+ <td className="py-1.5 font-mono text-text-muted">{lic.licenseKey ? '••••' + lic.licenseKey.slice(-4) : '—'}</td>
+ <td className="py-1.5 text-text-muted">{lic.licenseType ?? '—'}</td>
+ <td className="py-1.5 text-text-muted">{lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : '—'}</td>
+ <td><button onClick={async () => {
+ try { await licenseApi.remove(lic.id); loadLicenses(); } catch { toast.error('Failed to delete license'); }
+ }} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button></td>
+ </tr>
+ ))}</tbody>
+ </table>
+ ) : (
+ <p className="text-xs text-text-muted">No licenses recorded</p>
+ )}
+ </div>
+ </div>
+ );
 }
 
 // ─── Scripts Tab ──────────────────────────────────────────────────────────────
 
 function ScriptsTab({ deviceId }: { deviceId: number }) {
-  type SubTab = 'schedule' | 'run' | 'history';
-  const [subTab, setSubTab] = useState<SubTab>('history');
+ type SubTab = 'schedule' | 'run' | 'history';
+ const [subTab, setSubTab] = useState<SubTab>('history');
 
-  const subTabs: Array<{ id: SubTab; label: string; icon: React.ReactNode }> = [
-    { id: 'history', label: 'History', icon: <History className="w-3.5 h-3.5" /> },
-    { id: 'run', label: 'Run', icon: <Play className="w-3.5 h-3.5" /> },
-    { id: 'schedule', label: 'Schedule', icon: <CalendarClock className="w-3.5 h-3.5" /> },
-  ];
+ const subTabs: Array<{ id: SubTab; label: string; icon: React.ReactNode }> = [
+ { id: 'history', label: 'History', icon: <History className="w-3.5 h-3.5" /> },
+ { id: 'run', label: 'Run', icon: <Play className="w-3.5 h-3.5" /> },
+ { id: 'schedule', label: 'Schedule', icon: <CalendarClock className="w-3.5 h-3.5" /> },
+ ];
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-0.5 border border-border w-fit">
-        {subTabs.map((st) => (
-          <button
-            key={st.id}
-            onClick={() => setSubTab(st.id)}
-            className={clsx(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-              subTab === st.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
-            )}
-          >
-            {st.icon}
-            {st.label}
-          </button>
-        ))}
-      </div>
-      {subTab === 'history' && <DeviceScriptHistory deviceId={deviceId} />}
-      {subTab === 'run' && <DeviceScriptRun deviceId={deviceId} />}
-      {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} />}
-    </div>
-  );
+ return (
+ <div className="space-y-4">
+ <div className="flex items-center gap-1 rounded-lg bg-bg-tertiary p-0.5 border border-transparent w-fit">
+ {subTabs.map((st) => (
+ <button
+ key={st.id}
+ onClick={() => setSubTab(st.id)}
+ className={clsx(
+ 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+ subTab === st.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ {st.icon}
+ {st.label}
+ </button>
+ ))}
+ </div>
+ {subTab === 'history' && <DeviceScriptHistory deviceId={deviceId} />}
+ {subTab === 'run' && <DeviceScriptRun deviceId={deviceId} />}
+ {subTab === 'schedule' && <DeviceScriptSchedule deviceId={deviceId} />}
+ </div>
+ );
 }
 
 function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
-  const [executions, setExecutions] = useState<ScriptExecution[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [fullscreenOutput, setFullscreenOutput] = useState<{ title: string; content: string; type: 'stdout' | 'stderr' } | null>(null);
+ const [executions, setExecutions] = useState<ScriptExecution[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [expandedId, setExpandedId] = useState<string | null>(null);
+ const [fullscreenOutput, setFullscreenOutput] = useState<{ title: string; content: string; type: 'stdout' | 'stderr' } | null>(null);
 
-  const load = () => {
-    setIsLoading(true);
-    scriptApi.listExecutions({ deviceId, pageSize: 50 }).then((r) => setExecutions(r.items)).catch(() => {}).finally(() => setIsLoading(false));
-  };
+ const load = () => {
+ setIsLoading(true);
+ scriptApi.listExecutions({ deviceId, pageSize: 50 }).then((r) => setExecutions(r.items)).catch(() => {}).finally(() => setIsLoading(false));
+ };
 
-  useEffect(() => { load(); }, [deviceId]);
+ useEffect(() => { load(); }, [deviceId]);
 
-  const STATUS_COLORS: Record<string, string> = {
-    success: 'text-green-400', failure: 'text-red-400', running: 'text-blue-400',
-    pending: 'text-yellow-400', timeout: 'text-orange-400', cancelled: 'text-gray-400',
-    skipped: 'text-gray-400', sent: 'text-blue-400',
-  };
+ const STATUS_COLORS: Record<string, string> = {
+ success: 'text-green-400', failure: 'text-red-400', running: 'text-blue-400',
+ pending: 'text-yellow-400', timeout: 'text-orange-400', cancelled: 'text-gray-400',
+ skipped: 'text-gray-400', sent: 'text-blue-400',
+ };
 
-  if (isLoading && executions.length === 0) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+ if (isLoading && executions.length === 0) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
 
-  return (
-    <>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-text-muted">{executions.length} executions</p>
-          <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
-            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-          </button>
-        </div>
+ return (
+ <>
+ <div className="space-y-2">
+ <div className="flex items-center justify-between">
+ <p className="text-sm text-text-muted">{executions.length} executions</p>
+ <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+ </button>
+ </div>
 
-        {executions.length === 0 ? (
-          <div className="p-12 text-center text-text-muted">
-            <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No script executions yet</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {executions.map((ex) => {
-              const duration = ex.finishedAt && ex.startedAt
-                ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
-                : null;
-              const isExpanded = expandedId === ex.id;
-              return (
-                <div key={ex.id} className="bg-bg-secondary border border-border rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : ex.id)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
-                  >
-                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
-                    <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
-                    <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
-                    <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
-                    <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
-                    {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
-                    {(ex.status === 'running' || ex.status === 'sent') && (
-                      <span onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(ex.id).then(() => { toast.success('Script stopped'); load(); }).catch(() => toast.error('Failed to stop')); }}
-                        className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer" title="Stop">
-                        <StopCircle className="w-4 h-4" />
-                      </span>
-                    )}
-                  </button>
-                  {isExpanded && (
-                    <div className="border-t border-border p-3 space-y-2 bg-bg-tertiary/50">
-                      {ex.stdout && (
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
-                            <button
-                              onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stdout`, content: ex.stdout!, type: 'stdout' })}
-                              className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
-                              title="Fullscreen"
-                            >
-                              <Maximize2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
-                        </div>
-                      )}
-                      {ex.stderr && (
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
-                            <button
-                              onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stderr`, content: ex.stderr!, type: 'stderr' })}
-                              className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
-                              title="Fullscreen"
-                            >
-                              <Maximize2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
-                        </div>
-                      )}
-                      {!ex.stdout && !ex.stderr && <p className="text-xs text-text-muted">No output</p>}
-                      {ex.exitCode !== null && <p className="text-xs text-text-muted">Exit code: {ex.exitCode}</p>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+ {executions.length === 0 ? (
+ <div className="p-12 text-center text-text-muted">
+ <Terminal className="w-8 h-8 mx-auto mb-2 opacity-50" />
+ <p>No script executions yet</p>
+ </div>
+ ) : (
+ <div className="space-y-1">
+ {executions.map((ex) => {
+ const duration = ex.finishedAt && ex.startedAt
+ ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
+ : null;
+ const isExpanded = expandedId === ex.id;
+ return (
+ <div key={ex.id} className="bg-bg-secondary rounded-lg overflow-hidden">
+ <button
+ onClick={() => setExpandedId(isExpanded ? null : ex.id)}
+ className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
+ >
+ {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+ <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
+ <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
+ <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
+ <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
+ {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
+ {(ex.status === 'running' || ex.status === 'sent') && (
+ <span onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(ex.id).then(() => { toast.success('Script stopped'); load(); }).catch(() => toast.error('Failed to stop')); }}
+ className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer" title="Stop">
+ <StopCircle className="w-4 h-4" />
+ </span>
+ )}
+ </button>
+ {isExpanded && (
+ <div className=" p-3 space-y-2 bg-bg-tertiary/50">
+ {ex.stdout && (
+ <div>
+ <div className="flex items-center justify-between mb-1">
+ <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
+ <button
+ onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stdout`, content: ex.stdout!, type: 'stdout' })}
+ className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
+ title="Fullscreen"
+ >
+ <Maximize2 className="w-3 h-3" />
+ </button>
+ </div>
+ <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
+ </div>
+ )}
+ {ex.stderr && (
+ <div>
+ <div className="flex items-center justify-between mb-1">
+ <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
+ <button
+ onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stderr`, content: ex.stderr!, type: 'stderr' })}
+ className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
+ title="Fullscreen"
+ >
+ <Maximize2 className="w-3 h-3" />
+ </button>
+ </div>
+ <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
+ </div>
+ )}
+ {!ex.stdout && !ex.stderr && <p className="text-xs text-text-muted">No output</p>}
+ {ex.exitCode !== null && <p className="text-xs text-text-muted">Exit code: {ex.exitCode}</p>}
+ </div>
+ )}
+ </div>
+ );
+ })}
+ </div>
+ )}
+ </div>
 
-      {/* Fullscreen output modal */}
-      {fullscreenOutput && (
-        <>
-          <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
-          <div className="fixed inset-4 z-50 bg-bg-primary border border-border rounded-xl flex flex-col overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-              <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
-              <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <pre className={clsx(
-              'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
-              fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
-            )}>
-              {fullscreenOutput.content}
-            </pre>
-          </div>
-        </>
-      )}
-    </>
-  );
+ {/* Fullscreen output modal */}
+ {fullscreenOutput && (
+ <>
+ <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
+ <div className="fixed inset-4 z-50 bg-bg-primary rounded-xl flex flex-col overflow-hidden shadow-2xl">
+ <div className="flex items-center justify-between px-4 py-3 shrink-0">
+ <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
+ <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+ <pre className={clsx(
+ 'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+ fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
+ )}>
+ {fullscreenOutput.content}
+ </pre>
+ </div>
+ </>
+ )}
+ </>
+ );
 }
 
 function DeviceScriptRun({ deviceId }: { deviceId: number }) {
-  const [scripts, setScripts] = useState<Script[]>([]);
-  const [scriptId, setScriptId] = useState<number | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
+ const [scripts, setScripts] = useState<Script[]>([]);
+ const [scriptId, setScriptId] = useState<number | null>(null);
+ const [isRunning, setIsRunning] = useState(false);
 
-  useEffect(() => { scriptApi.list().then(setScripts).catch(() => {}); }, []);
+ useEffect(() => { scriptApi.list().then(setScripts).catch(() => {}); }, []);
 
-  const handleRun = async () => {
-    if (!scriptId) return;
-    setIsRunning(true);
-    try {
-      await scriptApi.executeNow(scriptId, { deviceIds: [deviceId] });
-      toast.success('Script dispatched');
-    } catch {
-      toast.error('Failed to execute script');
-    } finally {
-      setIsRunning(false);
-    }
-  };
+ const handleRun = async () => {
+ if (!scriptId) return;
+ setIsRunning(true);
+ try {
+ await scriptApi.executeNow(scriptId, { deviceIds: [deviceId] });
+ toast.success('Script dispatched');
+ } catch {
+ toast.error('Failed to execute script');
+ } finally {
+ setIsRunning(false);
+ }
+ };
 
-  return (
-    <div className="space-y-4 max-w-md">
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-text-muted uppercase">Script</label>
-        <select
-          value={scriptId ?? ''}
-          onChange={(e) => setScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
-          className="w-full px-3 py-2 text-sm bg-bg-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-        >
-          <option value="">Select a script...</option>
-          {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
-      <button
-        onClick={handleRun}
-        disabled={isRunning || !scriptId}
-        className={clsx(
-          'flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium transition-colors',
-          isRunning || !scriptId ? 'bg-bg-tertiary text-text-muted cursor-not-allowed' : 'bg-accent text-white hover:bg-accent/80',
-        )}
-      >
-        {isRunning ? <><Loader2 className="w-4 h-4 animate-spin" /> Running...</> : <><Play className="w-4 h-4" /> Execute now</>}
-      </button>
-      <p className="text-xs text-text-muted">The script will be executed on this device. Check History for results.</p>
-    </div>
-  );
+ return (
+ <div className="space-y-4 max-w-md">
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Script</label>
+ <select
+ value={scriptId ?? ''}
+ onChange={(e) => setScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
+ className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="">Select a script...</option>
+ {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+ </select>
+ </div>
+ <button
+ onClick={handleRun}
+ disabled={isRunning || !scriptId}
+ className={clsx(
+ 'flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium transition-colors',
+ isRunning || !scriptId ? 'bg-bg-tertiary text-text-muted cursor-not-allowed' : 'bg-accent text-white hover:bg-accent/80',
+ )}
+ >
+ {isRunning ? <><Loader2 className="w-4 h-4 animate-spin" /> Running...</> : <><Play className="w-4 h-4" /> Execute now</>}
+ </button>
+ <p className="text-xs text-text-muted">The script will be executed on this device. Check History for results.</p>
+ </div>
+ );
 }
 
 function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
-  const [scripts, setScripts] = useState<Script[]>([]);
-  const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [formScriptId, setFormScriptId] = useState<number | null>(null);
-  const [formMode, setFormMode] = useState<'cron' | 'once'>('cron');
-  const [formCron, setFormCron] = useState('0 2 * * *');
-  const [formOnceAt, setFormOnceAt] = useState('');
-  const [formName, setFormName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+ const [scripts, setScripts] = useState<Script[]>([]);
+ const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [showForm, setShowForm] = useState(false);
+ const [formScriptId, setFormScriptId] = useState<number | null>(null);
+ const [formMode, setFormMode] = useState<'cron' | 'once'>('cron');
+ const [formCron, setFormCron] = useState('0 2 * * *');
+ const [formOnceAt, setFormOnceAt] = useState('');
+ const [formName, setFormName] = useState('');
+ const [isSaving, setIsSaving] = useState(false);
 
-  const load = () => {
-    setIsLoading(true);
-    Promise.all([scriptApi.list(), scriptApi.listSchedulesForDevice(deviceId)]).then(([s, sch]) => {
-      setScripts(s);
-      setSchedules(sch);
-    }).catch(() => {}).finally(() => setIsLoading(false));
-  };
+ const load = () => {
+ setIsLoading(true);
+ Promise.all([scriptApi.list(), scriptApi.listSchedulesForDevice(deviceId)]).then(([s, sch]) => {
+ setScripts(s);
+ setSchedules(sch);
+ }).catch(() => {}).finally(() => setIsLoading(false));
+ };
 
-  useEffect(() => { load(); }, [deviceId]);
+ useEffect(() => { load(); }, [deviceId]);
 
-  const handleCreate = async () => {
-    if (!formScriptId || !formName.trim()) { toast.error('Name and script are required'); return; }
-    if (formMode === 'once' && (!formOnceAt || new Date(formOnceAt) <= new Date())) { toast.error('Select a future date'); return; }
-    setIsSaving(true);
-    try {
-      await scriptApi.createSchedule({
-        name: formName,
-        description: null,
-        scriptId: formScriptId,
-        targetType: 'device',
-        targetIds: [deviceId],
-        cronExpression: formMode === 'cron' ? formCron : null,
-        fireOnceAt: formMode === 'once' ? new Date(formOnceAt).toISOString() : null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        parameterValues: {},
-        catchupEnabled: false,
-        catchupMax: 3,
-        runConditions: [],
-        enabled: true,
-        tenantId: 0,
-      } as any);
-      toast.success('Schedule created');
-      setShowForm(false);
-      setFormName('');
-      setFormScriptId(null);
-      load();
-    } catch {
-      toast.error('Failed to create schedule');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+ const handleCreate = async () => {
+ if (!formScriptId || !formName.trim()) { toast.error('Name and script are required'); return; }
+ if (formMode === 'once' && (!formOnceAt || new Date(formOnceAt) <= new Date())) { toast.error('Select a future date'); return; }
+ setIsSaving(true);
+ try {
+ await scriptApi.createSchedule({
+ name: formName,
+ description: null,
+ scriptId: formScriptId,
+ targetType: 'device',
+ targetIds: [deviceId],
+ cronExpression: formMode === 'cron' ? formCron : null,
+ fireOnceAt: formMode === 'once' ? new Date(formOnceAt).toISOString() : null,
+ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+ parameterValues: {},
+ catchupEnabled: false,
+ catchupMax: 3,
+ runConditions: [],
+ enabled: true,
+ tenantId: 0,
+ } as any);
+ toast.success('Schedule created');
+ setShowForm(false);
+ setFormName('');
+ setFormScriptId(null);
+ load();
+ } catch {
+ toast.error('Failed to create schedule');
+ } finally {
+ setIsSaving(false);
+ }
+ };
 
-  if (isLoading) return <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>;
+ if (isLoading) return <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>;
 
-  const scriptMap = new Map(scripts.map((s) => [s.id, s.name]));
+ const scriptMap = new Map(scripts.map((s) => [s.id, s.name]));
 
-  const TARGET_LABELS: Record<string, string> = { all: 'All devices', group: 'Group', device: 'This device' };
+ const TARGET_LABELS: Record<string, string> = { all: 'All devices', group: 'Group', device: 'This device' };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-muted">{schedules.length} schedule(s) apply to this device</p>
-        <div className="flex gap-2">
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
-            <Plus className="w-3.5 h-3.5" /> New
-          </button>
-          <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
+ return (
+ <div className="space-y-4">
+ <div className="flex items-center justify-between">
+ <p className="text-sm text-text-muted">{schedules.length} schedule(s) apply to this device</p>
+ <div className="flex gap-2">
+ <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
+ <Plus className="w-3.5 h-3.5" /> New
+ </button>
+ <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <RefreshCw className="w-3.5 h-3.5" />
+ </button>
+ </div>
+ </div>
 
-      {/* Inline create form */}
-      {showForm && (
-        <div className="bg-bg-secondary border border-border rounded-xl p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Name</label>
-              <input value={formName} onChange={(e) => setFormName(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" placeholder="Schedule name" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-text-muted uppercase">Script</label>
-              <select value={formScriptId ?? ''} onChange={(e) => setFormScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
-                className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent">
-                <option value="">Select...</option>
-                {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setFormMode('cron')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted')}>Recurring</button>
-            <button onClick={() => setFormMode('once')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'once' ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted')}>One-time</button>
-          </div>
-          {formMode === 'cron' ? (
-            <input value={formCron} onChange={(e) => setFormCron(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono" placeholder="0 2 * * *" />
-          ) : (
-            <input type="datetime-local" value={formOnceAt} min={new Date().toISOString().slice(0, 16)} onChange={(e) => setFormOnceAt(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent" />
-          )}
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary border border-border rounded-lg transition-colors">Cancel</button>
-            <button onClick={handleCreate} disabled={isSaving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors">
-              {isSaving ? 'Creating...' : 'Create'}
-            </button>
-          </div>
-        </div>
-      )}
+ {/* Inline create form */}
+ {showForm && (
+ <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
+ <div className="grid grid-cols-2 gap-3">
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Name</label>
+ <input value={formName} onChange={(e) => setFormName(e.target.value)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent" placeholder="Schedule name" />
+ </div>
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Script</label>
+ <select value={formScriptId ?? ''} onChange={(e) => setFormScriptId(e.target.value ? parseInt(e.target.value, 10) : null)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent">
+ <option value="">Select...</option>
+ {scripts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+ </select>
+ </div>
+ </div>
+ <div className="flex gap-2">
+ <button onClick={() => setFormMode('cron')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'cron' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>Recurring</button>
+ <button onClick={() => setFormMode('once')} className={clsx('flex-1 py-1.5 text-xs rounded-lg border transition-colors', formMode === 'once' ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted')}>One-time</button>
+ </div>
+ {formMode === 'cron' ? (
+ <input value={formCron} onChange={(e) => setFormCron(e.target.value)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono" placeholder="0 2 * * *" />
+ ) : (
+ <input type="datetime-local" value={formOnceAt} min={new Date().toISOString().slice(0, 16)} onChange={(e) => setFormOnceAt(e.target.value)}
+ className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ )}
+ <div className="flex gap-2 justify-end">
+ <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-lg transition-colors">Cancel</button>
+ <button onClick={handleCreate} disabled={isSaving} className="px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors">
+ {isSaving ? 'Creating...' : 'Create'}
+ </button>
+ </div>
+ </div>
+ )}
 
-      {schedules.length === 0 && !showForm ? (
-        <div className="p-8 text-center text-text-muted">
-          <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No schedules apply to this device yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {schedules.map((sch) => (
-            <div key={sch.id} className="bg-bg-secondary border border-border rounded-lg px-4 py-3 flex items-center gap-3">
-              <CalendarClock className="w-4 h-4 text-text-muted shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary">{sch.name}</p>
-                <p className="text-xs text-text-muted">
-                  {scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}
-                  <span className="ml-2 text-text-muted/60">{TARGET_LABELS[sch.targetType] ?? sch.targetType}</span>
-                </p>
-              </div>
-              <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', sch.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
-                {sch.enabled ? 'Active' : 'Paused'}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+ {schedules.length === 0 && !showForm ? (
+ <div className="p-8 text-center text-text-muted">
+ <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+ <p className="text-sm">No schedules apply to this device yet.</p>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {schedules.map((sch) => (
+ <div key={sch.id} className="bg-bg-secondary rounded-lg px-4 py-3 flex items-center gap-3">
+ <CalendarClock className="w-4 h-4 text-text-muted shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-medium text-text-primary">{sch.name}</p>
+ <p className="text-xs text-text-muted">
+ {scriptMap.get(sch.scriptId) ?? `Script #${sch.scriptId}`} · {sch.cronExpression ?? 'One-time'}
+ <span className="ml-2 text-text-muted/60">{TARGET_LABELS[sch.targetType] ?? sch.targetType}</span>
+ </p>
+ </div>
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', sch.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
+ {sch.enabled ? 'Active' : 'Paused'}
+ </span>
+ </div>
+ ))}
+ </div>
+ )}
+ </div>
+ );
 }
 
 // ─── Updates Tab ──────────────────────────────────────────────────────────────
 
 function UpdatesTab({ deviceId }: { deviceId: number }) {
-  const { t } = useTranslation();
-  const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [approvingId, setApprovingId] = useState<number | null>(null);
-  const [isApprovingAll, setIsApprovingAll] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
+ const { t } = useTranslation();
+ const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [approvingId, setApprovingId] = useState<number | null>(null);
+ const [isApprovingAll, setIsApprovingAll] = useState(false);
+ const [isDeploying, setIsDeploying] = useState(false);
 
-  const load = async () => {
-    setIsLoading(true);
-    try {
-      const result = await updateApi.listUpdates({ deviceId });
-      setUpdates(result.items);
-    } catch {
-      toast.error('Failed to load updates');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const load = async () => {
+ setIsLoading(true);
+ try {
+ const result = await updateApi.listUpdates({ deviceId });
+ setUpdates(result.items);
+ } catch {
+ toast.error('Failed to load updates');
+ } finally {
+ setIsLoading(false);
+ }
+ };
 
-  useEffect(() => { load(); }, [deviceId]);
+ useEffect(() => { load(); }, [deviceId]);
 
-  // Real-time: reflect install results & re-fetch after scan
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const onCmd = (cmd: Command) => {
-      if (cmd.deviceId !== deviceId) return;
-      if (cmd.type === 'install_update') {
-        const uid = (cmd.payload as any)?.updateUid as string | undefined;
-        if (cmd.status === 'ack_running') {
-          if (uid) setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'installing' as const } : u
-          ));
-        } else if (cmd.status === 'success') {
-          if (uid) setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'installed' as const, installedAt: new Date().toISOString() } : u
-          ));
-          toast.success(uid ? `Update ${uid} installed` : 'Update installed');
-        } else if (['failure', 'timeout'].includes(cmd.status)) {
-          if (uid) setUpdates((prev) => prev.map((u) =>
-            u.updateUid === uid ? { ...u, status: 'failed' as const } : u
-          ));
-          toast.error(uid ? `Failed to install ${uid}` : 'Update installation failed');
-        }
-        return;
-      }
-      if (!['success', 'failure', 'timeout'].includes(cmd.status)) return;
-      if (cmd.type === 'scan_updates' && cmd.status === 'success') {
-        load();
-      }
-    };
-    socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
-    return () => {
-      socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
-    };
-  }, [deviceId]);
+ // Real-time: reflect install results & re-fetch after scan
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
+ const onCmd = (cmd: Command) => {
+ if (cmd.deviceId !== deviceId) return;
+ if (cmd.type === 'install_update') {
+ const uid = (cmd.payload as any)?.updateUid as string | undefined;
+ if (cmd.status === 'ack_running') {
+ if (uid) setUpdates((prev) => prev.map((u) =>
+ u.updateUid === uid ? { ...u, status: 'installing' as const } : u
+ ));
+ } else if (cmd.status === 'success') {
+ if (uid) setUpdates((prev) => prev.map((u) =>
+ u.updateUid === uid ? { ...u, status: 'installed' as const, installedAt: new Date().toISOString() } : u
+ ));
+ toast.success(uid ? `Update ${uid} installed` : 'Update installed');
+ } else if (['failure', 'timeout'].includes(cmd.status)) {
+ if (uid) setUpdates((prev) => prev.map((u) =>
+ u.updateUid === uid ? { ...u, status: 'failed' as const } : u
+ ));
+ toast.error(uid ? `Failed to install ${uid}` : 'Update installation failed');
+ }
+ return;
+ }
+ if (!['success', 'failure', 'timeout'].includes(cmd.status)) return;
+ if (cmd.type === 'scan_updates' && cmd.status === 'success') {
+ load();
+ }
+ };
+ socket.on(SocketEvents.COMMAND_UPDATED, onCmd);
+ return () => {
+ socket.off(SocketEvents.COMMAND_UPDATED, onCmd);
+ };
+ }, [deviceId]);
 
-  const handleScan = async () => {
-    try {
-      await updateApi.triggerScan(deviceId);
-      toast.success('Update scan queued');
-    } catch {
-      toast.error('Failed to queue scan');
-    }
-  };
+ const handleScan = async () => {
+ try {
+ await updateApi.triggerScan(deviceId);
+ toast.success('Update scan queued');
+ } catch {
+ toast.error('Failed to queue scan');
+ }
+ };
 
-  const handleApprove = async (updateId: number) => {
-    setApprovingId(updateId);
-    try {
-      await updateApi.approveUpdate(deviceId, updateId);
-      setUpdates((prev) => prev.map((u) => u.id === updateId ? { ...u, status: 'approved' } : u));
-      toast.success('Update approved');
-    } catch {
-      toast.error('Failed to approve update');
-    } finally {
-      setApprovingId(null);
-    }
-  };
+ const handleApprove = async (updateId: number) => {
+ setApprovingId(updateId);
+ try {
+ await updateApi.approveUpdate(deviceId, updateId);
+ setUpdates((prev) => prev.map((u) => u.id === updateId ? { ...u, status: 'approved' } : u));
+ toast.success('Update approved');
+ } catch {
+ toast.error('Failed to approve update');
+ } finally {
+ setApprovingId(null);
+ }
+ };
 
-  const handleApproveAll = async () => {
-    setIsApprovingAll(true);
-    try {
-      await updateApi.approveAll(deviceId);
-      setUpdates((prev) => prev.map((u) => u.status === 'available' ? { ...u, status: 'approved' } : u));
-      toast.success('All updates approved');
-    } catch {
-      toast.error('Failed to approve all updates');
-    } finally {
-      setIsApprovingAll(false);
-    }
-  };
+ const handleApproveAll = async () => {
+ setIsApprovingAll(true);
+ try {
+ await updateApi.approveAll(deviceId);
+ setUpdates((prev) => prev.map((u) => u.status === 'available' ? { ...u, status: 'approved' } : u));
+ toast.success('All updates approved');
+ } catch {
+ toast.error('Failed to approve all updates');
+ } finally {
+ setIsApprovingAll(false);
+ }
+ };
 
-  const handleDeploy = async () => {
-    setIsDeploying(true);
-    try {
-      const result = await updateApi.deployApproved(deviceId);
-      toast.success(`${result.dispatched} update(s) queued for installation`);
-      await load();
-    } catch {
-      toast.error('Failed to deploy updates');
-    } finally {
-      setIsDeploying(false);
-    }
-  };
+ const handleDeploy = async () => {
+ setIsDeploying(true);
+ try {
+ const result = await updateApi.deployApproved(deviceId);
+ toast.success(`${result.dispatched} update(s) queued for installation`);
+ await load();
+ } catch {
+ toast.error('Failed to deploy updates');
+ } finally {
+ setIsDeploying(false);
+ }
+ };
 
-  const SEVERITY_COLORS: Record<string, string> = {
-    critical: 'text-red-400 bg-red-400/10 border-red-400/30',
-    important: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-    moderate: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
-    optional: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
-    unknown: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
-  };
+ const SEVERITY_COLORS: Record<string, string> = {
+ critical: 'text-red-400 bg-red-400/10 border-red-400/30',
+ important: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+ moderate: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+ optional: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+ unknown: 'text-gray-400 bg-gray-400/10 border-gray-400/30',
+ };
 
-  const STATUS_LABEL: Record<string, string> = {
-    available: t('updates.status.available'),
-    approved: t('updates.status.approved'),
-    pending_install: t('updates.status.pendingInstall'),
-    installing: t('updates.status.installing'),
-    installed: t('updates.status.installed'),
-    pending_reboot: t('updates.status.pendingReboot'),
-    failed: t('updates.status.failed'),
-    excluded: t('updates.status.excluded'),
-    superseded: t('updates.status.superseded'),
-  };
+ const STATUS_LABEL: Record<string, string> = {
+ available: t('updates.status.available'),
+ approved: t('updates.status.approved'),
+ pending_install: t('updates.status.pendingInstall'),
+ installing: t('updates.status.installing'),
+ installed: t('updates.status.installed'),
+ pending_reboot: t('updates.status.pendingReboot'),
+ failed: t('updates.status.failed'),
+ excluded: t('updates.status.excluded'),
+ superseded: t('updates.status.superseded'),
+ };
 
-  const available = updates.filter((u) => u.status === 'available');
-  const approved = updates.filter((u) => u.status === 'approved');
-  const failed = updates.filter((u) => u.status === 'failed');
-  const pendingReboot = updates.filter((u) => u.status === 'pending_reboot');
+ const available = updates.filter((u) => u.status === 'available');
+ const approved = updates.filter((u) => u.status === 'approved');
+ const failed = updates.filter((u) => u.status === 'failed');
+ const pendingReboot = updates.filter((u) => u.status === 'pending_reboot');
 
-  if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+ if (isLoading) return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
 
-  const hasSummary = available.length > 0 || approved.length > 0 || failed.length > 0 || pendingReboot.length > 0;
+ const hasSummary = available.length > 0 || approved.length > 0 || failed.length > 0 || pendingReboot.length > 0;
 
-  return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-text-muted flex items-center gap-1.5 flex-wrap">
-          {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} {t('updates.status.available').toLowerCase()}</span>}
-          {available.length > 0 && (approved.length > 0 || failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
-          {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} {t('updates.status.approved').toLowerCase()}</span>}
-          {approved.length > 0 && (failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
-          {failed.length > 0 && <span className="text-red-400 font-medium">{failed.length} {t('updates.status.failed').toLowerCase()}</span>}
-          {failed.length > 0 && pendingReboot.length > 0 && <span className="text-text-muted">·</span>}
-          {pendingReboot.length > 0 && <span className="text-orange-400 font-medium">{pendingReboot.length} {t('updates.status.pendingReboot').toLowerCase()}</span>}
-          {!hasSummary && <span>{t('updates.noPending')}</span>}
-        </p>
-        <div className="flex items-center gap-2 flex-wrap">
-          {available.length > 0 && (
-            <button
-              onClick={handleApproveAll}
-              disabled={isApprovingAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isApprovingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              {t('updates.actions.approveAll')}
-            </button>
-          )}
-          {approved.length > 0 && (
-            <button
-              onClick={handleDeploy}
-              disabled={isDeploying}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
-              {t('updates.actions.deploy')} ({approved.length})
-            </button>
-          )}
-          {failed.length > 0 && (
-            <button
-              onClick={async () => {
-                const failedIds = new Set(failed.map((u) => u.id));
-                setUpdates((prev) => prev.map((x) =>
-                  failedIds.has(x.id) ? { ...x, status: 'pending_install' as const } : x
-                ));
-                let ok = 0;
-                for (const u of failed) {
-                  try { await updateApi.retryUpdate(deviceId, u.id); ok++; } catch {}
-                }
-                toast.success(`${ok} update(s) queued for retry`);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Retry all ({failed.length})
-            </button>
-          )}
-          <button
-            onClick={handleScan}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
-          >
-            <Scan className="w-3.5 h-3.5" />
-            {t('updates.actions.scan')}
-          </button>
-        </div>
-      </div>
+ return (
+ <div className="space-y-4">
+ {/* Toolbar */}
+ <div className="flex items-center justify-between gap-3 flex-wrap">
+ <p className="text-sm text-text-muted flex items-center gap-1.5 flex-wrap">
+ {available.length > 0 && <span className="text-orange-400 font-medium">{available.length} {t('updates.status.available').toLowerCase()}</span>}
+ {available.length > 0 && (approved.length > 0 || failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
+ {approved.length > 0 && <span className="text-green-400 font-medium">{approved.length} {t('updates.status.approved').toLowerCase()}</span>}
+ {approved.length > 0 && (failed.length > 0 || pendingReboot.length > 0) && <span className="text-text-muted">·</span>}
+ {failed.length > 0 && <span className="text-red-400 font-medium">{failed.length} {t('updates.status.failed').toLowerCase()}</span>}
+ {failed.length > 0 && pendingReboot.length > 0 && <span className="text-text-muted">·</span>}
+ {pendingReboot.length > 0 && <span className="text-orange-400 font-medium">{pendingReboot.length} {t('updates.status.pendingReboot').toLowerCase()}</span>}
+ {!hasSummary && <span>{t('updates.noPending')}</span>}
+ </p>
+ <div className="flex items-center gap-2 flex-wrap">
+ {available.length > 0 && (
+ <button
+ onClick={handleApproveAll}
+ disabled={isApprovingAll}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {isApprovingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+ {t('updates.actions.approveAll')}
+ </button>
+ )}
+ {approved.length > 0 && (
+ <button
+ onClick={handleDeploy}
+ disabled={isDeploying}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {isDeploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+ {t('updates.actions.deploy')} ({approved.length})
+ </button>
+ )}
+ {failed.length > 0 && (
+ <button
+ onClick={async () => {
+ const failedIds = new Set(failed.map((u) => u.id));
+ setUpdates((prev) => prev.map((x) =>
+ failedIds.has(x.id) ? { ...x, status: 'pending_install' as const } : x
+ ));
+ let ok = 0;
+ for (const u of failed) {
+ try { await updateApi.retryUpdate(deviceId, u.id); ok++; } catch {}
+ }
+ toast.success(`${ok} update(s) queued for retry`);
+ }}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors"
+ >
+ <RotateCcw className="w-3.5 h-3.5" />
+ Retry all ({failed.length})
+ </button>
+ )}
+ <button
+ onClick={handleScan}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
+ >
+ <Scan className="w-3.5 h-3.5" />
+ {t('updates.actions.scan')}
+ </button>
+ </div>
+ </div>
 
-      {/* Update list */}
-      {updates.length === 0 ? (
-        <div className="p-12 text-center text-text-muted">
-          <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>{t('updates.noUpdates')}</p>
-        </div>
-      ) : (
-        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-          <div className="divide-y divide-border">
-            {updates.map((update) => (
-              <div key={update.id} className="px-4 py-3 flex items-center gap-3">
-                <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full border shrink-0', SEVERITY_COLORS[update.severity] ?? SEVERITY_COLORS.unknown)}>
-                  {update.severity}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-text-primary font-medium truncate">{update.title ?? update.updateUid}</p>
-                  <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
-                    update.status === 'approved' ? 'text-green-400' :
-                    update.status === 'installing' || update.status === 'pending_install' ? 'text-yellow-400' :
-                    update.status === 'pending_reboot' ? 'text-orange-400' :
-                    update.status === 'installed' ? 'text-blue-400' :
-                    update.status === 'failed' ? 'text-red-400' : '',
-                  )}>{STATUS_LABEL[update.status] ?? update.status}</span>{update.status === 'installed' && update.installedAt && (
-                    <span className="text-text-muted"> · {new Date(update.installedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                  )}</p>
-                </div>
-                {update.status === 'available' && (
-                  <button
-                    onClick={() => handleApprove(update.id)}
-                    disabled={approvingId === update.id}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors"
-                  >
-                    {approvingId === update.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
-                    {t('updates.actions.approve')}
-                  </button>
-                )}
-                {update.status === 'approved' && (
-                  <span className="shrink-0 text-xs text-green-400 opacity-60">✓ {t('updates.status.approved')}</span>
-                )}
-                {update.status === 'failed' && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await updateApi.retryUpdate(deviceId, update.id);
-                        setUpdates((prev) => prev.map((u) =>
-                          u.id === update.id ? { ...u, status: 'pending_install' as const } : u
-                        ));
-                        toast.success(`Retry queued for ${update.updateUid}`);
-                      } catch {
-                        toast.error('Failed to retry update');
-                      }
-                    }}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Retry
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+ {/* Update list */}
+ {updates.length === 0 ? (
+ <div className="p-12 text-center text-text-muted">
+ <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+ <p>{t('updates.noUpdates')}</p>
+ </div>
+ ) : (
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <div className="divide-y divide-border">
+ {updates.map((update) => (
+ <div key={update.id} className="px-4 py-3 flex items-center gap-3">
+ <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full border shrink-0', SEVERITY_COLORS[update.severity] ?? SEVERITY_COLORS.unknown)}>
+ {update.severity}
+ </span>
+ <div className="flex-1 min-w-0">
+ <p className="text-sm text-text-primary font-medium truncate">{update.title ?? update.updateUid}</p>
+ <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
+ update.status === 'approved' ? 'text-green-400' :
+ update.status === 'installing' || update.status === 'pending_install' ? 'text-yellow-400' :
+ update.status === 'pending_reboot' ? 'text-orange-400' :
+ update.status === 'installed' ? 'text-blue-400' :
+ update.status === 'failed' ? 'text-red-400' : '',
+ )}>{STATUS_LABEL[update.status] ?? update.status}</span>{update.status === 'installed' && update.installedAt && (
+ <span className="text-text-muted"> · {new Date(update.installedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+ )}</p>
+ </div>
+ {update.status === 'available' && (
+ <button
+ onClick={() => handleApprove(update.id)}
+ disabled={approvingId === update.id}
+ className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg hover:bg-green-400/20 disabled:opacity-50 transition-colors"
+ >
+ {approvingId === update.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
+ {t('updates.actions.approve')}
+ </button>
+ )}
+ {update.status === 'approved' && (
+ <span className="shrink-0 text-xs text-green-400 opacity-60">✓ {t('updates.status.approved')}</span>
+ )}
+ {update.status === 'failed' && (
+ <button
+ onClick={async () => {
+ try {
+ await updateApi.retryUpdate(deviceId, update.id);
+ setUpdates((prev) => prev.map((u) =>
+ u.id === update.id ? { ...u, status: 'pending_install' as const } : u
+ ));
+ toast.success(`Retry queued for ${update.updateUid}`);
+ } catch {
+ toast.error('Failed to retry update');
+ }
+ }}
+ className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors"
+ >
+ <RotateCcw className="w-3 h-3" />
+ Retry
+ </button>
+ )}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ </div>
+ );
 }
 
 // ─── Compliance Tab ──────────────────────────────────────────────────────────────
 
 const RULE_STATUS_ICON: Record<string, React.ReactNode> = {
-  pass:    <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />,
-  fail:    <XCircle      className="w-4 h-4 text-red-400 shrink-0" />,
-  warning: <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />,
-  error:   <MinusCircle  className="w-4 h-4 text-text-muted shrink-0" />,
+ pass: <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />,
+ fail: <XCircle className="w-4 h-4 text-red-400 shrink-0" />,
+ warning: <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />,
+ error: <MinusCircle className="w-4 h-4 text-text-muted shrink-0" />,
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: 'text-red-400',
-  high:     'text-orange-400',
-  medium:   'text-yellow-400',
-  low:      'text-blue-400',
-  info:     'text-text-muted',
+ critical: 'text-red-400',
+ high: 'text-orange-400',
+ medium: 'text-yellow-400',
+ low: 'text-blue-400',
+ info: 'text-text-muted',
 };
 
 function ComplianceTab({ deviceId }: { deviceId: number }) {
-  const [results, setResults]   = useState<ComplianceResult[]>([]);
-  const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
-  const [presets, setPresets]   = useState<import('@obliance/shared').CompliancePreset[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [triggering, setTriggering] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [ignoredRules, setIgnoredRules] = useState<Record<number, string[]>>({});
-  const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
+ const [results, setResults] = useState<ComplianceResult[]>([]);
+ const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
+ const [presets, setPresets] = useState<import('@obliance/shared').CompliancePreset[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [triggering, setTriggering] = useState(false);
+ const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+ const [ignoredRules, setIgnoredRules] = useState<Record<number, string[]>>({});
+ const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
 
-  const load = async () => {
-    setIsLoading(true);
-    try {
-      const [resultData, policyList, presetList] = await Promise.all([
-        complianceApi.listResults({ deviceId }),
-        complianceApi.listPolicies(),
-        complianceApi.listPresets(),
-      ]);
-      setResults(resultData.items);
-      setPolicies(policyList);
-      setPresets(presetList);
-    } catch {
-      toast.error('Failed to load compliance');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const load = async () => {
+ setIsLoading(true);
+ try {
+ const [resultData, policyList, presetList] = await Promise.all([
+ complianceApi.listResults({ deviceId }),
+ complianceApi.listPolicies(),
+ complianceApi.listPresets(),
+ ]);
+ setResults(resultData.items);
+ setPolicies(policyList);
+ setPresets(presetList);
+ } catch {
+ toast.error('Failed to load compliance');
+ } finally {
+ setIsLoading(false);
+ }
+ };
 
-  useEffect(() => { load(); }, [deviceId]);
+ useEffect(() => { load(); }, [deviceId]);
 
-  useEffect(() => {
-    complianceApi.getIgnoredRules(deviceId).then(data => setIgnoredRules(data)).catch(() => {});
-  }, [deviceId]);
+ useEffect(() => {
+ complianceApi.getIgnoredRules(deviceId).then(data => setIgnoredRules(data)).catch(() => {});
+ }, [deviceId]);
 
-  const isRuleIgnored = (policyId: number, ruleId: string) =>
-    ignoredRules[policyId]?.includes(ruleId) ?? false;
+ const isRuleIgnored = (policyId: number, ruleId: string) =>
+ ignoredRules[policyId]?.includes(ruleId) ?? false;
 
-  const getRemediationScript = (policyId: number, ruleId: string): string | undefined => {
-    const policy = policies.find(p => p.id === policyId);
-    const policyRule = policy?.rules.find(r => r.id === ruleId);
-    if (policyRule?.remediationScript) return policyRule.remediationScript;
-    for (const preset of presets) {
-      const presetRule = preset.rules.find(r => r.id === ruleId);
-      if (presetRule?.remediationScript) return presetRule.remediationScript;
-    }
-    return undefined;
-  };
+ const getRemediationScript = (policyId: number, ruleId: string): string | undefined => {
+ const policy = policies.find(p => p.id === policyId);
+ const policyRule = policy?.rules.find(r => r.id === ruleId);
+ if (policyRule?.remediationScript) return policyRule.remediationScript;
+ for (const preset of presets) {
+ const presetRule = preset.rules.find(r => r.id === ruleId);
+ if (presetRule?.remediationScript) return presetRule.remediationScript;
+ }
+ return undefined;
+ };
 
-  const handleRemediate = async (policyId: number, ruleIds: string[]) => {
-    const key = ruleIds.map(id => `${policyId}:${id}`);
-    setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
-    try {
-      await complianceApi.remediate(deviceId, policyId, ruleIds);
-      toast.success(`Remediation sent for ${ruleIds.length} rule(s)`);
-    } catch {
-      toast.error('Failed to send remediation');
-    } finally {
-      setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.delete(k)); return s; });
-    }
-  };
+ const handleRemediate = async (policyId: number, ruleIds: string[]) => {
+ const key = ruleIds.map(id => `${policyId}:${id}`);
+ setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
+ try {
+ await complianceApi.remediate(deviceId, policyId, ruleIds);
+ toast.success(`Remediation sent for ${ruleIds.length} rule(s)`);
+ } catch {
+ toast.error('Failed to send remediation');
+ } finally {
+ setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.delete(k)); return s; });
+ }
+ };
 
-  const handleRemediateAll = async (result: ComplianceResult) => {
-    const failingRuleIds = result.results
-      .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId))
-      .map(rr => rr.ruleId)
-      .filter(id => getRemediationScript(result.policyId, id));
-    if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
-    await handleRemediate(result.policyId, failingRuleIds);
-  };
+ const handleRemediateAll = async (result: ComplianceResult) => {
+ const failingRuleIds = result.results
+ .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId))
+ .map(rr => rr.ruleId)
+ .filter(id => getRemediationScript(result.policyId, id));
+ if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
+ await handleRemediate(result.policyId, failingRuleIds);
+ };
 
-  const handleIgnore = async (policyId: number, ruleIds: string[]) => {
-    try {
-      await complianceApi.ignoreRules(deviceId, policyId, ruleIds);
-      setIgnoredRules(prev => ({
-        ...prev,
-        [policyId]: [...(prev[policyId] ?? []), ...ruleIds],
-      }));
-      toast.success(`${ruleIds.length} rule(s) ignored`);
-    } catch { toast.error('Failed to ignore rules'); }
-  };
+ const handleIgnore = async (policyId: number, ruleIds: string[]) => {
+ try {
+ await complianceApi.ignoreRules(deviceId, policyId, ruleIds);
+ setIgnoredRules(prev => ({
+ ...prev,
+ [policyId]: [...(prev[policyId] ?? []), ...ruleIds],
+ }));
+ toast.success(`${ruleIds.length} rule(s) ignored`);
+ } catch { toast.error('Failed to ignore rules'); }
+ };
 
-  const handleUnignore = async (policyId: number, ruleIds: string[]) => {
-    try {
-      await complianceApi.unignoreRules(deviceId, policyId, ruleIds);
-      setIgnoredRules(prev => ({
-        ...prev,
-        [policyId]: (prev[policyId] ?? []).filter(id => !ruleIds.includes(id)),
-      }));
-      toast.success(`${ruleIds.length} rule(s) unignored`);
-    } catch { toast.error('Failed to unignore rules'); }
-  };
+ const handleUnignore = async (policyId: number, ruleIds: string[]) => {
+ try {
+ await complianceApi.unignoreRules(deviceId, policyId, ruleIds);
+ setIgnoredRules(prev => ({
+ ...prev,
+ [policyId]: (prev[policyId] ?? []).filter(id => !ruleIds.includes(id)),
+ }));
+ toast.success(`${ruleIds.length} rule(s) unignored`);
+ } catch { toast.error('Failed to unignore rules'); }
+ };
 
-  const handleTriggerCheck = async () => {
-    setTriggering(true);
-    try {
-      await complianceApi.triggerCheck(deviceId);
-      toast.success('Compliance check triggered');
-    } catch {
-      toast.error('Failed to trigger compliance check');
-    } finally {
-      setTriggering(false);
-    }
-  };
+ const handleTriggerCheck = async () => {
+ setTriggering(true);
+ try {
+ await complianceApi.triggerCheck(deviceId);
+ toast.success('Compliance check triggered');
+ } catch {
+ toast.error('Failed to trigger compliance check');
+ } finally {
+ setTriggering(false);
+ }
+ };
 
-  const toggleExpand = (id: number) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+ const toggleExpand = (id: number) => {
+ setExpandedIds(prev => {
+ const next = new Set(prev);
+ if (next.has(id)) next.delete(id); else next.add(id);
+ return next;
+ });
+ };
 
-  const getRuleInfo = (policyId: number, ruleId: string) => {
-    const policy = policies.find(p => p.id === policyId);
-    return policy?.rules.find(r => r.id === ruleId);
-  };
+ const getRuleInfo = (policyId: number, ruleId: string) => {
+ const policy = policies.find(p => p.id === policyId);
+ return policy?.rules.find(r => r.id === ruleId);
+ };
 
-  const handleExport = (e: React.MouseEvent, result: ComplianceResult) => {
-    e.stopPropagation();
-    const policyName = result.policy?.name ?? `Policy #${result.policyId}`;
-    const checkedAt  = new Date(result.checkedAt).toLocaleString();
-    const score      = result.complianceScore.toFixed(0);
+ const handleExport = (e: React.MouseEvent, result: ComplianceResult) => {
+ e.stopPropagation();
+ const policyName = result.policy?.name ?? `Policy #${result.policyId}`;
+ const checkedAt = new Date(result.checkedAt).toLocaleString();
+ const score = result.complianceScore.toFixed(0);
 
-    const lines: string[] = [
-      `"Politique","${policyName.replace(/"/g, '""')}"`,
-      `"Date","${checkedAt}"`,
-      `"Score","${score}%"`,
-      ``,
-      `"Règle","Statut","Sévérité","Valeur actuelle","Valeur attendue"`,
-    ];
+ const lines: string[] = [
+ `"Politique","${policyName.replace(/"/g, '""')}"`,
+ `"Date","${checkedAt}"`,
+ `"Score","${score}%"`,
+ ``,
+ `"Règle","Statut","Sévérité","Valeur actuelle","Valeur attendue"`,
+ ];
 
-    for (const rr of result.results) {
-      const info     = getRuleInfo(result.policyId, rr.ruleId);
-      const name     = (info?.name ?? rr.ruleId).replace(/"/g, '""');
-      const actual   = rr.actualValue !== null && rr.actualValue !== undefined ? String(rr.actualValue) : '';
-      const expected = info?.expected !== undefined && info.expected !== null ? String(info.expected) : '';
-      lines.push(`"${name}","${rr.status}","${info?.severity ?? ''}","${actual}","${expected}"`);
-    }
+ for (const rr of result.results) {
+ const info = getRuleInfo(result.policyId, rr.ruleId);
+ const name = (info?.name ?? rr.ruleId).replace(/"/g, '""');
+ const actual = rr.actualValue !== null && rr.actualValue !== undefined ? String(rr.actualValue) : '';
+ const expected = info?.expected !== undefined && info.expected !== null ? String(info.expected) : '';
+ lines.push(`"${name}","${rr.status}","${info?.severity ?? ''}","${actual}","${expected}"`);
+ }
 
-    const csv  = lines.join('\r\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `compliance-${policyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+ const csv = lines.join('\r\n');
+ const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = `compliance-${policyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+ URL.revokeObjectURL(url);
+ };
 
-  // ── Software Compliance ─────────────────────────────────────────────────────
-  const [swResults, setSwResults] = useState<SoftwareComplianceResult[]>([]);
-  const [swLoading, setSwLoading] = useState(true);
-  const [swTriggering, setSwTriggering] = useState(false);
-  const [swExpandedIds, setSwExpandedIds] = useState<Set<number>>(new Set());
-  const [swRemediating, setSwRemediating] = useState<Set<string>>(new Set());
+ // ── Software Compliance ─────────────────────────────────────────────────────
+ const [swResults, setSwResults] = useState<SoftwareComplianceResult[]>([]);
+ const [swLoading, setSwLoading] = useState(true);
+ const [swTriggering, setSwTriggering] = useState(false);
+ const [swExpandedIds, setSwExpandedIds] = useState<Set<number>>(new Set());
+ const [swRemediating, setSwRemediating] = useState<Set<string>>(new Set());
 
-  const loadSwResults = useCallback(async () => {
-    setSwLoading(true);
-    try {
-      const data = await softwareComplianceApi.getDeviceResults(deviceId);
-      setSwResults(data);
-    } catch {
-      // silent
-    } finally {
-      setSwLoading(false);
-    }
-  }, [deviceId]);
+ const loadSwResults = useCallback(async () => {
+ setSwLoading(true);
+ try {
+ const data = await softwareComplianceApi.getDeviceResults(deviceId);
+ setSwResults(data);
+ } catch {
+ // silent
+ } finally {
+ setSwLoading(false);
+ }
+ }, [deviceId]);
 
-  useEffect(() => { loadSwResults(); }, [loadSwResults]);
+ useEffect(() => { loadSwResults(); }, [loadSwResults]);
 
-  const handleSwTriggerCheck = async () => {
-    setSwTriggering(true);
-    try {
-      await softwareComplianceApi.triggerCheck(deviceId);
-      toast.success('Software compliance check triggered');
-    } catch {
-      toast.error('Failed to trigger software compliance check');
-    } finally {
-      setSwTriggering(false);
-    }
-  };
+ const handleSwTriggerCheck = async () => {
+ setSwTriggering(true);
+ try {
+ await softwareComplianceApi.triggerCheck(deviceId);
+ toast.success('Software compliance check triggered');
+ } catch {
+ toast.error('Failed to trigger software compliance check');
+ } finally {
+ setSwTriggering(false);
+ }
+ };
 
-  const handleSwRemediate = async (listId: number, entryIds: number[]) => {
-    const keys = entryIds.map(id => `${listId}:${id}`);
-    setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.add(k)); return s; });
-    try {
-      await softwareComplianceApi.remediate(deviceId, listId, entryIds);
-      toast.success(`Remediation sent for ${entryIds.length} entry(ies)`);
-    } catch {
-      toast.error('Failed to send remediation');
-    } finally {
-      setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.delete(k)); return s; });
-    }
-  };
+ const handleSwRemediate = async (listId: number, entryIds: number[]) => {
+ const keys = entryIds.map(id => `${listId}:${id}`);
+ setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.add(k)); return s; });
+ try {
+ await softwareComplianceApi.remediate(deviceId, listId, entryIds);
+ toast.success(`Remediation sent for ${entryIds.length} entry(ies)`);
+ } catch {
+ toast.error('Failed to send remediation');
+ } finally {
+ setSwRemediating(prev => { const s = new Set(prev); keys.forEach(k => s.delete(k)); return s; });
+ }
+ };
 
-  const handleSwRemediateAll = async (result: SoftwareComplianceResult) => {
-    const failingIds = result.results
-      .filter(er => er.status === 'non_compliant')
-      .map(er => er.entryId);
-    if (failingIds.length === 0) { toast.error('No remediable entries'); return; }
-    await handleSwRemediate(result.listId, failingIds);
-  };
+ const handleSwRemediateAll = async (result: SoftwareComplianceResult) => {
+ const failingIds = result.results
+ .filter(er => er.status === 'non_compliant')
+ .map(er => er.entryId);
+ if (failingIds.length === 0) { toast.error('No remediable entries'); return; }
+ await handleSwRemediate(result.listId, failingIds);
+ };
 
-  const toggleSwExpand = (id: number) => {
-    setSwExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+ const toggleSwExpand = (id: number) => {
+ setSwExpandedIds(prev => {
+ const next = new Set(prev);
+ if (next.has(id)) next.delete(id); else next.add(id);
+ return next;
+ });
+ };
 
-  const swEntryStatusIcon = (status: SoftwareComplianceEntryResult['status']) => {
-    switch (status) {
-      case 'compliant': return <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />;
-      case 'non_compliant': return <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
-      case 'remediated': return <RefreshCw className="w-4 h-4 text-yellow-400 shrink-0" />;
-      case 'remediation_failed': return <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />;
-      default: return <MinusCircle className="w-4 h-4 text-text-muted shrink-0" />;
-    }
-  };
+ const swEntryStatusIcon = (status: SoftwareComplianceEntryResult['status']) => {
+ switch (status) {
+ case 'compliant': return <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />;
+ case 'non_compliant': return <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
+ case 'remediated': return <RefreshCw className="w-4 h-4 text-yellow-400 shrink-0" />;
+ case 'remediation_failed': return <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0" />;
+ default: return <MinusCircle className="w-4 h-4 text-text-muted shrink-0" />;
+ }
+ };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-48">
-      <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-    </div>
-  );
+ if (isLoading) return (
+ <div className="flex items-center justify-center h-48">
+ <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+ </div>
+ );
 
-  return (
-    <div className="space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-text-muted">{results.length} policy result{results.length !== 1 ? 's' : ''}</p>
-        <div className="flex gap-2">
-          <button
-            onClick={load}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Refresh
-          </button>
-          <button
-            onClick={handleTriggerCheck}
-            disabled={triggering}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
-          >
-            {triggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-            Run Check
-          </button>
-        </div>
-      </div>
+ return (
+ <div className="space-y-4">
+ {/* Header row */}
+ <div className="flex items-center justify-between">
+ <p className="text-xs text-text-muted">{results.length} policy result{results.length !== 1 ? 's' : ''}</p>
+ <div className="flex gap-2">
+ <button
+ onClick={load}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+ >
+ <RefreshCw className="w-3 h-3" />
+ Refresh
+ </button>
+ <button
+ onClick={handleTriggerCheck}
+ disabled={triggering}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+ >
+ {triggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+ Run Check
+ </button>
+ </div>
+ </div>
 
-      {results.length === 0 ? (
-        <div className="p-12 text-center text-text-muted">
-          <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No compliance checks run yet</p>
-          <Link to="/policies?tab=compliance" className="mt-2 inline-block text-sm text-accent">Configure policies &rarr;</Link>
-        </div>
-      ) : (
-        results.map((result) => {
-          const isExpanded = expandedIds.has(result.id);
-          const passCount    = result.results.filter(r => r.status === 'pass').length;
-          const failCount    = result.results.filter(r => r.status === 'fail').length;
-          const warnCount    = result.results.filter(r => r.status === 'warning').length;
+ {results.length === 0 ? (
+ <div className="p-12 text-center text-text-muted">
+ <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
+ <p className="text-sm">No compliance checks run yet</p>
+ <Link to="/policies?tab=compliance" className="mt-2 inline-block text-sm text-accent">Configure policies &rarr;</Link>
+ </div>
+ ) : (
+ results.map((result) => {
+ const isExpanded = expandedIds.has(result.id);
+ const passCount = result.results.filter(r => r.status === 'pass').length;
+ const failCount = result.results.filter(r => r.status === 'fail').length;
+ const warnCount = result.results.filter(r => r.status === 'warning').length;
 
-          return (
-            <div key={result.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-              {/* Policy header */}
-              <div
-                onClick={() => toggleExpand(result.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {isExpanded
-                    ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-                    : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-                  }
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">
-                      {result.policy?.name ?? `Policy #${result.policyId}`}
-                    </p>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {result.policy?.framework && <span className="uppercase mr-2">{result.policy.framework}</span>}
-                      {new Date(result.checkedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  {failCount > 0 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                      title="Remediate all failing rules"
-                    >
-                      <Wrench className="w-3 h-3" />
-                      Fix All
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => handleExport(e, result)}
-                    title="Exporter le rapport CSV"
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border border-border hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors"
-                  >
-                    <Download className="w-3 h-3" />
-                    Export
-                  </button>
-                  <div className="flex gap-3 text-xs">
-                    {passCount > 0 && <span className="text-green-400">✓ {passCount}</span>}
-                    {failCount > 0 && <span className="text-red-400">✗ {failCount}</span>}
-                    {warnCount > 0 && <span className="text-yellow-400">⚠ {warnCount}</span>}
-                  </div>
-                  <div className={clsx(
-                    'text-lg font-bold tabular-nums',
-                    result.complianceScore >= 80 ? 'text-green-400'
-                    : result.complianceScore >= 50 ? 'text-yellow-400'
-                    : 'text-red-400'
-                  )}>
-                    {result.complianceScore.toFixed(0)}%
-                  </div>
-                </div>
-              </div>
+ return (
+ <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden">
+ {/* Policy header */}
+ <div
+ onClick={() => toggleExpand(result.id)}
+ className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+ >
+ <div className="flex items-center gap-3">
+ {isExpanded
+ ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+ : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+ }
+ <div>
+ <p className="text-sm font-medium text-text-primary">
+ {result.policy?.name ?? `Policy #${result.policyId}`}
+ </p>
+ <p className="text-xs text-text-muted mt-0.5">
+ {result.policy?.framework && <span className="uppercase mr-2">{result.policy.framework}</span>}
+ {new Date(result.checkedAt).toLocaleString()}
+ </p>
+ </div>
+ </div>
+ <div className="flex items-center gap-4 shrink-0">
+ {failCount > 0 && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ title="Remediate all failing rules"
+ >
+ <Wrench className="w-3 h-3" />
+ Fix All
+ </button>
+ )}
+ <button
+ onClick={(e) => handleExport(e, result)}
+ title="Exporter le rapport CSV"
+ className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors"
+ >
+ <Download className="w-3 h-3" />
+ Export
+ </button>
+ <div className="flex gap-3 text-xs">
+ {passCount > 0 && <span className="text-green-400">✓ {passCount}</span>}
+ {failCount > 0 && <span className="text-red-400">✗ {failCount}</span>}
+ {warnCount > 0 && <span className="text-yellow-400">⚠ {warnCount}</span>}
+ </div>
+ <div className={clsx(
+ 'text-lg font-bold tabular-nums',
+ result.complianceScore >= 80 ? 'text-green-400'
+ : result.complianceScore >= 50 ? 'text-yellow-400'
+ : 'text-red-400'
+ )}>
+ {result.complianceScore.toFixed(0)}%
+ </div>
+ </div>
+ </div>
 
-              {/* Score bar */}
-              <div className="h-1 bg-bg-primary">
-                <div
-                  className={clsx(
-                    'h-full transition-all',
-                    result.complianceScore >= 80 ? 'bg-green-400'
-                    : result.complianceScore >= 50 ? 'bg-yellow-400'
-                    : 'bg-red-400'
-                  )}
-                  style={{ width: `${result.complianceScore}%` }}
-                />
-              </div>
+ {/* Score bar */}
+ <div className="h-1 bg-bg-primary">
+ <div
+ className={clsx(
+ 'h-full transition-all',
+ result.complianceScore >= 80 ? 'bg-green-400'
+ : result.complianceScore >= 50 ? 'bg-yellow-400'
+ : 'bg-red-400'
+ )}
+ style={{ width: `${result.complianceScore}%` }}
+ />
+ </div>
 
-              {/* Expanded: per-rule breakdown */}
-              {isExpanded && (() => {
-                const remediableFailCount = result.results.filter(rr =>
-                  rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId)
-                  && getRemediationScript(result.policyId, rr.ruleId)
-                ).length;
-                return (
-                  <div>
-                    {remediableFailCount > 0 && (
-                      <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-bg-tertiary/80">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                        >
-                          <Wrench className="w-3.5 h-3.5" />
-                          Remediate all ({remediableFailCount})
-                        </button>
-                      </div>
-                    )}
-                    <div className="divide-y divide-border">
-                      {result.results.map((rr) => {
-                        const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
-                        const ignored = isRuleIgnored(result.policyId, rr.ruleId);
-                        const hasRemediation = !!getRemediationScript(result.policyId, rr.ruleId);
-                        const isRemediating = remediatingRules.has(`${result.policyId}:${rr.ruleId}`);
-                        return (
-                          <div key={rr.ruleId} className={clsx('flex items-start gap-3 px-4 py-3', ignored && 'opacity-50')}>
-                            <div className="mt-0.5">
-                              {ignored ? <EyeOff className="w-4 h-4 text-text-muted" /> :
-                                (RULE_STATUS_ICON[rr.status] ?? RULE_STATUS_ICON.error)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm text-text-primary">
-                                  {ruleInfo?.name ?? rr.ruleId}
-                                </span>
-                                {ruleInfo?.severity && (
-                                  <span className={clsx('text-xs font-medium capitalize', SEVERITY_COLOR[ruleInfo.severity])}>
-                                    {ruleInfo.severity}
-                                  </span>
-                                )}
-                                {ignored && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20">
-                                    ignored
-                                  </span>
-                                )}
-                                {rr.remediationTriggered && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                    remediated
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
-                                {rr.actualValue !== null && rr.actualValue !== undefined && (
-                                  <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
-                                )}
-                                {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
-                                  <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                              <span className={clsx(
-                                'text-xs font-medium capitalize',
-                                ignored ? 'text-text-muted' :
-                                rr.status === 'pass' ? 'text-green-400'
-                                : rr.status === 'fail' ? 'text-red-400'
-                                : rr.status === 'warning' ? 'text-yellow-400'
-                                : 'text-text-muted'
-                              )}>
-                                {ignored ? 'ignored' : rr.status}
-                              </span>
-                              {rr.status === 'fail' && !ignored && hasRemediation && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleRemediate(result.policyId, [rr.ruleId]); }}
-                                  disabled={isRemediating}
-                                  className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
-                                  title="Remediate"
-                                >
-                                  <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
-                                </button>
-                              )}
-                              {!ignored ? (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleIgnore(result.policyId, [rr.ruleId]); }}
-                                  className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
-                                  title="Ignore this rule"
-                                >
-                                  <EyeOff className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleUnignore(result.policyId, [rr.ruleId]); }}
-                                  className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
-                                  title="Unignore this rule"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          );
-        })
-      )}
+ {/* Expanded: per-rule breakdown */}
+ {isExpanded && (() => {
+ const remediableFailCount = result.results.filter(rr =>
+ rr.status === 'fail' && !isRuleIgnored(result.policyId, rr.ruleId)
+ && getRemediationScript(result.policyId, rr.ruleId)
+ ).length;
+ return (
+ <div>
+ {remediableFailCount > 0 && (
+ <div className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary/80">
+ <button
+ onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ >
+ <Wrench className="w-3.5 h-3.5" />
+ Remediate all ({remediableFailCount})
+ </button>
+ </div>
+ )}
+ <div className="divide-y divide-border">
+ {result.results.map((rr) => {
+ const ruleInfo = getRuleInfo(result.policyId, rr.ruleId);
+ const ignored = isRuleIgnored(result.policyId, rr.ruleId);
+ const hasRemediation = !!getRemediationScript(result.policyId, rr.ruleId);
+ const isRemediating = remediatingRules.has(`${result.policyId}:${rr.ruleId}`);
+ return (
+ <div key={rr.ruleId} className={clsx('flex items-start gap-3 px-4 py-3', ignored && 'opacity-50')}>
+ <div className="mt-0.5">
+ {ignored ? <EyeOff className="w-4 h-4 text-text-muted" /> :
+ (RULE_STATUS_ICON[rr.status] ?? RULE_STATUS_ICON.error)}
+ </div>
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-2 flex-wrap">
+ <span className="text-sm text-text-primary">
+ {ruleInfo?.name ?? rr.ruleId}
+ </span>
+ {ruleInfo?.severity && (
+ <span className={clsx('text-xs font-medium capitalize', SEVERITY_COLOR[ruleInfo.severity])}>
+ {ruleInfo.severity}
+ </span>
+ )}
+ {ignored && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20">
+ ignored
+ </span>
+ )}
+ {rr.remediationTriggered && (
+ <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+ remediated
+ </span>
+ )}
+ </div>
+ <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
+ {rr.actualValue !== null && rr.actualValue !== undefined && (
+ <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
+ )}
+ {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
+ <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
+ )}
+ </div>
+ </div>
+ <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+ <span className={clsx(
+ 'text-xs font-medium capitalize',
+ ignored ? 'text-text-muted' :
+ rr.status === 'pass' ? 'text-green-400'
+ : rr.status === 'fail' ? 'text-red-400'
+ : rr.status === 'warning' ? 'text-yellow-400'
+ : 'text-text-muted'
+ )}>
+ {ignored ? 'ignored' : rr.status}
+ </span>
+ {rr.status === 'fail' && !ignored && hasRemediation && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleRemediate(result.policyId, [rr.ruleId]); }}
+ disabled={isRemediating}
+ className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
+ title="Remediate"
+ >
+ <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
+ </button>
+ )}
+ {!ignored ? (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleIgnore(result.policyId, [rr.ruleId]); }}
+ className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
+ title="Ignore this rule"
+ >
+ <EyeOff className="w-3.5 h-3.5" />
+ </button>
+ ) : (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleUnignore(result.policyId, [rr.ruleId]); }}
+ className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+ title="Unignore this rule"
+ >
+ <Eye className="w-3.5 h-3.5" />
+ </button>
+ )}
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ );
+ })()}
+ </div>
+ );
+ })
+ )}
 
-      {/* ── Software Compliance Section ── */}
-      <div className="border-t border-border pt-4 mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider">Software Compliance</p>
-          <div className="flex gap-2">
-            <button
-              onClick={loadSwResults}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
-            >
-              <RefreshCw className={clsx('w-3 h-3', swLoading && 'animate-spin')} />
-              Refresh
-            </button>
-            <button
-              onClick={handleSwTriggerCheck}
-              disabled={swTriggering}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
-            >
-              {swTriggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-              Run Check
-            </button>
-          </div>
-        </div>
+ {/* ── Software Compliance Section ── */}
+ <div className=" pt-4 mt-6">
+ <div className="flex items-center justify-between mb-3">
+ <p className="text-xs text-text-muted font-semibold uppercase tracking-wider">Software Compliance</p>
+ <div className="flex gap-2">
+ <button
+ onClick={loadSwResults}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-bg-secondary text-text-muted hover:text-text-primary transition-colors"
+ >
+ <RefreshCw className={clsx('w-3 h-3', swLoading && 'animate-spin')} />
+ Refresh
+ </button>
+ <button
+ onClick={handleSwTriggerCheck}
+ disabled={swTriggering}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+ >
+ {swTriggering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+ Run Check
+ </button>
+ </div>
+ </div>
 
-        {swLoading ? (
-          <div className="flex items-center justify-center h-24">
-            <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-          </div>
-        ) : swResults.length === 0 ? (
-          <div className="p-8 text-center text-text-muted">
-            <ShieldCheck className="w-6 h-6 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No software compliance checks run yet</p>
-            <Link to="/policies?tab=software" className="mt-2 inline-block text-sm text-accent">Configure software lists &rarr;</Link>
-          </div>
-        ) : swResults.map((result) => {
-          const isExpanded = swExpandedIds.has(result.id);
-          const compliantCount = result.results.filter(r => r.status === 'compliant').length;
-          const nonCompliantCount = result.results.filter(r => r.status === 'non_compliant').length;
+ {swLoading ? (
+ <div className="flex items-center justify-center h-24">
+ <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+ </div>
+ ) : swResults.length === 0 ? (
+ <div className="p-8 text-center text-text-muted">
+ <ShieldCheck className="w-6 h-6 mx-auto mb-2 opacity-50" />
+ <p className="text-sm">No software compliance checks run yet</p>
+ <Link to="/policies?tab=software" className="mt-2 inline-block text-sm text-accent">Configure software lists &rarr;</Link>
+ </div>
+ ) : swResults.map((result) => {
+ const isExpanded = swExpandedIds.has(result.id);
+ const compliantCount = result.results.filter(r => r.status === 'compliant').length;
+ const nonCompliantCount = result.results.filter(r => r.status === 'non_compliant').length;
 
-          return (
-            <div key={result.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden mb-2">
-              <div
-                onClick={() => toggleSwExpand(result.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {isExpanded
-                    ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-                    : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-                  }
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-text-primary">
-                        {result.list?.name ?? `List #${result.listId}`}
-                      </p>
-                      {result.list && (
-                        <span className={clsx(
-                          'text-xs px-2 py-0.5 rounded-full border font-medium',
-                          result.list.listType === 'whitelist'
-                            ? 'text-green-400 bg-green-400/10 border-green-400/30'
-                            : 'text-red-400 bg-red-400/10 border-red-400/30',
-                        )}>
-                          {result.list.listType}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {new Date(result.checkedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  {nonCompliantCount > 0 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                      title="Remediate all non-compliant entries"
-                    >
-                      <Wrench className="w-3 h-3" />
-                      Fix All
-                    </button>
-                  )}
-                  <div className="flex gap-3 text-xs">
-                    {compliantCount > 0 && <span className="text-green-400">{compliantCount} ok</span>}
-                    {nonCompliantCount > 0 && <span className="text-red-400">{nonCompliantCount} fail</span>}
-                  </div>
-                  <div className={clsx(
-                    'text-lg font-bold tabular-nums',
-                    result.complianceScore >= 80 ? 'text-green-400'
-                    : result.complianceScore >= 50 ? 'text-yellow-400'
-                    : 'text-red-400'
-                  )}>
-                    {result.complianceScore.toFixed(0)}%
-                  </div>
-                </div>
-              </div>
+ return (
+ <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden mb-2">
+ <div
+ onClick={() => toggleSwExpand(result.id)}
+ className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+ >
+ <div className="flex items-center gap-3">
+ {isExpanded
+ ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+ : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+ }
+ <div>
+ <div className="flex items-center gap-2">
+ <p className="text-sm font-medium text-text-primary">
+ {result.list?.name ?? `List #${result.listId}`}
+ </p>
+ {result.list && (
+ <span className={clsx(
+ 'text-xs px-2 py-0.5 rounded-full border font-medium',
+ result.list.listType === 'whitelist'
+ ? 'text-green-400 bg-green-400/10 border-green-400/30'
+ : 'text-red-400 bg-red-400/10 border-red-400/30',
+ )}>
+ {result.list.listType}
+ </span>
+ )}
+ </div>
+ <p className="text-xs text-text-muted mt-0.5">
+ {new Date(result.checkedAt).toLocaleString()}
+ </p>
+ </div>
+ </div>
+ <div className="flex items-center gap-4 shrink-0">
+ {nonCompliantCount > 0 && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ title="Remediate all non-compliant entries"
+ >
+ <Wrench className="w-3 h-3" />
+ Fix All
+ </button>
+ )}
+ <div className="flex gap-3 text-xs">
+ {compliantCount > 0 && <span className="text-green-400">{compliantCount} ok</span>}
+ {nonCompliantCount > 0 && <span className="text-red-400">{nonCompliantCount} fail</span>}
+ </div>
+ <div className={clsx(
+ 'text-lg font-bold tabular-nums',
+ result.complianceScore >= 80 ? 'text-green-400'
+ : result.complianceScore >= 50 ? 'text-yellow-400'
+ : 'text-red-400'
+ )}>
+ {result.complianceScore.toFixed(0)}%
+ </div>
+ </div>
+ </div>
 
-              {/* Score bar */}
-              <div className="h-1 bg-bg-primary">
-                <div
-                  className={clsx(
-                    'h-full transition-all',
-                    result.complianceScore >= 80 ? 'bg-green-400'
-                    : result.complianceScore >= 50 ? 'bg-yellow-400'
-                    : 'bg-red-400'
-                  )}
-                  style={{ width: `${result.complianceScore}%` }}
-                />
-              </div>
+ {/* Score bar */}
+ <div className="h-1 bg-bg-primary">
+ <div
+ className={clsx(
+ 'h-full transition-all',
+ result.complianceScore >= 80 ? 'bg-green-400'
+ : result.complianceScore >= 50 ? 'bg-yellow-400'
+ : 'bg-red-400'
+ )}
+ style={{ width: `${result.complianceScore}%` }}
+ />
+ </div>
 
-              {/* Expanded: per-entry breakdown */}
-              {isExpanded && (
-                <div>
-                  {nonCompliantCount > 0 && (
-                    <div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-bg-tertiary/80">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                      >
-                        <Wrench className="w-3.5 h-3.5" />
-                        Remediate all ({nonCompliantCount})
-                      </button>
-                    </div>
-                  )}
-                  <div className="divide-y divide-border">
-                    {result.results.map((er) => {
-                      const isRemediating = swRemediating.has(`${result.listId}:${er.entryId}`);
-                      return (
-                        <div key={er.entryId} className="flex items-start gap-3 px-4 py-3">
-                          <div className="mt-0.5">
-                            {swEntryStatusIcon(er.status)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm text-text-primary">{er.entryName}</span>
-                            {er.matchedSoftware && (
-                              <p className="text-xs text-text-muted mt-0.5">
-                                matched: <span className="font-mono">{er.matchedSoftware}</span>
-                                {er.matchedVersion && <span className="ml-1">v{er.matchedVersion}</span>}
-                              </p>
-                            )}
-                            {er.detail && (
-                              <p className="text-xs text-text-muted/60 mt-0.5">{er.detail}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                            {er.remediationTriggered && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                remediated
-                              </span>
-                            )}
-                            <span className={clsx(
-                              'text-xs font-medium capitalize',
-                              er.status === 'compliant' ? 'text-green-400'
-                              : er.status === 'non_compliant' ? 'text-red-400'
-                              : er.status === 'remediated' ? 'text-yellow-400'
-                              : er.status === 'remediation_failed' ? 'text-orange-400'
-                              : 'text-text-muted'
-                            )}>
-                              {er.status.replace('_', ' ')}
-                            </span>
-                            {er.status === 'non_compliant' && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleSwRemediate(result.listId, [er.entryId]); }}
-                                disabled={isRemediating}
-                                className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
-                                title="Remediate"
-                              >
-                                <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+ {/* Expanded: per-entry breakdown */}
+ {isExpanded && (
+ <div>
+ {nonCompliantCount > 0 && (
+ <div className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary/80">
+ <button
+ onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ >
+ <Wrench className="w-3.5 h-3.5" />
+ Remediate all ({nonCompliantCount})
+ </button>
+ </div>
+ )}
+ <div className="divide-y divide-border">
+ {result.results.map((er) => {
+ const isRemediating = swRemediating.has(`${result.listId}:${er.entryId}`);
+ return (
+ <div key={er.entryId} className="flex items-start gap-3 px-4 py-3">
+ <div className="mt-0.5">
+ {swEntryStatusIcon(er.status)}
+ </div>
+ <div className="flex-1 min-w-0">
+ <span className="text-sm text-text-primary">{er.entryName}</span>
+ {er.matchedSoftware && (
+ <p className="text-xs text-text-muted mt-0.5">
+ matched: <span className="font-mono">{er.matchedSoftware}</span>
+ {er.matchedVersion && <span className="ml-1">v{er.matchedVersion}</span>}
+ </p>
+ )}
+ {er.detail && (
+ <p className="text-xs text-text-muted/60 mt-0.5">{er.detail}</p>
+ )}
+ </div>
+ <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+ {er.remediationTriggered && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+ remediated
+ </span>
+ )}
+ <span className={clsx(
+ 'text-xs font-medium capitalize',
+ er.status === 'compliant' ? 'text-green-400'
+ : er.status === 'non_compliant' ? 'text-red-400'
+ : er.status === 'remediated' ? 'text-yellow-400'
+ : er.status === 'remediation_failed' ? 'text-orange-400'
+ : 'text-text-muted'
+ )}>
+ {er.status.replace('_', ' ')}
+ </span>
+ {er.status === 'non_compliant' && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleSwRemediate(result.listId, [er.entryId]); }}
+ disabled={isRemediating}
+ className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
+ title="Remediate"
+ >
+ <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
+ </button>
+ )}
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ )}
+ </div>
+ );
+ })}
+ </div>
+ </div>
+ );
 }
 
 // ─── Device Settings Tab ─────────────────────────────────────────────────────
@@ -2123,1881 +2123,1881 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function ToggleRow({ label, description, value, onChange }: {
-  label: string; description?: string; value: boolean; onChange: (v: boolean) => void;
+ label: string; description?: string; value: boolean; onChange: (v: boolean) => void;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-sm text-text-primary">{label}</p>
-        {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
-      </div>
-      <button onClick={() => onChange(!value)} className="shrink-0">
-        {value ? <ToggleRight className="w-9 h-9 text-accent" /> : <ToggleLeft className="w-9 h-9 text-text-muted" />}
-      </button>
-    </div>
-  );
+ return (
+ <div className="flex items-center justify-between gap-4">
+ <div className="min-w-0">
+ <p className="text-sm text-text-primary">{label}</p>
+ {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
+ </div>
+ <button onClick={() => onChange(!value)} className="shrink-0">
+ {value ? <ToggleRight className="w-9 h-9 text-accent" /> : <ToggleLeft className="w-9 h-9 text-text-muted" />}
+ </button>
+ </div>
+ );
 }
 
 // ─── DeviceSettingsTab ────────────────────────────────────────────────────────
 
 function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePrivacyPassword }: {
-  device: Device; onSaved: () => void; adminMode: boolean; onDeleted: () => void;
-  onManagePrivacyPassword?: (mode: 'set' | 'change' | 'remove') => void;
+ device: Device; onSaved: () => void; adminMode: boolean; onDeleted: () => void;
+ onManagePrivacyPassword?: (mode: 'set' | 'change' | 'remove') => void;
 }) {
-  const emptyDisplayConfig = (): NonNullable<Device['displayConfig']> => ({
-    hideCpu: false, hideMemory: false, hideDisk: false,
-    hideNetwork: false, hideTemps: false, hideGpu: false,
-    cpu: { hiddenCores: [], hiddenCharts: [], groupCoreThreads: false, tempSensor: null },
-    ram: { hideUsed: false, hideFree: false, hideSwap: false, hiddenCharts: [] },
-    gpu: { hiddenRows: [], hiddenCharts: [] },
-    drives: { hiddenMounts: [], renames: {}, combineReadWrite: false },
-    network: { hiddenInterfaces: [], renames: {}, combineInOut: false },
-    temps: { hiddenLabels: [] },
-  });
+ const emptyDisplayConfig = (): NonNullable<Device['displayConfig']> => ({
+ hideCpu: false, hideMemory: false, hideDisk: false,
+ hideNetwork: false, hideTemps: false, hideGpu: false,
+ cpu: { hiddenCores: [], hiddenCharts: [], groupCoreThreads: false, tempSensor: null },
+ ram: { hideUsed: false, hideFree: false, hideSwap: false, hiddenCharts: [] },
+ gpu: { hiddenRows: [], hiddenCharts: [] },
+ drives: { hiddenMounts: [], renames: {}, combineReadWrite: false },
+ network: { hiddenInterfaces: [], renames: {}, combineInOut: false },
+ temps: { hiddenLabels: [] },
+ });
 
-  const [form, setForm] = useState({
-    // Identity
-    displayName:   device.displayName ?? '',
-    description:   device.description ?? '',
-    // Tags
-    tags:          [...(device.tags ?? [])],
-    tagInput:      '',
-    // Custom fields
-    customFields:  { ...(device.customFields ?? {}) } as Record<string, string>,
-    cfKey:         '',
-    cfValue:       '',
-    // Monitoring
-    overrideGroupSettings: device.overrideGroupSettings ?? false,
-    pushIntervalSeconds:   device.pushIntervalSeconds ?? null as number | null,
-    scanIntervalSeconds:   device.scanIntervalSeconds ?? null as number | null,
-    maxMissedPushes:       device.maxMissedPushes ?? 3,
-    // Notifications
-    notifOnline:   device.notificationTypes?.online   ?? true,
-    notifOffline:  device.notificationTypes?.offline  ?? true,
-    notifWarning:  device.notificationTypes?.warning  ?? true,
-    notifCritical: device.notificationTypes?.critical ?? true,
-    notifUpdate:   device.notificationTypes?.update   ?? false,
-    // Display — section visibility
-    hideCpu:     device.displayConfig?.hideCpu     ?? false,
-    hideMemory:  device.displayConfig?.hideMemory  ?? false,
-    hideDisk:    device.displayConfig?.hideDisk    ?? false,
-    hideNetwork: device.displayConfig?.hideNetwork ?? false,
-    hideTemps:   device.displayConfig?.hideTemps   ?? false,
-    hideGpu:     device.displayConfig?.hideGpu     ?? false,
-    // Display — CPU
-    cpuGroupCoreThreads: device.displayConfig?.cpu?.groupCoreThreads ?? false,
-    // Display — RAM
-    ramHideSwap: device.displayConfig?.ram?.hideSwap ?? false,
-    // Display — Drives
-    driveCombineReadWrite: device.displayConfig?.drives?.combineReadWrite ?? false,
-    // Display — Network
-    networkCombineInOut: device.displayConfig?.network?.combineInOut ?? false,
-    // Sensor renames
-    sensorDisplayNames: { ...(device.sensorDisplayNames ?? {}) } as Record<string, string>,
-    sensorKey:   '',
-    sensorValue: '',
-    // Compliance
-    complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
-    // Asset Management
-    purchaseDate: device.purchaseDate ?? '',
-    warrantyExpiry: device.warrantyExpiry ?? '',
-    warrantyVendor: device.warrantyVendor ?? '',
-    expectedLifetimeYears: device.expectedLifetimeYears ?? null as number | null,
-    // Lot D.2 — per-device threshold override (inherits from group then system)
-    thresholdsOverride: { ...(device.thresholdsOverride ?? {}) } as import('@obliance/shared').MetricThresholds,
-  });
-  const [saving, setSaving] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const formRef = useRef(form);
-  formRef.current = form;
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const [form, setForm] = useState({
+ // Identity
+ displayName: device.displayName ?? '',
+ description: device.description ?? '',
+ // Tags
+ tags: [...(device.tags ?? [])],
+ tagInput: '',
+ // Custom fields
+ customFields: { ...(device.customFields ?? {}) } as Record<string, string>,
+ cfKey: '',
+ cfValue: '',
+ // Monitoring
+ overrideGroupSettings: device.overrideGroupSettings ?? false,
+ pushIntervalSeconds: device.pushIntervalSeconds ?? null as number | null,
+ scanIntervalSeconds: device.scanIntervalSeconds ?? null as number | null,
+ maxMissedPushes: device.maxMissedPushes ?? 3,
+ // Notifications
+ notifOnline: device.notificationTypes?.online ?? true,
+ notifOffline: device.notificationTypes?.offline ?? true,
+ notifWarning: device.notificationTypes?.warning ?? true,
+ notifCritical: device.notificationTypes?.critical ?? true,
+ notifUpdate: device.notificationTypes?.update ?? false,
+ // Display — section visibility
+ hideCpu: device.displayConfig?.hideCpu ?? false,
+ hideMemory: device.displayConfig?.hideMemory ?? false,
+ hideDisk: device.displayConfig?.hideDisk ?? false,
+ hideNetwork: device.displayConfig?.hideNetwork ?? false,
+ hideTemps: device.displayConfig?.hideTemps ?? false,
+ hideGpu: device.displayConfig?.hideGpu ?? false,
+ // Display — CPU
+ cpuGroupCoreThreads: device.displayConfig?.cpu?.groupCoreThreads ?? false,
+ // Display — RAM
+ ramHideSwap: device.displayConfig?.ram?.hideSwap ?? false,
+ // Display — Drives
+ driveCombineReadWrite: device.displayConfig?.drives?.combineReadWrite ?? false,
+ // Display — Network
+ networkCombineInOut: device.displayConfig?.network?.combineInOut ?? false,
+ // Sensor renames
+ sensorDisplayNames: { ...(device.sensorDisplayNames ?? {}) } as Record<string, string>,
+ sensorKey: '',
+ sensorValue: '',
+ // Compliance
+ complianceRemediationEnabled: device.complianceRemediationEnabled ?? true,
+ // Asset Management
+ purchaseDate: device.purchaseDate ?? '',
+ warrantyExpiry: device.warrantyExpiry ?? '',
+ warrantyVendor: device.warrantyVendor ?? '',
+ expectedLifetimeYears: device.expectedLifetimeYears ?? null as number | null,
+ // Lot D.2 — per-device threshold override (inherits from group then system)
+ thresholdsOverride: { ...(device.thresholdsOverride ?? {}) } as import('@obliance/shared').MetricThresholds,
+ });
+ const [saving, setSaving] = useState(false);
+ const [showTransferModal, setShowTransferModal] = useState(false);
+ const formRef = useRef(form);
+ formRef.current = form;
+ const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
-    setForm(prev => ({ ...prev, [key]: value }));
+ const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+ setForm(prev => ({ ...prev, [key]: value }));
 
-  // Auto-save: called on blur (text inputs) or immediately (toggles/selects)
-  const autoSave = useCallback(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(async () => {
-      const f = formRef.current;
-      setSaving(true);
-      try {
-        const base = device.displayConfig ?? emptyDisplayConfig();
-        const displayConfig: Device['displayConfig'] = {
-          ...base,
-          hideCpu: f.hideCpu, hideMemory: f.hideMemory, hideDisk: f.hideDisk,
-          hideNetwork: f.hideNetwork, hideTemps: f.hideTemps, hideGpu: f.hideGpu,
-          cpu:    { ...(base.cpu    ?? { hiddenCores: [], hiddenCharts: [], tempSensor: null }), groupCoreThreads: f.cpuGroupCoreThreads },
-          ram:    { ...(base.ram    ?? { hideUsed: false, hideFree: false, hiddenCharts: [] }), hideSwap: f.ramHideSwap },
-          drives: { ...(base.drives ?? { hiddenMounts: [], renames: {} }), combineReadWrite: f.driveCombineReadWrite },
-          network:{ ...(base.network?? { hiddenInterfaces: [], renames: {} }), combineInOut: f.networkCombineInOut },
-        };
-        await deviceApi.update(device.id, {
-          displayName: f.displayName || undefined,
-          description: f.description || undefined,
-          tags: f.tags, customFields: f.customFields,
-          overrideGroupSettings: f.overrideGroupSettings,
-          pushIntervalSeconds: f.overrideGroupSettings ? (f.pushIntervalSeconds ?? null) : null,
-          scanIntervalSeconds: f.overrideGroupSettings ? (f.scanIntervalSeconds ?? null) : null,
-          maxMissedPushes: f.maxMissedPushes,
-          notificationTypes: { online: f.notifOnline, offline: f.notifOffline, warning: f.notifWarning, critical: f.notifCritical, update: f.notifUpdate },
-          displayConfig, sensorDisplayNames: f.sensorDisplayNames,
-          complianceRemediationEnabled: f.complianceRemediationEnabled,
-          purchaseDate: f.purchaseDate || null,
-          warrantyExpiry: f.warrantyExpiry || null,
-          warrantyVendor: f.warrantyVendor || null,
-          expectedLifetimeYears: f.expectedLifetimeYears,
-          thresholdsOverride: f.thresholdsOverride,
-        });
-        onSaved();
-      } catch {
-        toast.error('Failed to save settings');
-      } finally {
-        setSaving(false);
-      }
-    }, 300);
-  }, [device, onSaved]);
+ // Auto-save: called on blur (text inputs) or immediately (toggles/selects)
+ const autoSave = useCallback(() => {
+ if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+ saveTimeoutRef.current = setTimeout(async () => {
+ const f = formRef.current;
+ setSaving(true);
+ try {
+ const base = device.displayConfig ?? emptyDisplayConfig();
+ const displayConfig: Device['displayConfig'] = {
+ ...base,
+ hideCpu: f.hideCpu, hideMemory: f.hideMemory, hideDisk: f.hideDisk,
+ hideNetwork: f.hideNetwork, hideTemps: f.hideTemps, hideGpu: f.hideGpu,
+ cpu: { ...(base.cpu ?? { hiddenCores: [], hiddenCharts: [], tempSensor: null }), groupCoreThreads: f.cpuGroupCoreThreads },
+ ram: { ...(base.ram ?? { hideUsed: false, hideFree: false, hiddenCharts: [] }), hideSwap: f.ramHideSwap },
+ drives: { ...(base.drives ?? { hiddenMounts: [], renames: {} }), combineReadWrite: f.driveCombineReadWrite },
+ network:{ ...(base.network?? { hiddenInterfaces: [], renames: {} }), combineInOut: f.networkCombineInOut },
+ };
+ await deviceApi.update(device.id, {
+ displayName: f.displayName || undefined,
+ description: f.description || undefined,
+ tags: f.tags, customFields: f.customFields,
+ overrideGroupSettings: f.overrideGroupSettings,
+ pushIntervalSeconds: f.overrideGroupSettings ? (f.pushIntervalSeconds ?? null) : null,
+ scanIntervalSeconds: f.overrideGroupSettings ? (f.scanIntervalSeconds ?? null) : null,
+ maxMissedPushes: f.maxMissedPushes,
+ notificationTypes: { online: f.notifOnline, offline: f.notifOffline, warning: f.notifWarning, critical: f.notifCritical, update: f.notifUpdate },
+ displayConfig, sensorDisplayNames: f.sensorDisplayNames,
+ complianceRemediationEnabled: f.complianceRemediationEnabled,
+ purchaseDate: f.purchaseDate || null,
+ warrantyExpiry: f.warrantyExpiry || null,
+ warrantyVendor: f.warrantyVendor || null,
+ expectedLifetimeYears: f.expectedLifetimeYears,
+ thresholdsOverride: f.thresholdsOverride,
+ });
+ onSaved();
+ } catch {
+ toast.error('Failed to save settings');
+ } finally {
+ setSaving(false);
+ }
+ }, 300);
+ }, [device, onSaved]);
 
-  // For toggles: set + auto-save immediately
-  const setAndSave = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }));
-    // Need a microtask so formRef picks up the new value
-    setTimeout(() => autoSave(), 0);
-  };
+ // For toggles: set + auto-save immediately
+ const setAndSave = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+ setForm(prev => ({ ...prev, [key]: value }));
+ // Need a microtask so formRef picks up the new value
+ setTimeout(() => autoSave(), 0);
+ };
 
-  // Tags
-  const addTag = () => {
-    const t = form.tagInput.trim();
-    if (!t || form.tags.includes(t)) return;
-    setForm(prev => ({ ...prev, tags: [...prev.tags, t], tagInput: '' }));
-    setTimeout(() => autoSave(), 0);
-  };
-  const removeTag = (t: string) => {
-    setForm(prev => ({ ...prev, tags: prev.tags.filter(x => x !== t) }));
-    setTimeout(() => autoSave(), 0);
-  };
+ // Tags
+ const addTag = () => {
+ const t = form.tagInput.trim();
+ if (!t || form.tags.includes(t)) return;
+ setForm(prev => ({ ...prev, tags: [...prev.tags, t], tagInput: '' }));
+ setTimeout(() => autoSave(), 0);
+ };
+ const removeTag = (t: string) => {
+ setForm(prev => ({ ...prev, tags: prev.tags.filter(x => x !== t) }));
+ setTimeout(() => autoSave(), 0);
+ };
 
-  // Custom fields
-  const addCf = () => {
-    const k = form.cfKey.trim(), v = form.cfValue.trim();
-    if (!k) return;
-    setForm(prev => ({ ...prev, customFields: { ...prev.customFields, [k]: v }, cfKey: '', cfValue: '' }));
-    setTimeout(() => autoSave(), 0);
-  };
-  const removeCf = (k: string) => {
-    setForm(prev => { const next = { ...prev.customFields }; delete next[k]; return { ...prev, customFields: next }; });
-    setTimeout(() => autoSave(), 0);
-  };
+ // Custom fields
+ const addCf = () => {
+ const k = form.cfKey.trim(), v = form.cfValue.trim();
+ if (!k) return;
+ setForm(prev => ({ ...prev, customFields: { ...prev.customFields, [k]: v }, cfKey: '', cfValue: '' }));
+ setTimeout(() => autoSave(), 0);
+ };
+ const removeCf = (k: string) => {
+ setForm(prev => { const next = { ...prev.customFields }; delete next[k]; return { ...prev, customFields: next }; });
+ setTimeout(() => autoSave(), 0);
+ };
 
-  // Sensor renames
-  const addSensor = () => {
-    const k = form.sensorKey.trim(), v = form.sensorValue.trim();
-    if (!k) return;
-    setForm(prev => ({ ...prev, sensorDisplayNames: { ...prev.sensorDisplayNames, [k]: v }, sensorKey: '', sensorValue: '' }));
-    setTimeout(() => autoSave(), 0);
-  };
-  const removeSensor = (k: string) => {
-    setForm(prev => { const next = { ...prev.sensorDisplayNames }; delete next[k]; return { ...prev, sensorDisplayNames: next }; });
-    setTimeout(() => autoSave(), 0);
-  };
+ // Sensor renames
+ const addSensor = () => {
+ const k = form.sensorKey.trim(), v = form.sensorValue.trim();
+ if (!k) return;
+ setForm(prev => ({ ...prev, sensorDisplayNames: { ...prev.sensorDisplayNames, [k]: v }, sensorKey: '', sensorValue: '' }));
+ setTimeout(() => autoSave(), 0);
+ };
+ const removeSensor = (k: string) => {
+ setForm(prev => { const next = { ...prev.sensorDisplayNames }; delete next[k]; return { ...prev, sensorDisplayNames: next }; });
+ setTimeout(() => autoSave(), 0);
+ };
 
 
 
-  const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
-  const cardCls  = 'p-5 bg-bg-secondary border border-border rounded-xl space-y-4';
-  const headCls  = 'text-sm font-semibold text-text-muted uppercase tracking-wide';
+ const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
+ const cardCls = 'p-5 bg-bg-secondary rounded-xl space-y-4';
+ const headCls = 'text-sm font-semibold text-text-muted uppercase tracking-wide';
 
-  return (
-    <div className="space-y-6 max-w-2xl">
+ return (
+ <div className="space-y-6 max-w-2xl">
 
-      {/* ── Identity ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Identity</h3>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Display name</span>
-            <input type="text" value={form.displayName} onChange={e => set('displayName', e.target.value)}
-              onBlur={autoSave} placeholder={device.hostname} className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Description</span>
-            <textarea value={form.description} onChange={e => set('description', e.target.value)}
-              onBlur={autoSave} rows={2} className={`${inputCls} resize-none`} />
-          </label>
-        </div>
-      </div>
+ {/* ── Identity ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Identity</h3>
+ <div className="space-y-3">
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Display name</span>
+ <input type="text" value={form.displayName} onChange={e => set('displayName', e.target.value)}
+ onBlur={autoSave} placeholder={device.hostname} className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Description</span>
+ <textarea value={form.description} onChange={e => set('description', e.target.value)}
+ onBlur={autoSave} rows={2} className={`${inputCls} resize-none`} />
+ </label>
+ </div>
+ </div>
 
-      {/* ── Asset Management ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Asset Management</h3>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Purchase date</span>
-            <input type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)}
-              onBlur={autoSave} className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Warranty expiry</span>
-            <input type="date" value={form.warrantyExpiry} onChange={e => set('warrantyExpiry', e.target.value)}
-              onBlur={autoSave} className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Warranty vendor</span>
-            <input type="text" value={form.warrantyVendor} onChange={e => set('warrantyVendor', e.target.value)}
-              onBlur={autoSave} placeholder="Dell, HP, Lenovo..." className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="text-xs text-text-muted mb-1 block">Expected lifetime (years)</span>
-            <input type="number" min={1} max={20} value={form.expectedLifetimeYears ?? ''}
-              onChange={e => set('expectedLifetimeYears', e.target.value ? parseInt(e.target.value) : null)}
-              onBlur={autoSave} className={inputCls} />
-          </label>
-        </div>
-      </div>
+ {/* ── Asset Management ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Asset Management</h3>
+ <div className="space-y-3">
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Purchase date</span>
+ <input type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)}
+ onBlur={autoSave} className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Warranty expiry</span>
+ <input type="date" value={form.warrantyExpiry} onChange={e => set('warrantyExpiry', e.target.value)}
+ onBlur={autoSave} className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Warranty vendor</span>
+ <input type="text" value={form.warrantyVendor} onChange={e => set('warrantyVendor', e.target.value)}
+ onBlur={autoSave} placeholder="Dell, HP, Lenovo..." className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Expected lifetime (years)</span>
+ <input type="number" min={1} max={20} value={form.expectedLifetimeYears ?? ''}
+ onChange={e => set('expectedLifetimeYears', e.target.value ? parseInt(e.target.value) : null)}
+ onBlur={autoSave} className={inputCls} />
+ </label>
+ </div>
+ </div>
 
-      {/* ── Lot D.2 — per-device threshold override ──
-          Inherits from the device's group (which itself inherits from the
-          system default). Empty fields mean "stay inherited". */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Seuils personnalisés</h3>
-        <ThresholdsEditor
-          value={form.thresholdsOverride}
-          onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
-          layer="device"
-        />
-        {/* Per-disk overrides — only shown when the agent has reported
-            at least one mount. Removable/optical drives are filtered
-            out by the editor itself. The "global" disk threshold above
-            still applies to mounts not listed here. */}
-        {(device.latestMetrics?.disks?.length ?? 0) > 0 && (
-          <div className="mt-3 pt-3 border-t border-border">
-            <div className="text-xs uppercase text-text-muted tracking-wider mb-2">Override par disque</div>
-            <PerDiskThresholdsEditor
-              disks={device.latestMetrics!.disks!}
-              value={form.thresholdsOverride}
-              onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
-              inheritedDisk={
-                form.thresholdsOverride.disk?.warn != null && form.thresholdsOverride.disk?.crit != null
-                  ? { warn: form.thresholdsOverride.disk.warn, crit: form.thresholdsOverride.disk.crit }
-                  : SYSTEM_DEFAULT_THRESHOLDS.disk
-              }
-            />
-          </div>
-        )}
-      </div>
+ {/* ── Lot D.2 — per-device threshold override ──
+ Inherits from the device's group (which itself inherits from the
+ system default). Empty fields mean "stay inherited". */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Seuils personnalisés</h3>
+ <ThresholdsEditor
+ value={form.thresholdsOverride}
+ onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
+ layer="device"
+ />
+ {/* Per-disk overrides — only shown when the agent has reported
+ at least one mount. Removable/optical drives are filtered
+ out by the editor itself. The "global" disk threshold above
+ still applies to mounts not listed here. */}
+ {(device.latestMetrics?.disks?.length ?? 0) > 0 && (
+ <div className="mt-3 pt-3 ">
+ <div className="text-xs uppercase text-text-muted tracking-wider mb-2">Override par disque</div>
+ <PerDiskThresholdsEditor
+ disks={device.latestMetrics!.disks!}
+ value={form.thresholdsOverride}
+ onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
+ inheritedDisk={
+ form.thresholdsOverride.disk?.warn != null && form.thresholdsOverride.disk?.crit != null
+ ? { warn: form.thresholdsOverride.disk.warn, crit: form.thresholdsOverride.disk.crit }
+ : SYSTEM_DEFAULT_THRESHOLDS.disk
+ }
+ />
+ </div>
+ )}
+ </div>
 
-      {/* ── Tags ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Tags</h3>
-        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-          {form.tags.map(t => (
-            <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent border border-accent/30">
-              {t}
-              <button onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
-            </span>
-          ))}
-          {form.tags.length === 0 && <span className="text-xs text-text-muted italic">No tags</span>}
-        </div>
-        <div className="flex gap-2">
-          <input type="text" value={form.tagInput} onChange={e => set('tagInput', e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-            placeholder="Add tag…" className={`${inputCls} flex-1`} />
-          <button onClick={addTag}
-            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+ {/* ── Tags ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Tags</h3>
+ <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+ {form.tags.map(t => (
+ <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent border border-accent/30">
+ {t}
+ <button onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+ </span>
+ ))}
+ {form.tags.length === 0 && <span className="text-xs text-text-muted italic">No tags</span>}
+ </div>
+ <div className="flex gap-2">
+ <input type="text" value={form.tagInput} onChange={e => set('tagInput', e.target.value)}
+ onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
+ placeholder="Add tag…" className={`${inputCls} flex-1`} />
+ <button onClick={addTag}
+ className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+ <Plus className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
 
-      {/* ── Custom fields ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Custom fields</h3>
-        {Object.keys(form.customFields).length > 0 && (
-          <div className="space-y-1">
-            {Object.entries(form.customFields).map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-border text-sm">
-                <span className="font-mono text-accent shrink-0">{k}</span>
-                <span className="text-text-muted">·</span>
-                <span className="text-text-secondary flex-1 truncate">{v}</span>
-                <button onClick={() => removeCf(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input type="text" value={form.cfKey} onChange={e => set('cfKey', e.target.value)}
-            placeholder="Key" className={`${inputCls} flex-1`} />
-          <input type="text" value={form.cfValue} onChange={e => set('cfValue', e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCf())}
-            placeholder="Value" className={`${inputCls} flex-1`} />
-          <button onClick={addCf}
-            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+ {/* ── Custom fields ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Custom fields</h3>
+ {Object.keys(form.customFields).length > 0 && (
+ <div className="space-y-1">
+ {Object.entries(form.customFields).map(([k, v]) => (
+ <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-transparent text-sm">
+ <span className="font-mono text-accent shrink-0">{k}</span>
+ <span className="text-text-muted">·</span>
+ <span className="text-text-secondary flex-1 truncate">{v}</span>
+ <button onClick={() => removeCf(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+ </div>
+ ))}
+ </div>
+ )}
+ <div className="flex gap-2">
+ <input type="text" value={form.cfKey} onChange={e => set('cfKey', e.target.value)}
+ placeholder="Key" className={`${inputCls} flex-1`} />
+ <input type="text" value={form.cfValue} onChange={e => set('cfValue', e.target.value)}
+ onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCf())}
+ placeholder="Value" className={`${inputCls} flex-1`} />
+ <button onClick={addCf}
+ className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+ <Plus className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
 
-      {/* ── Monitoring ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Monitoring</h3>
-        <ToggleRow label="Override group settings"
-          description="Apply per-device values instead of group / global defaults"
-          value={form.overrideGroupSettings} onChange={v => setAndSave('overrideGroupSettings', v)} />
-        {form.overrideGroupSettings && (
-          <div className="space-y-3 pt-3 border-t border-border">
-            <label className="block">
-              <span className="text-xs text-text-muted mb-1 block">Push interval (seconds)</span>
-              <input type="number" min={1} max={3600}
-                value={form.pushIntervalSeconds ?? ''}
-                onChange={e => set('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
-                onBlur={autoSave} placeholder="60" className={inputCls} />
-            </label>
-            <label className="block">
-              <span className="text-xs text-text-muted mb-1 block">Scan interval (seconds) — 0 = disabled</span>
-              <input type="number" min={0} max={86400}
-                value={form.scanIntervalSeconds ?? ''}
-                onChange={e => set('scanIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
-                onBlur={autoSave} placeholder="Inherit from group/global" className={inputCls} />
-            </label>
-            <label className="block">
-              <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
-              <input type="number" min={1} max={30}
-                value={form.maxMissedPushes}
-                onChange={e => set('maxMissedPushes', parseInt(e.target.value) || 3)}
-                onBlur={autoSave} className={inputCls} />
-            </label>
-          </div>
-        )}
-      </div>
+ {/* ── Monitoring ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Monitoring</h3>
+ <ToggleRow label="Override group settings"
+ description="Apply per-device values instead of group / global defaults"
+ value={form.overrideGroupSettings} onChange={v => setAndSave('overrideGroupSettings', v)} />
+ {form.overrideGroupSettings && (
+ <div className="space-y-3 pt-3 ">
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Push interval (seconds)</span>
+ <input type="number" min={1} max={3600}
+ value={form.pushIntervalSeconds ?? ''}
+ onChange={e => set('pushIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
+ onBlur={autoSave} placeholder="60" className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Scan interval (seconds) — 0 = disabled</span>
+ <input type="number" min={0} max={86400}
+ value={form.scanIntervalSeconds ?? ''}
+ onChange={e => set('scanIntervalSeconds', e.target.value ? parseInt(e.target.value) : null)}
+ onBlur={autoSave} placeholder="Inherit from group/global" className={inputCls} />
+ </label>
+ <label className="block">
+ <span className="text-xs text-text-muted mb-1 block">Max missed pushes before offline</span>
+ <input type="number" min={1} max={30}
+ value={form.maxMissedPushes}
+ onChange={e => set('maxMissedPushes', parseInt(e.target.value) || 3)}
+ onBlur={autoSave} className={inputCls} />
+ </label>
+ </div>
+ )}
+ </div>
 
-      {/* ── Notifications ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Notifications</h3>
-        <div className="space-y-3">
-          <ToggleRow label="Device comes online"  value={form.notifOnline}   onChange={v => setAndSave('notifOnline', v)} />
-          <ToggleRow label="Device goes offline"  value={form.notifOffline}  onChange={v => setAndSave('notifOffline', v)} />
-          <ToggleRow label="Warning state"        value={form.notifWarning}  onChange={v => setAndSave('notifWarning', v)} />
-          <ToggleRow label="Critical state"       value={form.notifCritical} onChange={v => setAndSave('notifCritical', v)} />
-          <ToggleRow label="Updates available"    value={form.notifUpdate}   onChange={v => setAndSave('notifUpdate', v)} />
-        </div>
-      </div>
+ {/* ── Notifications ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Notifications</h3>
+ <div className="space-y-3">
+ <ToggleRow label="Device comes online" value={form.notifOnline} onChange={v => setAndSave('notifOnline', v)} />
+ <ToggleRow label="Device goes offline" value={form.notifOffline} onChange={v => setAndSave('notifOffline', v)} />
+ <ToggleRow label="Warning state" value={form.notifWarning} onChange={v => setAndSave('notifWarning', v)} />
+ <ToggleRow label="Critical state" value={form.notifCritical} onChange={v => setAndSave('notifCritical', v)} />
+ <ToggleRow label="Updates available" value={form.notifUpdate} onChange={v => setAndSave('notifUpdate', v)} />
+ </div>
+ </div>
 
-      {/* ── Display ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Display</h3>
-        <p className="text-xs text-text-muted -mt-1">Hide or adjust sensors shown on the device monitoring page.</p>
+ {/* ── Display ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Display</h3>
+ <p className="text-xs text-text-muted -mt-1">Hide or adjust sensors shown on the device monitoring page.</p>
 
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide pt-1">Section visibility</p>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-            <ToggleRow label="Hide CPU"     value={form.hideCpu}     onChange={v => setAndSave('hideCpu', v)} />
-            <ToggleRow label="Hide Memory"  value={form.hideMemory}  onChange={v => setAndSave('hideMemory', v)} />
-            <ToggleRow label="Hide Disk"    value={form.hideDisk}    onChange={v => setAndSave('hideDisk', v)} />
-            <ToggleRow label="Hide Network" value={form.hideNetwork} onChange={v => setAndSave('hideNetwork', v)} />
-            <ToggleRow label="Hide Temps"   value={form.hideTemps}   onChange={v => setAndSave('hideTemps', v)} />
-            <ToggleRow label="Hide GPU"     value={form.hideGpu}     onChange={v => setAndSave('hideGpu', v)} />
-          </div>
+ <div className="space-y-3">
+ <p className="text-xs font-semibold text-text-muted uppercase tracking-wide pt-1">Section visibility</p>
+ <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+ <ToggleRow label="Hide CPU" value={form.hideCpu} onChange={v => setAndSave('hideCpu', v)} />
+ <ToggleRow label="Hide Memory" value={form.hideMemory} onChange={v => setAndSave('hideMemory', v)} />
+ <ToggleRow label="Hide Disk" value={form.hideDisk} onChange={v => setAndSave('hideDisk', v)} />
+ <ToggleRow label="Hide Network" value={form.hideNetwork} onChange={v => setAndSave('hideNetwork', v)} />
+ <ToggleRow label="Hide Temps" value={form.hideTemps} onChange={v => setAndSave('hideTemps', v)} />
+ <ToggleRow label="Hide GPU" value={form.hideGpu} onChange={v => setAndSave('hideGpu', v)} />
+ </div>
 
-          <div className="pt-2 border-t border-border space-y-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">CPU</p>
-            <ToggleRow label="Group core threads" description="Pair hyper-threaded cores together in charts"
-              value={form.cpuGroupCoreThreads} onChange={v => setAndSave('cpuGroupCoreThreads', v)} />
-          </div>
+ <div className="pt-2 space-y-3">
+ <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">CPU</p>
+ <ToggleRow label="Group core threads" description="Pair hyper-threaded cores together in charts"
+ value={form.cpuGroupCoreThreads} onChange={v => setAndSave('cpuGroupCoreThreads', v)} />
+ </div>
 
-          <div className="pt-2 border-t border-border space-y-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">RAM</p>
-            <ToggleRow label="Hide swap" value={form.ramHideSwap} onChange={v => setAndSave('ramHideSwap', v)} />
-          </div>
+ <div className="pt-2 space-y-3">
+ <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">RAM</p>
+ <ToggleRow label="Hide swap" value={form.ramHideSwap} onChange={v => setAndSave('ramHideSwap', v)} />
+ </div>
 
-          <div className="pt-2 border-t border-border space-y-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Drives</p>
-            <ToggleRow label="Combine read/write chart"
-              description="Show a single combined I/O chart instead of separate read and write"
-              value={form.driveCombineReadWrite} onChange={v => setAndSave('driveCombineReadWrite', v)} />
-          </div>
+ <div className="pt-2 space-y-3">
+ <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Drives</p>
+ <ToggleRow label="Combine read/write chart"
+ description="Show a single combined I/O chart instead of separate read and write"
+ value={form.driveCombineReadWrite} onChange={v => setAndSave('driveCombineReadWrite', v)} />
+ </div>
 
-          <div className="pt-2 border-t border-border space-y-3">
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Network</p>
-            <ToggleRow label="Combine in/out chart"
-              description="Show a single combined bandwidth chart instead of separate upload and download"
-              value={form.networkCombineInOut} onChange={v => setAndSave('networkCombineInOut', v)} />
-          </div>
-        </div>
-      </div>
+ <div className="pt-2 space-y-3">
+ <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Network</p>
+ <ToggleRow label="Combine in/out chart"
+ description="Show a single combined bandwidth chart instead of separate upload and download"
+ value={form.networkCombineInOut} onChange={v => setAndSave('networkCombineInOut', v)} />
+ </div>
+ </div>
+ </div>
 
-      {/* ── Sensor renames ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Sensor display names</h3>
-        <p className="text-xs text-text-muted -mt-1">Override sensor labels shown in the UI (key = raw sensor name, value = display name).</p>
-        {Object.keys(form.sensorDisplayNames).length > 0 && (
-          <div className="space-y-1">
-            {Object.entries(form.sensorDisplayNames).map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-border text-sm">
-                <span className="font-mono text-text-muted shrink-0 truncate max-w-[40%]">{k}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                <span className="text-text-primary flex-1 truncate">{v}</span>
-                <button onClick={() => removeSensor(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input type="text" value={form.sensorKey} onChange={e => set('sensorKey', e.target.value)}
-            placeholder="Raw sensor name" className={`${inputCls} flex-1`} />
-          <input type="text" value={form.sensorValue} onChange={e => set('sensorValue', e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSensor())}
-            placeholder="Display name" className={`${inputCls} flex-1`} />
-          <button onClick={addSensor}
-            className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-border text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+ {/* ── Sensor renames ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Sensor display names</h3>
+ <p className="text-xs text-text-muted -mt-1">Override sensor labels shown in the UI (key = raw sensor name, value = display name).</p>
+ {Object.keys(form.sensorDisplayNames).length > 0 && (
+ <div className="space-y-1">
+ {Object.entries(form.sensorDisplayNames).map(([k, v]) => (
+ <div key={k} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-primary border border-transparent text-sm">
+ <span className="font-mono text-text-muted shrink-0 truncate max-w-[40%]">{k}</span>
+ <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <span className="text-text-primary flex-1 truncate">{v}</span>
+ <button onClick={() => removeSensor(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+ </div>
+ ))}
+ </div>
+ )}
+ <div className="flex gap-2">
+ <input type="text" value={form.sensorKey} onChange={e => set('sensorKey', e.target.value)}
+ placeholder="Raw sensor name" className={`${inputCls} flex-1`} />
+ <input type="text" value={form.sensorValue} onChange={e => set('sensorValue', e.target.value)}
+ onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSensor())}
+ placeholder="Display name" className={`${inputCls} flex-1`} />
+ <button onClick={addSensor}
+ className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
+ <Plus className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
 
-      {/* ── Compliance ── */}
-      <div className={cardCls}>
-        <h3 className={headCls}>Compliance</h3>
-        <ToggleRow label="Auto-remediation"
-          description="Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off)."
-          value={form.complianceRemediationEnabled}
-          onChange={v => setAndSave('complianceRemediationEnabled', v)} />
-        {!form.complianceRemediationEnabled && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.</span>
-          </div>
-        )}
-      </div>
+ {/* ── Compliance ── */}
+ <div className={cardCls}>
+ <h3 className={headCls}>Compliance</h3>
+ <ToggleRow label="Auto-remediation"
+ description="Allow compliance policies to automatically run fix scripts on this device. Disable if this device must remain in a specific state (e.g. firewall intentionally off)."
+ value={form.complianceRemediationEnabled}
+ onChange={v => setAndSave('complianceRemediationEnabled', v)} />
+ {!form.complianceRemediationEnabled && (
+ <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400">
+ <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+ <span>Auto-remediation is disabled. Failing rules will be reported but no fix scripts will run on this device.</span>
+ </div>
+ )}
+ </div>
 
-      {/* ── Auto-save indicator ── */}
-      {saving && (
-        <div className="flex items-center gap-2 justify-end text-xs text-text-muted">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Saving…
-        </div>
-      )}
+ {/* ── Auto-save indicator ── */}
+ {saving && (
+ <div className="flex items-center gap-2 justify-end text-xs text-text-muted">
+ <Loader2 className="w-3 h-3 animate-spin" />
+ Saving…
+ </div>
+ )}
 
-      {/* ── Privacy mode remote toggle ── */}
-      {adminMode && (
-        <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
-                <Shield className="w-4 h-4 text-orange-400" />
-                Privacy mode
-              </h3>
-              <p className="text-xs text-text-muted mt-1">
-                When enabled, the agent refuses remote-access commands (scripts, processes, files, remote control). The user can also toggle it locally from the tray icon.
-              </p>
-            </div>
-            <div className="shrink-0">
-              {device.privacyModeEnabled ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
-                  <Shield className="w-3 h-3" />
-                  Active
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border">
-                  Off
-                </span>
-              )}
-            </div>
-          </div>
+ {/* ── Privacy mode remote toggle ── */}
+ {adminMode && (
+ <div className="p-5 bg-bg-secondary rounded-xl space-y-4">
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
+ <Shield className="w-4 h-4 text-orange-400" />
+ Privacy mode
+ </h3>
+ <p className="text-xs text-text-muted mt-1">
+ When enabled, the agent refuses remote-access commands (scripts, processes, files, remote control). The user can also toggle it locally from the tray icon.
+ </p>
+ </div>
+ <div className="shrink-0">
+ {device.privacyModeEnabled ? (
+ <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
+ <Shield className="w-3 h-3" />
+ Active
+ </span>
+ ) : (
+ <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-transparent">
+ Off
+ </span>
+ )}
+ </div>
+ </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {!device.privacyModeEnabled ? (
-              <button
-                onClick={async () => {
-                  if (!confirm('Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here).')) return;
-                  try {
-                    await deviceApi.enablePrivacyMode(device.id);
-                    toast.success('Privacy mode enable command sent');
-                    setTimeout(onSaved, 1500);
-                  } catch { toast.error('Failed to send enable command'); }
-                }}
-                disabled={!isAgentReachable(device.status)}
-                title={!isAgentReachable(device.status) ? 'Agent must be online' : undefined}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                Enable privacy mode
-              </button>
-            ) : (
-              <p className="text-xs text-text-muted">
-                Privacy mode is currently active. Use the Disable button in the top header bar (or the tray icon on the machine) to turn it off.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+ <div className="flex items-center gap-2 flex-wrap">
+ {!device.privacyModeEnabled ? (
+ <button
+ onClick={async () => {
+ if (!confirm('Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here).')) return;
+ try {
+ await deviceApi.enablePrivacyMode(device.id);
+ toast.success('Privacy mode enable command sent');
+ setTimeout(onSaved, 1500);
+ } catch { toast.error('Failed to send enable command'); }
+ }}
+ disabled={!isAgentReachable(device.status)}
+ title={!isAgentReachable(device.status) ? 'Agent must be online' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ <Shield className="w-3.5 h-3.5" />
+ Enable privacy mode
+ </button>
+ ) : (
+ <p className="text-xs text-text-muted">
+ Privacy mode is currently active. Use the Disable button in the top header bar (or the tray icon on the machine) to turn it off.
+ </p>
+ )}
+ </div>
+ </div>
+ )}
 
-      {/* ── Privacy password (gate) ── */}
-      {adminMode && (
-        <div className="p-5 bg-bg-secondary border border-border rounded-xl space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
-                <Lock className="w-4 h-4 text-accent" />
-                Privacy password
-              </h3>
-              <p className="text-xs text-text-muted mt-1">
-                Local password stored on the agent. Required to unlock privacy-blocked features from the console or to disable privacy mode remotely. Obliance never stores the password itself — only whether one is set.
-              </p>
-            </div>
-            <div className="shrink-0">
-              {device.privacyPasswordSet ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-green-500/10 text-green-400 border border-green-400/30">
-                  <Lock className="w-3 h-3" />
-                  Set
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-border">
-                  Not set
-                </span>
-              )}
-            </div>
-          </div>
+ {/* ── Privacy password (gate) ── */}
+ {adminMode && (
+ <div className="p-5 bg-bg-secondary rounded-xl space-y-4">
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wide flex items-center gap-2">
+ <Lock className="w-4 h-4 text-accent" />
+ Privacy password
+ </h3>
+ <p className="text-xs text-text-muted mt-1">
+ Local password stored on the agent. Required to unlock privacy-blocked features from the console or to disable privacy mode remotely. Obliance never stores the password itself — only whether one is set.
+ </p>
+ </div>
+ <div className="shrink-0">
+ {device.privacyPasswordSet ? (
+ <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-green-500/10 text-green-400 border border-green-400/30">
+ <Lock className="w-3 h-3" />
+ Set
+ </span>
+ ) : (
+ <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-muted border border-transparent">
+ Not set
+ </span>
+ )}
+ </div>
+ </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {!device.privacyPasswordSet && (
-              <button
-                onClick={() => onManagePrivacyPassword?.('set')}
-                disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
-                title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                Set password
-              </button>
-            )}
-            {device.privacyPasswordSet && (
-              <>
-                <button
-                  onClick={() => onManagePrivacyPassword?.('change')}
-                  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
-                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Change password
-                </button>
-                <button
-                  onClick={() => onManagePrivacyPassword?.('remove')}
-                  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
-                  title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Remove password
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+ <div className="flex items-center gap-2 flex-wrap">
+ {!device.privacyPasswordSet && (
+ <button
+ onClick={() => onManagePrivacyPassword?.('set')}
+ disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+ title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ <Lock className="w-3.5 h-3.5" />
+ Set password
+ </button>
+ )}
+ {device.privacyPasswordSet && (
+ <>
+ <button
+ onClick={() => onManagePrivacyPassword?.('change')}
+ disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+ title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ <Lock className="w-3.5 h-3.5" />
+ Change password
+ </button>
+ <button
+ onClick={() => onManagePrivacyPassword?.('remove')}
+ disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
+ title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ <Trash2 className="w-3.5 h-3.5" />
+ Remove password
+ </button>
+ </>
+ )}
+ </div>
+ </div>
+ )}
 
-      {/* ── Danger Zone ── */}
-      {adminMode && (
-        <div className="p-5 bg-bg-secondary border border-red-500/30 rounded-xl space-y-4">
-          <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
+ {/* ── Danger Zone ── */}
+ {adminMode && (
+ <div className="p-5 bg-bg-secondary border border-red-500/30 rounded-xl space-y-4">
+ <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
 
-          {/* Transfer to another tenant */}
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-text-primary">Transfer to another tenant</p>
-              <p className="text-xs text-text-muted mt-0.5">
-                Move this device to a different tenant you are admin of. Group, custom metrics,
-                schedule alerts and compliance results in the current tenant are cleared.
-                The agent is reconfigured with the target tenant's API key on its next check-in.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowTransferModal(true)}
-              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              Transfer
-            </button>
-          </div>
+ {/* Transfer to another tenant */}
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <p className="text-sm text-text-primary">Transfer to another tenant</p>
+ <p className="text-xs text-text-muted mt-0.5">
+ Move this device to a different tenant you are admin of. Group, custom metrics,
+ schedule alerts and compliance results in the current tenant are cleared.
+ The agent is reconfigured with the target tenant's API key on its next check-in.
+ </p>
+ </div>
+ <button
+ onClick={() => setShowTransferModal(true)}
+ className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+ >
+ <ArrowRightLeft className="w-3.5 h-3.5" />
+ Transfer
+ </button>
+ </div>
 
-          <div className="h-px bg-border" />
+ <div className="h-px bg-border" />
 
-          {/* Delete */}
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-text-primary">Delete device</p>
-              <p className="text-xs text-text-muted mt-0.5">
-                Removes this device from Obliance. The agent is <span className="text-text-primary">not</span> uninstalled
-                — it will re-register on the next push.
-              </p>
-            </div>
-            <button
-              onClick={async () => {
-                const name = anonymize(device.displayName || device.hostname);
-                if (!confirm(`Delete "${name}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.`)) return;
-                try {
-                  await deviceApi.delete(device.id);
-                  toast.success(`Device "${name}" deleted`);
-                  onDeleted();
-                } catch {
-                  toast.error('Failed to delete device');
-                }
-              }}
-              className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </button>
-          </div>
+ {/* Delete */}
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <p className="text-sm text-text-primary">Delete device</p>
+ <p className="text-xs text-text-muted mt-0.5">
+ Removes this device from Obliance. The agent is <span className="text-text-primary">not</span> uninstalled
+ — it will re-register on the next push.
+ </p>
+ </div>
+ <button
+ onClick={async () => {
+ const name = anonymize(device.displayName || device.hostname);
+ if (!confirm(`Delete "${name}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.`)) return;
+ try {
+ await deviceApi.delete(device.id);
+ toast.success(`Device "${name}" deleted`);
+ onDeleted();
+ } catch {
+ toast.error('Failed to delete device');
+ }
+ }}
+ className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors"
+ >
+ <Trash2 className="w-3.5 h-3.5" />
+ Delete
+ </button>
+ </div>
 
-          <div className="h-px bg-border" />
+ <div className="h-px bg-border" />
 
-          {/* Uninstall */}
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-text-primary">Uninstall agent</p>
-              {device.status === 'pending_uninstall' ? (
-                <p className="text-xs text-orange-400 mt-0.5 animate-pulse">
-                  Uninstall in progress — agent is being removed from the machine.
-                  Device disappears from all lists and will reappear automatically if the agent doesn't confirm.
-                </p>
-              ) : (
-                <p className="text-xs text-text-muted mt-0.5">
-                  Immediately uninstalls the agent on the machine. The device disappears
-                  from all lists at once and is permanently deleted when the agent confirms.
-                  If the agent doesn't respond within <span className="text-text-primary">10 min</span>, the device comes back.
-                </p>
-              )}
-            </div>
-            {device.status === 'pending_uninstall' ? (
-              <button
-                onClick={async () => {
-                  try {
-                    await deviceApi.cancelUninstall(device.id);
-                    toast.success('Uninstall cancelled — device restored');
-                    onSaved();
-                  } catch {
-                    toast.error('Failed to cancel uninstall');
-                  }
-                }}
-                className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
-              >
-                <Power className="w-3.5 h-3.5" />
-                Cancel
-              </button>
-            ) : (
-              <button
-                onClick={async () => {
-                  const name = anonymize(device.displayName || device.hostname);
-                  if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.`)) return;
-                  try {
-                    await deviceApi.initiateUninstall(device.id);
-                    toast.success('Uninstall command sent — device hidden from all lists');
-                    onSaved();
-                  } catch {
-                    toast.error('Failed to send uninstall command');
-                  }
-                }}
-                className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
-              >
-                <Power className="w-3.5 h-3.5" />
-                Uninstall
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+ {/* Uninstall */}
+ <div className="flex items-center justify-between gap-4">
+ <div>
+ <p className="text-sm text-text-primary">Uninstall agent</p>
+ {device.status === 'pending_uninstall' ? (
+ <p className="text-xs text-orange-400 mt-0.5 animate-pulse">
+ Uninstall in progress — agent is being removed from the machine.
+ Device disappears from all lists and will reappear automatically if the agent doesn't confirm.
+ </p>
+ ) : (
+ <p className="text-xs text-text-muted mt-0.5">
+ Immediately uninstalls the agent on the machine. The device disappears
+ from all lists at once and is permanently deleted when the agent confirms.
+ If the agent doesn't respond within <span className="text-text-primary">10 min</span>, the device comes back.
+ </p>
+ )}
+ </div>
+ {device.status === 'pending_uninstall' ? (
+ <button
+ onClick={async () => {
+ try {
+ await deviceApi.cancelUninstall(device.id);
+ toast.success('Uninstall cancelled — device restored');
+ onSaved();
+ } catch {
+ toast.error('Failed to cancel uninstall');
+ }
+ }}
+ className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
+ >
+ <Power className="w-3.5 h-3.5" />
+ Cancel
+ </button>
+ ) : (
+ <button
+ onClick={async () => {
+ const name = anonymize(device.displayName || device.hostname);
+ if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.`)) return;
+ try {
+ await deviceApi.initiateUninstall(device.id);
+ toast.success('Uninstall command sent — device hidden from all lists');
+ onSaved();
+ } catch {
+ toast.error('Failed to send uninstall command');
+ }
+ }}
+ className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-colors"
+ >
+ <Power className="w-3.5 h-3.5" />
+ Uninstall
+ </button>
+ )}
+ </div>
+ </div>
+ )}
 
-      {showTransferModal && (
-        <TransferTenantModal
-          deviceId={device.id}
-          deviceName={anonymize(device.displayName || device.hostname)}
-          onClose={() => setShowTransferModal(false)}
-          onTransferred={onDeleted}
-        />
-      )}
-    </div>
-  );
+ {showTransferModal && (
+ <TransferTenantModal
+ deviceId={device.id}
+ deviceName={anonymize(device.displayName || device.hostname)}
+ onClose={() => setShowTransferModal(false)}
+ onTransferred={onDeleted}
+ />
+ )}
+ </div>
+ );
 }
 
 // ─── Remote Tab ──────────────────────────────────────────────────────────────
 
 function RemoteTab({ device }: { device: Device }) {
-  const [sessions, setSessions] = useState<RemoteSession[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isStarting, setIsStarting] = useState(false);
-  // Oblireach modal open flag. Shell sessions (SSH/CMD/PowerShell) now
-  // live in the global multi-session panel.
-  const [orModalOpen, setOrModalOpen]   = useState(false);
-  const [orSession,  setOrSession]  = useState<RemoteSession | null>(null);
-  // Track the session ID we are personally waiting for so a concurrent
-  // session started by another user doesn't overwrite our modal state.
-  const pendingSshId = useRef<string | null>(null);
-  const pendingOrId  = useRef<string | null>(null);
-  const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
-  // null = unknown (loading), false = not installed, true = installed
-  const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
-  const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
-  const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
-  // Remember the wtsSessionId used for the current Oblireach session so the
-  // ObliReachViewer's onReconnect prop can redial the same target after a
-  // Winlogon→user-session transition (login via CAD) tears the tunnel down.
-  const orWtsSessionIdRef = useRef<number | undefined>(undefined);
-  // Shell session picker (cmd/powershell — choose SYSTEM or user session)
-  const [shellSessionPickerOpen, setShellSessionPickerOpen] = useState(false);
-  const [shellWtsSessions, setShellWtsSessions] = useState<{ id: number; username: string; domain: string; state: string; name: string }[]>([]);
-  const pendingShellProtocol = useRef<'cmd' | 'powershell' | 'ssh'>('cmd');
-  const [orVersion, setOrVersion] = useState<string | null>(null);
-  const [orLatestVersion, setOrLatestVersion] = useState<string | null>(null);
-  const [isUpdatingOr, setIsUpdatingOr] = useState(false);
+ const [sessions, setSessions] = useState<RemoteSession[]>([]);
+ const [isLoading, setIsLoading] = useState(false);
+ const [isStarting, setIsStarting] = useState(false);
+ // Oblireach modal open flag. Shell sessions (SSH/CMD/PowerShell) now
+ // live in the global multi-session panel.
+ const [orModalOpen, setOrModalOpen] = useState(false);
+ const [orSession, setOrSession] = useState<RemoteSession | null>(null);
+ // Track the session ID we are personally waiting for so a concurrent
+ // session started by another user doesn't overwrite our modal state.
+ const pendingSshId = useRef<string | null>(null);
+ const pendingOrId = useRef<string | null>(null);
+ const [endingSession, setEndingSession] = useState<Set<string>>(new Set());
+ // null = unknown (loading), false = not installed, true = installed
+ const [orInstalled, setOrInstalled] = useState<boolean | null>(null);
+ const [orSessions, setOrSessions] = useState<ObliReachSession[]>([]);
+ const [orSessionPickerOpen, setOrSessionPickerOpen] = useState(false);
+ // Remember the wtsSessionId used for the current Oblireach session so the
+ // ObliReachViewer's onReconnect prop can redial the same target after a
+ // Winlogon→user-session transition (login via CAD) tears the tunnel down.
+ const orWtsSessionIdRef = useRef<number | undefined>(undefined);
+ // Shell session picker (cmd/powershell — choose SYSTEM or user session)
+ const [shellSessionPickerOpen, setShellSessionPickerOpen] = useState(false);
+ const [shellWtsSessions, setShellWtsSessions] = useState<{ id: number; username: string; domain: string; state: string; name: string }[]>([]);
+ const pendingShellProtocol = useRef<'cmd' | 'powershell' | 'ssh'>('cmd');
+ const [orVersion, setOrVersion] = useState<string | null>(null);
+ const [orLatestVersion, setOrLatestVersion] = useState<string | null>(null);
+ const [isUpdatingOr, setIsUpdatingOr] = useState(false);
 
-  useEffect(() => {
-    remoteApi.listObliReachDeviceUuids().then((uuids) => {
-      const installed = device.uuid ? uuids.has(device.uuid) : false;
-      setOrInstalled(installed);
-      if (installed && device.uuid) {
-        // Fetch current agent version and latest available version in parallel
-        Promise.all([
-          remoteApi.getObliReachDevice(device.uuid),
-          remoteApi.getObliReachLatestVersion(),
-        ]).then(([dev, latest]) => {
-          setOrVersion(dev?.version ?? null);
-          setOrLatestVersion(latest);
-        });
-      }
-    }).catch(() => setOrInstalled(false));
-  }, [device.uuid]);
+ useEffect(() => {
+ remoteApi.listObliReachDeviceUuids().then((uuids) => {
+ const installed = device.uuid ? uuids.has(device.uuid) : false;
+ setOrInstalled(installed);
+ if (installed && device.uuid) {
+ // Fetch current agent version and latest available version in parallel
+ Promise.all([
+ remoteApi.getObliReachDevice(device.uuid),
+ remoteApi.getObliReachLatestVersion(),
+ ]).then(([dev, latest]) => {
+ setOrVersion(dev?.version ?? null);
+ setOrLatestVersion(latest);
+ });
+ }
+ }).catch(() => setOrInstalled(false));
+ }, [device.uuid]);
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const result = await remoteApi.listSessions({ deviceId: device.id });
-        setSessions(result.items);
-      } catch {
-        toast.error('Failed to load sessions');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [device.id]);
+ useEffect(() => {
+ const load = async () => {
+ setIsLoading(true);
+ try {
+ const result = await remoteApi.listSessions({ deviceId: device.id });
+ setSessions(result.items);
+ } catch {
+ toast.error('Failed to load sessions');
+ } finally {
+ setIsLoading(false);
+ }
+ };
+ load();
+ }, [device.id]);
 
-  // Real-time session status updates via socket
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+ // Real-time session status updates via socket
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
 
-    const onSessionUpdated = (session: RemoteSession) => {
-      if (session.deviceId !== device.id) return;
-      setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
-    };
+ const onSessionUpdated = (session: RemoteSession) => {
+ if (session.deviceId !== device.id) return;
+ setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
+ };
 
-    const onTunnelReady = (session: RemoteSession) => {
-      if (session.deviceId !== device.id) return;
-      setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
-      // Only update the modal if this is the session WE started — not a
-      // concurrent session opened by another user on the same device.
-      if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
-        pendingSshId.current = null;
-        // Shell sessions are managed by GlobalShellPanel via the global store.
-      } else if (session.protocol === 'oblireach' && session.id === pendingOrId.current) {
-        setOrSession(session);
-        pendingOrId.current = null;
-      }
-    };
+ const onTunnelReady = (session: RemoteSession) => {
+ if (session.deviceId !== device.id) return;
+ setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
+ // Only update the modal if this is the session WE started — not a
+ // concurrent session opened by another user on the same device.
+ if ((session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && session.id === pendingSshId.current) {
+ pendingSshId.current = null;
+ // Shell sessions are managed by GlobalShellPanel via the global store.
+ } else if (session.protocol === 'oblireach' && session.id === pendingOrId.current) {
+ setOrSession(session);
+ pendingOrId.current = null;
+ }
+ };
 
-    socket.on('REMOTE_SESSION_UPDATED', onSessionUpdated);
-    socket.on('REMOTE_TUNNEL_READY', onTunnelReady);
+ socket.on('REMOTE_SESSION_UPDATED', onSessionUpdated);
+ socket.on('REMOTE_TUNNEL_READY', onTunnelReady);
 
-    return () => {
-      socket.off('REMOTE_SESSION_UPDATED', onSessionUpdated);
-      socket.off('REMOTE_TUNNEL_READY', onTunnelReady);
-    };
-  }, [device.id]);
+ return () => {
+ socket.off('REMOTE_SESSION_UPDATED', onSessionUpdated);
+ socket.off('REMOTE_TUNNEL_READY', onTunnelReady);
+ };
+ }, [device.id]);
 
-  const isShellProtocol = (p: string) => p === 'ssh' || p === 'cmd' || p === 'powershell';
+ const isShellProtocol = (p: string) => p === 'ssh' || p === 'cmd' || p === 'powershell';
 
-  const handleInstallOblireach = async () => {
-    if (!isOnline) { toast.error('Device is offline'); return; }
-    try {
-      await commandApi.enqueue(device.id, 'install_oblireach', {}, 'high');
-      toast.success('Install command sent — the Oblireach agent will be deployed shortly.');
-    } catch {
-      toast.error('Failed to send install command');
-    }
-  };
+ const handleInstallOblireach = async () => {
+ if (!isOnline) { toast.error('Device is offline'); return; }
+ try {
+ await commandApi.enqueue(device.id, 'install_oblireach', {}, 'high');
+ toast.success('Install command sent — the Oblireach agent will be deployed shortly.');
+ } catch {
+ toast.error('Failed to send install command');
+ }
+ };
 
-  const handleUpdateOblireach = async () => {
-    if (!device.uuid) return;
-    setIsUpdatingOr(true);
-    try {
-      await remoteApi.queueObliReachUpdate(device.uuid);
-      toast.success('Update command queued — Oblireach will update on its next heartbeat.');
-    } catch {
-      toast.error('Failed to queue update command');
-    } finally {
-      setIsUpdatingOr(false);
-    }
-  };
+ const handleUpdateOblireach = async () => {
+ if (!device.uuid) return;
+ setIsUpdatingOr(true);
+ try {
+ await remoteApi.queueObliReachUpdate(device.uuid);
+ toast.success('Update command queued — Oblireach will update on its next heartbeat.');
+ } catch {
+ toast.error('Failed to queue update command');
+ } finally {
+ setIsUpdatingOr(false);
+ }
+ };
 
-  /** Returns true when the Oblireach agent version is strictly older than the latest available. */
-  const orUpdateAvailable =
-    orInstalled === true &&
-    orVersion != null &&
-    orLatestVersion != null &&
-    orVersion !== orLatestVersion &&
-    (() => {
-      const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-      const [cm, cmi, cp] = parse(orVersion);
-      const [lm, lmi, lp] = parse(orLatestVersion);
-      if (cm !== lm) return cm < lm;
-      if (cmi !== lmi) return cmi < lmi;
-      return cp < lp;
-    })();
+ /** Returns true when the Oblireach agent version is strictly older than the latest available. */
+ const orUpdateAvailable =
+ orInstalled === true &&
+ orVersion != null &&
+ orLatestVersion != null &&
+ orVersion !== orLatestVersion &&
+ (() => {
+ const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+ const [cm, cmi, cp] = parse(orVersion);
+ const [lm, lmi, lp] = parse(orLatestVersion);
+ if (cm !== lm) return cm < lm;
+ if (cmi !== lmi) return cmi < lmi;
+ return cp < lp;
+ })();
 
-  const handleStartObliReachSession = async (wtsSessionId?: number) => {
-    setOrSessionPickerOpen(false);
-    setOrSession(null);
-    setOrModalOpen(true);
-    setIsStarting(true);
-    orWtsSessionIdRef.current = wtsSessionId;
-    try {
-      const session = await remoteApi.startSession(device.id, 'oblireach', undefined, wtsSessionId);
-      pendingOrId.current = session.id;
-      setSessions((prev) => [session, ...prev]);
-    } catch {
-      toast.error('Failed to start remote session');
-      setOrModalOpen(false);
-    } finally {
-      setIsStarting(false);
-    }
-  };
+ const handleStartObliReachSession = async (wtsSessionId?: number) => {
+ setOrSessionPickerOpen(false);
+ setOrSession(null);
+ setOrModalOpen(true);
+ setIsStarting(true);
+ orWtsSessionIdRef.current = wtsSessionId;
+ try {
+ const session = await remoteApi.startSession(device.id, 'oblireach', undefined, wtsSessionId);
+ pendingOrId.current = session.id;
+ setSessions((prev) => [session, ...prev]);
+ } catch {
+ toast.error('Failed to start remote session');
+ setOrModalOpen(false);
+ } finally {
+ setIsStarting(false);
+ }
+ };
 
-  // Triggered by ObliReachViewer when its WebSocket closes unexpectedly
-  // (typical cause: operator logged the console target in through the CAD
-  // screen → Winlogon→user-session transition tore down the tunnel). We
-  // recreate a fresh session on the same device + same WTS session ID,
-  // which flips the sessionToken prop on the viewer and reopens its WS.
-  const handleReconnectObliReach = async () => {
-    const session = await remoteApi.startSession(
-      device.id, 'oblireach', undefined, orWtsSessionIdRef.current,
-    );
-    pendingOrId.current = session.id;
-    setSessions((prev) => [session, ...prev]);
-    setOrSession(session);
-  };
+ // Triggered by ObliReachViewer when its WebSocket closes unexpectedly
+ // (typical cause: operator logged the console target in through the CAD
+ // screen → Winlogon→user-session transition tore down the tunnel). We
+ // recreate a fresh session on the same device + same WTS session ID,
+ // which flips the sessionToken prop on the viewer and reopens its WS.
+ const handleReconnectObliReach = async () => {
+ const session = await remoteApi.startSession(
+ device.id, 'oblireach', undefined, orWtsSessionIdRef.current,
+ );
+ pendingOrId.current = session.id;
+ setSessions((prev) => [session, ...prev]);
+ setOrSession(session);
+ };
 
-  const handleStartSession = async (protocol: 'oblireach' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
-    // Open the modal immediately so the user sees a connecting overlay
-    // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
-    // If Oblireach agent not installed, redirect to install flow
-    if (protocol === 'oblireach' && orInstalled === false) {
-      handleInstallOblireach();
-      return;
-    }
-    if (protocol === 'oblireach') {
-      // Fetch session list — show picker if multiple sessions available.
-      try {
-        const sessions = await remoteApi.getObliReachSessions(device.uuid ?? '');
-        if (sessions.length > 1) {
-          setOrSessions(sessions);
-          setOrSessionPickerOpen(true);
-          return;
-        }
-        // Single session (or none) — launch directly with that session ID.
-        await handleStartObliReachSession(sessions[0]?.id);
-      } catch {
-        await handleStartObliReachSession(undefined);
-      }
-      return;
-    }
-    if (isShellProtocol(protocol) && device.osType === 'windows' && (protocol === 'cmd' || protocol === 'powershell')) {
-      // On Windows, fetch WTS sessions to let user choose SYSTEM vs user session
-      pendingShellProtocol.current = protocol;
-      try {
-        const res = await commandApi.enqueue(device.id, 'list_wts_sessions', {}, 'high');
-        // The result will come async via command result — but for simplicity,
-        // we'll wait a bit for the command to complete, or open picker with just SYSTEM option
-        // Actually, use the direct command channel: send and listen for result
-        setShellWtsSessions([]);
-        setShellSessionPickerOpen(true);
-        // Listen for the command result
-        const onResult = (cmd: Command) => {
-          if (cmd.id !== res.id) return;
-          if (cmd.status === 'success' && cmd.result) {
-            const sessions = (cmd.result as any)?.sessions ?? [];
-            setShellWtsSessions(sessions);
-          }
-        };
-        const socket = getSocket();
-        socket?.on('COMMAND_UPDATED', onResult);
-        // Cleanup after 10s
-        setTimeout(() => {
-          socket?.off('COMMAND_UPDATED', onResult);
-        }, 10_000);
-      } catch {
-        // Failed to list sessions — open directly as SYSTEM
-        startShellSession(protocol);
-      }
-      return;
-    }
-    if (isShellProtocol(protocol)) {
-      startShellSession(protocol);
-    }
-  };
+ const handleStartSession = async (protocol: 'oblireach' | 'rdp' | 'ssh' | 'cmd' | 'powershell') => {
+ // Open the modal immediately so the user sees a connecting overlay
+ // instead of waiting for REMOTE_TUNNEL_READY (which can take several seconds).
+ // If Oblireach agent not installed, redirect to install flow
+ if (protocol === 'oblireach' && orInstalled === false) {
+ handleInstallOblireach();
+ return;
+ }
+ if (protocol === 'oblireach') {
+ // Fetch session list — show picker if multiple sessions available.
+ try {
+ const sessions = await remoteApi.getObliReachSessions(device.uuid ?? '');
+ if (sessions.length > 1) {
+ setOrSessions(sessions);
+ setOrSessionPickerOpen(true);
+ return;
+ }
+ // Single session (or none) — launch directly with that session ID.
+ await handleStartObliReachSession(sessions[0]?.id);
+ } catch {
+ await handleStartObliReachSession(undefined);
+ }
+ return;
+ }
+ if (isShellProtocol(protocol) && device.osType === 'windows' && (protocol === 'cmd' || protocol === 'powershell')) {
+ // On Windows, fetch WTS sessions to let user choose SYSTEM vs user session
+ pendingShellProtocol.current = protocol;
+ try {
+ const res = await commandApi.enqueue(device.id, 'list_wts_sessions', {}, 'high');
+ // The result will come async via command result — but for simplicity,
+ // we'll wait a bit for the command to complete, or open picker with just SYSTEM option
+ // Actually, use the direct command channel: send and listen for result
+ setShellWtsSessions([]);
+ setShellSessionPickerOpen(true);
+ // Listen for the command result
+ const onResult = (cmd: Command) => {
+ if (cmd.id !== res.id) return;
+ if (cmd.status === 'success' && cmd.result) {
+ const sessions = (cmd.result as any)?.sessions ?? [];
+ setShellWtsSessions(sessions);
+ }
+ };
+ const socket = getSocket();
+ socket?.on('COMMAND_UPDATED', onResult);
+ // Cleanup after 10s
+ setTimeout(() => {
+ socket?.off('COMMAND_UPDATED', onResult);
+ }, 10_000);
+ } catch {
+ // Failed to list sessions — open directly as SYSTEM
+ startShellSession(protocol);
+ }
+ return;
+ }
+ if (isShellProtocol(protocol)) {
+ startShellSession(protocol);
+ }
+ };
 
-  const startShellSession = async (protocol: 'ssh' | 'cmd' | 'powershell', wtsSessionId?: number) => {
-    setShellSessionPickerOpen(false);
-    setIsStarting(true);
-    try {
-      const session = await remoteApi.startSession(device.id, protocol, undefined, wtsSessionId);
-      pendingSshId.current = session.id;
-      setSessions((prev) => [session, ...prev]);
+ const startShellSession = async (protocol: 'ssh' | 'cmd' | 'powershell', wtsSessionId?: number) => {
+ setShellSessionPickerOpen(false);
+ setIsStarting(true);
+ try {
+ const session = await remoteApi.startSession(device.id, protocol, undefined, wtsSessionId);
+ pendingSshId.current = session.id;
+ setSessions((prev) => [session, ...prev]);
 
-      // Push to the global multi-session panel instead of opening a
-      // modal local to this page — the user can then minimize, tab
-      // between shells, and it survives route changes.
-      const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
-      const { useRemoteShellStore } = await import('@/store/remoteShellStore');
-      const add = () => useRemoteShellStore.getState().addSession({
-        id: session.sessionToken,
-        deviceId: device.id,
-        deviceName,
-        protocol,
-        sessionToken: session.sessionToken,
-      });
-      const socket = getSocket();
-      if (socket) {
-        const onReady = (s: RemoteSession) => {
-          if (s.deviceId !== device.id || s.id !== session.id) return;
-          socket.off('REMOTE_TUNNEL_READY', onReady);
-          add();
-        };
-        socket.on('REMOTE_TUNNEL_READY', onReady);
-        setTimeout(() => {
-          socket.off('REMOTE_TUNNEL_READY', onReady);
-          const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
-          if (!already) add();
-        }, 1500);
-      } else {
-        add();
-      }
-    } catch {
-      toast.error('Failed to start remote session');
-    } finally {
-      setIsStarting(false);
-    }
-  };
+ // Push to the global multi-session panel instead of opening a
+ // modal local to this page — the user can then minimize, tab
+ // between shells, and it survives route changes.
+ const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
+ const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+ const add = () => useRemoteShellStore.getState().addSession({
+ id: session.sessionToken,
+ deviceId: device.id,
+ deviceName,
+ protocol,
+ sessionToken: session.sessionToken,
+ });
+ const socket = getSocket();
+ if (socket) {
+ const onReady = (s: RemoteSession) => {
+ if (s.deviceId !== device.id || s.id !== session.id) return;
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ add();
+ };
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ setTimeout(() => {
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
+ if (!already) add();
+ }, 1500);
+ } else {
+ add();
+ }
+ } catch {
+ toast.error('Failed to start remote session');
+ } finally {
+ setIsStarting(false);
+ }
+ };
 
-  const handleEndSession = async (session: RemoteSession) => {
-    setEndingSession((prev) => new Set(prev).add(session.id));
-    try {
-      await remoteApi.endSession(session.id);
-      setSessions((prev) => prev.map((s) =>
-        s.id === session.id ? { ...s, status: 'expired' as const } : s,
-      ));
-    } catch {
-      toast.error('Failed to end session');
-    } finally {
-      setEndingSession((prev) => { const next = new Set(prev); next.delete(session.id); return next; });
-    }
-  };
+ const handleEndSession = async (session: RemoteSession) => {
+ setEndingSession((prev) => new Set(prev).add(session.id));
+ try {
+ await remoteApi.endSession(session.id);
+ setSessions((prev) => prev.map((s) =>
+ s.id === session.id ? { ...s, status: 'expired' as const } : s,
+ ));
+ } catch {
+ toast.error('Failed to end session');
+ } finally {
+ setEndingSession((prev) => { const next = new Set(prev); next.delete(session.id); return next; });
+ }
+ };
 
-  const isOnline = isAgentReachable(device.status);
+ const isOnline = isAgentReachable(device.status);
 
-  return (
-    <>
-      {orModalOpen && (
-        <ObliReachViewer
-          sessionToken={orSession?.sessionToken ?? null}
-          deviceName={anonymize(device.displayName || device.hostname)}
-          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
-          onClose={async () => {
-            if (orSession) try { await remoteApi.endSession(orSession.id); } catch {}
-            setOrModalOpen(false);
-            setOrSession(null);
-          }}
-          onReconnect={handleReconnectObliReach}
-        />
-      )}
-      {/* WTS Session picker — shown on RDS when multiple sessions are available */}
-      {orSessionPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                <MonitorPlay className="w-4 h-4 text-accent" />
-                Choose Session
-              </h2>
-              <button
-                onClick={() => setOrSessionPickerOpen(false)}
-                className="text-text-muted hover:text-text-primary transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
-              {orSessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => handleStartObliReachSession(s.id)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
-                >
-                  <div className={clsx(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    s.state === 'Active' ? 'bg-green-400' :
-                    s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
-                  )} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-text-primary truncate">
-                      {s.username || '(no user)'}
-                    </div>
-                    <div className="text-xs text-text-muted">
-                      {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      {shellSessionPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                <TerminalSquare className="w-4 h-4 text-accent" />
-                {pendingShellProtocol.current === 'powershell' ? 'PowerShell' : 'CMD'} — Choose Context
-              </h2>
-              <button
-                onClick={() => setShellSessionPickerOpen(false)}
-                className="text-text-muted hover:text-text-primary transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
-              <button
-                onClick={() => startShellSession(pendingShellProtocol.current)}
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
-              >
-                <div className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-400" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-text-primary">SYSTEM</div>
-                  <div className="text-xs text-text-muted">Run as NT AUTHORITY\SYSTEM</div>
-                </div>
-              </button>
-              {shellWtsSessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => startShellSession(pendingShellProtocol.current, s.id)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
-                >
-                  <div className={clsx(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    s.state === 'active' ? 'bg-green-400' :
-                    s.state === 'disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
-                  )} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-text-primary truncate">
-                      {s.domain ? `${s.domain}\\${s.username}` : s.username}
-                    </div>
-                    <div className="text-xs text-text-muted">
-                      Session {s.id}{s.name ? ` · ${s.name}` : ''} · {s.state}
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {shellWtsSessions.length === 0 && (
-                <div className="px-3 py-2 text-xs text-text-muted flex items-center gap-2">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Loading user sessions…
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Shell sessions now render in the global GlobalShellPanel. */}
-      <div className="space-y-4">
-      {/* Start session buttons */}
-      <div className="p-4 bg-bg-secondary border border-border rounded-xl space-y-3">
-        <h3 className="text-sm font-semibold text-text-primary">Start Remote Session</h3>
-        {!isOnline && (
-          <p className="text-sm text-yellow-400 flex items-center gap-2">
-            <WifiOff className="w-4 h-4" />
-            Device is offline — remote access unavailable
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          {/* Oblireach — Windows and macOS only */}
-          {device.osType !== 'linux' && (
-            <>
-              {orInstalled === true ? (
-                <button
-                  onClick={() => handleStartSession('oblireach')}
-                  disabled={!isOnline || isStarting}
-                  className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                >
-                  <MonitorPlay className="w-4 h-4" />
-                  Reach
-                </button>
-              ) : (
-                <button
-                  onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
-                  disabled={!isOnline || isStarting || orInstalled === null}
-                  title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                >
-                  <MonitorPlay className="w-4 h-4" />
-                  Reach
-                  <span className="text-xs opacity-70">
-                    {orInstalled === null ? '…' : '(install)'}
-                  </span>
-                </button>
-              )}
-              {/* Update available badge */}
-              {orUpdateAvailable && (
-                <button
-                  onClick={handleUpdateOblireach}
-                  disabled={isUpdatingOr}
-                  title={`Update Oblireach: v${orVersion} → v${orLatestVersion}`}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  {isUpdatingOr ? 'Queuing…' : `Update Reach → v${orLatestVersion}`}
-                </button>
-              )}
-            </>
-          )}
-          {/* Other protocols */}
-          {(
-            device.osType === 'windows' ? (['cmd', 'powershell'] as const) :
-            device.osType === 'macos'   ? (['ssh'] as const) :
-                                          (['ssh'] as const)
-          ).map((proto) => (
-            <button
-              key={proto}
-              onClick={() => handleStartSession(proto)}
-              disabled={!isOnline || isStarting}
-              className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              <MonitorPlay className="w-4 h-4" />
-              {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
+ return (
+ <>
+ {orModalOpen && (
+ <ObliReachViewer
+ sessionToken={orSession?.sessionToken ?? null}
+ deviceName={anonymize(device.displayName || device.hostname)}
+ preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
+ onClose={async () => {
+ if (orSession) try { await remoteApi.endSession(orSession.id); } catch {}
+ setOrModalOpen(false);
+ setOrSession(null);
+ }}
+ onReconnect={handleReconnectObliReach}
+ />
+ )}
+ {/* WTS Session picker — shown on RDS when multiple sessions are available */}
+ {orSessionPickerOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+ <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
+ <div className="flex items-center justify-between p-4 ">
+ <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <MonitorPlay className="w-4 h-4 text-accent" />
+ Choose Session
+ </h2>
+ <button
+ onClick={() => setOrSessionPickerOpen(false)}
+ className="text-text-muted hover:text-text-primary transition-colors"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+ <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ {orSessions.map((s) => (
+ <button
+ key={s.id}
+ onClick={() => handleStartObliReachSession(s.id)}
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ >
+ <div className={clsx(
+ 'w-2 h-2 rounded-full flex-shrink-0',
+ s.state === 'Active' ? 'bg-green-400' :
+ s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+ )} />
+ <div className="min-w-0 flex-1">
+ <div className="text-sm font-medium text-text-primary truncate">
+ {s.username || '(no user)'}
+ </div>
+ <div className="text-xs text-text-muted">
+ {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
+ </div>
+ </div>
+ </button>
+ ))}
+ </div>
+ </div>
+ </div>
+ )}
+ {shellSessionPickerOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+ <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
+ <div className="flex items-center justify-between p-4 ">
+ <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <TerminalSquare className="w-4 h-4 text-accent" />
+ {pendingShellProtocol.current === 'powershell' ? 'PowerShell' : 'CMD'} — Choose Context
+ </h2>
+ <button
+ onClick={() => setShellSessionPickerOpen(false)}
+ className="text-text-muted hover:text-text-primary transition-colors"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+ <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ <button
+ onClick={() => startShellSession(pendingShellProtocol.current)}
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ >
+ <div className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-400" />
+ <div className="min-w-0 flex-1">
+ <div className="text-sm font-medium text-text-primary">SYSTEM</div>
+ <div className="text-xs text-text-muted">Run as NT AUTHORITY\SYSTEM</div>
+ </div>
+ </button>
+ {shellWtsSessions.map((s) => (
+ <button
+ key={s.id}
+ onClick={() => startShellSession(pendingShellProtocol.current, s.id)}
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ >
+ <div className={clsx(
+ 'w-2 h-2 rounded-full flex-shrink-0',
+ s.state === 'active' ? 'bg-green-400' :
+ s.state === 'disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+ )} />
+ <div className="min-w-0 flex-1">
+ <div className="text-sm font-medium text-text-primary truncate">
+ {s.domain ? `${s.domain}\\${s.username}` : s.username}
+ </div>
+ <div className="text-xs text-text-muted">
+ Session {s.id}{s.name ? ` · ${s.name}` : ''} · {s.state}
+ </div>
+ </div>
+ </button>
+ ))}
+ {shellWtsSessions.length === 0 && (
+ <div className="px-3 py-2 text-xs text-text-muted flex items-center gap-2">
+ <RefreshCw className="w-3 h-3 animate-spin" />
+ Loading user sessions…
+ </div>
+ )}
+ </div>
+ </div>
+ </div>
+ )}
+ {/* Shell sessions now render in the global GlobalShellPanel. */}
+ <div className="space-y-4">
+ {/* Start session buttons */}
+ <div className="p-4 bg-bg-secondary rounded-xl space-y-3">
+ <h3 className="text-sm font-semibold text-text-primary">Start Remote Session</h3>
+ {!isOnline && (
+ <p className="text-sm text-yellow-400 flex items-center gap-2">
+ <WifiOff className="w-4 h-4" />
+ Device is offline — remote access unavailable
+ </p>
+ )}
+ <div className="flex flex-wrap gap-2">
+ {/* Oblireach — Windows and macOS only */}
+ {device.osType !== 'linux' && (
+ <>
+ {orInstalled === true ? (
+ <button
+ onClick={() => handleStartSession('oblireach')}
+ disabled={!isOnline || isStarting}
+ className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+ >
+ <MonitorPlay className="w-4 h-4" />
+ Reach
+ </button>
+ ) : (
+ <button
+ onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
+ disabled={!isOnline || isStarting || orInstalled === null}
+ title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
+ className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+ >
+ <MonitorPlay className="w-4 h-4" />
+ Reach
+ <span className="text-xs opacity-70">
+ {orInstalled === null ? '…' : '(install)'}
+ </span>
+ </button>
+ )}
+ {/* Update available badge */}
+ {orUpdateAvailable && (
+ <button
+ onClick={handleUpdateOblireach}
+ disabled={isUpdatingOr}
+ title={`Update Oblireach: v${orVersion} → v${orLatestVersion}`}
+ className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium"
+ >
+ <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+ </svg>
+ {isUpdatingOr ? 'Queuing…' : `Update Reach → v${orLatestVersion}`}
+ </button>
+ )}
+ </>
+ )}
+ {/* Other protocols */}
+ {(
+ device.osType === 'windows' ? (['cmd', 'powershell'] as const) :
+ device.osType === 'macos' ? (['ssh'] as const) :
+ (['ssh'] as const)
+ ).map((proto) => (
+ <button
+ key={proto}
+ onClick={() => handleStartSession(proto)}
+ disabled={!isOnline || isStarting}
+ className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+ >
+ <MonitorPlay className="w-4 h-4" />
+ {proto === 'powershell' ? 'PowerShell' : proto.toUpperCase()}
+ </button>
+ ))}
+ </div>
+ </div>
 
-      {/* Session history */}
-      <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold text-text-primary">Session History</h3>
-        </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>
-        ) : sessions.length === 0 ? (
-          <div className="p-6 text-center text-text-muted text-sm">No remote sessions yet</div>
-        ) : (
-          <div className="divide-y divide-border">
-            {sessions.map((session) => (
-              <div key={session.id} className="px-4 py-3 flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-text-primary">{session.protocol.toUpperCase()}</p>
-                    <span className={clsx(
-                      'text-xs px-2 py-0.5 rounded-full border',
-                      session.status === 'active'     ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-                      session.status === 'waiting'    ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30 animate-pulse' :
-                      session.status === 'connecting' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30 animate-pulse' :
-                      session.status === 'failed'     ? 'text-red-400 bg-red-400/10 border-red-400/30' :
-                      session.status === 'timeout'    ? 'text-orange-400 bg-orange-400/10 border-orange-400/30' :
-                                                        'text-gray-400 bg-gray-400/10 border-gray-400/30',
-                    )}>
-                      {session.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    {session.startedByUser && (
-                      <span className="text-text-primary">{session.startedByUser.displayName || session.startedByUser.username} · </span>
-                    )}
-                    {new Date(session.startedAt).toLocaleString()}
-                    {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
-                  </p>
-                </div>
-                {session.status === 'active' && session.protocol === 'oblireach' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setOrSession(session); setOrModalOpen(true); }}
-                      className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
-                    >
-                      View
-                    </button>
-                  </div>
-                )}
-                {session.status === 'active' && isShellProtocol(session.protocol) && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        const { useRemoteShellStore } = await import('@/store/remoteShellStore');
-                        const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
-                        // If already in the panel, just switch to it; else add.
-                        const st = useRemoteShellStore.getState();
-                        if (st.sessions.find((x) => x.id === session.sessionToken)) {
-                          st.setActive(session.sessionToken);
-                          st.setOpen(true);
-                        } else {
-                          st.addSession({
-                            id: session.sessionToken,
-                            deviceId: device.id,
-                            deviceName,
-                            protocol: session.protocol as 'ssh' | 'cmd' | 'powershell',
-                            sessionToken: session.sessionToken,
-                          });
-                        }
-                      }}
-                      className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
-                    >
-                      Open
-                    </button>
-                    <button
-                      onClick={() => handleEndSession(session)}
-                      disabled={endingSession.has(session.id)}
-                      title="End session"
-                      className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                      End
-                    </button>
-                  </div>
-                )}
-                {(session.status === 'waiting' || session.status === 'connecting') && (
-                  <button
-                    onClick={() => handleEndSession(session)}
-                    disabled={endingSession.has(session.id)}
-                    title="Cancel session"
-                    className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {endingSession.has(session.id)
-                      ? <RefreshCw className="w-3 h-3 animate-spin" />
-                      : <X className="w-3 h-3" />}
-                    Cancel
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      </div>
-    </>
-  );
+ {/* Session history */}
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <div className="px-4 py-3 ">
+ <h3 className="text-sm font-semibold text-text-primary">Session History</h3>
+ </div>
+ {isLoading ? (
+ <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 animate-spin text-text-muted" /></div>
+ ) : sessions.length === 0 ? (
+ <div className="p-6 text-center text-text-muted text-sm">No remote sessions yet</div>
+ ) : (
+ <div className="divide-y divide-border">
+ {sessions.map((session) => (
+ <div key={session.id} className="px-4 py-3 flex items-center gap-4">
+ <div className="flex-1">
+ <div className="flex items-center gap-2">
+ <p className="text-sm text-text-primary">{session.protocol.toUpperCase()}</p>
+ <span className={clsx(
+ 'text-xs px-2 py-0.5 rounded-full border',
+ session.status === 'active' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+ session.status === 'waiting' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30 animate-pulse' :
+ session.status === 'connecting' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30 animate-pulse' :
+ session.status === 'failed' ? 'text-red-400 bg-red-400/10 border-red-400/30' :
+ session.status === 'timeout' ? 'text-orange-400 bg-orange-400/10 border-orange-400/30' :
+ 'text-gray-400 bg-gray-400/10 border-gray-400/30',
+ )}>
+ {session.status}
+ </span>
+ </div>
+ <p className="text-xs text-text-muted mt-0.5">
+ {session.startedByUser && (
+ <span className="text-text-primary">{session.startedByUser.displayName || session.startedByUser.username} · </span>
+ )}
+ {new Date(session.startedAt).toLocaleString()}
+ {session.durationSeconds != null && ` · ${Math.round(session.durationSeconds / 60)}min`}
+ </p>
+ </div>
+ {session.status === 'active' && session.protocol === 'oblireach' && (
+ <div className="flex items-center gap-2">
+ <button
+ onClick={() => { setOrSession(session); setOrModalOpen(true); }}
+ className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
+ >
+ View
+ </button>
+ </div>
+ )}
+ {session.status === 'active' && isShellProtocol(session.protocol) && (
+ <div className="flex items-center gap-2">
+ <button
+ onClick={async () => {
+ const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+ const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
+ // If already in the panel, just switch to it; else add.
+ const st = useRemoteShellStore.getState();
+ if (st.sessions.find((x) => x.id === session.sessionToken)) {
+ st.setActive(session.sessionToken);
+ st.setOpen(true);
+ } else {
+ st.addSession({
+ id: session.sessionToken,
+ deviceId: device.id,
+ deviceName,
+ protocol: session.protocol as 'ssh' | 'cmd' | 'powershell',
+ sessionToken: session.sessionToken,
+ });
+ }
+ }}
+ className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
+ >
+ Open
+ </button>
+ <button
+ onClick={() => handleEndSession(session)}
+ disabled={endingSession.has(session.id)}
+ title="End session"
+ className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+ End
+ </button>
+ </div>
+ )}
+ {(session.status === 'waiting' || session.status === 'connecting') && (
+ <button
+ onClick={() => handleEndSession(session)}
+ disabled={endingSession.has(session.id)}
+ title="Cancel session"
+ className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {endingSession.has(session.id)
+ ? <RefreshCw className="w-3 h-3 animate-spin" />
+ : <X className="w-3 h-3" />}
+ Cancel
+ </button>
+ )}
+ </div>
+ ))}
+ </div>
+ )}
+ </div>
+ </div>
+ </>
+ );
 }
 
 // ─── Commands / Tasks Tab ───────────────────────────────────────────────────────
 
 const COMMAND_LABELS: Record<string, string> = {
-  run_script: 'Run Script',
-  install_update: 'Install Update',
-  install_updates: 'Install Updates (batch)',
-  cancel_script: 'Cancel Script',
-  scan_inventory: 'Scan Inventory',
-  scan_updates: 'Scan Updates',
-  check_compliance: 'Check Compliance',
-  remediate_rule: 'Remediate Rule',
-  open_remote_tunnel: 'Open Tunnel',
-  close_remote_tunnel: 'Close Tunnel',
-  reboot: 'Reboot',
-  shutdown: 'Shutdown',
-  restart_agent: 'Restart Agent',
-  list_services: 'List Services',
-  restart_service: 'Restart Service',
-  start_service: 'Start Service',
-  stop_service: 'Stop Service',
-  install_software: 'Install Software',
-  uninstall_software: 'Uninstall Software',
-  uninstall_agent: 'Uninstall Agent',
-  install_oblireach: 'Install ObliReach',
-  disable_privacy_mode: 'Disable Privacy',
-  list_processes: 'List Processes',
-  kill_process: 'Kill Process',
-  list_wts_sessions: 'List Sessions',
-  list_directory: 'List Directory',
-  create_directory: 'Create Directory',
-  rename_file: 'Rename File',
-  delete_file: 'Delete File',
-  download_file: 'Download File',
-  upload_file: 'Upload File',
-  scan_network: 'Network Scan',
+ run_script: 'Run Script',
+ install_update: 'Install Update',
+ install_updates: 'Install Updates (batch)',
+ cancel_script: 'Cancel Script',
+ scan_inventory: 'Scan Inventory',
+ scan_updates: 'Scan Updates',
+ check_compliance: 'Check Compliance',
+ remediate_rule: 'Remediate Rule',
+ open_remote_tunnel: 'Open Tunnel',
+ close_remote_tunnel: 'Close Tunnel',
+ reboot: 'Reboot',
+ shutdown: 'Shutdown',
+ restart_agent: 'Restart Agent',
+ list_services: 'List Services',
+ restart_service: 'Restart Service',
+ start_service: 'Start Service',
+ stop_service: 'Stop Service',
+ install_software: 'Install Software',
+ uninstall_software: 'Uninstall Software',
+ uninstall_agent: 'Uninstall Agent',
+ install_oblireach: 'Install ObliReach',
+ disable_privacy_mode: 'Disable Privacy',
+ list_processes: 'List Processes',
+ kill_process: 'Kill Process',
+ list_wts_sessions: 'List Sessions',
+ list_directory: 'List Directory',
+ create_directory: 'Create Directory',
+ rename_file: 'Rename File',
+ delete_file: 'Delete File',
+ download_file: 'Download File',
+ upload_file: 'Upload File',
+ scan_network: 'Network Scan',
 };
 
 const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
-  pending:     { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Pending' },
-  sent:        { color: 'text-blue-300',   bg: 'bg-blue-400/10',   label: 'Sent' },
-  ack_running: { color: 'text-blue-400',   bg: 'bg-blue-400/10',   label: 'Running' },
-  success:     { color: 'text-green-400',  bg: 'bg-green-400/10',  label: 'Success' },
-  failure:     { color: 'text-red-400',    bg: 'bg-red-400/10',    label: 'Failed' },
-  timeout:     { color: 'text-orange-400', bg: 'bg-orange-400/10', label: 'Timeout' },
-  cancelled:   { color: 'text-gray-400',   bg: 'bg-gray-400/10',   label: 'Cancelled' },
+ pending: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Pending' },
+ sent: { color: 'text-blue-300', bg: 'bg-blue-400/10', label: 'Sent' },
+ ack_running: { color: 'text-blue-400', bg: 'bg-blue-400/10', label: 'Running' },
+ success: { color: 'text-green-400', bg: 'bg-green-400/10', label: 'Success' },
+ failure: { color: 'text-red-400', bg: 'bg-red-400/10', label: 'Failed' },
+ timeout: { color: 'text-orange-400', bg: 'bg-orange-400/10', label: 'Timeout' },
+ cancelled: { color: 'text-gray-400', bg: 'bg-gray-400/10', label: 'Cancelled' },
 };
 
 type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'remediation';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
-  const socket = getSocket();
-  const [commands, setCommands] = useState<Command[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<CmdFilter>('all');
-  const [cancelling, setCancelling] = useState<Set<string>>(new Set());
-  const [pageSize, setPageSize] = useState(50);
-  const [page, setPage] = useState(1);
+ const socket = getSocket();
+ const [commands, setCommands] = useState<Command[]>([]);
+ const [totalCount, setTotalCount] = useState(0);
+ const [isLoading, setIsLoading] = useState(true);
+ const [filter, setFilter] = useState<CmdFilter>('all');
+ const [cancelling, setCancelling] = useState<Set<string>>(new Set());
+ const [pageSize, setPageSize] = useState(50);
+ const [page, setPage] = useState(1);
 
-  const load = async () => {
-    setIsLoading(true);
-    try {
-      const result = await commandApi.list(deviceId, {
-        page,
-        limit: pageSize > 0 ? pageSize : undefined, // 0 = all
-      });
-      setCommands(result.items);
-      setTotalCount(result.total);
-    } catch {
-      toast.error('Failed to load tasks');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const load = async () => {
+ setIsLoading(true);
+ try {
+ const result = await commandApi.list(deviceId, {
+ page,
+ limit: pageSize > 0 ? pageSize : undefined, // 0 = all
+ });
+ setCommands(result.items);
+ setTotalCount(result.total);
+ } catch {
+ toast.error('Failed to load tasks');
+ } finally {
+ setIsLoading(false);
+ }
+ };
 
-  useEffect(() => { load(); }, [deviceId, page, pageSize]);
+ useEffect(() => { load(); }, [deviceId, page, pageSize]);
 
-  // Real-time: update or prepend commands as they change
-  useEffect(() => {
-    const onUpdate = (cmd: Command) => {
-      if (cmd.deviceId !== deviceId) return;
-      setCommands(prev => {
-        const idx = prev.findIndex(c => c.id === cmd.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = cmd;
-          return next;
-        }
-        return [cmd, ...prev];
-      });
-    };
-    if (!socket) return;
-    socket.on('COMMAND_UPDATED', onUpdate);
-    return () => {
-      socket.off('COMMAND_UPDATED', onUpdate);
-    };
-  }, [deviceId, socket]);
+ // Real-time: update or prepend commands as they change
+ useEffect(() => {
+ const onUpdate = (cmd: Command) => {
+ if (cmd.deviceId !== deviceId) return;
+ setCommands(prev => {
+ const idx = prev.findIndex(c => c.id === cmd.id);
+ if (idx >= 0) {
+ const next = [...prev];
+ next[idx] = cmd;
+ return next;
+ }
+ return [cmd, ...prev];
+ });
+ };
+ if (!socket) return;
+ socket.on('COMMAND_UPDATED', onUpdate);
+ return () => {
+ socket.off('COMMAND_UPDATED', onUpdate);
+ };
+ }, [deviceId, socket]);
 
-  const handleCancel = async (cmdId: string) => {
-    setCancelling(prev => new Set(prev).add(cmdId));
-    try {
-      await commandApi.cancel(cmdId);
-      setCommands(prev => prev.map(c => c.id === cmdId ? { ...c, status: 'cancelled' as const } : c));
-    } catch {
-      toast.error('Failed to cancel task');
-    } finally {
-      setCancelling(prev => { const s = new Set(prev); s.delete(cmdId); return s; });
-    }
-  };
+ const handleCancel = async (cmdId: string) => {
+ setCancelling(prev => new Set(prev).add(cmdId));
+ try {
+ await commandApi.cancel(cmdId);
+ setCommands(prev => prev.map(c => c.id === cmdId ? { ...c, status: 'cancelled' as const } : c));
+ } catch {
+ toast.error('Failed to cancel task');
+ } finally {
+ setCancelling(prev => { const s = new Set(prev); s.delete(cmdId); return s; });
+ }
+ };
 
-  const isRemediation = (c: Command) => c.type === 'remediate_rule';
-  const nonRemediation = commands.filter(c => !isRemediation(c));
-  const remediationCmds = commands.filter(isRemediation);
+ const isRemediation = (c: Command) => c.type === 'remediate_rule';
+ const nonRemediation = commands.filter(c => !isRemediation(c));
+ const remediationCmds = commands.filter(isRemediation);
 
-  const counts: Record<CmdFilter, number> = {
-    all:         nonRemediation.length,
-    queued:      nonRemediation.filter(c => c.status === 'pending' || c.status === 'sent').length,
-    running:     nonRemediation.filter(c => c.status === 'ack_running').length,
-    done:        nonRemediation.filter(c => c.status === 'success').length,
-    failed:      nonRemediation.filter(c => c.status === 'failure' || c.status === 'timeout').length,
-    cancelled:   nonRemediation.filter(c => c.status === 'cancelled').length,
-    remediation: remediationCmds.length,
-  };
+ const counts: Record<CmdFilter, number> = {
+ all: nonRemediation.length,
+ queued: nonRemediation.filter(c => c.status === 'pending' || c.status === 'sent').length,
+ running: nonRemediation.filter(c => c.status === 'ack_running').length,
+ done: nonRemediation.filter(c => c.status === 'success').length,
+ failed: nonRemediation.filter(c => c.status === 'failure' || c.status === 'timeout').length,
+ cancelled: nonRemediation.filter(c => c.status === 'cancelled').length,
+ remediation: remediationCmds.length,
+ };
 
-  const filtered = commands.filter(cmd => {
-    if (filter === 'remediation') return isRemediation(cmd);
-    if (filter === 'queued')    return !isRemediation(cmd) && (cmd.status === 'pending' || cmd.status === 'sent');
-    if (filter === 'running')   return !isRemediation(cmd) && cmd.status === 'ack_running';
-    if (filter === 'done')      return !isRemediation(cmd) && cmd.status === 'success';
-    if (filter === 'failed')    return !isRemediation(cmd) && (cmd.status === 'failure' || cmd.status === 'timeout');
-    if (filter === 'cancelled') return !isRemediation(cmd) && cmd.status === 'cancelled';
-    return !isRemediation(cmd); // 'all' excludes remediation
-  });
+ const filtered = commands.filter(cmd => {
+ if (filter === 'remediation') return isRemediation(cmd);
+ if (filter === 'queued') return !isRemediation(cmd) && (cmd.status === 'pending' || cmd.status === 'sent');
+ if (filter === 'running') return !isRemediation(cmd) && cmd.status === 'ack_running';
+ if (filter === 'done') return !isRemediation(cmd) && cmd.status === 'success';
+ if (filter === 'failed') return !isRemediation(cmd) && (cmd.status === 'failure' || cmd.status === 'timeout');
+ if (filter === 'cancelled') return !isRemediation(cmd) && cmd.status === 'cancelled';
+ return !isRemediation(cmd); // 'all' excludes remediation
+ });
 
-  const FILTER_PILLS: { key: CmdFilter; label: string }[] = [
-    { key: 'all',         label: 'All' },
-    { key: 'queued',      label: 'Queued' },
-    { key: 'running',     label: 'Running' },
-    { key: 'done',        label: 'Done' },
-    { key: 'failed',      label: 'Failed' },
-    { key: 'cancelled',   label: 'Cancelled' },
-    { key: 'remediation', label: 'Remediation' },
-  ];
+ const FILTER_PILLS: { key: CmdFilter; label: string }[] = [
+ { key: 'all', label: 'All' },
+ { key: 'queued', label: 'Queued' },
+ { key: 'running', label: 'Running' },
+ { key: 'done', label: 'Done' },
+ { key: 'failed', label: 'Failed' },
+ { key: 'cancelled', label: 'Cancelled' },
+ { key: 'remediation', label: 'Remediation' },
+ ];
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-48">
-      <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-    </div>
-  );
+ if (isLoading) return (
+ <div className="flex items-center justify-center h-48">
+ <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+ </div>
+ );
 
-  return (
-    <div className="space-y-4">
-      {/* Header: filters + refresh */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {FILTER_PILLS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={clsx(
-                'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                filter === key
-                  ? 'bg-accent text-white border-accent'
-                  : 'bg-bg-secondary text-text-muted hover:text-text-primary border-border'
-              )}
-            >
-              {label}
-              {counts[key] > 0 && (
-                <span className={clsx(
-                  'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                  filter === key ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted'
-                )}>
-                  {counts[key]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-border text-text-muted hover:text-text-primary transition-colors text-xs"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
-        </button>
-      </div>
+ return (
+ <div className="space-y-4">
+ {/* Header: filters + refresh */}
+ <div className="flex items-center justify-between gap-2 flex-wrap">
+ <div className="flex items-center gap-1.5 flex-wrap">
+ {FILTER_PILLS.map(({ key, label }) => (
+ <button
+ key={key}
+ onClick={() => setFilter(key)}
+ className={clsx(
+ 'flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+ filter === key
+ ? 'bg-accent text-white border-accent'
+ : 'bg-bg-secondary text-text-muted hover:text-text-primary border-transparent'
+ )}
+ >
+ {label}
+ {counts[key] > 0 && (
+ <span className={clsx(
+ 'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+ filter === key ? 'bg-white/20 text-white' : 'bg-bg-tertiary text-text-muted'
+ )}>
+ {counts[key]}
+ </span>
+ )}
+ </button>
+ ))}
+ </div>
+ <button
+ onClick={load}
+ className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-transparent text-text-muted hover:text-text-primary transition-colors text-xs"
+ >
+ <RefreshCw className="w-3.5 h-3.5" /> Refresh
+ </button>
+ </div>
 
-      {/* Table */}
-      {filtered.length === 0 ? (
-        <div className="p-12 text-center text-text-muted">
-          <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>{filter === 'all' ? 'No tasks issued yet' : 'No tasks with this status'}</p>
-        </div>
-      ) : (
-        <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Task</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">User</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Created</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
-                <th className="px-4 py-3 w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((cmd) => {
-                const sc = CMD_STATUS_CONFIG[cmd.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: cmd.status };
-                const isRunning = cmd.status === 'ack_running';
-                const canCancel = cmd.status === 'pending';
-                const durationMs = cmd.durationMs;
-                const payloadKeys = Object.keys(cmd.payload ?? {});
+ {/* Table */}
+ {filtered.length === 0 ? (
+ <div className="p-12 text-center text-text-muted">
+ <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
+ <p>{filter === 'all' ? 'No tasks issued yet' : 'No tasks with this status'}</p>
+ </div>
+ ) : (
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <table className="w-full">
+ <thead>
+ <tr className="">
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Task</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">User</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden md:table-cell">Priority</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Created</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider hidden lg:table-cell">Duration</th>
+ <th className="px-4 py-3 w-10" />
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-border">
+ {filtered.map((cmd) => {
+ const sc = CMD_STATUS_CONFIG[cmd.status] ?? { color: 'text-text-muted', bg: 'bg-bg-tertiary', label: cmd.status };
+ const isRunning = cmd.status === 'ack_running';
+ const canCancel = cmd.status === 'pending';
+ const durationMs = cmd.durationMs;
+ const payloadKeys = Object.keys(cmd.payload ?? {});
 
-                return (
-                  <tr key={cmd.id} className="hover:bg-bg-tertiary transition-colors">
-                    {/* Task label + details */}
-                    <td className="px-4 py-3 max-w-0">
-                      <div className="text-sm text-text-primary font-medium truncate">
-                        {COMMAND_LABELS[cmd.type] ?? cmd.type}
-                      </div>
-                      {cmd.type === 'remediate_rule' && cmd.payload?.ruleName ? (
-                        <div className="text-xs text-text-muted mt-0.5 truncate">
-                          {cmd.payload.ruleName} <span className="font-mono text-text-muted/60">({cmd.payload.ruleId})</span>
-                        </div>
-                      ) : payloadKeys.length > 0 && (
-                        <div className="text-xs text-text-muted mt-0.5 font-mono truncate">
-                          {payloadKeys.filter(k => !['sessionToken', 'script'].includes(k)).map(k => `${k}=${String(cmd.payload[k]).slice(0, 80)}`).join(' ')}
-                        </div>
-                      )}
-                      {cmd.result?.error && (
-                        <div className="text-xs text-red-400 mt-0.5 truncate" title={cmd.result.error}>
-                          {cmd.result.error}
-                        </div>
-                      )}
-                    </td>
+ return (
+ <tr key={cmd.id} className="hover:bg-bg-tertiary transition-colors">
+ {/* Task label + details */}
+ <td className="px-4 py-3 max-w-0">
+ <div className="text-sm text-text-primary font-medium truncate">
+ {COMMAND_LABELS[cmd.type] ?? cmd.type}
+ </div>
+ {cmd.type === 'remediate_rule' && cmd.payload?.ruleName ? (
+ <div className="text-xs text-text-muted mt-0.5 truncate">
+ {cmd.payload.ruleName} <span className="font-mono text-text-muted/60">({cmd.payload.ruleId})</span>
+ </div>
+ ) : payloadKeys.length > 0 && (
+ <div className="text-xs text-text-muted mt-0.5 font-mono truncate">
+ {payloadKeys.filter(k => !['sessionToken', 'script'].includes(k)).map(k => `${k}=${String(cmd.payload[k]).slice(0, 80)}`).join(' ')}
+ </div>
+ )}
+ {cmd.result?.error && (
+ <div className="text-xs text-red-400 mt-0.5 truncate" title={cmd.result.error}>
+ {cmd.result.error}
+ </div>
+ )}
+ </td>
 
-                    {/* Status badge */}
-                    <td className="px-4 py-3">
-                      <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
-                        {isRunning && <Loader2 className="w-3 h-3 animate-spin" />}
-                        {sc.label}
-                      </span>
-                    </td>
+ {/* Status badge */}
+ <td className="px-4 py-3">
+ <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', sc.color, sc.bg)}>
+ {isRunning && <Loader2 className="w-3 h-3 animate-spin" />}
+ {sc.label}
+ </span>
+ </td>
 
-                    {/* User */}
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-text-muted truncate">
-                        {cmd.createdByName || '—'}
-                      </span>
-                    </td>
+ {/* User */}
+ <td className="px-4 py-3 hidden md:table-cell">
+ <span className="text-xs text-text-muted truncate">
+ {cmd.createdByName || '—'}
+ </span>
+ </td>
 
-                    {/* Priority */}
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className={clsx('text-xs capitalize', {
-                        'text-red-400':    cmd.priority === 'urgent',
-                        'text-orange-400': cmd.priority === 'high',
-                        'text-text-muted': cmd.priority === 'normal' || cmd.priority === 'low',
-                      })}>
-                        {cmd.priority}
-                      </span>
-                    </td>
+ {/* Priority */}
+ <td className="px-4 py-3 hidden md:table-cell">
+ <span className={clsx('text-xs capitalize', {
+ 'text-red-400': cmd.priority === 'urgent',
+ 'text-orange-400': cmd.priority === 'high',
+ 'text-text-muted': cmd.priority === 'normal' || cmd.priority === 'low',
+ })}>
+ {cmd.priority}
+ </span>
+ </td>
 
-                    {/* Created at */}
-                    <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
-                      {new Date(cmd.createdAt).toLocaleString()}
-                    </td>
+ {/* Created at */}
+ <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
+ {new Date(cmd.createdAt).toLocaleString()}
+ </td>
 
-                    {/* Duration */}
-                    <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
-                      {durationMs != null
-                        ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
-                        : '—'}
-                    </td>
+ {/* Duration */}
+ <td className="px-4 py-3 text-xs text-text-muted hidden lg:table-cell whitespace-nowrap">
+ {durationMs != null
+ ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
+ : '—'}
+ </td>
 
-                    {/* Cancel action */}
-                    <td className="px-4 py-3 text-right">
-                      {canCancel && (
-                        <button
-                          onClick={() => handleCancel(cmd.id)}
-                          disabled={cancelling.has(cmd.id)}
-                          title="Cancel task"
-                          className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
-                        >
-                          {cancelling.has(cmd.id)
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <X className="w-3.5 h-3.5" />}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+ {/* Cancel action */}
+ <td className="px-4 py-3 text-right">
+ {canCancel && (
+ <button
+ onClick={() => handleCancel(cmd.id)}
+ disabled={cancelling.has(cmd.id)}
+ title="Cancel task"
+ className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
+ >
+ {cancelling.has(cmd.id)
+ ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+ : <X className="w-3.5 h-3.5" />}
+ </button>
+ )}
+ </td>
+ </tr>
+ );
+ })}
+ </tbody>
+ </table>
+ </div>
+ )}
 
-      {/* Pagination */}
-      {totalCount > 0 && (
-        <div className="flex items-center justify-between gap-4 text-xs text-text-muted">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => { setPageSize(parseInt(e.target.value)); setPage(1); }}
-              className="px-2 py-1 bg-bg-secondary border border-border rounded text-text-primary text-xs focus:outline-none focus:border-accent"
-            >
-              {[20, 50, 100, 200, 500].map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-              <option value={0}>All</option>
-            </select>
-            <span>of {totalCount} tasks</span>
-          </div>
-          {pageSize > 0 && Math.ceil(totalCount / pageSize) > 1 && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="px-2 py-1 rounded border border-border hover:bg-bg-secondary disabled:opacity-30 transition-colors"
-              >
-                ←
-              </button>
-              <span className="px-2">{page} / {Math.ceil(totalCount / pageSize)}</span>
-              <button
-                onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
-                disabled={page >= Math.ceil(totalCount / pageSize)}
-                className="px-2 py-1 rounded border border-border hover:bg-bg-secondary disabled:opacity-30 transition-colors"
-              >
-                →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+ {/* Pagination */}
+ {totalCount > 0 && (
+ <div className="flex items-center justify-between gap-4 text-xs text-text-muted">
+ <div className="flex items-center gap-2">
+ <span>Show</span>
+ <select
+ value={pageSize}
+ onChange={(e) => { setPageSize(parseInt(e.target.value)); setPage(1); }}
+ className="px-2 py-1 bg-bg-secondary rounded text-text-primary text-xs focus:outline-none focus:border-accent"
+ >
+ {[20, 50, 100, 200, 500].map(n => (
+ <option key={n} value={n}>{n}</option>
+ ))}
+ <option value={0}>All</option>
+ </select>
+ <span>of {totalCount} tasks</span>
+ </div>
+ {pageSize > 0 && Math.ceil(totalCount / pageSize) > 1 && (
+ <div className="flex items-center gap-1">
+ <button
+ onClick={() => setPage(p => Math.max(1, p - 1))}
+ disabled={page <= 1}
+ className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ >
+ ←
+ </button>
+ <span className="px-2">{page} / {Math.ceil(totalCount / pageSize)}</span>
+ <button
+ onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+ disabled={page >= Math.ceil(totalCount / pageSize)}
+ className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ >
+ →
+ </button>
+ </div>
+ )}
+ </div>
+ )}
+ </div>
+ );
 }
 
 // ─── Services Tab ──────────────────────────────────────────────────────────────
 
 function ServicesTab({ device }: { device: Device }) {
-  const [services, setServices] = useState<ServiceInfo[]>([]);
-  const [isLoadingServices, setIsLoadingServices] = useState(false);
-  // Per-service pending action: name → 'start' | 'stop' | 'restart'
-  const [pendingService, setPendingService] = useState<Map<string, string>>(new Map());
-  const listTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [filter, setFilter] = useState('');
+ const [services, setServices] = useState<ServiceInfo[]>([]);
+ const [isLoadingServices, setIsLoadingServices] = useState(false);
+ // Per-service pending action: name → 'start' | 'stop' | 'restart'
+ const [pendingService, setPendingService] = useState<Map<string, string>>(new Map());
+ const listTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const [filter, setFilter] = useState('');
 
-  // Auto-load stored services from server on mount
-  useEffect(() => {
-    let cancelled = false;
-    deviceApi.getServices(device.id).then((svcs) => {
-      if (!cancelled && svcs.length > 0) setServices(svcs);
-    }).catch(() => {/* silent — no stored data yet */});
-    return () => { cancelled = true; };
-  }, [device.id]);
+ // Auto-load stored services from server on mount
+ useEffect(() => {
+ let cancelled = false;
+ deviceApi.getServices(device.id).then((svcs) => {
+ if (!cancelled && svcs.length > 0) setServices(svcs);
+ }).catch(() => {/* silent — no stored data yet */});
+ return () => { cancelled = true; };
+ }, [device.id]);
 
-  // Listen for real-time updates (watcher goroutine + post-action re-collect)
-  // and for command results (manual refresh, start/stop/restart ACKs)
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+ // Listen for real-time updates (watcher goroutine + post-action re-collect)
+ // and for command results (manual refresh, start/stop/restart ACKs)
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
 
-    // Agent pushed a fresh service list → replace the whole state
-    const onServicesUpdated = (payload: { deviceId: number; services: ServiceInfo[] }) => {
-      if (payload.deviceId !== device.id) return;
-      setServices(payload.services);
-      setIsLoadingServices(false);
-      if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
-    };
+ // Agent pushed a fresh service list → replace the whole state
+ const onServicesUpdated = (payload: { deviceId: number; services: ServiceInfo[] }) => {
+ if (payload.deviceId !== device.id) return;
+ setServices(payload.services);
+ setIsLoadingServices(false);
+ if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
+ };
 
-    const onCmd = (cmd: Command) => {
-      if (cmd.deviceId !== device.id) return;
-      const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
-      if (!terminal) return;
+ const onCmd = (cmd: Command) => {
+ if (cmd.deviceId !== device.id) return;
+ const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
+ if (!terminal) return;
 
-      if (cmd.type === 'list_services') {
-        // Manual refresh result — the watcher POST will arrive shortly and
-        // update the list; clear the spinner now.
-        if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
-        setIsLoadingServices(false);
-        if (cmd.status !== 'success') toast.error('Failed to load services');
-      }
+ if (cmd.type === 'list_services') {
+ // Manual refresh result — the watcher POST will arrive shortly and
+ // update the list; clear the spinner now.
+ if (listTimeoutRef.current) { clearTimeout(listTimeoutRef.current); listTimeoutRef.current = null; }
+ setIsLoadingServices(false);
+ if (cmd.status !== 'success') toast.error('Failed to load services');
+ }
 
-      if (cmd.type === 'restart_service' || cmd.type === 'start_service' || cmd.type === 'stop_service') {
-        const name = (cmd.payload as any)?.name as string;
-        if (name) {
-          setPendingService((prev) => { const m = new Map(prev); m.delete(name); return m; });
-          if (cmd.status === 'success') {
-            // Optimistic update — the watcher POST will confirm shortly
-            const newStatus = cmd.type === 'start_service' ? 'running'
-              : cmd.type === 'stop_service' ? 'stopped' : null;
-            if (newStatus) {
-              setServices((prev) => prev.map((s) => s.name === name ? { ...s, status: newStatus } : s));
-            }
-            const actionLabel = cmd.type === 'start_service' ? 'started'
-              : cmd.type === 'stop_service' ? 'stopped' : 'restarted';
-            toast.success(`Service "${name}" ${actionLabel}`);
-          } else {
-            const actionLabel = cmd.type === 'start_service' ? 'start'
-              : cmd.type === 'stop_service' ? 'stop' : 'restart';
-            toast.error(`Failed to ${actionLabel} "${name}"`);
-          }
-        }
-      }
-    };
+ if (cmd.type === 'restart_service' || cmd.type === 'start_service' || cmd.type === 'stop_service') {
+ const name = (cmd.payload as any)?.name as string;
+ if (name) {
+ setPendingService((prev) => { const m = new Map(prev); m.delete(name); return m; });
+ if (cmd.status === 'success') {
+ // Optimistic update — the watcher POST will confirm shortly
+ const newStatus = cmd.type === 'start_service' ? 'running'
+ : cmd.type === 'stop_service' ? 'stopped' : null;
+ if (newStatus) {
+ setServices((prev) => prev.map((s) => s.name === name ? { ...s, status: newStatus } : s));
+ }
+ const actionLabel = cmd.type === 'start_service' ? 'started'
+ : cmd.type === 'stop_service' ? 'stopped' : 'restarted';
+ toast.success(`Service "${name}" ${actionLabel}`);
+ } else {
+ const actionLabel = cmd.type === 'start_service' ? 'start'
+ : cmd.type === 'stop_service' ? 'stop' : 'restart';
+ toast.error(`Failed to ${actionLabel} "${name}"`);
+ }
+ }
+ }
+ };
 
-    socket.on(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
-    socket.on('COMMAND_UPDATED', onCmd);
-    return () => {
-      socket.off(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
-      socket.off('COMMAND_UPDATED', onCmd);
-    };
-  }, [device.id]);
+ socket.on(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
+ socket.on('COMMAND_UPDATED', onCmd);
+ return () => {
+ socket.off(SocketEvents.DEVICE_SERVICES_UPDATED, onServicesUpdated);
+ socket.off('COMMAND_UPDATED', onCmd);
+ };
+ }, [device.id]);
 
-  const handleListServices = async () => {
-    setIsLoadingServices(true);
-    if (listTimeoutRef.current) clearTimeout(listTimeoutRef.current);
-    try {
-      await commandApi.enqueue(device.id, 'list_services');
-      listTimeoutRef.current = setTimeout(() => {
-        listTimeoutRef.current = null;
-        setIsLoadingServices(false);
-        toast.error('Services request timed out — agent did not respond');
-      }, 90000);
-    } catch {
-      setIsLoadingServices(false);
-      toast.error('Failed to dispatch list_services command');
-    }
-  };
+ const handleListServices = async () => {
+ setIsLoadingServices(true);
+ if (listTimeoutRef.current) clearTimeout(listTimeoutRef.current);
+ try {
+ await commandApi.enqueue(device.id, 'list_services');
+ listTimeoutRef.current = setTimeout(() => {
+ listTimeoutRef.current = null;
+ setIsLoadingServices(false);
+ toast.error('Services request timed out — agent did not respond');
+ }, 90000);
+ } catch {
+ setIsLoadingServices(false);
+ toast.error('Failed to dispatch list_services command');
+ }
+ };
 
-  const handleServiceAction = async (name: string, type: 'start_service' | 'stop_service' | 'restart_service') => {
-    setPendingService((prev) => new Map(prev).set(name, type));
-    try {
-      await commandApi.enqueue(device.id, type, { name });
-    } catch {
-      setPendingService((prev) => { const m = new Map(prev); m.delete(name); return m; });
-      toast.error(`Failed to send command`);
-    }
-  };
+ const handleServiceAction = async (name: string, type: 'start_service' | 'stop_service' | 'restart_service') => {
+ setPendingService((prev) => new Map(prev).set(name, type));
+ try {
+ await commandApi.enqueue(device.id, type, { name });
+ } catch {
+ setPendingService((prev) => { const m = new Map(prev); m.delete(name); return m; });
+ toast.error(`Failed to send command`);
+ }
+ };
 
-  const filtered = filter
-    ? services.filter((s) =>
-        s.name.toLowerCase().includes(filter.toLowerCase()) ||
-        (s.displayName ?? '').toLowerCase().includes(filter.toLowerCase())
-      )
-    : services;
+ const filtered = filter
+ ? services.filter((s) =>
+ s.name.toLowerCase().includes(filter.toLowerCase()) ||
+ (s.displayName ?? '').toLowerCase().includes(filter.toLowerCase())
+ )
+ : services;
 
-  return (
-    <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-          <Server className="w-4 h-4 text-text-muted" />
-          Services
-          {services.length > 0 && (
-            <span className="text-xs font-normal text-text-muted bg-bg-tertiary border border-border px-1.5 py-0.5 rounded-md">
-              {services.length}
-            </span>
-          )}
-        </h3>
-        <div className="flex items-center gap-2">
-          {services.length > 0 && (
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter services…"
-              className="px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-40"
-            />
-          )}
-          <button
-            onClick={handleListServices}
-            disabled={isLoadingServices}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary border border-border rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoadingServices ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            {isLoadingServices ? 'Loading…' : services.length > 0 ? 'Refresh' : 'Load Services'}
-          </button>
-        </div>
-      </div>
+ return (
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ {/* Header */}
+ <div className="px-4 py-3 flex items-center justify-between gap-3">
+ <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <Server className="w-4 h-4 text-text-muted" />
+ Services
+ {services.length > 0 && (
+ <span className="text-xs font-normal text-text-muted bg-bg-tertiary border border-transparent px-1.5 py-0.5 rounded-md">
+ {services.length}
+ </span>
+ )}
+ </h3>
+ <div className="flex items-center gap-2">
+ {services.length > 0 && (
+ <input
+ type="text"
+ value={filter}
+ onChange={(e) => setFilter(e.target.value)}
+ placeholder="Filter services…"
+ className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-40"
+ />
+ )}
+ <button
+ onClick={handleListServices}
+ disabled={isLoadingServices}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {isLoadingServices ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+ {isLoadingServices ? 'Loading…' : services.length > 0 ? 'Refresh' : 'Load Services'}
+ </button>
+ </div>
+ </div>
 
-      {/* Body */}
-      {services.length === 0 && !isLoadingServices ? (
-        <div className="p-10 text-center text-text-muted text-sm">
-          <Server className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p>No service data yet — the agent will push the list automatically on its next scan.</p>
-          <p className="mt-1 text-xs opacity-70">You can also click <strong>Load Services</strong> to force an immediate fetch.</p>
-        </div>
-      ) : isLoadingServices && services.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 h-24 text-text-muted text-sm">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          Fetching services…
-        </div>
-      ) : (
-        <div className="overflow-auto max-h-[65vh]">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-bg-secondary z-10 border-b border-border">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide w-6" />
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden md:table-cell">Description</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden lg:table-cell">Startup</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden xl:table-cell">Run As</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((svc) => {
-                const pending = pendingService.get(svc.name);
-                const isRunning = svc.status === 'running';
-                const isStopped = svc.status === 'stopped';
-                return (
-                  <tr key={svc.name} className="hover:bg-bg-tertiary/60 transition-colors group">
-                    {/* Status dot */}
-                    <td className="pl-4 pr-1 py-2">
-                      <span className={clsx(
-                        'block w-2 h-2 rounded-full',
-                        isRunning ? 'bg-green-400' : isStopped ? 'bg-gray-500' : 'bg-yellow-400',
-                      )} />
-                    </td>
-                    {/* Name */}
-                    <td className="px-4 py-2 font-mono text-xs text-text-primary whitespace-nowrap">{svc.name}</td>
-                    {/* Description */}
-                    <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell max-w-xs truncate">{svc.displayName || '—'}</td>
-                    {/* Status badge */}
-                    <td className="px-4 py-2">
-                      <span className={clsx(
-                        'text-xs px-2 py-0.5 rounded-full border',
-                        isRunning ? 'text-green-400 bg-green-400/10 border-green-400/30' :
-                        isStopped ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
-                                    'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
-                      )}>
-                        {svc.status}
-                      </span>
-                    </td>
-                    {/* Start type */}
-                    <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">{svc.startType || '—'}</td>
-                    {/* Run As */}
-                    <td className="px-4 py-2 text-xs text-text-muted hidden xl:table-cell font-mono">{svc.runAsUser || '—'}</td>
-                    {/* Action buttons */}
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Start — only when stopped */}
-                        <button
-                          onClick={() => handleServiceAction(svc.name, 'start_service')}
-                          disabled={!isStopped || !!pending}
-                          title={`Start ${svc.name}`}
-                          className={clsx(
-                            'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
-                            isStopped && !pending
-                              ? 'text-green-400 bg-green-400/10 border-green-400/30 hover:bg-green-400/20'
-                              : 'text-text-muted/30 border-transparent cursor-not-allowed',
-                          )}
-                        >
-                          {pending === 'start_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                          Start
-                        </button>
-                        {/* Stop — only when running */}
-                        <button
-                          onClick={() => handleServiceAction(svc.name, 'stop_service')}
-                          disabled={!isRunning || !!pending}
-                          title={`Stop ${svc.name}`}
-                          className={clsx(
-                            'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
-                            isRunning && !pending
-                              ? 'text-red-400 bg-red-400/10 border-red-400/30 hover:bg-red-400/20'
-                              : 'text-text-muted/30 border-transparent cursor-not-allowed',
-                          )}
-                        >
-                          {pending === 'stop_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />}
-                          Stop
-                        </button>
-                        {/* Restart — always available */}
-                        <button
-                          onClick={() => handleServiceAction(svc.name, 'restart_service')}
-                          disabled={!!pending}
-                          title={`Restart ${svc.name}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-blue-400 hover:bg-blue-400/10 border border-transparent hover:border-blue-400/20 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {pending === 'restart_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-                          Restart
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filter && filtered.length === 0 && (
-            <div className="p-6 text-center text-text-muted text-xs">No services match "{filter}"</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+ {/* Body */}
+ {services.length === 0 && !isLoadingServices ? (
+ <div className="p-10 text-center text-text-muted text-sm">
+ <Server className="w-8 h-8 mx-auto mb-2 opacity-40" />
+ <p>No service data yet — the agent will push the list automatically on its next scan.</p>
+ <p className="mt-1 text-xs opacity-70">You can also click <strong>Load Services</strong> to force an immediate fetch.</p>
+ </div>
+ ) : isLoadingServices && services.length === 0 ? (
+ <div className="flex items-center justify-center gap-2 h-24 text-text-muted text-sm">
+ <Loader2 className="w-5 h-5 animate-spin" />
+ Fetching services…
+ </div>
+ ) : (
+ <div className="overflow-auto max-h-[65vh]">
+ <table className="w-full text-sm">
+ <thead className="sticky top-0 bg-bg-secondary z-10 ">
+ <tr>
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide w-6" />
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Name</th>
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden md:table-cell">Description</th>
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide">Status</th>
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden lg:table-cell">Startup</th>
+ <th className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide hidden xl:table-cell">Run As</th>
+ <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide">Actions</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-border">
+ {filtered.map((svc) => {
+ const pending = pendingService.get(svc.name);
+ const isRunning = svc.status === 'running';
+ const isStopped = svc.status === 'stopped';
+ return (
+ <tr key={svc.name} className="hover:bg-bg-tertiary/60 transition-colors group">
+ {/* Status dot */}
+ <td className="pl-4 pr-1 py-2">
+ <span className={clsx(
+ 'block w-2 h-2 rounded-full',
+ isRunning ? 'bg-green-400' : isStopped ? 'bg-gray-500' : 'bg-yellow-400',
+ )} />
+ </td>
+ {/* Name */}
+ <td className="px-4 py-2 font-mono text-xs text-text-primary whitespace-nowrap">{svc.name}</td>
+ {/* Description */}
+ <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell max-w-xs truncate">{svc.displayName || '—'}</td>
+ {/* Status badge */}
+ <td className="px-4 py-2">
+ <span className={clsx(
+ 'text-xs px-2 py-0.5 rounded-full border',
+ isRunning ? 'text-green-400 bg-green-400/10 border-green-400/30' :
+ isStopped ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
+ 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+ )}>
+ {svc.status}
+ </span>
+ </td>
+ {/* Start type */}
+ <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">{svc.startType || '—'}</td>
+ {/* Run As */}
+ <td className="px-4 py-2 text-xs text-text-muted hidden xl:table-cell font-mono">{svc.runAsUser || '—'}</td>
+ {/* Action buttons */}
+ <td className="px-4 py-2">
+ <div className="flex items-center justify-end gap-1">
+ {/* Start — only when stopped */}
+ <button
+ onClick={() => handleServiceAction(svc.name, 'start_service')}
+ disabled={!isStopped || !!pending}
+ title={`Start ${svc.name}`}
+ className={clsx(
+ 'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
+ isStopped && !pending
+ ? 'text-green-400 bg-green-400/10 border-green-400/30 hover:bg-green-400/20'
+ : 'text-text-muted/30 border-transparent cursor-not-allowed',
+ )}
+ >
+ {pending === 'start_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+ Start
+ </button>
+ {/* Stop — only when running */}
+ <button
+ onClick={() => handleServiceAction(svc.name, 'stop_service')}
+ disabled={!isRunning || !!pending}
+ title={`Stop ${svc.name}`}
+ className={clsx(
+ 'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
+ isRunning && !pending
+ ? 'text-red-400 bg-red-400/10 border-red-400/30 hover:bg-red-400/20'
+ : 'text-text-muted/30 border-transparent cursor-not-allowed',
+ )}
+ >
+ {pending === 'stop_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />}
+ Stop
+ </button>
+ {/* Restart — always available */}
+ <button
+ onClick={() => handleServiceAction(svc.name, 'restart_service')}
+ disabled={!!pending}
+ title={`Restart ${svc.name}`}
+ className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-blue-400 hover:bg-blue-400/10 border border-transparent hover:border-blue-400/20 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {pending === 'restart_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+ Restart
+ </button>
+ </div>
+ </td>
+ </tr>
+ );
+ })}
+ </tbody>
+ </table>
+ {filter && filtered.length === 0 && (
+ <div className="p-6 text-center text-text-muted text-xs">No services match "{filter}"</div>
+ )}
+ </div>
+ )}
+ </div>
+ );
 }
 
 // ─── Processes Tab ────────────────────────────────────────────────────────────
@@ -4006,1488 +4006,1488 @@ type SortField = 'name' | 'pid' | 'cpuPercent' | 'memBytes' | 'user';
 type SortDir = 'asc' | 'desc';
 
 function ProcessesTab({ device }: { device: Device }) {
-  const [processes, setProcesses] = useState<ProcessInfo[]>([]);
-  const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('cpuPercent');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [killingPids, setKillingPids] = useState<Set<number>>(new Set());
-  const [connected, setConnected] = useState(false);
-  const { isAdmin } = useAuthStore();
+ const [processes, setProcesses] = useState<ProcessInfo[]>([]);
+ const [filter, setFilter] = useState('');
+ const [sortField, setSortField] = useState<SortField>('cpuPercent');
+ const [sortDir, setSortDir] = useState<SortDir>('desc');
+ const [killingPids, setKillingPids] = useState<Set<number>>(new Set());
+ const [connected, setConnected] = useState(false);
+ const { isAdmin } = useAuthStore();
 
-  // Subscribe to process stream on mount, unsubscribe on unmount
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+ // Subscribe to process stream on mount, unsubscribe on unmount
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
 
-    socket.emit(SocketEvents.PROCESS_SUBSCRIBE, { deviceId: device.id });
-    setConnected(true);
+ socket.emit(SocketEvents.PROCESS_SUBSCRIBE, { deviceId: device.id });
+ setConnected(true);
 
-    const onProcesses = (payload: { deviceId: number; processes: ProcessInfo[] }) => {
-      if (payload.deviceId !== device.id) return;
-      setProcesses(payload.processes);
-    };
+ const onProcesses = (payload: { deviceId: number; processes: ProcessInfo[] }) => {
+ if (payload.deviceId !== device.id) return;
+ setProcesses(payload.processes);
+ };
 
-    const onCmd = (cmd: Command) => {
-      if (cmd.deviceId !== device.id) return;
-      if (cmd.type === 'kill_process') {
-        const pid = (cmd.payload as any)?.pid as number;
-        if (!pid) return;
-        const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
-        if (!terminal) return;
-        setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
-        if (cmd.status === 'success') {
-          toast.success(`Process ${pid} killed`);
-          setProcesses((prev) => prev.filter((p) => p.pid !== pid));
-        } else {
-          toast.error(`Failed to kill process ${pid}`);
-        }
-      }
-    };
+ const onCmd = (cmd: Command) => {
+ if (cmd.deviceId !== device.id) return;
+ if (cmd.type === 'kill_process') {
+ const pid = (cmd.payload as any)?.pid as number;
+ if (!pid) return;
+ const terminal = ['success', 'failure', 'timeout'].includes(cmd.status);
+ if (!terminal) return;
+ setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
+ if (cmd.status === 'success') {
+ toast.success(`Process ${pid} killed`);
+ setProcesses((prev) => prev.filter((p) => p.pid !== pid));
+ } else {
+ toast.error(`Failed to kill process ${pid}`);
+ }
+ }
+ };
 
-    socket.on(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
-    socket.on('COMMAND_UPDATED', onCmd);
+ socket.on(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
+ socket.on('COMMAND_UPDATED', onCmd);
 
-    return () => {
-      socket.emit(SocketEvents.PROCESS_UNSUBSCRIBE, { deviceId: device.id });
-      socket.off(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
-      socket.off('COMMAND_UPDATED', onCmd);
-      setConnected(false);
-    };
-  }, [device.id]);
+ return () => {
+ socket.emit(SocketEvents.PROCESS_UNSUBSCRIBE, { deviceId: device.id });
+ socket.off(SocketEvents.DEVICE_PROCESSES_UPDATED, onProcesses);
+ socket.off('COMMAND_UPDATED', onCmd);
+ setConnected(false);
+ };
+ }, [device.id]);
 
-  const handleKill = async (pid: number, name: string) => {
-    if (!confirm(`Kill process "${name}" (PID ${pid})?`)) return;
-    setKillingPids((prev) => new Set(prev).add(pid));
-    try {
-      await commandApi.enqueue(device.id, 'kill_process', { pid, name }, 'high');
-    } catch {
-      setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
-      toast.error('Failed to send kill command');
-    }
-  };
+ const handleKill = async (pid: number, name: string) => {
+ if (!confirm(`Kill process "${name}" (PID ${pid})?`)) return;
+ setKillingPids((prev) => new Set(prev).add(pid));
+ try {
+ await commandApi.enqueue(device.id, 'kill_process', { pid, name }, 'high');
+ } catch {
+ setKillingPids((prev) => { const s = new Set(prev); s.delete(pid); return s; });
+ toast.error('Failed to send kill command');
+ }
+ };
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDir(field === 'name' || field === 'user' ? 'asc' : 'desc');
-    }
-  };
+ const toggleSort = (field: SortField) => {
+ if (sortField === field) {
+ setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+ } else {
+ setSortField(field);
+ setSortDir(field === 'name' || field === 'user' ? 'asc' : 'desc');
+ }
+ };
 
-  const filtered = filter
-    ? processes.filter((p) =>
-        p.name.toLowerCase().includes(filter.toLowerCase()) ||
-        p.user.toLowerCase().includes(filter.toLowerCase()) ||
-        String(p.pid).includes(filter)
-      )
-    : processes;
+ const filtered = filter
+ ? processes.filter((p) =>
+ p.name.toLowerCase().includes(filter.toLowerCase()) ||
+ p.user.toLowerCase().includes(filter.toLowerCase()) ||
+ String(p.pid).includes(filter)
+ )
+ : processes;
 
-  const sorted = [...filtered].sort((a, b) => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    switch (sortField) {
-      case 'name': return dir * a.name.localeCompare(b.name);
-      case 'pid': return dir * (a.pid - b.pid);
-      case 'cpuPercent': return dir * (a.cpuPercent - b.cpuPercent);
-      case 'memBytes': return dir * (a.memBytes - b.memBytes);
-      case 'user': return dir * a.user.localeCompare(b.user);
-      default: return 0;
-    }
-  });
+ const sorted = [...filtered].sort((a, b) => {
+ const dir = sortDir === 'asc' ? 1 : -1;
+ switch (sortField) {
+ case 'name': return dir * a.name.localeCompare(b.name);
+ case 'pid': return dir * (a.pid - b.pid);
+ case 'cpuPercent': return dir * (a.cpuPercent - b.cpuPercent);
+ case 'memBytes': return dir * (a.memBytes - b.memBytes);
+ case 'user': return dir * a.user.localeCompare(b.user);
+ default: return 0;
+ }
+ });
 
-  const formatMem = (bytes: number) => {
-    if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
-    if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-    return `${(bytes / 1024).toFixed(0)} KB`;
-  };
+ const formatMem = (bytes: number) => {
+ if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
+ if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+ return `${(bytes / 1024).toFixed(0)} KB`;
+ };
 
-  const totalCpu = processes.reduce((s, p) => s + p.cpuPercent, 0);
-  const totalMem = processes.reduce((s, p) => s + p.memBytes, 0);
+ const totalCpu = processes.reduce((s, p) => s + p.cpuPercent, 0);
+ const totalMem = processes.reduce((s, p) => s + p.memBytes, 0);
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-30" />;
-    return sortDir === 'asc'
-      ? <ChevronRight className="w-3 h-3 rotate-[-90deg]" />
-      : <ChevronDown className="w-3 h-3" />;
-  };
+ const SortIcon = ({ field }: { field: SortField }) => {
+ if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-30" />;
+ return sortDir === 'asc'
+ ? <ChevronRight className="w-3 h-3 rotate-[-90deg]" />
+ : <ChevronDown className="w-3 h-3" />;
+ };
 
-  return (
-    <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-          <Activity className="w-4 h-4 text-text-muted" />
-          Processes
-          {processes.length > 0 && (
-            <span className="text-xs font-normal text-text-muted bg-bg-tertiary border border-border px-1.5 py-0.5 rounded-md">
-              {processes.length}
-            </span>
-          )}
-          {connected && processes.length > 0 && (
-            <span className="text-xs font-normal text-text-muted">
-              — CPU: {totalCpu.toFixed(1)}% · Mem: {formatMem(totalMem)}
-            </span>
-          )}
-        </h3>
-        <div className="flex items-center gap-2">
-          {connected && (
-            <span className="flex items-center gap-1.5 text-xs text-green-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              Live
-            </span>
-          )}
-          {processes.length > 0 && (
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter processes…"
-              className="px-2 py-1 text-xs bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-48"
-            />
-          )}
-        </div>
-      </div>
+ return (
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ {/* Header */}
+ <div className="px-4 py-3 flex items-center justify-between gap-3">
+ <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <Activity className="w-4 h-4 text-text-muted" />
+ Processes
+ {processes.length > 0 && (
+ <span className="text-xs font-normal text-text-muted bg-bg-tertiary border border-transparent px-1.5 py-0.5 rounded-md">
+ {processes.length}
+ </span>
+ )}
+ {connected && processes.length > 0 && (
+ <span className="text-xs font-normal text-text-muted">
+ — CPU: {totalCpu.toFixed(1)}% · Mem: {formatMem(totalMem)}
+ </span>
+ )}
+ </h3>
+ <div className="flex items-center gap-2">
+ {connected && (
+ <span className="flex items-center gap-1.5 text-xs text-green-400">
+ <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+ Live
+ </span>
+ )}
+ {processes.length > 0 && (
+ <input
+ type="text"
+ value={filter}
+ onChange={(e) => setFilter(e.target.value)}
+ placeholder="Filter processes…"
+ className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-48"
+ />
+ )}
+ </div>
+ </div>
 
-      {/* Body */}
-      {processes.length === 0 ? (
-        <div className="p-10 text-center text-text-muted text-sm">
-          <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          {connected ? (
-            <>
-              <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
-              <p>Waiting for process data from agent…</p>
-              <p className="mt-1 text-xs opacity-70">The agent will send the process list shortly.</p>
-            </>
-          ) : (
-            <p>Agent not connected.</p>
-          )}
-        </div>
-      ) : (
-        <div className="overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-bg-secondary z-10 border-b border-border">
-              <tr>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
-                  onClick={() => toggleSort('pid')}
-                >
-                  <span className="inline-flex items-center gap-1">PID <SortIcon field="pid" /></span>
-                </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
-                  onClick={() => toggleSort('name')}
-                >
-                  <span className="inline-flex items-center gap-1">Name <SortIcon field="name" /></span>
-                </th>
-                <th
-                  className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
-                  onClick={() => toggleSort('cpuPercent')}
-                >
-                  <span className="inline-flex items-center gap-1 justify-end">CPU % <SortIcon field="cpuPercent" /></span>
-                </th>
-                <th
-                  className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
-                  onClick={() => toggleSort('memBytes')}
-                >
-                  <span className="inline-flex items-center gap-1 justify-end">Memory <SortIcon field="memBytes" /></span>
-                </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group hidden lg:table-cell"
-                  onClick={() => toggleSort('user')}
-                >
-                  <span className="inline-flex items-center gap-1">User <SortIcon field="user" /></span>
-                </th>
-                {isAdmin() && (
-                  <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide w-20">
-                    Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sorted.map((proc) => {
-                const killing = killingPids.has(proc.pid);
-                return (
-                  <tr key={proc.pid} className="hover:bg-bg-tertiary/60 transition-colors group" title={proc.command || proc.name}>
-                    <td className="px-4 py-1.5 font-mono text-xs text-text-muted">{proc.pid}</td>
-                    <td className="px-4 py-1.5 text-xs text-text-primary font-medium whitespace-nowrap max-w-xs truncate">{proc.name}</td>
-                    <td className="px-4 py-1.5 text-xs text-right font-mono">
-                      <span className={clsx(
-                        proc.cpuPercent > 80 ? 'text-red-400' :
-                        proc.cpuPercent > 30 ? 'text-yellow-400' :
-                        'text-text-muted',
-                      )}>
-                        {proc.cpuPercent.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-1.5 text-xs text-right font-mono text-text-muted">{formatMem(proc.memBytes)}</td>
-                    <td className="px-4 py-1.5 text-xs text-text-muted font-mono hidden lg:table-cell max-w-[10rem] truncate">{proc.user || '—'}</td>
-                    {isAdmin() && (
-                      <td className="px-4 py-1.5 text-right">
-                        <button
-                          onClick={() => handleKill(proc.pid, proc.name)}
-                          disabled={killing}
-                          title={`Kill ${proc.name} (PID ${proc.pid})`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          {killing ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                          Kill
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filter && sorted.length === 0 && (
-            <div className="p-6 text-center text-text-muted text-xs">No processes match "{filter}"</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+ {/* Body */}
+ {processes.length === 0 ? (
+ <div className="p-10 text-center text-text-muted text-sm">
+ <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
+ {connected ? (
+ <>
+ <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+ <p>Waiting for process data from agent…</p>
+ <p className="mt-1 text-xs opacity-70">The agent will send the process list shortly.</p>
+ </>
+ ) : (
+ <p>Agent not connected.</p>
+ )}
+ </div>
+ ) : (
+ <div className="overflow-auto max-h-[70vh]">
+ <table className="w-full text-sm">
+ <thead className="sticky top-0 bg-bg-secondary z-10 ">
+ <tr>
+ <th
+ className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+ onClick={() => toggleSort('pid')}
+ >
+ <span className="inline-flex items-center gap-1">PID <SortIcon field="pid" /></span>
+ </th>
+ <th
+ className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+ onClick={() => toggleSort('name')}
+ >
+ <span className="inline-flex items-center gap-1">Name <SortIcon field="name" /></span>
+ </th>
+ <th
+ className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+ onClick={() => toggleSort('cpuPercent')}
+ >
+ <span className="inline-flex items-center gap-1 justify-end">CPU % <SortIcon field="cpuPercent" /></span>
+ </th>
+ <th
+ className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group"
+ onClick={() => toggleSort('memBytes')}
+ >
+ <span className="inline-flex items-center gap-1 justify-end">Memory <SortIcon field="memBytes" /></span>
+ </th>
+ <th
+ className="px-4 py-2 text-left text-xs font-medium text-text-muted uppercase tracking-wide cursor-pointer select-none group hidden lg:table-cell"
+ onClick={() => toggleSort('user')}
+ >
+ <span className="inline-flex items-center gap-1">User <SortIcon field="user" /></span>
+ </th>
+ {isAdmin() && (
+ <th className="px-4 py-2 text-right text-xs font-medium text-text-muted uppercase tracking-wide w-20">
+ Actions
+ </th>
+ )}
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-border">
+ {sorted.map((proc) => {
+ const killing = killingPids.has(proc.pid);
+ return (
+ <tr key={proc.pid} className="hover:bg-bg-tertiary/60 transition-colors group" title={proc.command || proc.name}>
+ <td className="px-4 py-1.5 font-mono text-xs text-text-muted">{proc.pid}</td>
+ <td className="px-4 py-1.5 text-xs text-text-primary font-medium whitespace-nowrap max-w-xs truncate">{proc.name}</td>
+ <td className="px-4 py-1.5 text-xs text-right font-mono">
+ <span className={clsx(
+ proc.cpuPercent > 80 ? 'text-red-400' :
+ proc.cpuPercent > 30 ? 'text-yellow-400' :
+ 'text-text-muted',
+ )}>
+ {proc.cpuPercent.toFixed(1)}
+ </span>
+ </td>
+ <td className="px-4 py-1.5 text-xs text-right font-mono text-text-muted">{formatMem(proc.memBytes)}</td>
+ <td className="px-4 py-1.5 text-xs text-text-muted font-mono hidden lg:table-cell max-w-[10rem] truncate">{proc.user || '—'}</td>
+ {isAdmin() && (
+ <td className="px-4 py-1.5 text-right">
+ <button
+ onClick={() => handleKill(proc.pid, proc.name)}
+ disabled={killing}
+ title={`Kill ${proc.name} (PID ${proc.pid})`}
+ className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
+ >
+ {killing ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+ Kill
+ </button>
+ </td>
+ )}
+ </tr>
+ );
+ })}
+ </tbody>
+ </table>
+ {filter && sorted.length === 0 && (
+ <div className="p-6 text-center text-text-muted text-xs">No processes match "{filter}"</div>
+ )}
+ </div>
+ )}
+ </div>
+ );
 }
 
 // ─── Main DeviceDetailPage ──────────────────────────────────────────────────────
 
 export function DeviceDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const deviceId = parseInt(id ?? '0', 10);
-  const navigate = useNavigate();
-  const { t } = useTranslation();
-  const { isAdmin } = useAuthStore();
-  const fetchDevice = useDeviceStore((s) => s.fetchDevice);
-  const updateDeviceMetrics = useDeviceStore((s) => s.updateDeviceMetrics);
-  // Live metrics refresh — the agent push pipeline emits
-  // DEVICE_METRICS_PUSHED on every push, but the page wasn't subscribed
-  // so the displayed CPU/RAM/disk values stayed frozen until a manual
-  // refresh. We patch the in-memory device's `latestMetrics` so the
-  // metric bars + sensor cards re-render automatically.
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const onMetrics = (msg: { deviceId: number; metrics: unknown }) => {
-      if (msg.deviceId !== deviceId) return;
-      // Defensive parse — the server normally sends a typed object,
-      // but legacy callers occasionally stringify it.
-      const metrics = (typeof msg.metrics === 'string' ? JSON.parse(msg.metrics) : msg.metrics) as import('@obliance/shared').DeviceMetrics;
-      updateDeviceMetrics(deviceId, metrics);
-    };
-    socket.on('DEVICE_METRICS_PUSHED', onMetrics);
-    return () => { socket.off('DEVICE_METRICS_PUSHED', onMetrics); };
-  }, [deviceId, updateDeviceMetrics]);
+ const { id } = useParams<{ id: string }>();
+ const deviceId = parseInt(id ?? '0', 10);
+ const navigate = useNavigate();
+ const { t } = useTranslation();
+ const { isAdmin } = useAuthStore();
+ const fetchDevice = useDeviceStore((s) => s.fetchDevice);
+ const updateDeviceMetrics = useDeviceStore((s) => s.updateDeviceMetrics);
+ // Live metrics refresh — the agent push pipeline emits
+ // DEVICE_METRICS_PUSHED on every push, but the page wasn't subscribed
+ // so the displayed CPU/RAM/disk values stayed frozen until a manual
+ // refresh. We patch the in-memory device's `latestMetrics` so the
+ // metric bars + sensor cards re-render automatically.
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
+ const onMetrics = (msg: { deviceId: number; metrics: unknown }) => {
+ if (msg.deviceId !== deviceId) return;
+ // Defensive parse — the server normally sends a typed object,
+ // but legacy callers occasionally stringify it.
+ const metrics = (typeof msg.metrics === 'string' ? JSON.parse(msg.metrics) : msg.metrics) as import('@obliance/shared').DeviceMetrics;
+ updateDeviceMetrics(deviceId, metrics);
+ };
+ socket.on('DEVICE_METRICS_PUSHED', onMetrics);
+ return () => { socket.off('DEVICE_METRICS_PUSHED', onMetrics); };
+ }, [deviceId, updateDeviceMetrics]);
 
-  // Live mode — while the device detail page is open, ask the agent
-  // to push every ~3s so the user actually sees CPU/RAM moving. The
-  // server enforces a fixed window (60s) so a stale tab can't keep a
-  // device in fast-push forever; we re-arm every 30s as long as the
-  // page stays mounted. Reverting to the configured push_interval is
-  // automatic on unmount (no command needed — the window expires).
-  useEffect(() => {
-    let cancelled = false;
-    const arm = async () => {
-      if (cancelled) return;
-      try { await deviceApi.requestLiveMetrics(deviceId, 'live', 60); } catch { /* offline agent — silent */ }
-    };
-    arm();
-    const id = window.setInterval(arm, 30 * 1000);
-    return () => { cancelled = true; window.clearInterval(id); };
-  }, [deviceId]);
-  // Explicit selector — Zustand re-renders this component whenever the
-  // device row is mutated in the store (via socket events, push updates,
-  // or local fetches). Without the selector, destructuring getDevice
-  // returned a stale snapshot until a manual refresh.
-  const selectedDevice = useDeviceStore((s) => s.devices.get(deviceId));
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [isLoading, setIsLoading] = useState(true);
+ // Live mode — while the device detail page is open, ask the agent
+ // to push every ~3s so the user actually sees CPU/RAM moving. The
+ // server enforces a fixed window (60s) so a stale tab can't keep a
+ // device in fast-push forever; we re-arm every 30s as long as the
+ // page stays mounted. Reverting to the configured push_interval is
+ // automatic on unmount (no command needed — the window expires).
+ useEffect(() => {
+ let cancelled = false;
+ const arm = async () => {
+ if (cancelled) return;
+ try { await deviceApi.requestLiveMetrics(deviceId, 'live', 60); } catch { /* offline agent — silent */ }
+ };
+ arm();
+ const id = window.setInterval(arm, 30 * 1000);
+ return () => { cancelled = true; window.clearInterval(id); };
+ }, [deviceId]);
+ // Explicit selector — Zustand re-renders this component whenever the
+ // device row is mutated in the store (via socket events, push updates,
+ // or local fetches). Without the selector, destructuring getDevice
+ // returned a stale snapshot until a manual refresh.
+ const selectedDevice = useDeviceStore((s) => s.devices.get(deviceId));
+ const [activeTab, setActiveTab] = useState<Tab>('overview');
+ const [isLoading, setIsLoading] = useState(true);
 
-  // Cross-tenant auto-switch: when the deep-link points to a device that
-  // isn't visible under the active tenant, ask the server which tenant
-  // owns it. The server only answers when the caller actually has access
-  // to that tenant, so we can silently switch without a confirmation
-  // step. While the switch is in flight we show a small "switching"
-  // loader instead of the dead-end "Device not found".
-  const [tenantSwitchTarget, setTenantSwitchTarget] = useState<string | null>(null);
+ // Cross-tenant auto-switch: when the deep-link points to a device that
+ // isn't visible under the active tenant, ask the server which tenant
+ // owns it. The server only answers when the caller actually has access
+ // to that tenant, so we can silently switch without a confirmation
+ // step. While the switch is in flight we show a small "switching"
+ // loader instead of the dead-end "Device not found".
+ const [tenantSwitchTarget, setTenantSwitchTarget] = useState<string | null>(null);
 
-  // Inline rename + note editing (header-level).
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
-  const [editingNote, setEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState('');
+ // Inline rename + note editing (header-level).
+ const [editingName, setEditingName] = useState(false);
+ const [nameDraft, setNameDraft] = useState('');
+ const [editingNote, setEditingNote] = useState(false);
+ const [noteDraft, setNoteDraft] = useState('');
 
-  // Custom sections that apply to this device (resolved server-side)
-  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
-  useEffect(() => {
-    if (!deviceId) return;
-    fetch(`/api/devices/${deviceId}/custom-sections`, { credentials: 'include' })
-      .then((r) => r.ok ? r.json() : { data: [] })
-      .then((res) => setCustomSections(res.data ?? []))
-      .catch(() => setCustomSections([]));
-  }, [deviceId]);
+ // Custom sections that apply to this device (resolved server-side)
+ const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+ useEffect(() => {
+ if (!deviceId) return;
+ fetch(`/api/devices/${deviceId}/custom-sections`, { credentials: 'include' })
+ .then((r) => r.ok ? r.json() : { data: [] })
+ .then((res) => setCustomSections(res.data ?? []))
+ .catch(() => setCustomSections([]));
+ }, [deviceId]);
 
-  // Privacy unlock state: features currently unlocked by password + expiry
-  const [privacyUnlocks, setPrivacyUnlocks] = useState<Record<string, number>>({});
-  const [unlockModalFeature, setUnlockModalFeature] = useState<null | { feature: 'scripts' | 'remote' | 'files' | 'processes'; navigateTo?: Tab; afterUnlock?: () => void }>(null);
-  const [managePasswordMode, setManagePasswordMode] = useState<null | 'set' | 'change' | 'remove'>(null);
-  const [disablePrivacyPrompt, setDisablePrivacyPrompt] = useState(false);
+ // Privacy unlock state: features currently unlocked by password + expiry
+ const [privacyUnlocks, setPrivacyUnlocks] = useState<Record<string, number>>({});
+ const [unlockModalFeature, setUnlockModalFeature] = useState<null | { feature: 'scripts' | 'remote' | 'files' | 'processes'; navigateTo?: Tab; afterUnlock?: () => void }>(null);
+ const [managePasswordMode, setManagePasswordMode] = useState<null | 'set' | 'change' | 'remove'>(null);
+ const [disablePrivacyPrompt, setDisablePrivacyPrompt] = useState(false);
 
-  // Reload unlock state from server on mount and after each unlock
-  useEffect(() => {
-    if (!deviceId) return;
-    deviceApi.listPrivacyUnlocks(deviceId).then((list) => {
-      const map: Record<string, number> = {};
-      for (const u of list) map[u.feature] = u.expiresAt;
-      setPrivacyUnlocks(map);
-    }).catch(() => {});
-  }, [deviceId]);
+ // Reload unlock state from server on mount and after each unlock
+ useEffect(() => {
+ if (!deviceId) return;
+ deviceApi.listPrivacyUnlocks(deviceId).then((list) => {
+ const map: Record<string, number> = {};
+ for (const u of list) map[u.feature] = u.expiresAt;
+ setPrivacyUnlocks(map);
+ }).catch(() => {});
+ }, [deviceId]);
 
-  // Drop expired unlocks automatically every 10s
-  useEffect(() => {
-    const int = setInterval(() => {
-      setPrivacyUnlocks((prev) => {
-        const now = Date.now();
-        const next: Record<string, number> = {};
-        for (const [k, v] of Object.entries(prev)) if (v > now) next[k] = v;
-        return next;
-      });
-    }, 10000);
-    return () => clearInterval(int);
-  }, []);
+ // Drop expired unlocks automatically every 10s
+ useEffect(() => {
+ const int = setInterval(() => {
+ setPrivacyUnlocks((prev) => {
+ const now = Date.now();
+ const next: Record<string, number> = {};
+ for (const [k, v] of Object.entries(prev)) if (v > now) next[k] = v;
+ return next;
+ });
+ }, 10000);
+ return () => clearInterval(int);
+ }, []);
 
-  const isFeatureUnlocked = (feature: string) => {
-    const exp = privacyUnlocks[feature];
-    return exp && exp > Date.now();
-  };
+ const isFeatureUnlocked = (feature: string) => {
+ const exp = privacyUnlocks[feature];
+ return exp && exp > Date.now();
+ };
 
-  const unlockCountdown = (feature: string): string | null => {
-    const exp = privacyUnlocks[feature];
-    if (!exp || exp <= Date.now()) return null;
-    const remaining = Math.max(0, exp - Date.now());
-    const mins = Math.floor(remaining / 60000);
-    const secs = Math.floor((remaining % 60000) / 1000);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+ const unlockCountdown = (feature: string): string | null => {
+ const exp = privacyUnlocks[feature];
+ if (!exp || exp <= Date.now()) return null;
+ const remaining = Math.max(0, exp - Date.now());
+ const mins = Math.floor(remaining / 60000);
+ const secs = Math.floor((remaining % 60000) / 1000);
+ return `${mins}:${secs.toString().padStart(2, '0')}`;
+ };
 
-  // Force re-render every second when at least one feature is unlocked,
-  // so the countdown badge ticks down in real-time.
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (Object.keys(privacyUnlocks).length === 0) return;
-    const t = setInterval(() => forceTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [privacyUnlocks]);
-  const [crossAppLinks, setCrossAppLinks] = useState<Array<{ appType: string; name: string; url: string; color: string | null }>>([]);
+ // Force re-render every second when at least one feature is unlocked,
+ // so the countdown badge ticks down in real-time.
+ const [, forceTick] = useState(0);
+ useEffect(() => {
+ if (Object.keys(privacyUnlocks).length === 0) return;
+ const t = setInterval(() => forceTick((n) => n + 1), 1000);
+ return () => clearInterval(t);
+ }, [privacyUnlocks]);
+ const [crossAppLinks, setCrossAppLinks] = useState<Array<{ appType: string; name: string; url: string; color: string | null }>>([]);
 
-  // Uninstall countdown (ticks every second while device is pending_uninstall)
-  const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
-  const _uninstallAt = selectedDevice?.uninstallAt ?? null;
-  const _isPendingUninstall = selectedDevice?.status === 'pending_uninstall';
-  useEffect(() => {
-    if (!_isPendingUninstall || !_uninstallAt) {
-      setUninstallCountdown('');
-      return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, new Date(_uninstallAt).getTime() - Date.now());
-      const m = Math.floor(remaining / 60000);
-      const s = Math.floor((remaining % 60000) / 1000);
-      setUninstallCountdown(remaining <= 0 ? '0:00' : `${m}:${String(s).padStart(2, '0')}`);
-    };
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [_uninstallAt, _isPendingUninstall]);
+ // Uninstall countdown (ticks every second while device is pending_uninstall)
+ const [uninstallCountdown, setUninstallCountdown] = useState<string>('');
+ const _uninstallAt = selectedDevice?.uninstallAt ?? null;
+ const _isPendingUninstall = selectedDevice?.status === 'pending_uninstall';
+ useEffect(() => {
+ if (!_isPendingUninstall || !_uninstallAt) {
+ setUninstallCountdown('');
+ return;
+ }
+ const tick = () => {
+ const remaining = Math.max(0, new Date(_uninstallAt).getTime() - Date.now());
+ const m = Math.floor(remaining / 60000);
+ const s = Math.floor((remaining % 60000) / 1000);
+ setUninstallCountdown(remaining <= 0 ? '0:00' : `${m}:${String(s).padStart(2, '0')}`);
+ };
+ tick();
+ const t = setInterval(tick, 1000);
+ return () => clearInterval(t);
+ }, [_uninstallAt, _isPendingUninstall]);
 
-  // Chat — now uses global store (persists across page navigation)
-  const [chatSessionPickerOpen, setChatSessionPickerOpen] = useState(false);
-  const chatIsOpen = useChatStore(s => s.isOpen && s.sessions.length > 0);
+ // Chat — now uses global store (persists across page navigation)
+ const [chatSessionPickerOpen, setChatSessionPickerOpen] = useState(false);
+ const chatIsOpen = useChatStore(s => s.isOpen && s.sessions.length > 0);
 
-  // Register remote-access callback so chat can trigger ObliReach
-  useEffect(() => {
-    useChatStore.getState().setOnRemoteAccessGranted(() => {
-      handleHeaderRemote('oblireach');
-    });
-    return () => { useChatStore.getState().setOnRemoteAccessGranted(null); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+ // Register remote-access callback so chat can trigger ObliReach
+ useEffect(() => {
+ useChatStore.getState().setOnRemoteAccessGranted(() => {
+ handleHeaderRemote('oblireach');
+ });
+ return () => { useChatStore.getState().setOnRemoteAccessGranted(null); };
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, []);
 
-  // Quick-action state (header buttons — visible on every tab)
-  const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
-  // null = loading, false = not installed, true = installed+online
-  const [headerOrInstalled, setHeaderOrInstalled] = useState<boolean | null>(null);
-  const [headerOrVersion, setHeaderOrVersion] = useState<string | null>(null);
-  const [headerOrLatestVersion, setHeaderOrLatestVersion] = useState<string | null>(null);
-  const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
-  const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
-  const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
-  const [isStartingRemote, setIsStartingRemote] = useState(false);
-  const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
-  const [headerOrSessions, setHeaderOrSessions] = useState<ObliReachSession[]>([]);
-  const [headerOrSessionPickerOpen, setHeaderOrSessionPickerOpen] = useState(false);
-  const remoteDropdownRef = useRef<HTMLDivElement>(null);
-  const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
-  // wtsSessionId used for the current header Oblireach session, reused on
-  // auto-reconnect after login transition.
-  const headerOrWtsSessionIdRef = useRef<number | undefined>(undefined);
+ // Quick-action state (header buttons — visible on every tab)
+ const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
+ // null = loading, false = not installed, true = installed+online
+ const [headerOrInstalled, setHeaderOrInstalled] = useState<boolean | null>(null);
+ const [headerOrVersion, setHeaderOrVersion] = useState<string | null>(null);
+ const [headerOrLatestVersion, setHeaderOrLatestVersion] = useState<string | null>(null);
+ const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);
+ const [headerRemoteSession, setHeaderRemoteSession] = useState<RemoteSession | null>(null);
+ const [headerRemoteProtocol, setHeaderRemoteProtocol] = useState<'ssh' | 'cmd' | 'powershell' | 'oblireach'>('oblireach');
+ const [isStartingRemote, setIsStartingRemote] = useState(false);
+ const [remoteDropdownOpen, setRemoteDropdownOpen] = useState(false);
+ const [headerOrSessions, setHeaderOrSessions] = useState<ObliReachSession[]>([]);
+ const [headerOrSessionPickerOpen, setHeaderOrSessionPickerOpen] = useState(false);
+ const remoteDropdownRef = useRef<HTMLDivElement>(null);
+ const remoteReadyListenerRef = useRef<((s: RemoteSession) => void) | null>(null);
+ // wtsSessionId used for the current header Oblireach session, reused on
+ // auto-reconnect after login transition.
+ const headerOrWtsSessionIdRef = useRef<number | undefined>(undefined);
 
-  const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep') => {
-    setHeaderPending((p) => new Set(p).add(type));
-    try {
-      await commandApi.enqueue(deviceId, type, {});
-      toast.success(`${type.replace(/_/g, ' ')} command sent`);
-    } catch {
-      toast.error(`Failed to send ${type} command`);
-    } finally {
-      setHeaderPending((p) => { const n = new Set(p); n.delete(type); return n; });
-    }
-  };
+ const handleHeaderAction = async (type: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep') => {
+ setHeaderPending((p) => new Set(p).add(type));
+ try {
+ await commandApi.enqueue(deviceId, type, {});
+ toast.success(`${type.replace(/_/g, ' ')} command sent`);
+ } catch {
+ toast.error(`Failed to send ${type} command`);
+ } finally {
+ setHeaderPending((p) => { const n = new Set(p); n.delete(type); return n; });
+ }
+ };
 
-  const handleHeaderStartObliReachSession = async (wtsSessionId?: number) => {
-    setHeaderOrSessionPickerOpen(false);
-    setHeaderRemoteProtocol('oblireach');
-    setHeaderRemoteSession(null);
-    setHeaderRemoteOpen(true);
-    setIsStartingRemote(true);
-    headerOrWtsSessionIdRef.current = wtsSessionId;
-    try {
-      const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsSessionId);
-      const socket = getSocket();
-      if (socket) {
-        const onReady = (s: RemoteSession) => {
-          if (s.deviceId !== deviceId || s.id !== session.id) return;
-          setHeaderRemoteSession(s);
-          socket.off('REMOTE_TUNNEL_READY', onReady);
-          remoteReadyListenerRef.current = null;
-        };
-        remoteReadyListenerRef.current = onReady;
-        socket.on('REMOTE_TUNNEL_READY', onReady);
-      }
-    } catch {
-      toast.error('Failed to start Oblireach session');
-      setHeaderRemoteOpen(false);
-    } finally {
-      setIsStartingRemote(false);
-    }
-  };
+ const handleHeaderStartObliReachSession = async (wtsSessionId?: number) => {
+ setHeaderOrSessionPickerOpen(false);
+ setHeaderRemoteProtocol('oblireach');
+ setHeaderRemoteSession(null);
+ setHeaderRemoteOpen(true);
+ setIsStartingRemote(true);
+ headerOrWtsSessionIdRef.current = wtsSessionId;
+ try {
+ const session = await remoteApi.startSession(deviceId, 'oblireach', undefined, wtsSessionId);
+ const socket = getSocket();
+ if (socket) {
+ const onReady = (s: RemoteSession) => {
+ if (s.deviceId !== deviceId || s.id !== session.id) return;
+ setHeaderRemoteSession(s);
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ remoteReadyListenerRef.current = null;
+ };
+ remoteReadyListenerRef.current = onReady;
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ }
+ } catch {
+ toast.error('Failed to start Oblireach session');
+ setHeaderRemoteOpen(false);
+ } finally {
+ setIsStartingRemote(false);
+ }
+ };
 
-  // Called by ObliReachViewer after an unexpected WS close (see doc on
-  // onReconnect prop). Recreates the session on the same WTS target so
-  // the viewer can reopen its tunnel.
-  const handleHeaderReconnectObliReach = async () => {
-    const session = await remoteApi.startSession(
-      deviceId, 'oblireach', undefined, headerOrWtsSessionIdRef.current,
-    );
-    setHeaderRemoteSession(session);
-  };
+ // Called by ObliReachViewer after an unexpected WS close (see doc on
+ // onReconnect prop). Recreates the session on the same WTS target so
+ // the viewer can reopen its tunnel.
+ const handleHeaderReconnectObliReach = async () => {
+ const session = await remoteApi.startSession(
+ deviceId, 'oblireach', undefined, headerOrWtsSessionIdRef.current,
+ );
+ setHeaderRemoteSession(session);
+ };
 
-  const handleHeaderRemote = async (protocol: 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
-    setRemoteDropdownOpen(false);
+ const handleHeaderRemote = async (protocol: 'ssh' | 'cmd' | 'powershell' | 'oblireach') => {
+ setRemoteDropdownOpen(false);
 
-    // Oblireach: if not installed redirect to install command; if installed check sessions.
-    if (protocol === 'oblireach') {
-      if (headerOrInstalled === false) {
-        if (!isAgentReachable(device?.status)) { toast.error('Device is offline'); return; }
-        try {
-          await commandApi.enqueue(deviceId, 'install_oblireach', {}, 'high');
-          toast.success('Install command sent — Oblireach will deploy shortly.');
-        } catch { toast.error('Failed to send install command'); }
-        return;
-      }
-      if (headerOrInstalled === null) { toast('Checking Oblireach status…'); return; }
-      // Installed — check sessions and show picker if multiple.
-      try {
-        const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
-        if (sessions.length > 1) {
-          setHeaderOrSessions(sessions);
-          setHeaderOrSessionPickerOpen(true);
-          return;
-        }
-        await handleHeaderStartObliReachSession(sessions[0]?.id);
-      } catch {
-        await handleHeaderStartObliReachSession(undefined);
-      }
-      return;
-    }
+ // Oblireach: if not installed redirect to install command; if installed check sessions.
+ if (protocol === 'oblireach') {
+ if (headerOrInstalled === false) {
+ if (!isAgentReachable(device?.status)) { toast.error('Device is offline'); return; }
+ try {
+ await commandApi.enqueue(deviceId, 'install_oblireach', {}, 'high');
+ toast.success('Install command sent — Oblireach will deploy shortly.');
+ } catch { toast.error('Failed to send install command'); }
+ return;
+ }
+ if (headerOrInstalled === null) { toast('Checking Oblireach status…'); return; }
+ // Installed — check sessions and show picker if multiple.
+ try {
+ const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
+ if (sessions.length > 1) {
+ setHeaderOrSessions(sessions);
+ setHeaderOrSessionPickerOpen(true);
+ return;
+ }
+ await handleHeaderStartObliReachSession(sessions[0]?.id);
+ } catch {
+ await handleHeaderStartObliReachSession(undefined);
+ }
+ return;
+ }
 
-    // SSH / CMD / PowerShell now go through the global multi-session panel
-    // so they can be minimized, switched between, and survive route changes.
-    setIsStartingRemote(true);
-    try {
-      const session = await remoteApi.startSession(deviceId, protocol);
-      const deviceName = anonymize(device?.displayName || device?.hostname) || `#${deviceId}`;
-      const { useRemoteShellStore } = await import('@/store/remoteShellStore');
-      const add = () => useRemoteShellStore.getState().addSession({
-        id: session.sessionToken,
-        deviceId,
-        deviceName,
-        protocol,
-        sessionToken: session.sessionToken,
-      });
-      const socket = getSocket();
-      if (socket) {
-        const onReady = (s: RemoteSession) => {
-          if (s.deviceId !== deviceId || s.id !== session.id) return;
-          socket.off('REMOTE_TUNNEL_READY', onReady);
-          add();
-        };
-        socket.on('REMOTE_TUNNEL_READY', onReady);
-        // Safety: open the tab anyway after 1.5s even if READY never came.
-        setTimeout(() => {
-          socket.off('REMOTE_TUNNEL_READY', onReady);
-          const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
-          if (!already) add();
-        }, 1500);
-      } else {
-        add();
-      }
-    } catch {
-      toast.error(`Failed to start ${protocol.toUpperCase()} session`);
-    } finally {
-      setIsStartingRemote(false);
-    }
-  };
+ // SSH / CMD / PowerShell now go through the global multi-session panel
+ // so they can be minimized, switched between, and survive route changes.
+ setIsStartingRemote(true);
+ try {
+ const session = await remoteApi.startSession(deviceId, protocol);
+ const deviceName = anonymize(device?.displayName || device?.hostname) || `#${deviceId}`;
+ const { useRemoteShellStore } = await import('@/store/remoteShellStore');
+ const add = () => useRemoteShellStore.getState().addSession({
+ id: session.sessionToken,
+ deviceId,
+ deviceName,
+ protocol,
+ sessionToken: session.sessionToken,
+ });
+ const socket = getSocket();
+ if (socket) {
+ const onReady = (s: RemoteSession) => {
+ if (s.deviceId !== deviceId || s.id !== session.id) return;
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ add();
+ };
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ // Safety: open the tab anyway after 1.5s even if READY never came.
+ setTimeout(() => {
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
+ if (!already) add();
+ }, 1500);
+ } else {
+ add();
+ }
+ } catch {
+ toast.error(`Failed to start ${protocol.toUpperCase()} session`);
+ } finally {
+ setIsStartingRemote(false);
+ }
+ };
 
-  useEffect(() => {
-    if (!remoteDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (remoteDropdownRef.current && !remoteDropdownRef.current.contains(e.target as Node)) {
-        setRemoteDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [remoteDropdownOpen]);
-
-
-  const [isApprovingDevice, setIsApprovingDevice] = useState(false);
-  const [isRefusingDevice, setIsRefusingDevice] = useState(false);
-
-  const handleApproveDevice = async () => {
-    setIsApprovingDevice(true);
-    try {
-      await deviceApi.approve(deviceId);
-      toast.success('Device approved');
-      await fetchDevice(deviceId);
-    } catch {
-      toast.error('Failed to approve device');
-    } finally {
-      setIsApprovingDevice(false);
-    }
-  };
-
-  const handleRefuseDevice = async () => {
-    if (!confirm('Refuse this device?')) return;
-    setIsRefusingDevice(true);
-    try {
-      await deviceApi.refuse(deviceId);
-      toast.success('Device refused');
-      navigate('/devices');
-    } catch {
-      toast.error('Failed to refuse device');
-    } finally {
-      setIsRefusingDevice(false);
-    }
-  };
-
-  const [isScanningAll, setIsScanningAll] = useState(false);
-  const handleScanAll = async () => {
-    setIsScanningAll(true);
-    try {
-      await Promise.all([
-        commandApi.enqueue(deviceId, 'scan_inventory'),
-        commandApi.enqueue(deviceId, 'scan_updates'),
-        commandApi.enqueue(deviceId, 'check_compliance'),
-      ]);
-      toast.success('Scan All commands dispatched');
-    } catch {
-      toast.error('Failed to dispatch Scan All');
-    } finally {
-      setIsScanningAll(false);
-    }
-  };
-
-  // Re-fetch when the tenant changes so the device load retries after a
-  // silent cross-tenant switch (deviceId stays the same, only the tenant
-  // flips).
-  const currentTenantId = useTenantStore((s) => s.currentTenantId);
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setTenantSwitchTarget(null);
-      const dev = await fetchDevice(deviceId);
-      if (cancelled) return;
-      if (dev) {
-        setIsLoading(false);
-        return;
-      }
-      // Device not visible under the current tenant — try to locate it.
-      // The server only returns the tenant when the caller has access to
-      // it; otherwise we fall through to the regular "Device not found".
-      const located = await deviceApi.locate(deviceId);
-      if (cancelled) return;
-      if (located && located.currentTenantId !== located.tenantId) {
-        // Silent switch: keep isLoading true so the UI shows the spinner
-        // (with the target tenant name) instead of "Device not found"
-        // mid-flight. AppLayout's reset-to-/ effect is suppressed via
-        // sessionStorage so the URL survives the tenant change.
-        setTenantSwitchTarget(located.tenantName);
-        sessionStorage.setItem('skipTenantSwitchRedirect', '1');
-        try {
-          await useTenantStore.getState().setCurrentTenant(located.tenantId);
-          // The currentTenantId dep change will re-run this effect; we
-          // just need to keep the loading state until that happens.
-        } catch {
-          // Server refused the switch (rare — would mean the access
-          // check raced). Drop the spinner and show "Device not found".
-          if (!cancelled) {
-            sessionStorage.removeItem('skipTenantSwitchRedirect');
-            setTenantSwitchTarget(null);
-            setIsLoading(false);
-          }
-        }
-        return;
-      }
-      setIsLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [deviceId, fetchDevice, currentTenantId]);
-
-  const device = selectedDevice;
-
-  const startRename = () => {
-    if (!device) return;
-    setNameDraft(device.displayName ?? device.hostname ?? '');
-    setEditingName(true);
-  };
-  const saveRename = async () => {
-    if (!device) return;
-    const v = nameDraft.trim();
-    const current = device.displayName ?? device.hostname ?? '';
-    if (!v || v === current) { setEditingName(false); return; }
-    try {
-      await deviceApi.update(device.id, { displayName: v });
-      setEditingName(false);
-      await fetchDevice(device.id);
-    } catch { toast.error('Failed to rename'); }
-  };
-
-  const startNote = () => {
-    if (!device) return;
-    setNoteDraft(device.description ?? '');
-    setEditingNote(true);
-  };
-  const saveNote = async () => {
-    if (!device) return;
-    if (noteDraft === (device.description ?? '')) { setEditingNote(false); return; }
-    try {
-      // Send null (not undefined) when emptied so the server clears the
-      // DB column. `description: undefined` is stripped by the service
-      // layer and the old note sticks around.
-      const next: string | null = noteDraft.trim() === '' ? null : noteDraft;
-      await deviceApi.update(device.id, { description: next });
-      setEditingNote(false);
-      await fetchDevice(device.id);
-    } catch { toast.error('Failed to save note'); }
-  };
-  const deleteNote = async () => {
-    if (!device) return;
-    try {
-      await deviceApi.update(device.id, { description: null });
-      setEditingNote(false);
-      setNoteDraft('');
-      await fetchDevice(device.id);
-    } catch { toast.error('Failed to delete note'); }
-  };
-
-  useEffect(() => {
-    if (!device?.uuid) { setHeaderOrInstalled(false); return; }
-    remoteApi.listObliReachDeviceUuids().then((uuids) => {
-      const installed = uuids.has(device.uuid!);
-      setHeaderOrInstalled(installed);
-      if (installed) {
-        Promise.all([
-          remoteApi.getObliReachDevice(device.uuid!),
-          remoteApi.getObliReachLatestVersion(),
-        ]).then(([dev, latest]) => {
-          setHeaderOrVersion(dev?.version ?? null);
-          setHeaderOrLatestVersion(latest);
-        });
-      }
-    }).catch(() => setHeaderOrInstalled(false));
-  }, [device?.uuid]);
-
-  useEffect(() => {
-    if (!device?.uuid) return;
-    fetch(`/api/auth/device-links?uuid=${encodeURIComponent(device.uuid)}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then((d: { success: boolean; data?: Array<{ appType: string; name: string; url: string; color: string | null }> }) => {
-        if (d.success && d.data) setCrossAppLinks(d.data);
-      })
-      .catch(() => {});
-  }, [device?.uuid]);
+ useEffect(() => {
+ if (!remoteDropdownOpen) return;
+ const handleClickOutside = (e: MouseEvent) => {
+ if (remoteDropdownRef.current && !remoteDropdownRef.current.contains(e.target as Node)) {
+ setRemoteDropdownOpen(false);
+ }
+ };
+ document.addEventListener('mousedown', handleClickOutside);
+ return () => document.removeEventListener('mousedown', handleClickOutside);
+ }, [remoteDropdownOpen]);
 
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <RefreshCw className="w-6 h-6 animate-spin text-text-muted" />
-        {tenantSwitchTarget && (
-          <p className="text-sm text-text-muted">
-            {t('deviceDetail.locate.switching', { tenant: tenantSwitchTarget })
-              || `Switching to ${tenantSwitchTarget}…`}
-          </p>
-        )}
-      </div>
-    );
-  }
+ const [isApprovingDevice, setIsApprovingDevice] = useState(false);
+ const [isRefusingDevice, setIsRefusingDevice] = useState(false);
 
-  if (!device) {
-    return (
-      <div className="p-6 text-center">
-        <p className="text-text-muted">{t('deviceDetail.notFound') || 'Device not found'}</p>
-        <Link to="/devices" className="mt-2 inline-block text-sm text-accent">
-          {t('deviceDetail.locate.backLink') || '← Back to devices'}
-        </Link>
-      </div>
-    );
-  }
+ const handleApproveDevice = async () => {
+ setIsApprovingDevice(true);
+ try {
+ await deviceApi.approve(deviceId);
+ toast.success('Device approved');
+ await fetchDevice(deviceId);
+ } catch {
+ toast.error('Failed to approve device');
+ } finally {
+ setIsApprovingDevice(false);
+ }
+ };
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Remote session launched from header */}
-      {headerRemoteOpen && headerRemoteProtocol === 'oblireach' && (
-        <ObliReachViewer
-          sessionToken={headerRemoteSession?.sessionToken ?? null}
-          deviceName={anonymize(device.displayName || device.hostname)}
-          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
-          onChatToggle={() => {
-            const cs = useChatStore.getState();
-            if (cs.isOpen && cs.sessions.length > 0) cs.toggleOpen();
-            else cs.openChat(device.uuid, device.displayName || device.hostname);
-          }}
-          chatOpen={chatIsOpen}
-          chatSoundEnabled={useChatStore.getState().soundEnabled}
-          onChatSoundToggle={() => useChatStore.getState().toggleSound()}
-          onClose={async () => {
-            if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
-            setHeaderRemoteOpen(false);
-            setHeaderRemoteSession(null);
-          }}
-          onReconnect={handleHeaderReconnectObliReach}
-        />
-      )}
-      {/* SSH/CMD/PowerShell sessions now live in the global panel rendered
-          at the AppLayout level — nothing to render here anymore. */}
-      {/* Chat session picker (RDS) */}
-      {chatSessionPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
-            <div className="px-5 py-4 border-b border-border">
-              <h3 className="text-sm font-semibold text-text-primary">Select session to chat with</h3>
-              <p className="text-xs text-text-muted mt-1">Choose which user session to open the chat in.</p>
-            </div>
-            <div className="p-3 space-y-1 max-h-60 overflow-y-auto">
-              {headerOrSessions.map((s) => (
-                <button key={s.id} onClick={() => {
-                  setChatSessionPickerOpen(false);
-                  useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, s.id);
-                }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left">
-                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
-                    {s.id}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-text-primary font-medium truncate">{s.username || 'Unknown'}</div>
-                    <div className="text-[10px] text-text-muted">{s.state} · {s.stationName || `Session ${s.id}`}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="px-5 py-3 border-t border-border flex justify-end">
-              <button onClick={() => setChatSessionPickerOpen(false)}
-                className="px-4 py-1.5 text-xs bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* WTS Session picker — header remote button (RDS with multiple sessions) */}
-      {headerOrSessionPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                <MonitorPlay className="w-4 h-4 text-accent" />
-                Choose Session
-              </h2>
-              <button
-                onClick={() => setHeaderOrSessionPickerOpen(false)}
-                className="text-text-muted hover:text-text-primary transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
-              {headerOrSessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => handleHeaderStartObliReachSession(s.id)}
-                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
-                >
-                  <div className={clsx(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    s.state === 'Active' ? 'bg-green-400' :
-                    s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
-                  )} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-text-primary truncate">
-                      {s.username || '(no user)'}
-                    </div>
-                    <div className="text-xs text-text-muted">
-                      {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+ const handleRefuseDevice = async () => {
+ if (!confirm('Refuse this device?')) return;
+ setIsRefusingDevice(true);
+ try {
+ await deviceApi.refuse(deviceId);
+ toast.success('Device refused');
+ navigate('/devices');
+ } catch {
+ toast.error('Failed to refuse device');
+ } finally {
+ setIsRefusingDevice(false);
+ }
+ };
 
-      {/* Airgap banner */}
-      {device.airgapEnabled && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-300">
-          <WifiOff className="w-5 h-5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">{t('airgap.bannerTitle')}</p>
-            <p className="text-xs text-blue-300/80 mt-0.5">{t('airgap.bannerMessage')}</p>
-          </div>
-        </div>
-      )}
+ const [isScanningAll, setIsScanningAll] = useState(false);
+ const handleScanAll = async () => {
+ setIsScanningAll(true);
+ try {
+ await Promise.all([
+ commandApi.enqueue(deviceId, 'scan_inventory'),
+ commandApi.enqueue(deviceId, 'scan_updates'),
+ commandApi.enqueue(deviceId, 'check_compliance'),
+ ]);
+ toast.success('Scan All commands dispatched');
+ } catch {
+ toast.error('Failed to dispatch Scan All');
+ } finally {
+ setIsScanningAll(false);
+ }
+ };
 
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <button
-          onClick={() => {
-            // Prefer history back so the previous page (with its filters) is restored.
-            // Fall back to /devices if there is no history entry.
-            if (window.history.length > 1) navigate(-1);
-            else navigate('/devices');
-          }}
-          className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5"
-          title="Back"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
-            {editingName ? (
-              <div className="flex items-center gap-1">
-                <input
-                  autoFocus
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveRename();
-                    if (e.key === 'Escape') setEditingName(false);
-                  }}
-                  className="text-2xl font-bold bg-bg-tertiary border border-accent rounded px-2 py-0.5 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-                <button
-                  onClick={saveRename}
-                  className="p-1 rounded text-green-400 hover:bg-bg-secondary"
-                  title="Save"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setEditingName(false)}
-                  className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
-                  title="Cancel"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 min-w-0">
-                <h1 className="text-2xl font-bold text-text-primary truncate">
-                  {anonymize(device.displayName || device.hostname)}
-                </h1>
-                <button
-                  onClick={startRename}
-                  className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
-                  title="Rename"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-            <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
-            <LastSeenPill lastSeenAt={device.lastSeenAt} />
-            {/* Master/god-view: surface the device's owning tenant in
-                the header so the admin always knows which customer
-                they're acting on. Hidden on child tenants (the chip is
-                redundant when you're inside that tenant). */}
-            <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} size="md" />
-            {/* Tags — surfaced inline next to the status so admins
-                spot at a glance which functional buckets a device
-                belongs to. Same compact chip style as the device
-                table column option. The detached row of tags below
-                still shows them larger; this is the quick-glance
-                version. */}
-            {Array.isArray(device.tags) && device.tags.length > 0 && (
-              <div className="inline-flex items-center gap-1 flex-wrap">
-                {device.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-0.5 text-xs rounded-full border border-border bg-bg-tertiary text-text-muted"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            {device.privacyModeEnabled && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
-                <Shield className="w-3 h-3" />
-                {t('privacy.badge')}
-              </span>
-            )}
-            {device.airgapEnabled && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-400/30">
-                <WifiOff className="w-3 h-3" />
-                {t('airgap.badge')}
-              </span>
-            )}
-            {device.agentFlavor === 'legacy' && (
-              <span
-                title="Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update"
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 uppercase tracking-wider"
-              >
-                Legacy
-              </span>
-            )}
-          </div>
-          <p className="group text-sm text-text-muted mt-1">
-            {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}
-            {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
-              <span>
-                {' '}· Reach v{headerOrVersion}
-                {headerOrLatestVersion && headerOrVersion !== headerOrLatestVersion && (() => {
-                  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-                  const [cm, cmi, cp] = parse(headerOrVersion);
-                  const [lm, lmi, lp] = parse(headerOrLatestVersion);
-                  const isOlder = cm !== lm ? cm < lm : cmi !== lmi ? cmi < lmi : cp < lp;
-                  return isOlder ? <span className="ml-1 text-yellow-400">↑ v{headerOrLatestVersion}</span> : null;
-                })()}
-              </span>
-            )}
-            {/* Hover-only "add note" affordance — invisible until the
-                info line is hovered, exactly where Obliview puts it. */}
-            {!device.description && !editingNote && (
-              <button
-                onClick={startNote}
-                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-rose-400 hover:text-rose-300"
-                title="Add a note"
-              >
-                <Plus className="w-3 h-3" />
-                <span className="text-xs">add note</span>
-              </button>
-            )}
-          </p>
-          {/* Rose note banner under the info line — only rendered when a
-              note exists or while editing. Click anywhere on the banner
-              to edit. */}
-          <NoteBanner
-            description={device.description}
-            editing={editingNote}
-            draft={noteDraft}
-            onDraftChange={setNoteDraft}
-            onStart={startNote}
-            onSave={saveNote}
-            onCancel={() => setEditingNote(false)}
-            onDelete={deleteNote}
-          />
-        </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {device.approvalStatus === 'pending' ? (
-            /* ── Pending device: only show approve / refuse ── */
-            isAdmin() && (
-              <>
-                <button
-                  onClick={handleApproveDevice}
-                  disabled={isApprovingDevice}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isApprovingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                  Approve
-                </button>
-                <button
-                  onClick={handleRefuseDevice}
-                  disabled={isRefusingDevice}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isRefusingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                  Refuse
-                </button>
-              </>
-            )
-          ) : (
-            /* ── Approved/suspended device: show all actions ── */
-            <div className="flex flex-col items-end gap-2">
-              {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) ── */}
-              {crossAppLinks.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  {crossAppLinks.map(link => (
-                    <a
-                      key={link.appType}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`Open in ${link.name}`}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
-                      style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
-                    >
-                      <ArrowLeftRight size={12} />
-                      {link.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-              {/* ── Action bar ── */}
-              <div className="flex items-center gap-2">
-              {/* ── Scan All ── */}
-              <button
-                onClick={handleScanAll}
-                disabled={isScanningAll || !isAgentReachable(device.status)}
-                title="Scan All — triggers inventory, updates and compliance scans"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
-                Scan All
-              </button>
+ // Re-fetch when the tenant changes so the device load retries after a
+ // silent cross-tenant switch (deviceId stays the same, only the tenant
+ // flips).
+ const currentTenantId = useTenantStore((s) => s.currentTenantId);
+ useEffect(() => {
+ let cancelled = false;
+ const load = async () => {
+ setIsLoading(true);
+ setTenantSwitchTarget(null);
+ const dev = await fetchDevice(deviceId);
+ if (cancelled) return;
+ if (dev) {
+ setIsLoading(false);
+ return;
+ }
+ // Device not visible under the current tenant — try to locate it.
+ // The server only returns the tenant when the caller has access to
+ // it; otherwise we fall through to the regular "Device not found".
+ const located = await deviceApi.locate(deviceId);
+ if (cancelled) return;
+ if (located && located.currentTenantId !== located.tenantId) {
+ // Silent switch: keep isLoading true so the UI shows the spinner
+ // (with the target tenant name) instead of "Device not found"
+ // mid-flight. AppLayout's reset-to-/ effect is suppressed via
+ // sessionStorage so the URL survives the tenant change.
+ setTenantSwitchTarget(located.tenantName);
+ sessionStorage.setItem('skipTenantSwitchRedirect', '1');
+ try {
+ await useTenantStore.getState().setCurrentTenant(located.tenantId);
+ // The currentTenantId dep change will re-run this effect; we
+ // just need to keep the loading state until that happens.
+ } catch {
+ // Server refused the switch (rare — would mean the access
+ // check raced). Drop the spinner and show "Device not found".
+ if (!cancelled) {
+ sessionStorage.removeItem('skipTenantSwitchRedirect');
+ setTenantSwitchTarget(null);
+ setIsLoading(false);
+ }
+ }
+ return;
+ }
+ setIsLoading(false);
+ };
+ load();
+ return () => { cancelled = true; };
+ }, [deviceId, fetchDevice, currentTenantId]);
 
-              {/* ── Airgap (admin only) ── */}
-              {isAdmin() && (
-                <button
-                  onClick={async () => {
-                    if (device.airgapEnabled) {
-                      setHeaderPending((p) => new Set(p).add('airgap'));
-                      try {
-                        await deviceApi.disableAirgap(device.id);
-                        toast.success(t('airgap.disabled'));
-                      } catch { toast.error(t('airgap.disableFailed')); }
-                      finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
-                    } else {
-                      if (!confirm(t('airgap.enableConfirm'))) return;
-                      setHeaderPending((p) => new Set(p).add('airgap'));
-                      try {
-                        await deviceApi.enableAirgap(device.id);
-                        toast.success(t('airgap.enabled'));
-                      } catch { toast.error(t('airgap.enableFailed')); }
-                      finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
-                    }
-                  }}
-                  disabled={headerPending.has('airgap')}
-                  title={device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
-                  className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                    device.airgapEnabled
-                      ? "border-blue-400/50 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
-                      : "border-border bg-bg-secondary text-text-muted hover:text-blue-400 hover:border-blue-400/50"
-                  )}
-                >
-                  {headerPending.has('airgap') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
-                  {device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
-                </button>
-              )}
+ const device = selectedDevice;
 
-              {/* ── Quick actions ── */}
-              <div className="flex items-center gap-1 border border-border rounded-lg bg-bg-secondary px-1 py-1">
-                {/* Chat — always next to Remote */}
-                <button
-                  onClick={async () => {
-                    // If a chat for THIS device is already open, toggle visibility
-                    const cs = useChatStore.getState();
-                    const thisDeviceOpen = cs.sessions.some(s => s.deviceUuid === device.uuid);
-                    if (thisDeviceOpen && cs.isOpen) {
-                      // Switch to its tab (in case another tab is active)
-                      const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
-                      if (tab && tab.key !== cs.activeKey) { cs.setActiveTab(tab.key); return; }
-                      cs.toggleOpen();
-                      return;
-                    }
-                    if (thisDeviceOpen && !cs.isOpen) {
-                      const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
-                      if (tab) cs.setActiveTab(tab.key);
-                      cs.toggleOpen();
-                      return;
-                    }
-                    // If Reach is active, use the same session
-                    if (headerRemoteOpen && headerRemoteSession) {
-                      useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
-                      return;
-                    }
-                    // Fetch fresh sessions for THIS device before opening chat
-                    try {
-                      const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
-                      if (sessions.length > 1) {
-                        setHeaderOrSessions(sessions);
-                        setChatSessionPickerOpen(true);
-                        return;
-                      }
-                      if (sessions.length === 1) {
-                        useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, sessions[0].id);
-                        return;
-                      }
-                    } catch {
-                      // Fall through — open chat without session selection
-                    }
-                    useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
-                  }}
-                  disabled={!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled}
-                  title={
-                    headerOrInstalled === false
-                      ? 'ObliReach is not deployed on this device — chat is unavailable'
-                      : device.privacyModeEnabled
-                        ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
-                        : 'Chat with user'
-                  }
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Chat
-                  {headerOrInstalled === false && <Lock className="w-3 h-3 text-orange-400" />}
-                </button>
-                {/* Remote */}
-                {(() => {
-                  const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
-                    device.osType === 'windows' ? ['oblireach', 'cmd', 'powershell'] :
-                    device.osType === 'macos'   ? ['oblireach', 'ssh'] :
-                                                  ['oblireach', 'ssh'];
-                  const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
-                  // Privacy gate state for the 'remote' feature
-                  const remoteHardBlocked = device.privacyModeEnabled && !device.privacyPasswordSet;
-                  const remoteUnlocked = isFeatureUnlocked('remote');
-                  const remoteSoftGated = device.privacyModeEnabled && device.privacyPasswordSet && !remoteUnlocked;
-                  const guardedClick = (action: () => void) => {
-                    if (remoteSoftGated) {
-                      setUnlockModalFeature({ feature: 'remote', afterUnlock: action });
-                    } else {
-                      action();
-                    }
-                  };
-                  return (
-                    <div className="relative" ref={remoteDropdownRef}>
-                      {opts.length === 1 ? (
-                        <button
-                          onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
-                          disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
-                          title={`${label(opts[0])} Remote`}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-                          {label(opts[0])}
-                          {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
-                          {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
-                          disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
-                          title="Remote Control"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
-                          Remote
-                          <ChevronDown className="w-3 h-3" />
-                          {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
-                          {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
-                        </button>
-                      )}
-                      {remoteDropdownOpen && (
-                        <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[130px]">
-                          {opts.map((proto) => {
-                            const isOr = proto === 'oblireach';
-                            const orNotInstalled = isOr && headerOrInstalled === false;
-                            return (
-                              <button
-                                key={proto}
-                                onClick={() => handleHeaderRemote(proto)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
-                              >
-                                <MonitorPlay className={`w-3.5 h-3.5 ${orNotInstalled ? 'text-orange-400' : 'text-green-400'}`} />
-                                <span>{proto === 'powershell' ? 'PowerShell' : proto === 'oblireach' ? 'Oblireach' : proto.toUpperCase()}</span>
-                                {orNotInstalled && (
-                                  <span className="ml-auto text-[10px] text-orange-400 font-medium">Install</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-                {device.privacyModeEnabled && isAdmin() && (
-                  <>
-                    <div className="w-px h-5 bg-border" />
-                    <button
-                      onClick={async () => {
-                        // If a password gate is set, prompt the user via the modal.
-                        if (device.privacyPasswordSet) {
-                          setDisablePrivacyPrompt(true);
-                          return;
-                        }
-                        setHeaderPending((p) => new Set(p).add('privacy'));
-                        try {
-                          await deviceApi.disablePrivacyMode(device.id);
-                          toast.success(t('privacy.disableSent'));
-                        } catch { toast.error(t('privacy.disableFailed')); }
-                        finally { setHeaderPending((p) => { const n = new Set(p); n.delete('privacy'); return n; }); }
-                      }}
-                      disabled={headerPending.has('privacy')}
-                      title={t('privacy.disableTitle')}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                      {t('privacy.disable')}
-                      {device.privacyPasswordSet && <Lock className="w-3 h-3" />}
-                    </button>
-                  </>
-                )}
-                <div className="w-px h-5 bg-border" />
-                <button
-                  onClick={() => handleHeaderAction('restart_agent')}
-                  disabled={headerPending.has('restart_agent')}
-                  title="Restart Agent"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                  Agent
-                </button>
-                <button
-                  onClick={() => handleHeaderAction('sleep')}
-                  disabled={headerPending.has('sleep')}
-                  title="Suspend device (sleep)"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {headerPending.has('sleep') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Moon className="w-3.5 h-3.5" />}
-                  Sleep
-                </button>
-                <button
-                  onClick={() => handleHeaderAction('reboot')}
-                  disabled={headerPending.has('reboot')}
-                  title="Reboot device"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                  Reboot
-                </button>
-                <button
-                  onClick={() => handleHeaderAction('shutdown')}
-                  disabled={headerPending.has('shutdown')}
-                  title="Shutdown device"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
-                  Off
-                </button>
-              </div>
-              </div>
-            </div>
-          )}
+ const startRename = () => {
+ if (!device) return;
+ setNameDraft(device.displayName ?? device.hostname ?? '');
+ setEditingName(true);
+ };
+ const saveRename = async () => {
+ if (!device) return;
+ const v = nameDraft.trim();
+ const current = device.displayName ?? device.hostname ?? '';
+ if (!v || v === current) { setEditingName(false); return; }
+ try {
+ await deviceApi.update(device.id, { displayName: v });
+ setEditingName(false);
+ await fetchDevice(device.id);
+ } catch { toast.error('Failed to rename'); }
+ };
 
-          <button
-            onClick={async () => {
-              // Two-part refresh: re-fetch the device row from the
-              // server (hostname/group/tags/etc. that change rarely)
-              // AND ask the agent to push fresh metrics immediately.
-              // Without the second step, the row already shows the
-              // last-pushed metrics — clicking would change nothing
-              // visible until the next push tick (potentially 60s).
-              await Promise.all([
-                fetchDevice(deviceId),
-                deviceApi.requestLiveMetrics(deviceId, 'push_now').catch(() => null),
-              ]);
-            }}
-            className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
-            title="Refresh device + force agent metrics push"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+ const startNote = () => {
+ if (!device) return;
+ setNoteDraft(device.description ?? '');
+ setEditingNote(true);
+ };
+ const saveNote = async () => {
+ if (!device) return;
+ if (noteDraft === (device.description ?? '')) { setEditingNote(false); return; }
+ try {
+ // Send null (not undefined) when emptied so the server clears the
+ // DB column. `description: undefined` is stripped by the service
+ // layer and the old note sticks around.
+ const next: string | null = noteDraft.trim() === '' ? null : noteDraft;
+ await deviceApi.update(device.id, { description: next });
+ setEditingNote(false);
+ await fetchDevice(device.id);
+ } catch { toast.error('Failed to save note'); }
+ };
+ const deleteNote = async () => {
+ if (!device) return;
+ try {
+ await deviceApi.update(device.id, { description: null });
+ setEditingNote(false);
+ setNoteDraft('');
+ await fetchDevice(device.id);
+ } catch { toast.error('Failed to delete note'); }
+ };
 
-      {/* ── Pending uninstall banner ── */}
-      {device.status === 'pending_uninstall' && (
-        <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-orange-500/40 bg-orange-500/10">
-          <div className="flex items-center gap-3">
-            <Power className="w-4 h-4 text-orange-400 shrink-0 animate-pulse" />
-            <div>
-              <p className="text-sm font-medium text-orange-300">Uninstall in progress</p>
-              <p className="text-xs text-orange-400/80">
-                Agent uninstall command sent.
-                {uninstallCountdown
-                  ? ` If unconfirmed, device will reappear in ${uninstallCountdown}.`
-                  : ' Device will reappear if the agent does not confirm.'}
-              </p>
-            </div>
-          </div>
-          {isAdmin() && (
-            <button
-              onClick={async () => {
-                try {
-                  await deviceApi.cancelUninstall(device.id);
-                  toast.success('Uninstall cancelled — device restored');
-                  fetchDevice(deviceId);
-                } catch {
-                  toast.error('Failed to cancel uninstall');
-                }
-              }}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/50 text-orange-400 hover:bg-orange-500/20 transition-colors"
-            >
-              Cancel uninstall
-            </button>
-          )}
-        </div>
-      )}
+ useEffect(() => {
+ if (!device?.uuid) { setHeaderOrInstalled(false); return; }
+ remoteApi.listObliReachDeviceUuids().then((uuids) => {
+ const installed = uuids.has(device.uuid!);
+ setHeaderOrInstalled(installed);
+ if (installed) {
+ Promise.all([
+ remoteApi.getObliReachDevice(device.uuid!),
+ remoteApi.getObliReachLatestVersion(),
+ ]).then(([dev, latest]) => {
+ setHeaderOrVersion(dev?.version ?? null);
+ setHeaderOrLatestVersion(latest);
+ });
+ }
+ }).catch(() => setHeaderOrInstalled(false));
+ }, [device?.uuid]);
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border overflow-x-auto">
-        {(() => {
-          // Inject custom section tabs between Remote and Explorer.
-          const customTabs = customSections.map((cs) => ({
-            id: `cs:${cs.id}` as Tab,
-            label: cs.name,
-            icon: TerminalSquare,
-            _custom: cs,
-          }));
-          const tabList = [...TABS];
-          const remoteIdx = tabList.findIndex((t) => t.id === 'remote');
-          if (remoteIdx >= 0) {
-            tabList.splice(remoteIdx + 1, 0, ...customTabs as any);
-          }
-          return tabList;
-        })().map((tab) => {
-          const Icon = tab.icon;
-          const isCustomSection = typeof tab.id === 'string' && tab.id.startsWith('cs:');
-          // Custom sections are classified under the 'remote' privacy feature
-          // since they open a live shell-like view — semantically remote.
-          const privacyGatedTab = isCustomSection || ['scripts', 'remote', 'processes', 'files'].includes(tab.id as string);
-          const inPrivacyMode = device.privacyModeEnabled && privacyGatedTab;
-          const hasPasswordGate = device.privacyPasswordSet;
-          const featureKey = isCustomSection ? 'remote'
-            : tab.id === 'scripts' ? 'scripts'
-            : tab.id === 'remote' ? 'remote'
-            : tab.id === 'files' ? 'files'
-            : tab.id === 'processes' ? 'processes'
-            : '';
-          const unlocked = featureKey && isFeatureUnlocked(featureKey);
-          const softGated = inPrivacyMode && hasPasswordGate && !unlocked;
-          const hardBlocked = inPrivacyMode && !hasPasswordGate;
-          const handleClick = () => {
-            if (hardBlocked) return;
-            if (softGated) {
-              setUnlockModalFeature({ feature: featureKey as any, navigateTo: tab.id as Tab });
-              return;
-            }
-            setActiveTab(tab.id as Tab);
-          };
-          return (
-            <button
-              key={tab.id}
-              onClick={handleClick}
-              disabled={hardBlocked}
-              title={hardBlocked ? t('privacy.badge') : softGated ? 'Click to unlock with password' : undefined}
-              className={clsx(
-                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
-                hardBlocked
-                  ? 'text-text-muted/40 cursor-not-allowed'
-                  : activeTab === tab.id
-                    ? 'bg-accent text-white'
-                    : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-              {softGated && <Lock className="w-3 h-3 text-orange-400" />}
-              {unlocked && inPrivacyMode && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-green-400 bg-green-400/10 border border-green-400/30 px-1.5 py-0.5 rounded-full">
-                  <Unlock className="w-2.5 h-2.5" />
-                  {unlockCountdown(featureKey as string)}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+ useEffect(() => {
+ if (!device?.uuid) return;
+ fetch(`/api/auth/device-links?uuid=${encodeURIComponent(device.uuid)}`, { credentials: 'include' })
+ .then(r => r.json())
+ .then((d: { success: boolean; data?: Array<{ appType: string; name: string; url: string; color: string | null }> }) => {
+ if (d.success && d.data) setCrossAppLinks(d.data);
+ })
+ .catch(() => {});
+ }, [device?.uuid]);
 
-      {/* Tab content */}
-      <div>
-        {activeTab === 'overview' && <OverviewTab device={device} onSaved={() => fetchDevice(deviceId)} />}
-        {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
-        {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
-        {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
-        {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
-        {activeTab === 'remote' && <RemoteTab device={device} />}
-        {activeTab === 'files' && <FileExplorerTab device={device} />}
-        {activeTab === 'services' && <ServicesTab device={device} />}
-        {activeTab === 'processes' && <ProcessesTab device={device} />}
-        {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
-        {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
-        {typeof activeTab === 'string' && activeTab.startsWith('cs:') && (() => {
-          const id = parseInt(activeTab.slice(3));
-          const section = customSections.find((s) => s.id === id);
-          if (!section) return null;
-          return <CustomSectionTab key={`cs-${section.id}`} deviceId={device.id} section={section} />;
-        })()}
-      </div>
 
-      {/* Privacy unlock modal */}
-      {unlockModalFeature && (
-        <PrivacyUnlockModal
-          deviceId={device.id}
-          feature={unlockModalFeature.feature}
-          onClose={() => setUnlockModalFeature(null)}
-          onUnlocked={(ttlSeconds) => {
-            setPrivacyUnlocks((prev) => ({ ...prev, [unlockModalFeature.feature]: Date.now() + ttlSeconds * 1000 }));
-            if (unlockModalFeature.navigateTo) setActiveTab(unlockModalFeature.navigateTo);
-            const after = unlockModalFeature.afterUnlock;
-            setUnlockModalFeature(null);
-            if (after) setTimeout(after, 50);
-          }}
-        />
-      )}
+ if (isLoading) {
+ return (
+ <div className="flex flex-col items-center justify-center h-64 gap-3">
+ <RefreshCw className="w-6 h-6 animate-spin text-text-muted" />
+ {tenantSwitchTarget && (
+ <p className="text-sm text-text-muted">
+ {t('deviceDetail.locate.switching', { tenant: tenantSwitchTarget })
+ || `Switching to ${tenantSwitchTarget}…`}
+ </p>
+ )}
+ </div>
+ );
+ }
 
-      {/* Privacy password manage modal */}
-      {managePasswordMode && (
-        <PrivacyPasswordManageModal
-          deviceId={device.id}
-          mode={managePasswordMode}
-          onClose={() => setManagePasswordMode(null)}
-          onSuccess={() => { fetchDevice(deviceId); }}
-        />
-      )}
+ if (!device) {
+ return (
+ <div className="p-6 text-center">
+ <p className="text-text-muted">{t('deviceDetail.notFound') || 'Device not found'}</p>
+ <Link to="/devices" className="mt-2 inline-block text-sm text-accent">
+ {t('deviceDetail.locate.backLink') || '← Back to devices'}
+ </Link>
+ </div>
+ );
+ }
 
-      {/* Disable privacy with password — reuses the unlock modal in 'disable' mode */}
-      {disablePrivacyPrompt && (
-        <PrivacyUnlockModal
-          deviceId={device.id}
-          feature={'scripts' as any}
-          mode="disable"
-          onClose={() => setDisablePrivacyPrompt(false)}
-          onUnlocked={() => {
-            setDisablePrivacyPrompt(false);
-            setTimeout(() => fetchDevice(deviceId), 1500);
-          }}
-        />
-      )}
-    </div>
-  );
+ return (
+ <div className="p-6 space-y-6">
+ {/* Remote session launched from header */}
+ {headerRemoteOpen && headerRemoteProtocol === 'oblireach' && (
+ <ObliReachViewer
+ sessionToken={headerRemoteSession?.sessionToken ?? null}
+ deviceName={anonymize(device.displayName || device.hostname)}
+ preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
+ onChatToggle={() => {
+ const cs = useChatStore.getState();
+ if (cs.isOpen && cs.sessions.length > 0) cs.toggleOpen();
+ else cs.openChat(device.uuid, device.displayName || device.hostname);
+ }}
+ chatOpen={chatIsOpen}
+ chatSoundEnabled={useChatStore.getState().soundEnabled}
+ onChatSoundToggle={() => useChatStore.getState().toggleSound()}
+ onClose={async () => {
+ if (headerRemoteSession) try { await remoteApi.endSession(headerRemoteSession.id); } catch {}
+ setHeaderRemoteOpen(false);
+ setHeaderRemoteSession(null);
+ }}
+ onReconnect={handleHeaderReconnectObliReach}
+ />
+ )}
+ {/* SSH/CMD/PowerShell sessions now live in the global panel rendered
+ at the AppLayout level — nothing to render here anymore. */}
+ {/* Chat session picker (RDS) */}
+ {chatSessionPickerOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+ <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
+ <div className="px-5 py-4 ">
+ <h3 className="text-sm font-semibold text-text-primary">Select session to chat with</h3>
+ <p className="text-xs text-text-muted mt-1">Choose which user session to open the chat in.</p>
+ </div>
+ <div className="p-3 space-y-1 max-h-60 overflow-y-auto">
+ {headerOrSessions.map((s) => (
+ <button key={s.id} onClick={() => {
+ setChatSessionPickerOpen(false);
+ useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, s.id);
+ }}
+ className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left">
+ <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
+ {s.id}
+ </div>
+ <div className="flex-1 min-w-0">
+ <div className="text-sm text-text-primary font-medium truncate">{s.username || 'Unknown'}</div>
+ <div className="text-[10px] text-text-muted">{s.state} · {s.stationName || `Session ${s.id}`}</div>
+ </div>
+ </button>
+ ))}
+ </div>
+ <div className="px-5 py-3 flex justify-end">
+ <button onClick={() => setChatSessionPickerOpen(false)}
+ className="px-4 py-1.5 text-xs bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary">
+ Cancel
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+ {/* WTS Session picker — header remote button (RDS with multiple sessions) */}
+ {headerOrSessionPickerOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+ <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
+ <div className="flex items-center justify-between p-4 ">
+ <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ <MonitorPlay className="w-4 h-4 text-accent" />
+ Choose Session
+ </h2>
+ <button
+ onClick={() => setHeaderOrSessionPickerOpen(false)}
+ className="text-text-muted hover:text-text-primary transition-colors"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+ <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ {headerOrSessions.map((s) => (
+ <button
+ key={s.id}
+ onClick={() => handleHeaderStartObliReachSession(s.id)}
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ >
+ <div className={clsx(
+ 'w-2 h-2 rounded-full flex-shrink-0',
+ s.state === 'Active' ? 'bg-green-400' :
+ s.state === 'Disconnected' ? 'bg-yellow-400' : 'bg-gray-400',
+ )} />
+ <div className="min-w-0 flex-1">
+ <div className="text-sm font-medium text-text-primary truncate">
+ {s.username || '(no user)'}
+ </div>
+ <div className="text-xs text-text-muted">
+ {s.state}{s.isConsole ? ' · Console' : ''}{s.stationName ? ` · ${s.stationName}` : ''}
+ </div>
+ </div>
+ </button>
+ ))}
+ </div>
+ </div>
+ </div>
+ )}
+
+ {/* Airgap banner */}
+ {device.airgapEnabled && (
+ <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-300">
+ <WifiOff className="w-5 h-5 shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-semibold">{t('airgap.bannerTitle')}</p>
+ <p className="text-xs text-blue-300/80 mt-0.5">{t('airgap.bannerMessage')}</p>
+ </div>
+ </div>
+ )}
+
+ {/* Header */}
+ <div className="flex items-start gap-4">
+ <button
+ onClick={() => {
+ // Prefer history back so the previous page (with its filters) is restored.
+ // Fall back to /devices if there is no history entry.
+ if (window.history.length > 1) navigate(-1);
+ else navigate('/devices');
+ }}
+ className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5"
+ title="Back"
+ >
+ <ArrowLeft className="w-4 h-4" />
+ </button>
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-3 flex-wrap">
+ <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
+ {editingName ? (
+ <div className="flex items-center gap-1">
+ <input
+ autoFocus
+ value={nameDraft}
+ onChange={(e) => setNameDraft(e.target.value)}
+ onKeyDown={(e) => {
+ if (e.key === 'Enter') saveRename();
+ if (e.key === 'Escape') setEditingName(false);
+ }}
+ className="text-2xl font-bold bg-bg-tertiary border border-accent rounded px-2 py-0.5 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+ />
+ <button
+ onClick={saveRename}
+ className="p-1 rounded text-green-400 hover:bg-bg-secondary"
+ title="Save"
+ >
+ <Check className="w-4 h-4" />
+ </button>
+ <button
+ onClick={() => setEditingName(false)}
+ className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
+ title="Cancel"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+ ) : (
+ <div className="flex items-center gap-1 min-w-0">
+ <h1 className="text-2xl font-bold text-text-primary truncate">
+ {anonymize(device.displayName || device.hostname)}
+ </h1>
+ <button
+ onClick={startRename}
+ className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
+ title="Rename"
+ >
+ <Pencil className="w-3.5 h-3.5" />
+ </button>
+ </div>
+ )}
+ <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
+ <LastSeenPill lastSeenAt={device.lastSeenAt} />
+ {/* Master/god-view: surface the device's owning tenant in
+ the header so the admin always knows which customer
+ they're acting on. Hidden on child tenants (the chip is
+ redundant when you're inside that tenant). */}
+ <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} size="md" />
+ {/* Tags — surfaced inline next to the status so admins
+ spot at a glance which functional buckets a device
+ belongs to. Same compact chip style as the device
+ table column option. The detached row of tags below
+ still shows them larger; this is the quick-glance
+ version. */}
+ {Array.isArray(device.tags) && device.tags.length > 0 && (
+ <div className="inline-flex items-center gap-1 flex-wrap">
+ {device.tags.map((tag) => (
+ <span
+ key={tag}
+ className="px-2 py-0.5 text-xs rounded-full bg-bg-tertiary text-text-muted"
+ >
+ {tag}
+ </span>
+ ))}
+ </div>
+ )}
+ {device.privacyModeEnabled && (
+ <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
+ <Shield className="w-3 h-3" />
+ {t('privacy.badge')}
+ </span>
+ )}
+ {device.airgapEnabled && (
+ <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-400/30">
+ <WifiOff className="w-3 h-3" />
+ {t('airgap.badge')}
+ </span>
+ )}
+ {device.agentFlavor === 'legacy' && (
+ <span
+ title="Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update"
+ className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 uppercase tracking-wider"
+ >
+ Legacy
+ </span>
+ )}
+ </div>
+ <p className="group text-sm text-text-muted mt-1">
+ {device.osName} · {anonymizeIp(device.ipLocal ?? device.ipPublic ?? 'unknown IP')} · Agent v{device.agentVersion ?? '?'}
+ {device.osType !== 'linux' && headerOrInstalled === true && headerOrVersion && (
+ <span>
+ {' '}· Reach v{headerOrVersion}
+ {headerOrLatestVersion && headerOrVersion !== headerOrLatestVersion && (() => {
+ const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+ const [cm, cmi, cp] = parse(headerOrVersion);
+ const [lm, lmi, lp] = parse(headerOrLatestVersion);
+ const isOlder = cm !== lm ? cm < lm : cmi !== lmi ? cmi < lmi : cp < lp;
+ return isOlder ? <span className="ml-1 text-yellow-400">↑ v{headerOrLatestVersion}</span> : null;
+ })()}
+ </span>
+ )}
+ {/* Hover-only "add note" affordance — invisible until the
+ info line is hovered, exactly where Obliview puts it. */}
+ {!device.description && !editingNote && (
+ <button
+ onClick={startNote}
+ className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-rose-400 hover:text-rose-300"
+ title="Add a note"
+ >
+ <Plus className="w-3 h-3" />
+ <span className="text-xs">add note</span>
+ </button>
+ )}
+ </p>
+ {/* Rose note banner under the info line — only rendered when a
+ note exists or while editing. Click anywhere on the banner
+ to edit. */}
+ <NoteBanner
+ description={device.description}
+ editing={editingNote}
+ draft={noteDraft}
+ onDraftChange={setNoteDraft}
+ onStart={startNote}
+ onSave={saveNote}
+ onCancel={() => setEditingNote(false)}
+ onDelete={deleteNote}
+ />
+ </div>
+ <div className="flex items-center gap-2 shrink-0 flex-wrap">
+ {device.approvalStatus === 'pending' ? (
+ /* ── Pending device: only show approve / refuse ── */
+ isAdmin() && (
+ <>
+ <button
+ onClick={handleApproveDevice}
+ disabled={isApprovingDevice}
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {isApprovingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+ Approve
+ </button>
+ <button
+ onClick={handleRefuseDevice}
+ disabled={isRefusingDevice}
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ >
+ {isRefusingDevice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+ Refuse
+ </button>
+ </>
+ )
+ ) : (
+ /* ── Approved/suspended device: show all actions ── */
+ <div className="flex flex-col items-end gap-2">
+ {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) ── */}
+ {crossAppLinks.length > 0 && (
+ <div className="flex items-center gap-1.5">
+ {crossAppLinks.map(link => (
+ <a
+ key={link.appType}
+ href={link.url}
+ target="_blank"
+ rel="noopener noreferrer"
+ title={`Open in ${link.name}`}
+ className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
+ style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
+ >
+ <ArrowLeftRight size={12} />
+ {link.name}
+ </a>
+ ))}
+ </div>
+ )}
+ {/* ── Action bar ── */}
+ <div className="flex items-center gap-2">
+ {/* ── Scan All ── */}
+ <button
+ onClick={handleScanAll}
+ disabled={isScanningAll || !isAgentReachable(device.status)}
+ title="Scan All — triggers inventory, updates and compliance scans"
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
+ Scan All
+ </button>
+
+ {/* ── Airgap (admin only) ── */}
+ {isAdmin() && (
+ <button
+ onClick={async () => {
+ if (device.airgapEnabled) {
+ setHeaderPending((p) => new Set(p).add('airgap'));
+ try {
+ await deviceApi.disableAirgap(device.id);
+ toast.success(t('airgap.disabled'));
+ } catch { toast.error(t('airgap.disableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+ } else {
+ if (!confirm(t('airgap.enableConfirm'))) return;
+ setHeaderPending((p) => new Set(p).add('airgap'));
+ try {
+ await deviceApi.enableAirgap(device.id);
+ toast.success(t('airgap.enabled'));
+ } catch { toast.error(t('airgap.enableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+ }
+ }}
+ disabled={headerPending.has('airgap')}
+ title={device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
+ className={clsx(
+ "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+ device.airgapEnabled
+ ? "border-blue-400/50 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+ : "border-transparent bg-bg-secondary text-text-muted hover:text-blue-400 hover:border-blue-400/50"
+ )}
+ >
+ {headerPending.has('airgap') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
+ {device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
+ </button>
+ )}
+
+ {/* ── Quick actions ── */}
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary px-1 py-1">
+ {/* Chat — always next to Remote */}
+ <button
+ onClick={async () => {
+ // If a chat for THIS device is already open, toggle visibility
+ const cs = useChatStore.getState();
+ const thisDeviceOpen = cs.sessions.some(s => s.deviceUuid === device.uuid);
+ if (thisDeviceOpen && cs.isOpen) {
+ // Switch to its tab (in case another tab is active)
+ const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
+ if (tab && tab.key !== cs.activeKey) { cs.setActiveTab(tab.key); return; }
+ cs.toggleOpen();
+ return;
+ }
+ if (thisDeviceOpen && !cs.isOpen) {
+ const tab = cs.sessions.find(s => s.deviceUuid === device.uuid);
+ if (tab) cs.setActiveTab(tab.key);
+ cs.toggleOpen();
+ return;
+ }
+ // If Reach is active, use the same session
+ if (headerRemoteOpen && headerRemoteSession) {
+ useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
+ return;
+ }
+ // Fetch fresh sessions for THIS device before opening chat
+ try {
+ const sessions = await remoteApi.getObliReachSessions(device?.uuid ?? '');
+ if (sessions.length > 1) {
+ setHeaderOrSessions(sessions);
+ setChatSessionPickerOpen(true);
+ return;
+ }
+ if (sessions.length === 1) {
+ useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, sessions[0].id);
+ return;
+ }
+ } catch {
+ // Fall through — open chat without session selection
+ }
+ useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname);
+ }}
+ disabled={!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled}
+ title={
+ headerOrInstalled === false
+ ? 'ObliReach is not deployed on this device — chat is unavailable'
+ : device.privacyModeEnabled
+ ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
+ : 'Chat with user'
+ }
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ <MessageCircle className="w-3.5 h-3.5" />
+ Chat
+ {headerOrInstalled === false && <Lock className="w-3 h-3 text-orange-400" />}
+ </button>
+ {/* Remote */}
+ {(() => {
+ const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
+ device.osType === 'windows' ? ['oblireach', 'cmd', 'powershell'] :
+ device.osType === 'macos' ? ['oblireach', 'ssh'] :
+ ['oblireach', 'ssh'];
+ const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
+ // Privacy gate state for the 'remote' feature
+ const remoteHardBlocked = device.privacyModeEnabled && !device.privacyPasswordSet;
+ const remoteUnlocked = isFeatureUnlocked('remote');
+ const remoteSoftGated = device.privacyModeEnabled && device.privacyPasswordSet && !remoteUnlocked;
+ const guardedClick = (action: () => void) => {
+ if (remoteSoftGated) {
+ setUnlockModalFeature({ feature: 'remote', afterUnlock: action });
+ } else {
+ action();
+ }
+ };
+ return (
+ <div className="relative" ref={remoteDropdownRef}>
+ {opts.length === 1 ? (
+ <button
+ onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
+ disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
+ title={`${label(opts[0])} Remote`}
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+ {label(opts[0])}
+ {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
+ {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
+ </button>
+ ) : (
+ <button
+ onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
+ disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
+ title="Remote Control"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-green-400 hover:bg-green-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {isStartingRemote ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MonitorPlay className="w-3.5 h-3.5" />}
+ Remote
+ <ChevronDown className="w-3 h-3" />
+ {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
+ {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
+ </button>
+ )}
+ {remoteDropdownOpen && (
+ <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-lg overflow-hidden min-w-[130px]">
+ {opts.map((proto) => {
+ const isOr = proto === 'oblireach';
+ const orNotInstalled = isOr && headerOrInstalled === false;
+ return (
+ <button
+ key={proto}
+ onClick={() => handleHeaderRemote(proto)}
+ className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ >
+ <MonitorPlay className={`w-3.5 h-3.5 ${orNotInstalled ? 'text-orange-400' : 'text-green-400'}`} />
+ <span>{proto === 'powershell' ? 'PowerShell' : proto === 'oblireach' ? 'Oblireach' : proto.toUpperCase()}</span>
+ {orNotInstalled && (
+ <span className="ml-auto text-[10px] text-orange-400 font-medium">Install</span>
+ )}
+ </button>
+ );
+ })}
+ </div>
+ )}
+ </div>
+ );
+ })()}
+ {device.privacyModeEnabled && isAdmin() && (
+ <>
+ <div className="w-px h-5 bg-border" />
+ <button
+ onClick={async () => {
+ // If a password gate is set, prompt the user via the modal.
+ if (device.privacyPasswordSet) {
+ setDisablePrivacyPrompt(true);
+ return;
+ }
+ setHeaderPending((p) => new Set(p).add('privacy'));
+ try {
+ await deviceApi.disablePrivacyMode(device.id);
+ toast.success(t('privacy.disableSent'));
+ } catch { toast.error(t('privacy.disableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('privacy'); return n; }); }
+ }}
+ disabled={headerPending.has('privacy')}
+ title={t('privacy.disableTitle')}
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
+ {t('privacy.disable')}
+ {device.privacyPasswordSet && <Lock className="w-3 h-3" />}
+ </button>
+ </>
+ )}
+ <div className="w-px h-5 bg-border" />
+ <button
+ onClick={() => handleHeaderAction('restart_agent')}
+ disabled={headerPending.has('restart_agent')}
+ title="Restart Agent"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+ Agent
+ </button>
+ <button
+ onClick={() => handleHeaderAction('sleep')}
+ disabled={headerPending.has('sleep')}
+ title="Suspend device (sleep)"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('sleep') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Moon className="w-3.5 h-3.5" />}
+ Sleep
+ </button>
+ <button
+ onClick={() => handleHeaderAction('reboot')}
+ disabled={headerPending.has('reboot')}
+ title="Reboot device"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+ Reboot
+ </button>
+ <button
+ onClick={() => handleHeaderAction('shutdown')}
+ disabled={headerPending.has('shutdown')}
+ title="Shutdown device"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
+ Off
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+
+ <button
+ onClick={async () => {
+ // Two-part refresh: re-fetch the device row from the
+ // server (hostname/group/tags/etc. that change rarely)
+ // AND ask the agent to push fresh metrics immediately.
+ // Without the second step, the row already shows the
+ // last-pushed metrics — clicking would change nothing
+ // visible until the next push tick (potentially 60s).
+ await Promise.all([
+ fetchDevice(deviceId),
+ deviceApi.requestLiveMetrics(deviceId, 'push_now').catch(() => null),
+ ]);
+ }}
+ className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
+ title="Refresh device + force agent metrics push"
+ >
+ <RefreshCw className="w-4 h-4" />
+ </button>
+ </div>
+ </div>
+
+ {/* ── Pending uninstall banner ── */}
+ {device.status === 'pending_uninstall' && (
+ <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-orange-500/40 bg-orange-500/10">
+ <div className="flex items-center gap-3">
+ <Power className="w-4 h-4 text-orange-400 shrink-0 animate-pulse" />
+ <div>
+ <p className="text-sm font-medium text-orange-300">Uninstall in progress</p>
+ <p className="text-xs text-orange-400/80">
+ Agent uninstall command sent.
+ {uninstallCountdown
+ ? ` If unconfirmed, device will reappear in ${uninstallCountdown}.`
+ : ' Device will reappear if the agent does not confirm.'}
+ </p>
+ </div>
+ </div>
+ {isAdmin() && (
+ <button
+ onClick={async () => {
+ try {
+ await deviceApi.cancelUninstall(device.id);
+ toast.success('Uninstall cancelled — device restored');
+ fetchDevice(deviceId);
+ } catch {
+ toast.error('Failed to cancel uninstall');
+ }
+ }}
+ className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-500/50 text-orange-400 hover:bg-orange-500/20 transition-colors"
+ >
+ Cancel uninstall
+ </button>
+ )}
+ </div>
+ )}
+
+ {/* Tabs */}
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent overflow-x-auto">
+ {(() => {
+ // Inject custom section tabs between Remote and Explorer.
+ const customTabs = customSections.map((cs) => ({
+ id: `cs:${cs.id}` as Tab,
+ label: cs.name,
+ icon: TerminalSquare,
+ _custom: cs,
+ }));
+ const tabList = [...TABS];
+ const remoteIdx = tabList.findIndex((t) => t.id === 'remote');
+ if (remoteIdx >= 0) {
+ tabList.splice(remoteIdx + 1, 0, ...customTabs as any);
+ }
+ return tabList;
+ })().map((tab) => {
+ const Icon = tab.icon;
+ const isCustomSection = typeof tab.id === 'string' && tab.id.startsWith('cs:');
+ // Custom sections are classified under the 'remote' privacy feature
+ // since they open a live shell-like view — semantically remote.
+ const privacyGatedTab = isCustomSection || ['scripts', 'remote', 'processes', 'files'].includes(tab.id as string);
+ const inPrivacyMode = device.privacyModeEnabled && privacyGatedTab;
+ const hasPasswordGate = device.privacyPasswordSet;
+ const featureKey = isCustomSection ? 'remote'
+ : tab.id === 'scripts' ? 'scripts'
+ : tab.id === 'remote' ? 'remote'
+ : tab.id === 'files' ? 'files'
+ : tab.id === 'processes' ? 'processes'
+ : '';
+ const unlocked = featureKey && isFeatureUnlocked(featureKey);
+ const softGated = inPrivacyMode && hasPasswordGate && !unlocked;
+ const hardBlocked = inPrivacyMode && !hasPasswordGate;
+ const handleClick = () => {
+ if (hardBlocked) return;
+ if (softGated) {
+ setUnlockModalFeature({ feature: featureKey as any, navigateTo: tab.id as Tab });
+ return;
+ }
+ setActiveTab(tab.id as Tab);
+ };
+ return (
+ <button
+ key={tab.id}
+ onClick={handleClick}
+ disabled={hardBlocked}
+ title={hardBlocked ? t('privacy.badge') : softGated ? 'Click to unlock with password' : undefined}
+ className={clsx(
+ 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
+ hardBlocked
+ ? 'text-text-muted/40 cursor-not-allowed'
+ : activeTab === tab.id
+ ? 'bg-accent text-white'
+ : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ <Icon className="w-4 h-4" />
+ {tab.label}
+ {softGated && <Lock className="w-3 h-3 text-orange-400" />}
+ {unlocked && inPrivacyMode && (
+ <span className="inline-flex items-center gap-1 text-[10px] font-mono text-green-400 bg-green-400/10 border border-green-400/30 px-1.5 py-0.5 rounded-full">
+ <Unlock className="w-2.5 h-2.5" />
+ {unlockCountdown(featureKey as string)}
+ </span>
+ )}
+ </button>
+ );
+ })}
+ </div>
+
+ {/* Tab content */}
+ <div>
+ {activeTab === 'overview' && <OverviewTab device={device} onSaved={() => fetchDevice(deviceId)} />}
+ {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
+ {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
+ {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
+ {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
+ {activeTab === 'remote' && <RemoteTab device={device} />}
+ {activeTab === 'files' && <FileExplorerTab device={device} />}
+ {activeTab === 'services' && <ServicesTab device={device} />}
+ {activeTab === 'processes' && <ProcessesTab device={device} />}
+ {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
+ {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
+ {typeof activeTab === 'string' && activeTab.startsWith('cs:') && (() => {
+ const id = parseInt(activeTab.slice(3));
+ const section = customSections.find((s) => s.id === id);
+ if (!section) return null;
+ return <CustomSectionTab key={`cs-${section.id}`} deviceId={device.id} section={section} />;
+ })()}
+ </div>
+
+ {/* Privacy unlock modal */}
+ {unlockModalFeature && (
+ <PrivacyUnlockModal
+ deviceId={device.id}
+ feature={unlockModalFeature.feature}
+ onClose={() => setUnlockModalFeature(null)}
+ onUnlocked={(ttlSeconds) => {
+ setPrivacyUnlocks((prev) => ({ ...prev, [unlockModalFeature.feature]: Date.now() + ttlSeconds * 1000 }));
+ if (unlockModalFeature.navigateTo) setActiveTab(unlockModalFeature.navigateTo);
+ const after = unlockModalFeature.afterUnlock;
+ setUnlockModalFeature(null);
+ if (after) setTimeout(after, 50);
+ }}
+ />
+ )}
+
+ {/* Privacy password manage modal */}
+ {managePasswordMode && (
+ <PrivacyPasswordManageModal
+ deviceId={device.id}
+ mode={managePasswordMode}
+ onClose={() => setManagePasswordMode(null)}
+ onSuccess={() => { fetchDevice(deviceId); }}
+ />
+ )}
+
+ {/* Disable privacy with password — reuses the unlock modal in 'disable' mode */}
+ {disablePrivacyPrompt && (
+ <PrivacyUnlockModal
+ deviceId={device.id}
+ feature={'scripts' as any}
+ mode="disable"
+ onClose={() => setDisablePrivacyPrompt(false)}
+ onUnlocked={() => {
+ setDisablePrivacyPrompt(false);
+ setTimeout(() => fetchDevice(deviceId), 1500);
+ }}
+ />
+ )}
+ </div>
+ );
 }

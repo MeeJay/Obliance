@@ -26,7 +26,6 @@ import {
   Pin,
   PinOff,
   Monitor,
-  Terminal,
   Laptop,
   ShieldCheck,
   Plus,
@@ -546,14 +545,10 @@ export function Sidebar() {
   ];
 
   const adminNavItems: NavItem[] = [
-    // "Agents" admin entry now points at the canonical /devices page
-    // landing on the pending-approval bucket — that's the surface
-    // admins actually open from this menu (approve / refuse new
-    // enrolments). The general device list is reachable via the user
-    // nav above. "Configuration agents" is the new home for the
-    // surfaces that have no equivalent on /devices: API keys, custom
-    // sections, network discovery.
-    { label: t('nav.agents'),        path: '/devices?approvalStatus=pending', icon: <Terminal size={18} /> },
+    // "Agent config" is the only admin entry for the agents domain —
+    // the device list itself lives at /devices (the user nav above)
+    // and is role-gated so admins see the pending/refused/suspended
+    // chips in-place. No separate admin shortcut needed.
     { label: t('nav.agentConfig', 'Agent config'), path: '/admin/devices', icon: <Key size={18} /> },
     { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },

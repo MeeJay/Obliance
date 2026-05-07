@@ -13,475 +13,475 @@ import { clsx } from 'clsx';
 type Tab = 'active' | 'history';
 
 const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; description: string }> = {
-  oblireach:  { label: 'Oblireach',  color: 'text-sky-400   bg-sky-400/10   border-sky-400/30',       description: 'Native screen streaming (recommended)' },
-  rdp:        { label: 'RDP',        color: 'text-rose-400 bg-rose-400/10 border-rose-400/30',   description: 'Remote Desktop Protocol (Windows)' },
-  ssh:        { label: 'SSH',        color: 'text-green-400 bg-green-400/10 border-green-400/30',      description: 'Secure Shell terminal' },
-  cmd:        { label: 'CMD',        color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',   description: 'Windows Command Prompt' },
-  powershell: { label: 'PowerShell', color: 'text-cyan-400  bg-cyan-400/10  border-cyan-400/30',       description: 'Windows PowerShell terminal' },
+ oblireach: { label: 'Oblireach', color: 'text-sky-400 bg-sky-400/10 border-sky-400/30', description: 'Native screen streaming (recommended)' },
+ rdp: { label: 'RDP', color: 'text-rose-400 bg-rose-400/10 border-rose-400/30', description: 'Remote Desktop Protocol (Windows)' },
+ ssh: { label: 'SSH', color: 'text-green-400 bg-green-400/10 border-green-400/30', description: 'Secure Shell terminal' },
+ cmd: { label: 'CMD', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', description: 'Windows Command Prompt' },
+ powershell: { label: 'PowerShell', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30', description: 'Windows PowerShell terminal' },
 };
 
 const STATUS_CONFIG: Record<RemoteSessionStatus, { label: string; color: string; pulse?: boolean }> = {
-  waiting: { label: 'Waiting', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', pulse: true },
-  connecting: { label: 'Connecting', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', pulse: true },
-  active: { label: 'Active', color: 'text-green-400 bg-green-400/10 border-green-400/30', pulse: true },
-  closed: { label: 'Closed', color: 'text-gray-400 bg-gray-400/10 border-gray-400/30' },
-  failed: { label: 'Failed', color: 'text-red-400 bg-red-400/10 border-red-400/30' },
-  timeout: { label: 'Timed out', color: 'text-orange-400 bg-orange-400/10 border-orange-400/30' },
-  expired: { label: 'Expired', color: 'text-gray-400 bg-gray-400/10 border-gray-400/30' },
+ waiting: { label: 'Waiting', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', pulse: true },
+ connecting: { label: 'Connecting', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', pulse: true },
+ active: { label: 'Active', color: 'text-green-400 bg-green-400/10 border-green-400/30', pulse: true },
+ closed: { label: 'Closed', color: 'text-gray-400 bg-gray-400/10 border-gray-400/30' },
+ failed: { label: 'Failed', color: 'text-red-400 bg-red-400/10 border-red-400/30' },
+ timeout: { label: 'Timed out', color: 'text-orange-400 bg-orange-400/10 border-orange-400/30' },
+ expired: { label: 'Expired', color: 'text-gray-400 bg-gray-400/10 border-gray-400/30' },
 };
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds) return '—';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m < 1) return `${s}s`;
-  return `${m}m ${s}s`;
+ if (!seconds) return '—';
+ const m = Math.floor(seconds / 60);
+ const s = seconds % 60;
+ if (m < 1) return `${s}s`;
+ return `${m}m ${s}s`;
 }
 
 function formatDate(val: string | null): string {
-  if (!val) return '—';
-  return new Date(val).toLocaleString();
+ if (!val) return '—';
+ return new Date(val).toLocaleString();
 }
 
 const ACTIVE_STATUSES: RemoteSessionStatus[] = ['waiting', 'connecting', 'active'];
 
 export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
-  const [activeTab, setActiveTab] = useState<Tab>('active');
-  const [activeSessions, setActiveSessions] = useState<RemoteSession[]>([]);
-  const [historySessions, setHistorySessions] = useState<RemoteSession[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [deviceSearch, setDeviceSearch] = useState('');
-  const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
-  const [selectedProtocol, setSelectedProtocol] = useState<RemoteProtocol>('oblireach');
-  const [sessionNotes, setSessionNotes] = useState('');
-  const [isStarting, setIsStarting] = useState(false);
-  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
+ const [activeTab, setActiveTab] = useState<Tab>('active');
+ const [activeSessions, setActiveSessions] = useState<RemoteSession[]>([]);
+ const [historySessions, setHistorySessions] = useState<RemoteSession[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [deviceSearch, setDeviceSearch] = useState('');
+ const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
+ const [selectedProtocol, setSelectedProtocol] = useState<RemoteProtocol>('oblireach');
+ const [sessionNotes, setSessionNotes] = useState('');
+ const [isStarting, setIsStarting] = useState(false);
+ const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
 
-  // Viewer modal state (Oblireach)
-  const [orSession, setOrSession]   = useState<RemoteSession | null>(null);
-  const pendingOrId = useRef<string | null>(null);
+ // Viewer modal state (Oblireach)
+ const [orSession, setOrSession] = useState<RemoteSession | null>(null);
+ const pendingOrId = useRef<string | null>(null);
 
-  const { getDeviceList, fetchDevices } = useDeviceStore();
+ const { getDeviceList, fetchDevices } = useDeviceStore();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [activeData, historyData] = await Promise.all([
-        remoteApi.listSessions({ status: 'active' }),
-        remoteApi.listSessions({ page: 1 }),
-      ]);
-      const active = activeData.items.filter(s => ACTIVE_STATUSES.includes(s.status));
-      setActiveSessions(active);
-      setHistorySessions(historyData.items.filter(s => !ACTIVE_STATUSES.includes(s.status)));
-    } catch {
-      toast.error('Failed to load sessions');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+ const load = useCallback(async () => {
+ setIsLoading(true);
+ try {
+ const [activeData, historyData] = await Promise.all([
+ remoteApi.listSessions({ status: 'active' }),
+ remoteApi.listSessions({ page: 1 }),
+ ]);
+ const active = activeData.items.filter(s => ACTIVE_STATUSES.includes(s.status));
+ setActiveSessions(active);
+ setHistorySessions(historyData.items.filter(s => !ACTIVE_STATUSES.includes(s.status)));
+ } catch {
+ toast.error('Failed to load sessions');
+ } finally {
+ setIsLoading(false);
+ }
+ }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+ useEffect(() => { load(); }, [load]);
+ useEffect(() => { fetchDevices(); }, [fetchDevices]);
 
-  // Real-time updates — refresh session list and update orSession if agent connected
-  useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-    const onUpdated = (s: RemoteSession) => {
-      setActiveSessions((prev) => {
-        const exists = prev.find((x) => x.id === s.id);
-        if (exists) return prev.map((x) => x.id === s.id ? s : x);
-        return prev;
-      });
-      if (orSession?.id === s.id) setOrSession(s);
-    };
-    const onReady = (s: RemoteSession) => {
-      setActiveSessions((prev) => prev.map((x) => x.id === s.id ? s : x));
-      if (s.id === pendingOrId.current) {
-        setOrSession(s);
-        pendingOrId.current = null;
-      }
-    };
-    socket.on('REMOTE_SESSION_UPDATED', onUpdated);
-    socket.on('REMOTE_TUNNEL_READY', onReady);
-    return () => {
-      socket.off('REMOTE_SESSION_UPDATED', onUpdated);
-      socket.off('REMOTE_TUNNEL_READY', onReady);
-    };
-  }, [orSession]);
+ // Real-time updates — refresh session list and update orSession if agent connected
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
+ const onUpdated = (s: RemoteSession) => {
+ setActiveSessions((prev) => {
+ const exists = prev.find((x) => x.id === s.id);
+ if (exists) return prev.map((x) => x.id === s.id ? s : x);
+ return prev;
+ });
+ if (orSession?.id === s.id) setOrSession(s);
+ };
+ const onReady = (s: RemoteSession) => {
+ setActiveSessions((prev) => prev.map((x) => x.id === s.id ? s : x));
+ if (s.id === pendingOrId.current) {
+ setOrSession(s);
+ pendingOrId.current = null;
+ }
+ };
+ socket.on('REMOTE_SESSION_UPDATED', onUpdated);
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ return () => {
+ socket.off('REMOTE_SESSION_UPDATED', onUpdated);
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ };
+ }, [orSession]);
 
-  const handleStartSession = async () => {
-    if (!selectedDeviceId) {
-      toast.error('Please select a device');
-      return;
-    }
-    setIsStarting(true);
-    // Open Oblireach viewer immediately so it's ready when the agent connects
-    if (selectedProtocol === 'oblireach') {
-      setOrSession({ sessionToken: '' } as any); // placeholder — viewer shows "waiting"
-    }
-    try {
-      const session = await remoteApi.startSession(selectedDeviceId, selectedProtocol, sessionNotes || undefined);
-      if (selectedProtocol === 'oblireach') {
-        pendingOrId.current = session.id;
-        setOrSession(session); // replace placeholder with real session
-        setActiveTab('active');
-      } else {
-        toast.success(`${PROTOCOL_CONFIG[selectedProtocol].label} session initiated — waiting for agent…`);
-        setActiveTab('active');
-      }
-      setSelectedDeviceId(null);
-      setSessionNotes('');
-      setDeviceSearch('');
-      await load();
-    } catch {
-      toast.error('Failed to start session');
-      if (selectedProtocol === 'oblireach') setOrSession(null);
-    } finally {
-      setIsStarting(false);
-    }
-  };
+ const handleStartSession = async () => {
+ if (!selectedDeviceId) {
+ toast.error('Please select a device');
+ return;
+ }
+ setIsStarting(true);
+ // Open Oblireach viewer immediately so it's ready when the agent connects
+ if (selectedProtocol === 'oblireach') {
+ setOrSession({ sessionToken: '' } as any); // placeholder — viewer shows "waiting"
+ }
+ try {
+ const session = await remoteApi.startSession(selectedDeviceId, selectedProtocol, sessionNotes || undefined);
+ if (selectedProtocol === 'oblireach') {
+ pendingOrId.current = session.id;
+ setOrSession(session); // replace placeholder with real session
+ setActiveTab('active');
+ } else {
+ toast.success(`${PROTOCOL_CONFIG[selectedProtocol].label} session initiated — waiting for agent…`);
+ setActiveTab('active');
+ }
+ setSelectedDeviceId(null);
+ setSessionNotes('');
+ setDeviceSearch('');
+ await load();
+ } catch {
+ toast.error('Failed to start session');
+ if (selectedProtocol === 'oblireach') setOrSession(null);
+ } finally {
+ setIsStarting(false);
+ }
+ };
 
-  const handleEndSession = async (sessionId: string) => {
-    if (!confirm('End this remote session?')) return;
-    setEndingSessionId(sessionId);
-    try {
-      await remoteApi.endSession(sessionId);
-      toast.success('Session ended');
-      await load();
-    } catch {
-      toast.error('Failed to end session');
-    } finally {
-      setEndingSessionId(null);
-    }
-  };
+ const handleEndSession = async (sessionId: string) => {
+ if (!confirm('End this remote session?')) return;
+ setEndingSessionId(sessionId);
+ try {
+ await remoteApi.endSession(sessionId);
+ toast.success('Session ended');
+ await load();
+ } catch {
+ toast.error('Failed to end session');
+ } finally {
+ setEndingSessionId(null);
+ }
+ };
 
-  const allDevices = getDeviceList();
-  const filteredDevices = deviceSearch
-    ? allDevices.filter(d => (d.displayName || d.hostname).toLowerCase().includes(deviceSearch.toLowerCase()) || d.ipLocal?.includes(deviceSearch))
-    : allDevices;
+ const allDevices = getDeviceList();
+ const filteredDevices = deviceSearch
+ ? allDevices.filter(d => (d.displayName || d.hostname).toLowerCase().includes(deviceSearch.toLowerCase()) || d.ipLocal?.includes(deviceSearch))
+ : allDevices;
 
-  const selectedDevice = selectedDeviceId ? allDevices.find(d => d.id === selectedDeviceId) : null;
+ const selectedDevice = selectedDeviceId ? allDevices.find(d => d.id === selectedDeviceId) : null;
 
-  return (
-    <>
-      <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
-        {!embedded && <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Remote Sessions</h1>
-            <p className="text-sm text-text-muted mt-0.5">Access devices remotely via Oblireach, RDP, or SSH</p>
-          </div>
-          <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
-            <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
-          </button>
-        </div>}
+ return (
+ <>
+ <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+ {!embedded && <div className="flex items-center justify-between">
+ <div>
+ <h1 className="text-2xl font-bold text-text-primary">Remote Sessions</h1>
+ <p className="text-sm text-text-muted mt-0.5">Access devices remotely via Oblireach, RDP, or SSH</p>
+ </div>
+ <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+ </button>
+ </div>}
 
-        {/* New session panel */}
-        <div className="bg-bg-secondary border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-base font-semibold text-text-primary">Start New Session</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Device selector */}
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-medium text-text-muted uppercase">Device</label>
-              {selectedDevice ? (
-                <div className="flex items-center gap-3 p-3 bg-bg-tertiary border border-accent/30 rounded-lg">
-                  <Monitor className="w-4 h-4 text-accent shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{selectedDevice.displayName || selectedDevice.hostname}</p>
-                    <p className="text-xs text-text-muted">{selectedDevice.osName} · {selectedDevice.ipLocal ?? selectedDevice.ipPublic ?? 'unknown'}</p>
-                  </div>
-                  <button
-                    onClick={() => { setSelectedDeviceId(null); setDeviceSearch(''); }}
-                    className="text-xs text-text-muted hover:text-text-primary transition-colors"
-                  >
-                    Change
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-                    <input
-                      value={deviceSearch}
-                      onChange={(e) => setDeviceSearch(e.target.value)}
-                      placeholder="Search devices..."
-                      className="w-full pl-8 pr-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-                    />
-                  </div>
-                  {deviceSearch && (
-                    <div className="max-h-48 overflow-y-auto bg-bg-tertiary border border-border rounded-lg divide-y divide-border">
-                      {filteredDevices.length === 0 ? (
-                        <p className="px-3 py-2 text-sm text-text-muted">No devices found</p>
-                      ) : (
-                        filteredDevices.slice(0, 10).map((device) => (
-                          <button
-                            key={device.id}
-                            onClick={() => { setSelectedDeviceId(device.id); setDeviceSearch(''); }}
-                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-bg-secondary transition-colors text-left"
-                          >
-                            <Monitor className="w-4 h-4 text-text-muted shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-text-primary truncate">{device.displayName || device.hostname}</p>
-                              <p className="text-xs text-text-muted truncate">{device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown'}</p>
-                            </div>
-                            <span className={clsx('text-xs px-1.5 py-0.5 rounded-full border shrink-0', device.status === 'online' ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
-                              {device.status}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+ {/* New session panel */}
+ <div className="bg-bg-secondary rounded-xl p-5 space-y-4">
+ <h2 className="text-base font-semibold text-text-primary">Start New Session</h2>
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+ {/* Device selector */}
+ <div className="md:col-span-2 space-y-2">
+ <label className="text-xs font-medium text-text-muted uppercase">Device</label>
+ {selectedDevice ? (
+ <div className="flex items-center gap-3 p-3 bg-bg-tertiary border border-accent/30 rounded-lg">
+ <Monitor className="w-4 h-4 text-accent shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-medium text-text-primary truncate">{selectedDevice.displayName || selectedDevice.hostname}</p>
+ <p className="text-xs text-text-muted">{selectedDevice.osName} · {selectedDevice.ipLocal ?? selectedDevice.ipPublic ?? 'unknown'}</p>
+ </div>
+ <button
+ onClick={() => { setSelectedDeviceId(null); setDeviceSearch(''); }}
+ className="text-xs text-text-muted hover:text-text-primary transition-colors"
+ >
+ Change
+ </button>
+ </div>
+ ) : (
+ <div className="space-y-2">
+ <div className="relative">
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+ <input
+ value={deviceSearch}
+ onChange={(e) => setDeviceSearch(e.target.value)}
+ placeholder="Search devices..."
+ className="w-full pl-8 pr-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
+ {deviceSearch && (
+ <div className="max-h-48 overflow-y-auto bg-bg-tertiary rounded-lg divide-y divide-border">
+ {filteredDevices.length === 0 ? (
+ <p className="px-3 py-2 text-sm text-text-muted">No devices found</p>
+ ) : (
+ filteredDevices.slice(0, 10).map((device) => (
+ <button
+ key={device.id}
+ onClick={() => { setSelectedDeviceId(device.id); setDeviceSearch(''); }}
+ className="w-full flex items-center gap-3 px-3 py-2 hover:bg-bg-secondary transition-colors text-left"
+ >
+ <Monitor className="w-4 h-4 text-text-muted shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-medium text-text-primary truncate">{device.displayName || device.hostname}</p>
+ <p className="text-xs text-text-muted truncate">{device.osName} · {device.ipLocal ?? device.ipPublic ?? 'unknown'}</p>
+ </div>
+ <span className={clsx('text-xs px-1.5 py-0.5 rounded-full border shrink-0', device.status === 'online' ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
+ {device.status}
+ </span>
+ </button>
+ ))
+ )}
+ </div>
+ )}
+ </div>
+ )}
+ </div>
 
-            {/* Protocol selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-text-muted uppercase">Protocol</label>
-              <div className="space-y-2">
-                {(Object.entries(PROTOCOL_CONFIG) as [RemoteProtocol, typeof PROTOCOL_CONFIG[RemoteProtocol]][]).filter(([proto]) =>
-                  // Oblireach only on Windows and macOS — not Linux
-                  proto !== 'oblireach' || selectedDevice?.osType !== 'linux'
-                ).map(([proto, cfg]) => (
-                  <button
-                    key={proto}
-                    onClick={() => setSelectedProtocol(proto)}
-                    className={clsx(
-                      'w-full flex items-center gap-3 p-2.5 rounded-lg border transition-colors text-left',
-                      selectedProtocol === proto ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50',
-                    )}
-                  >
-                    {proto === 'ssh' ? <Terminal className={clsx('w-4 h-4', cfg.color.split(' ')[0])} /> : <Monitor className={clsx('w-4 h-4', cfg.color.split(' ')[0])} />}
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{cfg.label}</p>
-                      <p className="text-xs text-text-muted">{cfg.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+ {/* Protocol selector */}
+ <div className="space-y-2">
+ <label className="text-xs font-medium text-text-muted uppercase">Protocol</label>
+ <div className="space-y-2">
+ {(Object.entries(PROTOCOL_CONFIG) as [RemoteProtocol, typeof PROTOCOL_CONFIG[RemoteProtocol]][]).filter(([proto]) =>
+ // Oblireach only on Windows and macOS — not Linux
+ proto !== 'oblireach' || selectedDevice?.osType !== 'linux'
+ ).map(([proto, cfg]) => (
+ <button
+ key={proto}
+ onClick={() => setSelectedProtocol(proto)}
+ className={clsx(
+ 'w-full flex items-center gap-3 p-2.5 rounded-lg border transition-colors text-left',
+ selectedProtocol === proto ? 'border-accent bg-accent/10' : 'border-transparent hover:border-accent/50',
+ )}
+ >
+ {proto === 'ssh' ? <Terminal className={clsx('w-4 h-4', cfg.color.split(' ')[0])} /> : <Monitor className={clsx('w-4 h-4', cfg.color.split(' ')[0])} />}
+ <div>
+ <p className="text-sm font-medium text-text-primary">{cfg.label}</p>
+ <p className="text-xs text-text-muted">{cfg.description}</p>
+ </div>
+ </button>
+ ))}
+ </div>
+ </div>
+ </div>
 
-          {/* Notes */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-text-muted uppercase">Notes (optional)</label>
-            <input
-              value={sessionNotes}
-              onChange={(e) => setSessionNotes(e.target.value)}
-              placeholder="Reason for access, incident number..."
-              className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent"
-            />
-          </div>
+ {/* Notes */}
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">Notes (optional)</label>
+ <input
+ value={sessionNotes}
+ onChange={(e) => setSessionNotes(e.target.value)}
+ placeholder="Reason for access, incident number..."
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ />
+ </div>
 
-          <button
-            onClick={handleStartSession}
-            disabled={!selectedDeviceId || isStarting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors text-sm font-medium"
-          >
-            <Play className="w-4 h-4" />
-            {isStarting ? 'Starting...' : `Start ${PROTOCOL_CONFIG[selectedProtocol].label} Session`}
-          </button>
-        </div>
+ <button
+ onClick={handleStartSession}
+ disabled={!selectedDeviceId || isStarting}
+ className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors text-sm font-medium"
+ >
+ <Play className="w-4 h-4" />
+ {isStarting ? 'Starting...' : `Start ${PROTOCOL_CONFIG[selectedProtocol].label} Session`}
+ </button>
+ </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-          {(['active', 'history'] as Tab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2',
-                activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              {tab === 'active' ? 'Active Sessions' : 'History'}
-              {tab === 'active' && activeSessions.length > 0 && (
-                <span className="text-xs px-1.5 py-0.5 bg-white/20 text-white rounded-full">{activeSessions.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
+ {/* Tabs */}
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
+ {(['active', 'history'] as Tab[]).map((tab) => (
+ <button
+ key={tab}
+ onClick={() => setActiveTab(tab)}
+ className={clsx(
+ 'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2',
+ activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ {tab === 'active' ? 'Active Sessions' : 'History'}
+ {tab === 'active' && activeSessions.length > 0 && (
+ <span className="text-xs px-1.5 py-0.5 bg-white/20 text-white rounded-full">{activeSessions.length}</span>
+ )}
+ </button>
+ ))}
+ </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center h-48">
-            <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-          </div>
-        ) : activeTab === 'active' ? (
-          <div className="space-y-3">
-            {activeSessions.length === 0 ? (
-              <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
-                <Wifi className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p className="font-medium text-text-primary mb-1">No active sessions</p>
-                <p className="text-sm">Start a new session to connect to a device.</p>
-              </div>
-            ) : (
-              activeSessions.map((session) => {
-                const statusCfg = STATUS_CONFIG[session.status];
-                const protoCfg = PROTOCOL_CONFIG[session.protocol];
-                const device = (session as any).device;
-                const canConnect = session.status === 'active' && session.protocol === 'rdp';
-                return (
-                  <div key={session.id} className="bg-bg-secondary border border-border rounded-xl p-4">
-                    <div className="flex items-start gap-4">
-                      <div className={clsx('p-2.5 rounded-lg shrink-0', protoCfg.color.split(' ')[1], protoCfg.color.split(' ')[2])}>
-                        {session.protocol === 'ssh' ? <Terminal className={clsx('w-5 h-5', protoCfg.color.split(' ')[0])} /> : <Monitor className={clsx('w-5 h-5', protoCfg.color.split(' ')[0])} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-text-primary">
-                            {device ? (device.displayName || device.hostname) : `Device #${session.deviceId}`}
-                          </span>
-                          <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1', statusCfg.color)}>
-                            {statusCfg.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
-                            {statusCfg.label}
-                          </span>
-                          <span className={clsx('text-xs px-2 py-0.5 rounded-full border', protoCfg.color)}>
-                            {protoCfg.label}
-                          </span>
-                          {device && <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} />}
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-muted">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Started {formatDate(session.startedAt)}
-                          </span>
-                          {(session as any).startedByUser && (
-                            <span className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
-                              {(session as any).startedByUser.displayName || (session as any).startedByUser.username}
-                            </span>
-                          )}
-                          {session.connectedAt && (
-                            <span className="text-green-400">Agent connected {formatDate(session.connectedAt)}</span>
-                          )}
-                        </div>
-                        {(session as any).notes && (
-                          <p className="text-xs text-text-muted mt-1 italic">{(session as any).notes}</p>
-                        )}
-                      </div>
+ {isLoading ? (
+ <div className="flex items-center justify-center h-48">
+ <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+ </div>
+ ) : activeTab === 'active' ? (
+ <div className="space-y-3">
+ {activeSessions.length === 0 ? (
+ <div className="p-12 text-center text-text-muted bg-bg-secondary rounded-xl">
+ <Wifi className="w-10 h-10 mx-auto mb-3 opacity-50" />
+ <p className="font-medium text-text-primary mb-1">No active sessions</p>
+ <p className="text-sm">Start a new session to connect to a device.</p>
+ </div>
+ ) : (
+ activeSessions.map((session) => {
+ const statusCfg = STATUS_CONFIG[session.status];
+ const protoCfg = PROTOCOL_CONFIG[session.protocol];
+ const device = (session as any).device;
+ const canConnect = session.status === 'active' && session.protocol === 'rdp';
+ return (
+ <div key={session.id} className="bg-bg-secondary rounded-xl p-4">
+ <div className="flex items-start gap-4">
+ <div className={clsx('p-2.5 rounded-lg shrink-0', protoCfg.color.split(' ')[1], protoCfg.color.split(' ')[2])}>
+ {session.protocol === 'ssh' ? <Terminal className={clsx('w-5 h-5', protoCfg.color.split(' ')[0])} /> : <Monitor className={clsx('w-5 h-5', protoCfg.color.split(' ')[0])} />}
+ </div>
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-2 flex-wrap">
+ <span className="text-sm font-semibold text-text-primary">
+ {device ? (device.displayName || device.hostname) : `Device #${session.deviceId}`}
+ </span>
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1', statusCfg.color)}>
+ {statusCfg.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+ {statusCfg.label}
+ </span>
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border', protoCfg.color)}>
+ {protoCfg.label}
+ </span>
+ {device && <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} />}
+ </div>
+ <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-muted">
+ <span className="flex items-center gap-1">
+ <Clock className="w-3 h-3" />
+ Started {formatDate(session.startedAt)}
+ </span>
+ {(session as any).startedByUser && (
+ <span className="flex items-center gap-1">
+ <User className="w-3 h-3" />
+ {(session as any).startedByUser.displayName || (session as any).startedByUser.username}
+ </span>
+ )}
+ {session.connectedAt && (
+ <span className="text-green-400">Agent connected {formatDate(session.connectedAt)}</span>
+ )}
+ </div>
+ {(session as any).notes && (
+ <p className="text-xs text-text-muted mt-1 italic">{(session as any).notes}</p>
+ )}
+ </div>
 
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Connect button — RDP active sessions */}
-                        {canConnect && (
-                          <button
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            Connect
-                          </button>
-                        )}
-                        {session.status === 'active' && session.protocol === 'oblireach' && (
-                          <button
-                            onClick={() => setOrSession(session)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            View
-                          </button>
-                        )}
-                        {/* End session */}
-                        <button
-                          onClick={() => handleEndSession(session.id)}
-                          disabled={endingSessionId === session.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-colors"
-                        >
-                          <StopCircle className="w-3.5 h-3.5" />
-                          {endingSessionId === session.id ? 'Ending...' : 'End'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {historySessions.length === 0 ? (
-              <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
-                <Clock className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p className="font-medium text-text-primary mb-1">No session history</p>
-                <p className="text-sm">Completed sessions will appear here.</p>
-              </div>
-            ) : (
-              <div className="bg-bg-secondary border border-border rounded-xl overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-bg-tertiary/50">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Device</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Protocol</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">User</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Started</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Duration</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {historySessions.map((session) => {
-                      const statusCfg = STATUS_CONFIG[session.status];
-                      const protoCfg = PROTOCOL_CONFIG[session.protocol];
-                      return (
-                        <tr key={session.id} className="hover:bg-bg-tertiary transition-colors">
-                          <td className="px-4 py-3">
-                            <p className="text-sm text-text-primary">
-                              {(session as any).device ? ((session as any).device.displayName || (session as any).device.hostname) : `Device #${session.deviceId}`}
-                            </p>
-                            {(session as any).notes && <p className="text-xs text-text-muted truncate max-w-xs">{(session as any).notes}</p>}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', protoCfg.color)}>
-                              {protoCfg.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <span className="text-xs text-text-muted">
-                              {(session as any).startedByUser ? ((session as any).startedByUser.displayName || (session as any).startedByUser.username) : '—'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 hidden lg:table-cell">
-                            <span className="text-xs text-text-muted">{formatDate(session.startedAt)}</span>
-                          </td>
-                          <td className="px-4 py-3 hidden lg:table-cell">
-                            <span className="text-xs text-text-muted">{formatDuration(session.durationSeconds)}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusCfg.color)}>
-                              {statusCfg.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+ {/* Action buttons */}
+ <div className="flex items-center gap-2 shrink-0">
+ {/* Connect button — RDP active sessions */}
+ {canConnect && (
+ <button
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+ >
+ <ExternalLink className="w-3.5 h-3.5" />
+ Connect
+ </button>
+ )}
+ {session.status === 'active' && session.protocol === 'oblireach' && (
+ <button
+ onClick={() => setOrSession(session)}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
+ >
+ <ExternalLink className="w-3.5 h-3.5" />
+ View
+ </button>
+ )}
+ {/* End session */}
+ <button
+ onClick={() => handleEndSession(session.id)}
+ disabled={endingSessionId === session.id}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+ >
+ <StopCircle className="w-3.5 h-3.5" />
+ {endingSessionId === session.id ? 'Ending...' : 'End'}
+ </button>
+ </div>
+ </div>
+ </div>
+ );
+ })
+ )}
+ </div>
+ ) : (
+ <div className="space-y-2">
+ {historySessions.length === 0 ? (
+ <div className="p-12 text-center text-text-muted bg-bg-secondary rounded-xl">
+ <Clock className="w-10 h-10 mx-auto mb-3 opacity-50" />
+ <p className="font-medium text-text-primary mb-1">No session history</p>
+ <p className="text-sm">Completed sessions will appear here.</p>
+ </div>
+ ) : (
+ <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <table className="w-full">
+ <thead>
+ <tr className=" bg-bg-tertiary/50">
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Device</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Protocol</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">User</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Started</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden lg:table-cell">Duration</th>
+ <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Status</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-border">
+ {historySessions.map((session) => {
+ const statusCfg = STATUS_CONFIG[session.status];
+ const protoCfg = PROTOCOL_CONFIG[session.protocol];
+ return (
+ <tr key={session.id} className="hover:bg-bg-tertiary transition-colors">
+ <td className="px-4 py-3">
+ <p className="text-sm text-text-primary">
+ {(session as any).device ? ((session as any).device.displayName || (session as any).device.hostname) : `Device #${session.deviceId}`}
+ </p>
+ {(session as any).notes && <p className="text-xs text-text-muted truncate max-w-xs">{(session as any).notes}</p>}
+ </td>
+ <td className="px-4 py-3">
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', protoCfg.color)}>
+ {protoCfg.label}
+ </span>
+ </td>
+ <td className="px-4 py-3 hidden md:table-cell">
+ <span className="text-xs text-text-muted">
+ {(session as any).startedByUser ? ((session as any).startedByUser.displayName || (session as any).startedByUser.username) : '—'}
+ </span>
+ </td>
+ <td className="px-4 py-3 hidden lg:table-cell">
+ <span className="text-xs text-text-muted">{formatDate(session.startedAt)}</span>
+ </td>
+ <td className="px-4 py-3 hidden lg:table-cell">
+ <span className="text-xs text-text-muted">{formatDuration(session.durationSeconds)}</span>
+ </td>
+ <td className="px-4 py-3">
+ <span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', statusCfg.color)}>
+ {statusCfg.label}
+ </span>
+ </td>
+ </tr>
+ );
+ })}
+ </tbody>
+ </table>
+ </div>
+ )}
+ </div>
+ )}
+ </div>
 
-      {/* Oblireach native viewer */}
-      {orSession && (
-        <ObliReachViewer
-          sessionToken={orSession.sessionToken}
-          deviceName={`Device #${orSession.deviceId}`}
-          preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
-          onClose={async () => {
-            // End the session server-side when the viewer closes
-            try { await remoteApi.endSession(orSession.id); } catch {}
-            setOrSession(null);
-            load();
-          }}
-          onReconnect={async () => {
-            // Recreate a session on the same device after an unexpected
-            // WS close (Winlogon→user-session transition after CAD login).
-            const s = await remoteApi.startSession(orSession.deviceId, 'oblireach', undefined);
-            setOrSession(s);
-          }}
-        />
-      )}
-    </>
-  );
+ {/* Oblireach native viewer */}
+ {orSession && (
+ <ObliReachViewer
+ sessionToken={orSession.sessionToken}
+ deviceName={`Device #${orSession.deviceId}`}
+ preferredCodec={useAuthStore.getState().user?.preferences?.preferredCodec}
+ onClose={async () => {
+ // End the session server-side when the viewer closes
+ try { await remoteApi.endSession(orSession.id); } catch {}
+ setOrSession(null);
+ load();
+ }}
+ onReconnect={async () => {
+ // Recreate a session on the same device after an unexpected
+ // WS close (Winlogon→user-session transition after CAD login).
+ const s = await remoteApi.startSession(orSession.deviceId, 'oblireach', undefined);
+ setOrSession(s);
+ }}
+ />
+ )}
+ </>
+ );
 }

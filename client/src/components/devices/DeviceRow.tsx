@@ -158,7 +158,7 @@ export const DeviceRow = memo(function DeviceRow({
   return (
     <div
       className={clsx(
-        'h-[72px] px-4 py-2 border-b border-border hover:bg-bg-tertiary cursor-pointer transition-colors flex flex-col justify-center',
+        'h-[72px] px-4 py-2 hover:bg-bg-tertiary cursor-pointer transition-colors flex flex-col justify-center',
         isSelected && 'bg-accent/10',
         selectionMode && isSelected && 'bg-accent/15',
       )}
@@ -180,7 +180,7 @@ export const DeviceRow = memo(function DeviceRow({
                     : 'bg-bg-primary/80 border-text-muted/40 hover:border-accent/50')
                 : (isSelected
                     ? 'bg-accent border-accent text-white'
-                    : 'border-border hover:border-accent/50'),
+                    : 'border-transparent hover:border-accent/50'),
             )}
           >
             {isSelected && (
@@ -367,7 +367,7 @@ export const DeviceRow = memo(function DeviceRow({
           fieldOn('tags') && Array.isArray(device.tags) && device.tags.length > 0 && (
             <span key="tags" className="inline-flex items-center gap-1 flex-wrap" title={`Tags: ${device.tags.join(', ')}`}>
               {device.tags.slice(0, 5).map((t) => (
-                <span key={t} className="px-1.5 py-0 rounded-full border border-border bg-bg-tertiary text-text-muted text-[10px]">
+                <span key={t} className="px-1.5 py-0 rounded-full bg-bg-tertiary text-text-muted text-[10px]">
                   {t}
                 </span>
               ))}
