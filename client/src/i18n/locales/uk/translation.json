@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Видалити агент"
+      "uninstall": "Видалити агент",
+      "runScript": "Запустити скрипт…",
+      "runScriptTitle": "Запустити скрипт на {{count}} пристроях",
+      "runScriptHint": "Виберіть сценарій із бібліотеки. Кожен пристрій виконує його незалежно — помилка на одному не блокує інші.",
+      "runScriptSearch": "Пошук за назвою, тегом, описом…",
+      "runScriptEmpty": "Немає відповідних сценаріїв.",
+      "runScriptParamWarn": "Цей сценарій має обов'язкові параметри. Використайте окрему сторінку запуску для їх заповнення.",
+      "runScriptOpenRunPage": "Відкрити сторінку запуску →",
+      "runScriptConfirm": "Запустити",
+      "runScriptDispatched": "Сценарій надіслано на {{count}} пристроїв"
     },
     "actions": {
       "view": "View",

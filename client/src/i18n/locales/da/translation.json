@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Afinstaller agent"
+      "uninstall": "Afinstaller agent",
+      "runScript": "Kør script…",
+      "runScriptTitle": "Kør script på {{count}} enheder",
+      "runScriptHint": "Vælg et script fra biblioteket. Hver enhed kører scriptet uafhængigt — fejl på én blokerer ikke de andre.",
+      "runScriptSearch": "Søg efter navn, tag, beskrivelse…",
+      "runScriptEmpty": "Ingen scripts matcher.",
+      "runScriptParamWarn": "Dette script har påkrævede parametre. Brug den dedikerede køreside til at udfylde dem.",
+      "runScriptOpenRunPage": "Åbn køreside →",
+      "runScriptConfirm": "Kør",
+      "runScriptDispatched": "Script sendt til {{count}} enheder"
     },
     "actions": {
       "view": "View",

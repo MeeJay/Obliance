@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Odinstaluj agenta"
+      "uninstall": "Odinstaluj agenta",
+      "runScript": "Uruchom skrypt…",
+      "runScriptTitle": "Uruchom skrypt na {{count}} urządzeniach",
+      "runScriptHint": "Wybierz skrypt z biblioteki. Każde urządzenie uruchamia go niezależnie — błąd na jednym nie blokuje pozostałych.",
+      "runScriptSearch": "Szukaj po nazwie, tagu, opisie…",
+      "runScriptEmpty": "Brak pasujących skryptów.",
+      "runScriptParamWarn": "Ten skrypt wymaga parametrów. Wypełnij je na dedykowanej stronie uruchamiania.",
+      "runScriptOpenRunPage": "Otwórz stronę uruchamiania →",
+      "runScriptConfirm": "Uruchom",
+      "runScriptDispatched": "Skrypt wysłany do {{count}} urządzeń"
     },
     "actions": {
       "view": "View",

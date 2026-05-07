@@ -632,7 +632,16 @@
       "deleted": "{{count}} Geräte gelöscht",
       "dispatched": "{{count}} Befehle gesendet",
       "confirmDelete": "Ausgewählte Geräte löschen? Nicht rückgängig.",
-      "uninstall": "Agent deinstallieren"
+      "uninstall": "Agent deinstallieren",
+      "runScript": "Skript ausführen…",
+      "runScriptTitle": "Skript auf {{count}} Geräten ausführen",
+      "runScriptHint": "Wählen Sie ein Skript aus der Bibliothek. Jedes Gerät führt es unabhängig aus — ein Fehler blockiert die anderen nicht.",
+      "runScriptSearch": "Nach Name, Tag, Beschreibung suchen…",
+      "runScriptEmpty": "Keine passenden Skripte.",
+      "runScriptParamWarn": "Dieses Skript hat Pflichtparameter. Nutzen Sie die dedizierte Ausführungsseite zum Ausfüllen.",
+      "runScriptOpenRunPage": "Ausführungsseite öffnen →",
+      "runScriptConfirm": "Ausführen",
+      "runScriptDispatched": "Skript an {{count}} Geräte gesendet"
     },
     "actions": {
       "view": "View",

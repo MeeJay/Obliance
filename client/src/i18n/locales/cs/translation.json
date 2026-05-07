@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Odinstalovat agenta"
+      "uninstall": "Odinstalovat agenta",
+      "runScript": "Spustit skript…",
+      "runScriptTitle": "Spustit skript na {{count}} zařízení",
+      "runScriptHint": "Vyberte skript z knihovny. Každé zařízení skript spustí nezávisle — chyba na jednom neblokuje ostatní.",
+      "runScriptSearch": "Hledat podle názvu, štítku, popisu…",
+      "runScriptEmpty": "Žádné odpovídající skripty.",
+      "runScriptParamWarn": "Tento skript deklaruje povinné parametry. Použijte k jejich vyplnění určenou stránku spuštění.",
+      "runScriptOpenRunPage": "Otevřít stránku spuštění →",
+      "runScriptConfirm": "Spustit",
+      "runScriptDispatched": "Skript odeslán na {{count}} zařízení"
     },
     "actions": {
       "view": "View",

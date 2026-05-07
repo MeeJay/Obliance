@@ -1173,7 +1173,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Uninstall Agent"
+      "uninstall": "Uninstall Agent",
+      "runScript": "Run script…",
+      "runScriptTitle": "Run script on {{count}} devices",
+      "runScriptHint": "Pick a script from the library. Each device runs it independently — failures on one don't block the others.",
+      "runScriptSearch": "Search by name, tag, description…",
+      "runScriptEmpty": "No scripts match.",
+      "runScriptParamWarn": "This script declares required parameters. Use the dedicated run page to fill them in.",
+      "runScriptOpenRunPage": "Open run page →",
+      "runScriptConfirm": "Run",
+      "runScriptDispatched": "Script dispatched to {{count}} devices"
     },
     "actions": {
       "view": "View",

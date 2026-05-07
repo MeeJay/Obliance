@@ -1173,7 +1173,16 @@
       "deleted": "{{count}} appareils supprimés",
       "dispatched": "{{count}} commandes envoyées",
       "confirmDelete": "Supprimer les appareils sélectionnés ? Action irréversible.",
-      "uninstall": "Désinstaller l'agent"
+      "uninstall": "Désinstaller l'agent",
+      "runScript": "Exécuter un script…",
+      "runScriptTitle": "Exécuter un script sur {{count}} appareils",
+      "runScriptHint": "Choisissez un script dans la bibliothèque. Chaque appareil l'exécute indépendamment — un échec n'en bloque pas les autres.",
+      "runScriptSearch": "Rechercher par nom, tag, description…",
+      "runScriptEmpty": "Aucun script correspondant.",
+      "runScriptParamWarn": "Ce script déclare des paramètres obligatoires. Utilisez la page d'exécution dédiée pour les renseigner.",
+      "runScriptOpenRunPage": "Ouvrir la page d'exécution →",
+      "runScriptConfirm": "Exécuter",
+      "runScriptDispatched": "Script envoyé à {{count}} appareils"
     },
     "actions": {
       "view": "Voir",

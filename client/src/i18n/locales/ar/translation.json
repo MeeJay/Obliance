@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "إلغاء تثبيت الوكيل"
+      "uninstall": "إلغاء تثبيت الوكيل",
+      "runScript": "تشغيل سكربت…",
+      "runScriptTitle": "تشغيل سكربت على {{count}} جهاز",
+      "runScriptHint": "اختر سكربتاً من المكتبة. كل جهاز يقوم بالتنفيذ بشكل مستقل — فشل أحدها لا يمنع الآخرين.",
+      "runScriptSearch": "ابحث بالاسم أو الوسم أو الوصف…",
+      "runScriptEmpty": "لا توجد سكربتات مطابقة.",
+      "runScriptParamWarn": "يحدد هذا السكربت معاملات إلزامية. استخدم صفحة التشغيل المخصصة لملئها.",
+      "runScriptOpenRunPage": "فتح صفحة التشغيل ←",
+      "runScriptConfirm": "تشغيل",
+      "runScriptDispatched": "تم إرسال السكربت إلى {{count}} جهاز"
     },
     "actions": {
       "view": "View",

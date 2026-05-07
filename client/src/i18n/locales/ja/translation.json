@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "エージェントをアンインストール"
+      "uninstall": "エージェントをアンインストール",
+      "runScript": "スクリプトを実行…",
+      "runScriptTitle": "{{count}} 台のデバイスでスクリプトを実行",
+      "runScriptHint": "ライブラリからスクリプトを選択してください。各デバイスは独立して実行されます — 1台の失敗が他をブロックすることはありません。",
+      "runScriptSearch": "名前、タグ、説明で検索…",
+      "runScriptEmpty": "一致するスクリプトはありません。",
+      "runScriptParamWarn": "このスクリプトには必須パラメーターがあります。専用の実行ページで入力してください。",
+      "runScriptOpenRunPage": "実行ページを開く →",
+      "runScriptConfirm": "実行",
+      "runScriptDispatched": "{{count}} 台のデバイスにスクリプトを送信しました"
     },
     "actions": {
       "view": "View",

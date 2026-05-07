@@ -2,9 +2,11 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag, Terminal,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
+import { scriptApi } from '@/api/script.api';
+import type { Script } from '@obliance/shared';
 import { groupsApi } from '@/api/groups.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
@@ -150,6 +152,7 @@ export function DeviceTable({
   // Change-group + transfer-tenant modal state
   const [changeGroupOpen, setChangeGroupOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [runScriptOpen, setRunScriptOpen] = useState(false);
 
   // Approval counts (admin mode)
   const [counts, setCounts] = useState({ all: 0, approved: 0, pending: 0, refused: 0, suspended: 0 });
@@ -759,6 +762,13 @@ export function DeviceTable({
                 <button onClick={() => handleBatchAction('scan_inventory')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
                   <Search className="w-3.5 h-3.5 text-text-muted" /> {t('devices.batch.scanInventory')}
                 </button>
+                <button
+                  onClick={() => { setBatchMenuOpen(false); setRunScriptOpen(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-accent" />
+                  {t('devices.batch.runScript') || 'Run script…'}
+                </button>
                 <div className="border-t border-border" />
                 <button
                   onClick={() => { setBatchMenuOpen(false); setChangeGroupOpen(true); }}
@@ -904,6 +914,28 @@ export function DeviceTable({
               setSelectedIds(new Set());
               setSelectAllGroup(false);
               await load(true);
+            } catch {
+              toast.error(t('common.error'));
+            } finally {
+              setIsBatchRunning(false);
+            }
+          }}
+        />
+      )}
+
+      {runScriptOpen && (
+        <RunScriptModal
+          count={selectedIds.size}
+          onCancel={() => setRunScriptOpen(false)}
+          onConfirm={async (scriptId) => {
+            setRunScriptOpen(false);
+            setIsBatchRunning(true);
+            try {
+              const ids = Array.from(selectedIds);
+              const execs = await scriptApi.executeNow(scriptId, { deviceIds: ids });
+              toast.success(t('devices.batch.runScriptDispatched', { count: execs.length, defaultValue: `Script dispatched to ${execs.length} device${execs.length > 1 ? 's' : ''}` }));
+              setSelectedIds(new Set());
+              setSelectAllGroup(false);
             } catch {
               toast.error(t('common.error'));
             } finally {
@@ -1347,5 +1379,146 @@ function SortLabel({
         <span className="w-3 h-3 opacity-30">↕</span>
       )}
     </button>
+  );
+}
+
+// ── Bulk run-script modal ─────────────────────────────────────────────────
+//
+// First-cut: picker only, no parameter editing. Scripts that declare
+// required parameters surface a warning + link to /scripts/run, where
+// the dedicated run page already handles full parameter forms.
+function RunScriptModal({
+  count, onCancel, onConfirm,
+}: {
+  count: number;
+  onCancel: () => void;
+  onConfirm: (scriptId: number) => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [scripts, setScripts] = useState<Script[]>([]);
+  const [search, setSearch] = useState('');
+  const [scriptId, setScriptId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    scriptApi.list()
+      .then((rows) => { if (!cancelled) setScripts(rows); })
+      .catch(() => { if (!cancelled) toast.error(t('common.error')); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, [t]);
+
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? scripts.filter((s) =>
+        s.name.toLowerCase().includes(q)
+        || (s.description ?? '').toLowerCase().includes(q)
+        || (s.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
+      )
+    : scripts;
+
+  const selected = scriptId != null ? scripts.find((s) => s.id === scriptId) ?? null : null;
+  const hasRequiredParam = !!selected?.parameters?.some((p) => (p as any).required);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+            <Terminal className="w-4 h-4 text-accent" />
+            {t('devices.batch.runScriptTitle', { count, defaultValue: `Run script on ${count} device${count > 1 ? 's' : ''}` })}
+          </h3>
+          <p className="text-xs text-text-muted mt-1">
+            {t('devices.batch.runScriptHint') || 'Pick a script from the library. Each device runs the script independently — failures on one don\'t block the others.'}
+          </p>
+        </div>
+
+        <div className="px-5 pt-3">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('devices.batch.runScriptSearch') || 'Search by name, tag, description…'}
+              className="w-full pl-7 pr-2 py-1.5 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-3">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-text-muted">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="py-8 text-center text-xs text-text-muted">
+              {t('devices.batch.runScriptEmpty') || 'No scripts match.'}
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {filtered.map((s) => {
+                const isSel = s.id === scriptId;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => setScriptId(s.id)}
+                      className={clsx(
+                        'w-full text-left px-3 py-2 rounded border transition-colors',
+                        isSel
+                          ? 'border-accent bg-accent/10'
+                          : 'border-border hover:border-accent/40 hover:bg-bg-tertiary',
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text-primary truncate flex-1">{s.name}</span>
+                        <span className="text-[10px] uppercase tracking-wider text-text-muted shrink-0">{s.runtime}</span>
+                      </div>
+                      {s.description && (
+                        <p className="text-[11px] text-text-muted mt-0.5 truncate">{s.description}</p>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {hasRequiredParam && (
+          <div className="px-5 py-2 bg-amber-400/10 border-t border-amber-400/30">
+            <p className="text-[11px] text-amber-300">
+              {t('devices.batch.runScriptParamWarn') || 'This script declares required parameters. Use the dedicated run page to fill them in.'}
+              <button
+                type="button"
+                onClick={() => navigate(`/scripts/run?scriptId=${scriptId}`)}
+                className="ml-2 underline hover:no-underline"
+              >
+                {t('devices.batch.runScriptOpenRunPage') || 'Open run page →'}
+              </button>
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary"
+          >
+            {t('common.cancel') || 'Cancel'}
+          </button>
+          <button
+            onClick={() => scriptId != null && onConfirm(scriptId)}
+            disabled={scriptId == null || hasRequiredParam}
+            className="px-3 py-1.5 text-xs bg-accent text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/80 transition-colors"
+          >
+            {t('devices.batch.runScriptConfirm') || 'Run'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

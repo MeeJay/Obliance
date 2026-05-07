@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Aracıyı kaldır"
+      "uninstall": "Aracıyı kaldır",
+      "runScript": "Komut dosyası çalıştır…",
+      "runScriptTitle": "{{count}} cihazda komut dosyası çalıştır",
+      "runScriptHint": "Kitaplıktan bir komut dosyası seçin. Her cihaz bağımsız olarak çalıştırır — birindeki hata diğerlerini engellemez.",
+      "runScriptSearch": "Ad, etiket veya açıklamaya göre ara…",
+      "runScriptEmpty": "Eşleşen komut dosyası yok.",
+      "runScriptParamWarn": "Bu komut dosyası zorunlu parametreler içerir. Bunları doldurmak için özel çalıştırma sayfasını kullanın.",
+      "runScriptOpenRunPage": "Çalıştırma sayfasını aç →",
+      "runScriptConfirm": "Çalıştır",
+      "runScriptDispatched": "Komut dosyası {{count}} cihaza gönderildi"
     },
     "actions": {
       "view": "View",

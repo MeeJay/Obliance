@@ -131,6 +131,20 @@ export const DeviceRow = memo(function DeviceRow({
     }
   };
 
+  // Middle-click opens the device in a new tab. We have to preventDefault
+  // on mousedown too — otherwise Windows kicks the auto-scroll cursor up
+  // before our auxclick handler runs and the user sees a flash of
+  // pan-mode UI. Selection mode short-circuits the open (a multi-select
+  // session shouldn't surprise-spawn tabs).
+  const handleMouseDown = (e: MouseEvent) => {
+    if (e.button === 1) e.preventDefault();
+  };
+  const handleAuxClick = (e: MouseEvent) => {
+    if (e.button !== 1 || selectionMode) return;
+    e.preventDefault();
+    window.open(`/devices/${device.id}`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div
       className={clsx(
@@ -139,6 +153,8 @@ export const DeviceRow = memo(function DeviceRow({
         selectionMode && isSelected && 'bg-accent/15',
       )}
       onClick={() => selectionMode ? onSelect(device.id) : onNavigate(device.id)}
+      onMouseDown={handleMouseDown}
+      onAuxClick={handleAuxClick}
     >
       {/* Line 1 */}
       <div className="flex items-center gap-3">

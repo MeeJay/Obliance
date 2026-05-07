@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "卸载代理"
+      "uninstall": "卸载代理",
+      "runScript": "运行脚本…",
+      "runScriptTitle": "在 {{count}} 个设备上运行脚本",
+      "runScriptHint": "从脚本库中选择一个脚本。每台设备独立执行 — 一台失败不会阻塞其他设备。",
+      "runScriptSearch": "按名称、标签、描述搜索…",
+      "runScriptEmpty": "没有匹配的脚本。",
+      "runScriptParamWarn": "此脚本声明了必填参数。请使用专用运行页面填写。",
+      "runScriptOpenRunPage": "打开运行页面 →",
+      "runScriptConfirm": "运行",
+      "runScriptDispatched": "脚本已分发到 {{count}} 个设备"
     },
     "actions": {
       "view": "View",

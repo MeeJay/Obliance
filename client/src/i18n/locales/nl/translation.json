@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Agent verwijderen"
+      "uninstall": "Agent verwijderen",
+      "runScript": "Script uitvoeren…",
+      "runScriptTitle": "Script uitvoeren op {{count}} apparaten",
+      "runScriptHint": "Kies een script uit de bibliotheek. Elk apparaat voert het onafhankelijk uit — een fout op één apparaat blokkeert de rest niet.",
+      "runScriptSearch": "Zoek op naam, tag, beschrijving…",
+      "runScriptEmpty": "Geen scripts gevonden.",
+      "runScriptParamWarn": "Dit script vereist parameters. Gebruik de speciale pagina om ze in te vullen.",
+      "runScriptOpenRunPage": "Open uitvoeringspagina →",
+      "runScriptConfirm": "Uitvoeren",
+      "runScriptDispatched": "Script verzonden naar {{count}} apparaten"
     },
     "actions": {
       "view": "View",

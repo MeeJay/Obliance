@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Avinstallera agent"
+      "uninstall": "Avinstallera agent",
+      "runScript": "Kör skript…",
+      "runScriptTitle": "Kör skript på {{count}} enheter",
+      "runScriptHint": "Välj ett skript från biblioteket. Varje enhet kör det oberoende — fel på en blockerar inte de andra.",
+      "runScriptSearch": "Sök på namn, tagg, beskrivning…",
+      "runScriptEmpty": "Inga matchande skript.",
+      "runScriptParamWarn": "Detta skript kräver parametrar. Använd dedikerade körsidan för att fylla i dem.",
+      "runScriptOpenRunPage": "Öppna körsidan →",
+      "runScriptConfirm": "Kör",
+      "runScriptDispatched": "Skript skickat till {{count}} enheter"
     },
     "actions": {
       "view": "View",

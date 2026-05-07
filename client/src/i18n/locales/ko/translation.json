@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "에이전트 제거"
+      "uninstall": "에이전트 제거",
+      "runScript": "스크립트 실행…",
+      "runScriptTitle": "{{count}}개 장치에서 스크립트 실행",
+      "runScriptHint": "라이브러리에서 스크립트를 선택하세요. 각 장치는 독립적으로 실행하며, 하나의 실패가 다른 장치를 막지 않습니다.",
+      "runScriptSearch": "이름, 태그, 설명으로 검색…",
+      "runScriptEmpty": "일치하는 스크립트가 없습니다.",
+      "runScriptParamWarn": "이 스크립트는 필수 매개변수가 있습니다. 전용 실행 페이지에서 입력하세요.",
+      "runScriptOpenRunPage": "실행 페이지 열기 →",
+      "runScriptConfirm": "실행",
+      "runScriptDispatched": "{{count}}개 장치에 스크립트 전송됨"
     },
     "actions": {
       "view": "View",

@@ -632,7 +632,16 @@
       "deleted": "{{count}} devices deleted",
       "dispatched": "{{count}} commands dispatched",
       "confirmDelete": "Delete selected devices? This cannot be undone.",
-      "uninstall": "Удалить агент"
+      "uninstall": "Удалить агент",
+      "runScript": "Запустить скрипт…",
+      "runScriptTitle": "Запустить скрипт на {{count}} устройствах",
+      "runScriptHint": "Выберите скрипт из библиотеки. Каждое устройство запускает его независимо — сбой на одном не блокирует остальные.",
+      "runScriptSearch": "Поиск по имени, тегу, описанию…",
+      "runScriptEmpty": "Нет подходящих скриптов.",
+      "runScriptParamWarn": "У этого скрипта есть обязательные параметры. Используйте страницу запуска для их заполнения.",
+      "runScriptOpenRunPage": "Открыть страницу запуска →",
+      "runScriptConfirm": "Запустить",
+      "runScriptDispatched": "Скрипт отправлен на {{count}} устройств"
     },
     "actions": {
       "view": "View",

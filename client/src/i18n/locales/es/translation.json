@@ -931,7 +931,16 @@
       "deleted": "{{count}} dispositivos eliminados",
       "dispatched": "{{count}} comandos enviados",
       "confirmDelete": "¿Eliminar dispositivos seleccionados? Irreversible.",
-      "uninstall": "Desinstalar agente"
+      "uninstall": "Desinstalar agente",
+      "runScript": "Ejecutar script…",
+      "runScriptTitle": "Ejecutar script en {{count}} dispositivos",
+      "runScriptHint": "Elija un script de la biblioteca. Cada dispositivo lo ejecuta de forma independiente: un fallo no bloquea los demás.",
+      "runScriptSearch": "Buscar por nombre, etiqueta, descripción…",
+      "runScriptEmpty": "No hay scripts que coincidan.",
+      "runScriptParamWarn": "Este script declara parámetros obligatorios. Use la página dedicada para completarlos.",
+      "runScriptOpenRunPage": "Abrir página de ejecución →",
+      "runScriptConfirm": "Ejecutar",
+      "runScriptDispatched": "Script enviado a {{count}} dispositivos"
     },
     "actions": {
       "view": "View",
