@@ -100,18 +100,6 @@ export function DeviceTable({
   // the choice survives reloads. Toggling a checkbox in the popover writes
   // through immediately (no Save button).
   const [visibleFields, setVisibleFields] = useState<Set<string>>(() => loadVisibleFields());
-  // Master view forces the `tenant` column visible so a flat-paginated
-  // list of "all devices" stays decipherable — without it, every row
-  // would just say "PC-…", and an admin couldn't tell which child
-  // tenant owns the row at a glance. Non-master views respect the
-  // user's persisted choice (tenant column is irrelevant there).
-  const visibleFieldsForMaster = useMemo(() => {
-    if (!isMaster) return visibleFields;
-    if (visibleFields.has('tenant')) return visibleFields;
-    const next = new Set(visibleFields);
-    next.add('tenant');
-    return next;
-  }, [visibleFields, isMaster]);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const toggleColumn = (key: string) => {
     setVisibleFields((prev) => {
@@ -192,6 +180,21 @@ export function DeviceTable({
   // user expands the ones they need; state persists across the session.
   const currentTenantId = useTenantStore((s) => s.currentTenantId);
   const isMaster = currentTenantId === MASTER_TENANT_ID;
+  // Master view forces the `tenant` column visible so a flat-paginated
+  // list of "all devices" stays decipherable — without it, every row
+  // would just say "PC-…", and an admin couldn't tell which child
+  // tenant owns the row at a glance. Non-master views respect the
+  // user's persisted choice (tenant column is irrelevant there).
+  // NOTE: must live AFTER `isMaster` is declared above; previously
+  // sat next to `visibleFields` but referenced `isMaster` which wasn't
+  // in scope yet (TS2448 / TS2454 build break).
+  const visibleFieldsForMaster = useMemo(() => {
+    if (!isMaster) return visibleFields;
+    if (visibleFields.has('tenant')) return visibleFields;
+    const next = new Set(visibleFields);
+    next.add('tenant');
+    return next;
+  }, [visibleFields, isMaster]);
   // Persist tenant collapse state across reloads — same key used by
   // the GroupSidePanel so the two views stay in sync. (Collapsing
   // "Pimkie" in the sidebar should also fold its bucket in the table.)
@@ -1419,7 +1422,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
-            visibleFields={visibleFieldsForMaster}
+            visibleFields={visibleFields}
           />
         ))}
       </>
@@ -1444,7 +1447,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
-            visibleFields={visibleFieldsForMaster}
+            visibleFields={visibleFields}
           />
         ))}
       </>
@@ -1515,7 +1518,7 @@ function DeviceListBody({
                           isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
                           onNavigate={onNavigate} onGroupClick={onGroupChange}
                           selectionMode={selectionMode}
-                          visibleFields={visibleFieldsForMaster}
+                          visibleFields={visibleFields}
                         />
                       ))}
                     </div>
@@ -1547,7 +1550,7 @@ function DeviceListBody({
               isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
               onNavigate={onNavigate} onGroupClick={onGroupChange}
               selectionMode={selectionMode}
-              visibleFields={visibleFieldsForMaster}
+              visibleFields={visibleFields}
             />
           ))}
         </div>
