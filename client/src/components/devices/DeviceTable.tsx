@@ -168,7 +168,18 @@ export function DeviceTable({
   // user expands the ones they need; state persists across the session.
   const currentTenantId = useTenantStore((s) => s.currentTenantId);
   const isMaster = currentTenantId === MASTER_TENANT_ID;
-  const [collapsedTenantIds, setCollapsedTenantIds] = useState<Set<number>>(new Set());
+  // Persist tenant collapse state across reloads — same key used by
+  // the GroupSidePanel so the two views stay in sync. (Collapsing
+  // "Pimkie" in the sidebar should also fold its bucket in the table.)
+  const [collapsedTenantIds, setCollapsedTenantIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem('obliance:groupPanelCollapsedTenants');
+      return new Set(raw ? (JSON.parse(raw) as number[]) : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('obliance:groupPanelCollapsedTenants', JSON.stringify([...collapsedTenantIds])); } catch {}
+  }, [collapsedTenantIds]);
   const toggleTenantCollapsed = (id: number) => {
     setCollapsedTenantIds((prev) => {
       const next = new Set(prev);
@@ -248,7 +259,38 @@ export function DeviceTable({
   const [appending, setAppending] = useState(false);
   const FLAT_PAGE_SIZE = 100;
 
+  // Master "All Devices" guard — when the admin lands on /devices
+  // without any narrowing filter, listing every row from every tenant
+  // would render thousands of unvirtualised rows and lock the browser.
+  // We skip the fetch and rely on a placeholder hint that asks the
+  // admin to either pick a tenant chip, expand a tenant in the sidebar
+  // and click a group, or type a search. Once any of those filters is
+  // set, the fetch unblocks normally.
+  const masterAllDevicesEmpty =
+    isMaster &&
+    treeViewActive &&
+    tenantFilters.size === 0 &&
+    groupId == null &&
+    !debouncedSearch.trim() &&
+    statusFilters.size === 0 &&
+    osFilters.size === 0 &&
+    !approvalFilter &&
+    !staleHours &&
+    !pendingUpdatesOnly &&
+    tagFilters.size === 0;
+
   const load = useCallback(async (reset: boolean) => {
+    if (masterAllDevicesEmpty) {
+      // Don't hit the server. Reset the local table so a stale list from
+      // a previous filter doesn't leak into the empty state.
+      setDevices([]);
+      setTotal(0);
+      setHasMore(false);
+      setIsLoading(false);
+      setAppending(false);
+      loadedPagesRef.current = 1;
+      return;
+    }
     const pageToFetch = reset ? 1 : loadedPagesRef.current + 1;
     const size = treeViewActive ? TREE_MAX : FLAT_PAGE_SIZE;
     if (reset) { setIsLoading(true); loadedPagesRef.current = 1; }
@@ -293,7 +335,7 @@ export function DeviceTable({
       if (reset) setIsLoading(false);
       else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, tenantFilters, isMaster, t]);
+  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, tenantFilters, isMaster, masterAllDevicesEmpty, t]);
 
   // Sync URL-driven filters when the parent prop changes (e.g. user clicks
   // a different dashboard hero card while /devices is already mounted —
@@ -873,6 +915,21 @@ export function DeviceTable({
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
           <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
+        </div>
+      ) : masterAllDevicesEmpty ? (
+        // Master "All Devices" landing — we deliberately don't fetch
+        // every device of every tenant by default (would lock the
+        // browser on installs with 5+ child tenants × 1k+ devices).
+        // Tell the admin how to drill in: tenant chip, sidebar tenant
+        // bucket, group, or search.
+        <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
+          <Building2 className="w-8 h-8 mx-auto mb-3 text-accent/60" />
+          <p className="font-medium text-text-primary mb-1">
+            {t('devices.masterEmpty.title') || 'God view — pick a tenant or search'}
+          </p>
+          <p className="text-xs">
+            {t('devices.masterEmpty.hint') || 'To keep the page fast, the master tenant doesn\u2019t list every device upfront. Click a tenant chip above, expand a tenant in the sidebar, pick a group, or use the search bar.'}
+          </p>
         </div>
       ) : devices.length === 0 ? (
         <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">

@@ -474,10 +474,21 @@ class DeviceService {
     if (data.thresholdsOverride !== undefined) updates.thresholds_override = JSON.stringify(data.thresholdsOverride);
     if (data.metricAlertsEnabled !== undefined) updates.metric_alerts_enabled = data.metricAlertsEnabled;
 
-    await db('devices').where({ id, tenant_id: tenantId }).update(updates);
+    // Master tenant edits any device regardless of its owning tenant —
+    // the UI exposes the pencil on /devices for cross-tenant rename in
+    // god view. Child tenants stay strictly scoped to their own rows.
+    const isMaster = isMasterTenant(tenantId);
+    const updateQ = db('devices').where({ id });
+    if (!isMaster) updateQ.where({ tenant_id: tenantId });
+    await updateQ.update(updates);
     const updated = await this.getDeviceById(id, tenantId);
     if (updated && this.io) {
-      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, updated);
+      // Emit on the OWNING tenant's room so the device's home tenant
+      // sees the live change too — not just the master room.
+      this.io.to(`tenant:${updated.tenantId}`).emit(SocketEvents.DEVICE_UPDATED, updated);
+      if (isMaster && updated.tenantId !== tenantId) {
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, updated);
+      }
     }
     return updated;
   }

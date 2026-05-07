@@ -50,32 +50,43 @@ export function DeviceMetricsBar({ metrics, compact = false }: Props) {
     );
   }
 
+  // Compute a single label width shared by CPU / RAM / every disk row,
+  // sized to fit the longest visible label. Previously CPU/RAM had a
+  // fixed `w-12` and disks had `w-32` — the asymmetry stood out on
+  // Windows where mount labels are short (`C:`, `D:`) and the gauges
+  // would still be shifted right by 80px more than CPU/RAM. Now the
+  // shared width is the smaller of: 22ch (the smartMountLabel hard cap)
+  // OR the actual longest label, with a 3ch floor so a fleet of single-
+  // letter Windows mounts still leaves room for the "CPU"/"RAM" labels.
+  const visibleLabels: string[] = [];
+  if (metrics.cpu != null) visibleLabels.push('CPU');
+  if (metrics.memory != null) visibleLabels.push('RAM');
+  for (const d of metrics.disks ?? []) visibleLabels.push(smartMountLabel(d.mount));
+  const longest = visibleLabels.reduce((m, s) => Math.max(m, s.length), 3);
+  const labelWidth = `${Math.min(22, longest)}ch`;
+
   return (
     <div className="space-y-1.5">
       {metrics.cpu != null && (
         <div className="flex items-center gap-2">
           <Cpu className="w-3 h-3 text-text-muted shrink-0" />
-          <span className="text-xs text-text-muted w-12">CPU</span>
+          <span className="text-xs text-text-muted shrink-0" style={{ width: labelWidth }}>CPU</span>
           <PercentBar value={metrics.cpu.percent} className="flex-1" />
         </div>
       )}
       {metrics.memory != null && (
         <div className="flex items-center gap-2">
           <MemoryStick className="w-3 h-3 text-text-muted shrink-0" />
-          <span className="text-xs text-text-muted w-12">RAM</span>
+          <span className="text-xs text-text-muted shrink-0" style={{ width: labelWidth }}>RAM</span>
           <PercentBar value={metrics.memory.percent} className="flex-1" />
         </div>
       )}
       {metrics.disks && metrics.disks.map((disk) => (
         <div key={disk.mount} className="flex items-center gap-2">
           <HardDrive className="w-3 h-3 text-text-muted shrink-0" />
-          {/* Mount label — wider than CPU/RAM so Linux paths like
-              `/var/log` or `/home/user/data` aren't immediately
-              ellipsised. The full path is exposed via title= for
-              the truly long ones (and a smarter visual collapse:
-              keep the first + last segments, drop the middle). */}
           <span
-            className="text-xs text-text-muted w-32 truncate cursor-help"
+            className="text-xs text-text-muted shrink-0 truncate cursor-help"
+            style={{ width: labelWidth }}
             title={disk.mount}
           >
             {smartMountLabel(disk.mount)}

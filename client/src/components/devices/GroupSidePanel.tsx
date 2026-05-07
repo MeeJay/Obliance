@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, type FormEvent } fro
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, FolderOpen, Search, PanelLeftClose, PanelLeftOpen, Monitor, FolderX,
-  Plus, Pencil, X, Check, GripVertical,
+  Plus, Pencil, X, Check, GripVertical, Building2,
 } from 'lucide-react';
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -12,8 +12,9 @@ import {
 import { groupsApi } from '@/api/groups.api';
 import { deviceApi } from '@/api/device.api';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, isMasterTenant, MASTER_TENANT_ID } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
+import { useTenantStore } from '@/store/tenantStore';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -36,6 +37,11 @@ interface FleetCounts {
 const COLLAPSED_KEY = 'obliance:groupPanelCollapsed';
 const EXPANDED_KEY  = 'obliance:groupPanelExpanded';
 const WIDTH_KEY     = 'obliance:groupPanelWidth';
+// Per-tenant collapse state for master view. Persisted as Set<tenantId>
+// of tenants that are CURRENTLY collapsed (default = expanded so a fresh
+// admin sees the buckets unfolded). Stored apart from EXPANDED_KEY,
+// which tracks group expansion.
+const TENANT_COLLAPSED_KEY = 'obliance:groupPanelCollapsedTenants';
 const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 520;
@@ -57,6 +63,13 @@ function getInitialWidth(): number {
     if (Number.isFinite(n) && n >= MIN_WIDTH && n <= MAX_WIDTH) return n;
   } catch {}
   return DEFAULT_WIDTH;
+}
+function getInitialCollapsedTenants(): Set<number> {
+  try {
+    const raw = localStorage.getItem(TENANT_COLLAPSED_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as number[]);
+  } catch { return new Set(); }
 }
 
 // ── Tree helpers ─────────────────────────────────────────────────────────────
@@ -404,6 +417,10 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => getInitialExpanded() ?? new Set());
   const [creating, setCreating] = useState(false);
+  const [collapsedTenants, setCollapsedTenants] = useState<Set<number>>(getInitialCollapsedTenants);
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  const allTenants = useTenantStore((s) => s.tenants);
+  const isMaster = isMasterTenant(currentTenantId);
 
   // ── Persistence ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -415,6 +432,16 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   useEffect(() => {
     try { localStorage.setItem(WIDTH_KEY, String(width)); } catch {}
   }, [width]);
+  useEffect(() => {
+    try { localStorage.setItem(TENANT_COLLAPSED_KEY, JSON.stringify([...collapsedTenants])); } catch {}
+  }, [collapsedTenants]);
+  const toggleTenantCollapsed = useCallback((tenantId: number) => {
+    setCollapsedTenants((prev) => {
+      const next = new Set(prev);
+      if (next.has(tenantId)) next.delete(tenantId); else next.add(tenantId);
+      return next;
+    });
+  }, []);
 
   // ── Data fetching ───────────────────────────────────────────────────
   const fetchTree = useCallback(async () => {
@@ -464,6 +491,36 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   const filteredTree = useMemo(() => filterTree(tree, search), [tree, search]);
   const treeTotal = useMemo(() => totalDeviceCount(tree), [tree]);
   const total = fleet.total > 0 ? fleet.total : treeTotal;
+
+  // On master tenant, bucket the visible tree by tenant so an admin
+  // sees one collapsible header per tenant instead of N "DC" / N "Caisses"
+  // groups merged into a flat list. Master tenant comes first, the rest
+  // alpha-sorted. `tenantId` lives on every group row (DeviceGroup), and
+  // the master GET /groups/tree response already attaches `tenantName`.
+  const tenantBuckets = useMemo(() => {
+    if (!isMaster) return null;
+    const byTenant = new Map<number, { tenantName: string; nodes: DeviceGroupTreeNode[] }>();
+    for (const node of filteredTree) {
+      const tid = node.tenantId;
+      const tname =
+        node.tenantName
+        ?? allTenants.find((t) => t.id === tid)?.name
+        ?? `Tenant ${tid}`;
+      if (!byTenant.has(tid)) byTenant.set(tid, { tenantName: tname, nodes: [] });
+      byTenant.get(tid)!.nodes.push(node);
+    }
+    // Make sure tenants without any group still show up as empty buckets
+    // (otherwise a fresh tenant would be invisible from the sidebar until
+    // its first group is created).
+    for (const t of allTenants) {
+      if (!byTenant.has(t.id)) byTenant.set(t.id, { tenantName: t.name, nodes: [] });
+    }
+    return [...byTenant.entries()].sort(([aId, a], [bId, b]) => {
+      if (aId === MASTER_TENANT_ID) return -1;
+      if (bId === MASTER_TENANT_ID) return 1;
+      return a.tenantName.localeCompare(b.tenantName);
+    });
+  }, [filteredTree, isMaster, allTenants]);
 
   // ── Drag and drop — reparent only (reorder handled on GroupEditPage) ──
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -711,20 +768,73 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
             <span className="text-text-primary">{t('groupPanel.ungrouped', 'Ungrouped')}</span>
           </button>
 
-          {/* Group tree — drag any group onto another to reparent. */}
-          {filteredTree.map((node) => (
-            <TreeNode
-              key={node.id}
-              node={node}
-              depth={0}
-              selectedGroupId={groupId}
-              onSelect={(id) => onGroupChange(id)}
-              onEdit={(id) => navigate(`/group/${id}/edit`)}
-              expandedIds={expandedIds}
-              toggleExpand={toggleExpand}
-              canDnd={!search}
-            />
-          ))}
+          {/* Group tree — drag any group onto another to reparent.
+              On master tenant we wrap each tenant's groups in its own
+              collapsible bucket so an admin doesn't see N "DC" entries
+              merged into a flat list when every child tenant has the
+              same group naming convention. */}
+          {tenantBuckets ? (
+            tenantBuckets.map(([tid, { tenantName, nodes }]) => {
+              const tenantCollapsed = collapsedTenants.has(tid);
+              const tenantTotal = nodes.reduce((s, n) => s + countDevicesRecursive(n), 0);
+              return (
+                <div key={tid} className="mt-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleTenantCollapsed(tid)}
+                    className="group/tenant flex w-full items-center gap-1.5 rounded-md py-1 pl-1 pr-2 text-left text-xs uppercase tracking-wide font-semibold transition-colors hover:bg-accent/5"
+                    title={tenantName}
+                  >
+                    <ChevronRight
+                      size={14}
+                      className={clsx(
+                        'shrink-0 text-text-muted transition-transform duration-150',
+                        !tenantCollapsed && 'rotate-90',
+                      )}
+                    />
+                    <Building2 size={13} className="shrink-0 text-accent" />
+                    <span className="truncate text-accent">{anonymize(tenantName)}</span>
+                    <span className="ml-auto text-[10px] text-text-muted">{tenantTotal}</span>
+                  </button>
+                  {!tenantCollapsed && (
+                    nodes.length === 0 ? (
+                      <div className="pl-7 py-0.5 text-[11px] italic text-text-muted">
+                        {t('groupPanel.tenantEmpty', 'No groups yet')}
+                      </div>
+                    ) : (
+                      nodes.map((node) => (
+                        <TreeNode
+                          key={node.id}
+                          node={node}
+                          depth={1}
+                          selectedGroupId={groupId}
+                          onSelect={(id) => onGroupChange(id)}
+                          onEdit={(id) => navigate(`/group/${id}/edit`)}
+                          expandedIds={expandedIds}
+                          toggleExpand={toggleExpand}
+                          canDnd={!search}
+                        />
+                      ))
+                    )
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            filteredTree.map((node) => (
+              <TreeNode
+                key={node.id}
+                node={node}
+                depth={0}
+                selectedGroupId={groupId}
+                onSelect={(id) => onGroupChange(id)}
+                onEdit={(id) => navigate(`/group/${id}/edit`)}
+                expandedIds={expandedIds}
+                toggleExpand={toggleExpand}
+                canDnd={!search}
+              />
+            ))
+          )}
         </div>
 
         {/* Resize handle — thin grab zone on the right edge, cursor changes
