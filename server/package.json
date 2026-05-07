@@ -1,6 +1,6 @@
 {
   "name": "@obliance/server",
-  "version": "5.0.20",
+  "version": "5.0.21",
   "private": true,
   "main": "dist/src/index.js",
   "scripts": {

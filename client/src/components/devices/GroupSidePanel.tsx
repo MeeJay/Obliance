@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, type FormEvent } fro
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, FolderOpen, Search, PanelLeftClose, PanelLeftOpen, Monitor, FolderX,
-  Plus, Pencil, X, Check,
+  Plus, Pencil, X, Check, GripVertical,
 } from 'lucide-react';
 import {
   DndContext, PointerSensor, useSensor, useSensors, closestCenter,
@@ -106,6 +106,15 @@ function isDescendantOf(nodes: DeviceGroupTreeNode[], ancestorId: number, candid
   return false;
 }
 
+function findNode(nodes: DeviceGroupTreeNode[], id: number): DeviceGroupTreeNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNode(n.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 function getNodeParentId(nodes: DeviceGroupTreeNode[], id: number, parent: number | null = null): number | null | undefined {
   for (const n of nodes) {
     if (n.id === id) return parent;
@@ -136,42 +145,70 @@ function TreeNode({
   const isAncestor = hasSelectedDescendant(node, selectedGroupId);
   const count = countDevicesRecursive(node);
 
-  // Drag handle applies to the whole row when DnD is enabled.
+  // Drag is bound ONLY to the explicit grip handle — previously the
+  // whole row was draggable, which (a) hid the affordance (no visible
+  // grip icon, you had to discover the cursor change) and (b) made
+  // accidental drags during click-to-select common. The grip is also
+  // why we previously could only re-parent into a group: there was
+  // nowhere to drop "between" siblings. The DropBetween zone above
+  // each row + the row itself as into-group drop target now cover
+  // both reorder AND reparent.
   const drag = useDraggable({
     id: `group-${node.id}`,
     data: { type: 'group', groupId: node.id },
     disabled: !canDnd,
   });
-  // The row is also a drop target — dropping another group here reparents
-  // the dragged one under this node.
   const drop = useDroppable({
     id: `group-target-${node.id}`,
     data: { type: 'group-target', groupId: node.id },
     disabled: !canDnd,
   });
 
-  const rowRef = (el: HTMLElement | null) => {
-    drag.setNodeRef(el);
-    drop.setNodeRef(el);
-  };
-
   return (
     <>
+      {/* Drop-between zone — appears between each pair of sibling
+          rows. Lets you reorder without entering the parent group AND
+          drop a sub-group BACK to root level when its siblings live
+          at depth 0. The zone has zero height idle and 8px while a
+          drag is active so the layout doesn't shift on hover. */}
+      {canDnd && (
+        <DropBetween
+          parentId={node.parentId ?? null}
+          insertBeforeId={node.id}
+          depth={depth}
+        />
+      )}
+
       <div
-        ref={rowRef}
-        {...drag.attributes}
-        {...drag.listeners}
+        ref={drop.setNodeRef}
         className={clsx(
           'group/row flex w-full items-center gap-1.5 rounded-md py-1 pr-1 text-left text-sm transition-colors',
           'hover:bg-accent/5',
           isSelected && 'bg-accent/10 font-medium',
           drag.isDragging && 'opacity-40',
           drop.isOver && !drag.isDragging && 'ring-1 ring-accent/70 bg-accent/10',
-          canDnd && 'cursor-grab active:cursor-grabbing',
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         title={node.name}
       >
+        {/* Drag grip — explicit, visible on hover. dnd-kit listeners
+            attach HERE so click-to-select on the rest of the row is
+            never confused with a drag. cursor-grab/grabbing convey
+            the affordance even before hover. */}
+        {canDnd ? (
+          <span
+            ref={drag.setNodeRef}
+            {...drag.attributes}
+            {...drag.listeners}
+            className="flex h-4 w-3 shrink-0 items-center justify-center text-text-muted/60 hover:text-text-primary cursor-grab active:cursor-grabbing opacity-0 group-hover/row:opacity-100 transition-opacity"
+            title="Drag to reorder or move to another group"
+          >
+            <GripVertical size={12} />
+          </span>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+
         {/* Expand / collapse chevron */}
         <span
           className={clsx('flex h-4 w-4 shrink-0 items-center justify-center', !hasChildren && 'invisible')}
@@ -189,12 +226,9 @@ function TreeNode({
           />
         </span>
 
-        {/* Click-to-select layer — stops pointer before dnd sensor activates
-            when it's a short click, since the sensor has a 5 px threshold. */}
         <button
           type="button"
           onClick={() => onSelect(node.id)}
-          onPointerDown={(e) => e.stopPropagation()}
           className="flex min-w-0 flex-1 items-center gap-1.5"
         >
           <FolderOpen
@@ -209,7 +243,6 @@ function TreeNode({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(node.id); }}
-          onPointerDown={(e) => e.stopPropagation()}
           className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-tertiary"
           title="Group settings"
         >
@@ -232,9 +265,43 @@ function TreeNode({
               canDnd={canDnd}
             />
           ))}
+          {/* Tail drop-between for the last child slot — lets you drop
+              after the last sibling without overshooting onto the
+              parent's next row. */}
+          {canDnd && (
+            <DropBetween parentId={node.id} insertBeforeId={null} depth={depth + 1} />
+          )}
         </div>
       )}
     </>
+  );
+}
+
+// ── Drop-between zone ────────────────────────────────────────────────
+//
+// 2 px idle bar that sits between two sibling rows. While a drag is
+// in flight dnd-kit pumps `isOver` so we expand to a 6 px highlighted
+// strip — same visual language as VSCode / Finder reorder. Carries
+// the future parent + insertion index in its `data` so the drop
+// handler can recompute sortOrder for the parent's child list.
+//
+// Set `insertBeforeId = null` to mean "insert at the END of this
+// parent's children" (used by the tail zone after the last child).
+function DropBetween({ parentId, insertBeforeId, depth }: { parentId: number | null; insertBeforeId: number | null; depth: number }) {
+  const drop = useDroppable({
+    id: `group-between-${parentId ?? 'root'}-${insertBeforeId ?? 'tail'}`,
+    data: { type: 'between', parentId, insertBeforeId },
+  });
+  return (
+    <div
+      ref={drop.setNodeRef}
+      className={clsx(
+        'transition-all',
+        drop.isOver ? 'h-1.5 my-0.5 bg-accent rounded-full mx-2' : 'h-0.5',
+      )}
+      style={{ marginLeft: `${8 + depth * 16}px` }}
+      aria-hidden
+    />
   );
 }
 
@@ -408,7 +475,42 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     const targetData = over.data.current as any;
     if (typeof draggedId !== 'number') return;
 
-    // Drop on root (= drop zone for "All Devices") → parentId = null
+    // Three drop kinds: 'root-target' / 'group-target' (re-parent only),
+    // 'between' (reorder OR re-parent + insert at a precise sibling
+    // position). The latter is what makes the sidebar feel like a real
+    // tree editor — you drop in the gap between two siblings and the
+    // group lands there in sort order.
+    if (targetData?.type === 'between') {
+      const newParent: number | null = (targetData.parentId ?? null) as number | null;
+      const insertBeforeId: number | null = (targetData.insertBeforeId ?? null) as number | null;
+      // Reject moving a group into its own subtree.
+      if (newParent !== null && (newParent === draggedId || isDescendantOf(tree, draggedId, newParent))) return;
+
+      // Compute the target sibling list (sans the dragged group) and the
+      // insertion index. `insertBeforeId === null` → tail-append.
+      const siblings = newParent === null ? tree : findNode(tree, newParent)?.children ?? [];
+      const ordered = siblings.filter((s) => s.id !== draggedId).map((s) => s.id);
+      const insertIdx = insertBeforeId === null
+        ? ordered.length
+        : Math.max(0, ordered.indexOf(insertBeforeId));
+      ordered.splice(insertIdx, 0, draggedId);
+
+      try {
+        const currentParent = getNodeParentId(tree, draggedId) ?? null;
+        if (currentParent !== newParent) {
+          await groupsApi.move(draggedId, newParent);
+        }
+        // Reorder is per-tenant and only respects same-parent rows, so
+        // we always send the full target sibling list.
+        await groupsApi.reorder(ordered.map((id, idx) => ({ id, sortOrder: idx })));
+        toast.success('Group moved');
+        fetchTree();
+      } catch {
+        toast.error('Failed to move group');
+      }
+      return;
+    }
+
     let targetParentId: number | null;
     if (targetData?.type === 'root-target') {
       targetParentId = null;
@@ -420,7 +522,6 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
       return;
     }
 
-    // No-op if already under that parent
     const currentParent = getNodeParentId(tree, draggedId) ?? null;
     if (currentParent === targetParentId) return;
 

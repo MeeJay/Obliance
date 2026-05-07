@@ -27,6 +27,7 @@ import type {
   DeviceGroupTreeNode,
   Device,
   UserTenantAssignment,
+  isMasterTenant,
 } from '@obliance/shared';
 import { usersApi } from '@/api/users.api';
 import { teamsApi } from '@/api/teams.api';
@@ -152,14 +153,20 @@ export function AdminUsersPage() {
     loadTeamDetails(teamId);
   };
 
-  // Tenants the platform admin can act on. Built from `allTenants`
-  // (the full list returned by /api/tenants for admins) rather than
-  // derived from existing teams — otherwise a tenant with zero teams
-  // would be missing from the create-team selector AND from the
-  // filter chips, which is exactly the bug we're fixing here. Names
-  // come straight from the tenants table so we never fall back to
-  // "Tenant N".
-  const teamTenants = allTenants
+  // Tenants the platform admin can act on. Master tenant (id=1) is the
+  // ONLY context where cross-tenant management is allowed — on any
+  // child tenant we restrict the picker to the current tenant only,
+  // even if the admin happens to be a member of others. (Otherwise an
+  // admin connected to Pimkie could create a team scoped to BA&SH, which
+  // breaks the per-tenant isolation rule.) Built from `allTenants` (the
+  // full list /api/tenants returns to admins) so a tenant with zero
+  // existing teams isn't missing from the picker. Names come from the
+  // tenants table so we never fall back to "Tenant N".
+  const isMaster = isMasterTenant(currentTenantId);
+  const teamTenants = (isMaster
+    ? allTenants
+    : allTenants.filter((t) => t.id === currentTenantId)
+  )
     .map((t) => ({ id: t.id, name: t.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1463,8 +1470,8 @@ function RestrictionsTab() {
       <div className="rounded-lg border border-border bg-bg-secondary p-3 text-[11px] text-text-muted">
         <p>
           <strong className="text-text-primary">None</strong> = no extra check.{' '}
-          <strong className="text-orange-400">Restricted</strong> = a second admin must approve via Security → Approvals.{' '}
-          <strong className="text-red-400">Sensitive</strong> = the acting user must provide a valid TOTP 2FA code at the moment of execution. Users without TOTP cannot trigger sensitive actions.
+          <strong className="text-orange-400">Sensitive</strong> = the acting user must provide a valid TOTP 2FA code at the moment of execution. Users without TOTP cannot trigger sensitive actions.{' '}
+          <strong className="text-red-400">Restricted</strong> = a second admin must approve via Security → Approvals (strongest gate).
         </p>
         <p className="mt-1">
           Use <strong className="text-text-primary">Scope</strong> to limit a restriction to specific devices or groups. Default applies to <em>all</em> devices.
@@ -1489,10 +1496,16 @@ function RestrictionsTab() {
 
                   <div className="flex items-center gap-1 shrink-0">
                     {(['none', 'restricted', 'sensitive'] as const).map((lv) => {
+                      // Color encodes severity: restricted (red) is the
+                      // strongest gate — it forces a SECOND admin's TOTP
+                      // approval, so it's strictly worse than sensitive
+                      // (orange) which only re-prompts the acting admin's
+                      // own TOTP. Don't flip these without re-checking the
+                      // restriction.service semantics.
                       const color =
                         lv === 'none' ? 'border-border text-text-muted'
-                      : lv === 'restricted' ? 'border-orange-400/40 text-orange-400'
-                      : 'border-red-400/40 text-red-400';
+                      : lv === 'restricted' ? 'border-red-400/40 text-red-400'
+                      : 'border-orange-400/40 text-orange-400';
                       const active = level === lv;
                       return (
                         <button
@@ -1500,8 +1513,8 @@ function RestrictionsTab() {
                           onClick={() => setLevel(a.key, lv)}
                           className={`px-2.5 py-1 text-[11px] font-medium rounded border transition-colors capitalize ${
                             active
-                              ? (lv === 'restricted' ? 'bg-orange-400/10 border-orange-400 text-orange-400'
-                               : lv === 'sensitive' ? 'bg-red-400/10 border-red-400 text-red-400'
+                              ? (lv === 'restricted' ? 'bg-red-400/10 border-red-400 text-red-400'
+                               : lv === 'sensitive' ? 'bg-orange-400/10 border-orange-400 text-orange-400'
                                : 'bg-bg-tertiary border-border text-text-primary')
                               : color + ' hover:border-accent/50'
                           }`}

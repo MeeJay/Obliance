@@ -64,11 +64,15 @@ class ScriptService {
     // run_script node pointing at the script. (A scenario can have
     // many run_script nodes pointing at the same script; the user
     // wants "how many scenarios use this", not the node count.)
+    // jsonb_exists(field, key) instead of `field ? 'key'`: the `?` form
+    // collides with knex/pg-binding placeholders (the driver thinks it's
+    // a positional binding and the count goes off-by-one), which threw
+    // on EVERY call to getScripts and broke the whole library page.
     const scenarioRows = await db.raw(
       `SELECT (n.config->>'scriptId')::int AS script_id, COUNT(DISTINCT n.scenario_id)::int AS c
          FROM scenario_nodes n
         WHERE n.type = 'run_script'
-          AND n.config ? 'scriptId'
+          AND jsonb_exists(n.config, 'scriptId')
           AND (n.config->>'scriptId')::int = ANY(?::int[])
         GROUP BY (n.config->>'scriptId')::int`,
       [scriptIds],

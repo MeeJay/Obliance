@@ -39,10 +39,19 @@ function rowToTeam(row: TeamRow): UserTeam {
   };
 }
 
+// Whitelist of capabilities accepted by the validator. Older installs
+// have rows with legacy values (pre-rename, before the enum was
+// stabilised); those values would round-trip from GET → toggle → PUT
+// and trip the Zod validator on /teams/:id/permissions, surfacing as
+// "Validation failed" with no recoverable UX. We silently drop them on
+// read so the toggle UI can re-save without 400-ing.
+const VALID_CAPABILITIES = new Set(['monitor', 'execute', 'remote', 'files', 'power']);
+
 function rowToPermission(row: any): TeamPermission {
-  const caps = row.capabilities
+  const rawCaps = row.capabilities
     ? (typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities)
     : (row.level === 'rw' ? ['monitor', 'execute'] : ['monitor']);
+  const caps = (Array.isArray(rawCaps) ? rawCaps : []).filter((c: any) => typeof c === 'string' && VALID_CAPABILITIES.has(c));
   return {
     id: row.id,
     tenantId: row.tenant_id,

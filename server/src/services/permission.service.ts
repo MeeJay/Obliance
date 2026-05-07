@@ -84,7 +84,10 @@ export const permissionService = {
     const row = await db('team_memberships as tm')
       .join('team_permissions as tp', 'tp.team_id', 'tm.team_id')
       .where('tm.user_id', userId)
-      .whereRaw('tp.capabilities::jsonb ? ?', [capability])
+      // jsonb_exists(...) instead of `... ? ?`: the JSONB existence
+      // operator `?` collides with knex/pg positional binding placeholders,
+      // so the driver counted two `?`s but only got one binding → throw.
+      .whereRaw('jsonb_exists(tp.capabilities::jsonb, ?)', [capability])
       .first();
     return !!row;
   },
