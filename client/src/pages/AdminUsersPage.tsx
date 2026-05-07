@@ -27,8 +27,8 @@ import type {
   DeviceGroupTreeNode,
   Device,
   UserTenantAssignment,
-  isMasterTenant,
 } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 import { usersApi } from '@/api/users.api';
 import { teamsApi } from '@/api/teams.api';
 import { groupsApi } from '@/api/groups.api';
