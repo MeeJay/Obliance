@@ -1,5 +1,6 @@
 import { db } from '../db';
 import type { Request } from 'express';
+import { isMasterTenant } from '@obliance/shared';
 
 export interface AuditLogEntry {
   tenantId: number;
@@ -15,6 +16,10 @@ export interface AuditLogEntry {
 export interface AuditLogRow {
   id: number;
   tenantId: number;
+  /** Tenant display name. Always populated (the join is unconditional);
+   *  the UI consumes it on master view to render a per-row tenant chip
+   *  + tenant filter dropdown. */
+  tenantName: string | null;
   userId: number | null;
   username: string | null;
   deviceId: number | null;
@@ -31,6 +36,7 @@ function rowToAudit(r: any): AuditLogRow {
   return {
     id: r.id,
     tenantId: r.tenant_id,
+    tenantName: r.tenant_name ?? null,
     userId: r.user_id,
     username: r.username ?? null,
     deviceId: r.device_id,
@@ -117,14 +123,29 @@ export const auditService = {
     until?: Date;
     limit?: number;
     offset?: number;
+    /** Master-only narrow filter — pick one tenant within the god
+     *  view. Silently dropped for non-master callers (they're already
+     *  scoped to their own tenant; allowing this would let them peek
+     *  at other tenants' logs by ID). */
+    filterTenantId?: number;
   }): Promise<{ items: AuditLogRow[]; total: number }> {
     const page = Math.max(0, params.offset ?? 0);
     const limit = Math.min(500, Math.max(1, params.limit ?? 100));
 
+    // Master tenant gets the cross-tenant audit feed (essential for a
+    // platform admin investigating an incident across customers).
+    const isMaster = isMasterTenant(params.tenantId);
     const base = db('audit_logs as al')
       .leftJoin('users as u', 'u.id', 'al.user_id')
       .leftJoin('devices as d', 'd.id', 'al.device_id')
-      .where({ 'al.tenant_id': params.tenantId });
+      // Always join `tenants` so master rows carry a tenant name column;
+      // child tenants get the join too but ignore it.
+      .leftJoin('tenants as ten', 'ten.id', 'al.tenant_id');
+    if (!isMaster) base.where({ 'al.tenant_id': params.tenantId });
+    // Narrow filter — master only (non-master is already scoped above).
+    if (isMaster && Number.isFinite(params.filterTenantId)) {
+      base.where('al.tenant_id', params.filterTenantId);
+    }
 
     if (params.action) {
       if (params.action.endsWith('.')) {
@@ -155,6 +176,7 @@ export const auditService = {
         'al.*',
         'u.username',
         db.raw('COALESCE(d.display_name, d.hostname) as device_name'),
+        'ten.name as tenant_name',
       )
       .orderBy('al.created_at', 'desc')
       .limit(limit)

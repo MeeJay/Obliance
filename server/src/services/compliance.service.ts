@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { commandService } from './command.service';
+import { isMasterTenant } from '@obliance/shared';
 import type { CompliancePolicy, CompliancePreset, ComplianceResult, ComplianceRuleResult, ConfigTemplate } from '@obliance/shared';
 import { windowsBaselineRules } from './compliance-presets/windows-baseline';
 import { linuxBaselineRules } from './compliance-presets/linux-baseline';
@@ -18,6 +19,7 @@ class ComplianceService {
   rowToPolicy(row: any): CompliancePolicy {
     return {
       id: row.id, uuid: row.uuid, tenantId: row.tenant_id,
+      targetTenantIds: Array.isArray(row.target_tenant_ids) ? row.target_tenant_ids : null,
       name: row.name, description: row.description,
       framework: row.framework, targetType: row.target_type,
       targetIds: Array.isArray(row.target_ids) ? row.target_ids : (typeof row.target_ids === 'string' ? JSON.parse(row.target_ids) : []),
@@ -39,16 +41,37 @@ class ComplianceService {
 
   // ─── Policies ─────────────────────────────────────────────────────────────
   async getPolicies(tenantId: number) {
-    const rows = await db('compliance_policies').where({ tenant_id: tenantId });
+    // Master sees every policy across the install. Other tenants see
+    // their own + any policy fan-outed to them via target_tenant_ids.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('compliance_policies');
+    if (!isMaster) {
+      q.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
+    const rows = await q;
     return rows.map(this.rowToPolicy.bind(this));
   }
 
   async getPolicyById(id: number, tenantId: number): Promise<CompliancePolicy | null> {
-    const row = await db('compliance_policies').where({ id, tenant_id: tenantId }).first();
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('compliance_policies').where({ id });
+    if (!isMaster) {
+      q.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
+    const row = await q.first();
     return row ? this.rowToPolicy(row) : null;
   }
 
-  async createPolicy(tenantId: number, data: Partial<CompliancePolicy> & { name: string; createdBy?: number }) {
+  async createPolicy(tenantId: number, data: Partial<CompliancePolicy> & { name: string; createdBy?: number; targetTenantIds?: number[] | null }) {
+    const fanOut = isMasterTenant(tenantId) && Array.isArray(data.targetTenantIds) && data.targetTenantIds.length > 0
+      ? data.targetTenantIds.map(Number).filter(Number.isFinite)
+      : null;
     const [row] = await db('compliance_policies').insert({
       tenant_id: tenantId, name: data.name, description: data.description,
       framework: data.framework || 'custom',
@@ -57,11 +80,12 @@ class ComplianceService {
       target_platform: data.targetPlatform || 'all',
       rules: JSON.stringify(data.rules || []),
       enabled: data.enabled !== false, created_by: data.createdBy,
+      target_tenant_ids: fanOut,
     }).returning('*');
     return this.rowToPolicy(row);
   }
 
-  async updatePolicy(id: number, tenantId: number, data: Partial<CompliancePolicy>) {
+  async updatePolicy(id: number, tenantId: number, data: Partial<CompliancePolicy> & { targetTenantIds?: number[] | null }) {
     const updates: any = { updated_at: new Date() };
     if (data.name !== undefined) updates.name = data.name;
     if (data.description !== undefined) updates.description = data.description;
@@ -70,6 +94,11 @@ class ComplianceService {
     if (data.targetType !== undefined) updates.target_type = data.targetType;
     if (data.targetIds !== undefined) updates.target_ids = JSON.stringify(data.targetIds);
     if (data.targetPlatform !== undefined) updates.target_platform = data.targetPlatform;
+    // Fan-out edits are master-only.
+    if (data.targetTenantIds !== undefined && isMasterTenant(tenantId)) {
+      const arr = Array.isArray(data.targetTenantIds) ? data.targetTenantIds.map(Number).filter(Number.isFinite) : [];
+      updates.target_tenant_ids = arr.length > 0 ? arr : null;
+    }
     await db('compliance_policies').where({ id, tenant_id: tenantId }).update(updates);
     return this.getPolicyById(id, tenantId);
   }

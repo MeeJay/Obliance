@@ -11,9 +11,20 @@ import type {
 
 export const usersController = {
   // GET /api/users
-  async list(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  //
+  // Default tenant (id=1) is the platform-admin "god view": admins on
+  // that tenant see every user across the install — they need it to
+  // bootstrap memberships, audit access, etc. Any other tenant is a
+  // customer workspace, so we scope the listing to users that actually
+  // have access to it (i.e. own a row in `user_tenants` for it). This
+  // makes the /admin/users page double as a "who can see this tenant?"
+  // glance card and stops a Pimkie admin from accidentally browsing
+  // BA&SH users.
+  async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const users = await userService.getAll();
+      const tenantId = (req as any).tenantId as number | undefined;
+      const scopeAll = tenantId === 1;
+      const users = await userService.getAll(scopeAll ? null : tenantId ?? null);
       res.json({ success: true, data: users });
     } catch (err) {
       next(err);

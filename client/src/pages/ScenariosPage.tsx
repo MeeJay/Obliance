@@ -1,6 +1,64 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, Upload, FileText, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
+
+/** Trigger a browser download of a JS object as JSON. Used by the
+ *  scenario export buttons + the dummy template download. */
+function downloadJson(filename: string, data: any) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Per-row export button with a flyout menu offering two flavours.
+ *  Lean (default) exports the scenario alone — small file, points at
+ *  scripts by id. With scripts embeds full bodies so the import is
+ *  self-contained on a fresh tenant. */
+function ExportMenu({
+  scenario,
+  onExport,
+}: {
+  scenario: Scenario;
+  onExport: (s: Scenario, includeScripts: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title="Export this scenario as JSON"
+        className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
+      >
+        <Download className="w-4 h-4" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-xl min-w-[220px] overflow-hidden">
+            <button
+              onClick={() => { onExport(scenario, false); setOpen(false); }}
+              className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-bg-tertiary transition-colors"
+            >
+              <span className="text-xs font-medium text-text-primary">Export (lean)</span>
+              <span className="text-[10px] text-text-muted">Scenario only — references scripts by id</span>
+            </button>
+            <button
+              onClick={() => { onExport(scenario, true); setOpen(false); }}
+              className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-bg-tertiary transition-colors border-t border-border"
+            >
+              <span className="text-xs font-medium text-text-primary">Export with scripts</span>
+              <span className="text-[10px] text-text-muted">Self-contained — embeds full script bodies</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
@@ -12,6 +70,13 @@ import { deviceApi } from '@/api/device.api';
 // Notifications + on_success/on_failure toggles retired — moved to per-node
 // `Send notification` configuration in the v2 graph editor.
 import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
+import { TargetTenantsPicker } from '@/components/common/TargetTenantsPicker';
+import { FanOutChips } from '@/components/common/FanOutChips';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
+import { useTenantStore } from '@/store/tenantStore';
+import { MASTER_TENANT_ID } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -72,6 +137,8 @@ interface ScenarioFormData {
   notifyOnSuccess: boolean;
   notifyOnFailure: boolean;
   notificationChannels: AutomationNotificationBinding[];
+  /** Master-only fan-out target tenants. Null = local. */
+  targetTenantIds: number[] | null;
 }
 
 const defaultForm: ScenarioFormData = {
@@ -89,6 +156,7 @@ const defaultForm: ScenarioFormData = {
   notifyOnSuccess: false,
   notifyOnFailure: true,
   notificationChannels: [],
+  targetTenantIds: null,
 };
 
 const defaultStep: StepFormData = {
@@ -116,6 +184,87 @@ function ScenarioStatusBadge({ status }: { status: ScenarioStatus }) {
 }
 
 export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  /** A scenario is read-only for the active tenant when it's owned by
+   *  another tenant AND we're not on the master tenant. Master always
+   *  has god-view edit rights. */
+  const isReadOnlyForCaller = (s: Scenario): boolean => {
+    if (currentTenantId === MASTER_TENANT_ID) return false;
+    return s.tenantId !== currentTenantId;
+  };
+  // Master narrow filter — chip row above the list. URL-synced via
+  // useTenantFilter so admins can deep-link to "scenarios filtered to
+  // Pimkie".
+  const tenantFilter = useTenantFilter();
+  // JSON import flow state — `importPreview` holds the parsed file +
+  // server-returned conflicts so the user can resolve script-uuid
+  // collisions before committing. Keyed file input so a re-pick of
+  // the same file still triggers onChange.
+  const [importPreview, setImportPreview] = useState<{
+    payload: any;
+    conflicts: Array<{ scriptUuid: string; existingScriptId: number; existingName: string; importedName: string }>;
+  } | null>(null);
+  const [importResolutions, setImportResolutions] = useState<Record<string, 'skip' | 'overwrite' | 'new'>>({});
+  const [importBusy, setImportBusy] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handlePickImportFile = () => importFileInputRef.current?.click();
+
+  const handleImportFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = ''; // reset so re-picking the same file works
+    if (!f) return;
+    try {
+      const text = await f.text();
+      const payload = JSON.parse(text);
+      const preview = await scenarioApi.importPreview(payload);
+      // Default every conflict to 'skip' (safe — keeps existing scripts)
+      const defaultResolutions: Record<string, 'skip' | 'overwrite' | 'new'> = {};
+      for (const c of preview.conflicts) defaultResolutions[c.scriptUuid] = 'skip';
+      setImportPreview({ payload, conflicts: preview.conflicts });
+      setImportResolutions(defaultResolutions);
+      // No conflicts → commit immediately, no modal.
+      if (preview.conflicts.length === 0) {
+        await commitImport(payload, {});
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
+    }
+  };
+
+  const commitImport = async (payload: any, resolutions: Record<string, 'skip' | 'overwrite' | 'new'>) => {
+    setImportBusy(true);
+    try {
+      const result = await scenarioApi.importCommit(payload, resolutions);
+      toast.success(`Scenario imported: ${result.scenario.name}`);
+      setImportPreview(null);
+      setImportResolutions({});
+      await load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to import scenario');
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const dummy = await scenarioApi.dummyExport();
+      downloadJson('obliance-scenario-template.json', dummy);
+    } catch {
+      toast.error('Failed to fetch template');
+    }
+  };
+
+  const handleExportScenario = async (scenario: Scenario, includeScripts: boolean) => {
+    try {
+      const data = await scenarioApi.exportScenario(scenario.id, { includeScripts });
+      const slug = scenario.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      downloadJson(`scenario-${slug || scenario.id}${includeScripts ? '-with-scripts' : ''}.json`, data);
+    } catch {
+      toast.error('Failed to export scenario');
+    }
+  };
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
   // schedules previously fed the schedule_failure trigger picker —
@@ -250,6 +399,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
       notifyOnSuccess: full.notifyOnSuccess,
       notifyOnFailure: full.notifyOnFailure,
       notificationChannels: full.notificationChannels ?? [],
+      targetTenantIds: full.targetTenantIds ?? null,
     });
     setEditingScenario(full);
     setShowForm(true);
@@ -295,6 +445,8 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         notifyOnSuccess: form.notifyOnSuccess,
         notifyOnFailure: form.notifyOnFailure,
         notificationChannels: form.notificationChannels,
+        // Master-only fan-out — server ignores this from non-master callers.
+        targetTenantIds: form.targetTenantIds,
       };
 
       if (editingScenario) {
@@ -503,6 +655,23 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
               Import from template
             </button>
             <button
+              onClick={handlePickImportFile}
+              disabled={importBusy}
+              title="Import a scenario JSON file (with or without embedded scripts)"
+              className="flex items-center gap-2 px-4 py-2 border border-border text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              Import JSON
+            </button>
+            <button
+              onClick={handleDownloadTemplate}
+              title="Download an empty scenario JSON to share with an AI / colleague"
+              className="flex items-center gap-2 px-4 py-2 border border-border text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              Empty template
+            </button>
+            <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
             >
@@ -676,6 +845,14 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                 <option value="active">Active</option>
                 <option value="disabled">Disabled</option>
               </select>
+            </div>
+            {/* Master-only fan-out picker. Renders only when the caller
+                is on the master tenant; child-tenant admins never see it. */}
+            <div className="md:col-span-2">
+              <TargetTenantsPicker
+                value={form.targetTenantIds}
+                onChange={(next) => setForm({ ...form, targetTenantIds: next })}
+              />
             </div>
             {/* Trigger config moved entirely to the graph editor in v2.
                 New scenarios get a default `trigger_manual` node from the
@@ -1016,7 +1193,19 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
         </div>
       ) : (
         <div className="space-y-2">
-          {scenarios.map((scenario) => {
+          {/* Master tenant filter chips — hidden outside master. Reads/
+              writes the `tenants` querystring param so deep-links
+              survive. The list of available tenants is the union of
+              scenarios' owning tenants. */}
+          <TenantFilterChips
+            value={tenantFilter.value}
+            onChange={tenantFilter.setValue}
+            availableTenantIds={[...new Set(scenarios.map((s) => s.tenantId))]}
+            className="mb-2"
+          />
+          {scenarios
+            .filter((s) => tenantFilter.value.size === 0 || tenantFilter.value.has(s.tenantId))
+            .map((scenario) => {
             const expanded = expandedId === scenario.id;
             // v2 graphs show their action-node count (excludes triggers
             // and end_* terminators — those are passive "wiring" rather
@@ -1039,6 +1228,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-text-primary">{scenario.name}</span>
                       <ScenarioStatusBadge status={scenario.status} />
+                      {isReadOnlyForCaller(scenario) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                          🔒 Master
+                        </span>
+                      )}
+                      <TenantBadge tenantId={scenario.tenantId} />
+                      <FanOutChips targetTenantIds={scenario.targetTenantIds} />
                       {/* Multi-trigger: render one badge per type, with a
                           (n) suffix when several nodes of the same type
                           coexist. Falls back to the single legacy
@@ -1122,21 +1318,32 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
                     </button>
                     <button
                       onClick={() => setGraphEditorScenarioId(scenario.id)}
-                      className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
-                      title="Edit graph"
+                      disabled={isReadOnlyForCaller(scenario)}
+                      title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : 'Edit graph'}
+                      className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <GitBranch className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleOpenEdit(scenario)}
-                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
-                      title="Edit metadata"
+                      disabled={isReadOnlyForCaller(scenario)}
+                      title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : 'Edit metadata'}
+                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    {/* Export menu — explicit "lean" vs "with scripts"
+                        choice. Lean = scenario + nodes + edges, points
+                        at scripts by id (works only when the dest
+                        tenant already has them). With scripts =
+                        portable; the importer asks the user how to
+                        handle uuid collisions. */}
+                    <ExportMenu scenario={scenario} onExport={handleExportScenario} />
                     <button
                       onClick={() => handleDelete(scenario)}
-                      className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                      disabled={isReadOnlyForCaller(scenario)}
+                      title={isReadOnlyForCaller(scenario) ? 'Géré par le tenant Default — lecture seule' : undefined}
+                      className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1321,9 +1528,94 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
           <ScenarioGraphEditor
             scenarioId={graphEditorScenarioId}
             onClose={() => setGraphEditorScenarioId(null)}
+            onStatusChanged={(next) => {
+              // Patch the row in-place so the badge flips without a
+              // full reload. The user can keep editing the graph.
+              setScenarios((prev) => prev.map((s) =>
+                s.id === graphEditorScenarioId ? { ...s, status: next } : s,
+              ));
+            }}
           />
         </div>,
         document.body,
+      )}
+
+      {/* Hidden file input — driven by handlePickImportFile; reset
+          on each pick so re-uploading the same file triggers onChange. */}
+      <input
+        ref={importFileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleImportFileSelected}
+      />
+
+      {/* Conflict-resolution modal — shown only when the imported
+          file embeds scripts whose uuid already exists in the target
+          tenant. The user picks per-script: skip / overwrite / new. */}
+      {importPreview && importPreview.conflicts.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-border">
+              <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <Upload className="w-4 h-4 text-accent" />
+                Resolve script conflicts
+              </h3>
+              <p className="text-xs text-text-muted mt-1">
+                The import contains {importPreview.conflicts.length} script{importPreview.conflicts.length > 1 ? 's' : ''} whose UUID already exists. Choose what to do for each.
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+              {importPreview.conflicts.map((c) => {
+                const choice = importResolutions[c.scriptUuid] ?? 'skip';
+                return (
+                  <div key={c.scriptUuid} className="border border-border rounded-lg p-3">
+                    <div className="text-sm font-medium text-text-primary">{c.importedName}</div>
+                    <div className="text-[11px] text-text-muted font-mono mb-2">{c.scriptUuid}</div>
+                    <div className="text-[11px] text-text-muted mb-2">
+                      Existing script: <span className="text-text-primary">{c.existingName}</span> (#{c.existingScriptId})
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {([
+                        { v: 'skip',      label: 'Keep existing',          desc: 'Don\'t touch the existing script. Imported nodes point at it.' },
+                        { v: 'overwrite', label: 'Overwrite',              desc: 'Replace the existing script body with the imported one.' },
+                        { v: 'new',       label: 'Create new copy',         desc: 'Insert as a fresh script with " (imported)" suffix.' },
+                      ] as Array<{ v: 'skip' | 'overwrite' | 'new'; label: string; desc: string }>).map((opt) => (
+                        <button
+                          key={opt.v}
+                          onClick={() => setImportResolutions({ ...importResolutions, [c.scriptUuid]: opt.v })}
+                          className={clsx(
+                            'flex-1 min-w-[120px] text-left p-2 rounded border transition-colors',
+                            choice === opt.v ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-muted hover:border-accent/40',
+                          )}
+                        >
+                          <div className="text-xs font-semibold">{opt.label}</div>
+                          <div className="text-[10px] text-text-muted/80 mt-0.5">{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+              <button
+                onClick={() => { setImportPreview(null); setImportResolutions({}); }}
+                disabled={importBusy}
+                className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => commitImport(importPreview.payload, importResolutions)}
+                disabled={importBusy}
+                className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50"
+              >
+                {importBusy ? 'Importing…' : 'Confirm import'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

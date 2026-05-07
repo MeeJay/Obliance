@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { getIO } from '../socket';
 import { commandService } from './command.service';
 import { auditService } from './audit.service';
+import { isMasterTenant } from '@obliance/shared';
 
 // Two-step approval service — creates pending requests, handles approve/deny,
 // and dispatches the actual commands once approved. Designed so the existing
@@ -110,18 +111,21 @@ export const approvalService = {
     return rowToApproval(row);
   },
 
-  /** List pending approvals for a tenant (optionally all statuses). */
+  /** List pending approvals for a tenant (optionally all statuses).
+   *  Master tenant gets the cross-tenant feed — useful for the
+   *  platform admin to spot stuck approvals across customer accounts. */
   async list(tenantId: number, opts: { includeResolved?: boolean; limit?: number } = {}): Promise<PendingApproval[]> {
+    const isMaster = isMasterTenant(tenantId);
     const q = db('pending_approvals as pa')
       .leftJoin('users as u1', 'u1.id', 'pa.requested_by')
       .leftJoin('users as u2', 'u2.id', 'pa.reviewed_by')
-      .where({ 'pa.tenant_id': tenantId })
       .select(
         'pa.*',
         'u1.username as requested_by_name',
         'u2.username as reviewed_by_name',
       )
       .orderBy('pa.created_at', 'desc');
+    if (!isMaster) q.where({ 'pa.tenant_id': tenantId });
     if (!opts.includeResolved) q.where('pa.status', 'pending');
     if (opts.limit) q.limit(opts.limit);
     const rows = await q;

@@ -8,6 +8,7 @@ import { anonymize } from '@/utils/anonymize';
 import { groupsApi } from '@/api/groups.api';
 import type { DeviceGroup, ScriptSchedule, Scenario, SoftwareComplianceList } from '@obliance/shared';
 import { DeviceTable } from '@/components/devices/DeviceTable';
+import { TenantBadge } from '@/components/common/TenantBadge';
 import { Button } from '@/components/common/Button';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { scriptApi } from '@/api/script.api';
@@ -88,7 +89,12 @@ export function GroupDetailPage() {
             <FolderOpen size={24} className="text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-text-primary">{anonymize(group.name)}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-semibold text-text-primary">{anonymize(group.name)}</h1>
+              {/* Tenant pill on master/god view so the admin sees which
+                  customer they're operating on at a glance. */}
+              <TenantBadge tenantId={group.tenantId} tenantName={group.tenantName} size="md" />
+            </div>
             {group.description && (
               <p className="text-sm text-text-muted mt-1">{group.description}</p>
             )}

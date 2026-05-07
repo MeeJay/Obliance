@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Управляется тенантом Default — только чтение"
+  },
+  "fanOut": {
+    "label": "Поделиться с (только чтение в целевых тенантах)",
+    "hint": "Тенант Default остается владельцем. Целевые тенанты видят сущность только для чтения и не могут ее изменять.",
+    "clear": "Очистить",
+    "tooltip": "Доступно только для чтения этим тенантам"
+  },
+  "tenantFilter": {
+    "label": "Тенант",
+    "clear": "Сбросить"
+  },
+  "scenarioIo": {
+    "importJson": "Импорт JSON",
+    "emptyTemplate": "Пустой шаблон",
+    "exportLean": "Экспорт (без скриптов)",
+    "exportLeanHint": "Только сценарий — ссылается на скрипты по id",
+    "exportWithScripts": "Экспорт со скриптами",
+    "exportWithScriptsHint": "Автономно — включает тела скриптов",
+    "newScript": "+ Новый скрипт",
+    "editSelected": "Изменить выбранный",
+    "resolveConflictsTitle": "Разрешить конфликты скриптов",
+    "conflictKeep": "Оставить существующий",
+    "conflictOverwrite": "Перезаписать",
+    "conflictNew": "Создать новую копию",
+    "confirmImport": "Подтвердить импорт",
+    "importing": "Импорт…",
+    "scenarioActive": "Активен",
+    "scenarioDisabled": "Отключен",
+    "scenarioDraft": "Черновик"
   }
 }

@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Administreret af Default-tenanten — skrivebeskyttet"
+  },
+  "fanOut": {
+    "label": "Del til (skrivebeskyttet i mål-tenants)",
+    "hint": "Default-tenanten forbliver ejer. Mål-tenants ser entiteten skrivebeskyttet og kan ikke ændre den.",
+    "clear": "Fjern",
+    "tooltip": "Delt skrivebeskyttet med disse tenants"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Ryd"
+  },
+  "scenarioIo": {
+    "importJson": "Importér JSON",
+    "emptyTemplate": "Tom skabelon",
+    "exportLean": "Eksporter (let)",
+    "exportLeanHint": "Kun scenarie — refererer scripts via id",
+    "exportWithScripts": "Eksporter med scripts",
+    "exportWithScriptsHint": "Selvstændig — indlejrer hele scripts",
+    "newScript": "+ Nyt script",
+    "editSelected": "Rediger valgte",
+    "resolveConflictsTitle": "Løs scriptkonflikter",
+    "conflictKeep": "Behold eksisterende",
+    "conflictOverwrite": "Overskriv",
+    "conflictNew": "Opret ny kopi",
+    "confirmImport": "Bekræft import",
+    "importing": "Importerer…",
+    "scenarioActive": "Aktiv",
+    "scenarioDisabled": "Deaktiveret",
+    "scenarioDraft": "Kladde"
   }
 }

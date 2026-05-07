@@ -54,6 +54,12 @@ export function useSocket() {
 
     socket.on(SocketEvents.DEVICE_METRICS_PUSHED, (data: { deviceId: number; metrics: DeviceMetrics }) => {
       updateDeviceMetrics(data.deviceId, data.metrics);
+      // The very fact that we received metrics means the agent just
+      // talked, so optimistically advance lastSeenAt — the device detail
+      // header's relative-time pill ("1m / 5m / …") otherwise drifts as
+      // the user sits on the page since DEVICE_UPDATED only carries
+      // status changes, not the timestamp.
+      updateDevice(data.deviceId, { lastSeenAt: new Date().toISOString() });
     });
 
     socket.on(SocketEvents.DEVICE_ONLINE, (data: { deviceId: number; device?: Partial<Device> }) => {

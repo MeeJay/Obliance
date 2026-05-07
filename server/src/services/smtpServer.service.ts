@@ -43,6 +43,9 @@ export const smtpServerService = {
     return rows.map(rowToServer);
   },
 
+  /** UNSAFE without tenant scope. Used internally (mailer dispatch
+   *  resolves a server by id during notification send). HTTP routes
+   *  MUST gate on tenant ownership before exposing the row. */
   async getById(id: number): Promise<SmtpServerRow | null> {
     const row = await db<SmtpServerRow>('smtp_servers').where({ id }).first();
     return row || null;

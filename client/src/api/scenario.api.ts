@@ -43,6 +43,43 @@ export const scenarioApi = {
     const res = await apiClient.put<ApiResponse<Scenario>>(`/scenarios/${id}`, data);
     return res.data.data!;
   },
+  async exportScenario(id: number, opts: { includeScripts: boolean }): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>(`/scenarios/${id}/export`, {
+      params: { includeScripts: opts.includeScripts ? '1' : '0' },
+    });
+    return res.data.data;
+  },
+  async dummyExport(): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>('/scenarios/dummy-export');
+    return res.data.data;
+  },
+  async exportAll(opts: { includeScripts: boolean }): Promise<any> {
+    const res = await apiClient.get<ApiResponse<any>>('/scenarios/export-all', {
+      params: { includeScripts: opts.includeScripts ? '1' : '0' },
+    });
+    return res.data.data;
+  },
+  async importBulk(
+    bundle: any,
+    conflictResolutions: Record<string, 'skip' | 'overwrite' | 'new'>,
+  ): Promise<{ results: Array<{ name: string; ok: boolean; error?: string; scenarioId?: number }>; total: number; succeeded: number }> {
+    const res = await apiClient.post<ApiResponse<any>>('/scenarios/import-bulk', { bundle, conflictResolutions });
+    return res.data.data;
+  },
+  async importPreview(payload: any): Promise<{
+    kind: 'preview';
+    conflicts: Array<{ scriptUuid: string; existingScriptId: number; existingName: string; importedName: string }>;
+  }> {
+    const res = await apiClient.post<ApiResponse<any>>('/scenarios/import', { payload });
+    return res.data.data;
+  },
+  async importCommit(
+    payload: any,
+    conflictResolutions: Record<string, 'skip' | 'overwrite' | 'new'>,
+  ): Promise<{ kind: 'commit'; scenario: Scenario }> {
+    const res = await apiClient.post<ApiResponse<any>>('/scenarios/import', { payload, conflictResolutions });
+    return res.data.data;
+  },
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/scenarios/${id}`);
   },

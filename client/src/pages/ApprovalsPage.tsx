@@ -5,6 +5,7 @@ import { approvalApi, type PendingApproval } from '@/api/approval.api';
 import { useAuthStore } from '@/store/authStore';
 import { getSocket } from '@/socket/socketClient';
 import toast from 'react-hot-toast';
+import { TenantBadge } from '@/components/common/TenantBadge';
 
 // 2-step approval review page. Shows pending destructive-command requests
 // waiting for a second admin's approval. Self-requests (current user is
@@ -179,6 +180,7 @@ export function ApprovalsPage({ embedded = false }: { embedded?: boolean } = {})
                           your request
                         </span>
                       )}
+                      <TenantBadge tenantId={a.tenantId} />
                     </div>
                     <p className="text-sm text-text-primary font-medium truncate">{a.description}</p>
                     <div className="flex items-center gap-3 mt-1 text-[11px] text-text-muted flex-wrap">

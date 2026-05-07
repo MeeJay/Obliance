@@ -5,6 +5,10 @@ import { clsx } from 'clsx';
 import { auditApi, type AuditLogRow, type AuditLogFilters } from '@/api/audit.api';
 import { usersApi } from '@/api/users.api';
 import type { User } from '@obliance/shared';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
+import { useIsMasterTenant } from '@/hooks/useIsMasterTenant';
 import toast from 'react-hot-toast';
 
 // Tenant-wide audit log — "who did what when, and from which IP".
@@ -32,9 +36,11 @@ function actionPill(action: string) {
   );
 }
 
-function Row({ row }: { row: AuditLogRow }) {
+function Row({ row, isMaster }: { row: AuditLogRow; isMaster: boolean }) {
   const [open, setOpen] = useState(false);
   const hasDetails = row.details && Object.keys(row.details).length > 0;
+  // Tenant column adds a 7th td when present, so keep colSpan in sync.
+  const colSpan = isMaster ? 7 : 6;
   return (
     <>
       <tr
@@ -47,6 +53,11 @@ function Row({ row }: { row: AuditLogRow }) {
             {new Date(row.createdAt).toLocaleString()}
           </div>
         </td>
+        {isMaster && (
+          <td className="px-2 py-1.5">
+            <TenantBadge tenantId={row.tenantId} tenantName={row.tenantName} />
+          </td>
+        )}
         <td className="px-2 py-1.5">{actionPill(row.action)}</td>
         <td className="px-2 py-1.5 text-xs text-text-primary">
           {row.username ? (
@@ -73,7 +84,7 @@ function Row({ row }: { row: AuditLogRow }) {
       </tr>
       {open && hasDetails && (
         <tr className="bg-bg-primary/50 border-b border-border/30">
-          <td colSpan={6} className="px-8 py-2">
+          <td colSpan={colSpan} className="px-8 py-2">
             <pre className="text-[11px] text-text-secondary font-mono whitespace-pre-wrap break-all max-h-64 overflow-auto">
               {JSON.stringify(row.details, null, 2)}
             </pre>
@@ -85,6 +96,13 @@ function Row({ row }: { row: AuditLogRow }) {
 }
 
 export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const isMaster = useIsMasterTenant();
+  // Master narrow filter — single-select via the chip row. The
+  // querystring keeps the selection across reloads / colleague-shared
+  // links ("here's the Pimkie audit feed for the past 24h").
+  const tenantFilter = useTenantFilter();
+  const filterTenantId = tenantFilter.value.size === 1 ? [...tenantFilter.value][0] : undefined;
+
   const [items, setItems] = useState<AuditLogRow[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +114,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
   const load = useCallback(async (spinner = true) => {
     if (spinner) setIsLoading(true);
     try {
-      const { items, total } = await auditApi.list(filters);
+      const { items, total } = await auditApi.list({ ...filters, filterTenantId });
       setItems(items);
       setTotal(total);
     } catch {
@@ -104,18 +122,19 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
     } finally {
       if (spinner) setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, filterTenantId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    // Load distinct action list once for the dropdown.
-    auditApi.distinctActions().then(setActions).catch(() => {});
+    // Load distinct action list — narrow it to the tenant filter so the
+    // dropdown only surfaces actions actually present in that tenant.
+    auditApi.distinctActions(filterTenantId).then(setActions).catch(() => {});
     // Load tenant users for the "By user" filter.
     usersApi.list().then(setUsers).catch(() => {});
-  }, []);
+  }, [filterTenantId]);
 
   const applySearch = () => {
     setFilters({ ...filters, search: search.trim() || undefined, offset: 0 });
@@ -211,6 +230,28 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
         </div>
       </div>
 
+      {/* Master tenant chip row (single-select to keep the audit
+          feed focused — multi-select would defeat the purpose of
+          drilling into one customer). */}
+      {isMaster && (
+        <div className="mb-3">
+          <TenantFilterChips
+            value={tenantFilter.value}
+            onChange={(next) => {
+              // Single-select semantics: keep only the most recently
+              // toggled-on chip. UX-wise the audit log makes more sense
+              // as a "look at one tenant at a time" tool than a union.
+              if (next.size <= 1) tenantFilter.setValue(next);
+              else {
+                const previous = tenantFilter.value;
+                const added = [...next].find((id) => !previous.has(id));
+                tenantFilter.setValue(added ? new Set([added]) : new Set());
+              }
+            }}
+          />
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex items-end gap-2 mb-4 flex-wrap">
         <div className="flex-1 min-w-[200px]">
@@ -294,6 +335,9 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
             <thead>
               <tr className="border-b border-border bg-bg-primary/40">
                 <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">When</th>
+                {isMaster && (
+                  <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">Tenant</th>
+                )}
                 <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">Action</th>
                 <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">User</th>
                 <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">Device</th>
@@ -302,7 +346,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
               </tr>
             </thead>
             <tbody>
-              {items.map((row) => <Row key={row.id} row={row} />)}
+              {items.map((row) => <Row key={row.id} row={row} isMaster={isMaster} />)}
             </tbody>
           </table>
         )}

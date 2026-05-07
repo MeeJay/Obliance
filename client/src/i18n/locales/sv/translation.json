@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Hanteras av Default-tenanten — skrivskyddad"
+  },
+  "fanOut": {
+    "label": "Dela till (skrivskyddat i mål-tenants)",
+    "hint": "Default-tenanten förblir ägare. Mål-tenants ser entiteten skrivskyddad och kan inte ändra den.",
+    "clear": "Rensa",
+    "tooltip": "Delat skrivskyddat med dessa tenants"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Rensa"
+  },
+  "scenarioIo": {
+    "importJson": "Importera JSON",
+    "emptyTemplate": "Tom mall",
+    "exportLean": "Exportera (slim)",
+    "exportLeanHint": "Bara scenariot — refererar skript via id",
+    "exportWithScripts": "Exportera med skript",
+    "exportWithScriptsHint": "Självständig — innehåller hela skript",
+    "newScript": "+ Nytt skript",
+    "editSelected": "Redigera vald",
+    "resolveConflictsTitle": "Lös skriptkonflikter",
+    "conflictKeep": "Behåll befintlig",
+    "conflictOverwrite": "Skriv över",
+    "conflictNew": "Skapa ny kopia",
+    "confirmImport": "Bekräfta import",
+    "importing": "Importerar…",
+    "scenarioActive": "Aktiv",
+    "scenarioDisabled": "Inaktiverad",
+    "scenarioDraft": "Utkast"
   }
 }

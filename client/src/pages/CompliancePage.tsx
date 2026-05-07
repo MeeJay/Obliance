@@ -11,6 +11,12 @@ import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
 import { useDeviceStore } from '@/store/deviceStore';
+import { useTenantStore } from '@/store/tenantStore';
+import { TargetTenantsPicker } from '@/components/common/TargetTenantsPicker';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
+import { MASTER_TENANT_ID } from '@obliance/shared';
 import type {
   CompliancePolicy, CompliancePreset, ComplianceResult,
   ComplianceFramework, ComplianceRule, ComplianceCheckType,
@@ -278,17 +284,29 @@ interface PolicyFormData {
   targetPlatform: 'windows' | 'linux' | 'macos' | 'freebsd' | 'all';
   enabled: boolean;
   rules: RuleFormData[];
+  /** Master-only fan-out: extra tenants where this policy is visible
+   *  in read-only. Null when local. */
+  targetTenantIds: number[] | null;
 }
 
 const defaultPolicyForm: PolicyFormData = {
   name: '', description: '', framework: 'CIS', targetType: 'all', targetIds: [],
   targetPlatform: 'all', enabled: true, rules: [],
+  targetTenantIds: null,
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const { isAdmin } = useAuthStore();
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  /** A policy is read-only when it's owned by another tenant AND we
+   *  aren't on the master tenant. */
+  const isReadOnlyForCaller = (p: CompliancePolicy): boolean => {
+    if (currentTenantId === MASTER_TENANT_ID) return false;
+    return p.tenantId !== currentTenantId;
+  };
+  const tenantFilter = useTenantFilter();
   const deviceMap = useDeviceStore(s => s.devices);
   const devices = Array.from(deviceMap.values());
   const [activeTab, setActiveTab] = useState<Tab>('results');
@@ -394,6 +412,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
       targetPlatform: policy.targetPlatform ?? 'all',
       enabled: policy.enabled,
       rules: (policy.rules ?? []).map(r => ({ ...r, autoRemediateScriptId: null })),
+      targetTenantIds: policy.targetTenantIds ?? null,
     });
     setEditingPolicy(policy);
     setShowForm(true);
@@ -427,6 +446,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
         targetPlatform: form.targetPlatform,
         rules: form.rules,
         enabled: form.enabled,
+        // Master-only fan-out — server ignores from non-master callers.
+        targetTenantIds: form.targetTenantIds,
         tenantId: 0,
       };
       if (editingPolicy) {
@@ -547,9 +568,9 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
     policies.flatMap(p => (p.rules ?? []).map(rule => [`${p.id}:${rule.id}`, rule.name] as [string, string])),
   );
 
-  const filteredPolicies = filterFramework
-    ? policies.filter(p => p.framework === filterFramework)
-    : policies;
+  const filteredPolicies = policies
+    .filter(p => !filterFramework || p.framework === filterFramework)
+    .filter(p => tenantFilter.value.size === 0 || tenantFilter.value.has(p.tenantId));
 
   const filteredResults = filterFramework
     ? results.filter(r => r.policy?.framework === filterFramework)
@@ -871,6 +892,12 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
           {/* Policy form */}
           {showForm && (
             <div className="bg-bg-secondary border border-border rounded-xl p-6 space-y-4">
+              {/* Master-only fan-out picker. Hidden on child tenants —
+                  child admins can only create local policies. */}
+              <TargetTenantsPicker
+                value={form.targetTenantIds}
+                onChange={(next) => setForm({ ...form, targetTenantIds: next })}
+              />
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-text-primary">
                   {editingPolicy ? t('compliance.editPolicy') : t('compliance.newPolicyTitle')}
@@ -1161,6 +1188,12 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
             </div>
           ) : (
             <div className="space-y-3">
+              <TenantFilterChips
+                value={tenantFilter.value}
+                onChange={tenantFilter.setValue}
+                availableTenantIds={[...new Set(policies.map((p) => p.tenantId))]}
+                className="mb-2"
+              />
               {filteredPolicies.map((policy) => (
                 <div key={policy.id} className="p-4 bg-bg-secondary border border-border rounded-xl">
                   <div className="flex items-start justify-between gap-4">
@@ -1174,6 +1207,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                           policy.enabled ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-gray-400 bg-gray-400/10 border-gray-400/30')}>
                           {policy.enabled ? t('status.active') : t('status.inactive')}
                         </span>
+                        <TenantBadge tenantId={policy.tenantId} />
                       </div>
                       {policy.description && (
                         <p className="text-xs text-text-muted mt-1">{policy.description}</p>
@@ -1205,18 +1239,25 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex gap-1 shrink-0 items-center">
+                      {isReadOnlyForCaller(policy) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 mr-1">
+                          🔒 Master
+                        </span>
+                      )}
                       <button
                         onClick={() => handleOpenEdit(policy)}
-                        className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
-                        title={t('common.edit')}
+                        disabled={isReadOnlyForCaller(policy)}
+                        title={isReadOnlyForCaller(policy) ? 'Géré par le tenant Default — lecture seule' : t('common.edit')}
+                        className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(policy.id)}
-                        className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
-                        title={t('common.delete')}
+                        disabled={isReadOnlyForCaller(policy)}
+                        title={isReadOnlyForCaller(policy) ? 'Géré par le tenant Default — lecture seule' : t('common.delete')}
+                        className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

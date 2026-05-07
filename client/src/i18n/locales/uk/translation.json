@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Керується тенантом Default — лише читання"
+  },
+  "fanOut": {
+    "label": "Поширити на (лише читання в цільових тенантах)",
+    "hint": "Тенант Default залишається власником. Цільові тенанти бачать сутність лише для читання і не можуть її змінювати.",
+    "clear": "Прибрати",
+    "tooltip": "Поширено лише для читання цим тенантам"
+  },
+  "tenantFilter": {
+    "label": "Тенант",
+    "clear": "Очистити"
+  },
+  "scenarioIo": {
+    "importJson": "Імпорт JSON",
+    "emptyTemplate": "Порожній шаблон",
+    "exportLean": "Експорт (без скриптів)",
+    "exportLeanHint": "Лише сценарій — посилається на скрипти за id",
+    "exportWithScripts": "Експорт зі скриптами",
+    "exportWithScriptsHint": "Самодостатній — містить повний код скриптів",
+    "newScript": "+ Новий сценарій",
+    "editSelected": "Редагувати обраний",
+    "resolveConflictsTitle": "Вирішити конфлікти скриптів",
+    "conflictKeep": "Залишити наявний",
+    "conflictOverwrite": "Перезаписати",
+    "conflictNew": "Створити нову копію",
+    "confirmImport": "Підтвердити імпорт",
+    "importing": "Імпорт…",
+    "scenarioActive": "Активний",
+    "scenarioDisabled": "Вимкнено",
+    "scenarioDraft": "Чернетка"
   }
 }

@@ -1,5 +1,6 @@
 import { db } from '../db';
 import type { NotificationChannel, NotificationChannelType, NotificationBinding, DeviceNotificationTypes, OverrideMode } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 
 import type { NotificationPayload } from '../notifications/types';
 import { getPlugin } from '../notifications/registry';
@@ -58,19 +59,30 @@ export const notificationService = {
   // ── Channel CRUD ──
 
   async getAllChannels(tenantId: number): Promise<NotificationChannel[]> {
-    // Own channels + channels shared to this tenant via the junction table
-    const rows = await db<ChannelRow>('notification_channels')
-      .where(function () {
+    // Master sees every channel install-wide; otherwise: own channels +
+    // channels shared to this tenant via the junction table.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db<ChannelRow>('notification_channels').orderBy('name');
+    if (!isMaster) {
+      q.where(function () {
         this.where('notification_channels.tenant_id', tenantId)
           .orWhereIn(
             'notification_channels.id',
             db('notification_channel_tenants').select('channel_id').where({ tenant_id: tenantId }),
           );
-      })
-      .orderBy('name');
+      });
+    }
+    const rows = await q;
     return rows.map((row) => rowToChannel(row, tenantId));
   },
 
+  /** UNSAFE without tenant scope. Used by internal lookups (channel
+   *  resolver during notification dispatch, sharing-junction join). The
+   *  HTTP route handlers MUST validate ownership before exposing the
+   *  row — pattern: check `channel.tenantId === req.tenantId` or that
+   *  the caller's tenant has the channel via the junction table, or
+   *  bypass on master. See `notification.routes.ts` for the canonical
+   *  guard. */
   async getChannelById(id: number): Promise<NotificationChannel | null> {
     const row = await db<ChannelRow>('notification_channels').where({ id }).first();
     return row ? rowToChannel(row) : null;

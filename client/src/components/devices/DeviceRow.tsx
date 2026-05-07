@@ -1,5 +1,5 @@
 import { memo, type MouseEvent } from 'react';
-import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History } from 'lucide-react';
+import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History, Building2 } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
@@ -276,6 +276,16 @@ export const DeviceRow = memo(function DeviceRow({
           stray separator behind. */}
       <Line2Fields className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset)}
         nodes={[
+          // Tenant chip — only meaningful when the row originates from
+          // the master/god view (otherwise tenantName is null and the
+          // whole node collapses out of the line). Off by default in
+          // the catalog so a single-tenant install never sees clutter.
+          fieldOn('tenant') && device.tenantName && (
+            <span key="tenant" className="inline-flex items-center gap-1 text-accent" title={`Tenant: ${device.tenantName}`}>
+              <Building2 className="w-3 h-3" />
+              <span className="truncate max-w-[100px]">{device.tenantName}</span>
+            </span>
+          ),
           fieldOn('ipLocal') && (
             <span key="ipLocal" className="font-mono truncate max-w-[120px]" title="IP LAN">
               <Wifi className="w-3 h-3 inline mr-1 opacity-60" />

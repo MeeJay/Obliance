@@ -1987,5 +1987,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Géré par le tenant Default — lecture seule"
+  },
+  "fanOut": {
+    "label": "Diffuser à (lecture seule sur les tenants ciblés)",
+    "hint": "Le tenant Default reste propriétaire. Les tenants ciblés voient l'entité en lecture seule et ne peuvent pas la modifier.",
+    "clear": "Retirer",
+    "tooltip": "Diffusé en lecture seule à ces tenants"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Effacer"
+  },
+  "scenarioIo": {
+    "importJson": "Importer JSON",
+    "emptyTemplate": "Modèle vierge",
+    "exportLean": "Exporter (léger)",
+    "exportLeanHint": "Scénario seul — référence les scripts par id",
+    "exportWithScripts": "Exporter avec les scripts",
+    "exportWithScriptsHint": "Autonome — inclut le corps des scripts",
+    "newScript": "+ Nouveau script",
+    "editSelected": "Modifier le sélectionné",
+    "resolveConflictsTitle": "Résoudre les conflits de scripts",
+    "conflictKeep": "Conserver l'existant",
+    "conflictOverwrite": "Écraser",
+    "conflictNew": "Créer une nouvelle copie",
+    "confirmImport": "Confirmer l'import",
+    "importing": "Import en cours…",
+    "scenarioActive": "Actif",
+    "scenarioDisabled": "Désactivé",
+    "scenarioDraft": "Brouillon"
   }
 }

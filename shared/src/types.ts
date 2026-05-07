@@ -85,6 +85,11 @@ export interface TenantMembership {
 export interface DeviceGroup {
   id: number;
   tenantId: number;
+  /** Optional resolved tenant display name. Surfaced in master/god-view
+   *  responses so the sidebar can render tenant headers above each
+   *  child tenant's group sub-tree. Undefined / null when the row was
+   *  fetched inside a single-tenant context (the column is implicit). */
+  tenantName?: string | null;
   parentId: number | null;
   name: string;
   slug: string;
@@ -170,6 +175,11 @@ export interface Device {
   id: number;
   uuid: string;
   tenantId: number;
+  /** Resolved tenant display name. Surfaced to the UI when the caller is
+   *  on the master tenant (god view) so the sidebar / DeviceTable can
+   *  group devices by tenant. Null/undefined when the call sits inside
+   *  a single tenant (the column is implicit then). */
+  tenantName?: string | null;
   groupId: number | null;
   groupName?: string | null;
   apiKeyId: number | null;
@@ -608,6 +618,10 @@ export interface Script {
   id: number;
   uuid: string;
   tenantId: number | null;
+  /** Master-only fan-out: extra tenants that see this script in
+   *  read-only. Null/undefined when the script is local to its
+   *  owning tenant (the common case). */
+  targetTenantIds?: number[] | null;
   categoryId: number | null;
   /** Optional parent script — when set, the library renders this script
    *  indented directly under its parent (typical use: a `resolve` script
@@ -632,6 +646,11 @@ export interface Script {
   purpose?: ScriptPurpose;
   parameters?: ScriptParameter[];
   category?: ScriptCategory | null;
+  /** Reference counts surfaced by the list endpoint so the UI can
+   *  badge "used by N scenarios / M schedules" + filter "Unused".
+   *  Populated by `scriptService.getScripts` for every row.
+   *  Both fields default to 0. */
+  usage?: { scenarios: number; schedules: number };
 }
 
 // ─── SCRIPT SCHEDULES ────────────────────────────────────────────────────────
@@ -648,6 +667,9 @@ export interface ScriptSchedule {
   id: number;
   uuid: string;
   tenantId: number;
+  /** Master-only fan-out: extra tenants where this schedule is visible
+   *  in read-only. Null/undefined when the schedule is local. */
+  targetTenantIds?: number[] | null;
   scriptId: number;
   name: string;
   description: string | null;
@@ -785,6 +807,10 @@ export interface DeviceUpdate {
   updatedAt: string;
   /** Populated on tenant-wide listings (hostname or displayName) */
   deviceName?: string | null;
+  /** Resolved tenant id of the related device — populated on master/god
+   *  view so the UI can render a TenantBadge against each row. Null
+   *  outside master. */
+  deviceTenantId?: number | null;
 }
 
 // ─── CONFIG TEMPLATES ────────────────────────────────────────────────────────
@@ -875,6 +901,9 @@ export interface CompliancePolicy {
   id: number;
   uuid: string;
   tenantId: number;
+  /** Master-only fan-out: extra tenants where this policy is visible
+   *  in read-only. Null/undefined when local. */
+  targetTenantIds?: number[] | null;
   name: string;
   description: string | null;
   framework: ComplianceFramework;
@@ -1705,6 +1734,9 @@ export type CustomSectionRenderMode = 'terminal' | 'html';
 export interface CustomSection {
   id: number;
   tenantId: number;
+  /** Master-only fan-out: extra tenants where this custom section is
+   *  visible in read-only. Null when local. */
+  targetTenantIds?: number[] | null;
   name: string;
   description: string | null;
   command: string;
@@ -1740,6 +1772,10 @@ export interface Scenario {
   id: number;
   uuid: string;
   tenantId: number;
+  /** Master-only fan-out: extra tenants where this scenario is visible
+   *  in read-only. Null/undefined when the scenario is local to its
+   *  owner tenant (the common case). */
+  targetTenantIds?: number[] | null;
   name: string;
   description: string | null;
   triggerType: ScenarioTriggerType;

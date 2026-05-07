@@ -63,7 +63,27 @@ export const tenantService = {
   },
 
   async delete(id: number): Promise<void> {
-    await db('tenants').where({ id }).delete();
+    // Strip the tenant id from any master-owned fan-out array before
+    // dropping the row. Without this, scripts/scenarios/schedules/
+    // compliance policies that targeted this tenant would carry a
+    // dangling id forever — and the cross-tenant read scope would
+    // perform a wasted `id = ANY(...)` test against the dead value.
+    // CASCADE on tenant_id covers the owner side; the array side is
+    // application-level and has to be cleaned explicitly.
+    await db.transaction(async (trx) => {
+      const FANOUT_TABLES = ['scripts', 'scenarios', 'script_schedules', 'compliance_policies'] as const;
+      for (const table of FANOUT_TABLES) {
+        const has = await trx.schema.hasColumn(table, 'target_tenant_ids');
+        if (!has) continue;
+        await trx.raw(
+          `UPDATE ${table}
+              SET target_tenant_ids = NULLIF(array_remove(target_tenant_ids, ?), '{}')::int[]
+            WHERE ? = ANY(target_tenant_ids)`,
+          [id, id],
+        );
+      }
+      await trx('tenants').where({ id }).delete();
+    });
   },
 
   /** Returns the first tenant accessible by userId (lowest id). */

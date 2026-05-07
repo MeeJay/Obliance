@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Vom Default-Mandant verwaltet — schreibgeschützt"
+  },
+  "fanOut": {
+    "label": "Verteilen an (schreibgeschützt in Ziel-Mandanten)",
+    "hint": "Der Default-Mandant bleibt Eigentümer. Ziel-Mandanten sehen die Entität schreibgeschützt und können sie nicht ändern.",
+    "clear": "Entfernen",
+    "tooltip": "Schreibgeschützt an diese Mandanten verteilt"
+  },
+  "tenantFilter": {
+    "label": "Mandant",
+    "clear": "Zurücksetzen"
+  },
+  "scenarioIo": {
+    "importJson": "JSON importieren",
+    "emptyTemplate": "Leere Vorlage",
+    "exportLean": "Exportieren (schlank)",
+    "exportLeanHint": "Nur Szenario — referenziert Skripte per id",
+    "exportWithScripts": "Mit Skripten exportieren",
+    "exportWithScriptsHint": "Eigenständig — enthält die Skript-Inhalte",
+    "newScript": "+ Neues Skript",
+    "editSelected": "Ausgewähltes bearbeiten",
+    "resolveConflictsTitle": "Skriptkonflikte auflösen",
+    "conflictKeep": "Vorhandenes behalten",
+    "conflictOverwrite": "Überschreiben",
+    "conflictNew": "Neue Kopie erstellen",
+    "confirmImport": "Import bestätigen",
+    "importing": "Wird importiert…",
+    "scenarioActive": "Aktiv",
+    "scenarioDisabled": "Deaktiviert",
+    "scenarioDraft": "Entwurf"
   }
 }

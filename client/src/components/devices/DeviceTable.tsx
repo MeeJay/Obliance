@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
-  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag, Terminal,
+  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag, Terminal, Building2,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
 import type { Script } from '@obliance/shared';
+import { MASTER_TENANT_ID } from '@obliance/shared';
+import { useTenantStore } from '@/store/tenantStore';
 import { groupsApi } from '@/api/groups.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
@@ -153,6 +155,27 @@ export function DeviceTable({
   const [changeGroupOpen, setChangeGroupOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [runScriptOpen, setRunScriptOpen] = useState(false);
+  const [tenantFilters, setTenantFilters] = useState<Set<number>>(new Set());
+  const toggleTenantFilter = (tid: number) => {
+    setTenantFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(tid)) next.delete(tid); else next.add(tid);
+      return next;
+    });
+  };
+  // Master/god view: tenants are folded by default so the table doesn't
+  // explode into N tenants × M groups × P devices on first paint. The
+  // user expands the ones they need; state persists across the session.
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  const isMaster = currentTenantId === MASTER_TENANT_ID;
+  const [collapsedTenantIds, setCollapsedTenantIds] = useState<Set<number>>(new Set());
+  const toggleTenantCollapsed = (id: number) => {
+    setCollapsedTenantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   // Approval counts (admin mode)
   const [counts, setCounts] = useState({ all: 0, approved: 0, pending: 0, refused: 0, suspended: 0 });
@@ -244,6 +267,11 @@ export function DeviceTable({
         staleHours: staleHours,
         pendingUpdates: pendingUpdatesOnly || undefined,
         tags: tagFilters.size > 0 ? [...tagFilters] : undefined,
+        // Master-only: narrow the god view to a tenant subset. Server
+        // drops the param for non-master callers, so it's safe to send
+        // unconditionally — but keeping it inside the master gate
+        // avoids a stray query string in non-master cases.
+        tenantIds: (isMaster && tenantFilters.size > 0) ? [...tenantFilters] : undefined,
         page: pageToFetch,
         pageSize: size,
         sortBy,
@@ -265,7 +293,7 @@ export function DeviceTable({
       if (reset) setIsLoading(false);
       else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, t]);
+  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, tenantFilters, isMaster, t]);
 
   // Sync URL-driven filters when the parent prop changes (e.g. user clicks
   // a different dashboard hero card while /devices is already mounted —
@@ -600,6 +628,44 @@ export function DeviceTable({
           </button>
         </div>
 
+        {/* Master-only: tenant filter chips. Drop-down list of every
+            tenant present in the loaded device set (devices already
+            carry tenantName via the god-view join). The filter is
+            client-side over the already-loaded master result set. */}
+        {isMaster && (() => {
+          const tenants = new Map<number, string>();
+          for (const d of devices) if (d.tenantName) tenants.set(d.tenantId, d.tenantName);
+          for (const g of tree) if (g.tenantName) tenants.set(g.tenantId, g.tenantName);
+          if (tenants.size <= 1) return null;
+          const ordered = [...tenants.entries()].sort(([aId, aName], [bId, bName]) => {
+            if (aId === MASTER_TENANT_ID) return -1;
+            if (bId === MASTER_TENANT_ID) return 1;
+            return aName.localeCompare(bName);
+          });
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              <span className="text-[10px] uppercase tracking-wider text-text-muted mr-1">
+                <Building2 size={10} className="inline mr-1" />Tenant
+              </span>
+              {ordered.map(([id, name]) => (
+                <button key={id} onClick={() => toggleTenantFilter(id)}
+                  className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+                    tenantFilters.has(id) ? 'bg-accent/10 border-accent text-accent' : 'border-border text-text-muted hover:border-accent/30',
+                  )}>
+                  <Building2 size={10} className="inline mr-1" />
+                  {id === MASTER_TENANT_ID ? `${name} (master)` : name}
+                </button>
+              ))}
+              {tenantFilters.size > 0 && (
+                <button onClick={() => setTenantFilters(new Set())}
+                  className="text-[10px] text-accent hover:underline ml-1">
+                  Effacer
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Status + OS chips */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {STATUS_CHIPS.map(({ key, label, color }) => (
@@ -842,8 +908,12 @@ export function DeviceTable({
           </div>
           <div>
             <DeviceListBody
-              devices={devices}
-              tree={tree}
+              devices={(isMaster && tenantFilters.size > 0)
+                ? devices.filter((d) => tenantFilters.has(d.tenantId))
+                : devices}
+              tree={(isMaster && tenantFilters.size > 0)
+                ? tree.filter((g) => tenantFilters.has(g.tenantId))
+                : tree}
               groupId={groupId}
               searchActive={!!debouncedSearch.trim()}
               collapsedGroupIds={collapsedGroupIds}
@@ -855,6 +925,9 @@ export function DeviceTable({
               onGroupChange={onGroupChange}
               selectionMode={selectionMode}
               visibleFields={visibleFields}
+              isMaster={isMaster}
+              collapsedTenantIds={collapsedTenantIds}
+              onToggleTenant={toggleTenantCollapsed}
             />
           </div>
         </div>
@@ -1230,7 +1303,7 @@ function DeviceListBody({
   devices, tree, groupId, searchActive,
   collapsedGroupIds, onToggleGroup,
   mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
-  visibleFields,
+  visibleFields, isMaster, collapsedTenantIds, onToggleTenant,
 }: {
   devices: Device[];
   tree: DeviceGroupTreeNode[];
@@ -1245,6 +1318,12 @@ function DeviceListBody({
   onGroupChange?: (id: number | null) => void;
   selectionMode: boolean;
   visibleFields: Set<string>;
+  /** True when the caller is on the master tenant — adds an extra
+   *  tenant-grouping level above the regular group tree so admins can
+   *  scan "what's in Default vs what's in Pimkie" at a glance. */
+  isMaster: boolean;
+  collapsedTenantIds: Set<number>;
+  onToggleTenant: (tenantId: number) => void;
 }) {
   const { t } = useTranslation();
   // Hooks MUST run unconditionally (Rules of Hooks), so build the maps and
@@ -1320,6 +1399,81 @@ function DeviceListBody({
 
   const sortedRoots = [...roots].sort((a, b) => a.name.localeCompare(b.name));
   const ungrouped = devicesByGroupId.get(null) ?? [];
+
+  // ── Master view: bucket roots + ungrouped by tenant ───────────────────
+  // Adds an extra hierarchy level: a "Tenant: Default", "Tenant: Pimkie"
+  // header above each tenant's group sub-tree. Default is forced to the
+  // top so platform-internal devices stay grouped together; the rest is
+  // alpha. When the user has picked a specific group (groupId != null)
+  // the bucket layer is skipped — the tenant context is implicit from
+  // the group itself.
+  if (isMaster && groupId === null) {
+    type Bucket = { id: number; name: string; roots: DeviceGroupTreeNode[]; ungrouped: Device[] };
+    const buckets = new Map<number, Bucket>();
+    const ensure = (id: number, name: string | null | undefined): Bucket => {
+      if (!buckets.has(id)) buckets.set(id, { id, name: name ?? `Tenant ${id}`, roots: [], ungrouped: [] });
+      return buckets.get(id)!;
+    };
+    for (const r of sortedRoots) ensure(r.tenantId, r.tenantName).roots.push(r);
+    for (const d of ungrouped) ensure(d.tenantId, d.tenantName).ungrouped.push(d);
+    const ordered = [...buckets.values()].sort((a, b) => {
+      if (a.id === MASTER_TENANT_ID) return -1;
+      if (b.id === MASTER_TENANT_ID) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return (
+      <>
+        {ordered.map((b) => {
+          const collapsed = collapsedTenantIds.has(b.id);
+          const total = b.ungrouped.length + b.roots.reduce((acc, r) => acc + (r.total ?? 0), 0);
+          return (
+            <div key={`tenant-${b.id}`} className="mb-2">
+              <button
+                type="button"
+                onClick={() => onToggleTenant(b.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 bg-accent/5 border-y border-accent/20 text-left hover:bg-accent/10 transition-colors"
+              >
+                {collapsed
+                  ? <ChevronRight className="w-3.5 h-3.5 text-accent" />
+                  : <ChevronDown className="w-3.5 h-3.5 text-accent" />}
+                <Building2 className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent flex-1">
+                  {b.id === MASTER_TENANT_ID ? `${b.name} (master)` : b.name}
+                </span>
+                <span className="text-[10px] text-text-muted">{total} device{total !== 1 ? 's' : ''}</span>
+              </button>
+              {!collapsed && (
+                <>
+                  {b.roots.flatMap((r) => renderTreeNode(r, 0, ctx))}
+                  {b.ungrouped.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 border-b border-border pl-8">
+                        <FolderX className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+                        <span className="text-xs font-semibold text-text-muted">
+                          {t('groupPanel.ungrouped', 'Ungrouped')}
+                        </span>
+                        <span className="text-[10px] text-text-muted">({b.ungrouped.length})</span>
+                      </div>
+                      {b.ungrouped.map((device) => (
+                        <DeviceRow
+                          key={device.id} device={device} mode={mode}
+                          isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
+                          onNavigate={onNavigate} onGroupClick={onGroupChange}
+                          selectionMode={selectionMode}
+                          visibleFields={visibleFields}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
 
   return (
     <>

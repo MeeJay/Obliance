@@ -6,6 +6,8 @@ import type { DeviceGroupTreeNode } from '@obliance/shared';
 import type { UpdatePolicy, UpdateSeverity, RebootBehavior, Command } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
+import { useDeviceStore } from '@/store/deviceStore';
+import { TenantBadge } from '@/components/common/TenantBadge';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -65,6 +67,7 @@ const defaultPolicyForm: PolicyFormData = {
 
 export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
+  const deviceMap = useDeviceStore((s) => s.devices);
   const [activeTab, setActiveTab] = useState<Tab>('updates');
   const [policies, setPolicies] = useState<UpdatePolicy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -487,13 +490,21 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
                           {isExpanded && (
                             <tr><td colSpan={6} className="px-8 py-3 bg-bg-tertiary/30">
                               <div className="space-y-1">
-                                {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">Loading...</p> : expandedDevices.map((d) => (
-                                  <div key={d.id} className="flex items-center gap-3 text-xs">
-                                    <Monitor className="w-3 h-3 text-text-muted shrink-0" />
-                                    <span className="text-text-primary">{d.deviceName}</span>
-                                    <span className="text-text-muted ml-auto">{d.status}</span>
-                                  </div>
-                                ))}
+                                {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">Loading...</p> : expandedDevices.map((d) => {
+                                  // Pull the tenant from the device store
+                                  // so we can chip-tag rows in the master
+                                  // view; the expanded-devices endpoint
+                                  // doesn't carry tenantId itself.
+                                  const dev = deviceMap.get(d.deviceId);
+                                  return (
+                                    <div key={d.id} className="flex items-center gap-3 text-xs">
+                                      <Monitor className="w-3 h-3 text-text-muted shrink-0" />
+                                      <span className="text-text-primary">{d.deviceName}</span>
+                                      {dev && <TenantBadge tenantId={dev.tenantId} tenantName={dev.tenantName} />}
+                                      <span className="text-text-muted ml-auto">{d.status}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </td></tr>
                           )}

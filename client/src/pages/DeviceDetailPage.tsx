@@ -43,6 +43,7 @@ import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
 import { isAgentReachable } from '@/utils/deviceStatus';
+import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -69,6 +70,18 @@ const TABS: Array<{ id: Tab; label: string; icon: any }> = [
 // the device list uses, so the two views agree at a glance.
 
 function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
+  // Tick the component every 30 s so the relative-time label drifts on its
+  // own — without this the pill is computed once at first render and the
+  // user sees "1m" even after sitting on the page for 5 minutes (then a
+  // manual refresh resets it). Pairs with the metrics-push handler in
+  // useSocket.ts which also advances `device.lastSeenAt` on every push,
+  // so an actively talking agent shows "1m" continuously.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (!lastSeenAt) {
     return (
       <span
@@ -4916,6 +4929,11 @@ export function DeviceDetailPage() {
             )}
             <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
             <LastSeenPill lastSeenAt={device.lastSeenAt} />
+            {/* Master/god-view: surface the device's owning tenant in
+                the header so the admin always knows which customer
+                they're acting on. Hidden on child tenants (the chip is
+                redundant when you're inside that tenant). */}
+            <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} size="md" />
             {/* Tags — surfaced inline next to the status so admins
                 spot at a glance which functional buckets a device
                 belongs to. Same compact chip style as the device

@@ -5,6 +5,10 @@ interface ApiResponse<T> { data?: T; error?: string; }
 export interface AuditLogRow {
   id: number;
   tenantId: number;
+  /** Resolved tenant display name. Always populated by the server now
+   *  (left join on tenants); on master view the AuditLogPage uses it
+   *  to render the tenant chip + drives the tenant filter. */
+  tenantName: string | null;
   userId: number | null;
   username: string | null;
   deviceId: number | null;
@@ -27,6 +31,9 @@ export interface AuditLogFilters {
   until?: string;
   limit?: number;
   offset?: number;
+  /** Master-only: narrow the god view to one tenant. Server drops the
+   *  param when the caller isn't on master. */
+  filterTenantId?: number;
 }
 
 export const auditApi = {
@@ -41,11 +48,14 @@ export const auditApi = {
     if (filters.until) params.until = filters.until;
     if (filters.limit) params.limit = filters.limit;
     if (filters.offset) params.offset = filters.offset;
+    if (filters.filterTenantId) params.filterTenantId = filters.filterTenantId;
     const res = await apiClient.get<ApiResponse<{ items: AuditLogRow[]; total: number }>>('/audit-log', { params });
     return res.data.data ?? { items: [], total: 0 };
   },
-  async distinctActions(): Promise<string[]> {
-    const res = await apiClient.get<ApiResponse<string[]>>('/audit-log/distinct-actions');
+  async distinctActions(filterTenantId?: number): Promise<string[]> {
+    const params: any = {};
+    if (filterTenantId) params.filterTenantId = filterTenantId;
+    const res = await apiClient.get<ApiResponse<string[]>>('/audit-log/distinct-actions', { params });
     return res.data.data ?? [];
   },
   async clear(): Promise<{ deleted: number }> {

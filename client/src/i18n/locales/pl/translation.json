@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Zarządzane przez tenanta Default — tylko do odczytu"
+  },
+  "fanOut": {
+    "label": "Udostępnij do (tylko odczyt w docelowych tenantach)",
+    "hint": "Tenant Default pozostaje właścicielem. Docelowi tenants widzą jednostkę tylko do odczytu i nie mogą jej modyfikować.",
+    "clear": "Usuń",
+    "tooltip": "Udostępnione tylko do odczytu tym tenantom"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Wyczyść"
+  },
+  "scenarioIo": {
+    "importJson": "Importuj JSON",
+    "emptyTemplate": "Pusty szablon",
+    "exportLean": "Eksportuj (lekki)",
+    "exportLeanHint": "Tylko scenariusz — skrypty przez id",
+    "exportWithScripts": "Eksportuj ze skryptami",
+    "exportWithScriptsHint": "Samowystarczalny — pełne treści skryptów",
+    "newScript": "+ Nowy skrypt",
+    "editSelected": "Edytuj wybrany",
+    "resolveConflictsTitle": "Rozwiąż konflikty skryptów",
+    "conflictKeep": "Zachowaj istniejący",
+    "conflictOverwrite": "Nadpisz",
+    "conflictNew": "Utwórz nową kopię",
+    "confirmImport": "Potwierdź import",
+    "importing": "Importowanie…",
+    "scenarioActive": "Aktywny",
+    "scenarioDisabled": "Wyłączone",
+    "scenarioDraft": "Szkic"
   }
 }

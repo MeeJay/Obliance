@@ -37,8 +37,20 @@ function rowToUser(row: UserRow): User {
 }
 
 export const userService = {
-  async getAll(): Promise<User[]> {
-    const rows = await db<UserRow>('users').orderBy('username');
+  /** List users. When `tenantId` is provided, restrict to users that have
+   *  a membership row in `user_tenants` for that tenant — used by the
+   *  /admin/users page when the caller is browsing a non-default tenant
+   *  (so a Pimkie admin doesn't see BA&SH users by accident). Pass `null`
+   *  / undefined to get every user (only used from the default tenant
+   *  where admins legitimately want the global view). */
+  async getAll(tenantId?: number | null): Promise<User[]> {
+    const q = db<UserRow>('users').orderBy('users.username').select('users.*');
+    if (tenantId != null) {
+      q.join('user_tenants', 'user_tenants.user_id', 'users.id')
+        .where('user_tenants.tenant_id', tenantId)
+        .groupBy('users.id'); // dedupe: a user may have multiple rows in user_tenants if joined multiple ways
+    }
+    const rows = await q;
     return rows.map(rowToUser);
   },
 

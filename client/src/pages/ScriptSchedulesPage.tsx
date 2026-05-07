@@ -9,6 +9,12 @@ import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, S
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
+import { TargetTenantsPicker } from '@/components/common/TargetTenantsPicker';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
+import { useTenantStore } from '@/store/tenantStore';
+import { MASTER_TENANT_ID } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
@@ -39,6 +45,9 @@ interface ScheduleFormData {
   timeoutSeconds: number | null;
   skipIfInFlight: boolean;
   enabled: boolean;
+  /** Master-only fan-out: extra tenants that see this schedule in
+   *  read-only. Null when the schedule is local. */
+  targetTenantIds: number[] | null;
 }
 
 const defaultForm: ScheduleFormData = {
@@ -60,6 +69,7 @@ const defaultForm: ScheduleFormData = {
   timeoutSeconds: null,
   skipIfInFlight: true,
   enabled: true,
+  targetTenantIds: null,
 };
 
 const COMMON_CRONS = [
@@ -227,6 +237,14 @@ function HistoryBatchRow({ batch }: { batch: BatchData }) {
 }
 
 export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  /** A schedule is read-only when it's owned by another tenant AND we're
+   *  not on the master tenant. Master always has god-view edit rights. */
+  const isReadOnlyForCaller = (s: ScriptSchedule): boolean => {
+    if (currentTenantId === MASTER_TENANT_ID) return false;
+    return s.tenantId !== currentTenantId;
+  };
+  const tenantFilter = useTenantFilter();
   const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -315,6 +333,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
       timeoutSeconds: schedule.timeoutSeconds ?? null,
       skipIfInFlight: schedule.skipIfInFlight ?? true,
       enabled: schedule.enabled,
+      targetTenantIds: schedule.targetTenantIds ?? null,
     });
     setEditingSchedule(schedule);
     setShowForm(true);
@@ -347,6 +366,8 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         timeoutSeconds: form.timeoutSeconds,
         skipIfInFlight: form.skipIfInFlight,
         enabled: form.scheduleMode === 'now' ? true : form.enabled,
+        // Master-only fan-out — server ignores from non-master callers.
+        targetTenantIds: form.targetTenantIds,
         parameterValues: {},
         runConditions: [],
         tenantId: 0,
@@ -449,6 +470,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
               </button>
             </div>
           </div>
+
+          {/* Master-only fan-out picker. Hidden automatically on
+              child tenants — child admins can only create local schedules. */}
+          <TargetTenantsPicker
+            value={form.targetTenantIds}
+            onChange={(next) => setForm({ ...form, targetTenantIds: next })}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -714,7 +742,15 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
         </div>
       ) : (
         <div className="space-y-2">
-          {schedules.map((schedule) => {
+          <TenantFilterChips
+            value={tenantFilter.value}
+            onChange={tenantFilter.setValue}
+            availableTenantIds={[...new Set(schedules.map((s) => s.tenantId))]}
+            className="mb-2"
+          />
+          {schedules
+            .filter((s) => tenantFilter.value.size === 0 || tenantFilter.value.has(s.tenantId))
+            .map((schedule) => {
             const expanded = expandedId === schedule.id;
             const script = scripts.find((s) => s.id === schedule.scriptId);
             return (
@@ -739,6 +775,12 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-text-primary">{schedule.name}</span>
                       <StatusBadge enabled={schedule.enabled} />
+                      {isReadOnlyForCaller(schedule) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                          🔒 Master
+                        </span>
+                      )}
+                      <TenantBadge tenantId={schedule.tenantId} />
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5 flex-wrap">
                       <span className="flex items-center gap-1">
@@ -792,13 +834,17 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenEdit(schedule); }}
-                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+                      disabled={isReadOnlyForCaller(schedule)}
+                      title={isReadOnlyForCaller(schedule) ? 'Géré par le tenant Default — lecture seule' : undefined}
+                      className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(schedule); }}
-                      className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                      disabled={isReadOnlyForCaller(schedule)}
+                      title={isReadOnlyForCaller(schedule) ? 'Géré par le tenant Default — lecture seule' : undefined}
+                      className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

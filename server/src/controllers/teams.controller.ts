@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { teamService } from '../services/team.service';
 import { AppError } from '../middleware/errorHandler';
+import { isMasterTenant } from '@obliance/shared';
 import type {
   CreateTeamInput,
   UpdateTeamInput,
@@ -51,9 +52,31 @@ export const teamsController = {
       if (!gated) return;
 
       const data = req.body as CreateTeamInput & { tenantId?: number };
-      // Platform admins can specify the target tenant in the body; others use the session tenant
+
+      // Teams are strictly mono-tenant: the row's tenant_id determines
+      // which devices the team can be granted permissions on, and a
+      // user joining a team only gains access INSIDE that one tenant.
+      // To give a user access to N tenants the admin must create N
+      // separate teams and assign them all.
+      //
+      //   - From the master tenant the admin MUST specify a target
+      //     tenantId in the body (it can be MASTER_TENANT_ID itself,
+      //     in which case the team only grants rights on devices
+      //     genuinely owned by Default).
+      //   - From any other tenant the body's tenantId is ignored — a
+      //     child-tenant admin cannot create teams in another tenant.
       const isPlatformAdmin = req.session.role === 'admin';
-      const targetTenantId = (isPlatformAdmin && data.tenantId) ? data.tenantId : req.tenantId;
+      let targetTenantId: number;
+      if (isMasterTenant(req.tenantId)) {
+        if (!isPlatformAdmin) throw new AppError(403, 'Only platform admins can create teams from the master tenant');
+        if (!data.tenantId || !Number.isFinite(data.tenantId)) {
+          throw new AppError(400, 'tenantId is required when creating a team from the master tenant. Pick the tenant the team will operate in.');
+        }
+        targetTenantId = data.tenantId;
+      } else {
+        // Body tenantId is ignored from child tenants (security).
+        targetTenantId = req.tenantId;
+      }
       const team = await teamService.create(data, targetTenantId);
       try {
         const { auditService } = await import('../services/audit.service');
@@ -180,16 +203,26 @@ export const teamsController = {
 
   async setPermissions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const id = parseInt(req.params.id, 10);
+
+      // Tenant ownership check — a request from tenant A may not edit a
+      // team owned by tenant B. The default tenant (id=1) is the
+      // platform-admin "god view" and bypasses the check by design.
+      const team = await teamService.getById(id);
+      if (!team) throw new AppError(404, 'Team not found');
+      if (req.tenantId !== 1 && team.tenantId !== req.tenantId) {
+        throw new AppError(403, 'Team belongs to another tenant');
+      }
+
       const { applyRestriction } = await import('../services/restriction.service');
       const gated = await applyRestriction(res, {
         req, actionKey: 'tenant.manage_permissions',
         approvalRequestType: 'batch_command',
-        approvalDescription: `Set permissions on team #${req.params.id}`,
-        approvalPayload: { action: 'team_permissions_set', teamId: parseInt(req.params.id, 10) },
+        approvalDescription: `Set permissions on team #${id}`,
+        approvalPayload: { action: 'team_permissions_set', teamId: id },
       });
       if (!gated) return;
 
-      const id = parseInt(req.params.id, 10);
       const { permissions } = req.body as SetTeamPermissionsInput;
       const result = await teamService.setPermissions(id, permissions);
       try {

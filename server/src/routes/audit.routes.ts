@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { auditService } from '../services/audit.service';
+import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
 
@@ -27,6 +28,8 @@ router.get('/', async (req, res, next) => {
       until: parseDate(req.query.until),
       limit: req.query.limit ? parseInt(req.query.limit as string) : 100,
       offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      // Master-only narrow filter — service drops it for non-master.
+      filterTenantId: req.query.filterTenantId ? parseInt(req.query.filterTenantId as string) : undefined,
     });
     res.json({ data: { items, total } });
   } catch (err) { next(err); }
@@ -36,10 +39,18 @@ router.get('/', async (req, res, next) => {
 router.get('/distinct-actions', async (req, res, next) => {
   try {
     const { db } = await import('../db');
-    const rows = await db('audit_logs')
-      .where({ tenant_id: req.tenantId! })
-      .distinct('action')
-      .orderBy('action', 'asc');
+    const isMaster = isMasterTenant(req.tenantId!);
+    const q = db('audit_logs').distinct('action').orderBy('action', 'asc');
+    if (!isMaster) {
+      q.where({ tenant_id: req.tenantId! });
+    } else if (req.query.filterTenantId) {
+      // Master narrowed to one tenant via the chip filter — limit the
+      // distinct-actions list to actions that actually appear in that
+      // tenant's logs, otherwise the dropdown surfaces actions the
+      // user can't drill into without clearing the filter.
+      q.where({ tenant_id: parseInt(String(req.query.filterTenantId), 10) });
+    }
+    const rows = await q;
     res.json({ data: rows.map((r: any) => r.action) });
   } catch (err) { next(err); }
 });

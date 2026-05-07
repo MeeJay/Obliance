@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Beheerd door de Default-tenant — alleen-lezen"
+  },
+  "fanOut": {
+    "label": "Delen met (alleen-lezen in doel-tenants)",
+    "hint": "De Default-tenant blijft eigenaar. Doel-tenants zien de entiteit alleen-lezen en kunnen deze niet wijzigen.",
+    "clear": "Wissen",
+    "tooltip": "Alleen-lezen gedeeld met deze tenants"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Wissen"
+  },
+  "scenarioIo": {
+    "importJson": "JSON importeren",
+    "emptyTemplate": "Lege sjabloon",
+    "exportLean": "Exporteren (lean)",
+    "exportLeanHint": "Alleen scenario — verwijst naar scripts via id",
+    "exportWithScripts": "Exporteren met scripts",
+    "exportWithScriptsHint": "Op zichzelf staand — bevat volledige scripts",
+    "newScript": "+ Nieuw script",
+    "editSelected": "Geselecteerde bewerken",
+    "resolveConflictsTitle": "Scriptconflicten oplossen",
+    "conflictKeep": "Bestaande behouden",
+    "conflictOverwrite": "Overschrijven",
+    "conflictNew": "Nieuwe kopie maken",
+    "confirmImport": "Importeren bevestigen",
+    "importing": "Bezig met importeren…",
+    "scenarioActive": "Actief",
+    "scenarioDisabled": "Uitgeschakeld",
+    "scenarioDraft": "Concept"
   }
 }

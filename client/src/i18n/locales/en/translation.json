@@ -1988,5 +1988,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Managed by the Default tenant — read-only"
+  },
+  "fanOut": {
+    "label": "Share to (read-only on target tenants)",
+    "hint": "The Default tenant stays the owner. Target tenants see the entity read-only and cannot modify it.",
+    "clear": "Clear",
+    "tooltip": "Shared read-only with these tenants"
+  },
+  "tenantFilter": {
+    "label": "Tenant",
+    "clear": "Clear"
+  },
+  "scenarioIo": {
+    "importJson": "Import JSON",
+    "emptyTemplate": "Empty template",
+    "exportLean": "Export (lean)",
+    "exportLeanHint": "Scenario only — references scripts by id",
+    "exportWithScripts": "Export with scripts",
+    "exportWithScriptsHint": "Self-contained — embeds full script bodies",
+    "newScript": "+ New script",
+    "editSelected": "Edit selected",
+    "resolveConflictsTitle": "Resolve script conflicts",
+    "conflictKeep": "Keep existing",
+    "conflictOverwrite": "Overwrite",
+    "conflictNew": "Create new copy",
+    "confirmImport": "Confirm import",
+    "importing": "Importing…",
+    "scenarioActive": "Active",
+    "scenarioDisabled": "Disabled",
+    "scenarioDraft": "Draft"
   }
 }

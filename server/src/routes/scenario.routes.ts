@@ -6,6 +6,81 @@ const router = Router();
 
 // ── Routes with fixed paths MUST come before /:id ──
 
+// GET /export-all — bulk export every scenario in the tenant as one
+// JSON document. Each entry is the same shape as a single export, so
+// the bulk importer can iterate and route through the per-scenario
+// import flow with the same conflict resolution UI. Optionally
+// embeds scripts via `?includeScripts=1`.
+router.get('/export-all', requireRole('admin'), async (req, res, next) => {
+  try {
+    const includeScripts = req.query.includeScripts === '1' || req.query.includeScripts === 'true';
+    const list = await scenarioService.list(req.tenantId!);
+    const items: any[] = [];
+    for (const s of list.items ?? list) {
+      const bundle = await scenarioService.exportScenario(s.id, req.tenantId!, { includeScripts });
+      if (bundle) items.push(bundle);
+    }
+    res.json({
+      data: {
+        formatVersion: 1,
+        bundle: 'scenarios-bulk',
+        exportedAt: new Date().toISOString(),
+        count: items.length,
+        scenarios: items,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /import-bulk — accepts the bulk export body and runs each
+// scenario through the standard import path with a shared
+// conflictResolutions map. Reports per-scenario success/error.
+router.post('/import-bulk', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { bundle, conflictResolutions } = req.body as {
+      bundle: { scenarios: any[] };
+      conflictResolutions?: Record<string, 'skip' | 'overwrite' | 'new'>;
+    };
+    if (!bundle || !Array.isArray(bundle.scenarios)) {
+      return res.status(400).json({ error: 'bundle.scenarios array required' });
+    }
+    const results: Array<{ name: string; ok: boolean; error?: string; scenarioId?: number }> = [];
+    for (const payload of bundle.scenarios) {
+      try {
+        const out = await scenarioService.importScenario(req.tenantId!, payload, {
+          commit: true,
+          conflictResolutions: conflictResolutions ?? {},
+          userId: req.session.userId!,
+        });
+        if (out.kind === 'commit') {
+          results.push({ name: out.scenario.name, ok: true, scenarioId: out.scenario.id });
+        } else {
+          // preview kind shouldn't happen with commit:true, but type-narrow
+          results.push({ name: payload?.scenario?.name ?? '?', ok: false, error: 'unexpected preview response' });
+        }
+      } catch (err: any) {
+        results.push({
+          name: payload?.scenario?.name ?? '?',
+          ok: false,
+          error: err?.message ?? String(err),
+        });
+      }
+    }
+    res.json({ data: { results, total: results.length, succeeded: results.filter((r) => r.ok).length } });
+  } catch (err) { next(err); }
+});
+
+// GET /dummy-export — return a fully-commented skeleton illustrating
+// every node type, every edge condition, and the recommended payload
+// shape. Designed to be pasted into an LLM prompt as "here's the
+// format, please generate scenarios in this shape".
+router.get('/dummy-export', async (_req, res, next) => {
+  try {
+    const { scenarioService } = await import('../services/scenario.service');
+    res.json({ data: scenarioService.getDummyExportTemplate() });
+  } catch (err) { next(err); }
+});
+
 // GET /templates — list available scenario templates
 router.get('/templates', async (req, res, next) => {
   try {
@@ -153,12 +228,55 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /import — two-pass scenario importer.
+//   Body: { payload: <export JSON>, conflictResolutions?: {...} }
+//   When `conflictResolutions` is omitted, returns a preview with the
+//   list of script-uuid conflicts so the UI can prompt the user.
+//   When provided, the server commits the import inside one
+//   transaction and returns the created scenario.
+router.post('/import', requireRole('admin'), async (req, res, next) => {
+  try {
+    const { payload, conflictResolutions } = req.body as {
+      payload: any;
+      conflictResolutions?: Record<string, 'skip' | 'overwrite' | 'new'>;
+    };
+    if (!payload) return res.status(400).json({ error: 'payload is required' });
+    const result = await scenarioService.importScenario(req.tenantId!, payload, {
+      commit: !!conflictResolutions,
+      conflictResolutions,
+      userId: req.session.userId!,
+    });
+    res.json({ data: result });
+  } catch (err: any) {
+    if (err?.message) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
 // GET /:id — get scenario with steps
 router.get('/:id', async (req, res, next) => {
   try {
     const scenario = await scenarioService.getById(parseInt(req.params.id), req.tenantId!);
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
     res.json({ data: scenario });
+  } catch (err) { next(err); }
+});
+
+// GET /:id/export — portable JSON dump of a scenario (metadata + nodes
+// + edges + optionally the scripts referenced by run_script nodes).
+// `?includeScripts=1` embeds full script bodies so the importer on
+// another tenant / install can recreate them; without it the export
+// only ships scriptId references (useful when the destination already
+// has the scripts under known UUIDs).
+router.get('/:id/export', async (req, res, next) => {
+  try {
+    const includeScripts = req.query.includeScripts === '1' || req.query.includeScripts === 'true';
+    const payload = await scenarioService.exportScenario(parseInt(req.params.id), req.tenantId!, { includeScripts });
+    if (!payload) return res.status(404).json({ error: 'Scenario not found' });
+    res.json({ data: payload });
   } catch (err) { next(err); }
 });
 

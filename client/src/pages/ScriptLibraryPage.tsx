@@ -3,6 +3,13 @@ import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { TargetTenantsPicker } from '@/components/common/TargetTenantsPicker';
+import { FanOutChips } from '@/components/common/FanOutChips';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
+import { useTenantStore } from '@/store/tenantStore';
+import { MASTER_TENANT_ID } from '@obliance/shared';
 import type { Script, ScriptCategory, ScriptPlatform, ScriptRuntime, ScriptPurpose } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -61,6 +68,9 @@ interface ScriptFormData {
   parentScriptId: number | null;
   availableInReach: boolean;
   purpose: ScriptPurpose;
+  /** Master-only fan-out: extra tenants the script becomes visible to
+   *  in read-only. Null when the script is local. */
+  targetTenantIds: number[] | null;
 }
 
 const defaultForm: ScriptFormData = {
@@ -77,9 +87,21 @@ const defaultForm: ScriptFormData = {
   parentScriptId: null,
   availableInReach: false,
   purpose: 'execute',
+  targetTenantIds: null,
 };
 
 export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
+  const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  /** A script is read-only for the active tenant when it's owned by a
+   *  different tenant AND the caller isn't on the master tenant (master
+   *  has god-view + edit rights everywhere). Built-ins (tenantId=null)
+   *  are also treated as read-only here — they're shipped with the
+   *  product, not editable per-tenant. */
+  const isReadOnlyForCaller = (s: Script): boolean => {
+    if (currentTenantId === MASTER_TENANT_ID) return false;
+    if (s.tenantId == null) return true;
+    return s.tenantId !== currentTenantId;
+  };
   const [scripts, setScripts] = useState<Script[]>([]);
   const [categories, setCategories] = useState<ScriptCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,6 +170,9 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
         parentScriptId: form.parentScriptId,
         availableInReach: form.availableInReach,
         purpose: form.purpose,
+        // Master-only fan-out: server ignores this value from non-master
+        // callers, so it's safe to always pass through.
+        targetTenantIds: form.targetTenantIds,
         tenantId: null,
       };
       if (isCreating) {
@@ -203,6 +228,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
       parentScriptId: script.parentScriptId ?? null,
       availableInReach: script.availableInReach ?? false,
       purpose: script.purpose ?? 'execute',
+      targetTenantIds: script.targetTenantIds ?? null,
     });
     setSelectedScript(script);
     setIsEditing(true);
@@ -229,10 +255,19 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
     return out;
   };
 
-  // Filter scripts by purpose
-  const filteredScripts = selectedPurpose
-    ? scripts.filter((s) => (s.purpose ?? 'execute') === selectedPurpose)
-    : scripts;
+  // Master narrow filter — chip row above the list. URL-synced.
+  const tenantFilter = useTenantFilter();
+
+  // Filter scripts by purpose + tenant. Built-ins (tenantId = null)
+  // pass the tenant filter unconditionally — they're library presets,
+  // not tenant property.
+  const filteredScripts = scripts
+    .filter((s) => !selectedPurpose || (s.purpose ?? 'execute') === selectedPurpose)
+    .filter((s) => {
+      if (tenantFilter.value.size === 0) return true;
+      if (s.tenantId == null) return true;
+      return tenantFilter.value.has(s.tenantId);
+    });
 
   // Group scripts by category
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
@@ -296,6 +331,17 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
           </select>
         </div>
 
+        {/* Master tenant chip filter — hidden outside master. Lets the
+            admin narrow the library to one tenant's scripts when
+            scanning a fleet of 8+ tenants. */}
+        <div className="px-4 pb-2">
+          <TenantFilterChips
+            value={tenantFilter.value}
+            onChange={tenantFilter.setValue}
+            availableTenantIds={[...new Set(scripts.map((s) => s.tenantId).filter((id): id is number => id != null))]}
+          />
+        </div>
+
         {/* Script list grouped by category (drawers) */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
@@ -349,9 +395,36 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                               )}
                               style={depth > 0 ? { paddingLeft: `${10 + depth * 16}px` } : undefined}
                             >
-                              <div className="flex items-center gap-2 mb-0.5">
+                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                 <Terminal className="w-3.5 h-3.5 text-text-muted shrink-0" />
                                 <span className="text-sm font-medium text-text-primary truncate">{script.name}</span>
+                                <TenantBadge tenantId={script.tenantId} />
+                                {/* Usage chip — null/0 means unused. We
+                                    render an explicit "Unused" pill in
+                                    that case so admins can spot
+                                    orphans during clean-up runs. */}
+                                {(() => {
+                                  const u = script.usage;
+                                  if (!u) return null;
+                                  if (u.scenarios === 0 && u.schedules === 0 && !script.isBuiltin) {
+                                    return (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] uppercase tracking-wider rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400">
+                                        Unused
+                                      </span>
+                                    );
+                                  }
+                                  if (u.scenarios === 0 && u.schedules === 0) return null;
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full border border-accent/30 bg-accent/10 text-accent"
+                                      title={`${u.scenarios} scenario(s), ${u.schedules} schedule(s)`}
+                                    >
+                                      {u.scenarios > 0 && <span>{u.scenarios}× scenario{u.scenarios > 1 ? 's' : ''}</span>}
+                                      {u.scenarios > 0 && u.schedules > 0 && <span>·</span>}
+                                      {u.schedules > 0 && <span>{u.schedules}× schedule{u.schedules > 1 ? 's' : ''}</span>}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-2 text-xs text-text-muted ml-5">
                                 <span>{PLATFORM_LABELS[script.platform]}</span>
@@ -530,6 +603,15 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                   <span className="text-xs text-text-muted">— show this script in the Oblireach desktop client</span>
                 </label>
               </div>
+              {/* Master-only fan-out picker. Hidden automatically on
+                  child tenants (the component returns null), so the
+                  form layout stays unchanged for non-master admins. */}
+              <div className="md:col-span-2">
+                <TargetTenantsPicker
+                  value={form.targetTenantIds}
+                  onChange={(next) => setForm({ ...form, targetTenantIds: next })}
+                />
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -557,7 +639,21 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-text-primary">{selectedScript.name}</h2>
+                <h2 className="text-xl font-bold text-text-primary">
+                  {selectedScript.name}
+                  {/* Master-owned badge — surfaces when the caller is on
+                      a child tenant and this script is fan-outed from
+                      Default. Edit/Delete are disabled below since the
+                      server enforces tenant_id = req.tenantId for writes. */}
+                  {isReadOnlyForCaller(selectedScript) && (
+                    <span className="ml-2 inline-flex items-center gap-1 align-middle px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                      🔒 Master
+                    </span>
+                  )}
+                  <span className="ml-2 align-middle">
+                    <FanOutChips targetTenantIds={selectedScript.targetTenantIds} />
+                  </span>
+                </h2>
                 <p className="text-sm text-text-muted mt-1">
                   {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · exit code {selectedScript.expectedExitCode ?? 0} · run as {selectedScript.runAs}
                 </p>
@@ -565,7 +661,9 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleStartEdit(selectedScript)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+                  disabled={isReadOnlyForCaller(selectedScript)}
+                  title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary border border-border rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Edit className="w-3.5 h-3.5" />
                   Edit
@@ -587,7 +685,9 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
                 {!selectedScript.isBuiltin && (
                   <button
                     onClick={() => handleDelete(selectedScript)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                    disabled={isReadOnlyForCaller(selectedScript)}
+                    title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete

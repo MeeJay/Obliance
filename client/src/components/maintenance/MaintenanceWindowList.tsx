@@ -5,6 +5,7 @@ import type { MaintenanceWindow, MaintenanceScopeType, NotificationChannel } fro
 import { maintenanceApi } from '@/api/maintenance.api';
 import { MaintenanceWindowModal } from './MaintenanceWindowModal';
 import { cn } from '@/utils/cn';
+import { TenantBadge } from '@/components/common/TenantBadge';
 
 // ScopeOption kept only for the optional backward-compat prop
 interface ScopeOption {
@@ -123,6 +124,7 @@ function WindowRow({
           <span className={cn('text-sm font-medium truncate', isDisabled || expired ? 'text-text-muted line-through' : 'text-text-primary')}>
             {w.name}
           </span>
+          <TenantBadge tenantId={w.tenantId} />
           {isDisabled && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20 shrink-0">
               <Ban size={9} />
@@ -428,6 +430,7 @@ function FlatList({
             <span className={cn('text-sm font-medium truncate', exp ? 'text-text-muted line-through' : 'text-text-primary')}>
               {w.name}
             </span>
+            <TenantBadge tenantId={w.tenantId} />
             <StatusPip active={w.active ?? true} isActiveNow={w.isActiveNow} expired={exp} />
             {w.scopeType === 'global' && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/20 shrink-0">

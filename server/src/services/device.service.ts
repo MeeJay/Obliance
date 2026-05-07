@@ -3,7 +3,7 @@ import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { db } from '../db';
 import { logger } from '../utils/logger';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck } from '@obliance/shared';
 import { appConfigService } from './appConfig.service';
 import { settingsService } from './settings.service';
@@ -45,6 +45,9 @@ class DeviceService {
       id: row.id,
       uuid: row.uuid,
       tenantId: row.tenant_id,
+      // Surfaces only when the row was joined with `tenants` (master/god
+      // view queries do this so the UI can group devices by tenant).
+      tenantName: row.tenant_name ?? null,
       groupId: row.group_id,
       apiKeyId: row.api_key_id,
       hostname: row.hostname,
@@ -137,6 +140,11 @@ class DeviceService {
      *  Empty/missing means no filter. Tags are matched against the
      *  JSONB array stored on `devices.tags`. */
     tags?: string[];
+    /** Master-only: narrow the god-view to a subset of tenants. Sent
+     *  by the DeviceTable tenant chips so the master admin can focus
+     *  on one customer without losing the cross-tenant view they're
+     *  attached to. Ignored when the caller isn't on master. */
+    tenantIds?: number[];
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     // Cap is intentionally high to support the sidebar which needs to render
@@ -144,9 +152,19 @@ class DeviceService {
     // UI (DeviceTable) still use reasonable page sizes from the UI controls.
     const pageSize = Math.min(10000, Math.max(1, filters?.pageSize ?? 100));
 
+    // Master tenant gets the god view: drop the tenant_id filter and
+    // join `tenants` so each row carries a `tenant_name` for the UI to
+    // group/sort by. Every other tenant stays strictly scoped.
+    const isMaster = isMasterTenant(tenantId);
     let q = db('devices')
       .leftJoin('device_groups', 'devices.group_id', 'device_groups.id')
-      .where({ 'devices.tenant_id': tenantId });
+      .leftJoin('tenants', 'devices.tenant_id', 'tenants.id');
+    if (!isMaster) q = q.where({ 'devices.tenant_id': tenantId });
+    // Master-only narrow filter: subset of tenants. Silently dropped
+    // for non-master callers so a crafted query can't widen scope.
+    if (isMaster && Array.isArray(filters?.tenantIds) && filters!.tenantIds!.length > 0) {
+      q = q.whereIn('devices.tenant_id', filters!.tenantIds!.map(Number).filter(Number.isFinite));
+    }
     // Never show pending_uninstall devices in normal listings
     q = q.whereNot({ 'devices.status': 'pending_uninstall' });
     if (filters?.ungrouped) {
@@ -180,9 +198,13 @@ class DeviceService {
       q = q.where('devices.last_seen_at', '<', cutoff);
     }
     if (filters?.pendingUpdates) {
-      q = q.whereIn('devices.id', db('device_updates')
-        .where({ tenant_id: tenantId, status: 'available' })
-        .distinct('device_id'));
+      // In god view there's no single tenant_id to filter device_updates
+      // by — match on status alone and let the device-side filter rope
+      // in the right rows. Still safe because the join above already
+      // determined which devices are visible.
+      const updatesSubQ = db('device_updates').where({ status: 'available' }).distinct('device_id');
+      if (!isMaster) updatesSubQ.where({ tenant_id: tenantId });
+      q = q.whereIn('devices.id', updatesSubQ);
     }
     // Tags filter — `tags` is a JSONB array of strings on the
     // devices table. The Postgres `?|` operator returns true when
@@ -252,7 +274,7 @@ class DeviceService {
     }
 
     const rows = await qOrdered
-      .select('devices.*', 'device_groups.name as group_name')
+      .select('devices.*', 'device_groups.name as group_name', 'tenants.name as tenant_name')
       .limit(pageSize).offset((page - 1) * pageSize);
 
     const items = rows.map((row: any) => {
@@ -262,19 +284,21 @@ class DeviceService {
     });
 
     // Attach custom metrics in a single batch query (avoids N+1).
-    await this._attachCustomMetrics(items, tenantId);
+    await this._attachCustomMetrics(items, isMaster ? null : tenantId);
 
     return { items, total, page, pageSize };
   }
 
-  /** Batch-load custom metrics for a list of devices and attach them in-place. */
-  private async _attachCustomMetrics(devices: Device[], tenantId: number): Promise<void> {
+  /** Batch-load custom metrics for a list of devices and attach them in-place.
+   *  Pass `null` for tenantId in master/god-view contexts where the device
+   *  set spans tenants and the query must walk every device_custom_metrics
+   *  row regardless of its tenant. */
+  private async _attachCustomMetrics(devices: Device[], tenantId: number | null): Promise<void> {
     if (devices.length === 0) return;
     const ids = devices.map((d) => d.id);
-    const rows = await db('device_custom_metrics')
-      .where({ tenant_id: tenantId })
-      .whereIn('device_id', ids)
-      .select('device_id', 'schedule_id', 'name', 'value', 'unit', 'status');
+    const q = db('device_custom_metrics').whereIn('device_id', ids);
+    if (tenantId != null) q.where({ tenant_id: tenantId });
+    const rows = await q.select('device_id', 'schedule_id', 'name', 'value', 'unit', 'status');
     const byDevice = new Map<number, any[]>();
     for (const r of rows) {
       const list = byDevice.get(r.device_id) ?? [];
@@ -377,15 +401,27 @@ class DeviceService {
   }
 
   async getDeviceById(id: number, tenantId: number): Promise<Device | null> {
-    const row = await db('devices').where({ id, tenant_id: tenantId }).first();
+    // Master tenant sees any device regardless of its owning tenant; child
+    // tenants stay strictly scoped. We always join `tenants` so the row
+    // carries `tenant_name` for the UI in both modes.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices')
+      .leftJoin('tenants', 'devices.tenant_id', 'tenants.id')
+      .where('devices.id', id)
+      .select('devices.*', 'tenants.name as tenant_name');
+    if (!isMaster) q.where('devices.tenant_id', tenantId);
+    const row = await q.first();
     if (!row) return null;
     const device = this.rowToDevice(row);
-    await this._attachCustomMetrics([device], tenantId);
+    await this._attachCustomMetrics([device], isMaster ? null : tenantId);
     return device;
   }
 
   async getDeviceByUuid(uuid: string, tenantId: number): Promise<Device | null> {
-    const row = await db('devices').where({ uuid, tenant_id: tenantId }).first();
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices').where({ uuid });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const row = await q.first();
     return row ? this.rowToDevice(row) : null;
   }
 
@@ -1197,8 +1233,9 @@ class DeviceService {
   async getOsFacets(tenantId: number): Promise<Array<{
     osType: string; osName: string | null; osVersion: string | null; count: number;
   }>> {
-    const rows = await db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices')
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .select('os_type', 'os_name', 'os_version')
       .count<{ os_type: string; os_name: string | null; os_version: string | null; count: string | number }[]>('* as count')
@@ -1206,6 +1243,8 @@ class DeviceService {
       .orderBy('os_type', 'asc')
       .orderBy('os_name', 'asc')
       .orderBy('os_version', 'asc');
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const rows = await q;
     return rows.map((r) => ({
       osType: r.os_type,
       osName: r.os_name,
@@ -1223,52 +1262,54 @@ class DeviceService {
   // unnests it so we can group by individual tag. The query skips
   // pending_uninstall to avoid surfacing stale data.
   async getTagFacets(tenantId: number): Promise<Array<{ tag: string; count: number }>> {
+    const isMaster = isMasterTenant(tenantId);
+    const where = isMaster
+      ? `d.approval_status = 'approved' AND d.status <> 'pending_uninstall'`
+      : `d.tenant_id = ? AND d.approval_status = 'approved' AND d.status <> 'pending_uninstall'`;
     const rows = await db.raw(
       `SELECT t.tag::text AS tag, COUNT(*)::int AS count
          FROM devices d, jsonb_array_elements_text(COALESCE(d.tags, '[]'::jsonb)) AS t(tag)
-        WHERE d.tenant_id = ?
-          AND d.approval_status = 'approved'
-          AND d.status <> 'pending_uninstall'
+        WHERE ${where}
         GROUP BY t.tag
         ORDER BY count DESC, tag ASC`,
-      [tenantId],
+      isMaster ? [] : [tenantId],
     ) as { rows: Array<{ tag: string; count: number }> };
     return rows.rows.map((r) => ({ tag: r.tag, count: Number(r.count) }));
   }
 
   // ─── Fleet summary ────────────────────────────────────────────────────────
   async getFleetSummary(tenantId: number) {
-    const rows = await db('devices')
-      .where({ tenant_id: tenantId })
-      .select(db.raw('status, count(*) as count'))
-      .groupBy('status');
+    const isMaster = isMasterTenant(tenantId);
+    const statusQ = db('devices').select(db.raw('status, count(*) as count')).groupBy('status');
+    if (!isMaster) statusQ.where({ tenant_id: tenantId });
+    const rows = await statusQ;
 
     const counts: Record<string, number> = {};
     for (const r of rows) counts[r.status] = parseInt(r.count);
 
-    const pendingUpdates = await db('device_updates')
-      .where({ tenant_id: tenantId, status: 'available' })
-      .countDistinct('device_id as count')
-      .first()
-      .then(r => parseInt(String((r as any)?.count ?? 0)));
+    const updatesQ = db('device_updates').where({ status: 'available' }).countDistinct('device_id as count');
+    if (!isMaster) updatesQ.where({ tenant_id: tenantId });
+    const pendingUpdates = await updatesQ.first().then(r => parseInt(String((r as any)?.count ?? 0)));
 
     // Agent version stats
     const latestVersion = getAgentVersion();
-    const versionRows = await db('devices')
-      .where({ tenant_id: tenantId })
+    const versionQ = db('devices')
       .whereNotNull('agent_version')
       .select(db.raw("CASE WHEN agent_version = ? THEN 'uptodate' ELSE 'outdated' END as vstat, count(*) as count", [latestVersion]))
       .groupBy('vstat');
+    if (!isMaster) versionQ.where({ tenant_id: tenantId });
+    const versionRows = await versionQ;
     const vCounts: Record<string, number> = {};
     for (const r of versionRows) vCounts[r.vstat] = parseInt(r.count);
 
     // OS breakdown — total per OS family + online count per OS family. The
     // dashboard renders both: a donut (totals) AND a per-OS connectivity bar
     // (online vs offline) using osConnectivity below.
-    const osRows = await db('devices')
-      .where({ tenant_id: tenantId })
+    const osQ = db('devices')
       .select(db.raw("os_type, status = 'online' as is_online, count(*) as count"))
       .groupBy('os_type', db.raw("status = 'online'"));
+    if (!isMaster) osQ.where({ tenant_id: tenantId });
+    const osRows = await osQ;
     const osByType = { windows: 0, macos: 0, linux: 0, other: 0 };
     const osConnectivity: Record<string, { online: number; total: number }> = {
       windows: { online: 0, total: 0 },
@@ -1287,33 +1328,31 @@ class DeviceService {
     }
 
     // Active remote sessions
-    const activeRemoteSessions = await db('remote_sessions')
-      .where({ tenant_id: tenantId })
+    const remoteQ = db('remote_sessions')
       .whereIn('status', ['waiting', 'connecting', 'active'])
-      .count('id as count')
-      .first()
-      .then(r => parseInt(String((r as any)?.count ?? 0)));
+      .count('id as count');
+    if (!isMaster) remoteQ.where({ tenant_id: tenantId });
+    const activeRemoteSessions = await remoteQ.first().then(r => parseInt(String((r as any)?.count ?? 0)));
 
     // Upcoming schedules (next 24h)
     const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const upcomingSchedules = await db('script_schedules')
-      .where({ tenant_id: tenantId, enabled: true })
+    const upcomingQ = db('script_schedules')
+      .where({ enabled: true })
       .where('next_run_at', '>', now)
       .where('next_run_at', '<=', in24h)
-      .count('id as count')
-      .first()
-      .then(r => parseInt(String((r as any)?.count ?? 0)));
+      .count('id as count');
+    if (!isMaster) upcomingQ.where({ tenant_id: tenantId });
+    const upcomingSchedules = await upcomingQ.first().then(r => parseInt(String((r as any)?.count ?? 0)));
 
     // Stale devices (no contact in 72h)
     const staleThreshold = new Date(now.getTime() - 72 * 60 * 60 * 1000);
-    const staleDevices = await db('devices')
-      .where({ tenant_id: tenantId })
+    const staleQ = db('devices')
       .whereNotIn('status', ['pending', 'suspended', 'pending_uninstall'])
       .where('last_seen_at', '<', staleThreshold)
-      .count('id as count')
-      .first()
-      .then(r => parseInt(String((r as any)?.count ?? 0)));
+      .count('id as count');
+    if (!isMaster) staleQ.where({ tenant_id: tenantId });
+    const staleDevices = await staleQ.first().then(r => parseInt(String((r as any)?.count ?? 0)));
 
     // Total reflects the active managed fleet — devices the user can act on
     // today. pending (waiting for admin approval), suspended (admin-disabled),
@@ -1379,11 +1418,31 @@ class DeviceService {
     today.setHours(0, 0, 0, 0);
     const cutoff = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
 
-    const rows = await db('fleet_daily_snapshot')
-      .where({ tenant_id: tenantId })
-      .where('day', '>=', cutoff.toISOString().slice(0, 10))
-      .orderBy('day', 'asc')
-      .select('day', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72');
+    // Master tenant gets the cross-tenant aggregate: each (day) row is
+    // the sum of all tenant-scoped snapshots for that day. Other tenants
+    // stay strictly scoped.
+    const isMaster = isMasterTenant(tenantId);
+    let rows: any[];
+    if (isMaster) {
+      rows = await db('fleet_daily_snapshot')
+        .where('day', '>=', cutoff.toISOString().slice(0, 10))
+        .groupBy('day')
+        .orderBy('day', 'asc')
+        .select(
+          'day',
+          db.raw('SUM(total)::int as total'),
+          db.raw('SUM(online)::int as online'),
+          db.raw('SUM(offline)::int as offline'),
+          db.raw('SUM(pending_updates)::int as "pendingUpdates"'),
+          db.raw('SUM(stale_72h)::int as stale72'),
+        );
+    } else {
+      rows = await db('fleet_daily_snapshot')
+        .where({ tenant_id: tenantId })
+        .where('day', '>=', cutoff.toISOString().slice(0, 10))
+        .orderBy('day', 'asc')
+        .select('day', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72');
+    }
 
     // Synthesise the live "today" point from current state so the chart
     // always ends on the current value, regardless of whether the nightly
@@ -1406,8 +1465,9 @@ class DeviceService {
   // Top N most-common agent versions in the tenant fleet. Sorted desc so the
   // dashboard can show "X devices on v4.5.34, Y on v4.5.33, …".
   async getAgentVersionDistribution(tenantId: number) {
-    const rows = await db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices')
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .whereNotNull('agent_version')
       .select('agent_version')
@@ -1415,6 +1475,8 @@ class DeviceService {
       .groupBy('agent_version')
       .orderBy('count', 'desc')
       .limit(8);
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const rows = await q;
 
     const latest = getAgentVersion();
     return rows.map((r: any) => ({
@@ -1435,13 +1497,16 @@ class DeviceService {
   // any per-device threshold below it is bumped up. Default 0 = pure
   // resolved-threshold mode.
   async getDiskSaturation(tenantId: number, minThresholdFloor: number) {
-    const rows = await db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices')
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .whereNotNull('latest_metrics')
-      .select('id', 'hostname', 'display_name', 'latest_metrics') as Array<{
-        id: number; hostname: string; display_name: string | null; latest_metrics: unknown;
-      }>;
+      .select('id', 'hostname', 'display_name', 'latest_metrics');
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const rows = await q as Array<{
+      id: number; hostname: string; display_name: string | null; latest_metrics: unknown;
+    }>;
 
     if (rows.length === 0) {
       return { count: 0, threshold: minThresholdFloor, top: [] };
@@ -1540,13 +1605,31 @@ class DeviceService {
   async getFleetHourlySeries(tenantId: number, hours: number) {
     const cap = Math.min(168, Math.max(2, hours));
     const cutoff = new Date(Date.now() - cap * 60 * 60 * 1000);
-    const rows = await db('fleet_hourly_snapshot')
-      .where({ tenant_id: tenantId })
-      .where('hour', '>=', cutoff)
-      .orderBy('hour', 'asc')
-      .select('hour', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72') as Array<{
-        hour: Date | string; total: number; online: number; offline: number; pendingUpdates: number; stale72: number;
-      }>;
+    const isMaster = isMasterTenant(tenantId);
+    let rows: Array<{
+      hour: Date | string; total: number; online: number; offline: number; pendingUpdates: number; stale72: number;
+    }>;
+    if (isMaster) {
+      // Cross-tenant aggregate: SUM each metric per hour bucket.
+      rows = await db('fleet_hourly_snapshot')
+        .where('hour', '>=', cutoff)
+        .groupBy('hour')
+        .orderBy('hour', 'asc')
+        .select(
+          'hour',
+          db.raw('SUM(total)::int as total'),
+          db.raw('SUM(online)::int as online'),
+          db.raw('SUM(offline)::int as offline'),
+          db.raw('SUM(pending_updates)::int as "pendingUpdates"'),
+          db.raw('SUM(stale_72h)::int as stale72'),
+        ) as any;
+    } else {
+      rows = await db('fleet_hourly_snapshot')
+        .where({ tenant_id: tenantId })
+        .where('hour', '>=', cutoff)
+        .orderBy('hour', 'asc')
+        .select('hour', 'total', 'online', 'offline', 'pending_updates as pendingUpdates', 'stale_72h as stale72') as any;
+    }
 
     const live = await this.getFleetSummary(tenantId);
     const nowHour = new Date();

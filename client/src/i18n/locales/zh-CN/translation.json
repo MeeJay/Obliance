@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 主控",
+    "readOnlyTooltip": "由 Default 租户管理 — 只读"
+  },
+  "fanOut": {
+    "label": "分发给(目标租户中只读)",
+    "hint": "Default 租户保留所有权。目标租户以只读方式查看实体,无法修改。",
+    "clear": "清除",
+    "tooltip": "与这些租户共享(只读)"
+  },
+  "tenantFilter": {
+    "label": "租户",
+    "clear": "清除"
+  },
+  "scenarioIo": {
+    "importJson": "导入 JSON",
+    "emptyTemplate": "空模板",
+    "exportLean": "导出(精简)",
+    "exportLeanHint": "仅场景 — 通过 id 引用脚本",
+    "exportWithScripts": "导出(含脚本)",
+    "exportWithScriptsHint": "自包含 — 嵌入完整脚本内容",
+    "newScript": "+ 新建脚本",
+    "editSelected": "编辑所选",
+    "resolveConflictsTitle": "解决脚本冲突",
+    "conflictKeep": "保留现有",
+    "conflictOverwrite": "覆盖",
+    "conflictNew": "创建新副本",
+    "confirmImport": "确认导入",
+    "importing": "导入中…",
+    "scenarioActive": "已启用",
+    "scenarioDisabled": "已禁用",
+    "scenarioDraft": "草稿"
   }
 }

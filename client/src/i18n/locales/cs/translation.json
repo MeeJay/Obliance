@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Spravováno výchozím nájemcem — pouze pro čtení"
+  },
+  "fanOut": {
+    "label": "Sdílet do (pouze pro čtení v cílových nájemcích)",
+    "hint": "Výchozí nájemce zůstává vlastníkem. Cíloví nájemci entitu vidí pouze pro čtení a nemohou ji upravovat.",
+    "clear": "Odstranit",
+    "tooltip": "Sdíleno pouze pro čtení s těmito nájemci"
+  },
+  "tenantFilter": {
+    "label": "Nájemce",
+    "clear": "Vymazat"
+  },
+  "scenarioIo": {
+    "importJson": "Importovat JSON",
+    "emptyTemplate": "Prázdná šablona",
+    "exportLean": "Exportovat (zjednodušený)",
+    "exportLeanHint": "Pouze scénář — skripty referencovány přes id",
+    "exportWithScripts": "Exportovat se skripty",
+    "exportWithScriptsHint": "Soběstačný — vkládá celé skripty",
+    "newScript": "+ Nový skript",
+    "editSelected": "Upravit vybraný",
+    "resolveConflictsTitle": "Vyřešit konflikty skriptů",
+    "conflictKeep": "Ponechat stávající",
+    "conflictOverwrite": "Přepsat",
+    "conflictNew": "Vytvořit novou kopii",
+    "confirmImport": "Potvrdit import",
+    "importing": "Probíhá import…",
+    "scenarioActive": "Aktivní",
+    "scenarioDisabled": "Vypnuto",
+    "scenarioDraft": "Koncept"
   }
 }

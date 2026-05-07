@@ -66,6 +66,14 @@ export const groupsController = {
       const group = await groupService.getById(id);
       if (!group) throw new AppError(404, 'Group not found');
 
+      // Tenant ownership gate. Master tenant (id=1) gets the god view —
+      // can read groups owned by any tenant. Every other tenant sees
+      // strictly its own groups; cross-tenant ID guessing returns 404
+      // (404 over 403 to avoid leaking that the group exists).
+      if (req.tenantId !== 1 && group.tenantId !== req.tenantId) {
+        throw new AppError(404, 'Group not found');
+      }
+
       const isAdmin = req.session.role === 'admin';
       if (!isAdmin) {
         const canRead = await permissionService.canReadGroup(req.session.userId!, id, false);
@@ -123,6 +131,14 @@ export const groupsController = {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      // Tenant ownership gate before any write — a child-tenant request
+      // cannot mutate a group owned by another tenant. Master (id=1)
+      // bypasses by design.
+      const existing = await groupService.getById(id);
+      if (!existing) throw new AppError(404, 'Group not found');
+      if (req.tenantId !== 1 && existing.tenantId !== req.tenantId) {
+        throw new AppError(404, 'Group not found');
+      }
       const data = req.body as UpdateGroupInput;
       const group = await groupService.update(id, data);
 
@@ -156,6 +172,22 @@ export const groupsController = {
       const id = parseInt(req.params.id, 10);
       const { newParentId } = req.body as MoveGroupInput;
 
+      // Tenant ownership gate — and verify the target parent belongs to
+      // the same tenant so a child-tenant admin cannot reparent a group
+      // into another tenant's tree (master bypass).
+      const existing = await groupService.getById(id);
+      if (!existing) throw new AppError(404, 'Group not found');
+      if (req.tenantId !== 1 && existing.tenantId !== req.tenantId) {
+        throw new AppError(404, 'Group not found');
+      }
+      if (newParentId !== null) {
+        const parent = await groupService.getById(newParentId);
+        if (!parent) throw new AppError(400, 'Parent group not found');
+        if (parent.tenantId !== existing.tenantId) {
+          throw new AppError(400, 'Parent must be in the same tenant');
+        }
+      }
+
       // Also check write permission on target parent if non-admin
       const isAdmin = req.session.role === 'admin';
       if (!isAdmin && newParentId !== null) {
@@ -184,6 +216,14 @@ export const groupsController = {
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+
+      // Same tenant gate as update — only the group's owner tenant
+      // (or master) may delete it.
+      const existing = await groupService.getById(id);
+      if (!existing) throw new AppError(404, 'Group not found');
+      if (req.tenantId !== 1 && existing.tenantId !== req.tenantId) {
+        throw new AppError(404, 'Group not found');
+      }
 
       groupNotificationService.removeGroup(id);
 

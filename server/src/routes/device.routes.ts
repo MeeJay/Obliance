@@ -9,7 +9,7 @@ import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 import { getIO } from '../socket';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import { scenarioService } from '../services/scenario.service';
 import { logger } from '../utils/logger';
 
@@ -20,13 +20,21 @@ const router = Router();
 // GET /api/devices
 router.get('/', async (req, res, next) => {
   try {
-    const { groupId, includeSubgroups, status, approvalStatus, search, osType, osName, osVersion, page, pageSize, sortBy, sortOrder, ungrouped, staleHours, pendingUpdates, tags } = req.query as any;
+    const { groupId, includeSubgroups, status, approvalStatus, search, osType, osName, osVersion, page, pageSize, sortBy, sortOrder, ungrouped, staleHours, pendingUpdates, tags, tenantIds } = req.query as any;
 
     // Tags arrive either as repeated query params (`?tags=a&tags=b`)
     // → already an array — or as a comma-separated string. Normalise.
     let tagsArr: string[] | undefined;
     if (Array.isArray(tags)) tagsArr = tags.map(String).filter(Boolean);
     else if (typeof tags === 'string' && tags.length > 0) tagsArr = tags.split(',').map((t) => t.trim()).filter(Boolean);
+
+    // Same parsing rules for `tenantIds` (master only — service drops
+    // it for non-master callers).
+    let tenantIdsArr: number[] | undefined;
+    if (Array.isArray(tenantIds)) tenantIdsArr = tenantIds.map((v) => parseInt(String(v))).filter(Number.isFinite);
+    else if (typeof tenantIds === 'string' && tenantIds.length > 0) {
+      tenantIdsArr = tenantIds.split(',').map((v: string) => parseInt(v.trim())).filter(Number.isFinite);
+    }
 
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
@@ -39,6 +47,7 @@ router.get('/', async (req, res, next) => {
       staleHours: staleHours ? parseInt(staleHours) : undefined,
       pendingUpdates: pendingUpdates === 'true' || pendingUpdates === '1' || pendingUpdates === true,
       tags: tagsArr,
+      tenantIds: tenantIdsArr,
     });
 
     // Filter by visible devices for non-admins
@@ -265,49 +274,62 @@ router.get('/disk-saturated', async (req, res, next) => {
 router.get('/group-stats', async (req, res, next) => {
   try {
     const tenantId = req.tenantId!;
+    const isMaster = isMasterTenant(tenantId);
 
-    // Device counts per group + status
-    const deviceRows = await db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+    // Device counts per group + status. Master sees the aggregate
+    // across every tenant; child tenants stay scoped.
+    const deviceQ = db('devices')
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .select('group_id', 'status')
       .count('* as count')
       .groupBy('group_id', 'status');
+    if (!isMaster) deviceQ.where({ tenant_id: tenantId });
+    const deviceRows = await deviceQ;
 
-    // Compliance scores per group (latest per device)
+    // Compliance scores per group (latest per device). On master we
+    // drop the tenant filter on both sides of the JOIN/sub-select —
+    // everything flows through `compliance_results` rows already
+    // tied to the right device's tenant.
+    const tenantFilterCompliance = isMaster ? '' : 'AND d.tenant_id = ?';
+    const tenantFilterComplianceSub = isMaster ? '' : 'WHERE tenant_id = ?';
+    const complianceParams = isMaster ? [] : [tenantId, tenantId];
     const complianceRows = await db.raw(`
       SELECT d.group_id,
              ROUND(AVG(cr.compliance_score)::numeric, 1) as avg_score,
              COUNT(DISTINCT cr.policy_id) as policy_count
       FROM compliance_results cr
       JOIN devices d ON d.id = cr.device_id
-      WHERE d.tenant_id = ? AND d.approval_status = 'approved'
+      WHERE d.approval_status = 'approved' ${tenantFilterCompliance}
         AND cr.id IN (
           SELECT DISTINCT ON (device_id, policy_id) id
           FROM compliance_results
-          WHERE tenant_id = ?
+          ${tenantFilterComplianceSub}
           ORDER BY device_id, policy_id, checked_at DESC
         )
       GROUP BY d.group_id
-    `, [tenantId, tenantId]);
+    `, complianceParams);
 
     // Pending updates per group
+    const tenantFilterUpdates = isMaster ? '' : 'WHERE d.tenant_id = ? AND du.status = \'available\'';
+    const updateWhere = isMaster ? `WHERE du.status = 'available'` : tenantFilterUpdates;
+    const updateParams = isMaster ? [] : [tenantId];
     const updateRows = await db.raw(`
       SELECT d.group_id, COUNT(DISTINCT du.device_id) as devices_with_updates
       FROM device_updates du
       JOIN devices d ON d.id = du.device_id
-      WHERE d.tenant_id = ? AND du.status = 'available'
+      ${updateWhere}
       GROUP BY d.group_id
-    `, [tenantId]);
+    `, updateParams);
 
     // Group metadata (parent + sortOrder feed the dashboard's hierarchical
     // "Vue par groupe" — root → children indented by depth, ordered by the
     // admin-defined sort_order rather than device count).
-    const groups = await db('device_groups')
-      .where({ tenant_id: tenantId })
-      .select('id', 'name', 'parent_id', 'sort_order') as Array<{
-        id: number; name: string; parent_id: number | null; sort_order: number;
-      }>;
+    const groupsQ = db('device_groups').select('id', 'name', 'parent_id', 'sort_order');
+    if (!isMaster) groupsQ.where({ tenant_id: tenantId });
+    const groups = await groupsQ as Array<{
+      id: number; name: string; parent_id: number | null; sort_order: number;
+    }>;
 
     // Build stats map
     const statsMap = new Map<number | null, any>();

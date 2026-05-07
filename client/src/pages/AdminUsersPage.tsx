@@ -37,6 +37,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { ToggleSwitch as SharedToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { NotificationsPage } from './NotificationsPage';
@@ -55,6 +56,7 @@ export function AdminUsersPage() {
   const { user: currentUser } = useAuthStore();
   const isPlatformAdmin = currentUser?.role === 'admin';
   const currentTenantId = useTenantStore((s) => s.currentTenantId);
+  const allTenants = useTenantStore((s) => s.tenants);
   const [tab, setTab] = useState<Tab>('users');
 
   // Data
@@ -100,9 +102,15 @@ export function AdminUsersPage() {
 
   const load = async () => {
     try {
+      // Platform admin global view is reserved for the default tenant
+      // (id=1). On any other tenant we only fetch teams scoped to it,
+      // which mirrors the behaviour the customer-tenant admin expects:
+      // /admin/users → "who has access to *this* tenant?". Users follow
+      // the same rule (the server does the filtering by tenant).
+      const isGlobalView = isPlatformAdmin && currentTenantId === 1;
       const [u, t, tr, d] = await Promise.all([
         usersApi.list(),
-        isPlatformAdmin ? teamsApi.listAll() : teamsApi.list(),
+        isGlobalView ? teamsApi.listAll() : teamsApi.list(),
         groupsApi.tree(),
         deviceApi.list(),
       ]);
@@ -115,7 +123,10 @@ export function AdminUsersPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // Reload whenever the active tenant changes — the user-list and team-list
+  // shape both depend on it (server-side scoping). Without this dep the
+  // page kept showing the boot-time tenant's data after a topbar switch.
+  useEffect(() => { load(); }, [currentTenantId]);
 
   // Follow the topbar TenantSwitcher: when the user changes the active tenant,
   // narrow the team list to that tenant. Doesn't fire if the user has manually
@@ -141,16 +152,16 @@ export function AdminUsersPage() {
     loadTeamDetails(teamId);
   };
 
-  // ── Derived: unique tenants from teams list ──
-  const teamTenants: { id: number; name: string }[] = [];
-  const seenTenantIds = new Set<number>();
-  for (const team of teams) {
-    if (team.tenantId && !seenTenantIds.has(team.tenantId)) {
-      seenTenantIds.add(team.tenantId);
-      teamTenants.push({ id: team.tenantId, name: team.tenantName ?? `Tenant ${team.tenantId}` });
-    }
-  }
-  teamTenants.sort((a, b) => a.name.localeCompare(b.name));
+  // Tenants the platform admin can act on. Built from `allTenants`
+  // (the full list returned by /api/tenants for admins) rather than
+  // derived from existing teams — otherwise a tenant with zero teams
+  // would be missing from the create-team selector AND from the
+  // filter chips, which is exactly the bug we're fixing here. Names
+  // come straight from the tenants table so we never fall back to
+  // "Tenant N".
+  const teamTenants = allTenants
+    .map((t) => ({ id: t.id, name: t.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const filteredTeams = (isPlatformAdmin && teamTenantFilter !== 'all')
     ? teams.filter((t) => t.tenantId === teamTenantFilter)
@@ -410,8 +421,13 @@ export function AdminUsersPage() {
           permissions: newPerms.map((p) => ({ scope: p.scope, scopeId: p.scopeId, level: p.level, capabilities: p.capabilities ?? defaultCaps })),
         });
         await loadTeamDetails(selectedTeamId);
-      } catch {
-        toast.error(t('users.teams.failedUpdatePermission'));
+      } catch (err: any) {
+        // Surface the server's actual message when present — the generic
+        // "Échec de la mise à jour de la permission" toast hid useful
+        // details (validation errors, restriction gates, missing tenant
+        // membership) so admins couldn't self-diagnose.
+        const msg = err?.response?.data?.error || err?.message;
+        toast.error(msg ? `${t('users.teams.failedUpdatePermission')}: ${msg}` : t('users.teams.failedUpdatePermission'));
       }
     } else {
       const newPerms = [
@@ -421,8 +437,9 @@ export function AdminUsersPage() {
       try {
         await teamsApi.setPermissions(selectedTeamId, { permissions: newPerms });
         await loadTeamDetails(selectedTeamId);
-      } catch {
-        toast.error(t('users.teams.failedAddPermission'));
+      } catch (err: any) {
+        const msg = err?.response?.data?.error || err?.message;
+        toast.error(msg ? `${t('users.teams.failedAddPermission')}: ${msg}` : t('users.teams.failedAddPermission'));
       }
     }
   };
@@ -702,8 +719,14 @@ export function AdminUsersPage() {
                 <h2 className="text-lg font-semibold text-text-primary">{t('users.tabTeams')}</h2>
                 <Button size="sm" onClick={() => {
                   resetTeamForm();
-                  // Default tenant to current filter if set
-                  if (isPlatformAdmin && teamTenantFilter !== 'all') {
+                  // Pre-fill the tenant selector with the user's current
+                  // tenant — the most useful default in nearly every
+                  // case (admins almost always create a team for where
+                  // they're actively working). Fallback to the active
+                  // chip filter, then to alpha-first.
+                  if (isPlatformAdmin && currentTenantId != null) {
+                    setFormTeamTenantId(currentTenantId);
+                  } else if (isPlatformAdmin && teamTenantFilter !== 'all') {
                     setFormTeamTenantId(teamTenantFilter as number);
                   } else if (isPlatformAdmin && teamTenants.length > 0) {
                     setFormTeamTenantId(teamTenants[0].id);
@@ -753,8 +776,14 @@ export function AdminUsersPage() {
                   <form onSubmit={teamFormMode === 'create' ? handleCreateTeam : handleEditTeam} className="space-y-3">
                     <Input label={t('users.teams.nameLabel')} value={formTeamName} onChange={(e) => setFormTeamName(e.target.value)} required />
                     <Input label={t('users.teams.descLabel')} value={formTeamDesc} onChange={(e) => setFormTeamDesc(e.target.value)} />
-                    {/* Tenant selector — platform admin only, create mode only */}
-                    {isPlatformAdmin && teamFormMode === 'create' && teamTenants.length > 0 && (
+                    {/* Tenant selector — required from the master tenant
+                        because teams are strictly mono-tenant; the admin
+                        must explicitly pick which tenant the team will
+                        operate in (it can be Default itself). On any
+                        other tenant the team is implicitly created in
+                        the current tenant — the field is hidden because
+                        cross-tenant create is forbidden server-side. */}
+                    {isPlatformAdmin && currentTenantId === 1 && teamFormMode === 'create' && (
                       <div className="space-y-1">
                         <label className="block text-sm font-medium text-text-secondary">
                           <Building2 size={12} className="inline mr-1" />Tenant
@@ -766,10 +795,13 @@ export function AdminUsersPage() {
                           required
                         >
                           <option value="">— Select tenant —</option>
-                          {teamTenants.map((tenant) => (
+                          {allTenants.map((tenant) => (
                             <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
                           ))}
                         </select>
+                        <p className="text-xs text-text-muted">
+                          A team grants permissions inside one tenant only. Pick where this team will operate.
+                        </p>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -1115,23 +1147,20 @@ const CAPABILITY_CATEGORIES: Array<{
   },
 ];
 
-/** Compact iOS-style toggle switch. */
+/** Compact iOS-style toggle switch. Defers to the shared component which
+ *  uses pixel-precise inline geometry — the previous Tailwind-only version
+ *  rendered the thumb outside the track on some browsers because the
+ *  `translate-x-4` (16 px) + `w-3` (12 px) thumb math left almost no
+ *  visual padding from the track edge and rounding amplified the drift.
+ */
 function ToggleSwitch({ on, onChange, title }: { on: boolean; onChange: () => void; title?: string }) {
   return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onChange(); }}
+    <SharedToggleSwitch
+      checked={on}
+      onChange={() => onChange()}
+      size="sm"
       title={title}
-      className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${
-        on ? 'bg-accent' : 'bg-bg-tertiary border border-border'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-          on ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
+    />
   );
 }
 

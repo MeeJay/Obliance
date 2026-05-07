@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 マスター",
+    "readOnlyTooltip": "Default テナントで管理されています — 読み取り専用"
+  },
+  "fanOut": {
+    "label": "配布先(対象テナントでは読み取り専用)",
+    "hint": "Default テナントが所有者のままです。対象テナントはエンティティを読み取り専用で表示し、変更できません。",
+    "clear": "解除",
+    "tooltip": "これらのテナントに読み取り専用で共有"
+  },
+  "tenantFilter": {
+    "label": "テナント",
+    "clear": "クリア"
+  },
+  "scenarioIo": {
+    "importJson": "JSONをインポート",
+    "emptyTemplate": "空のテンプレート",
+    "exportLean": "エクスポート (軽量)",
+    "exportLeanHint": "シナリオのみ — スクリプトはIDで参照",
+    "exportWithScripts": "スクリプトを含めてエクスポート",
+    "exportWithScriptsHint": "自己完結型 — スクリプト本体を含む",
+    "newScript": "+ 新規スクリプト",
+    "editSelected": "選択中を編集",
+    "resolveConflictsTitle": "スクリプトの競合を解決",
+    "conflictKeep": "既存を保持",
+    "conflictOverwrite": "上書き",
+    "conflictNew": "新しいコピーを作成",
+    "confirmImport": "インポートを確定",
+    "importing": "インポート中…",
+    "scenarioActive": "有効",
+    "scenarioDisabled": "無効",
+    "scenarioDraft": "下書き"
   }
 }

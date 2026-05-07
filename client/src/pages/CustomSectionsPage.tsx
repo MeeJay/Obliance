@@ -8,6 +8,9 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { DashboardBuilder } from '@/components/customSections/DashboardBuilder';
 import type { CustomSection, CustomSectionRenderMode, DeviceGroupTreeNode } from '@obliance/shared';
+import { TenantBadge } from '@/components/common/TenantBadge';
+import { TenantFilterChips } from '@/components/common/TenantFilterChips';
+import { useTenantFilter } from '@/hooks/useTenantFilter';
 
 interface FormData {
   name: string;
@@ -56,6 +59,7 @@ function commandPreview(cmd: string): { preview: string; isMultiline: boolean } 
 }
 
 export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
+  const tenantFilter = useTenantFilter();
   const [sections, setSections] = useState<CustomSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editing, setEditing] = useState<CustomSection | null>(null);
@@ -186,7 +190,16 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
             No custom sections yet. Click "New section" to create one.
           </div>
         ) : (
-          sections.map((s) => {
+          <>
+          <TenantFilterChips
+            value={tenantFilter.value}
+            onChange={tenantFilter.setValue}
+            availableTenantIds={[...new Set(sections.map((s) => s.tenantId))]}
+            className="mb-2"
+          />
+          {sections
+            .filter((s) => tenantFilter.value.size === 0 || tenantFilter.value.has(s.tenantId))
+            .map((s) => {
             const { preview, isMultiline } = commandPreview(s.command);
             return (
               <div key={s.id} className="p-3 bg-bg-secondary border border-border rounded-lg flex items-center gap-3 min-w-0">
@@ -203,6 +216,7 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                     {isMultiline && (
                       <span className="text-[10px] px-1.5 py-0 rounded-full border border-border text-text-muted">multi-line script</span>
                     )}
+                    <TenantBadge tenantId={s.tenantId} />
                   </div>
                   <div className="text-xs text-text-muted font-mono truncate mt-0.5" title={s.command}>{preview || <em className="text-text-muted/60">(empty)</em>}</div>
                   <div className="text-[10px] text-text-muted mt-0.5">
@@ -217,7 +231,8 @@ export function CustomSectionsPage({ embedded }: { embedded?: boolean } = {}) {
                 </button>
               </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 

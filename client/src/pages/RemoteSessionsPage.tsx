@@ -5,6 +5,7 @@ import { useDeviceStore } from '@/store/deviceStore';
 import { useAuthStore } from '@/store/authStore';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
+import { TenantBadge } from '@/components/common/TenantBadge';
 import { getSocket } from '@/socket/socketClient';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -338,6 +339,7 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
                           <span className={clsx('text-xs px-2 py-0.5 rounded-full border', protoCfg.color)}>
                             {protoCfg.label}
                           </span>
+                          {device && <TenantBadge tenantId={device.tenantId} tenantName={device.tenantName} />}
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-muted">
                           <span className="flex items-center gap-1">

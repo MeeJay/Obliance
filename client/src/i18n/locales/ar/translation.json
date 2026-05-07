@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 رئيسي",
+    "readOnlyTooltip": "مُدار من قِبل المستأجر الافتراضي — للقراءة فقط"
+  },
+  "fanOut": {
+    "label": "النشر إلى (للقراءة فقط على المستأجرين المستهدفين)",
+    "hint": "يبقى المستأجر الافتراضي مالكًا. يرى المستأجرون المستهدفون الكيان للقراءة فقط ولا يمكنهم تعديله.",
+    "clear": "إزالة",
+    "tooltip": "يتم نشره للقراءة فقط على هذه المستأجرين"
+  },
+  "tenantFilter": {
+    "label": "المستأجر",
+    "clear": "مسح"
+  },
+  "scenarioIo": {
+    "importJson": "استيراد JSON",
+    "emptyTemplate": "قالب فارغ",
+    "exportLean": "تصدير (مختصر)",
+    "exportLeanHint": "السيناريو فقط — يشير إلى السكربتات بواسطة المعرّف",
+    "exportWithScripts": "تصدير مع السكربتات",
+    "exportWithScriptsHint": "مستقل — يضمّن محتوى السكربتات بالكامل",
+    "newScript": "+ سكربت جديد",
+    "editSelected": "تعديل المحدد",
+    "resolveConflictsTitle": "حل تعارضات السكربتات",
+    "conflictKeep": "الاحتفاظ بالموجود",
+    "conflictOverwrite": "الكتابة فوقه",
+    "conflictNew": "إنشاء نسخة جديدة",
+    "confirmImport": "تأكيد الاستيراد",
+    "importing": "جاري الاستيراد…",
+    "scenarioActive": "نشط",
+    "scenarioDisabled": "معطّل",
+    "scenarioDraft": "مسودة"
   }
 }

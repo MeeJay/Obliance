@@ -1,10 +1,12 @@
 import { db } from '../db';
 import type { CustomSection } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 
 function rowToSection(r: any): CustomSection {
   return {
     id: r.id,
     tenantId: r.tenant_id,
+    targetTenantIds: Array.isArray(r.target_tenant_ids) ? r.target_tenant_ids : null,
     name: r.name,
     description: r.description ?? null,
     command: r.command,
@@ -24,16 +26,38 @@ function rowToSection(r: any): CustomSection {
 
 export const customSectionService = {
   async list(tenantId: number): Promise<CustomSection[]> {
-    const rows = await db('custom_sections').where({ tenant_id: tenantId }).orderBy('name');
+    // Master sees every custom section across the install. Other
+    // tenants see their own + sections fan-outed to them by the
+    // master via target_tenant_ids.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('custom_sections').orderBy('name');
+    if (!isMaster) {
+      q.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
+    const rows = await q;
     return rows.map(rowToSection);
   },
 
   async getById(id: number, tenantId: number): Promise<CustomSection | null> {
-    const row = await db('custom_sections').where({ id, tenant_id: tenantId }).first();
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('custom_sections').where({ id });
+    if (!isMaster) {
+      q.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
+    const row = await q.first();
     return row ? rowToSection(row) : null;
   },
 
-  async create(tenantId: number, data: Omit<CustomSection, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>, userId: number): Promise<CustomSection> {
+  async create(tenantId: number, data: Omit<CustomSection, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'> & { targetTenantIds?: number[] | null }, userId: number): Promise<CustomSection> {
+    const fanOut = isMasterTenant(tenantId) && Array.isArray(data.targetTenantIds) && data.targetTenantIds.length > 0
+      ? data.targetTenantIds.map(Number).filter(Number.isFinite)
+      : null;
     const [row] = await db('custom_sections').insert({
       tenant_id: tenantId,
       name: data.name,
@@ -48,6 +72,7 @@ export const customSectionService = {
       target_type: data.targetType ?? 'all',
       target_ids: JSON.stringify(data.targetIds ?? []),
       created_by: userId,
+      target_tenant_ids: fanOut,
     }).returning('*');
     return rowToSection(row);
   },

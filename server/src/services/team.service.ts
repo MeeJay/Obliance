@@ -29,6 +29,11 @@ function rowToTeam(row: TeamRow): UserTeam {
     name: row.name,
     canCreate: row.can_create,
     tenantId: row.tenant_id,
+    // Always exposed when the row was joined with `tenants` (the
+    // god-view query does this). The /admin/users page renders it
+    // both in the team-list rows and in the create-team selector
+    // so admins see "BASH" / "PIMKIE" instead of "Tenant 2".
+    tenantName: row.tenant_name ?? undefined,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -67,6 +72,12 @@ export const teamService = {
     return rows.map(rowToTeam);
   },
 
+  /** UNSAFE without tenant scope — callers MUST pair this with a
+   *  `team.tenantId === req.tenantId || isMasterTenant(req.tenantId)`
+   *  check before exposing the row to the user (see
+   *  `teamsController.setPermissions` for the canonical pattern). The
+   *  helper is left tenant-agnostic on purpose because internal jobs
+   *  (e.g. agentHub.unbindTeam, group cascade) need cross-tenant access. */
   async getById(id: number): Promise<UserTeam | null> {
     const row = await db<TeamRow>('user_teams').where({ id }).first();
     return row ? rowToTeam(row) : null;

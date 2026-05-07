@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 Master",
+    "readOnlyTooltip": "Default tenant tarafından yönetiliyor — salt okunur"
+  },
+  "fanOut": {
+    "label": "Şuna dağıt (hedef tenantlarda salt okunur)",
+    "hint": "Default tenant sahip olmaya devam eder. Hedef tenantlar varlığı salt okunur olarak görür ve değiştiremez.",
+    "clear": "Temizle",
+    "tooltip": "Bu tenantlarla salt okunur paylaşılıyor"
+  },
+  "tenantFilter": {
+    "label": "Kiracı",
+    "clear": "Temizle"
+  },
+  "scenarioIo": {
+    "importJson": "JSON içe aktar",
+    "emptyTemplate": "Boş şablon",
+    "exportLean": "Dışa aktar (yalın)",
+    "exportLeanHint": "Sadece senaryo — komut dosyalarını id ile referans alır",
+    "exportWithScripts": "Komut dosyalarıyla dışa aktar",
+    "exportWithScriptsHint": "Bağımsız — tüm komut dosyası içeriklerini gömer",
+    "newScript": "+ Yeni komut dosyası",
+    "editSelected": "Seçileni düzenle",
+    "resolveConflictsTitle": "Komut dosyası çakışmalarını çöz",
+    "conflictKeep": "Mevcudu koru",
+    "conflictOverwrite": "Üzerine yaz",
+    "conflictNew": "Yeni kopya oluştur",
+    "confirmImport": "İçe aktarmayı onayla",
+    "importing": "İçe aktarılıyor…",
+    "scenarioActive": "Etkin",
+    "scenarioDisabled": "Devre dışı",
+    "scenarioDraft": "Taslak"
   }
 }

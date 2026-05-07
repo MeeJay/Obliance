@@ -42,7 +42,7 @@ import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
 import { getSocket } from '@/socket/socketClient';
 import type { Device, DeviceGroupTreeNode, DeviceStatus } from '@obliance/shared';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, MASTER_TENANT_ID, isMasterTenant } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
@@ -550,10 +550,79 @@ export function Sidebar() {
     ? ungroupedDevices.filter(d => deviceMatchesSearch(d, search))
     : ungroupedDevices;
 
+  // ── Master/god view: group everything by tenant ───────────────────────────
+  // On the master tenant the server returns rows from every tenant. To
+  // keep the sidebar legible we add an extra hierarchy level: a "Tenant
+  // X" header above each child tenant's group sub-tree, with that
+  // tenant's ungrouped devices nested inside. The master tenant's own
+  // groups appear under a "Default" header so admins can tell apart
+  // platform-internal devices from customer ones.
+  const masterMode = isMasterTenant(currentTenantId);
+  const tenantBuckets: Array<{
+    id: number;
+    name: string;
+    groupTree: DeviceGroupTreeNode[];
+    ungrouped: Device[];
+  }> = [];
+  if (masterMode) {
+    const byTenant = new Map<number, { name: string; groupRoots: DeviceGroupTreeNode[]; ungrouped: Device[] }>();
+    const ensureBucket = (id: number, name: string | null | undefined) => {
+      if (!byTenant.has(id)) byTenant.set(id, { name: name ?? `Tenant ${id}`, groupRoots: [], ungrouped: [] });
+      return byTenant.get(id)!;
+    };
+    for (const root of groupTree) ensureBucket(root.tenantId, root.tenantName).groupRoots.push(root);
+    for (const dev of ungroupedDevices) ensureBucket(dev.tenantId, dev.tenantName).ungrouped.push(dev);
+    // Master tenant first, then alpha.
+    const ordered = [...byTenant.entries()].sort(([aId, aV], [bId, bV]) => {
+      if (aId === MASTER_TENANT_ID) return -1;
+      if (bId === MASTER_TENANT_ID) return 1;
+      return aV.name.localeCompare(bV.name);
+    });
+    for (const [id, b] of ordered) {
+      tenantBuckets.push({ id, name: b.name, groupTree: b.groupRoots, ungrouped: b.ungrouped });
+    }
+  }
+
   // ── Device tree content ────────────────────────────────────────────────────
   // `hideDeviceRows` = render the group tree but not the devices inside.
   // This is what the user sees when they toggle the "Devices" chip off
   // but still want quick navigation to group pages.
+  const renderTenantBucket = (
+    bucket: { id: number; name: string; groupTree: DeviceGroupTreeNode[]; ungrouped: Device[] },
+    hideDeviceRows: boolean,
+  ) => {
+    const filteredBucketUngrouped = search
+      ? bucket.ungrouped.filter(d => deviceMatchesSearch(d, search))
+      : bucket.ungrouped;
+    return (
+      <div key={bucket.id} className="mt-2">
+        <div className="px-2 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+          <Building2 size={11} />
+          {bucket.name}
+        </div>
+        {bucket.groupTree.map((group) => (
+          <GroupRow
+            key={group.id}
+            group={group}
+            devices={devices}
+            searchQuery={search}
+            hideDeviceRows={hideDeviceRows}
+          />
+        ))}
+        {!hideDeviceRows && filteredBucketUngrouped.length > 0 && (
+          <DroppableGroupHeader groupId={null}>
+            <div className="px-2 py-0.5 pl-4 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
+              Ungrouped
+            </div>
+            {filteredBucketUngrouped.map(device => (
+              <DraggableDeviceItem key={device.id} device={device} />
+            ))}
+          </DroppableGroupHeader>
+        )}
+      </div>
+    );
+  };
+
   const renderDeviceTree = (hideHeader = false, hideDeviceRows = false) => (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className={hideHeader ? '' : 'mt-2 pt-2 border-t border-border'}>
@@ -564,27 +633,31 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* Device groups tree */}
-        {groupTree.map(group => (
-          <GroupRow
-            key={group.id}
-            group={group}
-            devices={devices}
-            searchQuery={search}
-            hideDeviceRows={hideDeviceRows}
-          />
-        ))}
-
-        {/* Ungrouped devices — only shown when device rows are visible */}
-        {!hideDeviceRows && filteredUngrouped.length > 0 && (
-          <DroppableGroupHeader groupId={null}>
-            <div className="px-2 py-0.5 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
-              Ungrouped
-            </div>
-            {filteredUngrouped.map(device => (
-              <DraggableDeviceItem key={device.id} device={device} />
+        {masterMode ? (
+          tenantBuckets.map((b) => renderTenantBucket(b, hideDeviceRows))
+        ) : (
+          <>
+            {/* Single-tenant flat tree (legacy view) */}
+            {groupTree.map(group => (
+              <GroupRow
+                key={group.id}
+                group={group}
+                devices={devices}
+                searchQuery={search}
+                hideDeviceRows={hideDeviceRows}
+              />
             ))}
-          </DroppableGroupHeader>
+            {!hideDeviceRows && filteredUngrouped.length > 0 && (
+              <DroppableGroupHeader groupId={null}>
+                <div className="px-2 py-0.5 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
+                  Ungrouped
+                </div>
+                {filteredUngrouped.map(device => (
+                  <DraggableDeviceItem key={device.id} device={device} />
+                ))}
+              </DroppableGroupHeader>
+            )}
+          </>
         )}
       </div>
     </DndContext>

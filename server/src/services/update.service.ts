@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { commandService } from './command.service';
 import type { DeviceUpdate, UpdatePolicy } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 
 class UpdateService {
   rowToUpdate(row: any): DeviceUpdate {
@@ -13,6 +14,9 @@ class UpdateService {
       installedAt: row.installed_at, installError: row.install_error,
       scannedAt: row.scanned_at, createdAt: row.created_at, updatedAt: row.updated_at,
       deviceName: row.device_name ?? null,
+      // Surfaces only on master/god view (the join adds device_tenant_id);
+      // single-tenant calls leave it null and the UI doesn't render the chip.
+      deviceTenantId: row.device_tenant_id ?? null,
     };
   }
 
@@ -48,13 +52,18 @@ class UpdateService {
   }
 
   async getTenantUpdates(tenantId: number, filters?: { status?: string; severity?: string; deviceId?: number }) {
+    // Master tenant gets cross-tenant updates view. Each row carries
+    // device.tenant_id so the UI can render a TenantBadge against the
+    // device row without an extra join.
+    const isMaster = isMasterTenant(tenantId);
     let q = db('device_updates as du')
       .join('devices as d', 'd.id', 'du.device_id')
-      .where({ 'du.tenant_id': tenantId })
       .select(
         'du.*',
         db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
+        'd.tenant_id as device_tenant_id',
       );
+    if (!isMaster) q = q.where({ 'du.tenant_id': tenantId });
     if (filters?.status) q = q.where({ 'du.status': filters.status });
     if (filters?.severity) q = q.where({ 'du.severity': filters.severity });
     if (filters?.deviceId) q = q.where({ 'du.device_id': filters.deviceId });
@@ -185,7 +194,10 @@ class UpdateService {
 
   // ─── Policies ─────────────────────────────────────────────────────────────
   async getPolicies(tenantId: number) {
-    const rows = await db('update_policies').where({ tenant_id: tenantId });
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('update_policies');
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const rows = await q;
     return rows.map(this.rowToPolicy.bind(this));
   }
 

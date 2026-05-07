@@ -20,7 +20,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History } from 'lucide-react';
+import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History, ToggleLeft, ToggleRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { scenarioApi } from '@/api/scenario.api';
@@ -250,7 +250,7 @@ function EdgeConditionEditor({ value, onChange }: { value: ScenarioEdgeCondition
 }
 
 // ── Main editor ──────────────────────────────────────────────────────────────
-function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number; onClose?: () => void }) {
+function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { scenarioId: number; onClose?: () => void; onStatusChanged?: (next: 'draft' | 'active' | 'disabled') => void }) {
   const rf = useReactFlow();
   // Ref to the canvas wrapper so addNode can convert "screen centre"
   // to flow coordinates via rf.screenToFlowPosition. Without an actual
@@ -264,6 +264,20 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
   const [scripts, setScripts] = useState<Script[]>([]);
   const [scriptCategories, setScriptCategories] = useState<ScriptCategory[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  // Scenario status mirror for the toolbar toggle. Loaded from
+  // scenarioApi.getById on mount so the toggle reflects DB state and
+  // can flip it without leaving the editor. `null` = unknown / not
+  // loaded yet (toggle is disabled).
+  const [scenarioStatus, setScenarioStatus] = useState<'draft' | 'active' | 'disabled' | null>(null);
+  const [statusToggling, setStatusToggling] = useState(false);
+  // Inline script editor — opened from the +New / Edit buttons next
+  // to a run_script node's script picker. Lets admins author / tweak
+  // scripts without leaving the graph. On save the modal updates the
+  // local `scripts` state and auto-selects the saved script back into
+  // the originating node's config.
+  const [scriptEditorReq, setScriptEditorReq] = useState<
+    { mode: 'create' | 'edit'; fieldKey: string; nodeId: string; script?: Script } | null
+  >(null);
   // Devices the scenario *actually* targets (resolved through
   // targetType + targetIds + group closure). The picker pins these
   // to the top of the list so the user doesn't have to hunt for
@@ -333,12 +347,17 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
       // them at the top of the list rather than forcing the user to
       // search through every approved device.
       scenarioApi.resolvedTargets(scenarioId).catch(() => [] as number[]),
-    ]).then(([graph, scriptList, catList, deviceList, active, targets]) => {
+      // Scenario metadata (status, name, etc.) so the toolbar toggle
+      // can mirror DB state. Failure is non-fatal — the toggle stays
+      // disabled but the editor still works.
+      scenarioApi.getById(scenarioId).catch(() => null),
+    ]).then(([graph, scriptList, catList, deviceList, active, targets, scenarioMeta]) => {
       if (cancelled) return;
       setScripts(scriptList);
       setScriptCategories(catList);
       setDevices(deviceList);
       setTargetedDeviceIds(new Set(targets));
+      if (scenarioMeta) setScenarioStatus(scenarioMeta.status);
 
       // Hydrate live-run state from the active-runs response. Only
       // 'running' runs feed activeRunIds — finished ones still
@@ -1177,6 +1196,44 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-border text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium">
                 <Play className="w-3.5 h-3.5" /> {dirty ? 'Save & run' : 'Run on device(s)'}
               </button>
+              {/* Status toggle — flips between active and disabled
+                  without leaving the editor. Greyed out while loading
+                  or while a save is in flight. Draft scenarios go
+                  straight to active on first toggle (UX shortcut so
+                  the admin doesn't have to bounce back to the list
+                  page just to enable). */}
+              {scenarioStatus !== null && (
+                <button
+                  onClick={async () => {
+                    if (statusToggling) return;
+                    const next = scenarioStatus === 'active' ? 'disabled' : 'active';
+                    setStatusToggling(true);
+                    try {
+                      await scenarioApi.update(scenarioId, { status: next } as any);
+                      setScenarioStatus(next);
+                      onStatusChanged?.(next);
+                      toast.success(next === 'active' ? 'Scenario activated' : 'Scenario disabled');
+                    } catch (err: any) {
+                      toast.error(err?.response?.data?.error || 'Failed to update status');
+                    } finally {
+                      setStatusToggling(false);
+                    }
+                  }}
+                  disabled={statusToggling}
+                  title={scenarioStatus === 'active' ? 'Disable this scenario (triggers stop firing)' : 'Activate this scenario'}
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors text-[12px] font-medium disabled:opacity-50',
+                    scenarioStatus === 'active'
+                      ? 'bg-green-400/10 border-green-400/30 text-green-400 hover:bg-green-400/20'
+                      : 'bg-bg-secondary border-border text-text-muted hover:bg-bg-hover',
+                  )}
+                >
+                  {scenarioStatus === 'active'
+                    ? <ToggleRight className="w-3.5 h-3.5" />
+                    : <ToggleLeft className="w-3.5 h-3.5" />}
+                  {scenarioStatus === 'active' ? 'Active' : scenarioStatus === 'disabled' ? 'Disabled' : 'Draft'}
+                </button>
+              )}
               <button onClick={() => handleSave()} disabled={saving || !dirty}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 transition-colors text-[12px] font-medium disabled:opacity-50">
                 <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save graph'}
@@ -1199,6 +1256,35 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
           mode={runMode}
           onCancel={() => { setShowRunPicker(false); setRunMode({ kind: 'graph' }); }}
           onPick={startTestRun}
+        />
+      )}
+
+      {/* ── Inline script editor — create / edit without leaving graph ── */}
+      {scriptEditorReq && (
+        <InlineScriptEditor
+          mode={scriptEditorReq.mode}
+          initialScript={scriptEditorReq.script}
+          categories={scriptCategories}
+          onCancel={() => setScriptEditorReq(null)}
+          onSaved={(saved) => {
+            // Patch the local script list so the picker resolves the
+            // freshly-saved row immediately.
+            setScripts((prev) => {
+              const next = prev.filter((s) => s.id !== saved.id);
+              return [...next, saved].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            // Auto-select the new/edited script back into the node
+            // that opened the editor — admins expect "I just made this
+            // script, of course it's now selected".
+            const target = nodes.find((n) => n.id === scriptEditorReq.nodeId);
+            if (target) {
+              const cfg = (target.data.config ?? {}) as Record<string, unknown>;
+              updateNodeData(scriptEditorReq.nodeId, {
+                config: { ...cfg, [scriptEditorReq.fieldKey]: saved.id },
+              });
+            }
+            setScriptEditorReq(null);
+          }}
         />
       )}
 
@@ -1417,6 +1503,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
             scripts={scripts}
             categories={scriptCategories}
             onChange={(patch) => updateNodeData(selectedNode.id, patch)}
+            onOpenScriptEditor={(req) => setScriptEditorReq({ ...req, nodeId: selectedNode.id })}
           />
         ) : selectedEdge ? (
           <div className="p-4 space-y-3">
@@ -1450,12 +1537,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose }: { scenarioId: number;
 
 // ── Selected-node config form ───────────────────────────────────────────────
 function NodeConfigForm({
-  node, scripts, categories, onChange,
+  node, scripts, categories, onChange, onOpenScriptEditor,
 }: {
   node: Node<NodeData>;
   scripts: Script[];
   categories: ScriptCategory[];
   onChange: (patch: Partial<NodeData>) => void;
+  /** Optional — shows the +New / Edit shortcuts next to the script
+   *  picker. Parent provides the modal so the form stays presentational. */
+  onOpenScriptEditor?: (req: { mode: 'create' | 'edit'; fieldKey: string; script?: Script }) => void;
 }) {
   const meta = NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType];
   const cfg = (node.data.config ?? {}) as Record<string, unknown>;
@@ -1559,6 +1649,33 @@ function NodeConfigForm({
                 value={(cfg[f.key] as number | null | undefined) ?? null}
                 onChange={(id) => setField(f.key, id)}
               />
+              {/* Inline create/edit shortcuts so admins don't have to
+                  bounce out of the graph editor every time they need
+                  to tweak a script. The "Edit" button only shows when
+                  a non-builtin script is selected (built-ins live in
+                  product code, not the DB). */}
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => onOpenScriptEditor?.({ mode: 'create', fieldKey: f.key })}
+                  className="text-[11px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20"
+                >
+                  + New script
+                </button>
+                {(() => {
+                  const sel = scripts.find((s) => s.id === (cfg[f.key] as number | undefined));
+                  if (!sel || sel.isBuiltin) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onOpenScriptEditor?.({ mode: 'edit', script: sel, fieldKey: f.key })}
+                      className="text-[11px] px-2 py-0.5 rounded bg-bg-tertiary text-text-muted border border-border hover:text-text-primary"
+                    >
+                      Edit selected
+                    </button>
+                  );
+                })()}
+              </div>
               <ScriptInspector
                 script={scripts.find((s) => s.id === (cfg[f.key] as number | undefined))}
               />
@@ -2517,8 +2634,175 @@ function edgeStrokeColor(c?: ScenarioEdgeCondition): string {
   return '#888';
 }
 
+// ── Inline script editor — opened from a run_script node's picker ──────────
+// Stripped-down form that covers the 80% case (name + content + runtime
+// + platform + timeout). Anything more advanced (parameters, auto-
+// remediate, parent script chains) still requires the dedicated
+// /scripts page; the goal here is to author quickly without breaking
+// the user's mental flow on the graph.
+function InlineScriptEditor({
+  mode, initialScript, categories, onCancel, onSaved,
+}: {
+  mode: 'create' | 'edit';
+  initialScript?: Script;
+  categories: ScriptCategory[];
+  onCancel: () => void;
+  onSaved: (saved: Script) => void;
+}) {
+  const [name, setName] = useState(initialScript?.name ?? '');
+  const [description, setDescription] = useState(initialScript?.description ?? '');
+  const [content, setContent] = useState(initialScript?.content ?? '');
+  const [platform, setPlatform] = useState<string>(initialScript?.platform ?? 'all');
+  const [runtime, setRuntime] = useState<string>(initialScript?.runtime ?? 'powershell');
+  const [timeoutSeconds, setTimeoutSeconds] = useState<number>(initialScript?.timeoutSeconds ?? 300);
+  const [expectedExitCode, setExpectedExitCode] = useState<number>(initialScript?.expectedExitCode ?? 0);
+  const [runAs, setRunAs] = useState<'system' | 'user'>(initialScript?.runAs ?? 'system');
+  const [purpose, setPurpose] = useState<string>(initialScript?.purpose ?? 'execute');
+  const [categoryId, setCategoryId] = useState<number | null>(initialScript?.categoryId ?? null);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || !content.trim()) {
+      toast.error('Name and content are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name, description: description || null,
+        platform, runtime, content,
+        timeoutSeconds, expectedExitCode, runAs, purpose,
+        tags: initialScript?.tags ?? [],
+        categoryId,
+        availableInReach: initialScript?.availableInReach ?? false,
+      } as any;
+      const saved = mode === 'create'
+        ? await scriptApi.create(payload)
+        : await scriptApi.update(initialScript!.id, payload);
+      onSaved(saved);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to save script');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+            <TerminalIcon className="w-4 h-4 text-accent" />
+            {mode === 'create' ? 'New script' : `Edit "${initialScript?.name}"`}
+          </h3>
+          <button onClick={onCancel} disabled={saving} className="p-1 text-text-muted hover:text-text-primary rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Name *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Category</label>
+              <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent">
+                <option value="">— Uncategorised —</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Platform</label>
+              <select value={platform} onChange={(e) => setPlatform(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent">
+                <option value="all">All</option>
+                <option value="windows">Windows</option>
+                <option value="linux">Linux</option>
+                <option value="macos">macOS</option>
+                <option value="freebsd">FreeBSD</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Runtime</label>
+              <select value={runtime} onChange={(e) => setRuntime(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent">
+                <option value="powershell">PowerShell</option>
+                <option value="bash">Bash</option>
+                <option value="sh">sh</option>
+                <option value="cmd">cmd</option>
+                <option value="python">Python</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Timeout (s)</label>
+              <input type="number" value={timeoutSeconds}
+                onChange={(e) => setTimeoutSeconds(parseInt(e.target.value, 10) || 300)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Expected exit code</label>
+              <input type="number" value={expectedExitCode}
+                onChange={(e) => setExpectedExitCode(parseInt(e.target.value, 10) || 0)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Run as</label>
+              <select value={runAs} onChange={(e) => setRunAs(e.target.value as 'system' | 'user')}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent">
+                <option value="system">System</option>
+                <option value="user">User session</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase text-text-muted">Purpose</label>
+              <select value={purpose} onChange={(e) => setPurpose(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent">
+                <option value="execute">Execute</option>
+                <option value="check">Check</option>
+                <option value="resolve">Resolve</option>
+                <option value="compliance">Compliance</option>
+                <option value="metric">Metric</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase text-text-muted">Description</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)}
+              className="w-full mt-1 px-3 py-1.5 text-sm bg-bg-tertiary border border-border rounded focus:outline-none focus:border-accent" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase text-text-muted">Content *</label>
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={14}
+              className="w-full mt-1 px-3 py-2 text-xs bg-bg-tertiary border border-border rounded font-mono focus:outline-none focus:border-accent resize-none" />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+          <button onClick={onCancel} disabled={saving}
+            className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50">
+            {saving ? 'Saving…' : (mode === 'create' ? 'Create script' : 'Save changes')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Public wrapper — provides the React Flow context ────────────────────────
-export function ScenarioGraphEditor(props: { scenarioId: number; onClose?: () => void }) {
+export function ScenarioGraphEditor(props: {
+  scenarioId: number;
+  onClose?: () => void;
+  /** Fired when the user flips the activate/disable toggle so a
+   *  parent list page can re-render the row's status badge without
+   *  waiting for the user to close the editor and refresh. */
+  onStatusChanged?: (next: 'draft' | 'active' | 'disabled') => void;
+}) {
   return (
     <ReactFlowProvider>
       <ScenarioGraphEditorInner {...props} />

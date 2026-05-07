@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { requireRole } from '../middleware/rbac';
+import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
 
@@ -10,6 +11,7 @@ function rowToSchedule(row: any) {
     id: row.id,
     uuid: row.uuid,
     tenantId: row.tenant_id,
+    targetTenantIds: Array.isArray(row.target_tenant_ids) ? row.target_tenant_ids : null,
     scriptId: row.script_id,
     name: row.name,
     description: row.description,
@@ -41,16 +43,25 @@ function rowToSchedule(row: any) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const rows = await db('script_schedules as ss')
+    const isMaster = isMasterTenant(req.tenantId!);
+    const q = db('script_schedules as ss')
       .leftJoin('users as uc', 'uc.id', 'ss.created_by')
       .leftJoin('users as uu', 'uu.id', 'ss.updated_by')
-      .where({ 'ss.tenant_id': req.tenantId! })
       .select(
         'ss.*',
         db.raw("COALESCE(uc.display_name, uc.username) as created_by_name"),
         db.raw("COALESCE(uu.display_name, uu.username) as updated_by_name"),
       )
       .orderBy('ss.name');
+    // Master sees every schedule across the install; non-master tenants
+    // see their own + any schedule fan-outed to them via target_tenant_ids.
+    if (!isMaster) {
+      q.where(function() {
+        this.where('ss.tenant_id', req.tenantId!)
+          .orWhereRaw('? = ANY(ss.target_tenant_ids)', [req.tenantId!]);
+      });
+    }
+    const rows = await q;
 
     // Resolve the number of approved devices each schedule will actually run
     // on, so the UI can warn on "2 groups → 0 devices" mistakes.
@@ -123,6 +134,13 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       }
     }
 
+    // Master-only fan-out: sanitise targetTenantIds. Non-master callers'
+    // value is dropped — a child-tenant admin cannot create a schedule
+    // visible to other tenants.
+    const fanOut = isMasterTenant(req.tenantId!) && Array.isArray(req.body.targetTenantIds) && req.body.targetTenantIds.length > 0
+      ? (req.body.targetTenantIds as unknown[]).map(Number).filter(Number.isFinite)
+      : null;
+
     const [row] = await db('script_schedules').insert({
       tenant_id: req.tenantId!,
       script_id: req.body.scriptId,
@@ -143,6 +161,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       timeout_seconds: req.body.timeoutSeconds ?? null,
       skip_if_in_flight: req.body.skipIfInFlight !== false,
       on_failure_scenario_id: req.body.onFailureScenarioId ?? null,
+      target_tenant_ids: fanOut,
       enabled: req.body.enabled !== false,
       created_by: req.session.userId,
     }).returning('*');
@@ -182,6 +201,14 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.timeoutSeconds !== undefined) updates.timeout_seconds = req.body.timeoutSeconds;
     if (req.body.skipIfInFlight !== undefined) updates.skip_if_in_flight = req.body.skipIfInFlight;
     if (req.body.onFailureScenarioId !== undefined) updates.on_failure_scenario_id = req.body.onFailureScenarioId;
+    // Fan-out edits gated to master only — a child-tenant admin
+    // cannot promote a local schedule to fan-out.
+    if (req.body.targetTenantIds !== undefined && isMasterTenant(req.tenantId!)) {
+      const arr = Array.isArray(req.body.targetTenantIds)
+        ? (req.body.targetTenantIds as unknown[]).map(Number).filter(Number.isFinite)
+        : [];
+      updates.target_tenant_ids = arr.length > 0 ? arr : null;
+    }
 
     // If the cron expression changed, recompute next_run_at immediately
     // so the UI and the tick loop both see the new schedule without waiting

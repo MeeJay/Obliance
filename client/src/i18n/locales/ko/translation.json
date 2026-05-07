@@ -1922,5 +1922,38 @@
     "deleteConfirm": "Delete this scenario?",
     "onFailureScenario": "On failure, trigger scenario",
     "none": "None"
+  },
+  "masterTenant": {
+    "badge": "🔒 마스터",
+    "readOnlyTooltip": "Default 테넌트에서 관리됨 — 읽기 전용"
+  },
+  "fanOut": {
+    "label": "공유 대상(대상 테넌트에서 읽기 전용)",
+    "hint": "Default 테넌트가 소유자로 유지됩니다. 대상 테넌트는 엔티티를 읽기 전용으로 보며 수정할 수 없습니다.",
+    "clear": "제거",
+    "tooltip": "이 테넌트들에 읽기 전용으로 공유됨"
+  },
+  "tenantFilter": {
+    "label": "테넌트",
+    "clear": "지우기"
+  },
+  "scenarioIo": {
+    "importJson": "JSON 가져오기",
+    "emptyTemplate": "빈 템플릿",
+    "exportLean": "내보내기(간단)",
+    "exportLeanHint": "시나리오만 — 스크립트는 id로 참조",
+    "exportWithScripts": "스크립트 포함 내보내기",
+    "exportWithScriptsHint": "독립형 — 스크립트 본문 포함",
+    "newScript": "+ 새 스크립트",
+    "editSelected": "선택 항목 편집",
+    "resolveConflictsTitle": "스크립트 충돌 해결",
+    "conflictKeep": "기존 유지",
+    "conflictOverwrite": "덮어쓰기",
+    "conflictNew": "새 복사본 만들기",
+    "confirmImport": "가져오기 확인",
+    "importing": "가져오는 중…",
+    "scenarioActive": "활성",
+    "scenarioDisabled": "비활성",
+    "scenarioDraft": "초안"
   }
 }

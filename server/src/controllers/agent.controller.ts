@@ -7,6 +7,7 @@ import { commandService } from '../services/command.service';
 import { maintenanceService } from '../services/maintenance.service';
 import { obligateService } from '../services/obligate.service';
 import { db } from '../db';
+import { isMasterTenant } from '@obliance/shared';
 
 
 // ── Push endpoint (called by agent) ──────────────────────────────────────────
@@ -272,8 +273,10 @@ export function agentInstallerWindowsMsi(_req: Request, res: Response): void {
 // ── Admin: API Keys ──────────────────────────────────────────────────────────
 
 export async function listKeys(req: Request, res: Response): Promise<void> {
-  const rows = await db('agent_api_keys')
-    .where({ 'agent_api_keys.tenant_id': req.tenantId })
+  // Master tenant gets every API key across the install. Other tenants
+  // stay strictly scoped to their own keys.
+  const isMaster = isMasterTenant(req.tenantId!);
+  const q = db('agent_api_keys')
     .leftJoin('devices', function () {
       this.on('devices.api_key_id', '=', 'agent_api_keys.id')
           .andOn('devices.approval_status', db.raw("'approved'"));
@@ -286,6 +289,8 @@ export async function listKeys(req: Request, res: Response): Promise<void> {
       'device_groups.name as default_group_name',
     )
     .orderBy('agent_api_keys.created_at', 'desc');
+  if (!isMaster) q.where({ 'agent_api_keys.tenant_id': req.tenantId });
+  const rows = await q;
 
   const data = rows.map((r: any) => ({
     id: r.id,

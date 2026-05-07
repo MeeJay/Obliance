@@ -1,4 +1,5 @@
 import { db } from '../db';
+import { isMasterTenant } from '@obliance/shared';
 import type { DeviceGroup, DeviceGroupTreeNode, DeviceGroupConfig, MetricThresholds } from '@obliance/shared';
 
 interface GroupRow {
@@ -17,10 +18,11 @@ interface GroupRow {
   updated_at: Date;
 }
 
-function rowToGroup(row: GroupRow): DeviceGroup {
+function rowToGroup(row: GroupRow & { tenant_name?: string | null }): DeviceGroup {
   return {
     id: row.id,
     tenantId: row.tenant_id,
+    tenantName: row.tenant_name ?? null,
     parentId: row.parent_id,
     name: row.name,
     slug: row.slug,
@@ -61,7 +63,18 @@ async function ensureUniqueSlug(slug: string, excludeId?: number): Promise<strin
 
 export const groupService = {
   async getAll(tenantId: number): Promise<DeviceGroup[]> {
-    const rows = await db<GroupRow>('device_groups').where({ tenant_id: tenantId }).orderBy('sort_order').orderBy('name');
+    // Master tenant gets every group across the install — joined with
+    // `tenants` so each row carries `tenant_name` for the UI to render
+    // tenant headers above the group sub-tree. Other tenants stay
+    // strictly scoped, no join needed.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_groups')
+      .leftJoin('tenants', 'device_groups.tenant_id', 'tenants.id')
+      .select('device_groups.*', 'tenants.name as tenant_name')
+      .orderBy('device_groups.sort_order')
+      .orderBy('device_groups.name');
+    if (!isMaster) q.where('device_groups.tenant_id', tenantId);
+    const rows = await q;
     return rows.map(rowToGroup);
   },
 
@@ -239,9 +252,11 @@ export const groupService = {
     const allGroups = await this.getAll(tenantId);
     const groupMap = new Map<number, DeviceGroupTreeNode>();
 
-    // Count devices per group (direct members only)
-    const countRows = await db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+    // Count devices per group (direct members only). Master tenant sees
+    // counts across every tenant; others stay strictly scoped.
+    const isMaster = isMasterTenant(tenantId);
+    const countQ = db('devices')
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' })
       .whereNotNull('group_id')
       .groupBy('group_id')
@@ -252,6 +267,8 @@ export const groupService = {
         db.raw("count(*) filter (where status = 'warning') as warning_count"),
         db.raw("count(*) filter (where status = 'critical') as critical_count"),
       );
+    if (!isMaster) countQ.where('tenant_id', tenantId);
+    const countRows = await countQ;
     const directCounts = new Map<number, { total: number; online: number; offline: number; warning: number; critical: number }>();
     for (const row of countRows) {
       directCounts.set(row.group_id, {

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import type { QuickReplyTemplate } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
 
@@ -16,12 +17,14 @@ function rowToTemplate(row: any): QuickReplyTemplate {
   };
 }
 
-// GET / — list all templates for the tenant (all users)
+// GET / — list all templates for the tenant (all users). Master sees
+// every template across the install.
 router.get('/', async (req: Request, res: Response, next) => {
   try {
-    const rows = await db('quick_reply_templates')
-      .where({ tenant_id: req.tenantId! })
-      .orderBy('sort_order', 'asc');
+    const isMaster = isMasterTenant(req.tenantId!);
+    const q = db('quick_reply_templates').orderBy('sort_order', 'asc');
+    if (!isMaster) q.where({ tenant_id: req.tenantId! });
+    const rows = await q;
     res.json({ data: rows.map(rowToTemplate) });
   } catch (err) { next(err); }
 });

@@ -1,7 +1,7 @@
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { getIO } from '../socket';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import { commandService } from './command.service';
 import type {
   Scenario,
@@ -21,6 +21,7 @@ function rowToScenario(row: any): Scenario {
     id: row.id,
     uuid: row.uuid,
     tenantId: row.tenant_id,
+    targetTenantIds: Array.isArray(row.target_tenant_ids) ? row.target_tenant_ids : null,
     name: row.name,
     description: row.description,
     triggerType: row.trigger_type,
@@ -149,7 +150,18 @@ export const scenarioService = {
     const limit = filters?.limit ?? 50;
     const page = filters?.page ?? 1;
 
-    let baseQ = db('scenarios').where({ tenant_id: tenantId });
+    // Master tenant gets god view across the install. Other tenants see
+    // their own scenarios + any scenario fan-outed to them via the
+    // `target_tenant_ids` array (set when a master admin builds a
+    // shared automation for one or more child tenants).
+    const isMaster = isMasterTenant(tenantId);
+    let baseQ = db('scenarios');
+    if (!isMaster) {
+      baseQ = baseQ.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
     if (filters?.status) baseQ = baseQ.where({ status: filters.status });
     if (filters?.triggerType) baseQ = baseQ.where({ trigger_type: filters.triggerType });
 
@@ -229,7 +241,18 @@ export const scenarioService = {
   },
 
   async getById(id: number, tenantId: number): Promise<(Scenario & { steps: ScenarioStep[] }) | null> {
-    const row = await db('scenarios').where({ id, tenant_id: tenantId }).first();
+    // Match the list query: master sees any scenario; other tenants see
+    // their own + fan-outed scenarios. Edit/delete remain strict (the
+    // controller already gates writes on tenant_id = req.tenantId).
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('scenarios').where({ id });
+    if (!isMaster) {
+      q.where(function() {
+        this.where({ tenant_id: tenantId })
+          .orWhereRaw('? = ANY(target_tenant_ids)', [tenantId]);
+      });
+    }
+    const row = await q.first();
     if (!row) return null;
 
     const stepRows = await db('scenario_steps')
@@ -260,6 +283,9 @@ export const scenarioService = {
     notifyOnSuccess?: boolean;
     notifyOnFailure?: boolean;
     variables?: Record<string, string>;
+    /** Master-only fan-out (extra tenants where this scenario is visible
+     *  read-only). Sanitised below — non-master callers' value is dropped. */
+    targetTenantIds?: number[] | null;
     steps: Array<{
       name: string;
       description?: string | null;
@@ -270,6 +296,9 @@ export const scenarioService = {
       parameterOverrides?: Record<string, string>;
     }>;
   }, userId: number): Promise<Scenario> {
+    const fanOut = isMasterTenant(tenantId) && Array.isArray(data.targetTenantIds) && data.targetTenantIds.length > 0
+      ? data.targetTenantIds.map(Number).filter(Number.isFinite)
+      : null;
     return db.transaction(async (trx) => {
       const [row] = await trx('scenarios').insert({
         tenant_id: tenantId,
@@ -286,6 +315,7 @@ export const scenarioService = {
         notify_on_failure: data.notifyOnFailure ?? true,
         notification_channels: JSON.stringify((data as any).notificationChannels || []),
         variables: JSON.stringify(data.variables || {}),
+        target_tenant_ids: fanOut,
         created_by: userId,
         updated_by: userId,
       }).returning('*');
@@ -322,6 +352,8 @@ export const scenarioService = {
     notifyOnSuccess?: boolean;
     notifyOnFailure?: boolean;
     variables?: Record<string, string>;
+    /** Master-only: replaces the fan-out target list. Pass `null` to clear. */
+    targetTenantIds?: number[] | null;
     steps?: Array<{
       name: string;
       description?: string | null;
@@ -350,6 +382,12 @@ export const scenarioService = {
       if (data.notifyOnFailure !== undefined) updates.notify_on_failure = data.notifyOnFailure;
       if ((data as any).notificationChannels !== undefined) updates.notification_channels = JSON.stringify((data as any).notificationChannels);
       if (data.variables !== undefined) updates.variables = JSON.stringify(data.variables);
+      // Fan-out edits gated to master only — child tenant admins cannot
+      // promote a local scenario to fan-out.
+      if (data.targetTenantIds !== undefined && isMasterTenant(tenantId)) {
+        const arr = Array.isArray(data.targetTenantIds) ? data.targetTenantIds.map(Number).filter(Number.isFinite) : [];
+        updates.target_tenant_ids = arr.length > 0 ? arr : null;
+      }
 
       const [row] = await trx('scenarios').where({ id }).update(updates).returning('*');
 
@@ -379,6 +417,823 @@ export const scenarioService = {
   async delete(id: number, tenantId: number): Promise<boolean> {
     const count = await db('scenarios').where({ id, tenant_id: tenantId }).del();
     return count > 0;
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Export / Import — JSON portability between installs / tenants / LLMs.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Bundle a scenario into a portable JSON payload. Strips internal
+   *  ids and timestamps (those are install-specific) but keeps node
+   *  client ids stable so edges keep their shape after a roundtrip.
+   *  When `includeScripts` is true, embeds full script bodies for
+   *  every script referenced by a `run_script` node — the importer on
+   *  another tenant can then recreate them. Without it, nodes keep
+   *  their `scriptId` reference but the importer relies on matching
+   *  scripts already existing on the destination. */
+  async exportScenario(id: number, tenantId: number, opts: { includeScripts: boolean }): Promise<any | null> {
+    const scenario = await this.getById(id, tenantId);
+    if (!scenario) return null;
+
+    const isMaster = isMasterTenant(tenantId);
+    const nodeRows = await db('scenario_nodes').where({ scenario_id: id }).orderBy('id');
+    const edgeRows = await db('scenario_edges').where({ scenario_id: id }).orderBy('sort_order');
+
+    // Collect script ids referenced by run_script nodes so we can fetch
+    // their full bodies in one round-trip if includeScripts is on.
+    const scriptIds = new Set<number>();
+    for (const n of nodeRows) {
+      if (n.type !== 'run_script') continue;
+      const cfg = typeof n.config === 'string' ? JSON.parse(n.config) : (n.config ?? {});
+      if (typeof cfg.scriptId === 'number') scriptIds.add(cfg.scriptId);
+    }
+
+    let scripts: any[] = [];
+    if (opts.includeScripts && scriptIds.size > 0) {
+      const q = db('scripts').whereIn('id', [...scriptIds]);
+      // Master can pull built-ins (tenant_id NULL) and any tenant's
+      // scripts; child tenants restricted to own + builtins.
+      if (!isMaster) {
+        q.where(function () { this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); });
+      }
+      const rows = await q;
+      const params = await db('script_parameters').whereIn('script_id', [...scriptIds]).orderBy('script_id').orderBy('sort_order');
+      const paramsByScript = new Map<number, any[]>();
+      for (const p of params) {
+        const list = paramsByScript.get(p.script_id) ?? [];
+        list.push({
+          name: p.name, label: p.label, description: p.description,
+          type: p.type, options: p.options ?? [],
+          defaultValue: p.default_value, required: p.required,
+          sortOrder: p.sort_order,
+        });
+        paramsByScript.set(p.script_id, list);
+      }
+      scripts = rows.map((r: any) => ({
+        // Keep the install-side id around so nodes can resolve their
+        // reference, and the uuid so the importer can detect collisions.
+        _internalId: r.id,
+        uuid: r.uuid,
+        name: r.name,
+        description: r.description,
+        platform: r.platform,
+        runtime: r.runtime,
+        content: r.content,
+        timeoutSeconds: r.timeout_seconds,
+        expectedExitCode: r.expected_exit_code ?? 0,
+        runAs: r.run_as,
+        tags: r.tags ?? [],
+        purpose: r.purpose ?? 'execute',
+        availableInReach: !!r.available_in_reach,
+        isBuiltin: !!r.is_builtin,
+        parameters: paramsByScript.get(r.id) ?? [],
+      }));
+    }
+
+    // Schedules associated with this scenario:
+    //   (a) script_schedules.on_failure_scenario_id pointing at us
+    //       (assertPass schedules that escalate to this scenario on
+    //       failure)
+    //   (b) script_schedules.id referenced by any trigger_schedule_*
+    //       node config in this scenario
+    // Both are exported so the destination tenant can recreate the
+    // wiring after import. Each entry carries scriptUuid (resolved
+    // via the embedded scripts array) so the schedule's script
+    // dependency travels with the export when includeScripts is on.
+    const scheduleIdsFromTriggers = new Set<number>();
+    for (const n of nodeRows) {
+      if (!n.type.startsWith('trigger_schedule')) continue;
+      const cfg = typeof n.config === 'string' ? JSON.parse(n.config) : (n.config ?? {});
+      if (typeof cfg.scheduleId === 'number') scheduleIdsFromTriggers.add(cfg.scheduleId);
+    }
+    const scheduleQ = db('script_schedules')
+      .where(function () {
+        this.where('on_failure_scenario_id', id);
+        if (scheduleIdsFromTriggers.size > 0) this.orWhereIn('id', [...scheduleIdsFromTriggers]);
+      });
+    if (!isMaster) scheduleQ.where('tenant_id', tenantId);
+    const scheduleRows = await scheduleQ;
+    // Map script_id → uuid so each schedule entry exposes scriptUuid
+    // alongside scriptId for portability.
+    const scheduleScriptIds = scheduleRows.map((r: any) => r.script_id).filter((v: number | null): v is number => typeof v === 'number');
+    const scriptUuidById = new Map<number, string>();
+    if (scheduleScriptIds.length > 0) {
+      const sRows = await db('scripts').whereIn('id', scheduleScriptIds).select('id', 'uuid');
+      for (const r of sRows) scriptUuidById.set(r.id, r.uuid);
+    }
+    const exportedSchedules = scheduleRows.map((r: any) => ({
+      uuid: r.uuid,
+      name: r.name,
+      description: r.description,
+      scriptUuid: scriptUuidById.get(r.script_id) ?? null,
+      scriptId: r.script_id,
+      targetType: r.target_type,
+      targetIds: typeof r.target_ids === 'string' ? JSON.parse(r.target_ids || '[]') : (r.target_ids ?? []),
+      cronExpression: r.cron_expression,
+      fireOnceAt: r.fire_once_at,
+      timezone: r.timezone,
+      parameterValues: typeof r.parameter_values === 'string' ? JSON.parse(r.parameter_values || '{}') : (r.parameter_values ?? {}),
+      catchupEnabled: r.catchup_enabled,
+      catchupMax: r.catchup_max,
+      assertPass: r.assert_pass ?? false,
+      notifyOnce: r.notify_once ?? false,
+      notificationChannels: typeof r.notification_channels === 'string'
+        ? JSON.parse(r.notification_channels || '[]')
+        : (r.notification_channels ?? []),
+      timeoutSeconds: r.timeout_seconds ?? null,
+      skipIfInFlight: r.skip_if_in_flight !== false,
+      // Boolean flag the importer reads to wire the freshly-created
+      // schedule's on_failure_scenario_id back to the freshly-created
+      // scenario's id (no need to chase ids on the destination).
+      onFailureBindsToImportedScenario: r.on_failure_scenario_id === id,
+      enabled: r.enabled,
+    }));
+
+    return {
+      // Format version — bump when the importer needs to fork on shape
+      // changes. The importer rejects unknown major versions.
+      formatVersion: 1,
+      exportedAt: new Date().toISOString(),
+      scenario: {
+        uuid: scenario.uuid,
+        name: scenario.name,
+        description: scenario.description,
+        triggerType: scenario.triggerType,
+        triggerConfig: scenario.triggerConfig,
+        targetType: scenario.targetType,
+        targetIds: scenario.targetIds,
+        retryPolicy: scenario.retryPolicy,
+        timeoutSeconds: scenario.timeoutSeconds,
+        notifyOnSuccess: scenario.notifyOnSuccess,
+        notifyOnFailure: scenario.notifyOnFailure,
+        notificationChannels: scenario.notificationChannels,
+        variables: scenario.variables,
+        // status intentionally omitted — imports always land as 'draft'
+        // so a scenario doesn't auto-fire on a new tenant before the
+        // admin reviews it.
+      },
+      nodes: nodeRows.map((r: any) => ({
+        clientId: r.uuid, // stable across roundtrip
+        type: r.type,
+        label: r.label,
+        config: typeof r.config === 'string' ? JSON.parse(r.config) : (r.config ?? {}),
+        positionX: r.position_x ?? 0,
+        positionY: r.position_y ?? 0,
+      })),
+      edges: edgeRows.map((r: any) => {
+        const sourceUuid = nodeRows.find((n: any) => n.id === r.source_node_id)?.uuid;
+        const targetUuid = nodeRows.find((n: any) => n.id === r.target_node_id)?.uuid;
+        return {
+          sourceNodeClientId: sourceUuid,
+          sourceHandle: r.source_handle,
+          targetNodeClientId: targetUuid,
+          condition: typeof r.condition === 'string' ? JSON.parse(r.condition) : (r.condition ?? { kind: 'always' }),
+          sortOrder: r.sort_order,
+        };
+      }),
+      scripts: opts.includeScripts ? scripts : null,
+      schedules: exportedSchedules.length > 0 ? exportedSchedules : null,
+    };
+  },
+
+  /** Two-pass import. First pass (`commit=false`) returns the conflict
+   *  list — for each embedded script whose uuid matches an existing
+   *  script in the target tenant, the caller decides per-script:
+   *    - "skip"     → keep the existing script, point nodes at it
+   *    - "overwrite"→ replace the existing script's body with the import
+   *    - "new"      → create a fresh script (new uuid) so the existing
+   *                   one stays untouched
+   *  Second pass (`commit=true`) writes the scenario + edges + chosen
+   *  script resolutions inside a single transaction.
+   *
+   *  Returns either the conflict list (no commit) or the created
+   *  scenario row (commit). Throws on schema validation failure. */
+  async importScenario(
+    tenantId: number,
+    payload: any,
+    opts: {
+      commit: boolean;
+      conflictResolutions?: Record<string, 'skip' | 'overwrite' | 'new'>;
+      userId: number;
+    },
+  ): Promise<
+    | { kind: 'preview'; conflicts: Array<{ scriptUuid: string; existingScriptId: number; existingName: string; importedName: string }> }
+    | { kind: 'commit'; scenario: Scenario }
+  > {
+    if (!payload || typeof payload !== 'object') throw new Error('Invalid import payload');
+    if (payload.formatVersion !== 1) throw new Error(`Unsupported export format version: ${payload.formatVersion}`);
+    const meta = payload.scenario;
+    if (!meta?.name) throw new Error('scenario.name is required');
+    const nodes: any[] = Array.isArray(payload.nodes) ? payload.nodes : [];
+    const edges: any[] = Array.isArray(payload.edges) ? payload.edges : [];
+    const scripts: any[] = Array.isArray(payload.scripts) ? payload.scripts : [];
+    if (nodes.length === 0) throw new Error('scenario must have at least one node');
+
+    // ── Structural validation ────────────────────────────────────────
+    // LLM-generated payloads are forgiving on the eye but tend to ship
+    // structural lemons: duplicate clientIds, edges to nowhere, missing
+    // triggers, run_script nodes without a target. Catch them all and
+    // return a single multi-line error so the user sees the full list
+    // instead of fixing one issue at a time.
+    const issues: string[] = [];
+    const seenClientIds = new Set<string>();
+    const validClientIds = new Set<string>();
+    let triggerCount = 0;
+    const VALID_NODE_TYPES = new Set([
+      'trigger_manual', 'trigger_session_login', 'trigger_machine_boot',
+      'trigger_agent_approved', 'trigger_group_join', 'trigger_schedule_failure',
+      'trigger_schedule_cron', 'trigger_agent_back_online', 'trigger_metric_warning',
+      'trigger_metric_critical', 'trigger_metric_custom',
+      'run_script', 'run_command', 'send_notification', 'wait', 'tag_device',
+      'move_device_to_group', 'branch_exit_code', 'branch_on_device',
+      'end_success', 'end_failure',
+    ]);
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      // Strip _comment keys silently — they're documentation aids in
+      // the dummy export, not real fields. Same for the inner config.
+      delete n._comment;
+      if (n.config && typeof n.config === 'object') delete n.config._comment;
+      const where = n.clientId ? `node "${n.clientId}"` : `node #${i}`;
+      if (!n.clientId || typeof n.clientId !== 'string') {
+        issues.push(`${where}: clientId is required and must be a string`);
+        continue;
+      }
+      if (seenClientIds.has(n.clientId)) {
+        issues.push(`${where}: duplicate clientId — each node must have a unique id`);
+        continue;
+      }
+      seenClientIds.add(n.clientId);
+      validClientIds.add(n.clientId);
+      if (!n.type || !VALID_NODE_TYPES.has(n.type)) {
+        issues.push(`${where}: unknown node type "${n.type}". Valid types: ${[...VALID_NODE_TYPES].join(', ')}`);
+        continue;
+      }
+      if (typeof n.type === 'string' && n.type.startsWith('trigger_')) triggerCount++;
+      // run_script must point at SOMETHING — either an existing
+      // scriptId on the destination, or a scriptUuid that resolves via
+      // the embedded `scripts` array.
+      if (n.type === 'run_script') {
+        const cfg = n.config ?? {};
+        const hasScriptId = typeof cfg.scriptId === 'number' && Number.isFinite(cfg.scriptId);
+        const hasScriptUuid = typeof cfg.scriptUuid === 'string' && cfg.scriptUuid.length > 0;
+        if (!hasScriptId && !hasScriptUuid) {
+          issues.push(`${where}: run_script needs config.scriptId or config.scriptUuid`);
+        }
+        if (hasScriptUuid && !scripts.some((s) => s.uuid === cfg.scriptUuid)) {
+          // Allowed: the uuid may match an existing script on the
+          // destination tenant. We'll re-check when resolving.
+        }
+      }
+    }
+    if (triggerCount === 0) {
+      issues.push('scenario must contain at least one trigger node (trigger_*)');
+    }
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      delete e._comment;
+      const where = `edge #${i}`;
+      if (!e.sourceNodeClientId || !validClientIds.has(e.sourceNodeClientId)) {
+        issues.push(`${where}: sourceNodeClientId "${e.sourceNodeClientId}" doesn't match any node`);
+      }
+      if (!e.targetNodeClientId || !validClientIds.has(e.targetNodeClientId)) {
+        issues.push(`${where}: targetNodeClientId "${e.targetNodeClientId}" doesn't match any node`);
+      }
+    }
+    // Embedded scripts: each must have uuid + name + content. The rest
+    // has sane defaults at insert time.
+    for (let i = 0; i < scripts.length; i++) {
+      const s = scripts[i];
+      delete s._comment;
+      const where = s.name ? `script "${s.name}"` : `script #${i}`;
+      if (!s.uuid || typeof s.uuid !== 'string') issues.push(`${where}: uuid is required`);
+      if (!s.name || typeof s.name !== 'string') issues.push(`${where}: name is required`);
+      if (!s.content || typeof s.content !== 'string') issues.push(`${where}: content is required`);
+    }
+    // run_script scriptUuid that doesn't resolve anywhere (not in
+    // embedded scripts AND not in the destination DB) — checked at
+    // resolution time below; surface a hint here when scripts are
+    // embedded but the uuid isn't among them.
+    if (issues.length > 0) {
+      // Single error string with each issue on its own line — the
+      // route handler returns it verbatim so the UI can split + render.
+      throw new Error(`Import validation failed:\n - ${issues.join('\n - ')}`);
+    }
+
+    // Pass 1: detect script-uuid conflicts against the target tenant.
+    const isMaster = isMasterTenant(tenantId);
+    const importedUuids = scripts.map((s) => s.uuid).filter(Boolean);
+    let existingByUuid = new Map<string, { id: number; name: string }>();
+    if (importedUuids.length > 0) {
+      const q = db('scripts').whereIn('uuid', importedUuids);
+      if (!isMaster) q.where(function () { this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); });
+      const existing = await q.select('id', 'uuid', 'name');
+      for (const r of existing) existingByUuid.set(r.uuid, { id: r.id, name: r.name });
+    }
+
+    if (!opts.commit) {
+      const conflicts = scripts
+        .filter((s) => s.uuid && existingByUuid.has(s.uuid))
+        .map((s) => ({
+          scriptUuid: s.uuid as string,
+          existingScriptId: existingByUuid.get(s.uuid)!.id,
+          existingName: existingByUuid.get(s.uuid)!.name,
+          importedName: s.name,
+        }));
+      return { kind: 'preview', conflicts };
+    }
+
+    // Pass 2: commit. Walk script resolutions, then create scenario + nodes + edges in one transaction.
+    const resolutions = opts.conflictResolutions ?? {};
+    return db.transaction(async (trx) => {
+      // Build a uuid → final-script-id map: existing-after-resolution
+      // OR newly-created from the import's content.
+      const resolvedScriptId = new Map<string, number>();
+      for (const s of scripts) {
+        if (!s.uuid) continue;
+        const conflict = existingByUuid.get(s.uuid);
+        const resolution = conflict ? (resolutions[s.uuid] ?? 'skip') : 'new';
+        if (conflict && resolution === 'skip') {
+          resolvedScriptId.set(s.uuid, conflict.id);
+          continue;
+        }
+        if (conflict && resolution === 'overwrite') {
+          await trx('scripts').where({ id: conflict.id }).update({
+            name: s.name,
+            description: s.description,
+            platform: s.platform,
+            runtime: s.runtime,
+            content: s.content,
+            timeout_seconds: s.timeoutSeconds,
+            expected_exit_code: s.expectedExitCode ?? 0,
+            run_as: s.runAs,
+            tags: JSON.stringify(s.tags || []),
+            purpose: s.purpose ?? 'execute',
+            available_in_reach: !!s.availableInReach,
+            updated_by: opts.userId,
+            updated_at: new Date(),
+          });
+          resolvedScriptId.set(s.uuid, conflict.id);
+          continue;
+        }
+        // 'new' (fresh uuid) OR no conflict: insert.
+        const [row] = await trx('scripts').insert({
+          tenant_id: tenantId,
+          name: conflict && resolution === 'new' ? `${s.name} (imported)` : s.name,
+          description: s.description,
+          platform: s.platform || 'all',
+          runtime: s.runtime || 'bash',
+          content: s.content,
+          timeout_seconds: s.timeoutSeconds || 300,
+          expected_exit_code: s.expectedExitCode ?? 0,
+          run_as: s.runAs || 'system',
+          tags: JSON.stringify(s.tags || []),
+          purpose: s.purpose || 'execute',
+          available_in_reach: !!s.availableInReach,
+          is_builtin: false,
+          created_by: opts.userId,
+          updated_by: opts.userId,
+        }).returning('*');
+        resolvedScriptId.set(s.uuid, row.id);
+        // Re-create parameters if any.
+        if (Array.isArray(s.parameters) && s.parameters.length > 0) {
+          await trx('script_parameters').insert(
+            s.parameters.map((p: any, i: number) => ({
+              script_id: row.id,
+              name: p.name, label: p.label, description: p.description,
+              type: p.type, options: JSON.stringify(p.options || []),
+              default_value: p.defaultValue, required: p.required,
+              sort_order: i,
+            })),
+          );
+        }
+      }
+
+      // Create the scenario row. status forced to 'draft' so it doesn't
+      // auto-fire on a fresh tenant before the admin reviews it.
+      const [sRow] = await trx('scenarios').insert({
+        tenant_id: tenantId,
+        name: meta.name,
+        description: meta.description ?? null,
+        trigger_type: meta.triggerType ?? 'manual',
+        trigger_config: JSON.stringify(meta.triggerConfig || {}),
+        target_type: meta.targetType ?? 'all',
+        target_ids: JSON.stringify(meta.targetIds ?? []),
+        status: 'draft',
+        retry_policy: JSON.stringify(meta.retryPolicy || { maxRetries: 0, retryDelaySeconds: 0 }),
+        timeout_seconds: meta.timeoutSeconds ?? 3600,
+        notify_on_success: meta.notifyOnSuccess ?? false,
+        notify_on_failure: meta.notifyOnFailure ?? true,
+        notification_channels: JSON.stringify(meta.notificationChannels ?? []),
+        variables: JSON.stringify(meta.variables ?? {}),
+        created_by: opts.userId,
+        updated_by: opts.userId,
+      }).returning('*');
+
+      // Insert nodes; clientId → DB id mapping for edge resolution.
+      const nodeIdByClientId = new Map<string, number>();
+      for (const n of nodes) {
+        const cfg = { ...(n.config ?? {}) };
+        // run_script nodes: resolve scriptUuid → scriptId via the
+        // resolved-scripts map we just built.
+        if (n.type === 'run_script' && cfg.scriptUuid && resolvedScriptId.has(cfg.scriptUuid)) {
+          cfg.scriptId = resolvedScriptId.get(cfg.scriptUuid);
+          delete cfg.scriptUuid;
+        }
+        const [nr] = await trx('scenario_nodes').insert({
+          scenario_id: sRow.id,
+          type: n.type,
+          label: n.label ?? null,
+          config: JSON.stringify(cfg),
+          position_x: n.positionX ?? 0,
+          position_y: n.positionY ?? 0,
+        }).returning('id');
+        nodeIdByClientId.set(n.clientId, typeof nr === 'object' ? (nr as any).id : nr);
+      }
+
+      // Insert edges, mapping client ids back to DB ids. Drop any
+      // edge that references a node we couldn't resolve (shouldn't
+      // happen on a clean export, but be defensive against
+      // hand-edited LLM output).
+      for (const e of edges) {
+        const sourceId = nodeIdByClientId.get(e.sourceNodeClientId);
+        const targetId = nodeIdByClientId.get(e.targetNodeClientId);
+        if (!sourceId || !targetId) continue;
+        await trx('scenario_edges').insert({
+          scenario_id: sRow.id,
+          source_node_id: sourceId,
+          source_handle: e.sourceHandle ?? null,
+          target_node_id: targetId,
+          condition: JSON.stringify(e.condition ?? { kind: 'always' }),
+          sort_order: e.sortOrder ?? 0,
+        });
+      }
+
+      // Recreate associated schedules. Each entry's scriptUuid is
+      // resolved via the same resolvedScriptId map we built for nodes,
+      // so embedded scripts are reused. Schedules pointing at scripts
+      // that aren't in the embedded set fall through to scriptId
+      // (assumes the destination already has the script).
+      const importedSchedules: any[] = Array.isArray(payload.schedules) ? payload.schedules : [];
+      for (const s of importedSchedules) {
+        const scriptId = (s.scriptUuid && resolvedScriptId.has(s.scriptUuid))
+          ? resolvedScriptId.get(s.scriptUuid)!
+          : (typeof s.scriptId === 'number' ? s.scriptId : null);
+        if (scriptId == null) continue; // can't recreate a schedule without a script
+        const [schedRow] = await trx('script_schedules').insert({
+          tenant_id: tenantId,
+          script_id: scriptId,
+          name: s.name,
+          description: s.description ?? null,
+          target_type: s.targetType ?? 'all',
+          target_ids: JSON.stringify(s.targetIds ?? []),
+          cron_expression: s.cronExpression ?? null,
+          fire_once_at: s.fireOnceAt ?? null,
+          // Engine recomputes next_run_at on next tick — leave null
+          // here to avoid stale fire-immediately behavior.
+          next_run_at: null,
+          timezone: s.timezone || 'UTC',
+          parameter_values: JSON.stringify(s.parameterValues ?? {}),
+          catchup_enabled: s.catchupEnabled !== false,
+          catchup_max: s.catchupMax ?? 3,
+          assert_pass: s.assertPass ?? false,
+          notify_once: s.notifyOnce ?? false,
+          notification_channels: JSON.stringify(s.notificationChannels ?? []),
+          timeout_seconds: s.timeoutSeconds ?? null,
+          skip_if_in_flight: s.skipIfInFlight !== false,
+          // Bind back to the freshly-created scenario when the export
+          // flagged this relationship — the scenario id is only known
+          // here (after the insert above).
+          on_failure_scenario_id: s.onFailureBindsToImportedScenario ? sRow.id : null,
+          enabled: s.enabled !== false,
+          created_by: opts.userId,
+        }).returning('*');
+        // If a scenario node referenced this schedule by id (via
+        // trigger_schedule_failure / trigger_schedule_cron config),
+        // patch the inserted node's config to point at the freshly
+        // created schedule's id instead of the dead source-tenant id.
+        if (typeof s.scriptId === 'number') {
+          await trx('scenario_nodes')
+            .where({ scenario_id: sRow.id })
+            .whereRaw("(config->>'scheduleId')::int = ?", [s.scriptId])
+            .update({
+              config: trx.raw(
+                `jsonb_set(config::jsonb, '{scheduleId}', to_jsonb(?::int))`,
+                [schedRow.id],
+              ),
+            });
+        }
+      }
+
+      return { kind: 'commit', scenario: rowToScenario(sRow) };
+    });
+  },
+
+  /** Heavily-commented skeleton that demonstrates every node type, edge
+   *  condition shape, and trigger config. Intentionally a vanilla JSON
+   *  literal (no DB lookup) so it can be served from a static handler
+   *  and pasted into an LLM prompt without leaking any tenant data. */
+  getDummyExportTemplate(): any {
+    // Cheat-sheet of every node type the engine supports today. Any
+    // new node type added in the future MUST also be added here so the
+    // LLM (and future maintainers) see it. See CLAUDE.md
+    // "How to add a new scenario node type" for the full checklist.
+    return {
+      formatVersion: 1,
+      exportedAt: new Date().toISOString(),
+      _comment: 'Skeleton export — paste this whole document into an LLM prompt to teach it the shape, then ask it to produce a scenario in the same format. Drop the `_comment` keys before importing. Every node type currently supported is documented below; ignore the ones you don\'t need (the example "scenario" only wires up a subset).',
+      scenario: {
+        _comment: 'Top-level scenario metadata. uuid is optional on import (server allocates one if omitted). status is always reset to "draft" on import — set it to "active" manually after review.',
+        uuid: null,
+        name: 'My imported scenario',
+        description: 'Description shown in the scenarios list',
+        // Legacy single-trigger fields — required at the row level even
+        // though v2 scenarios primarily use trigger nodes. Pick one
+        // value that matches the trigger node you place in `nodes`.
+        triggerType: 'manual',
+        triggerConfig: {},
+        targetType: 'all',
+        targetIds: [],
+        retryPolicy: { maxRetries: 0, retryDelaySeconds: 60 },
+        timeoutSeconds: 3600,
+        notifyOnSuccess: false,
+        notifyOnFailure: true,
+        notificationChannels: [],
+        variables: { EXAMPLE_KEY: 'EXAMPLE_VALUE' },
+      },
+      nodes: [
+        // ── Triggers (exactly ONE trigger node per scenario in real use, all listed here for documentation) ──
+        {
+          _comment: 'TRIGGER: trigger_manual — fires when an admin clicks "Run" on the scenario. Most flexible, no conditions. config.cooldownSeconds throttles re-runs per device (0 = no throttle).',
+          clientId: 'doc-trigger-manual',
+          type: 'trigger_manual',
+          label: 'Manual trigger',
+          config: { cooldownSeconds: 0 },
+          positionX: 100, positionY: 100,
+        },
+        {
+          _comment: 'TRIGGER: trigger_session_login — fires every time a new WTS session opens on the device (Windows/RDP). Useful for kiosk reset, login banners, etc. cooldownSeconds prevents spamming on rapid reconnects.',
+          clientId: 'doc-trigger-session-login',
+          type: 'trigger_session_login',
+          label: 'On session login',
+          config: { cooldownSeconds: 0 },
+          positionX: 100, positionY: 200,
+        },
+        {
+          _comment: 'TRIGGER: trigger_machine_boot — fires when the agent reports a fresh machine boot (within ~60s of agent startup). Pairs with run_script for boot-time hardening / inventory.',
+          clientId: 'doc-trigger-machine-boot',
+          type: 'trigger_machine_boot',
+          label: 'On machine boot',
+          config: { cooldownSeconds: 0 },
+          positionX: 100, positionY: 300,
+        },
+        {
+          _comment: 'TRIGGER: trigger_agent_approved — fires once when an agent transitions from pending → approved. Idempotent (server dedupes on scenario+device). Useful for first-contact deployment.',
+          clientId: 'doc-trigger-agent-approved',
+          type: 'trigger_agent_approved',
+          label: 'On agent approved',
+          config: { cooldownSeconds: 0 },
+          positionX: 100, positionY: 400,
+        },
+        {
+          _comment: 'TRIGGER: trigger_group_join — fires when a device is moved into one of the configured groups. Set config.groupIds to a list of group ids; empty list = any group change.',
+          clientId: 'doc-trigger-group-join',
+          type: 'trigger_group_join',
+          label: 'On group join',
+          config: { groupIds: [], cooldownSeconds: 0 },
+          positionX: 100, positionY: 500,
+        },
+        {
+          _comment: 'TRIGGER: trigger_schedule_failure — fires when a script_schedule with assertPass=true reports failure. Set config.scheduleId to bind to one specific schedule, or omit to fire on any schedule failure.',
+          clientId: 'doc-trigger-schedule-failure',
+          type: 'trigger_schedule_failure',
+          label: 'On schedule failure',
+          config: { scheduleId: null, cooldownSeconds: 0 },
+          positionX: 100, positionY: 600,
+        },
+        {
+          _comment: 'TRIGGER: trigger_schedule_cron — internal cron tied to the scenario itself. config.cronExpression follows standard 5-field cron + timezone. The engine maintains last_cron_fire_at per node.',
+          clientId: 'doc-trigger-schedule-cron',
+          type: 'trigger_schedule_cron',
+          label: 'On cron',
+          config: { cronExpression: '0 2 * * *', timezone: 'UTC', cooldownSeconds: 0 },
+          positionX: 100, positionY: 700,
+        },
+        {
+          _comment: 'TRIGGER: trigger_agent_back_online — fires when an agent recovers from offline state, debounced against flaps. config.offlineDelaySeconds: minimum outage duration before this counts (default 60).',
+          clientId: 'doc-trigger-agent-back-online',
+          type: 'trigger_agent_back_online',
+          label: 'On agent back online',
+          config: { offlineDelaySeconds: 60, cooldownSeconds: 0 },
+          positionX: 100, positionY: 800,
+        },
+        {
+          _comment: 'TRIGGER: trigger_metric_warning — fires once when a device transitions FROM ok/critical INTO warning. config.metric: cpu|ram|disk|"" (empty = any). For disk, config.mount limits to a specific mount.',
+          clientId: 'doc-trigger-metric-warning',
+          type: 'trigger_metric_warning',
+          label: 'On metric warning',
+          config: { metric: '', mount: '', cooldownSeconds: 0 },
+          positionX: 100, positionY: 900,
+        },
+        {
+          _comment: 'TRIGGER: trigger_metric_critical — same as warning, but on the entry to "critical" severity.',
+          clientId: 'doc-trigger-metric-critical',
+          type: 'trigger_metric_critical',
+          label: 'On metric critical',
+          config: { metric: '', mount: '', cooldownSeconds: 0 },
+          positionX: 100, positionY: 1000,
+        },
+        {
+          _comment: 'TRIGGER: trigger_metric_custom — fires on EVERY push that satisfies the comparator (not transition-based). PAIR WITH cooldownSeconds to avoid loops. metric: cpu|ram|disk. comparator: above|below. threshold: 0-100.',
+          clientId: 'doc-trigger-metric-custom',
+          type: 'trigger_metric_custom',
+          label: 'On metric custom',
+          config: { metric: 'cpu', comparator: 'above', threshold: 90, mount: '', cooldownSeconds: 3600 },
+          positionX: 100, positionY: 1100,
+        },
+
+        // ── Actions ──
+        {
+          _comment: 'ACTION: run_script — fires a script on the device. Reference an existing script via config.scriptId, OR set config.scriptUuid to match a script embedded in the top-level "scripts" array. config.timeoutSeconds overrides the script\'s default.',
+          clientId: 'doc-action-run-script',
+          type: 'run_script',
+          label: 'Run script',
+          config: { scriptId: null, scriptUuid: 'EXAMPLE-SCRIPT-UUID', timeoutSeconds: 300, parameters: {} },
+          positionX: 400, positionY: 100,
+        },
+        {
+          _comment: 'ACTION: run_command — sends a built-in agent command. config.commandType: reboot|shutdown|sleep|restart_agent|install_updates|scan_inventory|scan_updates|check_compliance|...',
+          clientId: 'doc-action-run-command',
+          type: 'run_command',
+          label: 'Run command',
+          config: { commandType: 'reboot' },
+          positionX: 400, positionY: 200,
+        },
+        {
+          _comment: 'ACTION: send_notification — dispatches via the channels bound to the scenario (see scenario.notificationChannels) or specific ones in config.channels. subject/body override the default templates.',
+          clientId: 'doc-action-send-notification',
+          type: 'send_notification',
+          label: 'Notify',
+          config: { channels: [], subject: '', body: '' },
+          positionX: 400, positionY: 300,
+        },
+        {
+          _comment: 'ACTION: wait — pauses the run for config.seconds. Use sparingly; long waits keep a run-row "running" in the DB.',
+          clientId: 'doc-action-wait',
+          type: 'wait',
+          label: 'Wait',
+          config: { seconds: 60 },
+          positionX: 400, positionY: 400,
+        },
+        {
+          _comment: 'ACTION: tag_device — adds / removes tags on the device. config.add / config.remove are arrays of strings.',
+          clientId: 'doc-action-tag-device',
+          type: 'tag_device',
+          label: 'Tag device',
+          config: { add: ['imported'], remove: [] },
+          positionX: 400, positionY: 500,
+        },
+        {
+          _comment: 'ACTION: move_device_to_group — sets the device\'s group_id. config.groupId can be null (ungroup).',
+          clientId: 'doc-action-move-group',
+          type: 'move_device_to_group',
+          label: 'Move to group',
+          config: { groupId: null },
+          positionX: 400, positionY: 600,
+        },
+
+        // ── Logic ──
+        {
+          _comment: 'LOGIC: branch_exit_code — routes based on the immediately-previous run_script node\'s exit code. Outgoing edges declare exit_code_eq / exit_code_neq / exit_code_in conditions; the engine picks the first matching edge.',
+          clientId: 'doc-logic-branch-exit',
+          type: 'branch_exit_code',
+          label: 'Branch on exit code',
+          config: {},
+          positionX: 700, positionY: 100,
+        },
+        {
+          _comment: 'LOGIC: branch_on_device — routes based on a device property. config.match: os_type|group|tag|status. config.value: the value to compare to. Useful for OS-specific paths in a single scenario.',
+          clientId: 'doc-logic-branch-device',
+          type: 'branch_on_device',
+          label: 'Branch on device',
+          config: { match: 'os_type', value: 'windows' },
+          positionX: 700, positionY: 200,
+        },
+
+        // ── Terminators ──
+        {
+          _comment: 'TERMINATOR: end_success — marks the run as succeeded with an optional message. Reachable from any node.',
+          clientId: 'doc-end-success',
+          type: 'end_success',
+          label: 'End — success',
+          config: { message: 'OK' },
+          positionX: 1000, positionY: 100,
+        },
+        {
+          _comment: 'TERMINATOR: end_failure — marks the run as failed with a required message (surfaced in run history).',
+          clientId: 'doc-end-failure',
+          type: 'end_failure',
+          label: 'End — failure',
+          config: { message: 'Scenario failed' },
+          positionX: 1000, positionY: 200,
+        },
+      ],
+      edges: [
+        // Edges only need to wire up the actual scenario you're building.
+        // The dummy showcases every condition shape below; in your real
+        // export, prune the documentation nodes/edges and keep what you
+        // need. The engine evaluates outgoing edges in `sortOrder` and
+        // picks the FIRST whose condition matches.
+        {
+          _comment: 'CONDITION: { kind: "always" } — unconditional. Default for trigger → first action and any non-branching transition.',
+          sourceNodeClientId: 'doc-trigger-manual',
+          sourceHandle: null,
+          targetNodeClientId: 'doc-action-run-script',
+          condition: { kind: 'always' },
+          sortOrder: 0,
+        },
+        {
+          _comment: 'CONDITION: { kind: "exit_code_eq", value: N } — pass branch when last run_script returned exit code N (typically 0 = success).',
+          sourceNodeClientId: 'doc-logic-branch-exit',
+          sourceHandle: 'pass',
+          targetNodeClientId: 'doc-end-success',
+          condition: { kind: 'exit_code_eq', value: 0 },
+          sortOrder: 0,
+        },
+        {
+          _comment: 'CONDITION: { kind: "exit_code_neq", value: N } — fail branch when last run_script returned anything OTHER than N.',
+          sourceNodeClientId: 'doc-logic-branch-exit',
+          sourceHandle: 'fail',
+          targetNodeClientId: 'doc-end-failure',
+          condition: { kind: 'exit_code_neq', value: 0 },
+          sortOrder: 1,
+        },
+        {
+          _comment: 'CONDITION: { kind: "exit_code_in", values: [N1, N2, …] } — match if last exit code is in the list. Useful for grouping several success codes (0, 3010 reboot-required, etc).',
+          sourceNodeClientId: 'doc-logic-branch-exit',
+          sourceHandle: 'special',
+          targetNodeClientId: 'doc-action-wait',
+          condition: { kind: 'exit_code_in', values: [3010, 3011] },
+          sortOrder: 2,
+        },
+      ],
+      scripts: [
+        {
+          _comment: 'When embedded, scripts include their full content. On import, the server checks each uuid against existing scripts and asks the user how to resolve conflicts (skip / overwrite / create-as-new). Drop this whole array if you only want to reference scriptIds that already exist on the destination tenant.',
+          uuid: 'EXAMPLE-SCRIPT-UUID',
+          name: 'Inventory check',
+          description: 'Checks installed software against the baseline',
+          platform: 'all',
+          runtime: 'powershell',
+          content: '# script body here\nWrite-Host "ok"\nexit 0',
+          timeoutSeconds: 300,
+          expectedExitCode: 0,
+          runAs: 'system',
+          tags: [],
+          purpose: 'check',
+          availableInReach: false,
+          isBuiltin: false,
+          parameters: [
+            // Optional. Each parameter is exposed in the run UI / Reach
+            // client and substituted into the script via {{name}}.
+            // type: text|number|boolean|select. options is required for "select".
+            // { name: 'SERVER_URL', label: 'Server URL', type: 'text', defaultValue: 'https://example.com', required: true, options: [] },
+          ],
+        },
+      ],
+      schedules: [
+        {
+          _comment: 'OPTIONAL: schedules associated with this scenario. Two relationships are recognised — (a) script_schedules whose onFailureScenarioId points at this scenario and (b) schedules referenced by trigger_schedule_failure.config.scheduleId. Each entry is recreated on import as a new schedule pointing at the imported scenario.',
+          uuid: 'EXAMPLE-SCHEDULE-UUID',
+          name: 'Nightly inventory',
+          description: 'Runs the inventory script every night at 02:00',
+          // The script the schedule itself runs (separate from the
+          // scenario\'s nodes). Reference by uuid into the embedded
+          // scripts array OR by id if it already exists.
+          scriptUuid: 'EXAMPLE-SCRIPT-UUID',
+          scriptId: null,
+          targetType: 'all',
+          targetIds: [],
+          cronExpression: '0 2 * * *',
+          fireOnceAt: null,
+          timezone: 'UTC',
+          parameterValues: {},
+          catchupEnabled: false,
+          catchupMax: 3,
+          assertPass: true,
+          notifyOnce: false,
+          notificationChannels: [],
+          timeoutSeconds: null,
+          skipIfInFlight: true,
+          // When assertPass is true, a failure of this schedule
+          // triggers the imported scenario via trigger_schedule_failure.
+          // Set this field to "this" so the importer wires the binding
+          // automatically.
+          onFailureBindsToImportedScenario: true,
+          enabled: true,
+        },
+      ],
+    };
   },
 
   async enable(id: number, tenantId: number): Promise<Scenario | null> {

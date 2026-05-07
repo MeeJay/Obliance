@@ -14,6 +14,7 @@ export interface Line2FieldDef {
 }
 
 export const LINE2_FIELDS: Line2FieldDef[] = [
+  { key: 'tenant',       label: 'Tenant',           defaultVisible: false },
   { key: 'ipLocal',      label: 'IP LAN',           defaultVisible: true  },
   { key: 'ipPublic',     label: 'IP WAN',           defaultVisible: false },
   { key: 'macAddress',   label: 'MAC',              defaultVisible: false },

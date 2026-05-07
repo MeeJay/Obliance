@@ -1,5 +1,6 @@
-import { useState, useEffect, type FormEvent } from 'react';
-import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X } from 'lucide-react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X, Download, Upload, GitBranch } from 'lucide-react';
+import { scenarioApi } from '@/api/scenario.api';
 import { ImportExportPage } from './ImportExportPage';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
@@ -630,6 +631,9 @@ export function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Scenarios bulk export / import ── */}
+      {admin && <ScenariosBulkSection />}
     </div>
   );
 }
@@ -753,6 +757,136 @@ function EditableExtensionsSection() {
               </button>
             </div>
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Scenarios bulk export/import section ───────────────────────────────────
+//
+// Lives at the bottom of Settings → Import/Export. Per-scenario actions
+// stay on /automations (Download icon next to each row); this is the
+// "give me a tarball of every automation" flow + the bulk re-import.
+function ScenariosBulkSection() {
+  const [exporting, setExporting] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importResult, setImportResult] = useState<null | {
+    results: Array<{ name: string; ok: boolean; error?: string; scenarioId?: number }>;
+    total: number;
+    succeeded: number;
+  }>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const handleExport = async (includeScripts: boolean) => {
+    setExporting(true);
+    try {
+      const data = await scenarioApi.exportAll({ includeScripts });
+      const ts = new Date().toISOString().slice(0, 10);
+      const suffix = includeScripts ? '-with-scripts' : '';
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `obliance-scenarios-${ts}${suffix}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data.count} scenario${data.count > 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to export scenarios');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handlePickImport = () => fileRef.current?.click();
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setImportBusy(true);
+    setImportResult(null);
+    try {
+      const text = await f.text();
+      const bundle = JSON.parse(text);
+      // Bulk import skips the per-script conflict UI for now — sane
+      // default is `skip` (don't touch existing scripts) so the
+      // operator can re-run the import if they want overwrite. This
+      // matches the safe behavior users expect from a "restore
+      // backup" button.
+      const result = await scenarioApi.importBulk(bundle, {});
+      setImportResult(result);
+      if (result.succeeded === result.total) {
+        toast.success(`Imported ${result.succeeded} / ${result.total} scenarios`);
+      } else {
+        toast.error(`Imported ${result.succeeded} / ${result.total} — see report below`);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <GitBranch size={18} className="text-accent" />
+        <h2 className="text-lg font-semibold text-text-primary">Scenarios — bulk export / import</h2>
+      </div>
+      <div className="rounded-lg border border-border bg-bg-secondary p-5 space-y-4">
+        <p className="text-xs text-text-muted leading-relaxed">
+          Per-scenario export is on the <b>Automations → Scenarios</b> page (one click per row).
+          Use this section to dump <b>every</b> scenario in the current tenant in a single JSON,
+          or to restore from such a dump after migrating tenant.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleExport(false)}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-border bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+          >
+            <Download size={14} />
+            Export all (lean)
+          </button>
+          <button
+            onClick={() => handleExport(true)}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-border bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+          >
+            <Download size={14} />
+            Export all (with scripts)
+          </button>
+          <span className="w-px h-4 bg-border mx-1" />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={handlePickImport}
+            disabled={importBusy}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-50"
+          >
+            <Upload size={14} />
+            {importBusy ? 'Importing…' : 'Import bulk JSON'}
+          </button>
+        </div>
+        {importResult && (
+          <div className="border border-border rounded-lg p-3 bg-bg-tertiary/50 space-y-1">
+            <div className="text-xs text-text-muted">
+              {importResult.succeeded} of {importResult.total} imported
+            </div>
+            {importResult.results.map((r, i) => (
+              <div key={i} className={`text-[11px] flex items-center gap-2 ${r.ok ? 'text-text-secondary' : 'text-red-400'}`}>
+                <span>{r.ok ? '✓' : '✗'}</span>
+                <span className="font-medium">{r.name}</span>
+                {r.error && <span className="text-text-muted truncate">— {r.error}</span>}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

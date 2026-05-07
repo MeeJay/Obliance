@@ -186,9 +186,23 @@ export const maintenanceService = {
     return rows.map(rowToWindow);
   },
 
+  /** UNSAFE without tenant scope. Used internally (e.g. cron tick that
+   *  resolves the next scheduled window). HTTP route handlers MUST gate
+   *  on `window.tenantId === req.tenantId || isMasterTenant(req.tenantId)`
+   *  before exposing the row. */
   async getById(id: number): Promise<MaintenanceWindow | null> {
     const row = await db<MaintenanceWindowRow>('maintenance_windows').where({ id }).first();
     return row ? rowToWindow(row) : null;
+  },
+
+  /** Tenant-scoped variant — preferred for HTTP handlers. Returns null
+   *  unless the row exists AND belongs to the calling tenant (or master). */
+  async getByIdScoped(id: number, tenantId: number): Promise<MaintenanceWindow | null> {
+    const row = await db<MaintenanceWindowRow>('maintenance_windows').where({ id }).first();
+    if (!row) return null;
+    const win = rowToWindow(row);
+    if (tenantId !== 1 && win.tenantId !== tenantId) return null;
+    return win;
   },
 
   async create(data: {

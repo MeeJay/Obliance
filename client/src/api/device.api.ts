@@ -87,6 +87,11 @@ export const deviceApi = {
     osVersion?: string;
     /** Restrict to devices carrying ANY of these tags (OR semantics). */
     tags?: string[];
+    /** Master-only: narrow the god view to a tenant subset. The DeviceTable
+     *  tenant chips wire this so the master admin can focus on one
+     *  customer without leaving the cross-tenant view. Server drops
+     *  the param when the caller isn't master. */
+    tenantIds?: number[];
   }): Promise<{ items: Device[]; total: number; page: number; pageSize: number }> {
     const res = await apiClient.get<ApiResponse<{ items: Device[]; total: number; page: number; pageSize: number }>>('/devices', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 100 };
