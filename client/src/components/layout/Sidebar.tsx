@@ -332,6 +332,15 @@ export function Sidebar() {
   const [showDevices, setShowDevices] = usePersisted<boolean>('sidebar-show-devices', true);
   const [splitPercent, setSplitPercent] = usePersisted<number>('sidebar-split-percent', 50);
   const [adminMenuOpen, setAdminMenuOpen] = usePersisted<boolean>('sidebar:admin-open', true);
+  // Per-tenant collapse state for the master/god view buckets. We share
+  // the same localStorage key as the /devices GroupSidePanel + the
+  // DeviceTable so collapsing "Pimkie" once folds it everywhere — one
+  // mental model for "this tenant is currently not interesting".
+  const [collapsedTenants, setCollapsedTenants] = usePersisted<number[]>('obliance:groupPanelCollapsedTenants', []);
+  const isTenantCollapsed = (id: number) => collapsedTenants.includes(id);
+  const toggleTenantCollapsed = (id: number) => {
+    setCollapsedTenants((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
   const splitContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Device & group state ────────────────────────────────────────────────────
@@ -594,30 +603,45 @@ export function Sidebar() {
     const filteredBucketUngrouped = search
       ? bucket.ungrouped.filter(d => deviceMatchesSearch(d, search))
       : bucket.ungrouped;
+    const collapsed = isTenantCollapsed(bucket.id);
+    // While the user is searching we ignore the per-tenant collapse —
+    // otherwise typing a query would silently filter rows out of view
+    // because their tenant happens to be folded.
+    const showChildren = !collapsed || !!search;
     return (
       <div key={bucket.id} className="mt-2">
-        <div className="px-2 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+        <button
+          type="button"
+          onClick={() => toggleTenantCollapsed(bucket.id)}
+          className="w-full px-2 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent hover:bg-accent/5 rounded"
+          title={collapsed ? `Expand ${bucket.name}` : `Collapse ${bucket.name}`}
+        >
+          {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
           <Building2 size={11} />
-          {bucket.name}
-        </div>
-        {bucket.groupTree.map((group) => (
-          <GroupRow
-            key={group.id}
-            group={group}
-            devices={devices}
-            searchQuery={search}
-            hideDeviceRows={hideDeviceRows}
-          />
-        ))}
-        {!hideDeviceRows && filteredBucketUngrouped.length > 0 && (
-          <DroppableGroupHeader groupId={null}>
-            <div className="px-2 py-0.5 pl-4 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
-              Ungrouped
-            </div>
-            {filteredBucketUngrouped.map(device => (
-              <DraggableDeviceItem key={device.id} device={device} />
+          <span className="truncate">{bucket.name}</span>
+        </button>
+        {showChildren && (
+          <>
+            {bucket.groupTree.map((group) => (
+              <GroupRow
+                key={group.id}
+                group={group}
+                devices={devices}
+                searchQuery={search}
+                hideDeviceRows={hideDeviceRows}
+              />
             ))}
-          </DroppableGroupHeader>
+            {!hideDeviceRows && filteredBucketUngrouped.length > 0 && (
+              <DroppableGroupHeader groupId={null}>
+                <div className="px-2 py-0.5 pl-4 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
+                  Ungrouped
+                </div>
+                {filteredBucketUngrouped.map(device => (
+                  <DraggableDeviceItem key={device.id} device={device} />
+                ))}
+              </DroppableGroupHeader>
+            )}
+          </>
         )}
       </div>
     );
