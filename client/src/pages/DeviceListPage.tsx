@@ -13,14 +13,24 @@ export function DeviceListPage() {
   const staleParam = searchParams.get('stale');
   const initialStaleHours = staleParam ? parseInt(staleParam, 10) : undefined;
   const initialPendingUpdates = searchParams.get('pendingUpdates') === '1';
+  // Sidebar admin "Agents" deep-links to /devices?approvalStatus=pending
+  // so the page lands directly on the enrolment queue.
+  const initialApprovalFilter = searchParams.get('approvalStatus') || undefined;
 
+  // We render the "admin" shell for everyone now — the destructive
+  // actions (delete / uninstall / transfer / approval-state filters)
+  // are role-gated inside DeviceTable + DeviceRow + DeviceDetailPage,
+  // not gated by `mode`. /admin/devices keeps a separate hub for the
+  // pure-admin tabs (API keys / custom sections / discovery) but no
+  // longer hosts a duplicate device list.
   return (
     <DevicesPageLayout
-      mode="monitoring"
+      mode="admin"
       initialStatusFilter={statusFilter}
       initialOsFilter={osFilter}
       initialStaleHours={initialStaleHours}
       initialPendingUpdates={initialPendingUpdates}
+      initialApprovalFilter={initialApprovalFilter}
       initialGroupId={initialGroupId}
       onGroupChange={(gid) => {
         setSearchParams((prev) => {

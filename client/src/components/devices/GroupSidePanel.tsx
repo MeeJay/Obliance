@@ -630,7 +630,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     return (
       <div
         className={clsx(
-          'flex w-10 shrink-0 flex-col items-center border-r border-border bg-bg-secondary pt-3',
+          'flex h-full w-10 shrink-0 flex-col items-center border-r border-border bg-bg-secondary pt-3',
           className,
         )}
       >
@@ -651,7 +651,12 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
       <div
         style={{ width: `${width}px` }}
         className={clsx(
-          'relative flex shrink-0 flex-col border-r border-border bg-bg-secondary',
+          // h-full so the panel always spans the parent's full height
+          // (the page layout). Without it, the flex column would shrink
+          // to its content's height while the tree is still loading,
+          // and "snap" to full height after the API call resolved —
+          // visually the sidebar would briefly look like a short box.
+          'relative flex h-full shrink-0 flex-col border-r border-border bg-bg-secondary',
           className,
         )}
       >

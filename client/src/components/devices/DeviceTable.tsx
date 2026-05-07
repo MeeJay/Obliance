@@ -44,12 +44,16 @@ interface DeviceTableProps {
   /** Initial "only devices with pending updates" filter — from the URL
    *  ?pendingUpdates=1 dashboard click-through. */
   initialPendingUpdates?: boolean;
+  /** Initial approval filter — admin sidebar deep-links here with
+   *  ?approvalStatus=pending so the page lands on the approval queue. */
+  initialApprovalFilter?: string;
   groupId?: number | null;
   onGroupChange?: (id: number | null) => void;
 }
 
 export function DeviceTable({
   mode, initialStatusFilter, initialOsFilter, initialStaleHours, initialPendingUpdates,
+  initialApprovalFilter,
   groupId: externalGroupId, onGroupChange,
 }: DeviceTableProps) {
   const { t } = useTranslation();
@@ -96,6 +100,18 @@ export function DeviceTable({
   // the choice survives reloads. Toggling a checkbox in the popover writes
   // through immediately (no Save button).
   const [visibleFields, setVisibleFields] = useState<Set<string>>(() => loadVisibleFields());
+  // Master view forces the `tenant` column visible so a flat-paginated
+  // list of "all devices" stays decipherable — without it, every row
+  // would just say "PC-…", and an admin couldn't tell which child
+  // tenant owns the row at a glance. Non-master views respect the
+  // user's persisted choice (tenant column is irrelevant there).
+  const visibleFieldsForMaster = useMemo(() => {
+    if (!isMaster) return visibleFields;
+    if (visibleFields.has('tenant')) return visibleFields;
+    const next = new Set(visibleFields);
+    next.add('tenant');
+    return next;
+  }, [visibleFields, isMaster]);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const toggleColumn = (key: string) => {
     setVisibleFields((prev) => {
@@ -110,7 +126,15 @@ export function DeviceTable({
     saveVisibleFields(def);
     setVisibleFields(def);
   };
-  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(mode === 'admin' ? '' : 'approved');
+  // Approval filter — admins land on the unfiltered list (so they see
+  // pending/refused/suspended at a glance), regular users are pinned to
+  // the approved subset. Role-based, not mode-based, since /devices is
+  // now the single canonical page for both audiences. The URL param
+  // ?approvalStatus=pending overrides the default — used by the
+  // sidebar admin deep-link "Agents".
+  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(
+    (initialApprovalFilter as ApprovalFilter | undefined) ?? (isAdmin() ? '' : 'approved'),
+  );
   // Default = no explicit sort → enrolment order, tree-grouped. Clicking a
   // column cycles asc → desc → back to default (empty).
   const [sortBy, setSortBy] = useState<SortField>('');
@@ -244,10 +268,19 @@ export function DeviceTable({
   // sort (Name asc/desc, CPU, RAM, Status, …) breaks the drawer metaphor
   // because devices end up ordered across groups — we switch to the flat
   // list with infinite scroll so the ordering holds across the whole fleet.
+  //
+  // Master-tenant exception: when the admin is on the master tenant AND
+  // hasn't picked a group, tree mode would have to fetch every device
+  // of every child tenant in one shot (TREE_MAX=2000) and render an
+  // unvirtualised tree of thousands of rows — locks the browser. We
+  // fall back to flat pagination (100/page, infinite scroll) at the
+  // root level; selecting a specific group / tenant chip / etc.
+  // narrows the scope and unlocks the tree view again.
   const treeViewActive =
     !debouncedSearch.trim() &&
     !ungroupedOnly &&
-    sortBy === '';
+    sortBy === '' &&
+    !(isMaster && groupId == null && tenantFilters.size === 0);
   const TREE_MAX = 2000;
 
   // Flat mode uses cumulative fetches: every scroll-triggered append
@@ -259,38 +292,7 @@ export function DeviceTable({
   const [appending, setAppending] = useState(false);
   const FLAT_PAGE_SIZE = 100;
 
-  // Master "All Devices" guard — when the admin lands on /devices
-  // without any narrowing filter, listing every row from every tenant
-  // would render thousands of unvirtualised rows and lock the browser.
-  // We skip the fetch and rely on a placeholder hint that asks the
-  // admin to either pick a tenant chip, expand a tenant in the sidebar
-  // and click a group, or type a search. Once any of those filters is
-  // set, the fetch unblocks normally.
-  const masterAllDevicesEmpty =
-    isMaster &&
-    treeViewActive &&
-    tenantFilters.size === 0 &&
-    groupId == null &&
-    !debouncedSearch.trim() &&
-    statusFilters.size === 0 &&
-    osFilters.size === 0 &&
-    !approvalFilter &&
-    !staleHours &&
-    !pendingUpdatesOnly &&
-    tagFilters.size === 0;
-
   const load = useCallback(async (reset: boolean) => {
-    if (masterAllDevicesEmpty) {
-      // Don't hit the server. Reset the local table so a stale list from
-      // a previous filter doesn't leak into the empty state.
-      setDevices([]);
-      setTotal(0);
-      setHasMore(false);
-      setIsLoading(false);
-      setAppending(false);
-      loadedPagesRef.current = 1;
-      return;
-    }
     const pageToFetch = reset ? 1 : loadedPagesRef.current + 1;
     const size = treeViewActive ? TREE_MAX : FLAT_PAGE_SIZE;
     if (reset) { setIsLoading(true); loadedPagesRef.current = 1; }
@@ -335,7 +337,7 @@ export function DeviceTable({
       if (reset) setIsLoading(false);
       else setAppending(false);
     }
-  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, tenantFilters, isMaster, masterAllDevicesEmpty, t]);
+  }, [debouncedSearch, statusFilters, osFilters, osNameFilter, osVersionFilter, groupId, ungroupedOnly, approvalFilter, treeViewActive, sortBy, sortOrder, staleHours, pendingUpdatesOnly, tagFilters, tenantFilters, isMaster, t]);
 
   // Sync URL-driven filters when the parent prop changes (e.g. user clicks
   // a different dashboard hero card while /devices is already mounted —
@@ -543,8 +545,11 @@ export function DeviceTable({
 
   return (
     <div className="space-y-3">
-      {/* Approval quick filters (admin mode) */}
-      {mode === 'admin' && (
+      {/* Approval quick filters — admin only. Regular users are pinned
+          to the "approved" subset so the UI doesn't tease access to
+          pending / refused / suspended devices that only an admin can
+          act on (approve, refuse, suspend). */}
+      {isAdmin() && (
         <div className="flex items-center gap-2 flex-wrap mb-3">
           {([
             { key: '' as ApprovalFilter, label: t('devices.filters.all'), count: counts.all },
@@ -853,7 +858,7 @@ export function DeviceTable({
             </button>
             {batchMenuOpen && (
               <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden min-w-[180px]">
-                {mode === 'admin' && approvalFilter === 'pending' && (
+                {isAdmin() && approvalFilter === 'pending' && (
                   <button onClick={() => handleBatchAction('approve')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
                     <ShieldCheck className="w-3.5 h-3.5 text-green-400" /> {t('devices.batch.approve')}
                   </button>
@@ -885,14 +890,21 @@ export function DeviceTable({
                   <FolderOpen className="w-3.5 h-3.5 text-accent" />
                   {t('devices.batch.changeGroup', 'Change group')}
                 </button>
-                <button
-                  onClick={() => { setBatchMenuOpen(false); setTransferOpen(true); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
-                >
-                  <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
-                  {t('devices.batch.transferTenant', 'Transfer to another tenant')}
-                </button>
-                {mode === 'admin' && (<>
+                {/* Tenant transfer is structurally an admin action: it
+                    moves a device row's tenant_id, which only the
+                    master-tenant god view can resolve cross-tenant
+                    references for. Users never see the foreign tenant
+                    they'd transfer TO, so leave this admin-only. */}
+                {isAdmin() && (
+                  <button
+                    onClick={() => { setBatchMenuOpen(false); setTransferOpen(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
+                    {t('devices.batch.transferTenant', 'Transfer to another tenant')}
+                  </button>
+                )}
+                {isAdmin() && (<>
                   <div className="border-t border-border" />
                   <button onClick={() => handleBatchAction('delete')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
                     <Trash2 className="w-3.5 h-3.5" /> {t('devices.batch.delete')}
@@ -915,21 +927,6 @@ export function DeviceTable({
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
           <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
-        </div>
-      ) : masterAllDevicesEmpty ? (
-        // Master "All Devices" landing — we deliberately don't fetch
-        // every device of every tenant by default (would lock the
-        // browser on installs with 5+ child tenants × 1k+ devices).
-        // Tell the admin how to drill in: tenant chip, sidebar tenant
-        // bucket, group, or search.
-        <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
-          <Building2 className="w-8 h-8 mx-auto mb-3 text-accent/60" />
-          <p className="font-medium text-text-primary mb-1">
-            {t('devices.masterEmpty.title') || 'God view — pick a tenant or search'}
-          </p>
-          <p className="text-xs">
-            {t('devices.masterEmpty.hint') || 'To keep the page fast, the master tenant doesn\u2019t list every device upfront. Click a tenant chip above, expand a tenant in the sidebar, pick a group, or use the search bar.'}
-          </p>
         </div>
       ) : devices.length === 0 ? (
         <div className="p-12 text-center text-text-muted bg-bg-secondary border border-border rounded-xl">
@@ -981,7 +978,7 @@ export function DeviceTable({
               onNavigate={id => navigate(`/devices/${id}`)}
               onGroupChange={onGroupChange}
               selectionMode={selectionMode}
-              visibleFields={visibleFields}
+              visibleFields={visibleFieldsForMaster}
               isMaster={isMaster}
               collapsedTenantIds={collapsedTenantIds}
               onToggleTenant={toggleTenantCollapsed}
@@ -1422,7 +1419,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
-            visibleFields={visibleFields}
+            visibleFields={visibleFieldsForMaster}
           />
         ))}
       </>
@@ -1447,7 +1444,7 @@ function DeviceListBody({
             isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
             onNavigate={onNavigate} onGroupClick={onGroupChange}
             selectionMode={selectionMode}
-            visibleFields={visibleFields}
+            visibleFields={visibleFieldsForMaster}
           />
         ))}
       </>
@@ -1518,7 +1515,7 @@ function DeviceListBody({
                           isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
                           onNavigate={onNavigate} onGroupClick={onGroupChange}
                           selectionMode={selectionMode}
-                          visibleFields={visibleFields}
+                          visibleFields={visibleFieldsForMaster}
                         />
                       ))}
                     </div>
@@ -1550,7 +1547,7 @@ function DeviceListBody({
               isSelected={selectedIds.has(device.id)} onSelect={toggleSelect}
               onNavigate={onNavigate} onGroupClick={onGroupChange}
               selectionMode={selectionMode}
-              visibleFields={visibleFields}
+              visibleFields={visibleFieldsForMaster}
             />
           ))}
         </div>

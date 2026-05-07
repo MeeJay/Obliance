@@ -5,6 +5,7 @@ import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '@/store/authStore';
 import { anonymize, anonymizeIp } from '@/utils/anonymize';
 import { shortenOsName } from '@/utils/osLabel';
 
@@ -81,6 +82,7 @@ export const DeviceRow = memo(function DeviceRow({
   visibleFields,
 }: DeviceRowProps) {
   const { t } = useTranslation();
+  const { isAdmin } = useAuthStore();
   // When the parent doesn't pass a visibleFields set, fall back to "show
   // everything that was visible before D.1 landed" so legacy callers keep
   // their previous look.
@@ -111,7 +113,15 @@ export const DeviceRow = memo(function DeviceRow({
     device.osArch,
   ].filter(Boolean).join(' ');
 
-  const showCheckbox = selectionMode || mode === 'admin';
+  // Checkbox shows whenever the user has bulk-action capability:
+  // explicit selection mode (any role can pick rows), or admin role
+  // (so they always get the persistent column for batch admin
+  // actions). `mode` is no longer used as a gate — both /devices and
+  // /admin/devices route through the same role-gated table.
+  const showCheckbox = selectionMode || isAdmin();
+  // Reference `mode` to keep the prop alive for future cosmetic
+  // tweaks without TypeScript complaining about an unused arg.
+  void mode;
   const line2Offset = showCheckbox ? 'pl-[68px]' : 'pl-[40px]';
 
   const handleCheckbox = (e: MouseEvent) => {

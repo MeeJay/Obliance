@@ -9,12 +9,15 @@ interface DevicesPageLayoutProps {
   initialStaleHours?: number;
   initialPendingUpdates?: boolean;
   initialGroupId?: number | null;
+  /** ApprovalStatus to land on (admin shortcut from the sidebar's
+   *  "Agents" entry which deep-links to the pending bucket). */
+  initialApprovalFilter?: string;
   onGroupChange?: (groupId: number | null) => void;
 }
 
 export function DevicesPageLayout({
   mode, initialStatusFilter, initialOsFilter, initialStaleHours, initialPendingUpdates,
-  initialGroupId = null, onGroupChange,
+  initialApprovalFilter, initialGroupId = null, onGroupChange,
 }: DevicesPageLayoutProps) {
   const [groupId, setGroupId] = useState<number | null>(initialGroupId);
 
@@ -42,6 +45,7 @@ export function DevicesPageLayout({
           initialOsFilter={initialOsFilter}
           initialStaleHours={initialStaleHours}
           initialPendingUpdates={initialPendingUpdates}
+          initialApprovalFilter={initialApprovalFilter}
           groupId={groupId}
           onGroupChange={handleGroupChange}
         />

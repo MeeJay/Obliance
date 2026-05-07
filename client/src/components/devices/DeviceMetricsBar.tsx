@@ -58,12 +58,19 @@ export function DeviceMetricsBar({ metrics, compact = false }: Props) {
   // shared width is the smaller of: 22ch (the smartMountLabel hard cap)
   // OR the actual longest label, with a 3ch floor so a fleet of single-
   // letter Windows mounts still leaves room for the "CPU"/"RAM" labels.
+  //
+  // We pad the computed width by 1ch so the longest label doesn't sit
+  // edge-to-edge against the progress bar — when a device has only
+  // CPU + RAM rows the natural width would be exactly 3ch and the gap-2
+  // alone read too tight. The extra ch keeps a consistent visual
+  // breathing room with longer labels (`/boot/efi`, `C:\Users`) where
+  // the trailing whitespace already provided that breathing room.
   const visibleLabels: string[] = [];
   if (metrics.cpu != null) visibleLabels.push('CPU');
   if (metrics.memory != null) visibleLabels.push('RAM');
   for (const d of metrics.disks ?? []) visibleLabels.push(smartMountLabel(d.mount));
   const longest = visibleLabels.reduce((m, s) => Math.max(m, s.length), 3);
-  const labelWidth = `${Math.min(22, longest)}ch`;
+  const labelWidth = `${Math.min(23, longest + 1)}ch`;
 
   return (
     <div className="space-y-1.5">

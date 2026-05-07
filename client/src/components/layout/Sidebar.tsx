@@ -30,6 +30,7 @@ import {
   Laptop,
   ShieldCheck,
   Plus,
+  Key,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
@@ -545,7 +546,15 @@ export function Sidebar() {
   ];
 
   const adminNavItems: NavItem[] = [
-    { label: t('nav.agents'),        path: '/admin/devices',       icon: <Terminal size={18} /> },
+    // "Agents" admin entry now points at the canonical /devices page
+    // landing on the pending-approval bucket — that's the surface
+    // admins actually open from this menu (approve / refuse new
+    // enrolments). The general device list is reachable via the user
+    // nav above. "Configuration agents" is the new home for the
+    // surfaces that have no equivalent on /devices: API keys, custom
+    // sections, network discovery.
+    { label: t('nav.agents'),        path: '/devices?approvalStatus=pending', icon: <Terminal size={18} /> },
+    { label: t('nav.agentConfig', 'Agent config'), path: '/admin/devices', icon: <Key size={18} /> },
     { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
     { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
     { label: t('nav.security', 'Security'), path: '/admin/security', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount },

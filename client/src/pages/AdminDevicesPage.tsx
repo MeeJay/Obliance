@@ -3,25 +3,28 @@ import {
   Key, Plus, Trash2, Copy, ChevronRight, RefreshCw, FolderOpen, Edit, Wifi, TerminalSquare,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
-import { AddDeviceModal } from '@/components/devices/AddDeviceModal';
-import { DevicesPageLayout } from '@/components/devices/DevicesPageLayout';
 import { NetworkDiscoveryPage } from './NetworkDiscoveryPage';
 import { CustomSectionsPage } from './CustomSectionsPage';
 import type { AgentApiKey, DeviceGroupTreeNode } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'agents' | 'keys' | 'custom-sections' | 'discovery';
+// /admin/devices used to host the device list (Agents tab) too, but
+// that's now the canonical /devices page (with admin features
+// role-gated). What remains here is the admin agent-config hub: API
+// keys, custom sections, network discovery. The old `?tab=agents`
+// link redirects to /devices to keep external bookmarks working.
+type Tab = 'keys' | 'custom-sections' | 'discovery';
 
 export function AdminDevicesPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
-  const [tab, setTab] = useState<Tab>(['keys', 'custom-sections', 'discovery'].includes(rawTab ?? '') ? rawTab as Tab : 'agents');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const isLegacyAgentsTab = rawTab === 'agents';
+  const [tab, setTab] = useState<Tab>((['keys', 'custom-sections', 'discovery'] as const).includes(rawTab as any) ? rawTab as Tab : 'keys');
 
   // ── API Keys state ─────────────────────────────────────────────────────────
   const [keys, setKeys] = useState<AgentApiKey[]>([]);
@@ -102,6 +105,13 @@ export function AdminDevicesPage() {
   };
   const flatGroups = flattenGroups(groups);
 
+  // Hooks above; safe to early-return now. Legacy `?tab=agents` URLs
+  // (saved bookmarks, sidebar links from old releases) get bounced to
+  // the canonical /devices page where the agent list now lives.
+  if (isLegacyAgentsTab) {
+    return <Navigate to="/devices" replace />;
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -109,9 +119,10 @@ export function AdminDevicesPage() {
         <p className="text-sm text-text-muted mt-0.5">{t('agents.subtitle')}</p>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — three admin-only surfaces. The agent list itself is
+          on /devices (single canonical page, role-gated). */}
       <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-border">
-        {(['agents', 'keys', 'custom-sections', 'discovery'] as Tab[]).map((t2) => (
+        {(['keys', 'custom-sections', 'discovery'] as Tab[]).map((t2) => (
           <button
             key={t2}
             onClick={() => setTab(t2)}
@@ -122,17 +133,12 @@ export function AdminDevicesPage() {
           >
             {t2 === 'discovery' && <Wifi className="w-3.5 h-3.5" />}
             {t2 === 'custom-sections' && <TerminalSquare className="w-3.5 h-3.5" />}
-            {t2 === 'agents' ? t('agents.tabAgents')
-              : t2 === 'keys' ? t('devices.tabApiKeys')
+            {t2 === 'keys' ? t('devices.tabApiKeys')
               : t2 === 'custom-sections' ? (t('nav.customSections') || 'Custom sections')
               : (t('nav.discovery') || 'Discovery')}
           </button>
         ))}
       </div>
-
-      {/* Tab: Agents — group creation / drag-reorg / pencil-to-settings
-          live inside its sidebar; the old "Groups" tab was retired. */}
-      {tab === 'agents' && <DevicesPageLayout mode="admin" />}
 
       {/* Tab: API Keys */}
       {tab === 'keys' && (
@@ -274,8 +280,6 @@ export function AdminDevicesPage() {
 
       {/* Tab: Discovery */}
       {tab === 'discovery' && <NetworkDiscoveryPage embedded />}
-
-      {showAddModal && <AddDeviceModal onClose={() => setShowAddModal(false)} />}
     </div>
   );
 }
