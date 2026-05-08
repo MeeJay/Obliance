@@ -18,6 +18,10 @@ export async function agentAuth(req: Request, res: Response, next: NextFunction)
 
     const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
     if (!keyRow) throw new AppError(401, 'Invalid API key');
+    // Revocation flag (migration 089) — admin disabled the key. We
+    // treat `is_active=false` as "key doesn't exist" to avoid leaking
+    // the existence of valid-but-revoked keys to scanners.
+    if (keyRow.is_active === false) throw new AppError(401, 'Invalid API key');
 
     req.agentApiKeyId = keyRow.id;
     req.agentTenantId = keyRow.tenant_id;

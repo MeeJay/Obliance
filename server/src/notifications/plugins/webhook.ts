@@ -1,4 +1,5 @@
 import type { NotificationPlugin, NotificationPayload } from '../types';
+import { assertPublicHttpUrl } from '../../utils/ssrfGuard';
 
 export const webhookPlugin: NotificationPlugin = {
   type: 'webhook',
@@ -13,7 +14,11 @@ export const webhookPlugin: NotificationPlugin = {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (config.secret) headers['Authorization'] = String(config.secret);
 
-    const res = await fetch(String(config.url), {
+    // SSRF guard — prevent admins (or a compromised tenant) from
+    // pointing a webhook at internal infrastructure (Redis, Kubelet,
+    // 169.254.169.254 cloud metadata, etc).
+    const url = await assertPublicHttpUrl(String(config.url));
+    const res = await fetch(url.toString(), {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),

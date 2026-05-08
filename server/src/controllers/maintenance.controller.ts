@@ -1,7 +1,20 @@
 import type { Request, Response } from 'express';
 import { maintenanceService, isWindowActive } from '../services/maintenance.service';
 import type { CreateMaintenanceWindowRequest, UpdateMaintenanceWindowRequest, MaintenanceScopeType } from '@obliance/shared';
+import { isMasterTenant } from '@obliance/shared';
 import { db } from '../db';
+
+// Tenant ownership gate. `maintenanceService.getById` is intentionally
+// tenant-agnostic (background scheduler uses it cross-tenant), so any
+// request-handler exposing / mutating a window MUST run this check
+// first. 404 on cross-tenant — same shape as "doesn't exist" so a
+// foreign window's existence isn't leaked.
+async function loadOwnedWindow(id: number, req: Request): Promise<Awaited<ReturnType<typeof maintenanceService.getById>> | null> {
+  const w = await maintenanceService.getById(id);
+  if (!w) return null;
+  if (!isMasterTenant(req.tenantId) && w.tenantId !== req.tenantId) return null;
+  return w;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,7 +65,7 @@ export const maintenanceController = {
   async getById(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
-      const window = await maintenanceService.getById(id);
+      const window = await loadOwnedWindow(id, req);
       if (!window) return res.status(404).json({ success: false, error: 'Not found' });
       const enriched = await enrichWindow(window);
       return res.json({ success: true, data: enriched });
@@ -105,6 +118,8 @@ export const maintenanceController = {
   async update(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
+      const owned = await loadOwnedWindow(id, req);
+      if (!owned) return res.status(404).json({ success: false, error: 'Not found' });
       const body: UpdateMaintenanceWindowRequest = req.body;
 
       const updated = await maintenanceService.update(id, {
@@ -131,7 +146,7 @@ export const maintenanceController = {
   async delete(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
-      const existing = await maintenanceService.getById(id);
+      const existing = await loadOwnedWindow(id, req);
       if (!existing) return res.status(404).json({ success: false, error: 'Not found' });
       await maintenanceService.delete(id);
       return res.json({ success: true });
@@ -199,8 +214,17 @@ export const maintenanceController = {
         return res.status(400).json({ success: false, error: 'scopeType must be group or device' });
       }
 
-      const existing = await maintenanceService.getById(windowId);
+      const existing = await loadOwnedWindow(windowId, req);
       if (!existing) return res.status(404).json({ success: false, error: 'Maintenance window not found' });
+      // Validate the SCOPE side too — caller must own the group /
+      // device they're trying to disable the inherited window on.
+      // Without this, a tenant admin could disable a global window's
+      // effect on another tenant's group. (Reads against a foreign
+      // tenant's group fall through 404 because the WHERE clause
+      // misses.)
+      if (!await scopeBelongsToCallerTenant(scopeType, Number(scopeId), req)) {
+        return res.status(404).json({ success: false, error: 'Scope not found' });
+      }
 
       await maintenanceService.disableWindowForScope(windowId, scopeType, Number(scopeId));
       return res.json({ success: true });
@@ -227,6 +251,12 @@ export const maintenanceController = {
         return res.status(400).json({ success: false, error: 'scopeType must be group or device' });
       }
 
+      const existing = await loadOwnedWindow(windowId, req);
+      if (!existing) return res.status(404).json({ success: false, error: 'Maintenance window not found' });
+      if (!await scopeBelongsToCallerTenant(scopeType, Number(scopeId), req)) {
+        return res.status(404).json({ success: false, error: 'Scope not found' });
+      }
+
       await maintenanceService.enableWindowForScope(windowId, scopeType, Number(scopeId));
       return res.json({ success: true });
     } catch (err) {
@@ -235,3 +265,10 @@ export const maintenanceController = {
     }
   },
 };
+
+async function scopeBelongsToCallerTenant(scopeType: 'group' | 'device', scopeId: number, req: Request): Promise<boolean> {
+  if (isMasterTenant(req.tenantId)) return true; // god view sees all
+  const table = scopeType === 'group' ? 'device_groups' : 'devices';
+  const row = await db(table).where({ id: scopeId }).first('tenant_id') as { tenant_id: number } | undefined;
+  return !!row && row.tenant_id === req.tenantId;
+}

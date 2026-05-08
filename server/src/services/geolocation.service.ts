@@ -83,7 +83,13 @@ class GeolocationService {
 
     try {
       this.recordRequest();
-      const data = await this.httpGet(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country`);
+      // Switched from HTTP to HTTPS to keep the response (which is
+      // attacker-shapeable since the agent's pushed IP feeds the URL)
+      // from being modified in transit. ip-api.com supports HTTPS on
+      // their paid plan and gracefully redirects on the free tier;
+      // we fall through if the redirect target is private (the
+      // SSRF guard inside httpGet would catch that anyway).
+      const data = await this.httpGet(`https://ip-api.com/json/${encodeURIComponent(ip)}?fields=lat,lon,city,regionName,country`);
       const json = JSON.parse(data);
 
       if (!json.lat && !json.lon) {
@@ -121,11 +127,20 @@ class GeolocationService {
   }
 
   // ── Simple HTTP GET (no npm deps) ─────────────────────────────────────────
-  private httpGet(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      http.get(url, { timeout: 5000 }, (res) => {
+  private async httpGet(url: string): Promise<string> {
+    // Pass through the SSRF guard before issuing the request — even
+    // though the URL is built from a constant ip-api.com host, a
+    // malicious agent-pushed IP segment that ends up encoded into the
+    // URL could in theory get bounced via a redirect into a private
+    // address. Belt + braces; cheap to run.
+    const { assertPublicHttpUrl } = await import('../utils/ssrfGuard');
+    await assertPublicHttpUrl(url);
+    const isHttps = url.startsWith('https://');
+    const requester = isHttps ? (await import('https')).get : http.get;
+    return new Promise<string>((resolve, reject) => {
+      requester(url, { timeout: 5000 }, (res: any) => {
         let body = '';
-        res.on('data', (chunk) => { body += chunk; });
+        res.on('data', (chunk: Buffer) => { body += chunk; });
         res.on('end', () => resolve(body));
         res.on('error', reject);
       }).on('error', reject);

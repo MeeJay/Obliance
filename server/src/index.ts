@@ -91,7 +91,7 @@ async function main() {
             return;
           }
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
-          if (!keyRow) {
+          if (!keyRow || keyRow.is_active === false) {
             ws.close(4003, 'Invalid API key');
             return;
           }
@@ -122,11 +122,24 @@ async function main() {
           // is_active may be NULL on older keys; requiring true would silently block WS while
           // HTTP push (which uses agentAuth) succeeds — causing the agent to reconnect every 10s.
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
-          if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
+          if (!keyRow || keyRow.is_active === false) { ws.close(4003, 'Invalid API key'); return; }
           const deviceUuid = request.headers['x-device-uuid'] as string | undefined;
           let device = deviceUuid
             ? await db('devices').where({ uuid: deviceUuid, tenant_id: keyRow.tenant_id }).first()
             : await db('devices').where({ api_key_id: keyRow.id }).first();
+
+          // SECURITY: if a device row exists but was registered with a
+          // DIFFERENT api_key_id, the agent is presenting a UUID it
+          // doesn't own. Treat as auth failure rather than silently
+          // letting a foreign key claim the device. (The previous
+          // behaviour would have re-attached the device to whichever
+          // key talked to it last — an attacker who knew a target
+          // device's UUID + had any valid API key in the same tenant
+          // could intercept its command channel.)
+          if (device && device.api_key_id != null && device.api_key_id !== keyRow.id) {
+            ws.close(4003, 'Device/API-key mismatch');
+            return;
+          }
 
           // No device row yet — this can happen if the WS channel reaches the
           // server before the first HTTP push (fresh install, flaky HTTP, HTTPS
@@ -171,7 +184,7 @@ async function main() {
           if (!devUuid) { ws.close(4000, 'Missing uuid query param'); return; }
           // No is_active check — matches agentAuth middleware (is_active may be NULL on older keys).
           const keyRow = await db('agent_api_keys').where({ key: apiKey }).first();
-          if (!keyRow) { ws.close(4003, 'Invalid API key'); return; }
+          if (!keyRow || keyRow.is_active === false) { ws.close(4003, 'Invalid API key'); return; }
           await oblireachHub.register(devUuid, keyRow.tenant_id, ws);
         } catch (err) {
           logger.error(err, 'ObliReach command channel setup error');
@@ -290,25 +303,39 @@ async function main() {
 
 async function ensureDefaultAdmin() {
   const existing = await db('users').where({ username: config.defaultAdminUsername }).first();
-  if (!existing) {
-    const bcrypt = await import('bcryptjs');
-    const hash = await bcrypt.hash(config.defaultAdminPassword, 10);
-    const [user] = await db('users').insert({
-      username: config.defaultAdminUsername,
-      password_hash: hash,
-      display_name: 'Administrator',
-      role: 'admin',
-      is_active: true,
-    }).returning('id');
-    const userId = user?.id ?? user;
-    // Ensure default tenant exists
-    let tenant = await db('tenants').where({ id: 1 }).first();
-    if (!tenant) {
-      [tenant] = await db('tenants').insert({ name: 'Default', slug: 'default' }).returning('*');
-    }
-    await db('user_tenants').insert({ user_id: userId, tenant_id: 1, role: 'admin' }).onConflict(['user_id','tenant_id']).ignore();
-    logger.info({ username: config.defaultAdminUsername }, 'Default admin created');
+  if (existing) return;
+
+  // SECURITY: refuse to bootstrap with the canonical "admin / admin123"
+  // pair. A first install MUST supply DEFAULT_ADMIN_PASSWORD via env;
+  // otherwise we fail loud rather than create a publicly-known
+  // backdoor account. Once an admin exists this function returns
+  // early (above) so the env var is only checked on a fresh DB.
+  const isWeakDefaultPassword = config.defaultAdminPassword === 'admin123' || config.defaultAdminPassword.length < 12;
+  if (isWeakDefaultPassword) {
+    logger.fatal(
+      'Refusing to create the default admin with the built-in password. ' +
+      'Set DEFAULT_ADMIN_PASSWORD to a value of at least 12 characters before starting the server.',
+    );
+    process.exit(1);
   }
+
+  const bcrypt = await import('bcryptjs');
+  const hash = await bcrypt.hash(config.defaultAdminPassword, 12);
+  const [user] = await db('users').insert({
+    username: config.defaultAdminUsername,
+    password_hash: hash,
+    display_name: 'Administrator',
+    role: 'admin',
+    is_active: true,
+  }).returning('id');
+  const userId = user?.id ?? user;
+  // Ensure default tenant exists
+  let tenant = await db('tenants').where({ id: 1 }).first();
+  if (!tenant) {
+    [tenant] = await db('tenants').insert({ name: 'Default', slug: 'default' }).returning('*');
+  }
+  await db('user_tenants').insert({ user_id: userId, tenant_id: 1, role: 'admin' }).onConflict(['user_id','tenant_id']).ignore();
+  logger.info({ username: config.defaultAdminUsername }, 'Default admin created');
 }
 
 main().catch((err) => {

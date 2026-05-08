@@ -2,6 +2,30 @@ import type { NotificationPlugin, NotificationPayload } from '../types';
 import nodemailer from 'nodemailer';
 import { statusIcon } from '../statusIcons';
 
+// SECURITY: HTML-escape user-controlled strings before they land in the
+// email body. Device names / monitor names / arbitrary message text
+// are admin-editable AND originate from agents, so any of them can
+// contain `<script>` or attribute-breaking quotes. Without this, a
+// device renamed to `<img src=x onerror=…>` triggers in any mail
+// client that renders HTML on receipt.
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+// URLs end up in `href`. We allow http/https only and strip everything
+// else (including `javascript:`, `data:`, etc) → fall back to # to
+// keep the link clickable but inert.
+function safeHref(url: string): string {
+  const u = String(url).trim();
+  if (/^https?:\/\//i.test(u)) return escapeHtml(u);
+  return '#';
+}
+
 export const smtpPlugin: NotificationPlugin = {
   type: 'smtp',
   name: 'Email (SMTP)',
@@ -37,11 +61,11 @@ export const smtpPlugin: NotificationPlugin = {
         `Time: ${payload.timestamp}`,
       ].filter(Boolean).join('\n'),
       html: [
-        `<h2>${icon} ${payload.monitorName}</h2>`,
-        `<p><strong>Status:</strong> ${payload.oldStatus} → <strong>${payload.newStatus.toUpperCase()}</strong></p>`,
-        payload.message ? `<p>${payload.message}</p>` : '',
-        payload.monitorUrl ? `<p><a href="${payload.monitorUrl}">${payload.monitorUrl}</a></p>` : '',
-        `<p><small>${payload.timestamp}</small></p>`,
+        `<h2>${escapeHtml(icon)} ${escapeHtml(payload.monitorName)}</h2>`,
+        `<p><strong>Status:</strong> ${escapeHtml(payload.oldStatus)} → <strong>${escapeHtml(payload.newStatus.toUpperCase())}</strong></p>`,
+        payload.message ? `<p>${escapeHtml(payload.message)}</p>` : '',
+        payload.monitorUrl ? `<p><a href="${safeHref(payload.monitorUrl)}">${escapeHtml(payload.monitorUrl)}</a></p>` : '',
+        `<p><small>${escapeHtml(payload.timestamp)}</small></p>`,
       ].filter(Boolean).join('\n'),
     });
   },

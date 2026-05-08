@@ -114,7 +114,18 @@ export const smtpServerService = {
       auth: { user: row.username, pass: row.password },
     });
 
-    await transport.verify();
+    // SECURITY: catch the raw nodemailer error before bubbling it up
+    // — its `.message` can include the SMTP password (envelope info,
+    // verbose auth-failure output) which would then surface in the
+    // admin UI toast. We rewrap with a generic shape that retains
+    // the FAILURE category but drops the credentials.
+    try {
+      await transport.verify();
+    } catch (err) {
+      const code = (err as { code?: string; responseCode?: number })?.code
+        ?? String((err as { responseCode?: number })?.responseCode ?? 'UNKNOWN');
+      throw new Error(`SMTP test failed (${code}). Check host / port / TLS / credentials.`);
+    }
   },
 
   /** Build a nodemailer transport config from a server row */

@@ -49,12 +49,34 @@ export const profileController = {
         if (data.preferences === null || data.preferences === undefined) {
           updatePayload.preferences = null;
         } else {
-          // Merge with existing preferences so partial updates don't wipe other fields
+          // Merge with existing preferences so partial updates don't
+          // wipe other fields. Strip prototype-mutating keys before
+          // the spread to defuse any
+          // `{__proto__: {admin: true}}` payload — the merge target
+          // is a plain object, so a normal spread would otherwise
+          // attach to Object.prototype (Node treats `__proto__` as
+          // setter on plain objects).
+          const sanitise = (obj: any): Record<string, unknown> => {
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+            const out: Record<string, unknown> = Object.create(null);
+            for (const [k, v] of Object.entries(obj)) {
+              if (k === '__proto__' || k === 'prototype' || k === 'constructor') continue;
+              out[k] = v;
+            }
+            return out;
+          };
           const currentRow = await db('users').select('preferences').where({ id: req.session.userId }).first();
           const existing = currentRow?.preferences
             ? (typeof currentRow.preferences === 'string' ? JSON.parse(currentRow.preferences) : currentRow.preferences)
             : {};
-          updatePayload.preferences = JSON.stringify({ ...existing, ...data.preferences });
+          const merged = { ...sanitise(existing), ...sanitise(data.preferences) };
+          // Cap size: 100 KB is more than enough for user prefs and
+          // protects the row from being weaponised as DB bloat.
+          const json = JSON.stringify(merged);
+          if (json.length > 100_000) {
+            throw new AppError(400, 'Preferences payload exceeds 100 KB limit');
+          }
+          updatePayload.preferences = json;
         }
       }
       if ('email' in data) updatePayload.email = data.email || null;

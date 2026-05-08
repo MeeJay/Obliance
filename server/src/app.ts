@@ -80,6 +80,18 @@ export function createApp() {
     logger.error(err, 'Session store error — sessions may fail until DB connection recovers');
   });
 
+  // SECURITY: refuse to start with the canonical default secret in
+  // production. Sessions signed with `change-this-secret` are
+  // trivially forgeable by anyone who reads the open-source repo.
+  // Dev installs keep the friendly default; production must set
+  // SESSION_SECRET via env (≥ 32 chars).
+  if (config.nodeEnv === 'production') {
+    if (!config.sessionSecret || config.sessionSecret === 'change-this-secret' || config.sessionSecret.length < 32) {
+      logger.fatal('SESSION_SECRET must be set to a 32+ character random value in production. Refusing to start.');
+      process.exit(1);
+    }
+  }
+
   app.use(
     session({
       store: sessionStore,
@@ -87,7 +99,13 @@ export function createApp() {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: config.forceHttps,
+        // `secure` was previously tied only to FORCE_HTTPS, which
+        // meant a production install behind a TLS-terminating proxy
+        // (typical) could ship cookies in clear if the operator
+        // forgot the env flag. We now key off NODE_ENV: production →
+        // always require HTTPS; dev → still allow HTTP for local
+        // workflows.
+        secure: config.nodeEnv === 'production' ? true : config.forceHttps,
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000,
         sameSite: 'lax',

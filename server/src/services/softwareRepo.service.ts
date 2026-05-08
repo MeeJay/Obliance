@@ -46,12 +46,30 @@ class SoftwareRepoService {
       throw new Error(`File too large (${(file.buffer.length / 1024 / 1024).toFixed(0)} MB). Max: ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)} MB`);
     }
 
+    // SECURITY: sanitise the user-supplied filename before persisting.
+    // The DB-stored value ends up in `Content-Disposition: filename=…`
+    // on download, so unbounded UTF-8 + CR/LF + quotes lets an
+    // attacker:
+    //   - inject a CRLF and forge response headers
+    //   - inject `; filename*=UTF-8''…` confusable for an admin
+    //   - smuggle path traversal segments into a value an
+    //     unprotected file-serving middleware later trusts
+    // We strip any path component (`basename`), drop control chars
+    // and collapse anything that's not [\w.\- ] into `_`, then cap
+    // the length. The disk file itself uses `${uuid}${ext}` (already
+    // server-controlled), so the sanitisation here protects only the
+    // returned headers / API responses.
+    const safeFilename = path.basename(file.originalname)
+      .replace(/[\u0000-\u001f\u007f\r\n\t]/g, '')
+      .replace(/[^\w. \-]/g, '_')
+      .slice(0, 200) || `upload${ext}`;
+
     const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
 
     const [row] = await db('software_repo_packages').insert({
       tenant_id: tenantId,
-      filename: file.originalname,
-      display_name: displayName || file.originalname,
+      filename: safeFilename,
+      display_name: displayName || safeFilename,
       file_size: file.buffer.length,
       file_hash: hash,
       mime_type: file.mimetype,

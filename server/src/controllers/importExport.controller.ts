@@ -165,11 +165,41 @@ export const importExportController = {
         const bindings = await db('notification_bindings').orderBy('channel_id');
         const guMap    = await getGroupUuidMap();
 
+        // SECURITY: redact every secret-bearing field from the channel
+        // `config` blob before exporting. A scenarios-bundle export
+        // ends up shared via Slack / email / pasted into LLM prompts;
+        // exporting raw webhook URLs / API tokens / SMTP credentials
+        // is a data-leak time bomb. The importer treats the missing
+        // keys as "fill in on the destination tenant".
+        const SECRET_KEYS = new Set([
+          'webhook_url', 'webhookUrl', 'url',
+          'api_key', 'apiKey', 'token', 'access_token', 'bot_token',
+          'password', 'secret', 'auth_token', 'authorization',
+          'slack_webhook', 'discord_webhook', 'teams_webhook',
+        ]);
+        const redactConfig = (raw: unknown): Record<string, unknown> => {
+          const cfg = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : (raw ?? {});
+          if (!cfg || typeof cfg !== 'object') return {};
+          const out: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(cfg as Record<string, unknown>)) {
+            // Redact by exact key match OR by any key containing
+            // "secret"/"token"/"password"/"key" (defensive — catches
+            // future fields we haven't enumerated above).
+            const lower = k.toLowerCase();
+            const isSensitive = SECRET_KEYS.has(k)
+              || lower.includes('secret') || lower.includes('token')
+              || lower.includes('password') || lower.endsWith('key')
+              || lower.includes('webhook');
+            out[k] = isSensitive ? '__REDACTED__' : v;
+          }
+          return out;
+        };
+
         payload.notificationChannels = channels.map((c: any) => ({
           uuid:      c.uuid,
           name:      c.name,
           type:      c.type,
-          config:    c.config,
+          config:    redactConfig(c.config),
           isEnabled: c.is_enabled,
           bindings:  bindings
             .filter((b: any) => b.channel_id === c.id)

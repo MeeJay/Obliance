@@ -106,7 +106,22 @@ router.post('/templates/:index/instantiate', requireRole('admin'), async (req, r
       return res.status(404).json({ error: 'Template not found' });
     }
     const template = scenarioTemplates[index];
-    const variables = { ...template.variables, ...req.body.variables }; // user overrides
+    // SECURITY: only accept overrides for variable names the template
+    // explicitly declares. Without this whitelist, an attacker could
+    // smuggle extra keys (e.g. `bashCommand: "rm -rf /"`) into the
+    // variable dict and have them substituted into a script body.
+    // Variables also rejected if their values contain control / NUL
+    // bytes, which are pure mischief in a script template.
+    const requestedOverrides = (req.body.variables && typeof req.body.variables === 'object') ? req.body.variables as Record<string, unknown> : {};
+    const allowedKeys = new Set(Object.keys(template.variables ?? {}));
+    const sanitisedOverrides: Record<string, string> = {};
+    for (const [k, v] of Object.entries(requestedOverrides)) {
+      if (!allowedKeys.has(k)) continue;
+      if (typeof v !== 'string') continue;
+      if (/[\u0000-\u001f]/.test(v)) continue;
+      sanitisedOverrides[k] = v;
+    }
+    const variables = { ...template.variables, ...sanitisedOverrides };
 
     // Create scripts first, then create the scenario with steps referencing them
     const { db } = await import('../db');

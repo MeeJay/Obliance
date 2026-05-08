@@ -28,6 +28,14 @@ export const teamsController = {
       const id = parseInt(req.params.id, 10);
       const team = await teamService.getById(id);
       if (!team) throw new AppError(404, 'Team not found');
+      // Tenant ownership gate — `teamService.getById` is intentionally
+      // tenant-agnostic (background jobs read across tenants), so the
+      // controller MUST gate the response. Same 404 shape as
+      // "doesn't exist" so a sibling tenant's team's existence isn't
+      // leaked.
+      if (!isMasterTenant(req.tenantId) && team.tenantId !== req.tenantId) {
+        throw new AppError(404, 'Team not found');
+      }
 
       const [members, permissions] = await Promise.all([
         teamService.getMembers(id),

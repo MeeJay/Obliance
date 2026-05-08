@@ -32,12 +32,16 @@ export const authController = {
         // Step 1: store pending MFA, don't create real session yet
         req.session.pendingMfaUserId = user.id;
 
-        // If email OTP is enabled, auto-send a code
+        // If email OTP is enabled, auto-send a code. We store ONLY a
+        // SHA-256 hash of the code in the session — a session-store
+        // dump can't pre-empt the user typing the OTP from email.
         if (user.emailOtpEnabled && user.email) {
           const cfg = await appConfigService.getAll();
           if (cfg.otp_smtp_server_id) {
             const code = twoFactorService.generateEmailOtp();
-            req.session.pendingEmailOtp = { code, email: user.email, expires: Date.now() + 10 * 60 * 1000 };
+            const { createHash } = await import('crypto');
+            const codeHash = createHash('sha256').update(String(code)).digest('hex');
+            req.session.pendingEmailOtp = { codeHash, email: user.email, expires: Date.now() + 10 * 60 * 1000 };
             await twoFactorService.sendEmailOtp(Number(cfg.otp_smtp_server_id), user.email, code);
           }
         }

@@ -3,12 +3,28 @@ import { notificationService } from '../services/notification.service';
 import { deviceService } from '../services/device.service';
 import { getPluginMetas } from '../notifications/registry';
 import { AppError } from '../middleware/errorHandler';
+import { isMasterTenant } from '@obliance/shared';
 import type {
   CreateChannelInput,
   UpdateChannelInput,
   AddBindingInput,
   RemoveBindingInput,
 } from '../validators/notification.schema';
+
+// Tenant ownership gate for any operation on a notification channel.
+// `notificationService.getChannelById` is intentionally tenant-agnostic
+// (used by background jobs that fan out across tenants), so EVERY
+// request-handler that exposes / mutates a channel MUST run this check
+// first. A child tenant calling with an id owned by another tenant
+// gets a 404 — same shape as "doesn't exist", so we don't leak the
+// existence of foreign channels.
+async function assertChannelOwnership(channelId: number, req: Request): Promise<void> {
+  const channel = await notificationService.getChannelById(channelId);
+  if (!channel) throw new AppError(404, 'Channel not found');
+  if (!isMasterTenant(req.tenantId) && channel.tenantId !== req.tenantId) {
+    throw new AppError(404, 'Channel not found');
+  }
+}
 
 export const notificationsController = {
   // GET /api/notifications/plugins — list available plugin types
@@ -35,8 +51,8 @@ export const notificationsController = {
   async getChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      await assertChannelOwnership(id, req);
       const channel = await notificationService.getChannelById(id);
-      if (!channel) throw new AppError(404, 'Channel not found');
       res.json({ success: true, data: channel });
     } catch (err) {
       next(err);
@@ -65,6 +81,7 @@ export const notificationsController = {
   async updateChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      await assertChannelOwnership(id, req);
       const data = req.body as UpdateChannelInput;
       const channel = await notificationService.updateChannel(id, data);
       if (!channel) throw new AppError(404, 'Channel not found');
@@ -78,6 +95,7 @@ export const notificationsController = {
   async deleteChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      await assertChannelOwnership(id, req);
       const deleted = await notificationService.deleteChannel(id);
       if (!deleted) throw new AppError(404, 'Channel not found');
       res.json({ success: true, message: 'Channel deleted' });
@@ -90,10 +108,11 @@ export const notificationsController = {
   async testChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      await assertChannelOwnership(id, req);
       await notificationService.testChannel(id);
       res.json({ success: true, message: 'Test notification sent' });
     } catch (err: unknown) {
-      if (err instanceof Error) {
+      if (err instanceof Error && !(err instanceof AppError)) {
         next(new AppError(400, `Test failed: ${err.message}`));
       } else {
         next(err);
@@ -102,9 +121,14 @@ export const notificationsController = {
   },
 
   // GET /api/notifications/channels/:id/tenants — list tenant IDs the channel is shared to
+  // Sharing is a master-only concept (only the master tenant can fan
+  // a channel out to multiple tenants). A child tenant should never
+  // see this list, regardless of whether it owns the channel.
   async getChannelTenants(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      if (!isMasterTenant(req.tenantId)) throw new AppError(403, 'Channel sharing is master-tenant only');
+      await assertChannelOwnership(id, req);
       const tenantIds = await notificationService.getChannelTenants(id);
       res.json({ success: true, data: tenantIds });
     } catch (err) {
@@ -116,6 +140,8 @@ export const notificationsController = {
   async setChannelTenants(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+      if (!isMasterTenant(req.tenantId)) throw new AppError(403, 'Channel sharing is master-tenant only');
+      await assertChannelOwnership(id, req);
       const tenantIds: number[] = req.body.tenantIds ?? [];
       if (!Array.isArray(tenantIds)) {
         throw new AppError(400, 'tenantIds must be an array');
@@ -146,6 +172,16 @@ export const notificationsController = {
   async addBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as AddBindingInput;
+      // Bind the channel to a group/device — both ends must belong to
+      // the caller's tenant. Without the channel-ownership check a
+      // child-tenant admin could attach a foreign tenant's channel to
+      // their own group; without the scope check they could attach
+      // their channel to a foreign group/device. We don't recurse into
+      // the device/group ownership here because the existing routes
+      // for those (devices.routes / groups.routes) already filter to
+      // the caller's tenant — but the channel side is exposed via a
+      // tenant-agnostic service helper, so we gate it explicitly.
+      await assertChannelOwnership(data.channelId, req);
       const binding = await notificationService.addBinding(
         data.channelId,
         data.scope,
@@ -162,6 +198,7 @@ export const notificationsController = {
   async removeBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as RemoveBindingInput;
+      await assertChannelOwnership(data.channelId, req);
       const removed = await notificationService.removeBinding(data.channelId, data.scope, data.scopeId);
       res.json({ success: true, message: removed ? 'Binding removed' : 'Binding not found' });
     } catch (err) {

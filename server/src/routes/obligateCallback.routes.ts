@@ -36,8 +36,15 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     const existingUser = await db('users').where({ id: assertion.linkedLocalUserId }).first();
     if (existingUser) {
       localUserId = assertion.linkedLocalUserId;
+      // SECURITY: NEVER derive `users.role` (the platform-admin flag)
+      // from an Obligate assertion. The SSO IdP being compromised, or
+      // a token swap, would otherwise grant install-wide admin to an
+      // attacker. Platform admin is a strictly LOCAL concept — only a
+      // pre-existing local platform admin can promote a user via the
+      // /admin/users page. Tenant-level role (admin/member of a
+      // tenant) is still synced from Obligate below because it's
+      // scoped to one tenant and considered acceptable risk.
       await db('users').where({ id: localUserId }).update({
-        role: assertion.role === 'admin' ? 'admin' : 'user',
         email: assertion.email,
         display_name: assertion.displayName,
         updated_at: new Date(),
@@ -57,8 +64,9 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
       const existingUser = await db('users').where({ id: existingLink.local_user_id }).first();
       if (existingUser) {
         localUserId = existingLink.local_user_id;
+        // SECURITY: see comment above — `users.role` is intentionally
+        // NOT touched on SSO sync.
         await db('users').where({ id: localUserId }).update({
-          role: assertion.role === 'admin' ? 'admin' : 'user',
           email: assertion.email,
           display_name: assertion.displayName,
           updated_at: new Date(),
@@ -81,7 +89,12 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
         username: `og_${assertion.username}`,
         display_name: assertion.displayName || assertion.username,
         email: assertion.email,
-        role: assertion.role === 'admin' ? 'admin' : 'user',
+        // SECURITY: every freshly-provisioned SSO user lands as plain
+        // 'user'. Platform-admin promotion is a deliberate LOCAL act
+        // (a pre-existing local admin opens /admin/users and flips
+        // the role). Without this rule, owning the Obligate IdP would
+        // be enough to take over the entire install.
+        role: 'user',
         is_active: true,
         foreign_source: 'obligate',
         foreign_id: assertion.obligateUserId,
@@ -538,6 +551,31 @@ router.post('/sso-desktop-init', async (req, res) => {
       return;
     }
 
+    // SECURITY: the desktop SSO flow trusts a client-supplied callback
+    // URL — by design, because the desktop app rotates ports. But we
+    // restrict it to LOOPBACK targets (`127.0.0.1` / `[::1]` / literal
+    // `localhost`). Without this, a phishing prompt could ask the
+    // user to paste a remote URL, the OAuth code lands at the
+    // attacker's server, and any authenticated session that comes
+    // out of the flow is theirs.
+    let parsedCallback: URL;
+    try {
+      parsedCallback = new URL(localCallbackUrl);
+    } catch {
+      res.status(400).json({ success: false, error: 'Invalid localCallbackUrl' });
+      return;
+    }
+    if (parsedCallback.protocol !== 'http:' && parsedCallback.protocol !== 'https:') {
+      res.status(400).json({ success: false, error: 'localCallbackUrl must be http(s)' });
+      return;
+    }
+    const host = parsedCallback.hostname;
+    const isLoopback = host === '127.0.0.1' || host === '::1' || host === 'localhost';
+    if (!isLoopback) {
+      res.status(400).json({ success: false, error: 'localCallbackUrl must point at loopback (127.0.0.1 / ::1 / localhost)' });
+      return;
+    }
+
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) {
       res.status(503).json({ success: false, error: 'SSO not configured' });
@@ -664,9 +702,15 @@ router.post('/sso-user-sync', async (req, res) => {
         logger.info(`SSO sync: deleted user #${remoteUserId}`);
         break;
       case 'update-role':
-        if (role) {
-          await db('users').where({ id: remoteUserId }).update({ role: role === 'admin' ? 'admin' : 'user', updated_at: new Date() });
-          logger.info(`SSO sync: updated role of user #${remoteUserId} to ${role}`);
+        // SECURITY: SSO sync cannot promote to platform admin. We
+        // honour role demotion only — i.e. an SSO-driven role change
+        // can take privileges AWAY (admin → user) but never grant
+        // them. Promotion stays a strictly local act.
+        if (role && role !== 'admin') {
+          await db('users').where({ id: remoteUserId }).update({ role: 'user', updated_at: new Date() });
+          logger.info(`SSO sync: demoted user #${remoteUserId} to user`);
+        } else if (role === 'admin') {
+          logger.warn(`SSO sync: refused to promote user #${remoteUserId} to admin (must be done locally)`);
         }
         break;
     }
