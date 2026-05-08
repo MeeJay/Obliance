@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { AppConfigData, DeviceNotificationTypes, ObligateConfig } from '@obliance/shared';
+import type { AppConfigData, DeviceNotificationTypes, ObligateConfig, MetricThresholds } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -53,5 +53,18 @@ export const appConfigApi = {
   async setEditableExtensions(extensions: string[]): Promise<string[]> {
     const res = await apiClient.put<ApiResponse<{ extensions: string[] }>>('/admin/config/editable-extensions', { extensions });
     return res.data.data?.extensions ?? [];
+  },
+
+  // ── Global metric-threshold default (cascade layer 2) ────────────
+  // null = no global override set (resolver falls through to system).
+
+  async getGlobalThresholds(): Promise<MetricThresholds | null> {
+    const res = await apiClient.get<ApiResponse<{ thresholds: MetricThresholds | null }>>('/admin/config/global-thresholds');
+    return res.data.data?.thresholds ?? null;
+  },
+
+  async setGlobalThresholds(thresholds: MetricThresholds | null): Promise<MetricThresholds | null> {
+    const res = await apiClient.put<ApiResponse<{ thresholds: MetricThresholds | null }>>('/admin/config/global-thresholds', { thresholds });
+    return res.data.data?.thresholds ?? null;
   },
 };

@@ -41,6 +41,14 @@ router.put('/obligate', requireAuth, requireRole('admin'), gateSettingsWrite, ap
 router.get('/editable-extensions', requireAuth, appConfigController.getEditableExtensions);
 router.put('/editable-extensions', requireAuth, requireRole('admin'), gateSettingsWrite, appConfigController.setEditableExtensions);
 
+// Global metric-threshold default (cascade layer 2). Cross-tenant —
+// only the platform admin sitting on the master tenant can edit. Read
+// is admin-only because the response shape is for the editor; the
+// resolver inside threshold.service.ts reads it directly without
+// going through this endpoint.
+router.get('/global-thresholds', requireAuth, requireRole('admin'), appConfigController.getGlobalThresholds);
+router.put('/global-thresholds', requireAuth, requireRole('admin'), gateSettingsWrite, appConfigController.setGlobalThresholds);
+
 // Generic key setter — must be LAST among PUT routes
 router.put('/:key', requireAuth, requireRole('admin'), gateSettingsWrite, appConfigController.set);
 

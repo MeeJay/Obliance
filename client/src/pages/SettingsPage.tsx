@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X, Download, Upload, GitBranch } from 'lucide-react';
+import { Shield, Server, Plus, Pencil, Trash2, Wifi, Eye, EyeOff, ArrowLeftRight, Info, Cpu, HardDrive, Database, Clock, PackageOpen, FolderOpen, X, Download, Upload, GitBranch, Activity, Save, RotateCcw } from 'lucide-react';
 import { scenarioApi } from '@/api/scenario.api';
 import { ImportExportPage } from './ImportExportPage';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
+import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import { useAuthStore } from '@/store/authStore';
 import { smtpServerApi, type CreateSmtpServerRequest } from '@/api/smtpServer.api';
 import { appConfigApi } from '@/api/appConfig.api';
 import { systemApi, type SystemInfo } from '@/api/system.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { SmtpServer, AppConfigData, ObligateConfig } from '@obliance/shared';
+import type { SmtpServer, AppConfigData, ObligateConfig, MetricThresholds } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
@@ -297,6 +298,9 @@ export function SettingsPage() {
 
  {admin && (
  <>
+ {/* ── Global metric thresholds (cascade layer 2) ── */}
+ <GlobalThresholdsSection />
+
  {/* ── Quick Reply Templates ── */}
  <QuickReplyTemplatesSection />
 
@@ -891,4 +895,82 @@ function ScenariosBulkSection() {
  </div>
  </div>
  );
+}
+
+// ─── Global metric thresholds (cascade layer 2) ──────────────────────
+//
+// Platform-admin only. Sits between the hardcoded SYSTEM_DEFAULT and
+// every tenant's optional override. Empty draft = clear the row, the
+// resolver falls through to the system layer below. The editor
+// renders an empty `inheritedFrom` so the placeholders show the
+// hardcoded system defaults — there's no parent layer above this one.
+function GlobalThresholdsSection() {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<MetricThresholds>({});
+  const [initial, setInitial] = useState<MetricThresholds>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    appConfigApi.getGlobalThresholds()
+      .then((stored) => {
+        if (cancelled) return;
+        setDraft(stored ?? {});
+        setInitial(stored ?? {});
+      })
+      .catch(() => { if (!cancelled) toast.error(t('thresholds.failedLoad', 'Failed to load thresholds')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [t]);
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload = Object.keys(draft).length === 0 ? null : draft;
+      const next = await appConfigApi.setGlobalThresholds(payload);
+      setInitial(next ?? {});
+      setDraft(next ?? {});
+      toast.success(t('thresholds.saved', 'Seuils mis à jour'));
+    } catch {
+      toast.error(t('thresholds.failedSave', 'Échec de la mise à jour des seuils'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <Activity size={18} className="text-accent" />
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t('thresholds.globalTitle', 'Seuils métriques globaux')}
+        </h2>
+      </div>
+      <div className="rounded-lg bg-bg-secondary p-5">
+        {loading ? (
+          <p className="text-sm text-text-muted animate-pulse">{t('common.loading', 'Loading…')}</p>
+        ) : (
+          <>
+            <p className="text-xs text-text-muted mb-4 max-w-2xl">
+              {t('thresholds.globalHelp', "Défaut s'appliquant à TOUS les tenants. Chaque tenant peut surcharger via /policies → Seuils. Laisser un champ vide = utiliser le défaut système (placeholder en gris).")}
+            </p>
+            <ThresholdsEditor value={draft} onChange={setDraft} layer="group" />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDraft(initial)} disabled={!dirty || saving}>
+                <RotateCcw size={14} className="mr-1" />
+                {t('common.cancel', 'Annuler')}
+              </Button>
+              <Button onClick={save} loading={saving} disabled={!dirty}>
+                <Save size={14} className="mr-1" />
+                {t('common.save', 'Enregistrer')}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -184,7 +184,16 @@ class DeviceService {
         q = q.where({ 'devices.group_id': filters.groupId });
       }
     }
-    if (filters?.status) q = q.where({ 'devices.status': filters.status });
+    if (filters?.status === 'connected') {
+      // Virtual status used by the dashboard "En ligne" KPI link —
+      // expands to every status that means "the agent is reachable
+      // right now" (online / warning / critical / updating). Keeps
+      // the URL ?status=connected human-friendly without burning a
+      // dedicated multi-value query parameter convention.
+      q = q.whereIn('devices.status', ['online', 'warning', 'critical', 'updating']);
+    } else if (filters?.status) {
+      q = q.where({ 'devices.status': filters.status });
+    }
     if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
     if (filters?.osName) q = q.where({ 'devices.os_name': filters.osName });
     if (filters?.osVersion) q = q.where({ 'devices.os_version': filters.osVersion });
@@ -349,7 +358,16 @@ class DeviceService {
         q = q.where({ 'devices.group_id': filters.groupId });
       }
     }
-    if (filters?.status) q = q.where({ 'devices.status': filters.status });
+    if (filters?.status === 'connected') {
+      // Virtual status used by the dashboard "En ligne" KPI link —
+      // expands to every status that means "the agent is reachable
+      // right now" (online / warning / critical / updating). Keeps
+      // the URL ?status=connected human-friendly without burning a
+      // dedicated multi-value query parameter convention.
+      q = q.whereIn('devices.status', ['online', 'warning', 'critical', 'updating']);
+    } else if (filters?.status) {
+      q = q.where({ 'devices.status': filters.status });
+    }
     if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
     if (filters?.approvalStatus === 'suspended') {
       q = q.where({ 'devices.status': 'suspended' });
@@ -873,19 +891,24 @@ class DeviceService {
       const becameBad = metricStatus !== 'ok' && (prevMetricStatus == null || prevMetricStatus === 'ok' || (prevMetricStatus === 'warning' && metricStatus === 'critical'));
       const recovered = metricStatus === 'ok' && prevMetricStatus !== 'ok' && prevMetricStatus != null;
       if ((becameBad || recovered) && thresholds) {
+        // Resolve violations + display name ONCE for both the
+        // outbound notification (Slack/webhook) and the bell row —
+        // previously each block re-fetched / re-computed and the
+        // bell branch couldn't see `violations` because they sat
+        // inside the notify try-block scope (TS2304 at build time).
+        const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
+        const dispName = dev?.display_name || dev?.hostname || `#${deviceId}`;
+        const violations = breaches.map((b) => {
+          const pct = Math.round(b.percent);
+          const t = thresholds[b.metric];
+          const limit = b.level === 'critical' ? t.crit : t.warn;
+          const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
+          return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
+        });
         try {
           const { notificationService } = await import('./notification.service');
-          const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
-          const name = dev?.display_name || dev?.hostname || `#${deviceId}`;
-          const violations = breaches.map((b) => {
-            const pct = Math.round(b.percent);
-            const t = thresholds[b.metric];
-            const limit = b.level === 'critical' ? t.crit : t.warn;
-            const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
-            return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
-          });
           await notificationService.sendForAgent(
-            deviceId, name,
+            deviceId, dispName,
             recovered ? 'up' : 'alert',
             prevMetricStatus ?? 'ok',
             violations,
@@ -893,6 +916,44 @@ class DeviceService {
           );
         } catch (notifyErr) {
           logger.error(notifyErr, 'metric-threshold notification failed');
+        }
+
+        // In-app bell — write a row into live_alerts so the bell icon
+        // surfaces what the Slack/email channel just received. Severity
+        // mirrors the metric state ('critical' / 'warning' / 'info' on
+        // recovery). Message embeds the offending metrics so the admin
+        // can see WHY without opening the device page.
+        try {
+          const { liveAlertService } = await import('./liveAlert.service');
+          if (recovered) {
+            await liveAlertService.add(tenantId, {
+              severity: 'info',
+              title: `${dispName}: retour à la normale`,
+              message: 'Toutes les métriques sont revenues sous les seuils configurés.',
+              navigateTo: `/devices/${deviceId}`,
+              // No stable key on recovery: every fresh recovery should
+              // ping (admin wants to know the issue cleared, even if a
+              // previous "back to normal" alert is still unread).
+              stableKey: null,
+            });
+          } else {
+            await liveAlertService.add(tenantId, {
+              severity: metricStatus === 'critical' ? 'critical' : 'warning',
+              title: `${dispName}: ${metricStatus === 'critical' ? 'Critique' : 'Alerte'}`,
+              message: violations.length > 0
+                ? violations.join(' · ')
+                : 'Une métrique a franchi le seuil configuré.',
+              navigateTo: `/devices/${deviceId}`,
+              // Per-state dedup: while the device is stuck in critical,
+              // only one unread "Critical" alert sits in the bell. As
+              // soon as the admin marks it read, the next event for the
+              // same state pings again (so a flapping device stays
+              // visible).
+              stableKey: `device:${deviceId}:metric:${metricStatus}`,
+            });
+          }
+        } catch (alertErr) {
+          logger.error(alertErr, 'live-alert (metric) failed');
         }
 
         // Scenario trigger — only on transitions INTO warning/critical.
@@ -967,6 +1028,27 @@ class DeviceService {
             logger.error({ err, deviceId, offlineSeconds }, 'Failed to fire agent_back_online trigger');
           });
         }).catch(() => { /* import error — non-fatal */ });
+
+        // Bell notification — pair with the offline alert above. We
+        // don't reuse the offline stable_key because the offline alert
+        // may already be marked read; instead we fire a fresh `info`
+        // alert that mentions the outage duration so the admin can see
+        // both rows in their history.
+        try {
+          const { liveAlertService } = await import('./liveAlert.service');
+          const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
+          const dispName = dev?.display_name || dev?.hostname || `#${deviceId}`;
+          const minutes = Math.max(1, Math.round(offlineSeconds / 60));
+          await liveAlertService.add(tenantId, {
+            severity: 'info',
+            title: `${dispName}: De retour en ligne`,
+            message: `Outage d'environ ${minutes} min, l'agent re-pushe maintenant.`,
+            navigateTo: `/devices/${deviceId}`,
+            stableKey: null,
+          });
+        } catch (alertErr) {
+          logger.error(alertErr, 'live-alert (back-online) failed');
+        }
       }
       // Clear last_offline_at now that the device is back online so
       // subsequent transitions get a clean slate.
@@ -1181,6 +1263,30 @@ class DeviceService {
               deviceId: device.id,
               hostname: device.hostname,
             });
+          }
+
+          // Bell notification — a device going offline is the most
+          // common reason the user expects a ping, so this is wired
+          // first. Stable key per-device-per-state means a single
+          // unread offline alert sits in the bell while the device
+          // stays down; if the user marks it read the next outage
+          // (or the same one after a flap) re-fires.
+          try {
+            const { liveAlertService } = await import('./liveAlert.service');
+            const dispName = (device as any).display_name || device.hostname || `#${device.id}`;
+            const lastSeen = device.last_push_at ? new Date(device.last_push_at) : null;
+            const minutesAgo = lastSeen ? Math.max(1, Math.round((now.getTime() - lastSeen.getTime()) / 60_000)) : null;
+            await liveAlertService.add(device.tenant_id, {
+              severity: 'critical',
+              title: `${dispName}: Hors ligne`,
+              message: minutesAgo != null
+                ? `Aucun push reçu depuis ${minutesAgo} min.`
+                : `Aucun push reçu depuis le dernier seuil configuré.`,
+              navigateTo: `/devices/${device.id}`,
+              stableKey: `device:${device.id}:offline`,
+            });
+          } catch (alertErr) {
+            logger.error(alertErr, 'live-alert (offline) failed');
           }
 
           logger.info({ deviceId: device.id, hostname: device.hostname }, 'Device went offline');

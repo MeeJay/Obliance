@@ -249,4 +249,61 @@ router.delete('/:id/members/:uid', async (req, res, next) => {
   }
 });
 
+// ── Tenant metric-threshold default (cascade layer 3) ────────────────
+// Scope: a tenant admin may edit only their own current tenant. The
+// platform admin sitting on the master tenant may edit any tenant
+// (their `currentTenantId` is the one being edited and the master
+// god-view is implicit). We don't accept `:id` from the URL so a child
+// tenant admin can't aim a payload at a sibling tenant — the row
+// being edited is always `req.tenantId`.
+router.get('/current/thresholds', async (req, res, next) => {
+  try {
+    const tenantId = req.tenantId!;
+    const row = await db('tenants').where({ id: tenantId }).first('metric_thresholds_default') as { metric_thresholds_default: unknown } | undefined;
+    let value: unknown = row?.metric_thresholds_default ?? null;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch { value = null; }
+    }
+    res.json({ success: true, data: { thresholds: value } });
+  } catch (err) { next(err); }
+});
+
+router.put('/current/thresholds', async (req, res, next) => {
+  try {
+    if (req.session.role !== 'admin') throw new AppError(403, 'Admin only');
+    const tenantId = req.tenantId!;
+    const { metricThresholdsSchema } = await import('../validators/group.schema');
+    const { thresholds } = req.body as { thresholds?: unknown };
+    if (thresholds == null || (typeof thresholds === 'object' && Object.keys(thresholds as object).length === 0)) {
+      await db('tenants').where({ id: tenantId }).update({ metric_thresholds_default: null });
+      const { invalidateTenantThresholdCache } = await import('../services/threshold.service');
+      invalidateTenantThresholdCache(tenantId);
+      res.json({ success: true, data: { thresholds: null } });
+      return;
+    }
+    const parsed = metricThresholdsSchema.safeParse(thresholds);
+    if (!parsed.success) {
+      const issues = parsed.error.errors.map((e) => `${e.path.join('.') || '<root>'}: ${e.message}`).join('; ');
+      throw new AppError(400, `Invalid thresholds — ${issues}`);
+    }
+    await db('tenants').where({ id: tenantId }).update({ metric_thresholds_default: JSON.stringify(parsed.data) });
+    const { invalidateTenantThresholdCache } = await import('../services/threshold.service');
+    invalidateTenantThresholdCache(tenantId);
+    res.json({ success: true, data: { thresholds: parsed.data } });
+  } catch (err) { next(err); }
+});
+
+// ── Resolved tenant defaults (read-only) ────────────────────────────
+// Used by the GroupEditPage so its `inheritedFrom` placeholder shows
+// the effective values inherited at the tenant level. Mirrors what
+// the threshold cascade resolves up to (but excluding) the group
+// layer. Admin-only because it includes the global override.
+router.get('/current/thresholds-resolved', async (req, res, next) => {
+  try {
+    const { thresholdService } = await import('../services/threshold.service');
+    const resolved = await thresholdService.resolveForTenant(req.tenantId!);
+    res.json({ success: true, data: resolved });
+  } catch (err) { next(err); }
+});
+
 export default router;

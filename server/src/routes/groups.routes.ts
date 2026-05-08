@@ -19,6 +19,18 @@ router.get('/', groupsController.list);
 router.get('/tree', groupsController.tree);
 router.get('/stats', groupsController.stats);
 router.get('/:id', groupsController.getById);
+// Resolved threshold cascade up to the group layer — used by
+// DeviceDetailPage so the per-device override editor's placeholder
+// shows what the device WOULD inherit if its override were cleared.
+router.get('/:id/thresholds-resolved', async (req, res, next) => {
+  try {
+    const { thresholdService } = await import('../services/threshold.service');
+    const groupId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(groupId)) return res.status(400).json({ success: false, error: 'Invalid group id' });
+    const resolved = await thresholdService.resolveForGroup(groupId, req.tenantId!);
+    res.json({ success: true, data: resolved });
+  } catch (err) { next(err); }
+});
 
 
 // Write routes (permission-based: admin OR team RW)

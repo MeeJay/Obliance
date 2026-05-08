@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Package, ShieldCheck, BarChart3, Loader2, ListChecks } from 'lucide-react';
+import { Package, ShieldCheck, BarChart3, Loader2, ListChecks, Activity } from 'lucide-react';
 import { UpdatesPage } from './UpdatesPage';
 import { CompliancePage } from './CompliancePage';
 import { SoftwareCompliancePage } from './SoftwareCompliancePage';
+import { TenantThresholdsTab } from './TenantThresholdsTab';
 import { updateApi } from '@/api/update.api';
+import { useAuthStore } from '@/store/authStore';
 import type { PatchComplianceReport } from '@obliance/shared';
 import { clsx } from 'clsx';
 
-type Tab = 'updates' | 'compliance' | 'software' | 'patchReport';
+type Tab = 'updates' | 'compliance' | 'software' | 'patchReport' | 'thresholds';
 
 // ─── Patch Report Tab ────────────────────────────────────────────────────────
 
@@ -124,12 +126,18 @@ export function PoliciesPage() {
  const [searchParams] = useSearchParams();
  const initialTab = (searchParams.get('tab') as Tab) || 'updates';
  const [tab, setTab] = useState<Tab>(initialTab);
+ const { isAdmin } = useAuthStore();
 
+ // "Seuils" tab is admin-only — non-admin users would have nothing
+ // to do here (the editor is disabled below the role check anyway,
+ // and the resolved cascade is exposed via the device/group editors
+ // they already see).
  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
  { id: 'updates', label: t('policies.tabUpdates'), icon: <Package size={16} /> },
  { id: 'compliance', label: t('policies.tabCompliance'), icon: <ShieldCheck size={16} /> },
  { id: 'software', label: t('policies.tabSoftware'), icon: <ListChecks size={16} /> },
  { id: 'patchReport', label: 'Patch Report', icon: <BarChart3 size={16} /> },
+ ...(isAdmin() ? [{ id: 'thresholds' as Tab, label: t('policies.tabThresholds', 'Seuils'), icon: <Activity size={16} /> }] : []),
  ];
 
  return (
@@ -154,6 +162,7 @@ export function PoliciesPage() {
  {tab === 'compliance' && <CompliancePage embedded />}
  {tab === 'software' && <SoftwareCompliancePage embedded />}
  {tab === 'patchReport' && <PatchReportTab />}
+ {tab === 'thresholds' && isAdmin() && <TenantThresholdsTab />}
  </div>
  );
 }

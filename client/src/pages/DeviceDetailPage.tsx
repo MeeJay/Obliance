@@ -38,7 +38,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
-import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
@@ -2258,6 +2258,22 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  }, 300);
  }, [device, onSaved]);
 
+ // Resolved cascade up to (but not including) the device override —
+ // i.e. what the device WOULD inherit if its own override were
+ // cleared. Fed to ThresholdsEditor as `inheritedFrom` so the slot
+ // placeholders show the inherited group/tenant/global values
+ // instead of the system default.
+ const [groupResolvedThresholds, setGroupResolvedThresholds] = useState<MetricThresholds | undefined>(undefined);
+ useEffect(() => {
+ const gid = (device as any).groupId as number | null | undefined;
+ if (!gid) { setGroupResolvedThresholds(undefined); return; }
+ import('@/api/thresholds.api').then(({ thresholdsApi, resolvedToInherited }) => {
+ thresholdsApi.getGroupResolved(gid)
+ .then((r) => setGroupResolvedThresholds(resolvedToInherited(r)))
+ .catch(() => setGroupResolvedThresholds(undefined));
+ });
+ }, [(device as any).groupId]);
+
  // For toggles: set + auto-save immediately
  const setAndSave = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
  setForm(prev => ({ ...prev, [key]: value }));
@@ -2363,6 +2379,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <ThresholdsEditor
  value={form.thresholdsOverride}
  onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
+ inheritedFrom={groupResolvedThresholds}
  layer="device"
  />
  {/* Per-disk overrides — only shown when the agent has reported

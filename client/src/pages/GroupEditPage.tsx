@@ -370,6 +370,19 @@ function GroupThresholdsCard({
  const { t } = useTranslation();
  const [draft, setDraft] = useState<MetricThresholds>(initial);
  const [saving, setSaving] = useState(false);
+ // `inheritedFrom` placeholder = the tenant-layer resolved values
+ // (which themselves include the global override + system default).
+ // Without this, the placeholder showed the hardcoded SYSTEM default
+ // even after the tenant admin set a per-tenant override under
+ // /policies → Seuils.
+ const [tenantInherited, setTenantInherited] = useState<MetricThresholds | undefined>(undefined);
+ useEffect(() => {
+ import('@/api/thresholds.api').then(({ thresholdsApi, resolvedToInherited }) => {
+ thresholdsApi.getTenantResolved()
+ .then((r) => setTenantInherited(resolvedToInherited(r)))
+ .catch(() => { /* leave undefined → falls back to system default */ });
+ });
+ }, []);
  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
 
  const save = async () => {
@@ -390,7 +403,7 @@ function GroupThresholdsCard({
  <div className="mb-3 text-base font-semibold text-text-primary">
  {t('thresholds.titleGroup', 'Seuils')} — "{groupName}"
  </div>
- <ThresholdsEditor value={draft} onChange={setDraft} layer="group" />
+ <ThresholdsEditor value={draft} onChange={setDraft} inheritedFrom={tenantInherited} layer="group" />
  <div className="mt-4 flex justify-end gap-2">
  {dirty && (
  <Button variant="secondary" onClick={() => setDraft(initial)} disabled={saving}>

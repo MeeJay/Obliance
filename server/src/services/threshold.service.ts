@@ -2,27 +2,66 @@ import { db } from '../db';
 import type { MetricThresholds, MetricThreshold, GenericMetricKind } from '@obliance/shared';
 import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 
-// Lot D.2 — Threshold cascade resolver.
+// Lot D.2 + Lot D.3 — Threshold cascade resolver.
 //
-// Three layers, the lower one wins for any field it sets:
+// Five layers; the lower one wins for any field it sets:
 //   1. system default            (SYSTEM_DEFAULT_THRESHOLDS in shared)
-//   2. group.thresholds          (set on the device's group)
-//   3. device.thresholds_override (set on the device itself)
+//   2. global default            (app_config.metric_thresholds_global)
+//   3. tenant default            (tenants.metric_thresholds_default)
+//   4. group.thresholds          (set on the device's group)
+//   5. device.thresholds_override (set on the device itself)
 //
 // Each metric (disk / cpu / ram) has independent { warn, crit } slots, and
 // each slot is resolved separately — so a device can override only the
-// `crit` of `disk` and inherit everything else, including its own group's
-// custom `warn`.
+// `crit` of `disk` and inherit everything else, including its own
+// tenant's custom `warn`.
 //
 // Walk-up note: if the group is nested under a parent that also defines
 // thresholds, we DON'T currently inherit from ancestors — only the device's
 // direct group. Adding ancestor inheritance is straightforward (closure
 // table walk) but the product spec keeps it flat for now.
+//
+// Caching: the global + tenant layers are read on every push for every
+// device, which would be N queries on a large fleet. We cache them in
+// memory with a small TTL (60s) — admin edits are rare and the next
+// minute of pushes still seeing the old value is acceptable. The
+// /settings + /policies write endpoints call invalidateGlobal /
+// invalidateTenant after a save so the change shows up immediately on
+// the editing admin's view.
 
 interface ResolverInput {
+  globalThresholds?: MetricThresholds | null;
+  tenantThresholds?: MetricThresholds | null;
   groupThresholds?: MetricThresholds | null;
   deviceOverride?: MetricThresholds | null;
 }
+
+const APP_CONFIG_KEY = 'metric_thresholds_global';
+const CACHE_TTL_MS = 60_000;
+let globalCache: { value: MetricThresholds | null; at: number } | null = null;
+const tenantCache = new Map<number, { value: MetricThresholds | null; at: number }>();
+
+async function loadGlobal(): Promise<MetricThresholds | null> {
+  const now = Date.now();
+  if (globalCache && now - globalCache.at < CACHE_TTL_MS) return globalCache.value;
+  const row = await db('app_config').where({ key: APP_CONFIG_KEY }).first('value') as { value: string } | undefined;
+  const parsed = parseJson(row?.value ?? null);
+  globalCache = { value: parsed, at: now };
+  return parsed;
+}
+
+async function loadTenant(tenantId: number): Promise<MetricThresholds | null> {
+  const now = Date.now();
+  const cached = tenantCache.get(tenantId);
+  if (cached && now - cached.at < CACHE_TTL_MS) return cached.value;
+  const row = await db('tenants').where({ id: tenantId }).first('metric_thresholds_default') as { metric_thresholds_default: MetricThresholds | string | null } | undefined;
+  const parsed = parseJson(row?.metric_thresholds_default ?? null);
+  tenantCache.set(tenantId, { value: parsed, at: now });
+  return parsed;
+}
+
+export function invalidateGlobalThresholdCache(): void { globalCache = null; }
+export function invalidateTenantThresholdCache(tenantId: number): void { tenantCache.delete(tenantId); }
 
 /**
  * Resolved thresholds for a single device — every metric carries a
@@ -44,27 +83,39 @@ export const thresholdService = {
    */
   resolveMetric(metric: GenericMetricKind, input: ResolverInput): Required<MetricThreshold> {
     const sys = SYSTEM_DEFAULT_THRESHOLDS[metric];
-    const grp = ((input.groupThresholds ?? {})[metric] ?? {}) as MetricThreshold;
-    const dev = ((input.deviceOverride  ?? {})[metric] ?? {}) as MetricThreshold;
+    const glb = ((input.globalThresholds ?? {})[metric] ?? {}) as MetricThreshold;
+    const ten = ((input.tenantThresholds ?? {})[metric] ?? {}) as MetricThreshold;
+    const grp = ((input.groupThresholds  ?? {})[metric] ?? {}) as MetricThreshold;
+    const dev = ((input.deviceOverride   ?? {})[metric] ?? {}) as MetricThreshold;
     return {
-      warn: dev.warn ?? grp.warn ?? sys.warn,
-      crit: dev.crit ?? grp.crit ?? sys.crit,
+      warn: dev.warn ?? grp.warn ?? ten.warn ?? glb.warn ?? sys.warn,
+      crit: dev.crit ?? grp.crit ?? ten.crit ?? glb.crit ?? sys.crit,
     };
   },
 
   /**
-   * Resolve the full thresholds object for a device. Looks up the group's
-   * thresholds and the device's override in two queries; for fleet-wide
-   * dashboards (e.g. saturated-disks scan) prefer `resolveMany` which uses
-   * a single grouped query.
+   * Resolve the full thresholds object for a device. Reads every layer
+   * of the cascade — global + tenant defaults are pulled from cached
+   * accessors so the per-push cost stays at one device-row query.
    */
   async resolveForDevice(deviceId: number): Promise<ResolvedThresholds> {
     const row = await db('devices as d')
       .leftJoin('device_groups as g', 'g.id', 'd.group_id')
       .where('d.id', deviceId)
-      .select('d.thresholds_override as device_override', 'g.thresholds as group_thresholds')
-      .first() as { device_override: MetricThresholds | string | null; group_thresholds: MetricThresholds | string | null } | undefined;
-    return this._merge(parseJson(row?.device_override), parseJson(row?.group_thresholds));
+      .select(
+        'd.tenant_id',
+        'd.thresholds_override as device_override',
+        'g.thresholds as group_thresholds',
+      )
+      .first() as { tenant_id: number; device_override: MetricThresholds | string | null; group_thresholds: MetricThresholds | string | null } | undefined;
+    if (!row) return this._merge({});
+    const [glb, ten] = await Promise.all([loadGlobal(), loadTenant(row.tenant_id)]);
+    return this._merge({
+      globalThresholds: glb,
+      tenantThresholds: ten,
+      groupThresholds: parseJson(row.group_thresholds),
+      deviceOverride: parseJson(row.device_override),
+    });
   },
 
   /**
@@ -78,25 +129,68 @@ export const thresholdService = {
     const rows = await db('devices as d')
       .leftJoin('device_groups as g', 'g.id', 'd.group_id')
       .whereIn('d.id', deviceIds)
-      .select('d.id', 'd.thresholds_override as device_override', 'g.thresholds as group_thresholds') as Array<{
+      .select('d.id', 'd.tenant_id', 'd.thresholds_override as device_override', 'g.thresholds as group_thresholds') as Array<{
         id: number;
+        tenant_id: number;
         device_override: MetricThresholds | string | null;
         group_thresholds: MetricThresholds | string | null;
       }>;
+    const glb = await loadGlobal();
+    // Pre-fetch tenant defaults in one go so resolveMany stays O(1) DB
+    // hits regardless of how many tenants the input set spans.
+    const tenantIds = [...new Set(rows.map((r) => r.tenant_id))];
+    const tenantMap = new Map<number, MetricThresholds | null>();
+    await Promise.all(tenantIds.map(async (tid) => {
+      tenantMap.set(tid, await loadTenant(tid));
+    }));
     for (const r of rows) {
-      out.set(r.id, this._merge(parseJson(r.device_override), parseJson(r.group_thresholds)));
+      out.set(r.id, this._merge({
+        globalThresholds: glb,
+        tenantThresholds: tenantMap.get(r.tenant_id) ?? null,
+        groupThresholds: parseJson(r.group_thresholds),
+        deviceOverride: parseJson(r.device_override),
+      }));
     }
     return out;
   },
 
-  _merge(deviceOverride: MetricThresholds | null, groupThresholds: MetricThresholds | null): ResolvedThresholds {
-    const input = { groupThresholds, deviceOverride };
-    // Merge per-mount disk overrides — device wins per key over group.
+  /**
+   * Resolve the cascade up to (but not including) the group layer — the
+   * effective default a fresh group inherits if it sets nothing of its
+   * own. Used by `GroupEditPage` so its `inheritedFrom` placeholder
+   * shows the tenant's defaults rather than the system fallback.
+   */
+  async resolveForTenant(tenantId: number): Promise<ResolvedThresholds> {
+    const [glb, ten] = await Promise.all([loadGlobal(), loadTenant(tenantId)]);
+    return this._merge({ globalThresholds: glb, tenantThresholds: ten });
+  },
+
+  /**
+   * Resolve the cascade up to (but not including) the device layer — the
+   * effective default a device inherits if it sets no override of its
+   * own. Used by `DeviceDetailPage` so its `inheritedFrom` placeholder
+   * shows the group's resolved defaults (which themselves include the
+   * tenant + global cascade).
+   */
+  async resolveForGroup(groupId: number, tenantId: number): Promise<ResolvedThresholds> {
+    const row = await db('device_groups').where({ id: groupId }).first('thresholds') as { thresholds: MetricThresholds | string | null } | undefined;
+    const [glb, ten] = await Promise.all([loadGlobal(), loadTenant(tenantId)]);
+    return this._merge({
+      globalThresholds: glb,
+      tenantThresholds: ten,
+      groupThresholds: parseJson(row?.thresholds ?? null),
+    });
+  },
+
+  _merge(input: ResolverInput): ResolvedThresholds {
+    // Merge per-mount disk overrides — innermost layer wins per key.
     const byMount: Record<string, Required<MetricThreshold>> = {};
     const baseDisk = this.resolveMetric('disk', input);
     const merged: Record<string, MetricThreshold> = {
-      ...(groupThresholds?.diskByMount ?? {}),
-      ...(deviceOverride?.diskByMount ?? {}),
+      ...(input.globalThresholds?.diskByMount ?? {}),
+      ...(input.tenantThresholds?.diskByMount ?? {}),
+      ...(input.groupThresholds?.diskByMount ?? {}),
+      ...(input.deviceOverride?.diskByMount ?? {}),
     };
     for (const [mount, t] of Object.entries(merged)) {
       byMount[mount] = { warn: t.warn ?? baseDisk.warn, crit: t.crit ?? baseDisk.crit };

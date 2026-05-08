@@ -53,7 +53,11 @@ function HeroFeatured({ label, value, color, series, days }: {
   series: number[]; days: { short: string; value: number }[];
 }) {
   return (
-    <div className="rounded-xl p-5 relative overflow-hidden bg-gradient-to-br from-accent/10 via-bg-secondary to-bg-secondary shadow-[0_0_0_1px_rgb(var(--c-accent)/0.18)_inset,_0_6px_28px_-10px_rgb(var(--c-accent)/0.25)]">
+    // h-full + flex-col so this card stretches with its row siblings.
+    // The "Appareils total" card carries the most content (sparkline +
+    // 4-day grid) so it sets the row height; the simpler HeroCards now
+    // grow to match instead of looking visibly shorter.
+    <div className="h-full flex flex-col rounded-xl p-5 relative overflow-hidden bg-gradient-to-br from-accent/10 via-bg-secondary to-bg-secondary shadow-[0_0_0_1px_rgb(var(--c-accent)/0.18)_inset,_0_6px_28px_-10px_rgb(var(--c-accent)/0.25)]">
       <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-text-muted mb-3">{label}</div>
       <div className={`font-display text-[48px] font-semibold leading-none ${color}`}>{value}</div>
       <div className="mt-3"><Sparkline data={series} color="#ff6868" /></div>
@@ -72,20 +76,28 @@ function HeroFeatured({ label, value, color, series, days }: {
   );
 }
 
-function HeroCard({ label, value, color, delta, deltaText, barPct, barColor }: {
+function HeroCard({ label, value, color, delta, deltaText, barPct, barColor, subStats }: {
   label: string; value: number; color: string;
   /** Numeric delta sign for the icon: positive = ↑, negative = ↓, 0 = stable */
   delta?: number | null;
   deltaText?: string;
   barPct?: number;
   barColor?: string;
+  /** Optional secondary breakdown rendered under the bar — used by the
+   *  "En ligne" card to show "dont X alerte, dont Y critique" so the
+   *  total of "online + offline" matches the "Appareils total" headline
+   *  even when some agents are in warning / critical state. */
+  subStats?: Array<{ label: string; value: number; color?: string }>;
 }) {
   const deltaIconClass = delta == null ? 'text-text-muted' :
                           delta === 0   ? 'text-text-muted' :
                           delta > 0     ? 'text-green-400' : 'text-accent';
   const deltaIcon = delta == null ? '—' : delta === 0 ? '—' : delta > 0 ? '↑' : '↓';
   return (
-    <div className="rounded-xl p-5 relative overflow-hidden bg-bg-secondary shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
+    // h-full + flex-col so the card matches the row height set by the
+    // taller HeroFeatured sibling. Without this the simpler cards
+    // appeared shorter and the row felt unbalanced.
+    <div className="h-full flex flex-col rounded-xl p-5 relative overflow-hidden bg-bg-secondary shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
       <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-text-muted mb-3">{label}</div>
       <div className={`font-display text-[36px] font-semibold leading-none ${color}`}>{value}</div>
       {(delta != null || deltaText) && (
@@ -96,6 +108,16 @@ function HeroCard({ label, value, color, delta, deltaText, barPct, barColor }: {
       {barPct != null && (
         <div className="mt-2 h-1 w-full bg-white/[0.04] rounded">
           <div className="h-full rounded" style={{ width: `${Math.min(100, Math.max(0, barPct))}%`, background: barColor ?? 'rgb(var(--c-accent))' }} />
+        </div>
+      )}
+      {subStats && subStats.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-text-muted">
+          {subStats.map((s) => (
+            <span key={s.label} className="flex items-center gap-1">
+              <span className={s.color ?? 'text-text-secondary'}>{s.value}</span>
+              <span>{s.label}</span>
+            </span>
+          ))}
         </div>
       )}
     </div>
@@ -532,9 +554,17 @@ export function DashboardPage() {
 
   // Derived KPIs
   const total       = summary?.total ?? 0;
-  const online      = summary?.online ?? 0;
-  const offline     = summary?.offline ?? 0;
+  // `summary.online` counts ONLY the strict 'online' status. The
+  // dashboard hero pretended that "online + offline = total" which
+  // never matched the headline (warn/critical agents are still
+  // connected — they just have an alert flag). We re-derive the
+  // displayed "connected" figure from online + warning + critical so
+  // the math adds up, and surface the breakdown via subStats below.
+  const onlineStrict = summary?.online ?? 0;
+  const warning     = summary?.warning ?? 0;
   const critical    = summary?.critical ?? 0;
+  const connected   = onlineStrict + warning + critical;
+  const offline     = summary?.offline ?? 0;
   const pending     = summary?.pending ?? 0;
   const pendingUpd  = summary?.pendingUpdates ?? 0;
   const stale       = summary?.staleDevices ?? 0;
@@ -545,7 +575,7 @@ export function DashboardPage() {
   const upcoming    = summary?.upcomingSchedules ?? 0;
   const deltas      = summary?.deltas;
 
-  const onlinePct  = total > 0 ? Math.round((online / total) * 100) : 0;
+  const onlinePct  = total > 0 ? Math.round((connected / total) * 100) : 0;
   const offlinePct = total > 0 ? Math.round((offline / total) * 100) : 0;
   const updPct     = total > 0 ? Math.round((pendingUpd / total) * 100) : 0;
   const stalePct   = total > 0 ? Math.round((stale / total) * 100) : 0;
@@ -661,8 +691,12 @@ export function DashboardPage() {
       {/* Hero row — featured Total + 4 KPIs with deltas. Each card is a Link
           to the matching filtered /devices view so the user can drill into
           the underlying agents in one click. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <Link to="/devices" className="block hover:opacity-95 transition-opacity">
+      {/* `items-stretch` is grid's default but we add `h-full` on each
+          Link wrapper too: without it the inner card shrinks to its
+          content height and the row looks ragged when "Appareils
+          total" carries a sparkline + 4-day grid the others don't. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-stretch">
+        <Link to="/devices" className="h-full block hover:opacity-95 transition-opacity">
           <HeroFeatured
             label={t('dashboard.totalDevices', 'Appareils total')}
             value={total}
@@ -672,10 +706,16 @@ export function DashboardPage() {
           />
         </Link>
 
-        <Link to="/devices?status=online" className="block hover:opacity-95 transition-opacity">
+        {/* "En ligne" = every connected device (online + warning + critical).
+            Strictly online stays separate but is exposed under the bar
+            via subStats so the user sees the breakdown. The link uses
+            the server-side virtual status `connected` (see
+            device.service.ts) so /devices lands on the same union the
+            headline number describes. */}
+        <Link to="/devices?status=connected" className="h-full block hover:opacity-95 transition-opacity">
           <HeroCard
             label={t('dashboard.online', 'En ligne')}
-            value={online}
+            value={connected}
             color="text-green-400"
             delta={deltas?.onlineVsYesterday ?? null}
             deltaText={
@@ -685,10 +725,14 @@ export function DashboardPage() {
             }
             barPct={onlinePct}
             barColor="#1edd8a"
+            subStats={[
+              ...(warning > 0 ? [{ label: t('dashboard.ofWhichWarning', 'dont alerte'), value: warning, color: 'text-yellow-400' }] : []),
+              ...(critical > 0 ? [{ label: t('dashboard.ofWhichCritical', 'dont critique'), value: critical, color: 'text-red-400' }] : []),
+            ]}
           />
         </Link>
 
-        <Link to="/devices?status=offline" className="block hover:opacity-95 transition-opacity">
+        <Link to="/devices?status=offline" className="h-full block hover:opacity-95 transition-opacity">
           <HeroCard
             label={t('dashboard.offline', 'Hors ligne')}
             value={offline}
@@ -704,7 +748,7 @@ export function DashboardPage() {
           />
         </Link>
 
-        <Link to="/devices?pendingUpdates=1" className="block hover:opacity-95 transition-opacity">
+        <Link to="/devices?pendingUpdates=1" className="h-full block hover:opacity-95 transition-opacity">
           <HeroCard
             label={t('dashboard.pendingUpdates', 'MAJ en attente')}
             value={pendingUpd}
@@ -720,7 +764,7 @@ export function DashboardPage() {
           />
         </Link>
 
-        <Link to="/devices?stale=72" className="block hover:opacity-95 transition-opacity">
+        <Link to="/devices?stale=72" className="h-full block hover:opacity-95 transition-opacity">
           <HeroCard
             label={t('dashboard.staleDevices', 'Injoignables 72h')}
             value={stale}

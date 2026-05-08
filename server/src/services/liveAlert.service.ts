@@ -8,11 +8,18 @@ export function setLiveAlertIO(io: SocketIOServer): void {
   _io = io;
 }
 
+// The DB column is `alert_severity` ENUM ('info','warning','critical')
+// — the previous typing claimed 'down' / 'up' which would have
+// triggered a Postgres enum-cast error if anything ever inserted them.
+// 'critical' is used for outages and crit-threshold alerts; 'warning'
+// for warn-threshold; 'info' for benign recoveries / reminders.
+export type LiveAlertSeverity = 'info' | 'warning' | 'critical';
+
 export interface LiveAlertRow {
   id: number;
   tenantId: number;
   tenantName?: string;
-  severity: 'down' | 'up' | 'warning' | 'info';
+  severity: LiveAlertSeverity;
   title: string;
   message: string;
   navigateTo: string | null;
@@ -46,7 +53,7 @@ export const liveAlertService = {
   async add(
     tenantId: number,
     opts: {
-      severity: 'down' | 'up' | 'warning' | 'info';
+      severity: LiveAlertSeverity;
       title: string;
       message: string;
       navigateTo?: string | null;
