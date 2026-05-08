@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { requireTenant } from '../middleware/tenant';
 import { tenantService } from '../services/tenant.service';
 import { permissionService } from '../services/permission.service';
 import { db } from '../db';
@@ -256,7 +257,13 @@ router.delete('/:id/members/:uid', async (req, res, next) => {
 // god-view is implicit). We don't accept `:id` from the URL so a child
 // tenant admin can't aim a payload at a sibling tenant — the row
 // being edited is always `req.tenantId`.
-router.get('/current/thresholds', async (req, res, next) => {
+//
+// `requireTenant` is applied per-handler here because the parent
+// router is mounted as just `requireAuth` in routes/index.ts (the
+// existing /tenants endpoints don't need a tenant context to resolve
+// — locate-device walks all of them). We don't want to flip the
+// whole router to requireTenant and risk breaking those.
+router.get('/current/thresholds', requireTenant, async (req, res, next) => {
   try {
     const tenantId = req.tenantId!;
     const row = await db('tenants').where({ id: tenantId }).first('metric_thresholds_default') as { metric_thresholds_default: unknown } | undefined;
@@ -268,7 +275,7 @@ router.get('/current/thresholds', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/current/thresholds', async (req, res, next) => {
+router.put('/current/thresholds', requireTenant, async (req, res, next) => {
   try {
     if (req.session.role !== 'admin') throw new AppError(403, 'Admin only');
     const tenantId = req.tenantId!;
@@ -298,7 +305,7 @@ router.put('/current/thresholds', async (req, res, next) => {
 // the effective values inherited at the tenant level. Mirrors what
 // the threshold cascade resolves up to (but excluding) the group
 // layer. Admin-only because it includes the global override.
-router.get('/current/thresholds-resolved', async (req, res, next) => {
+router.get('/current/thresholds-resolved', requireTenant, async (req, res, next) => {
   try {
     const { thresholdService } = await import('../services/threshold.service');
     const resolved = await thresholdService.resolveForTenant(req.tenantId!);
