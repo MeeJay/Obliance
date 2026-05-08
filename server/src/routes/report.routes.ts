@@ -5,10 +5,13 @@ import fs from 'fs';
 
 const router = Router();
 
-// All report routes require either platform admin or the tenant-scoped
-// 'manage_reports' capability granted via a team. Non-admins thus opt in
-// via the team-permissions matrix without needing global admin rights.
-router.use(requireTenantCapability('manage_reports'));
+// Reports were previously gated by the legacy `manage_reports` cap;
+// the new sidebar reorg consolidates Reports / History / Remote
+// sessions under a single `supervision:read` capability so admins
+// don't have to grant three separate flags. Old `manage_reports`
+// rows are filtered out by the team.service VALID_CAPABILITIES set
+// and replaced by migration 090's seeding rule.
+router.use(requireTenantCapability('supervision:read'));
 
 router.get('/', async (req, res, next) => {
   try { res.json(await reportService.getReports(req.tenantId!)); } catch (err) { next(err); }

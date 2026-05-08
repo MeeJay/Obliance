@@ -16,13 +16,27 @@ export const setTeamMembersSchema = z.object({
   memberIds: z.array(z.number().int().positive()),
 });
 
+// Mirror of `Capability` in shared/types.ts. Adding a new cap requires
+// updating BOTH this enum AND `VALID_CAPABILITIES` in team.service.ts;
+// rowToPermission() uses that set as a defensive filter on read so
+// stale DB values don't trip the validator on the GET → toggle → PUT
+// round-trip (this is the bug fix from the team-permission "Validation
+// failed" investigation).
+export const CAPABILITY_VALUES = [
+  'monitor', 'execute', 'remote', 'files', 'power',
+  'supervision:read',
+  'agent_config:custom_sections',
+  'agent_config:discovery',
+  'agent_config:keys',
+] as const;
+
 export const setTeamPermissionsSchema = z.object({
   permissions: z.array(
     z.object({
       scope: z.enum(['group', 'device']),
       scopeId: z.number().int().positive(),
       level: z.enum(['ro', 'rw']),
-      capabilities: z.array(z.enum(['monitor', 'execute', 'remote', 'files', 'power'])).optional(),
+      capabilities: z.array(z.enum(CAPABILITY_VALUES)).optional(),
     }),
   ),
 });

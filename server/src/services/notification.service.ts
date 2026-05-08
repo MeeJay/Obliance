@@ -30,17 +30,42 @@ interface BindingRow {
   override_mode: string;
 }
 
+// Pass `currentTenantId` to redact secrets when the caller doesn't
+// own the channel — typical for the FreeMobile-fan-out scenario:
+// master creates a channel with its API key, shares it with tenant B
+// who sees its existence (so admins can recognize "Notifications:
+// FreeMobile master is bound here") but never the API key itself.
+// The mask is also signaled with `readOnly: true` so the UI can
+// disable the edit form on the child side.
+const SECRET_KEY_TEST = /(secret|token|password|webhook|api[_-]?key|key)$/i;
+
+function redactConfig(raw: unknown): Record<string, unknown> {
+  const cfg = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : (raw ?? {});
+  if (!cfg || typeof cfg !== 'object') return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(cfg as Record<string, unknown>)) {
+    out[k] = SECRET_KEY_TEST.test(k) ? '__REDACTED__' : v;
+  }
+  return out;
+}
+
 function rowToChannel(row: ChannelRow, currentTenantId?: number): NotificationChannel {
+  const isCallerOwner = currentTenantId == null || currentTenantId === row.tenant_id || isMasterTenant(currentTenantId);
   const ch: NotificationChannel = {
     id: row.id,
     tenantId: row.tenant_id,
     name: row.name,
     type: row.type as NotificationChannelType,
-    config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config,
+    config: isCallerOwner
+      ? (typeof row.config === 'string' ? JSON.parse(row.config) : row.config)
+      : redactConfig(row.config),
     uuid: (row as any).uuid ?? '',
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
-  };
+    // `readOnly` flag for the client form — true when the caller
+    // is a child tenant viewing a master-shared channel.
+    readOnly: !isCallerOwner,
+  } as NotificationChannel & { readOnly: boolean };
   return ch;
 }
 

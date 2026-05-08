@@ -45,7 +45,17 @@ function rowToTeam(row: TeamRow): UserTeam {
 // and trip the Zod validator on /teams/:id/permissions, surfacing as
 // "Validation failed" with no recoverable UX. We silently drop them on
 // read so the toggle UI can re-save without 400-ing.
-const VALID_CAPABILITIES = new Set(['monitor', 'execute', 'remote', 'files', 'power']);
+//
+// MUST stay in sync with `CAPABILITY_VALUES` in
+// validators/team.schema.ts AND `Capability` in shared/types.ts —
+// the three are the same list expressed three ways.
+const VALID_CAPABILITIES = new Set([
+  'monitor', 'execute', 'remote', 'files', 'power',
+  'supervision:read',
+  'agent_config:custom_sections',
+  'agent_config:discovery',
+  'agent_config:keys',
+]);
 
 function rowToPermission(row: any): TeamPermission {
   const rawCaps = row.capabilities

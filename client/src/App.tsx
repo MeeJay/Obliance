@@ -74,6 +74,11 @@ export default function App() {
  <Route path="/admin/supervision" element={<SupervisionPage />} />
  <Route path="/admin/import-export" element={<ImportExportPage />} />
  <Route path="/admin/tenants" element={<AdminTenantsPage />} />
+ {/* Renamed: /workspace replaces /admin/tenants in the new sidebar
+     ("Workspace" reads more like "the platform partition" than
+     "tenants admin"). Old URL kept as alias above so external
+     bookmarks / saved deep-links keep resolving. */}
+ <Route path="/workspace" element={<AdminTenantsPage />} />
  <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
  {/* Legacy direct routes kept for backward compat; new menu uses /admin/security */}
  <Route path="/admin/approvals" element={<ApprovalsPage />} />

@@ -1212,10 +1212,22 @@ export interface NotificationChannel {
   tenantId: number;
   name: string;
   type: NotificationChannelType;
+  /** When the caller doesn't own this channel (master fan-out into a
+   *  child tenant), the server replaces every secret-shaped key with
+   *  the literal string `__REDACTED__`. The UI uses `readOnly` below
+   *  to switch the editor into read-only mode without trying to
+   *  inspect the contents — keys an installer added later (e.g. an
+   *  exotic SMS plugin) get redacted by suffix-match anyway. */
   config: Record<string, any>;
   uuid: string;
   createdAt: string;
   updatedAt: string;
+  /** True when the caller's tenant is NOT the channel owner — i.e.
+   *  this is a master-fan-out channel surfaced to a child tenant.
+   *  The client treats it as visible-but-unmodifiable. Server-side
+   *  edit / delete / binding endpoints already enforce the same rule
+   *  (see assertChannelOwnedByCaller). */
+  readOnly?: boolean;
 }
 
 export interface NotificationBinding {
@@ -1315,7 +1327,24 @@ export interface TeamMembership {
   userId: number;
 }
 
-export type Capability = 'monitor' | 'execute' | 'remote' | 'files' | 'power';
+// Capabilities are stored as a JSONB array on `team_permissions.capabilities`.
+// `monitor` / `execute` / `remote` / `files` / `power` are device-scoped (apply
+// to a specific group or device per row). The `<page>:read` / `<page>:manage`
+// kind are tenant-wide page gates: granted once on any team_permission row
+// the user is a member of, they unlock a top-level page in the sidebar.
+//
+// Any new entry MUST also be added to:
+//   - server/src/validators/team.schema.ts (Zod enum on setTeamPermissionsSchema)
+//   - server/src/services/team.service.ts VALID_CAPABILITIES set (rowToPermission filter)
+// otherwise it gets silently dropped on the GET → toggle → PUT round trip.
+export type Capability =
+  // Device-scoped (per-row scope: group/device)
+  | 'monitor' | 'execute' | 'remote' | 'files' | 'power'
+  // Tenant-wide page gates (read access to a top-level page outside admin)
+  | 'supervision:read'
+  | 'agent_config:custom_sections'
+  | 'agent_config:discovery'
+  | 'agent_config:keys';
 
 export interface TeamPermission {
   id: number;

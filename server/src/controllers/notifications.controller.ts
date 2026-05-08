@@ -18,13 +18,39 @@ import type {
 // first. A child tenant calling with an id owned by another tenant
 // gets a 404 — same shape as "doesn't exist", so we don't leak the
 // existence of foreign channels.
-async function assertChannelOwnership(channelId: number, req: Request): Promise<void> {
+//
+// Two flavours:
+//   - assertChannelVisible: caller must own the channel OR be on the
+//     master tenant (master sees all channels). Used for read endpoints.
+//   - assertChannelOwnedByCaller: STRICT — caller must be the channel
+//     owner, no master pass-through. Used for ANY mutation that affects
+//     where the channel lights up: edit, delete, bindings. Master is
+//     the owner of master-fan-out channels (it created them) so it
+//     passes naturally; conversely a child tenant CANNOT attach a
+//     master channel to its own scope, which is the rule:
+//     "FreeMobile API key vit chez le master, le DSI client n'a pas le
+//      droit de la rebrancher où il veut".
+async function assertChannelVisible(channelId: number, req: Request): Promise<void> {
   const channel = await notificationService.getChannelById(channelId);
   if (!channel) throw new AppError(404, 'Channel not found');
   if (!isMasterTenant(req.tenantId) && channel.tenantId !== req.tenantId) {
     throw new AppError(404, 'Channel not found');
   }
 }
+
+async function assertChannelOwnedByCaller(channelId: number, req: Request): Promise<void> {
+  const channel = await notificationService.getChannelById(channelId);
+  if (!channel) throw new AppError(404, 'Channel not found');
+  if (channel.tenantId !== req.tenantId) {
+    // 403, not 404, on this stricter path. The caller already KNOWS
+    // the channel exists (otherwise they couldn't have selected it
+    // in the picker) — pretending it doesn't is just confusing UX.
+    throw new AppError(403, 'Cannot mutate a channel you do not own');
+  }
+}
+
+// Backwards-compat alias for the call sites I haven't converted yet.
+const assertChannelOwnership = assertChannelVisible;
 
 export const notificationsController = {
   // GET /api/notifications/plugins — list available plugin types
@@ -81,7 +107,10 @@ export const notificationsController = {
   async updateChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
-      await assertChannelOwnership(id, req);
+      // STRICT: only the channel's own tenant may edit. Master cannot
+      // edit a child tenant's channel, and a child tenant cannot edit
+      // a master-shared channel (read-only on its side).
+      await assertChannelOwnedByCaller(id, req);
       const data = req.body as UpdateChannelInput;
       const channel = await notificationService.updateChannel(id, data);
       if (!channel) throw new AppError(404, 'Channel not found');
@@ -95,7 +124,7 @@ export const notificationsController = {
   async deleteChannel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
-      await assertChannelOwnership(id, req);
+      await assertChannelOwnedByCaller(id, req);
       const deleted = await notificationService.deleteChannel(id);
       if (!deleted) throw new AppError(404, 'Channel not found');
       res.json({ success: true, message: 'Channel deleted' });
@@ -172,16 +201,13 @@ export const notificationsController = {
   async addBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as AddBindingInput;
-      // Bind the channel to a group/device — both ends must belong to
-      // the caller's tenant. Without the channel-ownership check a
-      // child-tenant admin could attach a foreign tenant's channel to
-      // their own group; without the scope check they could attach
-      // their channel to a foreign group/device. We don't recurse into
-      // the device/group ownership here because the existing routes
-      // for those (devices.routes / groups.routes) already filter to
-      // the caller's tenant — but the channel side is exposed via a
-      // tenant-agnostic service helper, so we gate it explicitly.
-      await assertChannelOwnership(data.channelId, req);
+      // STRICT ownership — a child tenant cannot bind a master-shared
+      // channel to its own scope (the master controls where its
+      // FreeMobile / generic webhook is allowed to fire). Master can
+      // only bind master-owned channels (it owns them), which means a
+      // child-tenant scope receiving a master-owned binding is the
+      // result of a master admin explicitly attaching it.
+      await assertChannelOwnedByCaller(data.channelId, req);
       const binding = await notificationService.addBinding(
         data.channelId,
         data.scope,
@@ -198,7 +224,7 @@ export const notificationsController = {
   async removeBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as RemoveBindingInput;
-      await assertChannelOwnership(data.channelId, req);
+      await assertChannelOwnedByCaller(data.channelId, req);
       const removed = await notificationService.removeBinding(data.channelId, data.scope, data.scopeId);
       res.json({ success: true, message: removed ? 'Binding removed' : 'Binding not found' });
     } catch (err) {

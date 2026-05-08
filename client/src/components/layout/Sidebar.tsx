@@ -316,13 +316,19 @@ export function Sidebar() {
   const { t } = useTranslation();
   const location = useLocation();
   const { user, isAdmin, permissions } = useAuthStore();
-  // Tenant capabilities surface non-admin grants for /admin/supervision tabs
-  // (manage_reports, supervision_history, supervision_remote). When a
-  // non-admin has any of them we still want the page reachable from the
-  // sidebar even though the rest of /admin/* is admin-gated.
+  // Tenant capabilities — Capability enum from @obliance/shared.
+  // We use them to surface admin-tenant pages to non-admin users who
+  // have been granted a specific page-gate capability:
+  //   - supervision:read         → Supervision (Reports + History + Remote sessions)
+  //   - agent_config:custom_sections / discovery / keys → Agent config tabs
+  // Admins implicitly have all capabilities (the sidebar ORs role and
+  // cap so the menu still appears for admins regardless of cap state).
   const tenantCaps = new Set(permissions?.tenantCapabilities ?? []);
-  const hasSupervisionAccess = ['manage_reports', 'supervision_history', 'supervision_remote']
-    .some((c) => tenantCaps.has(c));
+  const hasSupervisionCap = tenantCaps.has('supervision:read');
+  const hasAnyAgentConfigCap =
+    tenantCaps.has('agent_config:custom_sections') ||
+    tenantCaps.has('agent_config:discovery') ||
+    tenantCaps.has('agent_config:keys');
   const { sidebarFloating, toggleSidebarFloating, sidebarCollapsed, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
 
   const admin = isAdmin();
@@ -332,6 +338,7 @@ export function Sidebar() {
   const [showDevices, setShowDevices] = usePersisted<boolean>('sidebar-show-devices', true);
   const [splitPercent, setSplitPercent] = usePersisted<number>('sidebar-split-percent', 50);
   const [adminMenuOpen, setAdminMenuOpen] = usePersisted<boolean>('sidebar:admin-open', true);
+  const [navMenuOpen, setNavMenuOpen] = usePersisted<boolean>('sidebar:nav-open', true);
   // Per-tenant collapse state for the master/god view buckets. We share
   // the same localStorage key as the /devices GroupSidePanel + the
   // DeviceTable so collapsing "Pimkie" once folds it everywhere — one
@@ -531,30 +538,51 @@ export function Sidebar() {
   }, [setSplitPercent]);
 
   // ── Nav items ──────────────────────────────────────────────────────────────
-  const mainNavItems: NavItem[] = [
-    { label: t('nav.dashboard'),   path: '/',           icon: <LayoutDashboard size={18} /> },
-    { label: t('nav.devices'),     path: '/devices',    icon: <Monitor size={18} /> },
+  // The sidebar has two collapsible sections. "Navigation" is the
+  // top section everyone sees (gated only by login); "Administration"
+  // is the bottom section that surfaces only when at least one item
+  // is visible to the user. Each item independently checks whether
+  // the user can see it, then we hide the entire section if the
+  // resulting list is empty.
+
+  const navItems: NavItem[] = [
+    { label: t('nav.dashboard'),                  path: '/',           icon: <LayoutDashboard size={18} /> },
+    { label: t('nav.devices'),                    path: '/devices',    icon: <Monitor size={18} /> },
     { label: t('nav.automations', 'Automations'), path: '/automations', icon: <CalendarClock size={18} /> },
-    { label: t('nav.policies'),    path: '/policies',   icon: <ShieldCheck size={18} /> },
-    // Surface /admin/supervision in the main nav when a non-admin has been
-    // granted any supervision tab capability (admins see it via adminNavItems
-    // below, so we skip it for them to avoid duplication).
-    ...(!admin && hasSupervisionAccess
-      ? [{ label: t('nav.supervision'), path: '/admin/supervision', icon: <Laptop size={18} /> } as NavItem]
-      : []),
+    { label: t('nav.policies'),                   path: '/policies',   icon: <ShieldCheck size={18} /> },
   ];
 
+  // Admin-tier section. Each item is conditionally added based on
+  // `admin` (platform admin) OR the user's relevant capability. When
+  // the resulting list is empty (plain user, no caps) the section
+  // header is hidden entirely.
   const adminNavItems: NavItem[] = [
-    // "Agent config" is the only admin entry for the agents domain —
-    // the device list itself lives at /devices (the user nav above)
-    // and is role-gated so admins see the pending/refused/suspended
-    // chips in-place. No separate admin shortcut needed.
-    { label: t('nav.agentConfig', 'Agent config'), path: '/admin/devices', icon: <Key size={18} /> },
-    { label: t('nav.users'),         path: '/admin/users',         icon: <Users size={18} /> },
-    { label: t('nav.supervision'),   path: '/admin/supervision',   icon: <Laptop size={18} /> },
-    { label: t('nav.security', 'Security'), path: '/admin/security', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount },
-    { label: t('tenant.pageTitle'),  path: '/admin/tenants',       icon: <Building2 size={18} /> },
-    { label: t('nav.settings'),      path: '/settings',            icon: <Settings size={18} /> },
+    // Users / Teams / Permissions / Restrictions — admin only.
+    ...(admin ? [{ label: t('nav.users'), path: '/admin/users', icon: <Users size={18} /> } as NavItem] : []),
+    // Security — audit log + approvals + 2FA, admin only.
+    ...(admin ? [{ label: t('nav.security', 'Security'), path: '/admin/security', icon: <ShieldCheck size={18} />, badgeCount: pendingApprovalsCount } as NavItem] : []),
+    // Supervision — reports + history + remote sessions. Visible if
+    // platform admin OR the user has the `supervision:read`
+    // capability on at least one team_permission row.
+    ...(admin || hasSupervisionCap
+      ? [{ label: t('nav.supervision'), path: '/admin/supervision', icon: <Laptop size={18} /> } as NavItem]
+      : []),
+    // Agent config — Custom Sections / Discovery / API Keys. The
+    // page itself shows only the tabs the user has the matching
+    // sub-cap for; we surface the menu entry as soon as ANY of them
+    // is granted (or the user is admin).
+    ...(admin || hasAnyAgentConfigCap
+      ? [{ label: t('nav.agentConfig', 'Agent config'), path: '/admin/devices', icon: <Key size={18} /> } as NavItem]
+      : []),
+    // Workspace + Settings — platform admin on master tenant only.
+    // Master gate happens via component-level visibility (the items
+    // are rendered only when `admin && currentTenantId === MASTER`).
+    ...(admin && isMasterTenant(currentTenantId)
+      ? [{ label: t('nav.workspace', 'Workspace'), path: '/workspace', icon: <Building2 size={18} /> } as NavItem]
+      : []),
+    ...(admin
+      ? [{ label: t('nav.settings'), path: '/settings', icon: <Settings size={18} /> } as NavItem]
+      : []),
   ];
 
   // ── Ungrouped devices ──────────────────────────────────────────────────────
@@ -696,7 +724,11 @@ export function Sidebar() {
   // device tree + search are hidden, the user avatar + logout stay
   // visible at the bottom. Click the panel toggle to expand back.
   if (sidebarCollapsed) {
-    const allItems = [...mainNavItems, ...(admin ? adminNavItems : [])];
+    // In collapsed mode we don't surface the Administration label;
+    // we just stack the icons. adminNavItems is now built up from
+    // the role + cap matrix above so it's empty for plain users
+    // (they only see navItems).
+    const allItems = [...navItems, ...adminNavItems];
     return (
       <aside className="flex h-full w-16 shrink-0 flex-col bg-bg-secondary">
         <div className="flex h-12 shrink-0 items-center justify-center">
@@ -872,7 +904,7 @@ export function Sidebar() {
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t('nav.navigation')}</span>
             </div>
             <nav className="flex-1 overflow-y-auto px-2 py-1 min-h-0">
-              {mainNavItems.map(item => <NavLink key={item.path} item={item} />)}
+              {navItems.map(item => <NavLink key={item.path} item={item} />)}
             </nav>
           </div>
 
@@ -902,10 +934,24 @@ export function Sidebar() {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0 px-2">
-          {/* Primary nav — fixed, never scrolls with the device list */}
-          <nav className="py-1 shrink-0">
-            {mainNavItems.map(item => <NavLink key={item.path} item={item} />)}
-          </nav>
+          {/* Primary nav — collapsible. Folding it gives the agents
+              tree the full sidebar height for users who manage their
+              fleet from this panel and don't need the top items
+              visible all the time. State persisted via usePersisted. */}
+          <button
+            onClick={() => setNavMenuOpen(v => !v)}
+            className="flex w-full items-center gap-2 px-1 py-1.5 text-text-muted hover:text-text-secondary transition-colors shrink-0"
+            title={navMenuOpen ? t('nav.collapseNav', 'Collapse navigation') : t('nav.expandNav', 'Expand navigation')}
+          >
+            <ChevronDown size={12} className={cn('transition-transform duration-200', !navMenuOpen && '-rotate-90')} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">{t('nav.navigation', 'Navigation')}</span>
+            <div className="flex-1 h-px bg-border" />
+          </button>
+          {navMenuOpen && (
+            <nav className="py-1 shrink-0">
+              {navItems.map(item => <NavLink key={item.path} item={item} />)}
+            </nav>
+          )}
 
           {/* Group tree — always rendered. When `showDevices` is off we
               still render the group tree (without the devices inside)
@@ -916,15 +962,19 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Admin section */}
-      {admin && (
+      {/* Administration section — visible if at least one admin /
+          cap-gated item resolved to an entry. Plain users with no
+          capabilities get nothing rendered here. */}
+      {adminNavItems.length > 0 && (
         <>
           <button
             onClick={() => setAdminMenuOpen(v => !v)}
             className="flex w-full items-center gap-2 px-3 py-1.5 text-text-muted hover:text-text-secondary transition-colors"
+            title={adminMenuOpen ? t('nav.collapseAdmin', 'Collapse administration') : t('nav.expandAdmin', 'Expand administration')}
           >
             <div className="flex-1 h-px bg-border" />
             <ChevronDown size={12} className={cn('transition-transform duration-200', !adminMenuOpen && '-rotate-90')} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">{t('nav.administration', 'Administration')}</span>
             <div className="flex-1 h-px bg-border" />
           </button>
 

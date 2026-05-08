@@ -41,13 +41,17 @@ import { Input } from '@/components/common/Input';
 import { ToggleSwitch as SharedToggleSwitch } from '@/components/common/ToggleSwitch';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { NotificationsPage } from './NotificationsPage';
+// `NotificationsPage` is now rendered from /policies (see PoliciesPage).
 import { PermissionSetsTab } from '@/components/PermissionSetsTab';
 
 type PermissionLevel = 'ro' | 'rw';
 type PermissionScope = 'group' | 'device';
 
-type Tab = 'users' | 'teams' | 'notifications' | 'permissionSets' | 'restrictions';
+// "notifications" was here but moved to /policies → onglet Notifications
+// (it's an operational concern, not a permission-management one). The
+// Notifications page itself stays in `pages/NotificationsPage.tsx`,
+// it's just rendered from a different host now.
+type Tab = 'users' | 'teams' | 'permissionSets' | 'restrictions';
 type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
 type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
@@ -548,16 +552,6 @@ export function AdminUsersPage() {
  {t('users.tabTeams')}
  </button>
  <button
- onClick={() => setTab('notifications')}
- className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
- tab === 'notifications'
- ? 'bg-accent text-white'
- : 'text-text-muted hover:text-text-primary'
- }`}
- >
- {t('users.tabNotifications')}
- </button>
- <button
  onClick={() => setTab('permissionSets')}
  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
  tab === 'permissionSets'
@@ -583,8 +577,7 @@ export function AdminUsersPage() {
 
  {tab === 'restrictions' && <RestrictionsTab />}
 
- {/* ── Notifications Tab ── */}
- {tab === 'notifications' && <NotificationsPage embedded />}
+ {/* Notifications tab moved to /policies → "Notifications". */}
 
  {/* ── Permission Sets Tab ── */}
  {tab === 'permissionSets' && <PermissionSetsTab />}
