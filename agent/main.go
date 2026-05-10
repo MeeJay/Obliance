@@ -559,6 +559,18 @@ func mainLoop(cfg *Config) {
 	// at cfg.TaskRetrieveDelaySec rate (default 10 s, admin-configurable).
 	go runCommandPoller(cfg)
 
+	// Best-effort: install tmux via the host package manager if it
+	// isn't available yet. Runs on first agent boot of a fresh box.
+	// No-op on Windows. Disable via OBLI_DISABLE_TMUX_AUTOINSTALL=1
+	// for environments where the SOC forbids automated installs.
+	ensureTmuxAvailable()
+
+	// tmux GC — kills orphan `obliance-*` sessions that have been
+	// detached for more than OBLI_SHELL_IDLE_TIMEOUT seconds (default
+	// 30 min). No-op on Windows. Cheap (one `tmux ls` exec per
+	// minute) so we can start it unconditionally.
+	startTmuxGc()
+
 	// Periodic scan goroutine — wakes up every minute and triggers a full scan
 	// when cfg.ScanIntervalSeconds seconds have elapsed since the last scan.
 	go func() {

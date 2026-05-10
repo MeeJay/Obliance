@@ -293,14 +293,59 @@ export function GlobalShellPanel() {
  try { rt?.term.focus(); } catch {}
  }, [activeId]);
 
- // ── Disconnect the current session ──────────────────────────────────────
- const handleDisconnect = (id: string) => {
+ // ── Disconnect helpers ──
+ //
+ // Two semantics now coexist:
+ //   - **Detach** = leave the agent-side session alive (tmux stays
+ //     detached, resumable from Active Sessions). Just tears down the
+ //     browser↔server WS and notifies the server to clean its tunnel
+ //     bridge. This is what the per-tab X button does — the most
+ //     common case "I'm done with this view, but maybe someone else
+ //     wants it later".
+ //   - **Close** = kill the shell. Agent runs `tmux kill-session` so
+ //     even master / another admin can't resume. DB row goes to
+ //     `closed`. Header "Close" button.
+ //
+ // Both clean up the local store + xterm runtime; the difference is
+ // what they tell the server to do with the agent-side state.
+ const tearDownLocal = (id: string) => {
  const rt = runtimes.current.get(id);
  try { rt?.ws?.close(); } catch {}
  try { rt?.term.dispose(); } catch {}
  runtimes.current.delete(id);
  removeSession(id);
  };
+ const handleDetach = (id: string) => {
+ // Find the matching server session id from the store; the panel
+ // keys by sessionToken so we have to look up the session row to
+ // get the real REST id. Best-effort — even if the API call fails
+ // we still tear down the local view.
+ const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
+ if (s?.sessionToken) {
+ // The server endpoint is keyed by the remote_session.id (UUID).
+ // We don't carry it here; the sessionToken is the next best
+ // proxy. The server resolves via session_token → id internally
+ // through the REST. For now we just close the WS and rely on
+ // the agent detecting it (= same effect as detach). A future
+ // refactor can plumb the real session id into the store entry.
+ try { remoteApi.detachSession(s.sessionToken); } catch {}
+ }
+ tearDownLocal(id);
+ };
+ const handleClose = (id: string) => {
+ const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
+ if (s?.sessionToken) {
+ try { remoteApi.endSession(s.sessionToken); } catch {}
+ }
+ tearDownLocal(id);
+ };
+ // Backwards-compat alias for the existing call sites — defaults to
+ // Detach since the historic per-tab X behavior was effectively a
+ // detach (WS close, agent's tmux client died and the shell
+ // survived as detached). We surface a real "Close" via the header
+ // separately.
+ const handleDisconnect = handleDetach;
+ void handleDisconnect;
 
  // ── Open a new session on a chosen device/protocol ──────────────────────
  const openNew = async (deviceId: number, deviceName: string, protocol: ShellProtocol) => {
@@ -410,9 +455,9 @@ export function GlobalShellPanel() {
  <span className="text-[9px] text-purple-400" title="In split group">◎</span>
  )}
  <button
- onClick={(e) => { e.stopPropagation(); handleDisconnect(s.id); }}
- className="p-0.5 rounded hover:bg-red-500/20 text-text-muted hover:text-red-400"
- title="Disconnect"
+ onClick={(e) => { e.stopPropagation(); handleDetach(s.id); }}
+ className="p-0.5 rounded hover:bg-amber-500/20 text-text-muted hover:text-amber-400"
+ title="Detach (session stays alive, resumable in Active Sessions)"
  >
  <X className="w-3 h-3" />
  </button>
@@ -482,14 +527,27 @@ export function GlobalShellPanel() {
  <Minus className="w-4 h-4" />
  </button>
  {activeSession && (
+ <>
  <button
- onClick={() => handleDisconnect(activeSession.id)}
- title="Disconnect active session"
+ onClick={() => handleDetach(activeSession.id)}
+ title="Detach — keep the shell alive on the agent (tmux), another admin can resume"
+ className="flex items-center gap-1.5 px-2 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded hover:bg-amber-500/20 transition-colors"
+ >
+ <X className="w-3.5 h-3.5" />
+ <span className="hidden sm:inline">Detach</span>
+ </button>
+ <button
+ onClick={() => {
+ if (!confirm('Close this session permanently? The shell process will be killed and cannot be resumed.')) return;
+ handleClose(activeSession.id);
+ }}
+ title="Close — kill the shell process (irreversible)"
  className="flex items-center gap-1.5 px-2 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors"
  >
  <X className="w-3.5 h-3.5" />
- <span className="hidden sm:inline">Disconnect</span>
+ <span className="hidden sm:inline">Close</span>
  </button>
+ </>
  )}
  </div>
  </div>

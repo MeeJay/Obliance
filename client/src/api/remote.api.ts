@@ -18,6 +18,14 @@ export const remoteApi = {
   async endSession(sessionId: string): Promise<void> {
     await apiClient.post(`/remote/sessions/${sessionId}/end`);
   },
+  /** Detach the local viewer from the session without killing the
+   *  shell — the session stays resumable in Active Sessions. Used by
+   *  the "Detach" button on shell tabs and by the global shell panel.
+   *  No-op semantically on Windows agents (tmux not available there)
+   *  but the endpoint still tears down the browser↔server bridge. */
+  async detachSession(sessionId: string): Promise<void> {
+    await apiClient.post(`/remote/sessions/${sessionId}/detach`);
+  },
   /** Sessions on a specific device that the caller can resume —
    *  used by the "Connect SSH" modale to ask the user "new tab vs
    *  reattach to one of these existing tabs?". Empty list = no

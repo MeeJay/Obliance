@@ -120,28 +120,61 @@ class RemoteService {
   }
 
   async endSession(sessionId: string, tenantId: number, reason: string = 'user_disconnect') {
-    const session = await db('remote_sessions').where({ id: sessionId, tenant_id: tenantId }).first();
+    return this._closeOrDetach(sessionId, tenantId, reason, true);
+  }
+
+  /**
+   * Detach the current viewer from a remote session without ending
+   * it. The shell process / tmux session stays alive on the agent
+   * (Unix only — Windows agents end up killing the shell anyway
+   * since there's no multiplexer), the DB row stays in its current
+   * status, and the session shows up as resumable in Active
+   * Sessions. Used by the "Detach" button so an admin can hand off
+   * a live shell to a colleague.
+   *
+   * `killSession: false` tells the agent to NOT call
+   * `tmux kill-session` — it just kills its local tmux client, the
+   * tmux server keeps the session detached. Master / admin tenant
+   * / user scoping is enforced upstream by the route handler that
+   * already loads the row.
+   */
+  async detachSession(sessionId: string, tenantId: number) {
+    return this._closeOrDetach(sessionId, tenantId, 'detach', false);
+  }
+
+  private async _closeOrDetach(sessionId: string, tenantId: number, reason: string, killSession: boolean) {
+    // Master tenant gets god-view (can close/detach any tenant's
+    // session); child tenants stay scoped. Same rule as resumeSession.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('remote_sessions').where({ id: sessionId });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const session = await q.first();
     if (!session) return;
 
-    const duration = session.connected_at
-      ? Math.floor((Date.now() - new Date(session.connected_at).getTime()) / 1000)
-      : 0;
-
-    // Sessions that never connected (waiting/connecting) are marked 'expired', not 'closed'
-    const finalStatus = session.connected_at ? 'closed' : 'expired';
-
-    await db('remote_sessions').where({ id: sessionId }).update({
-      status: finalStatus, ended_at: new Date(),
-      duration_seconds: duration, end_reason: reason,
-    });
+    // On detach we don't touch the DB row — the session is still
+    // alive, just unattended. On close (killSession=true) we record
+    // duration + end status.
+    if (killSession) {
+      const duration = session.connected_at
+        ? Math.floor((Date.now() - new Date(session.connected_at).getTime()) / 1000)
+        : 0;
+      // Sessions that never connected (waiting/connecting) are marked 'expired', not 'closed'
+      const finalStatus = session.connected_at ? 'closed' : 'expired';
+      await db('remote_sessions').where({ id: sessionId }).update({
+        status: finalStatus, ended_at: new Date(),
+        duration_seconds: duration, end_reason: reason,
+      });
+    }
 
     // Tell agent to close tunnel — include username for agent-side notification.
+    // `killSession` controls whether the agent runs `tmux kill-session`
+    // (true = real Close, false = detach client only).
     let closingUsername = 'Unknown';
     try {
       const user = await db('users').where({ id: session.started_by }).first();
       if (user) closingUsername = user.display_name || user.username || user.email || 'Unknown';
     } catch {}
-    const closePayload = { sessionToken: session.session_token, username: closingUsername };
+    const closePayload = { sessionToken: session.session_token, username: closingUsername, killSession };
     if (session.protocol === 'oblireach') {
       // Deliver close via WS if connected; no DB fallback needed (close is best-effort —
       // the session is ending regardless, and the agent will detect the tunnel close).
@@ -160,9 +193,12 @@ class RemoteService {
         commandType: 'close_remote_tunnel',
         payload: closePayload,
       });
-      if (!closePushed) {
+      if (!closePushed && killSession) {
+        // Only queue persistent close commands when killing. A
+        // detach for an offline agent makes no sense — the tmux
+        // session is already detached if the agent is gone.
         await commandService.enqueue({
-          deviceId: session.device_id, tenantId,
+          deviceId: session.device_id, tenantId: session.tenant_id,
           type: 'close_remote_tunnel',
           payload: closePayload,
           priority: 'urgent',
@@ -170,13 +206,15 @@ class RemoteService {
       }
     }
 
-    // Clean up in-memory tunnel
+    // Clean up in-memory tunnel — for detach we still wipe the
+    // browser↔server bridge so any old WebSocket frame stops being
+    // forwarded; the agent-side tmux is the only thing that persists.
     this.tunnels.delete(session.session_token);
 
     // Notify UI
     try {
       const updated = await db('remote_sessions').where({ id: sessionId }).first();
-      getIO().to(`tenant:${tenantId}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, this.rowToSession(updated));
+      getIO().to(`tenant:${session.tenant_id}`).emit(SocketEvents.REMOTE_SESSION_UPDATED, this.rowToSession(updated));
     } catch {}
   }
 

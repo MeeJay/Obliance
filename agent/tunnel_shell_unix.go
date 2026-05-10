@@ -56,12 +56,13 @@ func newShellSession(cols, rows uint16, shellCmd string, sessionToken string, _ 
 		}
 	}
 
-	// tmux wrap when both: (a) tmux is installed, (b) we have a non-
-	// empty session token to name with. Token is a 64-hex-char value
-	// from crypto.randomBytes — we use it raw inside the session name
-	// (tmux accepts wide alphanumerics).
-	tmuxPath, tmuxErr := exec.LookPath("tmux")
-	wrapInTmux := tmuxErr == nil && sessionToken != ""
+	// tmux wrap when both: (a) tmux is reachable via the priority
+	// chain (bundled binary next to agent → /opt/obliance/bin/tmux →
+	// PATH), (b) we have a non-empty session token to name with.
+	// Token is a 64-hex-char value from crypto.randomBytes — used
+	// raw inside the session name (tmux accepts wide alphanumerics).
+	tmuxPath := tmuxBinPath()
+	wrapInTmux := tmuxPath != "" && sessionToken != ""
 
 	var cmd *exec.Cmd
 	if wrapInTmux {
@@ -117,4 +118,23 @@ func (s *unixShell) Close() error {
 		_ = s.cmd.Process.Kill()
 	}
 	return nil
+}
+
+// killTmuxSessionByToken makes sure no orphan tmux session is left
+// alive for the given session token. Called from the Close path
+// (killSession=true) so the user-facing "Close" truly destroys the
+// shell, not just the local client. A no-op on hosts without tmux
+// (we ignore exit errors — `no current session` is the expected
+// result for a fresh agent on a system without tmux installed).
+func killTmuxSessionByToken(sessionToken string) {
+	if sessionToken == "" {
+		return
+	}
+	tmuxPath := tmuxBinPath()
+	if tmuxPath == "" {
+		return
+	}
+	target := "obliance-" + sessionToken
+	cmd := exec.Command(tmuxPath, "kill-session", "-t", target)
+	_ = cmd.Run()
 }

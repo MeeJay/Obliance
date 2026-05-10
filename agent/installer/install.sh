@@ -58,6 +58,23 @@ curl -fsSL "${SERVER_URL}/api/agent/download/obliance-agent-${BINARY_SUFFIX}" \
   -o "$INSTALL_DIR/$BINARY_NAME"
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
+# Bundled tmux for the Resume feature — gives airgap installs a
+# guaranteed tmux even when the host can't reach a package mirror.
+# The agent's tmuxBinPath() picks this up via "tmux next to the
+# agent executable" priority. If the download 404s (no bundled
+# binary on this server for this arch), we ignore the error — the
+# agent will try the package manager auto-install at startup, then
+# fall back to direct-spawn-no-resume mode if both fail.
+echo "       → fetching bundled tmux (Resume fallback)"
+if curl -fsSL --silent --fail "${SERVER_URL}/api/agent/download/tmux-${BINARY_SUFFIX}" \
+    -o "$INSTALL_DIR/tmux"; then
+  chmod +x "$INSTALL_DIR/tmux"
+  echo "       ✓ bundled tmux available at $INSTALL_DIR/tmux"
+else
+  rm -f "$INSTALL_DIR/tmux"
+  echo "       (no bundled tmux for $BINARY_SUFFIX — agent will try apt/dnf/etc on first boot)"
+fi
+
 # ── 3. Write config ───────────────────────────────────────────────────────────
 
 echo "[3/4] Writing configuration..."

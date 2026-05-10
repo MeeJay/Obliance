@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Search, ExternalLink } from 'lucide-react';
+import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Search, ExternalLink, RotateCcw, Unplug } from 'lucide-react';
 import { remoteApi } from '@/api/remote.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { useAuthStore } from '@/store/authStore';
+import { useRemoteShellStore } from '@/store/remoteShellStore';
+import { anonymize } from '@/utils/anonymize';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { TenantBadge } from '@/components/common/TenantBadge';
@@ -153,6 +155,84 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  toast.error('Failed to end session');
  } finally {
  setEndingSessionId(null);
+ }
+ };
+
+ // Resume a shell session — works on SSH / CMD / PowerShell. The
+ // server re-emits `open_remote_tunnel` with the SAME session token;
+ // the agent's tmux wrapper attaches to the still-alive tmux named
+ // `obliance-{token}` and restores scrollback + cwd + running
+ // processes. On Windows (no tmux), the agent spawns a fresh shell —
+ // we toast a warning so the user knows what to expect.
+ const [resumingId, setResumingId] = useState<string | null>(null);
+ const [detachingSessionId, setDetachingSessionId] = useState<string | null>(null);
+ const handleDetachSession = async (session: RemoteSession) => {
+ setDetachingSessionId(session.id);
+ try {
+ await remoteApi.detachSession(session.id);
+ // Also pop the tab from the global shell panel if it's
+ // currently open locally — the user just signalled they're
+ // done with this view.
+ try {
+ useRemoteShellStore.getState().removeSession(session.sessionToken);
+ } catch { /* not open here, ignore */ }
+ toast.success('Session detached — still resumable in Active Sessions');
+ await load();
+ } catch {
+ toast.error('Failed to detach session');
+ } finally {
+ setDetachingSessionId(null);
+ }
+ };
+ const handleResumeSession = async (session: RemoteSession) => {
+ setResumingId(session.id);
+ try {
+ await remoteApi.resumeSession(session.id);
+ // Find the device name from the cached list (best effort —
+ // master view may not have it).
+ const dev = allDevices.find((d) => d.id === session.deviceId);
+ const deviceName = dev ? (anonymize(dev.displayName || dev.hostname) || `#${dev.id}`) : `Device #${session.deviceId}`;
+ // Surface the shell in the global panel as soon as the agent
+ // re-connects the tunnel WS. REMOTE_TUNNEL_READY is the same
+ // signal used by the fresh-connect flow on DeviceDetailPage.
+ const protocol = session.protocol;
+ if (protocol === 'ssh' || protocol === 'cmd' || protocol === 'powershell') {
+ const socket = getSocket();
+ const add = () => useRemoteShellStore.getState().addSession({
+ id: session.sessionToken,
+ deviceId: session.deviceId,
+ deviceName,
+ protocol: protocol as 'ssh' | 'cmd' | 'powershell',
+ sessionToken: session.sessionToken,
+ });
+ if (socket) {
+ const onReady = (s: RemoteSession) => {
+ if (s.id !== session.id) return;
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ add();
+ };
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ // Failsafe: if the ready event never lands (agent offline / closed
+ // tmux), surface the shell anyway after 3s so the user gets feedback.
+ setTimeout(() => { socket.off('REMOTE_TUNNEL_READY', onReady); add(); }, 3000);
+ } else {
+ add();
+ }
+ toast.success('Resuming session…');
+ } else if (protocol === 'oblireach') {
+ // Re-attach the viewer to the live token. The viewer handles
+ // its own WS connection; we just open it.
+ setOrSession(session);
+ pendingOrId.current = session.id;
+ } else {
+ toast.success('Session resumed');
+ }
+ await load();
+ } catch (err) {
+ const msg = (err as any)?.response?.data?.error ?? 'Failed to resume session';
+ toast.error(msg);
+ } finally {
+ setResumingId(null);
  }
  };
 
@@ -379,6 +459,40 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  >
  <ExternalLink className="w-3.5 h-3.5" />
  View
+ </button>
+ )}
+ {/* Resume — shell sessions (SSH / CMD / PS). On Unix the
+     agent's tmux wrapper attaches to the existing tmux so
+     scrollback + cwd + running processes survive a server
+     reboot. Shown whenever the session is in a state
+     reattachable to (active / connecting / waiting). */}
+ {(session.status === 'active' || session.status === 'connecting' || session.status === 'waiting') &&
+  (session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && (
+ <button
+ onClick={() => handleResumeSession(session)}
+ disabled={resumingId === session.id}
+ title="Re-attach the terminal in the global shell panel (Unix agents with tmux preserve scrollback)"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 disabled:opacity-50 transition-colors"
+ >
+ <RotateCcw className="w-3.5 h-3.5" />
+ {resumingId === session.id ? 'Resuming...' : 'Resume'}
+ </button>
+ )}
+ {/* Detach — release the local viewer but keep the
+     session alive on the agent (tmux mode). Other admins
+     can Resume from here. Shown only for shell-style
+     sessions, since RDP / Oblireach don't have a useful
+     "leave running" semantic. */}
+ {(session.status === 'active' || session.status === 'connecting') &&
+  (session.protocol === 'ssh' || session.protocol === 'cmd' || session.protocol === 'powershell') && (
+ <button
+ onClick={() => handleDetachSession(session)}
+ disabled={detachingSessionId === session.id}
+ title="Release the viewer without killing the shell — another admin can Resume this session"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+ >
+ <Unplug className="w-3.5 h-3.5" />
+ {detachingSessionId === session.id ? '...' : 'Detach'}
  </button>
  )}
  {/* End session */}

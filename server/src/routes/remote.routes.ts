@@ -111,6 +111,24 @@ router.post('/sessions/:id/resume', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /sessions/:id/detach — kill local tmux client only, keep the
+// session resumable. The shell process stays alive on the agent
+// (Unix only — Windows falls back to a true close). Used by the
+// "Detach" button so a session can be handed off to another admin
+// or simply unattended for resume later.
+router.post('/sessions/:id/detach', async (req, res, next) => {
+  try {
+    await remoteService.detachSession(req.params.id, req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'remote.session_detached', {
+        resourceType: 'remote_session', resourcePath: req.params.id,
+      });
+    } catch {}
+    res.status(204).send();
+  } catch (err) { next(err); }
+});
+
 // POST /sessions/:id/end — matches client remoteApi.endSession
 router.post('/sessions/:id/end', async (req, res, next) => {
   try {
