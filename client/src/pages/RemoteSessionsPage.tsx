@@ -204,6 +204,7 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  deviceName,
  protocol: protocol as 'ssh' | 'cmd' | 'powershell',
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  if (socket) {
  const onReady = (s: RemoteSession) => {

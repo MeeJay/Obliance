@@ -3104,6 +3104,7 @@ function RemoteTab({ device }: { device: Device }) {
  deviceName,
  protocol,
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  const socket = getSocket();
  if (socket) {
@@ -3287,6 +3288,7 @@ function RemoteTab({ device }: { device: Device }) {
  deviceName,
  protocol,
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  const socket = getSocket();
  if (socket) {
@@ -3451,6 +3453,7 @@ function RemoteTab({ device }: { device: Device }) {
  deviceName,
  protocol: session.protocol as 'ssh' | 'cmd' | 'powershell',
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  }
  }}
@@ -4617,6 +4620,7 @@ export function DeviceDetailPage() {
  deviceName,
  protocol,
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  const socket = getSocket();
  if (socket) {

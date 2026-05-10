@@ -16,6 +16,16 @@ export interface ShellSession {
   deviceName: string;
   protocol: ShellProtocol;
   sessionToken: string;
+  /** remote_sessions.id (UUID) — needed for any /api/remote/sessions/:id
+   *  endpoint (detach, end, resume). Different from `sessionToken`
+   *  which is the long random string used by the tunnel WS. We plumb
+   *  both because the panel renders one shell per token but the REST
+   *  layer keys by UUID. Optional for backwards compat — sessions
+   *  created from older code paths that didn't pass it fall back to
+   *  closing the WS only (the agent still detaches its tmux client
+   *  naturally on WS drop, so the behaviour degrades to "best effort
+   *  detach" rather than failing outright). */
+  serverSessionId?: string;
   status: ShellStatus;
   errorMsg: string;
   createdAt: number;

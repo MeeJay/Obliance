@@ -315,27 +315,25 @@ export function GlobalShellPanel() {
  runtimes.current.delete(id);
  removeSession(id);
  };
+ // Resolve the server-side UUID once: the panel store keys by
+ // sessionToken (legacy) and we plumb `serverSessionId` (the real
+ // remote_sessions.id from the REST POST) alongside. When the field
+ // is missing — old store entries created before the plumbing — we
+ // skip the API call and degrade to local-only teardown. The agent
+ // then still detaches its tmux client naturally on WS drop, so
+ // tmux survives, but the DB row stays "active" until the GC kicks
+ // in (30 min default).
  const handleDetach = (id: string) => {
- // Find the matching server session id from the store; the panel
- // keys by sessionToken so we have to look up the session row to
- // get the real REST id. Best-effort — even if the API call fails
- // we still tear down the local view.
  const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
- if (s?.sessionToken) {
- // The server endpoint is keyed by the remote_session.id (UUID).
- // We don't carry it here; the sessionToken is the next best
- // proxy. The server resolves via session_token → id internally
- // through the REST. For now we just close the WS and rely on
- // the agent detecting it (= same effect as detach). A future
- // refactor can plumb the real session id into the store entry.
- try { remoteApi.detachSession(s.sessionToken); } catch {}
+ if (s?.serverSessionId) {
+ try { remoteApi.detachSession(s.serverSessionId); } catch {}
  }
  tearDownLocal(id);
  };
  const handleClose = (id: string) => {
  const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
- if (s?.sessionToken) {
- try { remoteApi.endSession(s.sessionToken); } catch {}
+ if (s?.serverSessionId) {
+ try { remoteApi.endSession(s.serverSessionId); } catch {}
  }
  tearDownLocal(id);
  };
@@ -361,6 +359,7 @@ export function GlobalShellPanel() {
  deviceName,
  protocol,
  sessionToken: session.sessionToken,
+   serverSessionId: session.id,
  });
  if (!socket) { add(); return; }
  const onReady = (s: any) => {
