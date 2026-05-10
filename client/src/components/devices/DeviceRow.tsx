@@ -231,7 +231,14 @@ export const DeviceRow = memo(function DeviceRow({
 
         <div className="flex-1" />
 
-        {mode === 'monitoring' && (
+        {/* Metrics row — CPU / RAM / Disk + custom metrics. This block
+            used to be gated on `mode === 'monitoring'` (the original
+            split between /devices and /admin/devices), but the two
+            pages were unified so the device row should ALWAYS surface
+            health at a glance. Without this fix, custom metrics —
+            which the user explicitly drives via script schedules —
+            silently disappeared from every list view. */}
+        {(
           <div className="flex items-center gap-3 flex-shrink-0">
             <MiniBar label="CPU" value={cpuPct} />
             <MiniBar label="RAM" value={ramPct} />

@@ -60,8 +60,54 @@ router.get('/sessions', async (req, res, next) => {
     const { deviceId, status } = req.query as any;
     const items = await remoteService.getSessions(req.tenantId!, {
       deviceId: deviceId ? parseInt(deviceId) : undefined, status,
+      // Master tenant gets god-view (every session install-wide).
+      // Tenant admin sees their tenant's sessions.
+      // Plain user sees only their OWN started_by sessions.
+      // The service interprets these flags below.
+      callerUserId: req.session.userId!,
+      callerIsAdmin: req.session.role === 'admin',
     });
     res.json({ data: { items, total: items.length } });
+  } catch (err) { next(err); }
+});
+
+// GET /sessions/active?deviceId=N — used by the "Connect SSH" flow on
+// the device detail page. Returns sessions the calling user can
+// resume on the given device. Empty list = no modale, just open a
+// fresh tunnel. Same role scoping rules as /sessions above.
+router.get('/sessions/active', async (req, res, next) => {
+  try {
+    const deviceId = req.query.deviceId ? parseInt(String(req.query.deviceId)) : undefined;
+    if (!deviceId) throw new AppError(400, 'deviceId is required');
+    const items = await remoteService.getResumableSessions(req.tenantId!, deviceId, {
+      callerUserId: req.session.userId!,
+      callerIsAdmin: req.session.role === 'admin',
+    });
+    res.json({ data: { items } });
+  } catch (err) { next(err); }
+});
+
+// POST /sessions/:id/resume — re-emit `open_remote_tunnel` to the
+// agent with the EXISTING session token. The agent's tmux wrapper
+// (Unix) will attach to the still-alive tmux session named
+// `obliance-{token}`, restoring scrollback / running processes /
+// cwd. Windows agents currently fall back to spawning a fresh
+// shell — best-effort only there.
+router.post('/sessions/:id/resume', async (req, res, next) => {
+  try {
+    const session = await remoteService.resumeSession(req.params.id, req.tenantId!, {
+      callerUserId: req.session.userId!,
+      callerIsAdmin: req.session.role === 'admin',
+    });
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, `remote.session_resumed.${session.protocol}`, {
+        deviceId: session.deviceId,
+        resourceType: 'remote_session',
+        resourcePath: session.id,
+      });
+    } catch {}
+    res.json({ data: session });
   } catch (err) { next(err); }
 });
 

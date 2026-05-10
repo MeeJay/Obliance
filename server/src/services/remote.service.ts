@@ -6,7 +6,7 @@ import { oblireachHub } from './oblireachHub.service';
 import { privacyGateService } from './privacyGate.service';
 import type { OrCommand } from './oblireachHub.service';
 import { getIO } from '../socket';
-import { SocketEvents } from '@obliance/shared';
+import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import type { RemoteSession, RemoteProtocol } from '@obliance/shared';
 import { logger } from '../utils/logger';
 
@@ -180,12 +180,27 @@ class RemoteService {
     } catch {}
   }
 
-  async getSessions(tenantId: number, filters?: { deviceId?: number; status?: string }) {
+  async getSessions(tenantId: number, filters?: {
+    deviceId?: number; status?: string;
+    callerUserId?: number; callerIsAdmin?: boolean;
+  }) {
+    // Visibility cascade — strictest wins:
+    //   - Master tenant (id=1) god view: every session install-wide.
+    //   - Otherwise tenant-scoped.
+    //   - Plain user (callerIsAdmin=false): further restricted to
+    //     sessions THEY started (started_by = callerUserId). Without
+    //     this, a non-admin with the `remote` capability would see
+    //     other users' sessions on shared devices, which the user
+    //     explicitly asked to prevent.
+    const isMaster = isMasterTenant(tenantId);
     let q = db('remote_sessions as rs')
-      .leftJoin('users as u', 'u.id', 'rs.started_by')
-      .where({ 'rs.tenant_id': tenantId });
+      .leftJoin('users as u', 'u.id', 'rs.started_by');
+    if (!isMaster) q = q.where({ 'rs.tenant_id': tenantId });
     if (filters?.deviceId) q = q.where({ 'rs.device_id': filters.deviceId });
     if (filters?.status) q = q.where({ 'rs.status': filters.status });
+    if (filters?.callerIsAdmin === false && filters.callerUserId != null) {
+      q = q.where({ 'rs.started_by': filters.callerUserId });
+    }
     const rows = await q
       .select('rs.*', 'u.username as started_by_username', 'u.display_name as started_by_display_name')
       .orderBy('rs.started_at', 'desc').limit(100);
@@ -200,6 +215,88 @@ class RemoteService {
       }
       return session;
     });
+  }
+
+  /**
+   * Resumable sessions for the "Connect SSH" modale. Returns sessions
+   * scoped to the calling user (non-admins) / tenant (admins) /
+   * install (master), filtered to a specific device, in states that
+   * the agent can re-attach to. We deliberately INCLUDE 'connecting'
+   * and 'waiting' too: an Obliance reboot may have caught a session
+   * mid-handshake, and resuming will retry the same token.
+   */
+  async getResumableSessions(tenantId: number, deviceId: number, opts: {
+    callerUserId: number; callerIsAdmin: boolean;
+  }) {
+    return this.getSessions(tenantId, {
+      deviceId,
+      callerUserId: opts.callerUserId,
+      callerIsAdmin: opts.callerIsAdmin,
+    }).then((rows) => rows.filter((r) =>
+      r.status === 'active' || r.status === 'connecting' || r.status === 'waiting',
+    ));
+  }
+
+  /**
+   * Resume an existing session: re-send `open_remote_tunnel` to the
+   * agent with the SAME session token. The agent (Unix) wraps in
+   * `tmux new-session -A -s obliance-{token}`, so attaching to the
+   * still-alive tmux gives the user back their shell with
+   * scrollback / cwd / running processes intact.
+   *
+   * Authorization mirrors getSessions: master sees all, admin tenant
+   * sees their tenant, plain user only their own. We resolve once
+   * via getSessions to factor the rule, then act on the row.
+   */
+  async resumeSession(sessionId: string, tenantId: number, opts: {
+    callerUserId: number; callerIsAdmin: boolean;
+  }) {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('remote_sessions').where({ id: sessionId });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const row = await q.first();
+    if (!row) throw new Error('Session not found');
+    if (!opts.callerIsAdmin && row.started_by !== opts.callerUserId) {
+      // Same shape as 404 — non-admin asking for someone else's
+      // session shouldn't even know it exists.
+      throw new Error('Session not found');
+    }
+    if (row.status !== 'active' && row.status !== 'connecting' && row.status !== 'waiting') {
+      throw new Error(`Session is in state '${row.status}', cannot resume`);
+    }
+
+    // Re-build the open_remote_tunnel payload identical to createSession.
+    const wsPath = `/api/remote/agent-tunnel/${row.session_token}`;
+    const username = (await db('users').where({ id: opts.callerUserId }).first('username'))?.username ?? '';
+    const payload = {
+      sessionToken: row.session_token,
+      protocol: row.protocol,
+      serverWsUrl: wsPath,
+      username,
+    };
+
+    // Push via the same channel as createSession — agentHub for SSH/RDP/cmd/ps,
+    // oblireachHub for oblireach. Each command needs an id (the hubs
+    // dedupe and wait on it) so we mint one with crypto.randomUUID.
+    const { randomUUID } = await import('crypto');
+    if (row.protocol === 'oblireach') {
+      const { oblireachHub } = await import('./oblireachHub.service');
+      await oblireachHub.push(row.device_id, {
+        type: 'open_remote_tunnel',
+        id: randomUUID(),
+        payload,
+      } as any);
+    } else {
+      const { agentHub } = await import('./agentHub.service');
+      await agentHub.push(row.device_id, {
+        type: 'command',
+        id: randomUUID(),
+        commandType: 'open_remote_tunnel',
+        payload,
+      } as any);
+    }
+
+    return this.rowToSession(row);
   }
 
   // Called when agent WebSocket connects for a session.

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireRole } from '../middleware/rbac';
 import { scenarioService } from '../services/scenario.service';
+import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
 
@@ -414,10 +415,22 @@ import { scenarioGraphService } from '../services/scenarioGraph.service';
 router.get('/:id/graph', async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
-    // Tenant scope: confirm the scenario belongs to the caller's tenant
-    // before exposing nodes/edges, since these don't carry tenant_id
-    // themselves (FK to scenarios is enough).
-    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    // Tenant scope: master tenant gets god-view access (read any
+    // scenario across the install, mirrors what scenarioService.list
+    // / getById already do for the parent endpoints). A child tenant
+    // sees its own scenarios + any fan-outed via target_tenant_ids.
+    // Without this fix the list page surfaced foreign scenarios on
+    // master but their detail / graph 404'd because the strict
+    // tenant_id filter blocked the lookup.
+    const isMaster = isMasterTenant(req.tenantId!);
+    const scenarioQ = db('scenarios').where({ id: scenarioId });
+    if (!isMaster) {
+      scenarioQ.where(function () {
+        this.where('tenant_id', req.tenantId!)
+          .orWhereRaw('? = ANY(target_tenant_ids)', [req.tenantId!]);
+      });
+    }
+    const scenario = await scenarioQ.first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
     const [nodeRows, edgeRows] = await Promise.all([
       db('scenario_nodes').where({ scenario_id: scenarioId }).orderBy('id'),
@@ -464,7 +477,13 @@ router.get('/:id/graph', async (req, res, next) => {
 router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
-    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    // Master tenant can edit any scenario (god view); child tenants
+    // stay strictly scoped — fan-out gives read access only, not
+    // write. Mirrors the pattern in scenario.service.ts updateScenario.
+    const isMaster = isMasterTenant(req.tenantId!);
+    const scenarioQ = db('scenarios').where({ id: scenarioId });
+    if (!isMaster) scenarioQ.where({ tenant_id: req.tenantId! });
+    const scenario = await scenarioQ.first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
 
     const { nodes = [], edges = [] } = req.body as {
@@ -544,12 +563,23 @@ router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next)
     const deviceIds = Array.from(new Set(rawIds.map((n) => Number(n)).filter((n) => Number.isFinite(n))));
     if (deviceIds.length === 0) return res.status(400).json({ error: 'deviceIds required' });
 
-    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    // Master can launch any scenario on any device they can see;
+    // child tenants stay strictly scoped (own scenarios + own
+    // devices). The two checks below mirror that — devices are
+    // validated against the SCENARIO's tenant when on master so a
+    // master-driven launch of a child-tenant's scenario uses the
+    // correct device set. Without this, a master clicking "Run on
+    // device" from a child scenario got "Scenario not found".
+    const isMaster = isMasterTenant(req.tenantId!);
+    const scenarioQ = db('scenarios').where({ id: scenarioId });
+    if (!isMaster) scenarioQ.where({ tenant_id: req.tenantId! });
+    const scenario = await scenarioQ.first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
 
+    const deviceTenantId = isMaster ? scenario.tenant_id : req.tenantId!;
     const tenantDevices = await db('devices')
       .whereIn('id', deviceIds)
-      .where({ tenant_id: req.tenantId! })
+      .where({ tenant_id: deviceTenantId })
       .select('id') as Array<{ id: number }>;
     const validIds = new Set(tenantDevices.map((d) => d.id));
     const missing = deviceIds.filter((id) => !validIds.has(id));
@@ -633,10 +663,23 @@ router.get('/:id/active-runs', requireRole('admin'), async (req, res, next) => {
     const scenarioId = parseInt(req.params.id);
     const sinceMin = parseInt(String(req.query.sinceMinutes ?? '60')) || 60;
     const cutoff = new Date(Date.now() - sinceMin * 60 * 1000);
-    const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first();
+    // Master = god view; child tenants strictly scoped (same pattern
+    // as graph load + listRuns above). Without it, master couldn't
+    // see active runs of a child tenant's scenario despite seeing
+    // the scenario itself in the list.
+    const isMaster = isMasterTenant(req.tenantId!);
+    const scenarioQ = db('scenarios').where({ id: scenarioId });
+    if (!isMaster) {
+      scenarioQ.where(function () {
+        this.where('tenant_id', req.tenantId!)
+          .orWhereRaw('? = ANY(target_tenant_ids)', [req.tenantId!]);
+      });
+    }
+    const scenario = await scenarioQ.first();
     if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
-    const runs = await db('scenario_runs')
-      .where({ scenario_id: scenarioId, tenant_id: req.tenantId! })
+    const runsQ = db('scenario_runs').where({ scenario_id: scenarioId });
+    if (!isMaster) runsQ.where({ tenant_id: req.tenantId! });
+    const runs = await runsQ
       .where(function () {
         this.where('status', 'running').orWhere('started_at', '>=', cutoff);
       })

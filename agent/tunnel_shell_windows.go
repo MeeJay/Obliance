@@ -53,7 +53,15 @@ type winShell struct {
 // If wtsSessionId > 0, the shell runs in the specified WTS user session
 // (using WTSQueryUserToken + CreateProcessAsUser). Otherwise it runs as SYSTEM.
 // Requires Windows 10 Build 1809 (RS5) or later.
-func newShellSession(cols, rows uint16, shellCmd string, wtsSessionId int) (shellSession, error) {
+//
+// `sessionToken` is part of the cross-platform signature (the Unix
+// build wraps the shell in tmux for resume support); on Windows we
+// don't have tmux so the parameter is currently unused — the comment
+// stays so future maintainers know about the deliberate gap. A
+// Windows resume implementation would need a ConPTY host process
+// kept alive in a separate user service, which is materially more
+// complex.
+func newShellSession(cols, rows uint16, shellCmd string, _sessionToken string, wtsSessionId int) (shellSession, error) {
 	// --- 1. Create two anonymous pipe pairs -----------------------------------
 	var ptyInRead, ptyInWrite, ptyOutRead, ptyOutWrite windows.Handle
 	if err := windows.CreatePipe(&ptyInRead, &ptyInWrite, nil, 0); err != nil {

@@ -1843,7 +1843,14 @@ export const scenarioService = {
     const limit = filters?.limit ?? 50;
     const page = filters?.page ?? 1;
 
-    let baseQ = db('scenario_runs').where({ 'scenario_runs.tenant_id': tenantId });
+    // Master tenant gets god-view across all scenarios; child tenants
+    // stay strictly scoped to their own runs. Without this, opening a
+    // child-tenant scenario from master (visible in the list via the
+    // existing fan-out) returned an empty history because the
+    // tenant_id filter excluded its runs.
+    const isMaster = isMasterTenant(tenantId);
+    let baseQ = db('scenario_runs');
+    if (!isMaster) baseQ = baseQ.where({ 'scenario_runs.tenant_id': tenantId });
     if (filters?.scenarioId) baseQ = baseQ.where({ 'scenario_runs.scenario_id': filters.scenarioId });
     if (filters?.deviceId) baseQ = baseQ.where({ 'scenario_runs.device_id': filters.deviceId });
     if (filters?.status) baseQ = baseQ.where({ 'scenario_runs.status': filters.status });

@@ -287,7 +287,7 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellC
 	// Start a platform-specific PTY / ConPTY shell with a sensible default size.
 	// The browser sends an initial resize message immediately after connecting
 	// so the actual size is corrected within milliseconds.
-	shell, err := newShellSession(220, 50, shellCmd, wtsSessionId)
+	shell, err := newShellSession(220, 50, shellCmd, sessionToken, wtsSessionId)
 	if err != nil {
 		ws.Close()
 		return nil, fmt.Errorf("open_remote_tunnel(ssh): start shell: %w", err)

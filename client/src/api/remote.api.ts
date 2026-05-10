@@ -18,6 +18,23 @@ export const remoteApi = {
   async endSession(sessionId: string): Promise<void> {
     await apiClient.post(`/remote/sessions/${sessionId}/end`);
   },
+  /** Sessions on a specific device that the caller can resume —
+   *  used by the "Connect SSH" modale to ask the user "new tab vs
+   *  reattach to one of these existing tabs?". Empty list = no
+   *  modale, just open a fresh tunnel. */
+  async listResumable(deviceId: number): Promise<RemoteSession[]> {
+    const res = await apiClient.get<ApiResponse<{ items: RemoteSession[] }>>(
+      '/remote/sessions/active', { params: { deviceId } },
+    );
+    return res.data.data?.items ?? [];
+  },
+  /** Re-emit the same `open_remote_tunnel` to the agent — on Unix the
+   *  agent's tmux wrapper attaches to the still-alive tmux session
+   *  named `obliance-{token}`, restoring scrollback / processes / cwd. */
+  async resumeSession(sessionId: string): Promise<RemoteSession> {
+    const res = await apiClient.post<ApiResponse<RemoteSession>>(`/remote/sessions/${sessionId}/resume`);
+    return res.data.data!;
+  },
   /** Build the browser-side WebSocket URL for a remote tunnel session. */
   getTunnelWsUrl(sessionToken: string): string {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
