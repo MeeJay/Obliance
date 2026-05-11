@@ -17,7 +17,6 @@ import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import { PerDiskThresholdsEditor } from '@/components/common/PerDiskThresholdsEditor';
 import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
-import { ResumeOrNewSessionModal } from '@/components/ResumeOrNewSessionModal';
 import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -2864,12 +2863,6 @@ function RemoteTab({ device }: { device: Device }) {
  // Shell session picker (cmd/powershell — choose SYSTEM or user session)
  const [shellSessionPickerOpen, setShellSessionPickerOpen] = useState(false);
  const [shellWtsSessions, setShellWtsSessions] = useState<{ id: number; username: string; domain: string; state: string; name: string }[]>([]);
- // Resume modale state — shown when the user clicks Connect SSH/CMD/PS
- // and already has resumable sessions of that protocol on this device.
- // null = no modale visible. The modale itself is rendered alongside
- // the other portals at the end of the JSX tree.
- const [resumeModalState, setResumeModalState] = useState<{ sessions: RemoteSession[]; protocol: 'ssh' | 'cmd' | 'powershell' } | null>(null);
- const [resumeBusy, setResumeBusy] = useState(false);
  const pendingShellProtocol = useRef<'cmd' | 'powershell' | 'ssh'>('cmd');
  const [orVersion, setOrVersion] = useState<string | null>(null);
  const [orLatestVersion, setOrLatestVersion] = useState<string | null>(null);
@@ -3067,20 +3060,6 @@ function RemoteTab({ device }: { device: Device }) {
  return;
  }
  if (isShellProtocol(protocol)) {
- // Resume probe — if the caller already has resumable shell
- // sessions on this device for the same protocol, ask before
- // spawning a fresh one. Falls through to startShellSession on
- // any error so a server / network hiccup never blocks the new
- // session. The modale is dismissed by Cancel → no-op, by New →
- // startShellSession(), by Resume → resumeSession + add to panel.
- try {
- const resumable = (await remoteApi.listResumable(device.id))
- .filter((s) => s.protocol === protocol);
- if (resumable.length > 0) {
- setResumeModalState({ sessions: resumable, protocol });
- return;
- }
- } catch { /* falls through to startShellSession */ }
  startShellSession(protocol);
  }
  };
@@ -3258,63 +3237,6 @@ function RemoteTab({ device }: { device: Device }) {
  </div>
  </div>
  </div>
- )}
- {/* Resume modale — shown when Connect SSH/CMD/PS is clicked and
-     the caller already has resumable sessions for that protocol on
-     this device. "New" preserves the existing flow (multi-tty),
-     "Resume" re-emits open_remote_tunnel with the existing token
-     so the agent's tmux wrapper re-attaches the live shell. */}
- {resumeModalState && (
- <ResumeOrNewSessionModal
- sessions={resumeModalState.sessions}
- protocol={resumeModalState.protocol}
- busy={resumeBusy}
- onCancel={() => setResumeModalState(null)}
- onNew={() => {
- const proto = resumeModalState.protocol;
- setResumeModalState(null);
- startShellSession(proto);
- }}
- onResume={async (sessionId) => {
- setResumeBusy(true);
- try {
- const session = await remoteApi.resumeSession(sessionId);
- const deviceName = anonymize(device.displayName || device.hostname) || `#${device.id}`;
- const { useRemoteShellStore } = await import('@/store/remoteShellStore');
- const protocol = resumeModalState.protocol;
- const add = () => useRemoteShellStore.getState().addSession({
- id: session.sessionToken,
- deviceId: device.id,
- deviceName,
- protocol,
- sessionToken: session.sessionToken,
-   serverSessionId: session.id,
- });
- const socket = getSocket();
- if (socket) {
- const onReady = (s: RemoteSession) => {
- if (s.id !== session.id) return;
- socket.off('REMOTE_TUNNEL_READY', onReady);
- add();
- };
- socket.on('REMOTE_TUNNEL_READY', onReady);
- setTimeout(() => {
- socket.off('REMOTE_TUNNEL_READY', onReady);
- const already = useRemoteShellStore.getState().sessions.find((x) => x.id === session.sessionToken);
- if (!already) add();
- }, 1500);
- } else {
- add();
- }
- toast.success('Resuming session…');
- setResumeModalState(null);
- } catch {
- toast.error('Failed to resume session');
- } finally {
- setResumeBusy(false);
- }
- }}
- />
  )}
  {/* Shell sessions now render in the global GlobalShellPanel. */}
  <div className="space-y-4">

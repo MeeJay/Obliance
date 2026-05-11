@@ -285,11 +285,3 @@ func (s *winShell) Close() error {
 	}
 	return nil
 }
-
-// killTmuxSessionByToken — no-op on Windows. The Unix build uses
-// tmux to keep sessions persistent across server reboots; Windows
-// has no equivalent multiplexer in the current agent, so there's
-// no orphan session to clean up here. Keeping the same symbol
-// name as the Unix file so tunnel.go can call it unconditionally.
-func killTmuxSessionByToken(_sessionToken string) {
-}

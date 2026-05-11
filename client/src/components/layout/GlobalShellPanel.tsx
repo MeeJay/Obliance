@@ -293,66 +293,20 @@ export function GlobalShellPanel() {
  try { rt?.term.focus(); } catch {}
  }, [activeId]);
 
- // ── Disconnect helpers ──
- //
- // Two semantics now coexist:
- //   - **Detach** = leave the agent-side session alive (tmux stays
- //     detached, resumable from Active Sessions). Just tears down the
- //     browser↔server WS and notifies the server to clean its tunnel
- //     bridge. This is what the per-tab X button does — the most
- //     common case "I'm done with this view, but maybe someone else
- //     wants it later".
- //   - **Close** = kill the shell. Agent runs `tmux kill-session` so
- //     even master / another admin can't resume. DB row goes to
- //     `closed`. Header "Close" button.
- //
- // Both clean up the local store + xterm runtime; the difference is
- // what they tell the server to do with the agent-side state.
- const tearDownLocal = (id: string) => {
+ // Close = kill the shell + tear down the local runtime. The server
+ // also reacts to the browser WS dropping by calling endSession, so
+ // this is effectively a no-op REST call followed by a local cleanup.
+ const handleDisconnect = async (id: string) => {
+ const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
+ if (s?.serverSessionId) {
+ try { await remoteApi.endSession(s.serverSessionId); } catch {}
+ }
  const rt = runtimes.current.get(id);
  try { rt?.ws?.close(); } catch {}
  try { rt?.term.dispose(); } catch {}
  runtimes.current.delete(id);
  removeSession(id);
  };
- // Resolve the server-side UUID once: the panel store keys by
- // sessionToken (legacy) and we plumb `serverSessionId` (the real
- // remote_sessions.id from the REST POST) alongside. When the field
- // is missing — old store entries created before the plumbing — we
- // skip the API call and degrade to local-only teardown. The agent
- // then still detaches its tmux client naturally on WS drop, so
- // tmux survives, but the DB row stays "active" until the GC kicks
- // in (30 min default).
- //
- // CRITICAL ORDERING: the detach API call MUST resolve before we
- // close the local WS. The server's browser-WS close handler
- // (remote.service.ts:431) detects a tunnel drop and falls back to
- // `endSession()` — which would kill the shell with
- // `killSession: true`, defeating the whole point of Detach.
- // Awaiting the POST first lets the service tear down the tunnel
- // map and dispatch the close_remote_tunnel with `killSession:
- // false` to the agent BEFORE the WS-close handler races in.
- const handleDetach = async (id: string) => {
- const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
- if (s?.serverSessionId) {
- try { await remoteApi.detachSession(s.serverSessionId); } catch {}
- }
- tearDownLocal(id);
- };
- const handleClose = async (id: string) => {
- const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
- if (s?.serverSessionId) {
- try { await remoteApi.endSession(s.serverSessionId); } catch {}
- }
- tearDownLocal(id);
- };
- // Backwards-compat alias for the existing call sites — defaults to
- // Detach since the historic per-tab X behavior was effectively a
- // detach (WS close, agent's tmux client died and the shell
- // survived as detached). We surface a real "Close" via the header
- // separately.
- const handleDisconnect = handleDetach;
- void handleDisconnect;
 
  // ── Open a new session on a chosen device/protocol ──────────────────────
  const openNew = async (deviceId: number, deviceName: string, protocol: ShellProtocol) => {
@@ -463,9 +417,9 @@ export function GlobalShellPanel() {
  <span className="text-[9px] text-purple-400" title="In split group">◎</span>
  )}
  <button
- onClick={(e) => { e.stopPropagation(); handleDetach(s.id); }}
- className="p-0.5 rounded hover:bg-amber-500/20 text-text-muted hover:text-amber-400"
- title="Detach (session stays alive, resumable in Active Sessions)"
+ onClick={(e) => { e.stopPropagation(); handleDisconnect(s.id); }}
+ className="p-0.5 rounded hover:bg-red-500/20 text-text-muted hover:text-red-400"
+ title="Close session"
  >
  <X className="w-3 h-3" />
  </button>
@@ -535,27 +489,14 @@ export function GlobalShellPanel() {
  <Minus className="w-4 h-4" />
  </button>
  {activeSession && (
- <>
  <button
- onClick={() => handleDetach(activeSession.id)}
- title="Detach — keep the shell alive on the agent (tmux), another admin can resume"
- className="flex items-center gap-1.5 px-2 py-1 text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded hover:bg-amber-500/20 transition-colors"
- >
- <X className="w-3.5 h-3.5" />
- <span className="hidden sm:inline">Detach</span>
- </button>
- <button
- onClick={() => {
- if (!confirm('Close this session permanently? The shell process will be killed and cannot be resumed.')) return;
- handleClose(activeSession.id);
- }}
- title="Close — kill the shell process (irreversible)"
+ onClick={() => handleDisconnect(activeSession.id)}
+ title="Close session"
  className="flex items-center gap-1.5 px-2 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors"
  >
  <X className="w-3.5 h-3.5" />
  <span className="hidden sm:inline">Close</span>
  </button>
- </>
  )}
  </div>
  </div>

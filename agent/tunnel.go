@@ -381,43 +381,16 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellC
 
 // handleCloseRemoteTunnel implements the "close_remote_tunnel" command.
 // It looks up the active tunnel by session token and shuts it down.
-//
-// The `killSession` payload flag distinguishes between:
-//   - **Close** (`killSession: true`): the shell process must DIE. With
-//     the tmux wrapper this requires an explicit `tmux kill-session -t
-//     obliance-{token}`, otherwise killing the tmux CLIENT just
-//     detaches and the shell stays alive in the tmux server.
-//   - **Detach** (`killSession: false` or absent): only the local
-//     client process is killed; the tmux server keeps the session
-//     so another admin can Resume it later.
-//
-// Pre-tmux callers send no flag — we default to `killSession: true`
-// for backwards compatibility (the historic semantics of close).
+// Close is final — there is no resume / detach concept anymore.
 func (d *CommandDispatcher) handleCloseRemoteTunnel(cmd AgentCommand) (interface{}, error) {
 	sessionToken := payloadString(cmd.Payload, "sessionToken")
 	if sessionToken == "" {
 		return nil, fmt.Errorf("close_remote_tunnel: missing sessionToken in payload")
 	}
-	killSession := true
-	if v, ok := cmd.Payload["killSession"]; ok {
-		if b, ok := v.(bool); ok {
-			killSession = b
-		}
-	}
 
 	ts, ok := activeTunnels.take(sessionToken)
 	if !ok {
-		// Tunnel not in our local map — either already closed, or the
-		// agent restarted since the tunnel was opened. For Close
-		// (killSession=true) we still want to nuke any orphan tmux
-		// session that may be sitting in the tmux server from a
-		// previous agent process, so the Resume path doesn't
-		// silently re-attach to a session the admin thinks they
-		// killed.
-		if killSession {
-			killTmuxSessionByToken(sessionToken)
-		}
-		log.Printf("Command %s: close_remote_tunnel: tunnel %s not in active map (orphan tmux purge: %v)", cmd.ID, sessionToken, killSession)
+		log.Printf("Command %s: close_remote_tunnel: tunnel %s not in active map", cmd.ID, sessionToken)
 		return map[string]string{
 			"sessionToken": sessionToken,
 			"status":       "not_found",
@@ -425,12 +398,9 @@ func (d *CommandDispatcher) handleCloseRemoteTunnel(cmd AgentCommand) (interface
 	}
 
 	ts.close()
-	if killSession {
-		killTmuxSessionByToken(sessionToken)
-	}
-	log.Printf("Command %s: tunnel %s (token=%s, killSession=%v)", cmd.ID, map[bool]string{true: "closed", false: "detached"}[killSession], sessionToken, killSession)
+	log.Printf("Command %s: tunnel closed (token=%s)", cmd.ID, sessionToken)
 	return map[string]string{
 		"sessionToken": sessionToken,
-		"status":       map[bool]string{true: "tunnel_closed", false: "tunnel_detached"}[killSession],
+		"status":       "tunnel_closed",
 	}, nil
 }

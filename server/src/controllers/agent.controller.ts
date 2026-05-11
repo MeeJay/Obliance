@@ -140,17 +140,6 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'oblireach-agent-linux-amd64':    'oblireach-agent-linux-amd64',
   'oblireach-agent-darwin-amd64':   'oblireach-agent-darwin-amd64',
   'oblireach-agent-darwin-arm64':   'oblireach-agent-darwin-arm64',
-  // Bundled static tmux binaries — used by the Resume feature when
-  // the host can't reach a package mirror. The installer-script
-  // downloads it next to the agent binary; tmuxBinPath() consults
-  // that path before falling back to PATH. Built via
-  // agent/scripts/build-tmux-static.sh. Optional: a missing file
-  // just makes the agent fall back to apt/dnf/etc on first boot.
-  'tmux-linux-amd64':               'tmux/linux-amd64/tmux',
-  'tmux-linux-arm64':               'tmux/linux-arm64/tmux',
-  'tmux-darwin-amd64':              'tmux/darwin-amd64/tmux',
-  'tmux-darwin-arm64':              'tmux/darwin-arm64/tmux',
-  'tmux-freebsd-amd64':             'tmux/freebsd-amd64/tmux',
 };
 
 export function agentDownload(req: Request, res: Response): void {
