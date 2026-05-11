@@ -10,6 +10,13 @@ export interface GroupStats {
   parentId: number | null;
   /** Admin-defined order within siblings. Drives the dashboard hierarchy. */
   sortOrder: number;
+  /** Owning tenant. Populated when the caller is on the master tenant
+   *  (god view) so the dashboard can bucket groups under their tenant
+   *  in the "Vue par groupe" panel — without this, master sees a flat
+   *  mix of "DC" / "Caisses" / etc. from every tenant which is
+   *  unreadable. Null on child tenants (implicit). */
+  tenantId: number | null;
+  tenantName: string | null;
   online: number;
   offline: number;
   warning: number;

@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
   AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, Box,
+  Building2,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
+import { MASTER_TENANT_ID } from '@obliance/shared';
 import {
   deviceApi,
   type GroupStats, type FleetTimeseriesPoint, type FleetHourlyPoint,
@@ -555,15 +557,21 @@ export function DashboardPage() {
   // Derived KPIs
   const total       = summary?.total ?? 0;
   // `summary.online` counts ONLY the strict 'online' status. The
-  // dashboard hero pretended that "online + offline = total" which
-  // never matched the headline (warn/critical agents are still
-  // connected — they just have an alert flag). We re-derive the
-  // displayed "connected" figure from online + warning + critical so
-  // the math adds up, and surface the breakdown via subStats below.
+  // dashboard hero used to pretend that "online + offline = total"
+  // which never matched the headline: warn/critical/updating/
+  // update_error agents are all REACHABLE (the agent is pushing) —
+  // they just carry a flag (metric alert, mid-update, update flow
+  // errored). We sum every "agent-reachable" status into the
+  // `connected` figure and expose the breakdowns as subStats. Without
+  // updating + update_error, child tenants with a recent agent
+  // version bump saw a 200+ device gap between total and
+  // online+offline (cf. user report 1026 ≠ 612+159).
   const onlineStrict = summary?.online ?? 0;
   const warning     = summary?.warning ?? 0;
   const critical    = summary?.critical ?? 0;
-  const connected   = onlineStrict + warning + critical;
+  const updating    = (summary as any)?.updating ?? 0;
+  const updateError = (summary as any)?.updateError ?? 0;
+  const connected   = onlineStrict + warning + critical + updating + updateError;
   const offline     = summary?.offline ?? 0;
   const pending     = summary?.pending ?? 0;
   const pendingUpd  = summary?.pendingUpdates ?? 0;
@@ -728,6 +736,8 @@ export function DashboardPage() {
             subStats={[
               ...(warning > 0 ? [{ label: t('dashboard.ofWhichWarning', 'dont alerte'), value: warning, color: 'text-yellow-400' }] : []),
               ...(critical > 0 ? [{ label: t('dashboard.ofWhichCritical', 'dont critique'), value: critical, color: 'text-red-400' }] : []),
+              ...(updating > 0 ? [{ label: t('dashboard.ofWhichUpdating', 'dont MAJ'), value: updating, color: 'text-blue-400' }] : []),
+              ...(updateError > 0 ? [{ label: t('dashboard.ofWhichUpdateError', 'dont erreur MAJ'), value: updateError, color: 'text-orange-400' }] : []),
             ]}
           />
         </Link>
@@ -936,13 +946,70 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {groupTree.map(g => renderGroupNode(g, 0))}
+            {/* Master tenant: bucket by tenant header before the group
+                tree. The sidebar already does this; replicating it
+                here keeps the dashboard legible when groups across
+                tenants share names (DC / Caisses / etc.) Each
+                tenant's master-fan-out groups are sorted alpha after
+                the master itself. */}
+            {(() => {
+              const buckets = bucketGroupsByTenant(groupTree);
+              if (!buckets) {
+                // Single-tenant view — render flat.
+                return groupTree.map(g => renderGroupNode(g, 0));
+              }
+              return buckets.map(([tenantId, { tenantName, roots }]) => (
+                <div key={`tenant-${tenantId}`} className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-accent border-b border-accent/20 pb-1">
+                    <Building2 size={11} />
+                    <span>{tenantName}</span>
+                    <span className="text-text-muted">·</span>
+                    <span className="text-text-muted">
+                      {roots.reduce((sum, g) => sum + g.total, 0)} {t('dashboard.devices', 'appareils')}
+                    </span>
+                  </div>
+                  {roots.map(g => renderGroupNode(g, 0))}
+                </div>
+              ));
+            })()}
           </div>
         )}
       </div>
 
     </div>
   );
+}
+
+// Master-tenant grouping helper for the "Vue par groupe" panel.
+// Returns null on single-tenant view (caller falls back to flat
+// rendering). On master, returns one bucket per tenant:
+//   - master tenant first (id=1) — internal devices stay grouped
+//   - then alpha by tenant name
+// Each bucket carries the GROUP TREE ROOTS owned by that tenant.
+// Group rows without tenantId (legacy / "ungrouped" pseudo-row) fall
+// back into a "Sans tenant" pseudo-bucket at the tail.
+function bucketGroupsByTenant(
+  groupTree: Array<GroupStats & { children: any[] }>,
+): Array<[number, { tenantName: string; roots: Array<GroupStats & { children: any[] }> }]> | null {
+  // Detect master view by checking if any node carries tenantId — the
+  // server only populates it on master. On a child tenant view every
+  // row has tenantId=null and we skip bucketing.
+  const anyHasTenant = groupTree.some((g) => g.tenantId != null);
+  if (!anyHasTenant) return null;
+  const byTenant = new Map<number, { tenantName: string; roots: Array<GroupStats & { children: any[] }> }>();
+  for (const root of groupTree) {
+    const tid = root.tenantId ?? 0;
+    const tname = root.tenantName ?? (tid === 0 ? 'Sans tenant' : `Tenant ${tid}`);
+    if (!byTenant.has(tid)) byTenant.set(tid, { tenantName: tname, roots: [] });
+    byTenant.get(tid)!.roots.push(root);
+  }
+  return [...byTenant.entries()].sort(([aId, a], [bId, b]) => {
+    if (aId === MASTER_TENANT_ID) return -1;
+    if (bId === MASTER_TENANT_ID) return 1;
+    if (aId === 0) return 1; // pseudo bucket at the tail
+    if (bId === 0) return -1;
+    return a.tenantName.localeCompare(b.tenantName);
+  });
 }
 
 // Recursively render a group node with its children, indented by depth so

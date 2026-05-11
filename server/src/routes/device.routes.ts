@@ -325,10 +325,17 @@ router.get('/group-stats', async (req, res, next) => {
     // Group metadata (parent + sortOrder feed the dashboard's hierarchical
     // "Vue par groupe" — root → children indented by depth, ordered by the
     // admin-defined sort_order rather than device count).
-    const groupsQ = db('device_groups').select('id', 'name', 'parent_id', 'sort_order');
-    if (!isMaster) groupsQ.where({ tenant_id: tenantId });
+    // On master tenant we also pull `tenant_id` + tenant name so the
+    // dashboard can bucket groups under their owning tenant (mirroring
+    // the sidebar grouping). Without this, master shows a flat mix of
+    // "DC" / "Caisses" / etc. from every tenant — unreadable.
+    const groupsQ = db('device_groups as g')
+      .leftJoin('tenants as t', 't.id', 'g.tenant_id')
+      .select('g.id', 'g.name', 'g.parent_id', 'g.sort_order', 'g.tenant_id', 't.name as tenant_name');
+    if (!isMaster) groupsQ.where({ 'g.tenant_id': tenantId });
     const groups = await groupsQ as Array<{
       id: number; name: string; parent_id: number | null; sort_order: number;
+      tenant_id: number; tenant_name: string | null;
     }>;
 
     // Build stats map
@@ -338,6 +345,7 @@ router.get('/group-stats', async (req, res, next) => {
       if (!statsMap.has(gid)) {
         statsMap.set(gid, {
           groupId: gid, groupName: null, parentId: null, sortOrder: 0,
+          tenantId: null, tenantName: null,
           online: 0, offline: 0, warning: 0, critical: 0, total: 0,
           complianceScore: null, policyCount: 0, pendingUpdates: 0,
         });
@@ -371,7 +379,7 @@ router.get('/group-stats', async (req, res, next) => {
     // the hierarchical render still wants the empty group to appear.
     for (const g of groups) getOrCreate(g.id);
 
-    // Set group names + parent + sortOrder
+    // Set group names + parent + sortOrder + tenant info
     const groupMap = new Map(groups.map((g) => [g.id, g]));
     for (const [gid, stats] of statsMap) {
       if (gid != null) {
@@ -379,6 +387,8 @@ router.get('/group-stats', async (req, res, next) => {
         stats.groupName = g?.name ?? 'Unknown';
         stats.parentId = g?.parent_id ?? null;
         stats.sortOrder = g?.sort_order ?? 0;
+        stats.tenantId = g?.tenant_id ?? null;
+        stats.tenantName = g?.tenant_name ?? null;
       }
     }
 

@@ -1395,8 +1395,16 @@ class DeviceService {
   }
 
   // ─── Fleet summary ────────────────────────────────────────────────────────
-  async getFleetSummary(tenantId: number) {
-    const isMaster = isMasterTenant(tenantId);
+  async getFleetSummary(tenantId: number, opts?: { strictTenantScope?: boolean }) {
+    // `strictTenantScope` forces the function to treat the master
+    // tenant (id=1) like any other tenant — i.e. count ONLY devices
+    // whose `devices.tenant_id = 1`, not the cross-tenant aggregate.
+    // Used by the daily snapshot job so the row stored for tenant 1
+    // reflects master's own fleet, not the install-wide sum. Without
+    // this flag the snapshot for tenant 1 = whole install, and the
+    // master timeseries that SUMs across tenants double-counts (the
+    // user saw "Total: 2050" for an install with ~1026 devices).
+    const isMaster = isMasterTenant(tenantId) && !opts?.strictTenantScope;
     const statusQ = db('devices').select(db.raw('status, count(*) as count')).groupBy('status');
     if (!isMaster) statusQ.where({ tenant_id: tenantId });
     const rows = await statusQ;
@@ -1510,6 +1518,15 @@ class DeviceService {
       offline: counts.offline || 0,
       warning: counts.warning || 0,
       critical: counts.critical || 0,
+      // `updating` + `update_error` are still reachable agents (they
+      // pushed recently; only the update flow is in flight or failed).
+      // Surfaced so the dashboard can fold them into the "connected"
+      // KPI without changing the underlying status semantics. Cast as
+      // any-keyed below to keep FleetSummary backwards-compatible for
+      // older clients (the field is optional in the shared type).
+      updating: counts.updating || 0,
+      updateError: counts.update_error || 0,
+      maintenance: counts.maintenance || 0,
       pending: counts.pending || 0,
       suspended: counts.suspended || 0,
       pendingUpdates,
@@ -1689,7 +1706,10 @@ class DeviceService {
       now.setMinutes(0, 0, 0);
       const tenants = await db('tenants').select('id');
       for (const t of tenants) {
-        const summary = await this.getFleetSummary(t.id);
+        // strictTenantScope: same rationale as snapshotFleetDaily —
+        // master tenant snapshot must reflect master's OWN devices,
+        // not the cross-tenant aggregate (the read-time SUM does that).
+        const summary = await this.getFleetSummary(t.id, { strictTenantScope: true });
         await db('fleet_hourly_snapshot')
           .insert({
             tenant_id: t.id,
@@ -1774,7 +1794,11 @@ class DeviceService {
       const today = new Date().toISOString().slice(0, 10);
       const tenants = await db('tenants').select('id');
       for (const t of tenants) {
-        const summary = await this.getFleetSummary(t.id);
+        // strictTenantScope: snapshot reflects this tenant's OWN
+        // devices only. Without it the master tenant's row would be
+        // the install-wide aggregate, then the master timeseries
+        // would SUM that with each child tenant's row → ~2× counted.
+        const summary = await this.getFleetSummary(t.id, { strictTenantScope: true });
         await db('fleet_daily_snapshot')
           .insert({
             tenant_id: t.id,

@@ -1533,6 +1533,14 @@ export interface FleetSummary {
   offline: number;
   warning: number;
   critical: number;
+  /** Agent is mid-update — still reachable. Optional for backwards
+   *  compat with older servers; the dashboard treats undefined as 0. */
+  updating?: number;
+  /** Agent reported an update failure — still reachable. Optional for
+   *  backwards compat with older servers. */
+  updateError?: number;
+  /** Admin-flagged maintenance state. Optional for backwards compat. */
+  maintenance?: number;
   pending: number;
   suspended: number;
   pendingUpdates: number;
