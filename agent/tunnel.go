@@ -294,15 +294,22 @@ func (d *CommandDispatcher) handleShellTunnel(cmdID, wsURL, sessionToken, shellC
 	}
 
 	closeCh := make(chan struct{})
-	var once sync.Once
+	ts := &tunnelState{ws: ws, closeCh: closeCh}
+	activeTunnels.add(sessionToken, ts)
+	// Wrap ts.close() so the shell PTY also gets killed alongside the
+	// WS — ts.close() itself only closes the WS + chan. A local
+	// `sync.Once` here was a previous attempt that crashed with
+	// "close of closed channel": ts has its OWN sync.Once guarding the
+	// same channel, so calling ts.close() (from handleCloseRemoteTunnel)
+	// and the local closeAll() (from a relay defer) both tried to close
+	// closeCh under different once guards. Now we route everything
+	// through ts.close() — single source of truth — and use a separate
+	// once to kill the shell exactly once.
+	var shellCloseOnce sync.Once
 	closeAll := func() {
-		once.Do(func() {
-			close(closeCh)
-			ws.Close()
-			shell.Close()
-		})
+		ts.close()
+		shellCloseOnce.Do(func() { shell.Close() })
 	}
-	activeTunnels.add(sessionToken, &tunnelState{ws: ws, closeCh: closeCh})
 
 	// Keepalive — same as RDP: prevent proxy idle-timeout from killing the tunnel.
 	go func() {
