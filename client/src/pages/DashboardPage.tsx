@@ -583,8 +583,14 @@ export function DashboardPage() {
   const critical    = summary?.critical ?? 0;
   const updating    = (summary as any)?.updating ?? 0;
   const updateError = (summary as any)?.updateError ?? 0;
-  const connected   = onlineStrict + warning + critical + updating + updateError;
-  const offline     = summary?.offline ?? 0;
+  // update_error devices stop pushing (the engine flips them out of
+  // 'updating' after 10 min without a version change), so the user
+  // observes them on /devices?status=offline. We bucket them with
+  // offline in the headline + sub-stat instead of with connected,
+  // even though the server keeps them in their own status enum.
+  const connected   = onlineStrict + warning + critical + updating;
+  const offlineRaw  = summary?.offline ?? 0;
+  const offline     = offlineRaw + updateError;
   const pending     = summary?.pending ?? 0;
   const pendingUpd  = summary?.pendingUpdates ?? 0;
   const stale       = summary?.staleDevices ?? 0;
@@ -750,12 +756,11 @@ export function DashboardPage() {
               { label: t('dashboard.subStatWarning', 'en alerte'), value: warning, color: 'text-yellow-400' },
               { label: t('dashboard.subStatCritical', 'critique'), value: critical, color: 'text-red-400' },
               { label: t('dashboard.subStatUpdating', 'en MAJ'), value: updating, color: 'text-blue-400' },
-              { label: t('dashboard.subStatUpdateError', 'en erreur MAJ'), value: updateError, color: 'text-orange-400' },
             ]}
           />
         </Link>
 
-        <Link to="/devices?status=offline" className="h-full block hover:opacity-95 transition-opacity">
+        <Link to="/devices?status=disconnected" className="h-full block hover:opacity-95 transition-opacity">
           <HeroCard
             label={t('dashboard.offline', 'Hors ligne')}
             value={offline}
@@ -768,6 +773,10 @@ export function DashboardPage() {
             }
             barPct={offlinePct}
             barColor="rgb(var(--c-text-muted))"
+            subStatsHeader={updateError > 0 ? t('dashboard.ofWhichHeader', 'Dont :') : undefined}
+            subStats={updateError > 0 ? [
+              { label: t('dashboard.subStatUpdateError', 'en erreur MAJ'), value: updateError, color: 'text-orange-400' },
+            ] : undefined}
           />
         </Link>
 

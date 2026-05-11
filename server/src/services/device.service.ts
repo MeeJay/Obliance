@@ -191,6 +191,14 @@ class DeviceService {
       // the URL ?status=connected human-friendly without burning a
       // dedicated multi-value query parameter convention.
       q = q.whereIn('devices.status', ['online', 'warning', 'critical', 'updating']);
+    } else if (filters?.status === 'disconnected') {
+      // Virtual status for the dashboard "Hors ligne" KPI link —
+      // pairs offline with update_error since both mean the agent
+      // has stopped pushing (the engine flips a stuck `updating`
+      // device to `update_error` after 10 min without a version
+      // change; the agent itself never recovers from that without
+      // human intervention, so functionally it's "offline + tag").
+      q = q.whereIn('devices.status', ['offline', 'update_error']);
     } else if (filters?.status) {
       q = q.where({ 'devices.status': filters.status });
     }
@@ -365,6 +373,14 @@ class DeviceService {
       // the URL ?status=connected human-friendly without burning a
       // dedicated multi-value query parameter convention.
       q = q.whereIn('devices.status', ['online', 'warning', 'critical', 'updating']);
+    } else if (filters?.status === 'disconnected') {
+      // Virtual status for the dashboard "Hors ligne" KPI link —
+      // pairs offline with update_error since both mean the agent
+      // has stopped pushing (the engine flips a stuck `updating`
+      // device to `update_error` after 10 min without a version
+      // change; the agent itself never recovers from that without
+      // human intervention, so functionally it's "offline + tag").
+      q = q.whereIn('devices.status', ['offline', 'update_error']);
     } else if (filters?.status) {
       q = q.where({ 'devices.status': filters.status });
     }
