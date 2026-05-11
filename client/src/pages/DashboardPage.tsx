@@ -78,7 +78,7 @@ function HeroFeatured({ label, value, color, series, days }: {
   );
 }
 
-function HeroCard({ label, value, color, delta, deltaText, barPct, barColor, subStats }: {
+function HeroCard({ label, value, color, delta, deltaText, barPct, barColor, subStats, subStatsHeader }: {
   label: string; value: number; color: string;
   /** Numeric delta sign for the icon: positive = ↑, negative = ↓, 0 = stable */
   delta?: number | null;
@@ -86,10 +86,15 @@ function HeroCard({ label, value, color, delta, deltaText, barPct, barColor, sub
   barPct?: number;
   barColor?: string;
   /** Optional secondary breakdown rendered under the bar — used by the
-   *  "En ligne" card to show "dont X alerte, dont Y critique" so the
-   *  total of "online + offline" matches the "Appareils total" headline
-   *  even when some agents are in warning / critical state. */
+   *  "En ligne" card to expose the warning / critical / updating /
+   *  updateError counts so the total of "online + offline" matches the
+   *  "Appareils total" headline even when some agents are in those
+   *  intermediate states. Items are shown even at value 0 when
+   *  `subStatsHeader` is set — the header makes the layout grid-like
+   *  and a missing item under "Dont :" would feel like a bug. */
   subStats?: Array<{ label: string; value: number; color?: string }>;
+  /** Optional label rendered above the subStats row (e.g. "Dont :"). */
+  subStatsHeader?: string;
 }) {
   const deltaIconClass = delta == null ? 'text-text-muted' :
                           delta === 0   ? 'text-text-muted' :
@@ -113,13 +118,20 @@ function HeroCard({ label, value, color, delta, deltaText, barPct, barColor, sub
         </div>
       )}
       {subStats && subStats.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-text-muted">
-          {subStats.map((s) => (
-            <span key={s.label} className="flex items-center gap-1">
-              <span className={s.color ?? 'text-text-secondary'}>{s.value}</span>
-              <span>{s.label}</span>
-            </span>
-          ))}
+        <div className="mt-2">
+          {subStatsHeader && (
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-text-muted/80 mb-1">
+              {subStatsHeader}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-text-muted">
+            {subStats.map((s) => (
+              <span key={s.label} className="flex items-center gap-1">
+                <span className={s.color ?? 'text-text-secondary'}>{s.value}</span>
+                <span>{s.label}</span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -733,11 +745,12 @@ export function DashboardPage() {
             }
             barPct={onlinePct}
             barColor="#1edd8a"
+            subStatsHeader={t('dashboard.ofWhichHeader', 'Dont :')}
             subStats={[
-              ...(warning > 0 ? [{ label: t('dashboard.ofWhichWarning', 'dont alerte'), value: warning, color: 'text-yellow-400' }] : []),
-              ...(critical > 0 ? [{ label: t('dashboard.ofWhichCritical', 'dont critique'), value: critical, color: 'text-red-400' }] : []),
-              ...(updating > 0 ? [{ label: t('dashboard.ofWhichUpdating', 'dont MAJ'), value: updating, color: 'text-blue-400' }] : []),
-              ...(updateError > 0 ? [{ label: t('dashboard.ofWhichUpdateError', 'dont erreur MAJ'), value: updateError, color: 'text-orange-400' }] : []),
+              { label: t('dashboard.subStatWarning', 'en alerte'), value: warning, color: 'text-yellow-400' },
+              { label: t('dashboard.subStatCritical', 'critique'), value: critical, color: 'text-red-400' },
+              { label: t('dashboard.subStatUpdating', 'en MAJ'), value: updating, color: 'text-blue-400' },
+              { label: t('dashboard.subStatUpdateError', 'en erreur MAJ'), value: updateError, color: 'text-orange-400' },
             ]}
           />
         </Link>
