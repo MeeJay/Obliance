@@ -323,17 +323,26 @@ export function GlobalShellPanel() {
  // then still detaches its tmux client naturally on WS drop, so
  // tmux survives, but the DB row stays "active" until the GC kicks
  // in (30 min default).
- const handleDetach = (id: string) => {
+ //
+ // CRITICAL ORDERING: the detach API call MUST resolve before we
+ // close the local WS. The server's browser-WS close handler
+ // (remote.service.ts:431) detects a tunnel drop and falls back to
+ // `endSession()` — which would kill the shell with
+ // `killSession: true`, defeating the whole point of Detach.
+ // Awaiting the POST first lets the service tear down the tunnel
+ // map and dispatch the close_remote_tunnel with `killSession:
+ // false` to the agent BEFORE the WS-close handler races in.
+ const handleDetach = async (id: string) => {
  const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
  if (s?.serverSessionId) {
- try { remoteApi.detachSession(s.serverSessionId); } catch {}
+ try { await remoteApi.detachSession(s.serverSessionId); } catch {}
  }
  tearDownLocal(id);
  };
- const handleClose = (id: string) => {
+ const handleClose = async (id: string) => {
  const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
  if (s?.serverSessionId) {
- try { remoteApi.endSession(s.serverSessionId); } catch {}
+ try { await remoteApi.endSession(s.serverSessionId); } catch {}
  }
  tearDownLocal(id);
  };
