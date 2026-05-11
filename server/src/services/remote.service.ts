@@ -446,7 +446,22 @@ class RemoteService {
 
     const session = await db('remote_sessions').where({ session_token: sessionToken }).first();
     if (session && session.tenant_id) {
-      this.endSession(session.id, session.tenant_id, reason);
+      // Used to call `endSession` here which marks the DB row as
+      // closed AND tells the agent to `tmux kill-session`. That's
+      // wrong: when the user just closes their tab, when the network
+      // blips, or when an Obliance update restarts the server, all
+      // the browser WSs drop AT ONCE → every active session got
+      // closed pessimistically, scrolling away resumable state and
+      // killing live shells. The explicit Close button still works
+      // because it calls `endSession` BEFORE the WS drops (and
+      // deletes the tunnel from the map upstream, so we never reach
+      // this branch).
+      //
+      // New semantic: any unexpected WS drop → DETACH. The shell
+      // stays alive on the agent (tmux), DB row stays in its
+      // current status, the session appears in Active Sessions as
+      // resumable. The GC (30 min idle) takes care of true orphans.
+      this.detachSession(session.id, session.tenant_id);
     }
   }
 
