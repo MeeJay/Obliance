@@ -56,6 +56,57 @@ function rowToEdge(row: any): ScenarioEdge {
 // failed with a clear error so the user can fix the graph.
 const MAX_NODE_VISITS = 100;
 
+// ── Multi-target action fan-out ──────────────────────────────────────────────
+// Action nodes (run_script, run_command, tag_device, move_device_to_group)
+// can override the run's device target with a curated list of devices via
+// `targetMode='devices'` + `targetDeviceIds=[...]` on the node config. For
+// sync nodes we just loop. For async nodes (those that fire an agent
+// command and wait for an ack), the engine parks on `awaitsAck` until
+// handleNodeCommandAck lands — when fanning out, we need to collect N
+// acks before resuming. This map keeps the running tally per nodeRunId.
+//
+// In-memory: a server restart mid-fanout leaves the node in 'running'
+// status. The boot janitor (rearmWaitTimersOnBoot pattern) doesn't cover
+// this case yet — accepted MVP limitation since scenarios are normally
+// short-lived. A future hardening pass can persist this in the
+// scenario_node_runs row.
+interface PendingFanOut {
+  expected: number;
+  received: number;
+  worstExit: number | null;
+  stdouts: string[];
+  stderrs: string[];
+}
+const pendingFanOuts = new Map<string, PendingFanOut>();
+
+/** Pull the override list from a node's config, fall back to the run's
+ *  trigger target. Filters out non-positive / non-numeric ids; if the
+ *  override is empty after filtering, we fall back too — better to run
+ *  on the trigger target than fail an action because the admin emptied
+ *  the picker. */
+function resolveActionTargets(run: any, node: ScenarioNode): number[] {
+  const cfg = node.config as { targetMode?: string; targetDeviceIds?: unknown };
+  if (cfg.targetMode === 'devices' && Array.isArray(cfg.targetDeviceIds)) {
+    const ids = (cfg.targetDeviceIds as unknown[])
+      .map((x) => Number(x))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (ids.length > 0) return ids;
+  }
+  return [run.device_id];
+}
+
+/** Drop any device id that isn't in the scenario's tenant — tenant
+ *  isolation must hold even if a stale targetDeviceIds entry survives
+ *  a tenant transfer. Returns the surviving id list. */
+async function validateTargetsInTenant(tenantId: number, deviceIds: number[]): Promise<number[]> {
+  if (deviceIds.length === 0) return [];
+  const rows = await db('devices')
+    .where({ tenant_id: tenantId })
+    .whereIn('id', deviceIds)
+    .select('id');
+  return rows.map((r: any) => r.id);
+}
+
 // ── Edge selection ───────────────────────────────────────────────────────────
 //
 // Given the node we just left and the result it produced (last_exit_code),
@@ -361,6 +412,25 @@ export const scenarioGraphService = {
    * the graph from this node based on the result.
    */
   async handleNodeCommandAck(nodeRunId: string, exitCode: number | null, stdout: string | null, stderr: string | null): Promise<void> {
+    // Multi-target fan-out: park until every dispatched command has acked.
+    // Worst (max) exit wins so any failure routes the graph through the
+    // failure branch; stdouts/stderrs are concatenated with a separator
+    // so the editor's output panel shows what each device returned.
+    const pending = pendingFanOuts.get(nodeRunId);
+    if (pending) {
+      pending.received++;
+      if (exitCode != null && (pending.worstExit == null || exitCode > pending.worstExit)) {
+        pending.worstExit = exitCode;
+      }
+      if (stdout) pending.stdouts.push(stdout);
+      if (stderr) pending.stderrs.push(stderr);
+      if (pending.received < pending.expected) return;
+      pendingFanOuts.delete(nodeRunId);
+      exitCode = pending.worstExit;
+      stdout = pending.stdouts.length ? pending.stdouts.join('\n--- device boundary ---\n') : null;
+      stderr = pending.stderrs.length ? pending.stderrs.join('\n--- device boundary ---\n') : null;
+    }
+
     const nrRow = await db('scenario_node_runs').where({ id: nodeRunId }).first();
     if (!nrRow) return;
     const runRow = await db('scenario_runs').where({ id: nrRow.run_id }).first();
@@ -542,7 +612,10 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
 
   // ── run_script — fires an agent command and parks. Resumes via
   // handleNodeCommandAck once the ack lands. The exit code captured at
-  // ack time drives every downstream branch_exit_code.
+  // ack time drives every downstream branch_exit_code. When the node
+  // config carries `targetMode='devices'`, the run is fanned out to
+  // every listed device and the engine waits for every ack before
+  // advancing (worst exit wins).
   run_script: async ({ run, node, nodeRunId }) => {
     const cfg = node.config as { scriptId?: number; parameters?: Record<string, string>; timeoutSeconds?: number };
     if (!cfg.scriptId) throw new Error('run_script node missing scriptId');
@@ -559,25 +632,36 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
         run_as: string | null;
       } | undefined;
     if (!script) throw new Error(`run_script: script ${cfg.scriptId} not found in tenant`);
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    if (targets.length === 0) throw new Error('run_script: no valid target device in tenant');
     const effectiveTimeout = cfg.timeoutSeconds ?? script.timeout_seconds ?? 300;
-    await commandService.enqueue({
-      deviceId: run.device_id,
-      tenantId: run.tenant_id,
-      type: 'run_script',
-      payload: {
-        scriptId: script.id,
-        runtime: script.runtime,
-        content: script.content,
-        parameters: cfg.parameters ?? {},
-        timeoutSeconds: effectiveTimeout,
-        expectedExitCode: script.expected_exit_code ?? 0,
-        runAs: script.run_as,
-      },
-      priority: 'high',
-      sourceType: 'scenario_node',
-      sourceId: nodeRunId,
-      expiresInSeconds: effectiveTimeout + 300,
-    });
+    if (targets.length > 1) {
+      // Register the fan-out BEFORE enqueueing so the first ack can't
+      // race ahead of the bookkeeping.
+      pendingFanOuts.set(nodeRunId, {
+        expected: targets.length, received: 0, worstExit: null, stdouts: [], stderrs: [],
+      });
+    }
+    for (const deviceId of targets) {
+      await commandService.enqueue({
+        deviceId,
+        tenantId: run.tenant_id,
+        type: 'run_script',
+        payload: {
+          scriptId: script.id,
+          runtime: script.runtime,
+          content: script.content,
+          parameters: cfg.parameters ?? {},
+          timeoutSeconds: effectiveTimeout,
+          expectedExitCode: script.expected_exit_code ?? 0,
+          runAs: script.run_as,
+        },
+        priority: 'high',
+        sourceType: 'scenario_node',
+        sourceId: nodeRunId,
+        expiresInSeconds: effectiveTimeout + 300,
+      });
+    }
     return { awaitsAck: true };
   },
 
@@ -639,22 +723,34 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   run_command: async ({ run, node, nodeRunId }) => {
     const cfg = node.config as { commandType?: string; payload?: Record<string, unknown>; timeoutSeconds?: number };
     if (!cfg.commandType) throw new Error('run_command node missing commandType');
-    await commandService.enqueue({
-      deviceId: run.device_id,
-      tenantId: run.tenant_id,
-      type: cfg.commandType as any,
-      payload: cfg.payload ?? {},
-      priority: 'high',
-      sourceType: 'scenario_node',
-      sourceId: nodeRunId,
-      expiresInSeconds: cfg.timeoutSeconds ?? 300,
-    });
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    if (targets.length === 0) throw new Error('run_command: no valid target device in tenant');
+    if (targets.length > 1) {
+      pendingFanOuts.set(nodeRunId, {
+        expected: targets.length, received: 0, worstExit: null, stdouts: [], stderrs: [],
+      });
+    }
+    for (const deviceId of targets) {
+      await commandService.enqueue({
+        deviceId,
+        tenantId: run.tenant_id,
+        type: cfg.commandType as any,
+        payload: cfg.payload ?? {},
+        priority: 'high',
+        sourceType: 'scenario_node',
+        sourceId: nodeRunId,
+        expiresInSeconds: cfg.timeoutSeconds ?? 300,
+      });
+    }
     return { awaitsAck: true };
   },
 
   // ── tag_device — synchronous mutation of the target device's tags
   // array. add/remove are comma-separated strings or string arrays;
-  // add wins over remove for the same value.
+  // add wins over remove for the same value. When the node config
+  // carries `targetMode='devices'`, the mutation loops over every
+  // listed device; any per-device failure flips the node exit code
+  // to 1 so the downstream branch can react.
   tag_device: async ({ run, node }) => {
     const cfg = node.config as { add?: string | string[]; remove?: string | string[] };
     const toArr = (v: unknown): string[] => {
@@ -664,21 +760,27 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
     };
     const add = new Set(toArr(cfg.add));
     const remove = new Set(toArr(cfg.remove));
-    const row = await db('devices').where({ id: run.device_id, tenant_id: run.tenant_id }).select('tags').first();
-    if (!row) throw new Error(`tag_device: device ${run.device_id} not found`);
-    const current: string[] = Array.isArray(row.tags) ? row.tags : (typeof row.tags === 'string' ? JSON.parse(row.tags) : []);
-    const next = new Set(current);
-    for (const t of remove) next.delete(t);
-    for (const t of add)    next.add(t);
-    await db('devices').where({ id: run.device_id, tenant_id: run.tenant_id }).update({
-      tags: JSON.stringify([...next]),
-      updated_at: new Date(),
-    });
-    return { exitCode: 0 };
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    if (targets.length === 0) throw new Error('tag_device: no valid target device in tenant');
+    let worstExit = 0;
+    for (const deviceId of targets) {
+      const row = await db('devices').where({ id: deviceId, tenant_id: run.tenant_id }).select('tags').first();
+      if (!row) { worstExit = 1; continue; }
+      const current: string[] = Array.isArray(row.tags) ? row.tags : (typeof row.tags === 'string' ? JSON.parse(row.tags) : []);
+      const next = new Set(current);
+      for (const t of remove) next.delete(t);
+      for (const t of add)    next.add(t);
+      await db('devices').where({ id: deviceId, tenant_id: run.tenant_id }).update({
+        tags: JSON.stringify([...next]),
+        updated_at: new Date(),
+      });
+    }
+    return { exitCode: worstExit };
   },
 
   // ── move_device_to_group — set group_id (null clears). Validates the
-  // target group is in the same tenant before writing.
+  // target group is in the same tenant before writing. Loops over the
+  // override target list when present.
   move_device_to_group: async ({ run, node }) => {
     const cfg = node.config as { groupId?: number | null };
     const groupId = cfg.groupId ?? null;
@@ -686,7 +788,9 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
       const grp = await db('device_groups').where({ id: groupId, tenant_id: run.tenant_id }).first();
       if (!grp) throw new Error(`move_device_to_group: group ${groupId} not in tenant`);
     }
-    await db('devices').where({ id: run.device_id, tenant_id: run.tenant_id }).update({
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    if (targets.length === 0) throw new Error('move_device_to_group: no valid target device in tenant');
+    await db('devices').whereIn('id', targets).where({ tenant_id: run.tenant_id }).update({
       group_id: groupId,
       updated_at: new Date(),
     });

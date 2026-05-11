@@ -75,8 +75,21 @@ function Row({ row, isMaster }: { row: AuditLogRow; isMaster: boolean }) {
  <span className="text-text-muted">—</span>
  )}
  </td>
- <td className="px-2 py-1.5 text-[11px] text-text-muted truncate max-w-[200px]" title={row.resourcePath || ''}>
- {row.resourceType ? `${row.resourceType}:${row.resourcePath}` : '—'}
+ <td className="px-2 py-1.5 text-[11px] truncate max-w-[260px]" title={row.resourceType ? `${row.resourceType}:${row.resourcePath}` : ''}>
+ {row.resourceType ? (
+ <span className="inline-flex items-baseline gap-1">
+ {row.resourceName ? (
+ <>
+ <span className="text-text-primary">{row.resourceName}</span>
+ <span className="text-[10px] text-text-muted font-mono">{row.resourceType}#{row.resourcePath}</span>
+ </>
+ ) : (
+ <span className="text-text-muted font-mono">{row.resourceType}:{row.resourcePath}</span>
+ )}
+ </span>
+ ) : (
+ <span className="text-text-muted">—</span>
+ )}
  </td>
  <td className="px-2 py-1.5 text-[11px] text-text-muted font-mono">
  {row.ipAddress || '—'}
@@ -146,13 +159,14 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  };
 
  const exportCsv = () => {
- const header = ['When', 'Action', 'User', 'Device', 'Resource', 'IP', 'Details'];
+ const header = ['When', 'Action', 'User', 'Device', 'Resource', 'Resource Name', 'IP', 'Details'];
  const rows = items.map((r) => [
  new Date(r.createdAt).toISOString(),
  r.action,
  r.username || '',
  r.deviceName || (r.deviceId ? `#${r.deviceId}` : ''),
  r.resourceType ? `${r.resourceType}:${r.resourcePath || ''}` : '',
+ r.resourceName || '',
  r.ipAddress || '',
  r.details ? JSON.stringify(r.details) : '',
  ]);

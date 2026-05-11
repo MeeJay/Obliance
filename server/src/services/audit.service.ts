@@ -27,6 +27,13 @@ export interface AuditLogRow {
   action: string;
   resourceType: string | null;
   resourcePath: string | null;
+  /** Display name resolved from the owning table when possible
+   *  (e.g. `scripts.name` for `resource_type='script'`). `null` when
+   *  the entity has been deleted, or when the resource_type doesn't
+   *  map to a nameable table (commands, files, sessions, etc.). The
+   *  raw `resourceType:resourcePath` pair stays available so the UI
+   *  can always fall back to it for debugging. */
+  resourceName: string | null;
   details: Record<string, unknown> | null;
   ipAddress: string | null;
   createdAt: string;
@@ -44,11 +51,52 @@ function rowToAudit(r: any): AuditLogRow {
     action: r.action,
     resourceType: r.resource_type,
     resourcePath: r.resource_path,
+    resourceName: r.resource_name ?? null,
     details: typeof r.details === 'string' ? JSON.parse(r.details) : r.details,
     ipAddress: r.ip_address,
     createdAt: r.created_at,
   };
 }
+
+/** Builds the LEFT JOIN chain that resolves `resource_path` → display
+ *  name for the most common resource types. Each join is gated by
+ *  `resource_type` AND a regex check that resource_path is purely
+ *  digits — without the regex guard, the `::int` cast would throw on
+ *  any non-numeric resource_path (e.g. file paths under
+ *  resource_type='file') even though the resource_type filter would
+ *  have rejected the row, because PostgreSQL can reorder predicates
+ *  within an ON clause. */
+function joinResourceNameSources<Q extends import('knex').Knex.QueryBuilder>(q: Q): Q {
+  const sources: Array<[string, string, string]> = [
+    ['scripts', 'rn_scr', 'script'],
+    ['scenarios', 'rn_scn', 'scenario'],
+    ['user_teams', 'rn_tm', 'team'],
+    ['users', 'rn_usr', 'user'],
+    ['device_groups', 'rn_grp', 'group'],
+    ['agent_api_keys', 'rn_key', 'api_key'],
+    ['tenants', 'rn_ten', 'tenant'],
+    ['script_schedules', 'rn_sch', 'schedule'],
+    ['software_compliance_lists', 'rn_sw', 'software_policy'],
+  ];
+  let next: any = q;
+  for (const [table, alias, typeValue] of sources) {
+    next = next.joinRaw(
+      `LEFT JOIN ${table} AS ${alias} ON al.resource_type = ? AND al.resource_path ~ '^[0-9]+$' AND ${alias}.id = al.resource_path::int`,
+      [typeValue],
+    );
+  }
+  return next as Q;
+}
+
+/** Picks the first non-null name across the LEFT JOINs added by
+ *  `joinResourceNameSources`. Aliased as `resource_name` for the row
+ *  mapper. Users have `username` instead of `name`. */
+const RESOURCE_NAME_SELECT = db.raw(`
+  COALESCE(
+    rn_scr.name, rn_scn.name, rn_tm.name, rn_usr.username,
+    rn_grp.name, rn_key.name, rn_ten.name, rn_sch.name, rn_sw.name
+  ) as resource_name
+`);
 
 function clientIpFromReq(req: Request | undefined): string | undefined {
   if (!req) return undefined;
@@ -97,14 +145,16 @@ export const auditService = {
   },
 
   async getByDevice(deviceId: number, tenantId: number, limit = 50): Promise<AuditLogRow[]> {
-    const rows = await db('audit_logs as al')
+    const baseQ = db('audit_logs as al')
       .leftJoin('users as u', 'u.id', 'al.user_id')
       .leftJoin('devices as d', 'd.id', 'al.device_id')
-      .where({ 'al.device_id': deviceId, 'al.tenant_id': tenantId })
+      .where({ 'al.device_id': deviceId, 'al.tenant_id': tenantId });
+    const rows = await joinResourceNameSources(baseQ)
       .select(
         'al.*',
         'u.username',
         db.raw('COALESCE(d.display_name, d.hostname) as device_name'),
+        RESOURCE_NAME_SELECT,
       )
       .orderBy('al.created_at', 'desc')
       .limit(limit);
@@ -171,12 +221,16 @@ export const auditService = {
     const countRes = await base.clone().count<{ c: string }[]>({ c: 'al.id' });
     const total = parseInt((countRes[0] as any)?.c || '0', 10);
 
-    const rows = await base
+    // Resolve resource name AFTER the count — joining 9 extra tables
+    // just to count rows is wasteful, and the COUNT only needs the
+    // filter columns (action/user/device/etc.) already on `base`.
+    const rows = await joinResourceNameSources(base)
       .select(
         'al.*',
         'u.username',
         db.raw('COALESCE(d.display_name, d.hostname) as device_name'),
         'ten.name as tenant_name',
+        RESOURCE_NAME_SELECT,
       )
       .orderBy('al.created_at', 'desc')
       .limit(limit)

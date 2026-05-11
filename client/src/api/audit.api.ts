@@ -16,6 +16,12 @@ export interface AuditLogRow {
   action: string;
   resourceType: string | null;
   resourcePath: string | null;
+  /** Display name resolved by the server from the owning table (e.g.
+   *  `scripts.name` when `resourceType='script'`). `null` if the entity
+   *  has been deleted, or for resource types without a nameable table
+   *  (file, command, remote_session, etc.). The raw `resourceType`/
+   *  `resourcePath` pair stays available so the UI can fall back to it. */
+  resourceName: string | null;
   details: Record<string, unknown> | null;
   ipAddress: string | null;
   createdAt: string;

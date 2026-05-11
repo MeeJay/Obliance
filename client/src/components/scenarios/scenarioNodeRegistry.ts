@@ -7,7 +7,7 @@ import type { ScenarioNodeType } from '@obliance/shared';
 export interface NodeFieldDef {
   key: string;
   label: string;
-  kind: 'text' | 'number' | 'textarea' | 'script' | 'cron' | 'channels' | 'osType' | 'select';
+  kind: 'text' | 'number' | 'textarea' | 'script' | 'cron' | 'channels' | 'osType' | 'select' | 'targetDevices';
   placeholder?: string;
   /** When true, an empty value blocks the save. */
   required?: boolean;
@@ -153,16 +153,22 @@ export const NODE_TYPES: NodeTypeMeta[] = [
 
   // ── Actions ──────────────────────────────────────────────────────────────
   { type: 'run_script', label: 'Run script', category: 'action', accent: 'border-accent', hint: 'Execute a script on the device',
-    defaultConfig: { scriptId: null, timeoutSeconds: 300 },
+    defaultConfig: { scriptId: null, timeoutSeconds: 300, targetMode: 'target', targetDeviceIds: [] },
     fields: [
       { key: 'scriptId',       label: 'Script',           kind: 'script', required: true },
       { key: 'timeoutSeconds', label: 'Timeout (seconds)', kind: 'number', placeholder: '300' },
+      { key: 'targetDeviceIds', label: 'Run on', kind: 'targetDevices',
+        hint: 'Default = the device that triggered the run. Override to fan out to one or more specific devices in this tenant. Exit code = worst (max) across all targets.',
+      },
     ],
   },
   { type: 'run_command', label: 'Run command', category: 'action', accent: 'border-orange-400', hint: 'Send a built-in command (reboot, shutdown, install update…)',
-    defaultConfig: { commandType: 'reboot' },
+    defaultConfig: { commandType: 'reboot', targetMode: 'target', targetDeviceIds: [] },
     fields: [
       { key: 'commandType', label: 'Command type', kind: 'text', placeholder: 'reboot | shutdown | install_updates | …', required: true },
+      { key: 'targetDeviceIds', label: 'Run on', kind: 'targetDevices',
+        hint: 'Default = the device that triggered the run. Override to fan out to one or more specific devices in this tenant.',
+      },
     ],
   },
   { type: 'send_notification', label: 'Send notification', category: 'action', accent: 'border-cyan-400', hint: 'Dispatch through configured channels',
@@ -180,16 +186,22 @@ export const NODE_TYPES: NodeTypeMeta[] = [
     ],
   },
   { type: 'tag_device', label: 'Tag device', category: 'action', accent: 'border-text-muted', hint: 'Add or remove tags',
-    defaultConfig: { add: [], remove: [] },
+    defaultConfig: { add: [], remove: [], targetMode: 'target', targetDeviceIds: [] },
     fields: [
       { key: 'add',    label: 'Tags to add',    kind: 'text', placeholder: 'comma-separated' },
       { key: 'remove', label: 'Tags to remove', kind: 'text', placeholder: 'comma-separated' },
+      { key: 'targetDeviceIds', label: 'Apply to', kind: 'targetDevices',
+        hint: 'Default = the device that triggered the run. Override to tag specific devices in this tenant.',
+      },
     ],
   },
   { type: 'move_device_to_group', label: 'Move device to group', category: 'action', accent: 'border-text-muted', hint: 'Reassign group_id',
-    defaultConfig: { groupId: null },
+    defaultConfig: { groupId: null, targetMode: 'target', targetDeviceIds: [] },
     fields: [
       { key: 'groupId', label: 'Target group id', kind: 'number', required: true },
+      { key: 'targetDeviceIds', label: 'Apply to', kind: 'targetDevices',
+        hint: 'Default = the device that triggered the run. Override to move specific devices into the group.',
+      },
     ],
   },
 

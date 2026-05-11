@@ -855,6 +855,15 @@ export const scenarioService = {
           cfg.scriptId = resolvedScriptId.get(cfg.scriptUuid);
           delete cfg.scriptUuid;
         }
+        // targetDeviceIds is a list of integer device ids from the
+        // SOURCE tenant — meaningless in the destination tenant. We
+        // strip them on import so a fresh import always starts in
+        // "trigger target" mode. The admin can repick devices after
+        // the import if they want the fan-out.
+        if ('targetDeviceIds' in cfg || 'targetMode' in cfg) {
+          cfg.targetMode = 'target';
+          cfg.targetDeviceIds = [];
+        }
         const [nr] = await trx('scenario_nodes').insert({
           scenario_id: sRow.id,
           type: n.type,
@@ -1077,19 +1086,19 @@ export const scenarioService = {
 
         // ── Actions ──
         {
-          _comment: 'ACTION: run_script — fires a script on the device. Reference an existing script via config.scriptId, OR set config.scriptUuid to match a script embedded in the top-level "scripts" array. config.timeoutSeconds overrides the script\'s default.',
+          _comment: 'ACTION: run_script — fires a script on the device. Reference an existing script via config.scriptId, OR set config.scriptUuid to match a script embedded in the top-level "scripts" array. config.timeoutSeconds overrides the script\'s default. By default the script runs on the device that triggered the run; set config.targetMode to "devices" + config.targetDeviceIds to a non-empty integer array of approved devices in the SAME tenant to fan out the run instead (worst exit wins across all targets).',
           clientId: 'doc-action-run-script',
           type: 'run_script',
           label: 'Run script',
-          config: { scriptId: null, scriptUuid: 'EXAMPLE-SCRIPT-UUID', timeoutSeconds: 300, parameters: {} },
+          config: { scriptId: null, scriptUuid: 'EXAMPLE-SCRIPT-UUID', timeoutSeconds: 300, parameters: {}, targetMode: 'target', targetDeviceIds: [] },
           positionX: 400, positionY: 100,
         },
         {
-          _comment: 'ACTION: run_command — sends a built-in agent command. config.commandType: reboot|shutdown|sleep|restart_agent|install_updates|scan_inventory|scan_updates|check_compliance|...',
+          _comment: 'ACTION: run_command — sends a built-in agent command. config.commandType: reboot|shutdown|sleep|restart_agent|install_updates|scan_inventory|scan_updates|check_compliance|... Same targetMode/targetDeviceIds fan-out as run_script.',
           clientId: 'doc-action-run-command',
           type: 'run_command',
           label: 'Run command',
-          config: { commandType: 'reboot' },
+          config: { commandType: 'reboot', targetMode: 'target', targetDeviceIds: [] },
           positionX: 400, positionY: 200,
         },
         {
@@ -1109,19 +1118,19 @@ export const scenarioService = {
           positionX: 400, positionY: 400,
         },
         {
-          _comment: 'ACTION: tag_device — adds / removes tags on the device. config.add / config.remove are arrays of strings.',
+          _comment: 'ACTION: tag_device — adds / removes tags on the device. config.add / config.remove are arrays of strings. Same targetMode/targetDeviceIds fan-out as run_script — loop is synchronous (no agent round-trip).',
           clientId: 'doc-action-tag-device',
           type: 'tag_device',
           label: 'Tag device',
-          config: { add: ['imported'], remove: [] },
+          config: { add: ['imported'], remove: [], targetMode: 'target', targetDeviceIds: [] },
           positionX: 400, positionY: 500,
         },
         {
-          _comment: 'ACTION: move_device_to_group — sets the device\'s group_id. config.groupId can be null (ungroup).',
+          _comment: 'ACTION: move_device_to_group — sets the device\'s group_id. config.groupId can be null (ungroup). Same targetMode/targetDeviceIds fan-out as run_script — applies the move to every listed device atomically.',
           clientId: 'doc-action-move-group',
           type: 'move_device_to_group',
           label: 'Move to group',
-          config: { groupId: null },
+          config: { groupId: null, targetMode: 'target', targetDeviceIds: [] },
           positionX: 400, positionY: 600,
         },
 
@@ -1876,8 +1885,10 @@ export const scenarioService = {
   },
 
   async getRunById(runId: string, tenantId: number): Promise<ScenarioRun | null> {
-    const row = await db('scenario_runs')
-      .where({ 'scenario_runs.id': runId, 'scenario_runs.tenant_id': tenantId })
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('scenario_runs').where({ 'scenario_runs.id': runId });
+    if (!isMaster) q.where({ 'scenario_runs.tenant_id': tenantId });
+    const row = await q
       .select(
         'scenario_runs.*',
         's.name as scenario_name',

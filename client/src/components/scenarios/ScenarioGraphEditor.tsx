@@ -1502,6 +1502,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  node={selectedNode}
  scripts={scripts}
  categories={scriptCategories}
+ devices={devices}
  onChange={(patch) => updateNodeData(selectedNode.id, patch)}
  onOpenScriptEditor={(req) => setScriptEditorReq({ ...req, nodeId: selectedNode.id })}
  />
@@ -1537,11 +1538,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
 
 // ── Selected-node config form ───────────────────────────────────────────────
 function NodeConfigForm({
- node, scripts, categories, onChange, onOpenScriptEditor,
+ node, scripts, categories, devices, onChange, onOpenScriptEditor,
 }: {
  node: Node<NodeData>;
  scripts: Script[];
  categories: ScriptCategory[];
+ /** Approved devices in the current tenant — feeds the targetDevices
+ *  picker so action nodes can be fanned out to a custom subset
+ *  instead of running on the trigger target. */
+ devices: Device[];
  onChange: (patch: Partial<NodeData>) => void;
  /** Optional — shows the +New / Edit shortcuts next to the script
  * picker. Parent provides the modal so the form stays presentational. */
@@ -1686,6 +1691,26 @@ function NodeConfigForm({
  Configure notification channels in tenant settings; this node will use the scenario's globally bound channels.
  </div>
  )}
+ {f.kind === 'targetDevices' && (
+ <TargetDevicePicker
+ mode={(cfg.targetMode as 'target' | 'devices' | undefined) ?? 'target'}
+ deviceIds={Array.isArray(cfg[f.key]) ? (cfg[f.key] as number[]) : []}
+ devices={devices}
+ onChange={(mode, ids) => {
+ // Mode + deviceIds are kept in sync as a single config edit so
+ // the canvas only re-renders once per click. Switching back to
+ // 'target' clears the deviceIds array — keeping a stale set
+ // around would silently re-activate if the admin toggles back.
+ onChange({
+ config: {
+ ...cfg,
+ targetMode: mode,
+ [f.key]: mode === 'devices' ? ids : [],
+ },
+ });
+ }}
+ />
+ )}
  {f.hint && (
  <span className="block mt-1 text-[10px] text-text-muted italic leading-snug">{f.hint}</span>
  )}
@@ -1757,6 +1782,156 @@ function ScriptInspector({ script }: { script: Script | undefined }) {
  </button>
  )}
  </div>
+ </div>
+ );
+}
+
+// ── Target device override picker ───────────────────────────────────────────
+// Wraps the action-node `targetMode` + `targetDeviceIds` config in a
+// two-state toggle. "Target" leaves the node as-is — at runtime the
+// executor falls back to `run.device_id` (the device that fired the
+// trigger). "Specific devices" opens a chip-multi-select restricted
+// to approved devices in the current tenant. The server validates
+// device ownership at execute time too — this picker is just UX.
+function TargetDevicePicker({
+ mode, deviceIds, devices, onChange,
+}: {
+ mode: 'target' | 'devices';
+ deviceIds: number[];
+ devices: Device[];
+ onChange: (mode: 'target' | 'devices', ids: number[]) => void;
+}) {
+ const [search, setSearch] = useState('');
+ const selected = useMemo(() => new Set(deviceIds.filter(Number.isFinite)), [deviceIds]);
+ const filtered = useMemo(() => {
+ const q = search.trim().toLowerCase();
+ if (!q) return devices.slice(0, 100);
+ return devices
+ .filter((d) => {
+ const hay = `${d.hostname ?? ''} ${d.displayName ?? ''} ${d.osType ?? ''}`.toLowerCase();
+ return hay.includes(q);
+ })
+ .slice(0, 100);
+ }, [devices, search]);
+
+ const toggleDevice = (id: number) => {
+ const next = new Set(selected);
+ if (next.has(id)) next.delete(id);
+ else next.add(id);
+ onChange('devices', [...next]);
+ };
+
+ return (
+ <div className="space-y-2">
+ <div className="flex rounded overflow-hidden bg-bg-primary">
+ <button
+ type="button"
+ onClick={() => onChange('target', [])}
+ className={clsx(
+ 'flex-1 px-2 py-1 text-[11px] transition-colors',
+ mode === 'target'
+ ? 'bg-accent/20 text-accent font-medium'
+ : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ Trigger target
+ </button>
+ <button
+ type="button"
+ onClick={() => onChange('devices', deviceIds)}
+ className={clsx(
+ 'flex-1 px-2 py-1 text-[11px] transition-colors',
+ mode === 'devices'
+ ? 'bg-accent/20 text-accent font-medium'
+ : 'text-text-muted hover:text-text-primary',
+ )}
+ >
+ Specific devices{mode === 'devices' && selected.size > 0 ? ` (${selected.size})` : ''}
+ </button>
+ </div>
+ {mode === 'devices' && (
+ <div className="space-y-1.5">
+ <input
+ type="text"
+ value={search}
+ onChange={(e) => setSearch(e.target.value)}
+ placeholder="Search hostname / display name / OS…"
+ className="w-full px-2 py-1 text-xs bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent"
+ />
+ {selected.size > 0 && (
+ <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 bg-bg-primary/50 rounded">
+ {[...selected].map((id) => {
+ const d = devices.find((x) => x.id === id);
+ const label = d ? (d.displayName || d.hostname || `#${id}`) : `#${id} (gone)`;
+ return (
+ <span
+ key={id}
+ className={clsx(
+ 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border',
+ d ? 'bg-accent/10 text-accent border-accent/30'
+ : 'bg-red-400/10 text-red-400 border-red-400/30',
+ )}
+ >
+ {label}
+ <button
+ type="button"
+ onClick={() => toggleDevice(id)}
+ className="hover:text-red-400"
+ >
+ <X className="w-2.5 h-2.5" />
+ </button>
+ </span>
+ );
+ })}
+ </div>
+ )}
+ <div className="max-h-48 overflow-y-auto bg-bg-primary/50 rounded">
+ {filtered.length === 0 ? (
+ <div className="px-2 py-2 text-[11px] text-text-muted italic text-center">
+ No devices match.
+ </div>
+ ) : (
+ filtered.map((d) => {
+ const checked = selected.has(d.id);
+ return (
+ <button
+ key={d.id}
+ type="button"
+ onClick={() => toggleDevice(d.id)}
+ className={clsx(
+ 'w-full flex items-center gap-2 px-2 py-1 text-[11px] text-left transition-colors',
+ checked
+ ? 'bg-accent/10 text-text-primary'
+ : 'text-text-secondary hover:bg-bg-tertiary',
+ )}
+ >
+ <span
+ className={clsx(
+ 'inline-flex w-3 h-3 rounded items-center justify-center text-[8px] font-bold',
+ checked ? 'bg-accent text-bg-primary' : 'border border-text-muted',
+ )}
+ >
+ {checked ? '✓' : ''}
+ </span>
+ <span className="flex-1 truncate">
+ {d.displayName || d.hostname}
+ {d.displayName && d.hostname && d.displayName !== d.hostname && (
+ <span className="text-text-muted ml-1">({d.hostname})</span>
+ )}
+ </span>
+ <span className="text-text-muted text-[10px]">{d.osType}</span>
+ </button>
+ );
+ })
+ )}
+ {devices.length > 100 && !search && (
+ <div className="px-2 py-1 text-[10px] text-text-muted italic">
+ Showing first 100 — type to search the rest.
+ </div>
+ )}
+ </div>
+ </div>
+ )}
  </div>
  );
 }
