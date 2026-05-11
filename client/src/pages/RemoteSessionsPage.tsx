@@ -3,8 +3,6 @@ import { Monitor, Play, StopCircle, RefreshCw, Clock, User, Wifi, Terminal, Sear
 import { remoteApi } from '@/api/remote.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { useAuthStore } from '@/store/authStore';
-import { useRemoteShellStore } from '@/store/remoteShellStore';
-import { anonymize } from '@/utils/anonymize';
 import type { RemoteSession, RemoteProtocol, RemoteSessionStatus } from '@obliance/shared';
 import { ObliReachViewer } from '@/components/ObliReachViewer';
 import { TenantBadge } from '@/components/common/TenantBadge';
