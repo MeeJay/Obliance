@@ -58,43 +58,30 @@ function rowToAudit(r: any): AuditLogRow {
   };
 }
 
-/** Builds the LEFT JOIN chain that resolves `resource_path` → display
- *  name for the most common resource types. Each join is gated by
- *  `resource_type` AND a regex check that resource_path is purely
- *  digits — without the regex guard, the `::int` cast would throw on
- *  any non-numeric resource_path (e.g. file paths under
- *  resource_type='file') even though the resource_type filter would
- *  have rejected the row, because PostgreSQL can reorder predicates
- *  within an ON clause. */
-function joinResourceNameSources<Q extends import('knex').Knex.QueryBuilder>(q: Q): Q {
-  const sources: Array<[string, string, string]> = [
-    ['scripts', 'rn_scr', 'script'],
-    ['scenarios', 'rn_scn', 'scenario'],
-    ['user_teams', 'rn_tm', 'team'],
-    ['users', 'rn_usr', 'user'],
-    ['device_groups', 'rn_grp', 'group'],
-    ['agent_api_keys', 'rn_key', 'api_key'],
-    ['tenants', 'rn_ten', 'tenant'],
-    ['script_schedules', 'rn_sch', 'schedule'],
-    ['software_compliance_lists', 'rn_sw', 'software_policy'],
-  ];
-  let next: any = q;
-  for (const [table, alias, typeValue] of sources) {
-    next = next.joinRaw(
-      `LEFT JOIN ${table} AS ${alias} ON al.resource_type = ? AND al.resource_path ~ '^[0-9]+$' AND ${alias}.id = al.resource_path::int`,
-      [typeValue],
-    );
-  }
-  return next as Q;
-}
-
-/** Picks the first non-null name across the LEFT JOINs added by
- *  `joinResourceNameSources`. Aliased as `resource_name` for the row
- *  mapper. Users have `username` instead of `name`. */
+/** Resolves the human-readable name for an audit row's resource via
+ *  correlated subqueries.
+ *
+ *  A first cut used N LEFT JOINs gated by `resource_type`. That broke:
+ *  PostgreSQL doesn't reliably short-circuit `AND` inside an `ON`
+ *  clause, so `al.resource_path::int` ended up evaluating for every
+ *  row regardless of `resource_type`, and any non-numeric
+ *  `resource_path` (file paths under `resource_type='file'`, etc.)
+ *  threw "invalid input syntax for type integer" — the whole SELECT
+ *  failed and the page went red. Subqueries dodge the issue: each
+ *  branch is only executed when the WHERE predicate is true, and we
+ *  compare `id::text = resource_path` (cast the PK, not the path).
+ *  With LIMIT 100 + indexed PK lookups this stays cheap. */
 const RESOURCE_NAME_SELECT = db.raw(`
   COALESCE(
-    rn_scr.name, rn_scn.name, rn_tm.name, rn_usr.username,
-    rn_grp.name, rn_key.name, rn_ten.name, rn_sch.name, rn_sw.name
+    (SELECT name     FROM scripts                   WHERE al.resource_type = 'script'          AND scripts.id::text                   = al.resource_path),
+    (SELECT name     FROM scenarios                 WHERE al.resource_type = 'scenario'        AND scenarios.id::text                 = al.resource_path),
+    (SELECT name     FROM user_teams                WHERE al.resource_type = 'team'            AND user_teams.id::text                = al.resource_path),
+    (SELECT username FROM users                     WHERE al.resource_type = 'user'            AND users.id::text                     = al.resource_path),
+    (SELECT name     FROM device_groups             WHERE al.resource_type = 'group'           AND device_groups.id::text             = al.resource_path),
+    (SELECT name     FROM agent_api_keys            WHERE al.resource_type = 'api_key'         AND agent_api_keys.id::text            = al.resource_path),
+    (SELECT name     FROM tenants                   WHERE al.resource_type = 'tenant'          AND tenants.id::text                   = al.resource_path),
+    (SELECT name     FROM script_schedules          WHERE al.resource_type = 'schedule'        AND script_schedules.id::text          = al.resource_path),
+    (SELECT name     FROM software_compliance_lists WHERE al.resource_type = 'software_policy' AND software_compliance_lists.id::text = al.resource_path)
   ) as resource_name
 `);
 
@@ -145,11 +132,10 @@ export const auditService = {
   },
 
   async getByDevice(deviceId: number, tenantId: number, limit = 50): Promise<AuditLogRow[]> {
-    const baseQ = db('audit_logs as al')
+    const rows = await db('audit_logs as al')
       .leftJoin('users as u', 'u.id', 'al.user_id')
       .leftJoin('devices as d', 'd.id', 'al.device_id')
-      .where({ 'al.device_id': deviceId, 'al.tenant_id': tenantId });
-    const rows = await joinResourceNameSources(baseQ)
+      .where({ 'al.device_id': deviceId, 'al.tenant_id': tenantId })
       .select(
         'al.*',
         'u.username',
@@ -221,10 +207,7 @@ export const auditService = {
     const countRes = await base.clone().count<{ c: string }[]>({ c: 'al.id' });
     const total = parseInt((countRes[0] as any)?.c || '0', 10);
 
-    // Resolve resource name AFTER the count — joining 9 extra tables
-    // just to count rows is wasteful, and the COUNT only needs the
-    // filter columns (action/user/device/etc.) already on `base`.
-    const rows = await joinResourceNameSources(base)
+    const rows = await base
       .select(
         'al.*',
         'u.username',
