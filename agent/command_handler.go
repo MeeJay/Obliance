@@ -1488,6 +1488,74 @@ func (d *CommandDispatcher) handleShutdown(cmd AgentCommand) error {
 	}
 }
 
+// linuxHasSystemd returns true when systemd is the running init
+// system. We detect it via `systemctl` on PATH — fast, doesn't
+// require root, and works whether or not the agent is itself a
+// systemd unit. On CentOS 6 / RHEL 6 / Debian 7 / older builds
+// `systemctl` is absent and we fall back to the SysV-init `service`
+// command + `/etc/init.d/*` listing.
+func linuxHasSystemd() bool {
+	_, err := exec.LookPath("systemctl")
+	return err == nil
+}
+
+// listServicesSysV enumerates SysV-init services for the dashboard's
+// Services tab on hosts without systemd. We list every executable
+// under /etc/init.d (skipping the `functions` library script and any
+// dotfiles), then run `service <name> status` per entry with a 2 s
+// timeout so a hung legacy script can't freeze the whole call.
+// LSB-compliant scripts exit 0 when running and non-zero otherwise;
+// status text is also parsed as a fallback for non-LSB scripts that
+// always exit 0 but emit "is stopped" / "is running" on stdout.
+func listServicesSysV() (interface{}, error) {
+	entries, err := os.ReadDir("/etc/init.d")
+	if err != nil {
+		return map[string]interface{}{"services": []ServiceInfo{}, "count": 0}, nil
+	}
+	services := make([]ServiceInfo, 0, len(entries))
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		name := ent.Name()
+		// Skip helpers / dotfiles. `functions` on RHEL 6 is a shell
+		// library sourced by the init scripts, not a service itself.
+		if strings.HasPrefix(name, ".") || name == "functions" || strings.HasSuffix(name, ".rpmsave") || strings.HasSuffix(name, ".rpmnew") {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		out, statusErr := newCmdContext(ctx, "service", name, "status").CombinedOutput()
+		cancel()
+		status := "unknown"
+		lower := strings.ToLower(string(out))
+		switch {
+		case strings.Contains(lower, "is stopped"), strings.Contains(lower, "not running"), strings.Contains(lower, "is dead"):
+			status = "stopped"
+		case strings.Contains(lower, "is running"), strings.Contains(lower, "active (running)"), strings.Contains(lower, "running..."):
+			status = "running"
+		default:
+			// LSB: exit 0 = running, exit 3 = stopped, anything else
+			// = error → leave "unknown". Some legacy non-LSB scripts
+			// (incl. Obliance's own SysV init) just echo
+			// "Running"/"Stopped" without setting an LSB exit, so we
+			// also check the verbatim word.
+			if statusErr == nil {
+				if strings.Contains(lower, "running") {
+					status = "running"
+				} else if strings.Contains(lower, "stopped") {
+					status = "stopped"
+				} else {
+					status = "running"
+				}
+			} else if strings.Contains(lower, "stopped") {
+				status = "stopped"
+			}
+		}
+		services = append(services, ServiceInfo{Name: name, Status: status})
+	}
+	return map[string]interface{}{"services": services, "count": len(services)}, nil
+}
+
 // ServiceInfo describes a single OS service returned by list_services.
 type ServiceInfo struct {
 	Name        string `json:"name"`
@@ -1544,6 +1612,14 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		return map[string]interface{}{"services": services, "count": len(services)}, nil
 
 	case "linux":
+		// SysV-init fallback (CentOS 6, RHEL 6, etc. — anything without
+		// systemd): list every script in /etc/init.d, then run
+		// `service <name> status` per entry to derive state. The status
+		// call is bounded by a short context so a hung legacy script
+		// can't freeze the whole listing.
+		if !linuxHasSystemd() {
+			return listServicesSysV()
+		}
 		out, err := newCmd("systemctl", "list-units", "--type=service",
 			"--all", "--no-pager", "--output=json").Output()
 		if err != nil {
@@ -1676,6 +1752,13 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
+		if !linuxHasSystemd() {
+			out, err := newCmd("service", name, "restart").CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("restart_service: service %s restart failed: %s", name, strings.TrimSpace(string(out)))
+			}
+			return map[string]string{"name": name, "status": "restarted"}, nil
+		}
 		out, err := newCmd("systemctl", "restart", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("restart_service: systemctl restart %s failed: %s", name, strings.TrimSpace(string(out)))
@@ -1721,6 +1804,13 @@ func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, e
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
+		if !linuxHasSystemd() {
+			out, err := newCmd("service", name, "start").CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("start_service: service %s start failed: %s", name, strings.TrimSpace(string(out)))
+			}
+			return map[string]string{"name": name, "status": "started"}, nil
+		}
 		out, err := newCmd("systemctl", "start", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("start_service: systemctl start %s failed: %s", name, strings.TrimSpace(string(out)))
@@ -1764,6 +1854,13 @@ func (d *CommandDispatcher) handleStopService(cmd AgentCommand) (interface{}, er
 		return map[string]string{"name": name, "output": strings.TrimSpace(string(out))}, nil
 
 	case "linux":
+		if !linuxHasSystemd() {
+			out, err := newCmd("service", name, "stop").CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("stop_service: service %s stop failed: %s", name, strings.TrimSpace(string(out)))
+			}
+			return map[string]string{"name": name, "status": "stopped"}, nil
+		}
 		out, err := newCmd("systemctl", "stop", name).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("stop_service: systemctl stop %s failed: %s", name, strings.TrimSpace(string(out)))
