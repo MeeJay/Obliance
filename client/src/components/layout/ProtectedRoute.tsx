@@ -6,11 +6,19 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 const REQUIRED_ENROLLMENT_VERSION = 1;
 
 interface ProtectedRouteProps {
+  /** Hard role gate — only users with this exact platform role pass. */
   requiredRole?: string;
+  /** Capability gate — passes if user is platform admin OR carries ANY
+   *  of the listed tenant-wide capabilities. Used for pages that
+   *  shouldn't be admin-only when the operator has granted the
+   *  feature explicitly via permission_sets (e.g. Supervision,
+   *  Agent config tabs). When both `requiredRole` and
+   *  `requiredCapabilities` are passed, the role check wins. */
+  requiredCapabilities?: string[];
 }
 
-export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
-  const { user, isInitialized } = useAuthStore();
+export function ProtectedRoute({ requiredRole, requiredCapabilities }: ProtectedRouteProps) {
+  const { user, isInitialized, permissions } = useAuthStore();
   const location = useLocation();
 
   if (!isInitialized) {
@@ -38,6 +46,19 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
 
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/" replace />;
+  }
+
+  // Capability gate — admin always passes. Otherwise the user must
+  // carry at least one of the listed caps in `tenantCapabilities`
+  // (resolved server-side from the permission_set tied to their
+  // user_tenants.role for the active tenant).
+  if (requiredCapabilities && requiredCapabilities.length > 0) {
+    const isAdmin = user.role === 'admin';
+    if (!isAdmin) {
+      const caps = new Set(permissions?.tenantCapabilities ?? []);
+      const ok = requiredCapabilities.some((c) => caps.has(c));
+      if (!ok) return <Navigate to="/" replace />;
+    }
   }
 
   return <Outlet />;

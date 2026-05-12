@@ -66,12 +66,11 @@ export default function App() {
  <Route path="/profile" element={<ProfilePage />} />
  <Route path="/download" element={<DownloadPage />} />
 
- {/* Admin-only */}
+ {/* Admin-only — Settings / Users / Tenants / Audit / Security
+     remain locked to platform admins. */}
  <Route element={<ProtectedRoute requiredRole="admin" />}>
  <Route path="/settings" element={<SettingsPage />} />
  <Route path="/admin/users" element={<AdminUsersPage />} />
- <Route path="/admin/devices" element={<AdminDevicesPage />} />
- <Route path="/admin/supervision" element={<SupervisionPage />} />
  <Route path="/admin/import-export" element={<ImportExportPage />} />
  <Route path="/admin/tenants" element={<AdminTenantsPage />} />
  {/* Renamed: /workspace replaces /admin/tenants in the new sidebar
@@ -79,11 +78,28 @@ export default function App() {
      "tenants admin"). Old URL kept as alias above so external
      bookmarks / saved deep-links keep resolving. */}
  <Route path="/workspace" element={<AdminTenantsPage />} />
- <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
- {/* Legacy direct routes kept for backward compat; new menu uses /admin/security */}
- <Route path="/admin/approvals" element={<ApprovalsPage />} />
  <Route path="/admin/audit-log" element={<AuditLogPage />} />
  <Route path="/admin/security" element={<SecurityPage />} />
+ </Route>
+
+ {/* Supervision — admin OR users with `supervision:read`. */}
+ <Route element={<ProtectedRoute requiredCapabilities={['supervision:read']} />}>
+ <Route path="/admin/supervision" element={<SupervisionPage />} />
+ </Route>
+
+ {/* Agent config tabs — admin OR users with any of the
+     agent_config:* capabilities. Each inner page also gates the
+     specific feature it surfaces (key management vs approval vs
+     discovery vs custom sections). */}
+ <Route element={<ProtectedRoute requiredCapabilities={[
+ 'agent_config:custom_sections',
+ 'agent_config:discovery',
+ 'agent_config:keys',
+ 'agent_config:approval',
+ ]} />}>
+ <Route path="/admin/devices" element={<AdminDevicesPage />} />
+ <Route path="/admin/custom-sections" element={<CustomSectionsPage />} />
+ <Route path="/admin/approvals" element={<ApprovalsPage />} />
  </Route>
  </Route>
  </Route>
