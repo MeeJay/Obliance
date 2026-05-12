@@ -4,6 +4,11 @@ export const createTeamSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).nullable().optional(),
   canCreate: z.boolean().optional(),
+  // Master-only field — when a platform admin creates a team while
+  // logged into the master tenant, this picks which child tenant the
+  // team will operate in. The controller drops this field for any
+  // non-master caller (security), so it's safe to accept here.
+  tenantId: z.number().int().positive().optional(),
 });
 
 export const updateTeamSchema = z.object({
@@ -35,7 +40,11 @@ export const setTeamPermissionsSchema = z.object({
   permissions: z.array(
     z.object({
       scope: z.enum(['group', 'device', 'ungrouped']),
-      scopeId: z.number().int().positive(),
+      // scope='ungrouped' uses scope_id=0 by convention (no real row
+      // to point at); 'group' / 'device' use the actual row id which
+      // is always >= 1. Accept anything >= 0 here and let the service
+      // verify the (scope, scope_id) pairing makes sense.
+      scopeId: z.number().int().nonnegative(),
       level: z.enum(['ro', 'rw']),
       capabilities: z.array(z.enum(CAPABILITY_VALUES)).optional(),
     }),
