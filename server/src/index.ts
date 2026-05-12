@@ -282,8 +282,12 @@ async function main() {
 
     // Sync preference schemas with Obligate (non-blocking)
     obligateService.syncPreferenceSchemas().catch(() => {});
-    // Sync capability schemas with Obligate (non-blocking)
-    obligateService.syncCapabilitySchemas().catch(() => {});
+    // Capability schemas USED to be pushed to Obligate so admins could
+    // tick per-user capability boxes from there. Dropped: capabilities
+    // live entirely in Obliance now (role = what / team = where), and
+    // pushing them to Obligate created confusing user-level toggles
+    // that didn't map to anything on the Obliance side. Obligate-side
+    // cleanup is handled separately.
   });
 
   // Graceful shutdown

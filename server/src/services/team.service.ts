@@ -55,6 +55,7 @@ const VALID_CAPABILITIES = new Set([
   'agent_config:custom_sections',
   'agent_config:discovery',
   'agent_config:keys',
+  'agent_config:approval',
 ]);
 
 function rowToPermission(row: any): TeamPermission {

@@ -4,7 +4,7 @@ import { deviceService } from '../services/device.service';
 import { customMetricService } from '../services/customMetric.service';
 import { customSectionService } from '../services/customSection.service';
 import { commandService } from '../services/command.service';
-import { requireRole, requireDeviceRead, requireDeviceWrite } from '../middleware/rbac';
+import { requireRole, requireDeviceRead, requireDeviceWrite, requireTenantCapability } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
@@ -403,7 +403,7 @@ router.get('/group-stats', async (req, res, next) => {
 });
 
 // POST /api/devices/bulk/approve
-router.post('/bulk/approve', requireRole('admin'), async (req, res, next) => {
+router.post('/bulk/approve', requireTenantCapability('agent_config:approval'), async (req, res, next) => {
   try {
     const { ids, deviceIds } = req.body;
     const list = ids ?? deviceIds ?? [];
@@ -736,7 +736,7 @@ router.get('/:id/services', requireDeviceRead(), async (req, res, next) => {
 });
 
 // POST /api/devices/:id/approve
-router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/approve', requireTenantCapability('agent_config:approval'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.approveDevice(id, req.tenantId!, req.session.userId!);
@@ -758,7 +758,7 @@ router.post('/:id/approve', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /api/devices/:id/refuse
-router.post('/:id/refuse', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/refuse', requireTenantCapability('agent_config:approval'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.refuseDevice(id, req.tenantId!);

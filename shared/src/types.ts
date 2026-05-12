@@ -1344,7 +1344,13 @@ export type Capability =
   | 'supervision:read'
   | 'agent_config:custom_sections'
   | 'agent_config:discovery'
-  | 'agent_config:keys';
+  | 'agent_config:keys'
+  // Approve / refuse / bulk-approve newly-enrolled agents. Unlocks
+  // the "Approuvés / En attente / Refusés / Suspendus" chip row at
+  // the top of /devices for non-admins, plus the per-row approve /
+  // refuse buttons. Server-side gate sits next to requireRole('admin')
+  // on the device approval routes.
+  | 'agent_config:approval';
 
 export interface TeamPermission {
   id: number;

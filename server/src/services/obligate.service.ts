@@ -189,46 +189,19 @@ export const obligateService = {
     }
   },
 
-  /**
-   * Register app capability schemas with Obligate.
-   */
-  async syncCapabilitySchemas(): Promise<void> {
-    const raw = await appConfigService.getObligateRaw();
-    if (!raw.url || !raw.apiKey) return;
-
-    const schemas = [
-      { key: 'monitor', label: 'Monitor', sortOrder: 0 },
-      { key: 'execute', label: 'Execute Commands', sortOrder: 1 },
-      { key: 'remote', label: 'Remote Access', sortOrder: 2 },
-      { key: 'files', label: 'File Management', sortOrder: 3 },
-      { key: 'power', label: 'Power Control', sortOrder: 4 },
-      // Tenant-wide supervision capabilities — checked via
-      // permissionService.userHasTenantCapability(...). They grant access to
-      // the matching tab on /admin/supervision regardless of which device
-      // permissions the team holds.
-      { key: 'supervision_remote',  label: 'Supervision · Remote sessions list', sortOrder: 10 },
-      { key: 'supervision_history', label: 'Supervision · Activity history',     sortOrder: 11 },
-      { key: 'manage_reports',      label: 'Supervision · Manage reports',       sortOrder: 12 },
-    ];
-
-    try {
-      const res = await fetch(`${raw.url}/api/apps/sync-capability-schemas`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${raw.apiKey}`,
-        },
-        body: JSON.stringify({ schemas }),
-      });
-      if (res.ok) {
-        logger.info('Obligate: capability schemas synced');
-      } else {
-        logger.warn(`Obligate: capability schema sync failed (HTTP ${res.status})`);
-      }
-    } catch (err) {
-      logger.warn(err, 'Obligate: capability schema sync failed');
-    }
-  },
+  // syncCapabilitySchemas REMOVED. The capabilities Obliance used to
+  // push (monitor / execute / remote / files / power) are row-scoped
+  // on team_permissions and never made sense as user-level toggles on
+  // an Obligate user-tenant binding. The three legacy
+  // `supervision_*` / `manage_reports` keys were renamed to
+  // `supervision:read` / `agent_config:*` long ago — pushing them
+  // wrote phantom toggles that didn't gate anything.
+  //
+  // The new model:
+  //   - Role (admin / user / viewer / custom) defines WHAT a user can do
+  //   - Team membership defines WHERE (which groups / devices)
+  //   - Tenant-wide page gates are toggled per-team in Obliance UI
+  // Obligate-side schema cleanup is handled separately.
 
   /**
    * Register a device UUID + path with Obligate for cross-app linking.

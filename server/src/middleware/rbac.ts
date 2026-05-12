@@ -114,6 +114,30 @@ export function requireTenantCapability(capability: string) {
 }
 
 /**
+ * Like requireTenantCapability, but passes if the user has ANY of the
+ * listed capabilities (or is admin). Useful when a route should be
+ * unlocked by either of two overlapping caps — e.g. GET /agent/keys
+ * works for both `agent_config:keys` (manage) and
+ * `agent_config:approval` (enroll), since both flows need to list the
+ * available keys.
+ */
+export function requireAnyTenantCapability(...capabilities: string[]) {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (req.session.role === 'admin') return next();
+      for (const cap of capabilities) {
+        if (await permissionService.userHasTenantCapability(req.session.userId!, cap)) {
+          return next();
+        }
+      }
+      return next(new AppError(403, 'Insufficient permissions'));
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
  * Require canCreate permission (for creating new devices/groups).
  */
 export function requireCanCreate() {

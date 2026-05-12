@@ -28,6 +28,7 @@ export const CAPABILITY_VALUES = [
   'agent_config:custom_sections',
   'agent_config:discovery',
   'agent_config:keys',
+  'agent_config:approval',
 ] as const;
 
 export const setTeamPermissionsSchema = z.object({

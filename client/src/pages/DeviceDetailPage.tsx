@@ -4275,7 +4275,11 @@ export function DeviceDetailPage() {
  const deviceId = parseInt(id ?? '0', 10);
  const navigate = useNavigate();
  const { t } = useTranslation();
- const { isAdmin } = useAuthStore();
+ const { isAdmin, permissions } = useAuthStore();
+ // Approve / Refuse buttons unlock for admins OR users with the
+ // `agent_config:approval` team capability. Server-side gate is in
+ // device.routes.ts on the matching POST endpoints.
+ const canManageApproval = isAdmin() || (permissions?.tenantCapabilities ?? []).includes('agent_config:approval');
  const fetchDevice = useDeviceStore((s) => s.fetchDevice);
  const updateDeviceMetrics = useDeviceStore((s) => s.updateDeviceMetrics);
  // Live metrics refresh — the agent push pipeline emits
@@ -5037,7 +5041,7 @@ export function DeviceDetailPage() {
  <div className="flex items-center gap-2 shrink-0 flex-wrap">
  {device.approvalStatus === 'pending' ? (
  /* ── Pending device: only show approve / refuse ── */
- isAdmin() && (
+ canManageApproval && (
  <>
  <button
  onClick={handleApproveDevice}

@@ -58,7 +58,16 @@ export function DeviceTable({
 }: DeviceTableProps) {
  const { t } = useTranslation();
  const navigate = useNavigate();
- const { isAdmin } = useAuthStore();
+ const { isAdmin, permissions } = useAuthStore();
+ // Unlocked when admin OR the user has a team_permission row carrying
+ // `agent_config:approval`. Drives both the approval-status chip row
+ // (Approuvés / En attente / Refusés / Suspendus) and the per-row
+ // Approve / Refuse / Bulk-approve buttons that are gated below.
+ // Server-side enforcement is in device.routes.ts approve/refuse/bulk.
+ const canManageApproval = useMemo(
+ () => isAdmin() || (permissions?.tenantCapabilities ?? []).includes('agent_config:approval'),
+ [isAdmin, permissions?.tenantCapabilities],
+ );
 
  // Filters
  const [search, setSearch] = useState('');
@@ -121,7 +130,7 @@ export function DeviceTable({
  // ?approvalStatus=pending overrides the default — used by the
  // sidebar admin deep-link "Agents".
  const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(
- (initialApprovalFilter as ApprovalFilter | undefined) ?? (isAdmin() ? '' : 'approved'),
+ (initialApprovalFilter as ApprovalFilter | undefined) ?? (canManageApproval ? '' : 'approved'),
  );
  // Default = no explicit sort → enrolment order, tree-grouped. Clicking a
  // column cycles asc → desc → back to default (empty).
@@ -555,11 +564,11 @@ export function DeviceTable({
  Background must be opaque (bg-bg-primary) or the list
  beneath bleeds through the bar at scroll. */}
  <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-bg-primary space-y-3">
- {/* Approval quick filters — admin only. Regular users are pinned
- to the "approved" subset so the UI doesn't tease access to
- pending / refused / suspended devices that only an admin can
- act on (approve, refuse, suspend). */}
- {isAdmin() && (
+ {/* Approval quick filters — visible to admin OR any user with the
+ `agent_config:approval` capability. Regular users without it are
+ pinned to the "approved" subset so the UI doesn't tease access to
+ pending / refused / suspended devices they can't act on. */}
+ {canManageApproval && (
  <div className="flex items-center gap-2 flex-wrap mb-3">
  {([
  { key: '' as ApprovalFilter, label: t('devices.filters.all'), count: counts.all },
@@ -868,7 +877,7 @@ export function DeviceTable({
  </button>
  {batchMenuOpen && (
  <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-lg overflow-hidden min-w-[180px]">
- {isAdmin() && approvalFilter === 'pending' && (
+ {canManageApproval && approvalFilter === 'pending' && (
  <button onClick={() => handleBatchAction('approve')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
  <ShieldCheck className="w-3.5 h-3.5 text-green-400" /> {t('devices.batch.approve')}
  </button>

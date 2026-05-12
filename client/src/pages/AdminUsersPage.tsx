@@ -462,6 +462,31 @@ export function AdminUsersPage() {
  await addPermission(perm.scope, perm.scopeId, perm.level, caps);
  };
 
+ // Tenant-wide capability toggle. These caps (`supervision:read`,
+ // `agent_config:*`) gate top-level pages, not individual device
+ // permissions — but they're stored on team_permission rows so the
+ // existing `userHasTenantCapability` SQL works. Toggling here writes
+ // the cap to EVERY row of this team so it sticks regardless of
+ // which row the lookup happens to land on. A team with zero rows
+ // can't carry tenant-wide caps; the UI greys out the toggles in
+ // that case.
+ const toggleTenantWideCapability = async (cap: Capability) => {
+ if (!selectedTeamId || teamPermissions.length === 0) return;
+ const everyHas = teamPermissions.every((p) => (p.capabilities ?? []).includes(cap));
+ const newPerms = teamPermissions.map((p) => {
+ const caps = new Set([...(p.capabilities ?? [])]);
+ if (everyHas) caps.delete(cap); else caps.add(cap);
+ return { scope: p.scope, scopeId: p.scopeId, level: p.level, capabilities: [...caps] };
+ });
+ try {
+ await teamsApi.setPermissions(selectedTeamId, { permissions: newPerms });
+ await loadTeamDetails(selectedTeamId);
+ } catch (err: any) {
+ const msg = err?.response?.data?.error || err?.message;
+ toast.error(msg ? `${t('users.teams.failedUpdatePermission')}: ${msg}` : t('users.teams.failedUpdatePermission'));
+ }
+ };
+
  const removePermission = async (permId: number) => {
  if (!selectedTeamId) return;
  try {
@@ -925,6 +950,19 @@ export function AdminUsersPage() {
  </div>
  )}
 
+ {/* Tenant-wide page-access toggles. Each toggle writes the
+     cap onto every team_permission row for this team — the
+     server's userHasTenantCapability finds it on any row. The
+     section is disabled with a helpful note when the team has
+     no per-row permissions yet (no row → nowhere to bolt the
+     cap). */}
+ {rightTab === 'permissions' && (
+ <TenantWideCapsPanel
+ teamPermissions={teamPermissions}
+ onToggle={toggleTenantWideCapability}
+ />
+ )}
+
  {/* Permissions panel — Hierarchical tree */}
  {rightTab === 'permissions' && (
  <div className="rounded-lg bg-bg-secondary max-h-[70vh] overflow-y-auto">
@@ -1161,6 +1199,74 @@ function ToggleSwitch({ on, onChange, title }: { on: boolean; onChange: () => vo
  size="sm"
  title={title}
  />
+ );
+}
+
+// Tenant-wide page-access capabilities, listed once per team in the
+// Permissions tab. Each entry maps a `Capability` value to a localized
+// label / description for the admin-facing toggle row. Stays a flat
+// list (no categories) since there are only a handful of these and
+// they all gate top-level pages.
+const TENANT_WIDE_CAPS: Array<{ key: Capability; label: string; description: string }> = [
+ { key: 'supervision:read',             label: 'Supervision',                description: 'Voir les onglets Sessions distantes / Historique / Rapports' },
+ { key: 'agent_config:custom_sections', label: 'Custom sections',            description: 'Gérer les blocs custom remontés par les agents' },
+ { key: 'agent_config:discovery',       label: 'Découverte réseau',          description: 'Lancer / consulter les scans de découverte' },
+ { key: 'agent_config:keys',            label: 'Clés API',                   description: 'Lister / créer / révoquer les clés API agent' },
+ { key: 'agent_config:approval',        label: 'Approuver les agents',       description: 'Approuver/refuser les agents en attente + bouton "Ajouter un agent"' },
+];
+
+function TenantWideCapsPanel({
+ teamPermissions,
+ onToggle,
+}: {
+ teamPermissions: TeamPermission[];
+ onToggle: (cap: Capability) => Promise<void>;
+}) {
+ const { t } = useTranslation();
+ const hasAnyRow = teamPermissions.length > 0;
+ // A cap is "on" if every row carries it. Anything in between (some
+ // rows have it, others don't) is treated as "off" with a partial
+ // marker — toggling once turns it ON everywhere; toggling again
+ // turns it OFF everywhere.
+ const isOn = (cap: Capability) => hasAnyRow && teamPermissions.every((p) => (p.capabilities ?? []).includes(cap));
+ const isPartial = (cap: Capability) => hasAnyRow
+  && teamPermissions.some((p) => (p.capabilities ?? []).includes(cap))
+  && !teamPermissions.every((p) => (p.capabilities ?? []).includes(cap));
+ return (
+ <div className="mb-3 rounded-lg bg-bg-secondary p-3">
+ <div className="flex items-baseline justify-between mb-2">
+ <h3 className="text-sm font-semibold text-text-primary">
+ {t('users.teams.tenantWideCapsTitle') || 'Accès page (tenant)'}
+ </h3>
+ <span className="text-[10px] text-text-muted">
+ {hasAnyRow
+ ? (t('users.teams.tenantWideCapsHint') || 'Affecte tous les utilisateurs de cette équipe')
+ : (t('users.teams.tenantWideCapsNoRows') || 'Donnez d\'abord une permission sur un groupe / device')}
+ </span>
+ </div>
+ <div className="space-y-1.5">
+ {TENANT_WIDE_CAPS.map(({ key, label, description }) => (
+ <label
+ key={key}
+ className={`flex items-start gap-2 p-1.5 rounded ${hasAnyRow ? 'hover:bg-bg-hover cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+ title={description}
+ >
+ <span className="pt-0.5">
+ <ToggleSwitch on={isOn(key)} onChange={() => { if (hasAnyRow) onToggle(key); }} />
+ </span>
+ <span className="flex-1">
+ <span className="text-xs text-text-primary block">
+ {label}
+ {isPartial(key) && (
+ <span className="ml-2 text-[10px] text-amber-400">partial</span>
+ )}
+ </span>
+ <span className="text-[10px] text-text-muted block">{description}</span>
+ </span>
+ </label>
+ ))}
+ </div>
+ </div>
  );
 }
 

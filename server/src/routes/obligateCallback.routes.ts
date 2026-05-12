@@ -150,21 +150,20 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
           .del();
       }
 
-      // Sync capabilities to team_permissions for all teams the user is in for this tenant
-      if (t.capabilities?.length) {
-        const userTeamIds = wantedTeamIds.length > 0
-          ? wantedTeamIds
-          : await db('team_memberships')
-              .join('user_teams', 'user_teams.id', 'team_memberships.team_id')
-              .where({ 'team_memberships.user_id': localUserId, 'user_teams.tenant_id': tenant.id })
-              .pluck('team_memberships.team_id') as number[];
-
-        for (const teamId of userTeamIds) {
-          await db('team_permissions')
-            .where({ team_id: teamId })
-            .update({ capabilities: JSON.stringify(t.capabilities) });
-        }
-      }
+      // Capabilities from Obligate are intentionally ignored.
+      //
+      // We used to overwrite team_permissions.capabilities on every
+      // SSO login with whatever cap-boxes the admin had ticked on the
+      // user-tenant binding in Obligate. That broke the source of
+      // truth: capabilities live on team_permissions (Obliance) and
+      // are configured per-team via /admin/users; an SSO login from
+      // a user happily ticking nonsensical row-scoped caps was
+      // silently overwriting carefully-tuned team setups.
+      //
+      // New model: Obligate owns the user-tenant binding (which
+      // tenants the user belongs to + which role + which teams). The
+      // capabilities a member of a team can use are 100% defined in
+      // Obliance. `t.capabilities` is intentionally dropped here.
     }
   }
 

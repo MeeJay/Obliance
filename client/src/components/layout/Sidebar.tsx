@@ -325,13 +325,19 @@ export function Sidebar() {
   // cap so the menu still appears for admins regardless of cap state).
   const tenantCaps = new Set(permissions?.tenantCapabilities ?? []);
   const hasSupervisionCap = tenantCaps.has('supervision:read');
+  const hasApprovalCap = tenantCaps.has('agent_config:approval');
   const hasAnyAgentConfigCap =
     tenantCaps.has('agent_config:custom_sections') ||
     tenantCaps.has('agent_config:discovery') ||
-    tenantCaps.has('agent_config:keys');
+    tenantCaps.has('agent_config:keys') ||
+    hasApprovalCap;
   const { sidebarFloating, toggleSidebarFloating, sidebarCollapsed, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
 
   const admin = isAdmin();
+  // "Add agent" button visibility — admin OR has `agent_config:approval`.
+  // The modal needs to list API keys (server gate updated to allow
+  // approval-capa holders to call GET /api/agent/keys for the picker).
+  const canAddAgent = admin || hasApprovalCap;
 
   // ── Layout preferences ─────────────────────────────────────────────────────
   const [sidebarLayout, setSidebarLayout] = usePersisted<'stacked' | 'side-by-side'>('sidebar-layout', 'stacked');
@@ -741,7 +747,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        {admin && (
+        {canAddAgent && (
           <div className="px-2 pt-1">
             <button
               onClick={openAddAgentModal}
@@ -844,10 +850,11 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Add agent button — accent pill, matches mockup §4.2. Gated to platform
-          admins: enrolling a new agent requires API-key generation, which the
-          server gates behind requireRole('admin'). Non-admins see no button. */}
-      {admin && (
+      {/* Add agent button — accent pill, matches mockup §4.2. Visible to
+          admins AND to users carrying `agent_config:approval` (they can
+          enroll new agents because the GET /api/agent/keys route was
+          relaxed to accept that cap too). */}
+      {canAddAgent && (
         <div className="px-3 pt-2">
           <button
             onClick={openAddAgentModal}
