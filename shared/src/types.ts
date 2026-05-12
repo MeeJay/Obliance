@@ -1356,7 +1356,12 @@ export interface TeamPermission {
   id: number;
   tenantId: number;
   teamId: number;
-  scope: 'group' | 'device';
+  /** 'group' / 'device' = scoped to a specific row.
+   *  'ungrouped' = catch-all for devices with group_id IS NULL whose
+   *  enrolling API key has no default_group_id (orphan devices).
+   *  scope_id is 0 by convention for 'ungrouped' since there's no
+   *  matching row to point at. */
+  scope: 'group' | 'device' | 'ungrouped';
   scopeId: number;
   level: 'ro' | 'rw';
   capabilities: Capability[];
@@ -1484,7 +1489,7 @@ export interface SetTeamMembersRequest {
 
 export interface SetTeamPermissionsRequest {
   permissions: Array<{
-    scope: 'group' | 'device';
+    scope: 'group' | 'device' | 'ungrouped';
     scopeId: number;
     level: 'ro' | 'rw';
     capabilities?: Capability[];

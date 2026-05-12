@@ -772,6 +772,7 @@
       "confirmDelete": "Delete team \"{{name}}\"?",
       "tabMembers": "Members",
       "tabPermissions": "Permissions",
+      "ungroupedLabel": "Ungrouped (orphan devices)",
       "noUsers": "No non-admin users",
       "noResources": "No groups or monitors",
       "createBadge": "Create",

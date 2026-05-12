@@ -34,7 +34,7 @@ export const CAPABILITY_VALUES = [
 export const setTeamPermissionsSchema = z.object({
   permissions: z.array(
     z.object({
-      scope: z.enum(['group', 'device']),
+      scope: z.enum(['group', 'device', 'ungrouped']),
       scopeId: z.number().int().positive(),
       level: z.enum(['ro', 'rw']),
       capabilities: z.array(z.enum(CAPABILITY_VALUES)).optional(),

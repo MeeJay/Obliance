@@ -17,7 +17,7 @@ interface PermissionRow {
   id: number;
   team_id: number;
   tenant_id: number;
-  scope: 'group' | 'device';
+  scope: 'group' | 'device' | 'ungrouped';
   scope_id: number;
   level: 'ro' | 'rw';
 }
@@ -177,7 +177,7 @@ export const teamService = {
 
   async setPermissions(
     teamId: number,
-    permissions: Array<{ scope: 'group' | 'device'; scopeId: number; level: 'ro' | 'rw'; capabilities?: string[] }>,
+    permissions: Array<{ scope: 'group' | 'device' | 'ungrouped'; scopeId: number; level: 'ro' | 'rw'; capabilities?: string[] }>,
   ): Promise<TeamPermission[]> {
     // Resolve tenant_id from the team
     const team = await db('user_teams').where({ id: teamId }).select('tenant_id').first();
@@ -207,7 +207,7 @@ export const teamService = {
 
   async addPermission(
     teamId: number,
-    scope: 'group' | 'device',
+    scope: 'group' | 'device' | 'ungrouped',
     scopeId: number,
     level: 'ro' | 'rw',
   ): Promise<TeamPermission> {

@@ -772,6 +772,7 @@
       "confirmDelete": "Supprimer l'équipe « {{name}} » ?",
       "tabMembers": "Membres",
       "tabPermissions": "Permissions",
+      "ungroupedLabel": "Sans groupe (orphelins)",
       "noUsers": "Aucun utilisateur non-admin",
       "noResources": "Aucun groupe ou moniteur",
       "createBadge": "Créer",

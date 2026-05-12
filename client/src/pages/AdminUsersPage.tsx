@@ -11,6 +11,7 @@ import {
  UserX,
  Users,
  FolderOpen,
+ FolderX,
  Monitor,
  Check,
  ChevronRight,
@@ -936,6 +937,19 @@ export function AdminUsersPage() {
  <p className="p-4 text-sm text-text-muted text-center">{t('users.teams.noResources')}</p>
  ) : (
  <div className="py-1">
+ {/* "Ungrouped" pseudo-group — toggling this grants the team
+     access to every device whose group_id IS NULL AND whose
+     enrolling API key has no default_group_id (the API-key
+     claim handles the "key targets a group" case
+     automatically). Useful for catching orphan devices and
+     for tenants whose keys never pre-assign a group. */}
+ <PermUngroupedRow
+ perm={ungroupedPerm}
+ addPermission={addPermission}
+ removePermission={removePermission}
+ togglePermissionLevel={togglePermissionLevel}
+ toggleCapability={toggleCapability}
+ />
  {tree.map((node) => (
  <PermTreeNode
  key={node.id}
@@ -962,7 +976,7 @@ export function AdminUsersPage() {
  device={device}
  depth={0}
  perm={perm}
- isCovered={false}
+ isCovered={!!ungroupedPerm}
  addPermission={addPermission}
  removePermission={removePermission}
  togglePermissionLevel={togglePermissionLevel}
@@ -1316,6 +1330,70 @@ interface PermDeviceRowProps {
  removePermission: (permId: number) => Promise<void>;
  togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
  toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
+}
+
+interface PermUngroupedRowProps {
+ perm: TeamPermission | undefined;
+ addPermission: (scope: PermissionScope, scopeId: number, level: PermissionLevel, capabilities?: Capability[]) => Promise<void>;
+ removePermission: (permId: number) => Promise<void>;
+ togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
+ toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
+}
+
+// "Ungrouped" pseudo-group row — sits above the real group tree and
+// represents `scope='ungrouped'` on team_permissions. Stylistically a
+// group row, but with a distinct icon (FolderX) and a 0 scope_id by
+// convention. When ON, the team can read/write every device whose
+// group_id IS NULL AND whose enrolling API key has no default group.
+function PermUngroupedRow({
+ perm,
+ addPermission,
+ removePermission,
+ togglePermissionLevel,
+ toggleCapability,
+}: PermUngroupedRowProps) {
+ const { t } = useTranslation();
+ return (
+ <div className={`flex items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${perm ? 'bg-accent/5' : ''}`} style={{ paddingLeft: '8px' }}>
+ <span className="shrink-0 w-4" />
+ <FolderX size={13} className={`shrink-0 ${perm ? 'text-accent' : 'text-text-muted'}`} />
+ <span className={`flex-1 text-sm truncate ${perm ? 'text-text-primary font-medium' : 'text-text-primary'}`}>
+ {t('users.teams.ungroupedLabel') || 'Ungrouped (orphan devices)'}
+ </span>
+ {perm ? (
+ <>
+ <button
+ onClick={() => togglePermissionLevel(perm)}
+ className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
+ perm.level === 'rw'
+ ? 'bg-accent/10 text-accent hover:bg-accent/20'
+ : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover'
+ }`}
+ title="Click to toggle RO/RW"
+ >
+ {perm.level === 'rw'
+ ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</>
+ : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
+ </button>
+ <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
+ <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
+ <Trash2 size={11} />
+ </button>
+ </>
+ ) : (
+ <>
+ <button onClick={() => addPermission('ungrouped', 0, 'ro')}
+ className="px-1.5 py-0.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title="Read Only">
+ {t('users.teams.roLabel')}
+ </button>
+ <button onClick={() => addPermission('ungrouped', 0, 'rw')}
+ className="px-1.5 py-0.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title="Read/Write">
+ {t('users.teams.rwLabel')}
+ </button>
+ </>
+ )}
+ </div>
+ );
 }
 
 function PermDeviceRow({
