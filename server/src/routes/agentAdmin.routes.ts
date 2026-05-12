@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireRole, requireAnyTenantCapability } from '../middleware/rbac';
-import { listKeys, createKey, updateKey, deleteKey } from '../controllers/agent.controller';
+import { listKeys, createKey, updateKey, deleteKey, agentInstallerWizard } from '../controllers/agent.controller';
 
 const router = Router();
 
@@ -18,5 +18,18 @@ router.get('/keys', requireAnyTenantCapability('agent_config:keys', 'agent_confi
 router.post('/keys',       requireRole('admin'), createKey);
 router.put('/keys/:id',    requireRole('admin'), updateKey);
 router.delete('/keys/:id', requireRole('admin'), deleteKey);
+
+// GET /api/agent/installer/wizard.exe[?keyId=N&server=URL] — streams the
+// install wizard EXE with an optional pre-fill tail blob (server URL +
+// API key). Sits under agentAdmin (requireAuth + requireTenant)
+// because echoing back an API key needs the same gate as listing them.
+// `requireAnyTenantCapability` matches the listKeys policy so the
+// "Add agent" modal flow works for both API-key managers and
+// device approvers.
+router.get(
+  '/installer/wizard.exe',
+  requireAnyTenantCapability('agent_config:keys', 'agent_config:approval'),
+  agentInstallerWizard,
+);
 
 export default router;

@@ -1541,7 +1541,12 @@
     "windowsHint": "Exécuter dans PowerShell en tant qu'administrateur",
     "linuxHint": "Exécuter dans le terminal (root ou sudo)",
     "macosHint": "Exécuter dans le terminal (Apple Silicon & Intel)",
-    "freebsdHint": "Exécuter dans un shell root sur FreeBSD / OPNsense :"
+    "freebsdHint": "Exécuter dans un shell root sur FreeBSD / OPNsense :",
+    "manualHint": "Télécharger l'EXE wizard, le copier sur la machine cible (USB / presse-papier RDP / partage), double-cliquer. Le MSI est embarqué — aucune connexion sortante requise depuis la cible.",
+    "manualWizardTitle": "Wizard d'installation Obliance",
+    "manualWizardDescription": "EXE avec le MSI embarqué. Pré-rempli avec la clé API sélectionnée. À lancer sur la machine cible — les champs restent éditables pour ajustements de dernière minute.",
+    "manualDownload": "Télécharger le wizard",
+    "pickKeyFirst": "Sélectionnez d'abord une clé API"
   },
   "about": {
     "title": "À propos",

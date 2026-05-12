@@ -140,6 +140,11 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'oblireach-agent-linux-amd64':    'oblireach-agent-linux-amd64',
   'oblireach-agent-darwin-amd64':   'oblireach-agent-darwin-amd64',
   'oblireach-agent-darwin-arm64':   'oblireach-agent-darwin-arm64',
+  // Install wizard — Windows .exe with the MSI //go:embed'd. Served
+  // through agentInstallerWizard below (which can also append a
+  // pre-fill config tail). The bare /download/ alias is kept here so
+  // ops can fetch the un-configured template via curl in scripts.
+  'obliance-installer-wizard.exe':  'obliance-installer-wizard.exe',
 };
 
 export function agentDownload(req: Request, res: Response): void {
@@ -268,6 +273,81 @@ export function agentInstallerWindowsMsi(_req: Request, res: Response): void {
   res.setHeader('Content-Type', 'application/x-msi');
   res.setHeader('Content-Disposition', 'attachment; filename="obliance-agent.msi"');
   res.sendFile(msiPath);
+}
+
+/**
+ * GET /api/agent/installer/wizard.exe[?keyId=N&server=URL]
+ *
+ * Streams the install wizard binary (built by 000-RegularUpdate.bat
+ * into agent/dist/obliance-installer-wizard.exe). When the request
+ * carries a `keyId`, we look up the matching API key in the caller's
+ * tenant, resolve the server URL from the request host, and append a
+ * config tail blob:
+ *
+ *   [...exe bytes...][json config bytes][magic "OBLI_CFG"][len u32 LE]
+ *
+ * The wizard reads its own .exe at startup, locates the magic, and
+ * pre-fills the Server URL + API Key fields. Without `keyId` the
+ * wizard ships clean and the operator types both values by hand.
+ *
+ * Authenticode: appending bytes does invalidate the wrapper's
+ * signature. The MSI embedded inside the wizard stays signed, and
+ * Windows SmartScreen displays a single "More info → Run anyway"
+ * dialog on first launch — acceptable trade-off for the offline-
+ * install scenario this tool exists to solve.
+ *
+ * Auth gate is handled at the route level (requireTenantCapability
+ * 'agent_config:approval' OR admin) since the API key lookup
+ * mirrors the listKeys route's policy.
+ */
+const CFG_MAGIC = Buffer.from('OBLI_CFG', 'utf8');
+
+export async function agentInstallerWizard(req: Request, res: Response): Promise<void> {
+  const exePath = path.resolve(__dirname, '../../../../agent/dist/obliance-installer-wizard.exe');
+  if (!fs.existsSync(exePath)) {
+    res.status(404).json({ error: 'Wizard installer not available (not yet built)' });
+    return;
+  }
+
+  const baseExe = fs.readFileSync(exePath);
+  const tenantId = (req as any).tenantId as number | undefined;
+  const keyIdRaw = req.query.keyId;
+  const keyId = typeof keyIdRaw === 'string' ? parseInt(keyIdRaw, 10) : NaN;
+
+  let payload: Buffer = baseExe;
+
+  if (Number.isFinite(keyId) && tenantId) {
+    // Look up the key in the caller's tenant (or any tenant for
+    // master). We never echo a key the caller couldn't list via
+    // /api/agent/keys — the tenant scope is the same.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('agent_api_keys').where({ id: keyId });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const row = await q.first() as { key: string } | undefined;
+    if (row?.key) {
+      // Default the server URL to the incoming request's origin so the
+      // wizard works through the same gateway the admin downloaded it
+      // from. The query param `?server=` overrides for split-DNS or
+      // proxy setups where the public hostname differs.
+      const overrideServer = typeof req.query.server === 'string' ? req.query.server.trim() : '';
+      const requestProto = (req.headers['x-forwarded-proto'] as string) || req.protocol;
+      const requestHost = (req.headers['x-forwarded-host'] as string) || req.get('host') || '';
+      const inferredServer = requestHost ? `${requestProto}://${requestHost}` : '';
+      const cfg = JSON.stringify({
+        serverUrl: overrideServer || inferredServer,
+        apiKey: row.key,
+      });
+      const cfgBuf = Buffer.from(cfg, 'utf8');
+      const lenBuf = Buffer.alloc(4);
+      lenBuf.writeUInt32LE(cfgBuf.length, 0);
+      payload = Buffer.concat([baseExe, cfgBuf, CFG_MAGIC, lenBuf]);
+    }
+  }
+
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'attachment; filename="obliance-installer-wizard.exe"');
+  res.setHeader('Content-Length', String(payload.length));
+  res.send(payload);
 }
 
 // ── Admin: API Keys ──────────────────────────────────────────────────────────

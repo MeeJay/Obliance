@@ -1555,7 +1555,12 @@
     "windowsHint": "Run in PowerShell as Administrator",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)",
-    "freebsdHint": "Run in a root shell on FreeBSD / OPNsense:"
+    "freebsdHint": "Run in a root shell on FreeBSD / OPNsense:",
+    "manualHint": "Download the wizard EXE, copy it to the target box (USB / RDP clipboard / share), double-click. MSI is embedded — no internet required on the target.",
+    "manualWizardTitle": "Obliance Install Wizard",
+    "manualWizardDescription": "EXE with MSI embedded. Pre-filled with the selected API key. Run on the target — fields are editable for last-minute corrections.",
+    "manualDownload": "Download wizard",
+    "pickKeyFirst": "Pick an API key first"
   },
   "about": {
     "title": "About",

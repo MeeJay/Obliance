@@ -32,7 +32,7 @@ export function GlobalAddAgentModal() {
  const [keys, setKeys] = useState<AgentApiKey[]>([]);
  const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
  const [osTab, setOsTab] = useState<OsTab>('windows');
- const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'legacy'>('modern');
+ const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'legacy' | 'manual'>('modern');
  const [dropdownOpen, setDropdownOpen] = useState(false);
 
  useEffect(() => {
@@ -159,6 +159,7 @@ export function GlobalAddAgentModal() {
  <p className="text-xs font-medium text-text-muted">
  {legacyWindows === 'legacy' ? 'Run in PowerShell (admin) — Server 2008 R2 / 2012'
  : legacyWindows === 'oldtls' ? 'Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)'
+ : legacyWindows === 'manual' ? (t('addAgent.manualHint') || 'Download the wizard EXE, copy it to the target box (USB / RDP clipboard / share), double-click. MSI is embedded — no internet required on the target.')
  : t('addAgent.windowsHint')}
  </p>
  <select
@@ -169,12 +170,48 @@ export function GlobalAddAgentModal() {
  <option value="modern">Windows 10+</option>
  <option value="oldtls">Server 2012/2016</option>
  <option value="legacy">Server 2008 R2</option>
+ <option value="manual">Manual / offline (wizard)</option>
  </select>
  </div>
+ {legacyWindows === 'manual' ? (
+ // Offline-friendly path: a download button → wizard.exe pre-baked
+ // with this tenant's selected API key + the current server URL.
+ // The wizard reads the tail blob at startup so the two text fields
+ // land already filled in.
+ <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3">
+ <div className="flex-1 text-xs text-text-secondary">
+ <div className="font-medium text-text-primary mb-0.5">
+ {t('addAgent.manualWizardTitle') || 'Obliance Install Wizard'}
+ </div>
+ <div className="text-text-muted leading-relaxed">
+ {t('addAgent.manualWizardDescription') ||
+ 'EXE with MSI embedded. Pre-filled with the selected API key. Run on the target — fields are editable for last-minute corrections.'}
+ </div>
+ </div>
+ {selectedKey ? (
+ <a
+ href={`/api/agent/installer/wizard.exe?keyId=${selectedKey.id}`}
+ download="obliance-installer-wizard.exe"
+ className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors"
+ >
+ {t('addAgent.manualDownload') || 'Download wizard'}
+ </a>
+ ) : (
+ <button
+ disabled
+ title={t('addAgent.pickKeyFirst') || 'Pick an API key first'}
+ className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-bg-secondary text-text-muted cursor-not-allowed"
+ >
+ {t('addAgent.manualDownload') || 'Download wizard'}
+ </button>
+ )}
+ </div>
+ ) : (
  <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
  <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{windowsCmd}</code>
  <CopyButton text={windowsCmd} />
  </div>
+ )}
  </div>
  )}
  {osTab === 'linux' && (

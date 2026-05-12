@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <!--
+      Manifest sidecar for obliance-installer-wizard.exe.
+
+      Two reasons it's here:
+        1. Common Controls v6 — without this declaration, walk widgets
+           render with the Windows 95 grey look. With it, the wizard
+           inherits the host's current theme (Windows 10/11 native).
+        2. DPI awareness — declare per-monitor v2 so HiDPI desktops
+           don't render the window at 96 DPI and look blurry.
+
+      The trustInfo block keeps the wizard at `asInvoker` — msiexec
+      will trigger its own UAC prompt for elevation. Running the
+      wizard itself elevated would also work but feels heavier than
+      needed for a tool that's just collecting two strings.
+
+      Shipped alongside the .exe (not embedded via .syso) to avoid a
+      windres / goversioninfo dependency in the build pipeline. The
+      MSI install bundles both files together.
+    -->
+    <assemblyIdentity
+        version="1.0.0.0"
+        processorArchitecture="*"
+        name="Obliance.InstallerWizard"
+        type="win32"
+    />
+    <dependency>
+        <dependentAssembly>
+            <assemblyIdentity
+                type="win32"
+                name="Microsoft.Windows.Common-Controls"
+                version="6.0.0.0"
+                processorArchitecture="*"
+                publicKeyToken="6595b64144ccf1df"
+                language="*"
+            />
+        </dependentAssembly>
+    </dependency>
+    <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+        <security>
+            <requestedPrivileges>
+                <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+            </requestedPrivileges>
+        </security>
+    </trustInfo>
+    <application xmlns="urn:schemas-microsoft-com:asm.v3">
+        <windowsSettings>
+            <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>
+            <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+        </windowsSettings>
+    </application>
+</assembly>
