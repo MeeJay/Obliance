@@ -28,7 +28,19 @@ export const permissionService = {
   /**
    * Get the effective permission level for a user on a specific device.
    * Returns 'rw', 'ro', or null (no access).
-   * Checks: direct device permissions + group permissions (with inheritance via closure table).
+   *
+   * Resolution order (highest level wins):
+   *  - Direct device permission (scope='device', scope_id=deviceId)
+   *  - Group permission via closure table on devices.group_id
+   *  - **API key claim**: when devices.group_id IS NULL, the device
+   *    inherits the scope of the API key's default_group_id. This is
+   *    what makes a pre-approval device "belong" to a group even
+   *    though approveDevice() hasn't run yet — an API key targeting
+   *    the "Linux" group implicitly claims its enrolling devices
+   *    for the Linux team's scope.
+   *  - **Ungrouped scope**: when devices.group_id IS NULL and no API
+   *    key claim resolves, a team_permissions row with
+   *    scope='ungrouped' grants access.
    */
   async getDevicePermission(
     userId: number,
@@ -37,16 +49,37 @@ export const permissionService = {
   ): Promise<PermissionLevel | null> {
     if (isAdmin) return 'rw';
 
-    const deviceRow = await db('devices').where({ id: deviceId }).select('group_id').first();
+    const deviceRow = await db('devices')
+      .where({ id: deviceId })
+      .select('group_id', 'api_key_id')
+      .first();
     if (!deviceRow) return null;
 
     // Direct device permission
     const directLevel = await this._getHighestPermission(userId, 'device', deviceId);
 
-    // Group permission (inherited via closure table)
     let groupLevel: PermissionLevel | null = null;
     if (deviceRow.group_id) {
+      // Group permission (inherited via closure table)
       groupLevel = await this._getGroupPermissionViaClosure(userId, deviceRow.group_id);
+    } else {
+      // Ungrouped device — try the API-key default_group_id first,
+      // fall back to a literal scope='ungrouped' grant. The API-key
+      // path covers the typical "enroll into a key targeting a
+      // group" flow; the ungrouped path covers keys with no default
+      // group set (orphan devices).
+      if (deviceRow.api_key_id) {
+        const key = await db('agent_api_keys')
+          .where({ id: deviceRow.api_key_id })
+          .select('default_group_id')
+          .first() as { default_group_id: number | null } | undefined;
+        if (key?.default_group_id) {
+          groupLevel = await this._getGroupPermissionViaClosure(userId, key.default_group_id);
+        }
+      }
+      if (!groupLevel) {
+        groupLevel = await this._getHighestPermission(userId, 'ungrouped', 0);
+      }
     }
 
     // Return highest: rw > ro > null
@@ -206,9 +239,43 @@ export const permissionService = {
       .where('scope', 'device')
       .select('scope_id as id');
 
+    // Devices pre-approval claimed via their api_key's default_group:
+    // when group_id IS NULL but the enrolling API key targets a group
+    // the user's team has scope on, the device is treated as if it
+    // already lived in that group. Covers the typical
+    // "Linux-key enrols a device, Linux-team needs to approve it"
+    // case where group_id is only set at approveDevice() time.
+    const apiKeyClaimedDevices = await db('devices')
+      .join('agent_api_keys', 'agent_api_keys.id', 'devices.api_key_id')
+      .join('device_group_closure', 'device_group_closure.descendant_id', 'agent_api_keys.default_group_id')
+      .join('team_permissions', function () {
+        this.on('team_permissions.scope_id', 'device_group_closure.ancestor_id')
+          .andOn(db.raw("team_permissions.scope = 'group'"));
+      })
+      .whereNull('devices.group_id')
+      .whereNotNull('agent_api_keys.default_group_id')
+      .whereIn('team_permissions.team_id', teamIds)
+      .select('devices.id');
+
+    // Devices in the catch-all "Ungrouped" bucket — group_id IS NULL
+    // AND no api_key default group claim — visible to teams that
+    // hold an explicit scope='ungrouped' permission.
+    const hasUngroupedScope = await db('team_permissions')
+      .whereIn('team_id', teamIds)
+      .where('scope', 'ungrouped')
+      .first();
+    let ungroupedDevices: Array<{ id: number }> = [];
+    if (hasUngroupedScope) {
+      ungroupedDevices = await db('devices')
+        .whereNull('group_id')
+        .select('id');
+    }
+
     const ids = new Set<number>();
     for (const r of groupDevices) ids.add(r.id);
     for (const r of directDevices) ids.add(r.id);
+    for (const r of apiKeyClaimedDevices) ids.add(r.id);
+    for (const r of ungroupedDevices) ids.add(r.id);
 
     return [...ids];
   },

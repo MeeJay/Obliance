@@ -10,10 +10,14 @@ import { clsx } from 'clsx';
 
 type Tab = 'remote' | 'history' | 'reports';
 
+// All three tabs share the unified `supervision:read` capability now
+// (the old per-tab supervision_remote / supervision_history /
+// manage_reports keys are gone — they never mapped to a runtime
+// check, only to a phantom cosmetics list pushed to Obligate).
 const TAB_CAPABILITY: Record<Tab, string> = {
- remote: 'supervision_remote',
- history: 'supervision_history',
- reports: 'manage_reports',
+ remote: 'supervision:read',
+ history: 'supervision:read',
+ reports: 'supervision:read',
 };
 
 export function SupervisionPage() {

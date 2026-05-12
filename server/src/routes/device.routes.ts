@@ -50,29 +50,15 @@ router.get('/', async (req, res, next) => {
       tenantIds: tenantIdsArr,
     });
 
-    // Filter by visible devices for non-admins. Special case: users
-    // carrying `agent_config:approval` can see ANY pending / refused /
-    // suspended device in the tenant regardless of team scope —
-    // approval is a tenant-level operation that happens BEFORE a
-    // device lands in a group. Once approved, the device flips to
-    // `approved` and the regular team-scope filter takes over.
+    // Filter by visible devices for non-admins. The visibility set
+    // now includes pre-approval devices "claimed" via their API key's
+    // default group + devices in the catch-all `ungrouped` scope —
+    // see permissionService.getVisibleDeviceIds for the full ruleset.
     if (req.session.role !== 'admin') {
       const visible = await permissionService.getVisibleDeviceIds(req.session.userId!, false);
-      const visibleSet = Array.isArray(visible) ? new Set(visible) : null;
-      let canSeePreApproval = false;
-      if (req.tenantId) {
-        canSeePreApproval = await permissionService.userHasTenantCapability(
-          req.session.userId!, req.tenantId, 'agent_config:approval',
-        );
-      }
-      if (visibleSet) {
-        result.items = result.items.filter((d: any) => {
-          if (visibleSet.has(d.id)) return true;
-          if (canSeePreApproval && (d.approvalStatus === 'pending' || d.approvalStatus === 'refused' || d.approvalStatus === 'suspended')) {
-            return true;
-          }
-          return false;
-        });
+      if (Array.isArray(visible)) {
+        const visibleSet = new Set(visible);
+        result.items = result.items.filter((d: any) => visibleSet.has(d.id));
         result.total = result.items.length;
       }
     }

@@ -59,6 +59,13 @@ export function requireGroupWrite() {
 /**
  * Require read permission on a device.
  * @param paramName — name of the route param containing the device ID (default: 'id')
+ *
+ * Scope resolution lives in permissionService.getDevicePermission and
+ * now covers pre-approval devices through their API key's default
+ * group claim + the dedicated `ungrouped` scope. No special-case for
+ * the approval cap here — if the team scope doesn't reach the device,
+ * the approver shouldn't see it either (consistent with the user's
+ * "if no scope on Ungrouped, don't see ungrouped devices" rule).
  */
 export function requireDeviceRead(paramName = 'id') {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {

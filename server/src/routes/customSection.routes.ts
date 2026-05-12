@@ -1,12 +1,17 @@
 import { Router } from 'express';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import { customSectionService } from '../services/customSection.service';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
-// GET /api/custom-sections — list all sections in tenant (admin)
-router.get('/', requireRole('admin'), async (req, res, next) => {
+// All routes accept admins implicitly + any non-admin with the
+// `agent_config:custom_sections` capability (configured via the
+// PermissionSets matrix).
+router.use(requireTenantCapability('agent_config:custom_sections'));
+
+// GET /api/custom-sections — list all sections in tenant
+router.get('/', async (req, res, next) => {
   try {
     const sections = await customSectionService.list(req.tenantId!);
     res.json({ data: sections });
@@ -14,7 +19,7 @@ router.get('/', requireRole('admin'), async (req, res, next) => {
 });
 
 // GET /api/custom-sections/:id
-router.get('/:id', requireRole('admin'), async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const s = await customSectionService.getById(parseInt(req.params.id), req.tenantId!);
     if (!s) throw new AppError(404, 'Not found');
@@ -22,8 +27,8 @@ router.get('/:id', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/custom-sections — create (admin only)
-router.post('/', requireRole('admin'), async (req, res, next) => {
+// POST /api/custom-sections — create
+router.post('/', async (req, res, next) => {
   try {
     const data = req.body as any;
     if (!data.name || !data.command) throw new AppError(400, 'name and command are required');
@@ -33,7 +38,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 });
 
 // PATCH /api/custom-sections/:id
-router.patch('/:id', requireRole('admin'), async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const s = await customSectionService.update(parseInt(req.params.id), req.tenantId!, req.body);
     if (!s) throw new AppError(404, 'Not found');
@@ -42,7 +47,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
 });
 
 // DELETE /api/custom-sections/:id
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     await customSectionService.delete(parseInt(req.params.id), req.tenantId!);
     res.json({ data: { success: true } });

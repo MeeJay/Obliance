@@ -45,7 +45,7 @@ import { useTranslation } from 'react-i18next';
 import { PermissionSetsTab } from '@/components/PermissionSetsTab';
 
 type PermissionLevel = 'ro' | 'rw';
-type PermissionScope = 'group' | 'device';
+type PermissionScope = 'group' | 'device' | 'ungrouped';
 
 // "notifications" was here but moved to /policies → onglet Notifications
 // (it's an operational concern, not a permission-management one). The
@@ -521,6 +521,10 @@ export function AdminUsersPage() {
  // Get permission for a group/device
  const getGroupPerm = (groupId: number) => teamPermissions.find((p) => p.scope === 'group' && p.scopeId === groupId);
  const getDevicePerm = (deviceId: number) => teamPermissions.find((p) => p.scope === 'device' && p.scopeId === deviceId);
+ // Look up the (single) ungrouped permission row, if any. scope_id is
+ // 0 by convention since "ungrouped" isn't a real entity; the type
+ // discriminator lives in `scope`.
+ const ungroupedPerm = teamPermissions.find((p) => p.scope === ('ungrouped' as any));
 
  return (
  <>
