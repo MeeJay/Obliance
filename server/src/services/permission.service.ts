@@ -75,39 +75,52 @@ export const permissionService = {
    * Checks both direct device permissions and inherited group permissions.
    */
   /**
-   * Tenant-wide capability check — true if the user has the named capability
-   * on AT LEAST ONE team_permissions row across all their team memberships.
-   * Used to gate non-device-scoped pages (Supervision tabs, etc.) where
-   * a coarse "team has this cap somewhere" is the right semantic.
+   * Tenant-wide capability check — resolves the user's per-tenant role
+   * (`user_tenants.role`, now a permission_set slug) and looks up the
+   * matching `permission_sets.capabilities`. Tenant admins bypass the
+   * check entirely. Tenant role drives WHAT the user can do; team
+   * membership (handled by canUseCapability) drives WHERE they can
+   * do it.
    */
-  async userHasTenantCapability(userId: number, capability: string): Promise<boolean> {
-    const row = await db('team_memberships as tm')
-      .join('team_permissions as tp', 'tp.team_id', 'tm.team_id')
-      .where('tm.user_id', userId)
-      // jsonb_exists(...) instead of `... ? ?`: the JSONB existence
-      // operator `?` collides with knex/pg positional binding placeholders,
-      // so the driver counted two `?`s but only got one binding → throw.
-      .whereRaw('jsonb_exists(tp.capabilities::jsonb, ?)', [capability])
-      .first();
-    return !!row;
+  async userHasTenantCapability(userId: number, tenantId: number, capability: string): Promise<boolean> {
+    const ut = await db('user_tenants')
+      .where({ user_id: userId, tenant_id: tenantId })
+      .first() as { role: string } | undefined;
+    if (!ut) return false;
+    if (ut.role === 'admin') return true;
+    const set = await db('permission_sets').where({ slug: ut.role }).first() as { capabilities: unknown } | undefined;
+    if (!set) return false;
+    const caps = typeof set.capabilities === 'string' ? JSON.parse(set.capabilities) : set.capabilities;
+    return Array.isArray(caps) && caps.includes(capability);
   },
 
   /**
-   * Bulk variant — returns the set of tenant-wide capabilities the user
-   * has across all their teams. Used by /auth/me so the client can gate
-   * supervision tabs without N round-trips.
+   * Bulk variant — returns every capability granted to the user on a
+   * given tenant via their permission_set. Used by /auth/me so the
+   * client can render gates without round-trips. Tenant admins get
+   * the union of every defined capability (open-all).
    */
-  async listUserTenantCapabilities(userId: number): Promise<string[]> {
-    const rows = await db('team_memberships as tm')
-      .join('team_permissions as tp', 'tp.team_id', 'tm.team_id')
-      .where('tm.user_id', userId)
-      .select('tp.capabilities') as Array<{ capabilities: string | string[] }>;
-    const out = new Set<string>();
-    for (const r of rows) {
-      const caps = typeof r.capabilities === 'string' ? JSON.parse(r.capabilities) : r.capabilities;
-      if (Array.isArray(caps)) for (const c of caps) out.add(String(c));
+  async listUserTenantCapabilities(userId: number, tenantId: number): Promise<string[]> {
+    const ut = await db('user_tenants')
+      .where({ user_id: userId, tenant_id: tenantId })
+      .first() as { role: string } | undefined;
+    if (!ut) return [];
+    if (ut.role === 'admin') {
+      // Union of every defined cap so the client renders all gates as
+      // open. The matrix can grow without us having to enumerate the
+      // exhaustive list here.
+      const all = await db('permission_sets').select('capabilities') as Array<{ capabilities: unknown }>;
+      const set = new Set<string>();
+      for (const row of all) {
+        const caps = typeof row.capabilities === 'string' ? JSON.parse(row.capabilities) : row.capabilities;
+        if (Array.isArray(caps)) for (const c of caps) set.add(String(c));
+      }
+      return [...set];
     }
-    return [...out];
+    const set = await db('permission_sets').where({ slug: ut.role }).first() as { capabilities: unknown } | undefined;
+    if (!set) return [];
+    const caps = typeof set.capabilities === 'string' ? JSON.parse(set.capabilities) : set.capabilities;
+    return Array.isArray(caps) ? caps.map(String) : [];
   },
 
   async canUseCapability(userId: number, deviceId: number, isAdmin: boolean, capability: string): Promise<boolean> {
@@ -273,7 +286,7 @@ export const permissionService = {
    * Build the full UserPermissions object for the current user.
    * Sent to the client on login/session check so the UI can adapt.
    */
-  async getUserPermissions(userId: number, isAdmin: boolean): Promise<UserPermissions> {
+  async getUserPermissions(userId: number, isAdmin: boolean, tenantId?: number): Promise<UserPermissions> {
     if (isAdmin) {
       return { canCreate: true, teams: [], permissions: {}, tenantCapabilities: [] };
     }
@@ -294,7 +307,14 @@ export const permissionService = {
       }
     }
 
-    const tenantCapabilities = await this.listUserTenantCapabilities(userId);
+    // tenantCapabilities now resolves via permission_sets (slug = the
+    // user's user_tenants.role). Requires a tenant context; callers
+    // hitting /auth/me / /auth/login pass the active tenant id. Empty
+    // when no tenant has been resolved yet (very early session repair
+    // path).
+    const tenantCapabilities = tenantId != null
+      ? await this.listUserTenantCapabilities(userId, tenantId)
+      : [];
 
     return { canCreate, teams: teamIds, permissions, tenantCapabilities };
   },

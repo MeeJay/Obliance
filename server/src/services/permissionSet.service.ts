@@ -23,24 +23,37 @@ interface CapabilityDef {
   label: string;
 }
 
+// Capabilities surfaced in the PermissionSets matrix. Two layers:
+//   - tenant-wide gates wired to the runtime check
+//     (`permission.service.userHasTenantCapability`). Toggling these
+//     in the matrix actually grants/denies the corresponding feature.
+//   - legacy app-level entries (monitoring / devices.manage / etc.)
+//     that pre-date the runtime wiring. They stay in the list so the
+//     existing seeded sets keep their shape, but ticking them today
+//     doesn't gate anything — keep an eye out and either wire them
+//     or remove them in a future pass.
 const AVAILABLE_CAPABILITIES: CapabilityDef[] = [
-  { key: 'monitoring', label: 'Monitoring' },
-  { key: 'devices.manage', label: 'Device Management' },
-  { key: 'groups.manage', label: 'Group Management' },
-  { key: 'scripts.manage', label: 'Script Management' },
+  // ── Tenant-wide gates (wired to runtime) ────────────────────────
+  { key: 'supervision:read',             label: 'Supervision · Remote sessions / History / Reports' },
+  { key: 'agent_config:custom_sections', label: 'Agent config · Custom sections' },
+  { key: 'agent_config:discovery',       label: 'Agent config · Network discovery' },
+  { key: 'agent_config:keys',            label: 'Agent config · API keys' },
+  { key: 'agent_config:approval',        label: 'Agent config · Approve / refuse / add agents' },
+
+  // ── Legacy app-level entries (display-only for now) ─────────────
+  { key: 'monitoring',      label: 'Monitoring' },
+  { key: 'devices.manage',  label: 'Device Management' },
+  { key: 'groups.manage',   label: 'Group Management' },
+  { key: 'scripts.manage',  label: 'Script Management' },
   { key: 'scripts.execute', label: 'Execute Commands' },
-  { key: 'compliance', label: 'Compliance' },
-  { key: 'remote', label: 'Remote Access' },
-  { key: 'files', label: 'File Management' },
-  { key: 'power', label: 'Power Control' },
-  { key: 'updates', label: 'Update Management' },
-  { key: 'reports', label: 'Reports' },
-  { key: 'settings', label: 'Settings' },
-  { key: 'users.manage', label: 'User Management' },
-  // Supervision tabs (matches the Obligate capability schema list).
-  { key: 'supervision_remote',  label: 'Supervision · Remote sessions' },
-  { key: 'supervision_history', label: 'Supervision · Activity history' },
-  { key: 'manage_reports',      label: 'Supervision · Manage reports' },
+  { key: 'compliance',      label: 'Compliance' },
+  { key: 'remote',          label: 'Remote Access' },
+  { key: 'files',           label: 'File Management' },
+  { key: 'power',           label: 'Power Control' },
+  { key: 'updates',         label: 'Update Management' },
+  { key: 'reports',         label: 'Reports' },
+  { key: 'settings',        label: 'Settings' },
+  { key: 'users.manage',    label: 'User Management' },
 ];
 
 function rowToPermissionSet(row: PermissionSetRow): PermissionSet {

@@ -104,7 +104,9 @@ export function requireTenantCapability(capability: string) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       if (req.session.role === 'admin') return next();
-      const ok = await permissionService.userHasTenantCapability(req.session.userId!, capability);
+      const tenantId = (req as any).tenantId as number | undefined;
+      if (!tenantId) return next(new AppError(403, 'Insufficient permissions'));
+      const ok = await permissionService.userHasTenantCapability(req.session.userId!, tenantId, capability);
       if (!ok) return next(new AppError(403, 'Insufficient permissions'));
       next();
     } catch (err) {
@@ -125,8 +127,10 @@ export function requireAnyTenantCapability(...capabilities: string[]) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       if (req.session.role === 'admin') return next();
+      const tenantId = (req as any).tenantId as number | undefined;
+      if (!tenantId) return next(new AppError(403, 'Insufficient permissions'));
       for (const cap of capabilities) {
-        if (await permissionService.userHasTenantCapability(req.session.userId!, cap)) {
+        if (await permissionService.userHasTenantCapability(req.session.userId!, tenantId, cap)) {
           return next();
         }
       }

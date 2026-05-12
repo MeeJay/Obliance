@@ -116,10 +116,16 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
   for (const t of assertion.tenants) {
     const tenant = await db('tenants').where({ slug: t.slug }).first() as { id: number } | undefined;
     if (tenant) {
+      // Store the raw role slug Obligate sent. `permission_sets.slug`
+      // is keyed on this string, so 'admin' / 'user' / 'viewer' / any
+      // custom slug the operator created in the PermissionSets UI all
+      // pass through unchanged. The pre-091 coercion to admin/member
+      // was the old enum constraint — that's gone now.
+      const roleSlug = typeof t.role === 'string' && t.role.length > 0 ? t.role : 'user';
       await db('user_tenants')
-        .insert({ user_id: localUserId, tenant_id: tenant.id, role: t.role === 'admin' ? 'admin' : 'member' })
+        .insert({ user_id: localUserId, tenant_id: tenant.id, role: roleSlug })
         .onConflict(['user_id', 'tenant_id'])
-        .merge({ role: t.role === 'admin' ? 'admin' : 'member' });
+        .merge({ role: roleSlug });
 
       // Reconcile team_memberships for THIS tenant against assertion.teams.
       // assertion.teams is a flat list of team NAMES across the user's tenants

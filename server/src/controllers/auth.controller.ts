@@ -133,7 +133,7 @@ export const authController = {
       }
 
       const isAdmin = user.role === 'admin';
-      const permissions = await permissionService.getUserPermissions(user.id, isAdmin);
+      const permissions = await permissionService.getUserPermissions(user.id, isAdmin, req.session.currentTenantId);
 
       // Check if force 2FA applies to this user
       let requires2faSetup = false;
@@ -156,7 +156,7 @@ export const authController = {
   async permissions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const isAdmin = req.session.role === 'admin';
-      const permissions = await permissionService.getUserPermissions(req.session.userId!, isAdmin);
+      const permissions = await permissionService.getUserPermissions(req.session.userId!, isAdmin, req.session.currentTenantId);
       res.json({ success: true, data: permissions });
     } catch (err) {
       next(err);
