@@ -20,6 +20,14 @@
 // GUI: github.com/lxn/walk — pure win32 bindings, ~5 MB extra to the
 // binary, no runtime dependency. Cross-platform GUI libs (fyne, etc.)
 // were rejected as overkill for a Windows-only tool.
+//
+// IMPORTANT: walk requires an embedded Windows manifest declaring
+// Common Controls v6 (otherwise the runtime crashes on first widget
+// with "TTM_ADDTOOL failed"). The build pipeline (000-RegularUpdate.bat)
+// runs `rsrc -manifest obliance-installer-wizard.exe.manifest` before
+// `go build` to generate a .syso file that the Go linker picks up
+// automatically. Don't ship a sidecar .manifest only — the server's
+// streaming download endpoint serves the .exe alone.
 
 //go:build windows
 

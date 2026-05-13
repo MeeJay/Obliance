@@ -9,16 +9,23 @@ runs with the right public properties.
 ## Build
 
 ```
-# Pre-flight: the embedded MSI must live next to main.go before
-# `go build` so //go:embed picks it up.
+# 1. Embed the MSI next to main.go (read by //go:embed).
 cp ../../dist/obliance-agent.msi ./obliance-agent.msi
 
-# Build (Windows, Go 1.22+).
+# 2. Embed the manifest as a Windows resource. Without this, walk
+#    crashes on first widget with "TTM_ADDTOOL failed" because
+#    Common Controls v6 isn't initialised. `rsrc` generates a .syso
+#    file that `go build` auto-links into the PE.
+go run github.com/akavel/rsrc@latest \
+    -manifest obliance-installer-wizard.exe.manifest \
+    -o rsrc_windows.syso
+
+# 3. Build.
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui" \
     -o ../../dist/obliance-installer-wizard.exe ./
 
-# Cleanup the temp MSI copy.
-rm obliance-agent.msi
+# 4. Cleanup intermediate files.
+rm obliance-agent.msi rsrc_windows.syso
 ```
 
 `-H windowsgui` suppresses the console window — without it,
@@ -26,6 +33,11 @@ double-clicking the .exe pops an empty cmd.exe behind the wizard.
 
 `-s -w` strips debug info to shrink the binary (the wizard is
 shipped, so size matters for download speed).
+
+The 4 build steps are wired into `000-RegularUpdate.bat`'s
+`[8/9] Building install wizard` block — running the regular release
+script produces a signed `obliance-installer-wizard.exe` in
+`agent/dist/`.
 
 ## Sign
 
@@ -48,10 +60,15 @@ signed.
 
 ## Manifest
 
-`obliance-installer-wizard.exe.manifest` ships alongside the .exe
-(not embedded via .syso to avoid a windres dependency). Windows
-auto-loads it because of the matching filename, unlocking:
+`obliance-installer-wizard.exe.manifest` is embedded INTO the .exe at
+build time via `rsrc` (see build step 2). Embedding (rather than
+shipping a sidecar) was forced by the runtime crash described above
+— walk depends on Common Controls v6 being declared in the loaded
+manifest, and the sidecar form isn't reliably picked up when the
+download endpoint streams a standalone .exe.
 
-- Common Controls v6 (modern theming)
+The manifest unlocks:
+
+- Common Controls v6 (modern theming — also fixes `TTM_ADDTOOL`)
 - Per-monitor v2 DPI awareness
 - asInvoker rights (msiexec handles its own UAC prompt)

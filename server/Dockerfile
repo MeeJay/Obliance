@@ -42,7 +42,10 @@ COPY agent/VERSION ./agent/
 
 # Pre-built agent binaries (Windows .exe/.msi, Linux, macOS) from agent/dist/
 # Built by 000-RegularUpdate.bat before docker build — no Go stage needed.
-RUN mkdir -p ./agent/dist
+# CACHEBUST forces a new layer hash whenever the value changes — used to recover
+# from a corrupted/stuck blob upload state on Docker Hub (resume from poisoned offset).
+ARG CACHEBUST=1
+RUN mkdir -p ./agent/dist && echo "$CACHEBUST" > ./agent/dist/.cachebust
 COPY agent/dist/ ./agent/dist/
 
 # Oblireach Desktop App — served by GET /api/oblireach-desktop/{version,download}.
