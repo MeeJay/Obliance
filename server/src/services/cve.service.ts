@@ -25,109 +25,173 @@ import { isMasterTenant } from '@obliance/shared';
 // noise. Admins can also explicitly Dismiss a match — sets dismissed_at,
 // hides it from the affected-devices list, prevents re-creation on rescan.
 
-interface CisaKevEntry {
-  cveID: string;
-  vendorProject: string;
-  product: string;
-  vulnerabilityName: string;
-  dateAdded: string;
-  shortDescription: string;
-  requiredAction: string;
-  dueDate: string;
-  knownRansomwareCampaignUse?: string;
-  notes?: string;
-  cwes?: string[];
+// We pull from NIST NVD instead of CISA's direct feed. CISA's Akamai WAF
+// aggressively blocks programmatic clients (cloud-host IPs, non-browser
+// UAs, missing Sec-Fetch headers, …) — fighting it is a losing arms
+// race. NVD is purpose-built for programmatic consumption, replicates
+// every CISA KEV entry verbatim under the same `cisa*` fields, AND
+// enriches them with CVSS scores that CISA KEV doesn't expose. Bonus:
+// the same endpoint can later return non-KEV CVEs by dropping `hasKev`.
+//
+// Rate limit (anonymous): 5 requests / 30s rolling. We only need 1 call
+// per sync (max 2000 results/page, current KEV catalog ~1300 entries).
+const NVD_KEV_URL =
+  'https://services.nvd.nist.gov/rest/json/cves/2.0?hasKev&resultsPerPage=2000';
+
+interface NvdCveItem {
+  cve: {
+    id: string;
+    published?: string;
+    lastModified?: string;
+    descriptions?: Array<{ lang: string; value: string }>;
+    metrics?: {
+      cvssMetricV31?: Array<{ cvssData?: { baseScore?: number; baseSeverity?: string } }>;
+      cvssMetricV30?: Array<{ cvssData?: { baseScore?: number; baseSeverity?: string } }>;
+      cvssMetricV2?:  Array<{ cvssData?: { baseScore?: number; baseSeverity?: string } }>;
+    };
+    configurations?: Array<{
+      nodes?: Array<{
+        cpeMatch?: Array<{ criteria: string; vulnerable?: boolean }>;
+      }>;
+    }>;
+    cisaExploitAdd?: string;
+    cisaActionDue?: string;
+    cisaRequiredAction?: string;
+    cisaVulnerabilityName?: string;
+  };
 }
 
-interface CisaKevFeed {
-  title: string;
-  catalogVersion: string;
-  dateReleased: string;
-  count: number;
-  vulnerabilities: CisaKevEntry[];
+interface NvdFeed {
+  resultsPerPage: number;
+  totalResults: number;
+  vulnerabilities: NvdCveItem[];
 }
 
-const CISA_KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+// Extract vendor + product from the first CPE 2.3 string of a CVE.
+// Format: cpe:2.3:<part>:<vendor>:<product>:<version>:…  (11 colons total)
+function parseCpe(cpe: string): { vendor: string | null; product: string | null } {
+  const parts = cpe.split(':');
+  // parts[0]='cpe', parts[1]='2.3', parts[2]=part, parts[3]=vendor, parts[4]=product
+  if (parts.length < 5 || parts[0] !== 'cpe' || parts[1] !== '2.3') {
+    return { vendor: null, product: null };
+  }
+  const cleanup = (s: string) => (s && s !== '*' && s !== '-' ? s.replace(/_/g, ' ') : null);
+  return { vendor: cleanup(parts[3]), product: cleanup(parts[4]) };
+}
 
 class CveService {
-  // ─── Sync from CISA KEV ──────────────────────────────────────────────────
+  // ─── Sync from NVD (KEV-flagged subset) ──────────────────────────────────
+  // Method name stays `syncCisaKev` because the callers don't care that
+  // we changed transport — same conceptual catalog (CISA KEV entries),
+  // just pulled via NIST's API to bypass CISA's WAF.
   async syncCisaKev(): Promise<{ fetched: number; upserted: number; failed: number }> {
     const now = new Date();
-    let feed: CisaKevFeed;
+    let feed: NvdFeed;
     try {
-      // Explicit UA — some CDNs / corporate proxies block Node's default UA.
-      // Explicit Accept guards against an HTML error page being returned
-      // instead of JSON when something upstream is malfunctioning.
-      const res = await fetch(CISA_KEV_URL, {
+      const res = await fetch(NVD_KEV_URL, {
         headers: {
-          'User-Agent': 'Obliance-RMM/CVE-Sync (https://obliance.io)',
           'Accept': 'application/json',
+          // NVD docs ask for a descriptive UA so they can contact you on
+          // abuse — keep something neutral and identifiable.
+          'User-Agent': 'Obliance-RMM CVE sync (+https://obliance.io)',
         },
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
-        throw new Error(`CISA KEV fetch HTTP ${res.status}: ${body.slice(0, 200)}`);
+        throw new Error(`NVD fetch HTTP ${res.status}: ${body.slice(0, 200)}`);
       }
       const ct = res.headers.get('content-type') || '';
       if (!ct.toLowerCase().includes('json')) {
         const body = await res.text().catch(() => '');
-        throw new Error(`CISA KEV returned non-JSON (content-type=${ct}): ${body.slice(0, 200)}`);
+        throw new Error(`NVD returned non-JSON (content-type=${ct}): ${body.slice(0, 200)}`);
       }
-      feed = (await res.json()) as CisaKevFeed;
+      feed = (await res.json()) as NvdFeed;
       if (!Array.isArray(feed?.vulnerabilities)) {
-        throw new Error(`CISA KEV payload malformed (vulnerabilities missing)`);
+        throw new Error('NVD payload malformed (vulnerabilities missing)');
       }
     } catch (err) {
-      logger.error({ err }, 'CISA KEV fetch failed');
+      logger.error({ err }, 'NVD fetch failed');
       throw err;
     }
 
     let upserted = 0;
     let failed = 0;
-    for (const v of feed.vulnerabilities) {
+    for (const item of feed.vulnerabilities) {
+      const cve = item.cve;
+      if (!cve?.id) { failed++; continue; }
+
+      // Pick the first English description, fall back to anything.
+      const desc =
+        cve.descriptions?.find((d) => d.lang === 'en')?.value
+        ?? cve.descriptions?.[0]?.value
+        ?? null;
+
+      // CVSS v3.1 takes priority; fall back to v3.0 then v2 so older
+      // CVEs still get a score.
+      const metric =
+        cve.metrics?.cvssMetricV31?.[0]?.cvssData
+        ?? cve.metrics?.cvssMetricV30?.[0]?.cvssData
+        ?? cve.metrics?.cvssMetricV2?.[0]?.cvssData
+        ?? null;
+      const cvssScore = typeof metric?.baseScore === 'number' ? metric.baseScore : null;
+      const severity = (metric?.baseSeverity ?? '').toLowerCase() || 'high'; // KEV → at least 'high'
+
+      // Extract vendor / product from the FIRST CPE match. Store every
+      // CPE string we saw under cpe_matches for advanced matchers later.
+      const allCpes: string[] = [];
+      for (const cfg of cve.configurations ?? []) {
+        for (const node of cfg.nodes ?? []) {
+          for (const m of node.cpeMatch ?? []) {
+            if (m.criteria) allCpes.push(m.criteria);
+          }
+        }
+      }
+      const parsed = allCpes.length > 0 ? parseCpe(allCpes[0]) : { vendor: null, product: null };
+
       try {
         await db('cves')
           .insert({
-            cve_id: v.cveID,
-            source: 'cisa_kev',
-            vendor: v.vendorProject || null,
-            product: v.product || null,
-            name: v.vulnerabilityName || null,
-            description: v.shortDescription || null,
-            // KEV doesn't expose CVSS — flag as 'high' by default since
-            // the whole KEV catalog is "actively exploited" (admin should
-            // treat as actionable regardless of nominal CVSS).
-            severity: 'high',
+            cve_id: cve.id,
+            source: 'nvd_kev',
+            vendor: parsed.vendor,
+            product: parsed.product,
+            name: cve.cisaVulnerabilityName ?? null,
+            description: desc,
+            severity,
+            cvss_score: cvssScore,
             kev_flag: true,
-            published_at: v.dateAdded ? new Date(v.dateAdded) : null,
-            modified_at: now,
-            due_date: v.dueDate ? new Date(v.dueDate) : null,
-            required_action: v.requiredAction || null,
+            published_at: cve.published ? new Date(cve.published) : (cve.cisaExploitAdd ? new Date(cve.cisaExploitAdd) : null),
+            modified_at: cve.lastModified ? new Date(cve.lastModified) : now,
+            due_date: cve.cisaActionDue ? new Date(cve.cisaActionDue) : null,
+            required_action: cve.cisaRequiredAction ?? null,
             references: JSON.stringify([]),
-            cpe_matches: JSON.stringify([]),
+            cpe_matches: JSON.stringify(allCpes),
             synced_at: now,
           })
           .onConflict('cve_id')
           .merge({
-            vendor: v.vendorProject || null,
-            product: v.product || null,
-            name: v.vulnerabilityName || null,
-            description: v.shortDescription || null,
+            vendor: parsed.vendor,
+            product: parsed.product,
+            name: cve.cisaVulnerabilityName ?? null,
+            description: desc,
+            severity,
+            cvss_score: cvssScore,
             kev_flag: true,
-            modified_at: now,
-            due_date: v.dueDate ? new Date(v.dueDate) : null,
-            required_action: v.requiredAction || null,
+            modified_at: cve.lastModified ? new Date(cve.lastModified) : now,
+            due_date: cve.cisaActionDue ? new Date(cve.cisaActionDue) : null,
+            required_action: cve.cisaRequiredAction ?? null,
+            cpe_matches: JSON.stringify(allCpes),
             synced_at: now,
             updated_at: now,
           });
         upserted++;
       } catch (err) {
-        logger.error({ err, cve: v.cveID }, 'CISA KEV row upsert failed');
+        logger.error({ err, cve: cve.id }, 'NVD KEV row upsert failed');
         failed++;
       }
     }
 
-    logger.info({ fetched: feed.vulnerabilities.length, upserted, failed }, 'CISA KEV sync complete');
+    logger.info({ fetched: feed.vulnerabilities.length, upserted, failed }, 'NVD KEV sync complete');
     return { fetched: feed.vulnerabilities.length, upserted, failed };
   }
 
