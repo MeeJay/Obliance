@@ -1,0 +1,392 @@
+import { db } from '../db';
+import { logger } from '../utils/logger';
+import { isMasterTenant } from '@obliance/shared';
+
+// CVE catalog + matching against the per-device software inventory.
+//
+// Architecture mirrors update.service:
+//   - cves         : global catalog (no tenant_id) populated by syncCisaKev
+//   - device_cves  : tenant-scoped matches between devices and CVEs.
+//                    Master tenant queries fan out across all child tenants.
+//
+// MVP source = CISA KEV (Known Exploited Vulnerabilities) — small, curated,
+// daily refresh. ~1300 entries, all actively exploited in the wild → high
+// signal. NVD full feed can be added later as a second `source` value
+// without touching the matching logic.
+//
+// Matching heuristic (per device, per inventory row):
+//   - Vendor matches CVE.vendor (case-insensitive substring both ways)
+//     AND product matches CVE.product           → high confidence
+//   - Product matches CVE.product (>= 6 chars) only
+//     OR name matches CVE.name keyword          → medium confidence
+//   - Fuzzy substring fallback                  → low confidence (badge gray)
+//
+// Match confidence is surfaced in the UI so admins can ignore low-conf
+// noise. Admins can also explicitly Dismiss a match — sets dismissed_at,
+// hides it from the affected-devices list, prevents re-creation on rescan.
+
+interface CisaKevEntry {
+  cveID: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction: string;
+  dueDate: string;
+  knownRansomwareCampaignUse?: string;
+  notes?: string;
+  cwes?: string[];
+}
+
+interface CisaKevFeed {
+  title: string;
+  catalogVersion: string;
+  dateReleased: string;
+  count: number;
+  vulnerabilities: CisaKevEntry[];
+}
+
+const CISA_KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+
+class CveService {
+  // ─── Sync from CISA KEV ──────────────────────────────────────────────────
+  async syncCisaKev(): Promise<{ fetched: number; upserted: number; failed: number }> {
+    const now = new Date();
+    let feed: CisaKevFeed;
+    try {
+      const res = await fetch(CISA_KEV_URL);
+      if (!res.ok) throw new Error(`CISA KEV fetch HTTP ${res.status}`);
+      feed = (await res.json()) as CisaKevFeed;
+    } catch (err) {
+      logger.error({ err }, 'CISA KEV fetch failed');
+      throw err;
+    }
+
+    let upserted = 0;
+    let failed = 0;
+    for (const v of feed.vulnerabilities) {
+      try {
+        await db('cves')
+          .insert({
+            cve_id: v.cveID,
+            source: 'cisa_kev',
+            vendor: v.vendorProject || null,
+            product: v.product || null,
+            name: v.vulnerabilityName || null,
+            description: v.shortDescription || null,
+            // KEV doesn't expose CVSS — flag as 'high' by default since
+            // the whole KEV catalog is "actively exploited" (admin should
+            // treat as actionable regardless of nominal CVSS).
+            severity: 'high',
+            kev_flag: true,
+            published_at: v.dateAdded ? new Date(v.dateAdded) : null,
+            modified_at: now,
+            due_date: v.dueDate ? new Date(v.dueDate) : null,
+            required_action: v.requiredAction || null,
+            references: JSON.stringify([]),
+            cpe_matches: JSON.stringify([]),
+            synced_at: now,
+          })
+          .onConflict('cve_id')
+          .merge({
+            vendor: v.vendorProject || null,
+            product: v.product || null,
+            name: v.vulnerabilityName || null,
+            description: v.shortDescription || null,
+            kev_flag: true,
+            modified_at: now,
+            due_date: v.dueDate ? new Date(v.dueDate) : null,
+            required_action: v.requiredAction || null,
+            synced_at: now,
+            updated_at: now,
+          });
+        upserted++;
+      } catch (err) {
+        logger.error({ err, cve: v.cveID }, 'CISA KEV row upsert failed');
+        failed++;
+      }
+    }
+
+    logger.info({ fetched: feed.vulnerabilities.length, upserted, failed }, 'CISA KEV sync complete');
+    return { fetched: feed.vulnerabilities.length, upserted, failed };
+  }
+
+  // ─── Matching ────────────────────────────────────────────────────────────
+  //
+  // Run a fresh match for ONE device. Compares the latest software
+  // inventory against the entire CVE catalog and writes new device_cves
+  // rows (idempotent via unique constraint on (device_id, cve_id,
+  // matched_product)). Dismissed matches are preserved — they keep
+  // suppressing the same noise on subsequent rescans.
+  async rescanDevice(deviceId: number): Promise<number> {
+    const device = await db('devices').where({ id: deviceId })
+      .select('id', 'tenant_id', 'os_type', 'os_name', 'os_version')
+      .first();
+    if (!device) return 0;
+
+    // Pull latest inventory rows (single snapshot — device_inventory_software
+    // can carry historical scans but we only care about the most recent).
+    const software = await db('device_inventory_software')
+      .where({ device_id: deviceId })
+      .whereRaw(`scanned_at = (SELECT MAX(scanned_at) FROM device_inventory_software WHERE device_id = ?)`, [deviceId])
+      .select('id', 'name', 'version', 'publisher');
+
+    // Synthetic "OS" row so OS-level CVEs (e.g. Microsoft Windows, Linux
+    // kernel) can match against a publisher+product pair. Without this,
+    // CVE-2023-XXXXX Windows-level entries would never land on a Windows
+    // device just because the kernel isn't listed as installed software.
+    if (device.os_type && device.os_name) {
+      software.push({
+        id: null,
+        name: device.os_name as string,
+        version: (device.os_version as string | null) ?? null,
+        publisher: device.os_type === 'windows' ? 'Microsoft' : (device.os_type as string),
+      } as any);
+    }
+
+    if (software.length === 0) return 0;
+
+    const allCves = await db('cves').select('id', 'vendor', 'product');
+
+    let inserted = 0;
+    for (const sw of software) {
+      const swName = (sw.name as string | null)?.toLowerCase() ?? '';
+      const swPublisher = (sw.publisher as string | null)?.toLowerCase() ?? '';
+      const swVersion = sw.version as string | null;
+      if (!swName) continue;
+
+      for (const cve of allCves) {
+        const cveVendor = (cve.vendor as string | null)?.toLowerCase() ?? '';
+        const cveProduct = (cve.product as string | null)?.toLowerCase() ?? '';
+        if (!cveProduct) continue;
+
+        let confidence: 'high' | 'medium' | 'low' | null = null;
+        const productHit = swName.includes(cveProduct) || cveProduct.includes(swName);
+        const vendorHit = cveVendor && (swPublisher.includes(cveVendor) || cveVendor.includes(swPublisher));
+
+        if (productHit && vendorHit) confidence = 'high';
+        else if (productHit && cveProduct.length >= 6) confidence = 'medium';
+        else if (productHit) confidence = 'low';
+
+        if (!confidence) continue;
+
+        try {
+          await db('device_cves')
+            .insert({
+              device_id: deviceId,
+              tenant_id: device.tenant_id,
+              cve_id: cve.id,
+              matched_software_id: sw.id ?? null,
+              matched_vendor: sw.publisher ?? null,
+              matched_product: sw.name,
+              matched_version: swVersion,
+              match_confidence: confidence,
+              matched_at: new Date(),
+            })
+            .onConflict(['device_id', 'cve_id', 'matched_product'])
+            .merge({
+              matched_software_id: sw.id ?? null,
+              matched_vendor: sw.publisher ?? null,
+              matched_version: swVersion,
+              match_confidence: confidence,
+              matched_at: new Date(),
+            });
+          inserted++;
+        } catch (err) {
+          logger.error({ err, deviceId, cveId: cve.id }, 'device_cves upsert failed');
+        }
+      }
+    }
+    return inserted;
+  }
+
+  // Rescan EVERY device in a tenant (or every device on master). Heavy —
+  // use sparingly. Called manually from the UI or by the daily sync cron
+  // after the catalog refresh.
+  async rescanFleet(tenantId: number): Promise<{ devices: number; matches: number }> {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('devices')
+      .where({ approval_status: 'approved' })
+      .whereNot({ status: 'pending_uninstall' })
+      .select('id');
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const devices = await q;
+
+    let totalMatches = 0;
+    for (const d of devices) {
+      try {
+        totalMatches += await this.rescanDevice(d.id);
+      } catch (err) {
+        logger.error({ err, deviceId: d.id }, 'rescanDevice failed');
+      }
+    }
+    return { devices: devices.length, matches: totalMatches };
+  }
+
+  // ─── Queries ─────────────────────────────────────────────────────────────
+  // Fleet-wide aggregated view — one row per CVE with affected device
+  // count. Mirrors update.service.getAggregatedUpdates so the UI can
+  // be a near-copy of the Updates page.
+  async getAggregatedCves(tenantId: number, filters?: {
+    severity?: string; kevOnly?: boolean; search?: string;
+    page?: number; pageSize?: number;
+  }) {
+    const isMaster = isMasterTenant(tenantId);
+    const page = Math.max(1, filters?.page ?? 1);
+    const pageSize = Math.min(200, Math.max(1, filters?.pageSize ?? 50));
+
+    let baseQ = db('device_cves as dc')
+      .join('cves as c', 'c.id', 'dc.cve_id')
+      .whereNull('dc.dismissed_at');
+    if (!isMaster) baseQ = baseQ.where('dc.tenant_id', tenantId);
+    if (filters?.severity) baseQ = baseQ.where('c.severity', filters.severity);
+    if (filters?.kevOnly) baseQ = baseQ.where('c.kev_flag', true);
+    if (filters?.search) {
+      const s = `%${filters.search.toLowerCase()}%`;
+      baseQ = baseQ.where((q) =>
+        q.whereRaw('LOWER(c.cve_id) LIKE ?', [s])
+         .orWhereRaw('LOWER(c.name) LIKE ?', [s])
+         .orWhereRaw('LOWER(c.product) LIKE ?', [s])
+         .orWhereRaw('LOWER(c.vendor) LIKE ?', [s]),
+      );
+    }
+
+    const countResult = await baseQ.clone().countDistinct('c.id as count').first();
+    const total = Number(countResult?.count ?? 0);
+
+    const rows = await baseQ.clone()
+      .select(
+        'c.id', 'c.cve_id', 'c.vendor', 'c.product', 'c.name',
+        'c.severity', 'c.cvss_score', 'c.kev_flag',
+        'c.published_at', 'c.due_date',
+        db.raw('COUNT(DISTINCT dc.device_id)::int as device_count'),
+        db.raw("COUNT(DISTINCT dc.device_id) FILTER (WHERE dc.match_confidence = 'high')::int as high_count"),
+        db.raw("COUNT(DISTINCT dc.device_id) FILTER (WHERE dc.match_confidence = 'medium')::int as medium_count"),
+        db.raw("COUNT(DISTINCT dc.device_id) FILTER (WHERE dc.match_confidence = 'low')::int as low_count"),
+      )
+      .groupBy('c.id')
+      .orderByRaw(`
+        CASE WHEN c.kev_flag THEN 0 ELSE 1 END,
+        CASE c.severity
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END,
+        device_count DESC
+      `)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    return {
+      items: rows.map((r: any) => ({
+        id: r.id, cveId: r.cve_id, vendor: r.vendor, product: r.product, name: r.name,
+        severity: r.severity, cvssScore: r.cvss_score ? parseFloat(r.cvss_score) : null,
+        kevFlag: r.kev_flag, publishedAt: r.published_at, dueDate: r.due_date,
+        deviceCount: r.device_count,
+        highCount: r.high_count, mediumCount: r.medium_count, lowCount: r.low_count,
+      })),
+      total, page, pageSize,
+    };
+  }
+
+  // Devices affected by a single CVE. Master sees the cross-tenant list
+  // with device.tenant_id on each row (the UI surfaces a TenantBadge).
+  async getCveAffectedDevices(tenantId: number, cveId: number) {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_cves as dc')
+      .join('devices as d', 'd.id', 'dc.device_id')
+      .join('cves as c', 'c.id', 'dc.cve_id')
+      .where({ 'dc.cve_id': cveId })
+      .whereNull('dc.dismissed_at')
+      .select(
+        'dc.id', 'dc.device_id', 'dc.match_confidence',
+        'dc.matched_vendor', 'dc.matched_product', 'dc.matched_version',
+        db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
+        'd.group_id', 'd.tenant_id as device_tenant_id', 'd.status as device_status',
+      )
+      .orderBy('device_name');
+    if (!isMaster) q.where('dc.tenant_id', tenantId);
+    const rows = await q;
+    return rows.map((r: any) => ({
+      id: r.id, deviceId: r.device_id, deviceName: r.device_name,
+      groupId: r.group_id, deviceStatus: r.device_status,
+      tenantId: r.device_tenant_id,
+      matchConfidence: r.match_confidence,
+      matchedVendor: r.matched_vendor, matchedProduct: r.matched_product,
+      matchedVersion: r.matched_version,
+    }));
+  }
+
+  // Single-device CVE list — used on DeviceDetailPage's Security section.
+  async getDeviceCves(deviceId: number, tenantId: number) {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_cves as dc')
+      .join('cves as c', 'c.id', 'dc.cve_id')
+      .where('dc.device_id', deviceId)
+      .whereNull('dc.dismissed_at')
+      .select(
+        'dc.id', 'dc.match_confidence',
+        'dc.matched_vendor', 'dc.matched_product', 'dc.matched_version',
+        'c.id as cve_pk', 'c.cve_id', 'c.vendor', 'c.product', 'c.name',
+        'c.severity', 'c.cvss_score', 'c.kev_flag',
+        'c.published_at', 'c.due_date', 'c.description', 'c.required_action',
+      )
+      .orderByRaw(`
+        CASE WHEN c.kev_flag THEN 0 ELSE 1 END,
+        CASE dc.match_confidence
+          WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3
+        END
+      `);
+    if (!isMaster) q.where('dc.tenant_id', tenantId);
+    const rows = await q;
+    return rows.map((r: any) => ({
+      id: r.id,
+      matchConfidence: r.match_confidence,
+      matchedVendor: r.matched_vendor, matchedProduct: r.matched_product,
+      matchedVersion: r.matched_version,
+      cve: {
+        id: r.cve_pk, cveId: r.cve_id, vendor: r.vendor, product: r.product, name: r.name,
+        severity: r.severity, cvssScore: r.cvss_score ? parseFloat(r.cvss_score) : null,
+        kevFlag: r.kev_flag, publishedAt: r.published_at, dueDate: r.due_date,
+        description: r.description, requiredAction: r.required_action,
+      },
+    }));
+  }
+
+  async dismissDeviceCve(id: number, tenantId: number, userId: number): Promise<boolean> {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_cves').where({ id });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const updated = await q.update({
+      dismissed_at: new Date(),
+      dismissed_by: userId,
+    });
+    return updated > 0;
+  }
+
+  async getStats(tenantId: number) {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_cves as dc')
+      .join('cves as c', 'c.id', 'dc.cve_id')
+      .whereNull('dc.dismissed_at')
+      .select(
+        db.raw('COUNT(DISTINCT dc.cve_id)::int as total_cves'),
+        db.raw('COUNT(DISTINCT dc.device_id)::int as affected_devices'),
+        db.raw("COUNT(DISTINCT dc.cve_id) FILTER (WHERE c.kev_flag)::int as kev_cves"),
+        db.raw("COUNT(DISTINCT dc.cve_id) FILTER (WHERE c.severity = 'critical')::int as critical_cves"),
+      );
+    if (!isMaster) q.where('dc.tenant_id', tenantId);
+    const row = await q.first();
+    return {
+      totalCves: Number(row?.total_cves ?? 0),
+      affectedDevices: Number(row?.affected_devices ?? 0),
+      kevCves: Number(row?.kev_cves ?? 0),
+      criticalCves: Number(row?.critical_cves ?? 0),
+    };
+  }
+}
+
+export const cveService = new CveService();

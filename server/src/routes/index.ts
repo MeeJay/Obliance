@@ -51,6 +51,7 @@ import approvalRoutes from './approval.routes';
 import auditRoutes from './audit.routes';
 import restrictionRoutes from './restriction.routes';
 import oblireachDesktopRoutes from './oblireachDesktop.routes';
+import cveRoutes from './cve.routes';
 
 const router = Router();
 
@@ -110,6 +111,7 @@ tenantRouter.use('/permission-sets', permissionSetsRoutes);
 tenantRouter.use('/scenarios',      scenarioRoutes);
 tenantRouter.use('/devices/:id/privacy', privacyGateRoutes);
 tenantRouter.use('/custom-sections', customSectionRoutes);
+tenantRouter.use('/cves',           cveRoutes);
 
 router.use('/', tenantRouter);
 

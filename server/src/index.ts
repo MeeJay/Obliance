@@ -257,6 +257,27 @@ async function main() {
   setTimeout(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), 90_000); // first run 1.5 min after startup
   setInterval(() => softwareComplianceService.runScheduledChecks(SW_COMPLIANCE_INTERVAL).catch(() => {}), SW_COMPLIANCE_INTERVAL);
 
+  // CVE catalog sync (CISA KEV) — daily refresh + fleet rescan. CISA
+  // publishes a small JSON feed (~1300 entries) so the sync itself is
+  // cheap; the rescan walks every approved device's latest inventory
+  // and is the costly part — we run it once a day, ~2 min after
+  // startup so the boot path is clean.
+  setTimeout(async () => {
+    try {
+      const { cveService } = await import('./services/cve.service');
+      await cveService.syncCisaKev();
+      // Master tenant rescan covers every child tenant in one pass.
+      await cveService.rescanFleet(1);
+    } catch (err) { logger.error(err, 'CVE initial sync/rescan failed'); }
+  }, 2 * 60_000);
+  setInterval(async () => {
+    try {
+      const { cveService } = await import('./services/cve.service');
+      await cveService.syncCisaKev();
+      await cveService.rescanFleet(1);
+    } catch (err) { logger.error(err, 'CVE daily sync/rescan failed'); }
+  }, 24 * 60 * 60 * 1000);
+
   // ── Scenarios v2 — boot migration + cron tick ──────────────────────────
   // Convert any leftover v1 (steps-based) scenarios to the new graph
   // model, then start a per-minute tick that fires schedule_cron triggers.

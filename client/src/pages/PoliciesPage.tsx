@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Package, ShieldCheck, BarChart3, Loader2, ListChecks, Activity, Bell } from 'lucide-react';
+import { Package, ShieldCheck, BarChart3, Loader2, ListChecks, Activity, Bell, Bug } from 'lucide-react';
 import { UpdatesPage } from './UpdatesPage';
 import { CompliancePage } from './CompliancePage';
 import { SoftwareCompliancePage } from './SoftwareCompliancePage';
 import { TenantThresholdsTab } from './TenantThresholdsTab';
 import { NotificationsPage } from './NotificationsPage';
+import { CvesPage } from './CvesPage';
 import { updateApi } from '@/api/update.api';
 import { useAuthStore } from '@/store/authStore';
 import type { PatchComplianceReport } from '@obliance/shared';
 import { clsx } from 'clsx';
 
-type Tab = 'updates' | 'compliance' | 'software' | 'patchReport' | 'thresholds' | 'notifications';
+type Tab = 'updates' | 'compliance' | 'software' | 'cves' | 'patchReport' | 'thresholds' | 'notifications';
 
 // ─── Patch Report Tab ────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ export function PoliciesPage() {
  const [searchParams] = useSearchParams();
  const initialTab = (searchParams.get('tab') as Tab) || 'updates';
  const [tab, setTab] = useState<Tab>(initialTab);
- const { isAdmin } = useAuthStore();
+ const { isAdmin, permissions } = useAuthStore();
 
  // "Seuils" + "Notifications" tabs are admin-only — non-admin users
  // would have nothing to do here (the editor is disabled below the
@@ -135,10 +136,19 @@ export function PoliciesPage() {
  // device/group editors they already see). Notifications used to
  // live under /admin/users; it's an operational concern (channels +
  // bindings on monitoring/automations) so it fits this page better.
+ //
+ // CVE tab is gated on the dedicated `cve:read` capability — the data
+ // leaks sensitive infrastructure detail (active CVE on which product
+ // version) and we don't want every operator to discover it by
+ // default. Admins bypass via their role flag, non-admins must be
+ // explicitly granted the cap from the PermissionSets matrix.
+ const canSeeCves = isAdmin() || (permissions?.tenantCapabilities ?? []).includes('cve:read');
+
  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
  { id: 'updates', label: t('policies.tabUpdates'), icon: <Package size={16} /> },
  { id: 'compliance', label: t('policies.tabCompliance'), icon: <ShieldCheck size={16} /> },
  { id: 'software', label: t('policies.tabSoftware'), icon: <ListChecks size={16} /> },
+ ...(canSeeCves ? [{ id: 'cves' as Tab, label: t('policies.tabCves', 'CVE'), icon: <Bug size={16} /> }] : []),
  { id: 'patchReport', label: 'Patch Report', icon: <BarChart3 size={16} /> },
  ...(isAdmin() ? [{ id: 'notifications' as Tab, label: t('policies.tabNotifications', 'Notifications'), icon: <Bell size={16} /> }] : []),
  ...(isAdmin() ? [{ id: 'thresholds' as Tab, label: t('policies.tabThresholds', 'Seuils'), icon: <Activity size={16} /> }] : []),
@@ -165,6 +175,7 @@ export function PoliciesPage() {
  {tab === 'updates' && <UpdatesPage embedded />}
  {tab === 'compliance' && <CompliancePage embedded />}
  {tab === 'software' && <SoftwareCompliancePage embedded />}
+ {tab === 'cves' && canSeeCves && <CvesPage embedded />}
  {tab === 'patchReport' && <PatchReportTab />}
  {tab === 'notifications' && isAdmin() && <NotificationsPage embedded />}
  {tab === 'thresholds' && isAdmin() && <TenantThresholdsTab />}

@@ -39,6 +39,7 @@ const AVAILABLE_CAPABILITIES: CapabilityDef[] = [
   { key: 'agent_config:discovery',       label: 'Agent config · Network discovery' },
   { key: 'agent_config:keys',            label: 'Agent config · API keys' },
   { key: 'agent_config:approval',        label: 'Agent config · Approve / refuse / add agents' },
+  { key: 'cve:read',                     label: 'Vulnerabilities · View CVE matches on the fleet' },
 
   // ── Legacy app-level entries (display-only for now) ─────────────
   { key: 'monitoring',      label: 'Monitoring' },

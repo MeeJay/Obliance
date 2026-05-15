@@ -294,6 +294,74 @@ export interface DeviceIdentityFingerprint {
   observedAt: string;
 }
 
+// ─── CVE (Common Vulnerabilities and Exposures) ──────────────────────────────
+
+export interface Cve {
+  id: number;
+  cveId: string;                                    // CVE-YYYY-NNNNN
+  vendor: string | null;
+  product: string | null;
+  name: string | null;
+  description: string | null;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown' | null;
+  cvssScore: number | null;
+  kevFlag: boolean;                                 // CISA Known Exploited
+  publishedAt: string | null;
+  dueDate: string | null;                           // CISA KEV remediation deadline
+  requiredAction: string | null;
+}
+
+/** Aggregated row for the fleet-wide CVE list — one entry per CVE with
+ *  affected device counts split by match confidence. Mirrors the shape
+ *  of UpdateAggregated for the Updates page. */
+export interface CveAggregated {
+  id: number;
+  cveId: string;
+  vendor: string | null;
+  product: string | null;
+  name: string | null;
+  severity: Cve['severity'];
+  cvssScore: number | null;
+  kevFlag: boolean;
+  publishedAt: string | null;
+  dueDate: string | null;
+  deviceCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+}
+
+export interface CveAffectedDevice {
+  id: number;
+  deviceId: number;
+  deviceName: string;
+  groupId: number | null;
+  deviceStatus: string;
+  /** Owning tenant — populated for the master tenant god-view so the UI
+   *  can render a TenantBadge. Null in child-tenant calls. */
+  tenantId: number | null;
+  matchConfidence: 'high' | 'medium' | 'low';
+  matchedVendor: string | null;
+  matchedProduct: string | null;
+  matchedVersion: string | null;
+}
+
+export interface DeviceCve {
+  id: number;                                       // device_cves.id
+  matchConfidence: 'high' | 'medium' | 'low';
+  matchedVendor: string | null;
+  matchedProduct: string | null;
+  matchedVersion: string | null;
+  cve: Cve & { id: number };
+}
+
+export interface CveStats {
+  totalCves: number;
+  affectedDevices: number;
+  kevCves: number;
+  criticalCves: number;
+}
+
 export interface ScheduleAlert {
   scheduleId: number;
   scheduleName: string;

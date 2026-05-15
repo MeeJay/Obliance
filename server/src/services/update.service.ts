@@ -264,11 +264,15 @@ class UpdateService {
     const page = Math.max(1, filters?.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, filters?.pageSize ?? 50));
     const pendingStatuses = ['available', 'approved', 'pending_install', 'installing', 'failed'];
+    // Master tenant aggregates updates across every child tenant — without
+    // this the Policies > Mises à jour page on Default showed only the rare
+    // updates owned by Default itself instead of the fleet-wide view.
+    const isMaster = isMasterTenant(tenantId);
 
     let baseQ = db('device_updates as du')
       .join('devices as d', 'd.id', 'du.device_id')
-      .where('du.tenant_id', tenantId)
       .whereIn('du.status', filters?.status ? [filters.status] : pendingStatuses);
+    if (!isMaster) baseQ = baseQ.where('du.tenant_id', tenantId);
 
     if (filters?.severity) baseQ = baseQ.where({ 'du.severity': filters.severity });
     if (filters?.source) baseQ = baseQ.where({ 'du.source': filters.source });
@@ -331,18 +335,25 @@ class UpdateService {
    * Returns the list of devices affected by a specific update title.
    */
   async getUpdateDevices(tenantId: number, updateUid: string) {
-    const rows = await db('device_updates as du')
+    // Master god-view: surface the owning tenant on each row so the UI can
+    // render a TenantBadge next to the device name. Child tenants stay
+    // strictly scoped to their own rows.
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_updates as du')
       .join('devices as d', 'd.id', 'du.device_id')
-      .where({ 'du.tenant_id': tenantId, 'du.update_uid': updateUid })
+      .where({ 'du.update_uid': updateUid })
       .select(
         'du.id', 'du.device_id', 'du.status',
         db.raw(`COALESCE(NULLIF(d.display_name, ''), d.hostname) AS device_name`),
-        'd.group_id',
+        'd.group_id', 'd.tenant_id as device_tenant_id',
       )
       .orderBy('device_name');
+    if (!isMaster) q.where({ 'du.tenant_id': tenantId });
+    const rows = await q;
     return rows.map((r: any) => ({
       id: r.id, deviceId: r.device_id, deviceName: r.device_name,
       groupId: r.group_id, status: r.status,
+      tenantId: r.device_tenant_id,
     }));
   }
 
@@ -441,11 +452,14 @@ class UpdateService {
   // ─── Patch Compliance Report ─────────────────────────────────────────────
   async getPatchComplianceReport(tenantId: number, groupId?: number) {
     const pendingStatuses = ['available', 'approved', 'pending_install', 'installing', 'failed'];
+    const isMaster = isMasterTenant(tenantId);
 
-    // Base device query: approved, not pending_uninstall
+    // Base device query: approved, not pending_uninstall. Master view
+    // aggregates across every child tenant for the fleet-wide gauge.
     let deviceQ = db('devices')
-      .where({ tenant_id: tenantId, approval_status: 'approved' })
+      .where({ approval_status: 'approved' })
       .whereNot({ status: 'pending_uninstall' });
+    if (!isMaster) deviceQ = deviceQ.where({ tenant_id: tenantId });
     if (groupId) deviceQ = deviceQ.where({ group_id: groupId });
 
     const allDevices = await deviceQ.select('id', 'group_id');
@@ -459,9 +473,10 @@ class UpdateService {
 
     const deviceIds = allDevices.map((d: any) => d.id);
 
-    // Devices with at least one pending update
+    // Devices with at least one pending update. We anchor the scope on
+    // device_id (already filtered above) rather than tenant_id so master
+    // naturally picks up rows from every tenant.
     const devicesWithPending = await db('device_updates')
-      .where({ tenant_id: tenantId })
       .whereIn('device_id', deviceIds)
       .whereIn('status', pendingStatuses)
       .distinct('device_id')
@@ -471,9 +486,9 @@ class UpdateService {
     const fullyPatchedDevices = totalDevices - pendingSet.size;
     const fullyPatchedPercent = totalDevices > 0 ? Math.round((fullyPatchedDevices / totalDevices) * 10000) / 100 : 0;
 
-    // bySeverity: for each severity, count devices with 0 pending of that severity
+    // bySeverity: for each severity, count devices with 0 pending of that severity.
+    // device_id scope is enough — `deviceIds` already respects tenant scope.
     const severityRows = await db('device_updates')
-      .where({ tenant_id: tenantId })
       .whereIn('device_id', deviceIds)
       .whereIn('status', pendingStatuses)
       .select('severity')
@@ -521,9 +536,9 @@ class UpdateService {
       });
     }
 
-    // byUpdate: top 50 updates by gap (most unpatched first)
+    // byUpdate: top 50 updates by gap (most unpatched first). Same logic —
+    // device_id whitelist already enforces tenant scope (or master fan-out).
     const updateRows = await db('device_updates')
-      .where({ tenant_id: tenantId })
       .whereIn('device_id', deviceIds)
       .whereIn('status', pendingStatuses)
       .select(
@@ -550,10 +565,12 @@ class UpdateService {
 
   // Update statistics for tenant dashboard
   async getUpdateStats(tenantId: number) {
-    const stats = await db('device_updates')
-      .where({ tenant_id: tenantId })
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('device_updates')
       .select(db.raw('status, severity, count(*) as count'))
       .groupBy('status', 'severity');
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const stats = await q;
 
     const result = { available: 0, critical: 0, important: 0, approved: 0, installed: 0, failed: 0 };
     for (const s of stats) {

@@ -38,6 +38,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
+import { DeviceCvesSection } from '@/components/devices/DeviceCvesSection';
 import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
@@ -5575,7 +5576,15 @@ export function DeviceDetailPage() {
  {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
  {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
  {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
- {activeTab === 'compliance' && <ComplianceTab deviceId={device.id} />}
+ {activeTab === 'compliance' && (
+ <div className="space-y-4">
+ {/* CVE section — auto-hides when the device has zero matches AND
+ quietly 403s for users without `cve:read`. No need to gate it
+ from here; the component handles both states itself. */}
+ <DeviceCvesSection deviceId={device.id} />
+ <ComplianceTab deviceId={device.id} />
+ </div>
+ )}
  {activeTab === 'remote' && <RemoteTab device={device} />}
  {activeTab === 'files' && <FileExplorerTab device={device} />}
  {activeTab === 'services' && <ServicesTab device={device} />}
