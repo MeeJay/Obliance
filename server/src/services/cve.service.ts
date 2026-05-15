@@ -55,9 +55,28 @@ class CveService {
     const now = new Date();
     let feed: CisaKevFeed;
     try {
-      const res = await fetch(CISA_KEV_URL);
-      if (!res.ok) throw new Error(`CISA KEV fetch HTTP ${res.status}`);
+      // Explicit UA — some CDNs / corporate proxies block Node's default UA.
+      // Explicit Accept guards against an HTML error page being returned
+      // instead of JSON when something upstream is malfunctioning.
+      const res = await fetch(CISA_KEV_URL, {
+        headers: {
+          'User-Agent': 'Obliance-RMM/CVE-Sync (https://obliance.io)',
+          'Accept': 'application/json',
+        },
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`CISA KEV fetch HTTP ${res.status}: ${body.slice(0, 200)}`);
+      }
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.toLowerCase().includes('json')) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`CISA KEV returned non-JSON (content-type=${ct}): ${body.slice(0, 200)}`);
+      }
       feed = (await res.json()) as CisaKevFeed;
+      if (!Array.isArray(feed?.vulnerabilities)) {
+        throw new Error(`CISA KEV payload malformed (vulnerabilities missing)`);
+      }
     } catch (err) {
       logger.error({ err }, 'CISA KEV fetch failed');
       throw err;

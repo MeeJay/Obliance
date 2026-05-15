@@ -67,8 +67,12 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
      const rescan = await cveApi.rescan();
      toast.success(t('cves.rescanDone', { devices: rescan.devices, matches: rescan.matches }) || `Rescan: ${rescan.devices} devices, ${rescan.matches} matches`);
      await load();
-   } catch {
-     toast.error(t('cves.syncFailed') || 'CVE sync failed');
+   } catch (err: any) {
+     // Surface the server-side error message — pulled out of the axios
+     // error envelope. Falls back to the generic toast when the server
+     // didn't include one (e.g. network-level failures).
+     const detail = err?.response?.data?.error || err?.message;
+     toast.error(detail ? `CVE sync: ${detail}` : (t('cves.syncFailed') || 'CVE sync failed'));
    } finally {
      setSyncing(false);
    }

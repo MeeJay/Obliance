@@ -83,11 +83,18 @@ router.post('/device-cve/:id/dismiss', requireRole('admin'), async (req, res, ne
 // Admin-only since it hits an external endpoint and can be expensive on
 // re-rescan if abused. The same routine is also scheduled by index.ts to
 // run daily, this endpoint is for force-refresh.
-router.post('/sync', requireRole('admin'), async (_req, res, next) => {
+//
+// We surface the underlying error message to the client (not just a
+// generic 500) so the admin can debug network / proxy issues without
+// having to shell into the container for logs.
+router.post('/sync', requireRole('admin'), async (_req, res) => {
   try {
     const result = await cveService.syncCisaKev();
     res.json({ data: result });
-  } catch (err) { next(err); }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'CVE sync failed';
+    res.status(500).json({ error: msg });
+  }
 });
 
 // POST /api/cves/rescan — re-match the entire fleet against the catalog.
