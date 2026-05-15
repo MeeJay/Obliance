@@ -129,6 +129,116 @@ function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
  );
 }
 
+// ─── Duplicate agent ID banner ──────────────────────────────────────────────
+//
+// Surfaces when the server has flagged this device's agent_id as likely
+// shared by multiple physical machines (typical VM-cloning symptom: the
+// machine_uuid is identical across two boxes, so every push from either
+// machine lands on the same `devices` row and the row's hostname/IP
+// "flicker" between the two values).
+//
+// The fingerprint history makes the duplication obvious — when an admin
+// sees `host-A @ 10.0.0.5` and `host-B @ 10.0.0.6` alternating every
+// few minutes, they know to regen machine-id on the affected boxes
+// (the seeded "Regen Linux machine-id" system script does this in one
+// click). Acknowledge trims the buffer so the warning re-fires only if
+// alternation keeps happening.
+
+function DuplicateAgentIdBanner({
+ device,
+ onAcknowledged,
+}: {
+ device: Device;
+ onAcknowledged: () => void | Promise<void>;
+}) {
+ const { t } = useTranslation();
+ const [expanded, setExpanded] = useState(false);
+ const [acking, setAcking] = useState(false);
+ const fps = Array.isArray(device.identityFingerprints) ? device.identityFingerprints : [];
+ const distinctHosts = Array.from(new Set(fps.map((f) => f.hostname).filter(Boolean))) as string[];
+
+ const handleAcknowledge = async () => {
+ setAcking(true);
+ try {
+ await deviceApi.acknowledgeDuplicateAgentId(device.id);
+ toast.success(t('duplicateAgentId.toastAcknowledged') || 'Warning dismissed');
+ await onAcknowledged();
+ } catch {
+ toast.error(t('common.error') || 'Something went wrong');
+ } finally {
+ setAcking(false);
+ }
+ };
+
+ return (
+ <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-200">
+ <div className="flex items-start gap-3 px-4 py-3">
+ <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-semibold">
+ {t('duplicateAgentId.bannerTitle') || 'Duplicate agent ID suspected'}
+ </p>
+ <p className="text-xs text-amber-200/80 mt-0.5">
+ {distinctHosts.length >= 2
+ ? (t('duplicateAgentId.bannerHostList', { hosts: distinctHosts.slice(0, 5).join(', '), count: distinctHosts.length })
+ || `Multiple hostnames seen on this agent ID: ${distinctHosts.slice(0, 5).join(', ')}`)
+ : (t('duplicateAgentId.bannerGeneric')
+ || 'Multiple machines appear to share this agent ID (hostname / IP / MAC alternates between pushes).')}
+ </p>
+ <p className="text-xs text-amber-200/70 mt-1">
+ {t('duplicateAgentId.bannerHint')
+ || 'Fix: run the built-in "Regen Linux machine-id" script on each affected device, then delete the stale entry from the admin panel.'}
+ </p>
+ </div>
+ <div className="flex items-center gap-2 shrink-0">
+ <button
+ onClick={() => setExpanded((v) => !v)}
+ className="px-2 py-1 text-xs font-medium rounded-md border border-amber-400/40 hover:bg-amber-500/20 transition-colors"
+ >
+ {expanded
+ ? (t('duplicateAgentId.hideHistory') || 'Hide history')
+ : (t('duplicateAgentId.showHistory', { count: fps.length }) || `History (${fps.length})`)}
+ </button>
+ <button
+ onClick={handleAcknowledge}
+ disabled={acking}
+ className="px-2 py-1 text-xs font-medium rounded-md bg-amber-500/30 hover:bg-amber-500/40 border border-amber-400/40 transition-colors disabled:opacity-50"
+ >
+ {acking
+ ? (t('common.processing') || 'Working…')
+ : (t('duplicateAgentId.acknowledge') || 'Acknowledge')}
+ </button>
+ </div>
+ </div>
+
+ {expanded && fps.length > 0 && (
+ <div className="border-t border-amber-400/30 px-4 py-3 bg-amber-500/5">
+ <p className="text-xs font-semibold text-amber-200 mb-2">
+ {t('duplicateAgentId.observedHeading') || 'Observed identities (most recent first)'}
+ </p>
+ <ul className="space-y-1 text-xs font-mono">
+ {fps.slice().reverse().map((f, idx) => (
+ <li key={`${f.observedAt}-${idx}`} className="flex items-center gap-3 text-amber-100/90">
+ <span className="text-amber-200/70 shrink-0 w-32">
+ {new Date(f.observedAt).toLocaleString()}
+ </span>
+ <span className="truncate">
+ {anonymize(f.hostname || '—')}
+ <span className="text-amber-200/60"> @ </span>
+ {anonymizeIp(f.ipLocal || '—')}
+ {f.mac && (
+ <span className="text-amber-200/60"> · {anonymizeMac(f.mac)}</span>
+ )}
+ </span>
+ </li>
+ ))}
+ </ul>
+ </div>
+ )}
+ </div>
+ );
+}
+
 // ─── Note banner ────────────────────────────────────────────────────────────
 //
 // Obliview-style inline note: invisible until there's a note OR the
@@ -4891,6 +5001,13 @@ export function DeviceDetailPage() {
  <p className="text-xs text-blue-300/80 mt-0.5">{t('airgap.bannerMessage')}</p>
  </div>
  </div>
+ )}
+
+ {/* Duplicate agent ID banner — fires when the server observes too
+ many distinct hostnames / IPs / MACs on this single agent_id in
+ a short window (typical VM-cloning without machine-id regen). */}
+ {device.duplicateAgentIdSuspected && (
+ <DuplicateAgentIdBanner device={device} onAcknowledged={() => fetchDevice(deviceId)} />
  )}
 
  {/* Header */}

@@ -266,8 +266,32 @@ export interface Device {
   latestMetrics: DeviceMetrics;
   scheduleAlert: ScheduleAlert | null;
   uninstallAt: string | null;
+  /** Rolling history (last ~10) of distinct (hostname, ipLocal, ipPublic,
+   *  macAddress) tuples observed on this agent_id. Populated on every push
+   *  that brings new values — the server uses this to detect duplicate
+   *  machine_uuid across multiple physical devices (typical VM-cloning
+   *  symptom). Empty array = single stable identity, all good. */
+  identityFingerprints: DeviceIdentityFingerprint[];
+  /** Set true when the server sees too many distinct fingerprints in a
+   *  short window (>=2 hostnames, >=3 IPs, or >=2 MACs in 30 min).
+   *  Surfaces a warning banner in the device detail page + a badge in
+   *  the table. The actual fix lives outside Obliance (regen machine-id
+   *  + clear SMBIOS UUID at the hypervisor level). */
+  duplicateAgentIdSuspected: boolean;
+  /** Timestamp of the last admin acknowledgment of the duplicate flag.
+   *  When set, the buffer was trimmed to the latest entry — the flag
+   *  re-fires only if NEW alternating evidence appears after that. */
+  duplicateAgentIdAcknowledgedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DeviceIdentityFingerprint {
+  hostname: string | null;
+  ipLocal: string | null;
+  ipPublic: string | null;
+  mac: string | null;
+  observedAt: string;
 }
 
 export interface ScheduleAlert {

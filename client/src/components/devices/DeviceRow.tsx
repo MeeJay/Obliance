@@ -1,5 +1,5 @@
 import { memo, type MouseEvent } from 'react';
-import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History, Building2 } from 'lucide-react';
+import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History, Building2, Copy } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
 import { OsIcon } from './OsIcon';
@@ -219,6 +219,11 @@ export const DeviceRow = memo(function DeviceRow({
         )}
         {device.airgapEnabled && (
           <span title="Airgap"><WifiOff className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /></span>
+        )}
+        {device.duplicateAgentIdSuspected && (
+          <span title={t('duplicateAgentId.rowBadgeTitle') || 'Duplicate agent ID suspected — multiple machines may share this UUID'}>
+            <Copy className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+          </span>
         )}
         {device.agentFlavor === 'legacy' && (
           <span

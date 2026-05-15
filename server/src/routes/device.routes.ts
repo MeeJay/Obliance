@@ -812,6 +812,27 @@ router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/devices/:id/duplicate-id/acknowledge
+// Admin confirms they've seen the "duplicate agent ID suspected" warning.
+// Trims the identity-fingerprints buffer to its latest entry and clears
+// the flag — if duplication continues, the next ~2-3 alternating pushes
+// will re-flag automatically. Any tenant member with device-write on
+// this device can ack (no platform-admin gate — the fix lives outside
+// Obliance and the owning team should be able to silence the noise).
+router.post('/:id/duplicate-id/acknowledge', requireDeviceWrite(), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    await deviceService.acknowledgeDuplicateAgentId(id, req.tenantId!);
+    try {
+      const { auditService } = await import('../services/audit.service');
+      await auditService.logReq(req, 'device.duplicate_id_acknowledged', {
+        deviceId: id, resourceType: 'device', resourcePath: String(id),
+      });
+    } catch {}
+    res.json({ data: { ok: true } });
+  } catch (err) { next(err); }
+});
+
 // POST /api/devices/:id/privacy-mode/enable — send enable_privacy_mode command to agent
 router.post('/:id/privacy-mode/enable', requireRole('admin'), async (req, res, next) => {
   try {

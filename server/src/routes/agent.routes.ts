@@ -170,6 +170,16 @@ router.post('/push', agentAuth, async (req, res, next) => {
         updated_at: new Date(),
       });
 
+      // Track identity fingerprint to detect duplicate machine_uuid across
+      // physical hosts (typical VM-cloning symptom). Non-blocking — even
+      // if the detection layer errors, the rest of the push must succeed.
+      deviceService.recordIdentityFingerprint(device.id, tenantId, {
+        hostname: hostname || null,
+        ipLocal: ipLocal || null,
+        ipPublic: ipPublic || null,
+        mac: macAddress || null,
+      }).catch((err) => logger.error({ err, deviceId: device.id }, 'recordIdentityFingerprint failed'));
+
       // Geolocate if public IP changed
       if (ipPublic && ipPublic !== device.ip_public) {
         geolocationService.updateDeviceGeo(device.id, ipPublic).catch(() => {});

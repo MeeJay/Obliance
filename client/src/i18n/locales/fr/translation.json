@@ -1953,6 +1953,18 @@
     "bannerTitle": "AIRGAP — Appareil isolé du réseau",
     "bannerMessage": "Cet appareil est en mode Airgap suite à un incident de sécurité. Ne désactivez pas l’Airgap sans vérification préalable de l’équipe sécurité."
   },
+  "duplicateAgentId": {
+    "bannerTitle": "ID agent dupliqué suspecté",
+    "bannerHostList": "Plusieurs hostnames vus sur cet ID agent ({{count}}) : {{hosts}}",
+    "bannerGeneric": "Plusieurs machines semblent partager cet ID agent (le hostname, l'IP ou le MAC change entre les push).",
+    "bannerHint": "Correctif : exécutez le script intégré « Regen Linux machine-id » sur chaque machine concernée, puis supprimez l'entrée orpheline depuis l'admin.",
+    "showHistory": "Historique ({{count}})",
+    "hideHistory": "Masquer l'historique",
+    "observedHeading": "Identités observées (du plus récent au plus ancien)",
+    "acknowledge": "Acquitter",
+    "toastAcknowledged": "Avertissement masqué",
+    "rowBadgeTitle": "ID agent dupliqué suspecté — plusieurs machines partagent peut-être ce UUID"
+  },
   "automations": {
     "title": "Automations",
     "tabSchedules": "Schedules",

@@ -1503,6 +1503,18 @@
     "bannerTitle": "AIRGAP — Device network-isolated",
     "bannerMessage": "This device has been placed in Airgap mode for security incident investigation. Do not disable Airgap without prior verification from the security team."
   },
+  "duplicateAgentId": {
+    "bannerTitle": "Duplicate agent ID suspected",
+    "bannerHostList": "Multiple hostnames seen on this agent ID ({{count}}): {{hosts}}",
+    "bannerGeneric": "Multiple machines appear to share this agent ID (hostname, IP or MAC alternates between pushes).",
+    "bannerHint": "Fix: run the built-in \"Regen Linux machine-id\" script on each affected device, then delete the stale entry from the admin panel.",
+    "showHistory": "History ({{count}})",
+    "hideHistory": "Hide history",
+    "observedHeading": "Observed identities (most recent first)",
+    "acknowledge": "Acknowledge",
+    "toastAcknowledged": "Warning dismissed",
+    "rowBadgeTitle": "Duplicate agent ID suspected — multiple machines may share this UUID"
+  },
   "privacy": {
     "badge": "Privacy Mode",
     "disable": "Disable Privacy",

@@ -34,10 +34,12 @@
 package main
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,80 +58,200 @@ import (
 //go:embed obliance-agent.msi
 var msiData []byte
 
+// Logo embarqué — généré depuis client/public/logo.svg via ImageMagick au
+// moment du build (cf. test-build-wizard.bat et 000-RegularUpdate.bat). Si
+// l'asset est introuvable à la compilation, ce directive échoue avec
+// "no matching files found" — c'est volontaire, le wizard ne doit pas être
+// distribué sans son identité visuelle.
+//
+//go:embed logo.png
+var logoPNG []byte
+
+// version est injecté au link-time par 000-RegularUpdate.bat via
+// -ldflags="-X main.version=$AGENT_VER". Reste "dev" pour les builds de test
+// (test-build-wizard.bat ne fixe pas la version).
+var version = "dev"
+
+// Palette dérivée du logo Obliance (dégradé #c2001b → #ee5223). On reste
+// volontairement sobre côté wizard — on accentue uniquement le séparateur
+// header et le bouton n'est pas customisé (walk ne le permet pas proprement
+// et le style natif Windows reste cohérent avec l'OS hôte).
+var (
+	colorBrand     = walk.RGB(0xc2, 0x00, 0x1b)
+	colorText      = walk.RGB(0x1a, 0x1a, 0x1a)
+	colorTextMuted = walk.RGB(0x66, 0x66, 0x66)
+	colorBg        = walk.RGB(0xff, 0xff, 0xff)
+	colorBgHeader  = walk.RGB(0xfa, 0xfa, 0xfa)
+)
+
+func loadLogoBitmap() *walk.Bitmap {
+	img, err := png.Decode(bytes.NewReader(logoPNG))
+	if err != nil {
+		return nil
+	}
+	bmp, err := walk.NewBitmapFromImageForDPI(img, 96)
+	if err != nil {
+		return nil
+	}
+	return bmp
+}
+
 func main() {
 	cfg := readEmbeddedConfig()
+	logo := loadLogoBitmap()
 
 	var mw *walk.MainWindow
 	var serverEdit, keyEdit *walk.LineEdit
 	var logEdit *walk.TextEdit
 	var installBtn *walk.PushButton
 
+	headerChildren := []Widget{}
+	if logo != nil {
+		headerChildren = append(headerChildren, ImageView{
+			Image:   logo,
+			Mode:    ImageViewModeIdeal,
+			MinSize: Size{Width: 240, Height: 56},
+			MaxSize: Size{Width: 240, Height: 56},
+		})
+	} else {
+		// Fallback si l'image n'a pas pu être décodée (corruption du
+		// PNG embarqué, par exemple) — on garde un texte de marque pour
+		// que l'opérateur identifie quand même la fenêtre.
+		headerChildren = append(headerChildren, Label{
+			Text:      "Obliance",
+			TextColor: colorBrand,
+			Font:      Font{Family: "Segoe UI", PointSize: 18, Bold: true},
+		})
+	}
+	headerChildren = append(headerChildren,
+		HSpacer{},
+		Composite{
+			Layout: VBox{MarginsZero: true, Spacing: 2},
+			Children: []Widget{
+				VSpacer{},
+				Label{
+					Text:      "Install Wizard",
+					TextColor: colorText,
+					Font:      Font{Family: "Segoe UI", PointSize: 10, Bold: true},
+				},
+				Label{
+					Text:      "v" + version,
+					TextColor: colorTextMuted,
+					Font:      Font{Family: "Segoe UI", PointSize: 8},
+				},
+				VSpacer{},
+			},
+		},
+	)
+
 	err := MainWindow{
-		AssignTo: &mw,
-		Title:    "Obliance Agent — Install Wizard",
-		MinSize:  Size{Width: 560, Height: 380},
-		Size:     Size{Width: 560, Height: 380},
-		Layout:   VBox{Margins: Margins{Left: 18, Top: 18, Right: 18, Bottom: 18}, Spacing: 8},
+		AssignTo:   &mw,
+		Title:      "Obliance Agent — Install Wizard",
+		MinSize:    Size{Width: 600, Height: 470},
+		Size:       Size{Width: 600, Height: 470},
+		Background: SolidColorBrush{Color: colorBg},
+		Layout:     VBox{MarginsZero: true, SpacingZero: true},
 		Children: []Widget{
-			Label{Text: "Server URL", TextColor: walk.RGB(0x55, 0x55, 0x55)},
-			LineEdit{
-				AssignTo: &serverEdit,
-				Text:     cfg.ServerURL,
-				CueBanner: "https://obliance.example.com",
-			},
-			Label{Text: "API Key", TextColor: walk.RGB(0x55, 0x55, 0x55)},
-			LineEdit{
-				AssignTo: &keyEdit,
-				Text:     cfg.APIKey,
-				CueBanner: "obli_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-			},
+			// Bandeau header — logo à gauche, titre + version à droite.
 			Composite{
-				Layout: HBox{Margins: Margins{Top: 8}, Spacing: 8},
+				Background: SolidColorBrush{Color: colorBgHeader},
+				Layout: HBox{
+					Margins: Margins{Left: 22, Top: 14, Right: 22, Bottom: 14},
+					Spacing: 14,
+				},
+				Children: headerChildren,
+			},
+			// Filet rouge de marque sous le header.
+			Composite{
+				Background: SolidColorBrush{Color: colorBrand},
+				MinSize:    Size{Height: 2},
+				MaxSize:    Size{Height: 2},
+				Layout:     HBox{MarginsZero: true},
+			},
+			// Corps du wizard (formulaire + log).
+			Composite{
+				Background: SolidColorBrush{Color: colorBg},
+				Layout: VBox{
+					Margins: Margins{Left: 22, Top: 18, Right: 22, Bottom: 18},
+					Spacing: 6,
+				},
 				Children: []Widget{
-					HSpacer{},
-					PushButton{
-						AssignTo: &installBtn,
-						Text:     "Install Agent",
-						MinSize:  Size{Width: 160, Height: 32},
-						OnClicked: func() {
-							serverURL := strings.TrimSpace(serverEdit.Text())
-							apiKey := strings.TrimSpace(keyEdit.Text())
-							if serverURL == "" || apiKey == "" {
-								walk.MsgBox(mw,
-									"Missing fields",
-									"Server URL and API Key are required.",
-									walk.MsgBoxIconExclamation)
-								return
-							}
-							installBtn.SetEnabled(false)
-							_ = logEdit.SetText("")
-							go func() {
-								err := runInstall(serverURL, apiKey, logEdit, mw)
-								mw.Synchronize(func() {
-									installBtn.SetEnabled(true)
-									if err != nil {
+					Label{
+						Text:      "Server URL",
+						TextColor: colorText,
+						Font:      Font{Family: "Segoe UI", PointSize: 9, Bold: true},
+					},
+					LineEdit{
+						AssignTo:  &serverEdit,
+						Text:      cfg.ServerURL,
+						CueBanner: "https://obliance.example.com",
+					},
+					VSpacer{Size: 6},
+					Label{
+						Text:      "API Key",
+						TextColor: colorText,
+						Font:      Font{Family: "Segoe UI", PointSize: 9, Bold: true},
+					},
+					LineEdit{
+						AssignTo:  &keyEdit,
+						Text:      cfg.APIKey,
+						CueBanner: "obli_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+					},
+					VSpacer{Size: 12},
+					Composite{
+						Layout: HBox{MarginsZero: true, Spacing: 8},
+						Children: []Widget{
+							HSpacer{},
+							PushButton{
+								AssignTo: &installBtn,
+								Text:     "Install Agent",
+								MinSize:  Size{Width: 170, Height: 34},
+								OnClicked: func() {
+									serverURL := strings.TrimSpace(serverEdit.Text())
+									apiKey := strings.TrimSpace(keyEdit.Text())
+									if serverURL == "" || apiKey == "" {
 										walk.MsgBox(mw,
-											"Install failed",
-											err.Error(),
-											walk.MsgBoxIconError)
-									} else {
-										walk.MsgBox(mw,
-											"Done",
-											"The Obliance agent has been installed.\nIt will appear in the admin panel after a few seconds.",
-											walk.MsgBoxIconInformation)
+											"Missing fields",
+											"Server URL and API Key are required.",
+											walk.MsgBoxIconExclamation)
+										return
 									}
-								})
-							}()
+									installBtn.SetEnabled(false)
+									_ = logEdit.SetText("")
+									go func() {
+										err := runInstall(serverURL, apiKey, logEdit, mw)
+										mw.Synchronize(func() {
+											installBtn.SetEnabled(true)
+											if err != nil {
+												walk.MsgBox(mw,
+													"Install failed",
+													err.Error(),
+													walk.MsgBoxIconError)
+											} else {
+												walk.MsgBox(mw,
+													"Done",
+													"The Obliance agent has been installed.\nIt will appear in the admin panel after a few seconds.",
+													walk.MsgBoxIconInformation)
+											}
+										})
+									}()
+								},
+							},
 						},
 					},
+					VSpacer{Size: 12},
+					Label{
+						Text:      "Install log",
+						TextColor: colorTextMuted,
+						Font:      Font{Family: "Segoe UI", PointSize: 8},
+					},
+					TextEdit{
+						AssignTo: &logEdit,
+						ReadOnly: true,
+						VScroll:  true,
+						MinSize:  Size{Height: 130},
+					},
 				},
-			},
-			Label{Text: "Install log", TextColor: walk.RGB(0x55, 0x55, 0x55)},
-			TextEdit{
-				AssignTo: &logEdit,
-				ReadOnly: true,
-				VScroll:  true,
-				MinSize:  Size{Height: 120},
 			},
 		},
 	}.Create()

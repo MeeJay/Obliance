@@ -296,6 +296,13 @@ export const deviceApi = {
     const res = await apiClient.post<ApiResponse<Device>>(`/devices/${id}/cancel-uninstall`);
     return res.data.data!;
   },
+  /** Admin clicks "I see this, dismiss the warning" on the duplicate-agent-id
+   *  banner. The server trims the identity-fingerprints buffer so the next
+   *  push starts from a clean slate — if alternation continues, the flag
+   *  re-fires automatically once enough new evidence accumulates. */
+  async acknowledgeDuplicateAgentId(id: number): Promise<void> {
+    await apiClient.post(`/devices/${id}/duplicate-id/acknowledge`);
+  },
 
   // API Keys
   async listKeys(): Promise<AgentApiKey[]> {

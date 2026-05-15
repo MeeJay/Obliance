@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSessionState } from '@/hooks/useSessionState';
 import {
  Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag, Terminal, Building2,
@@ -70,17 +71,29 @@ export function DeviceTable({
  );
 
  // Filters
- const [search, setSearch] = useState('');
+ //
+ // Persisted to sessionStorage via useSessionState so navigating to a
+ // device detail and hitting browser-back (or the page's own back button)
+ // restores the user's search + chip filters + sort exactly as they left
+ // them. sessionStorage is scoped per browser tab, so the state doesn't
+ // leak across tabs or browser restarts.
+ //
+ // URL params (initialStatusFilter / initialOsFilter / etc.) seed the
+ // values only when sessionStorage is empty. Once the user has touched
+ // the filters, sessionStorage wins on subsequent mounts — otherwise the
+ // user's manual chip toggles would be reverted by a stale URL after a
+ // back-navigation.
+ const [search, setSearch] = useSessionState<string>('obliance:devices:search', '');
  const [debouncedSearch, setDebouncedSearch] = useState('');
- const [statusFilters, setStatusFilters] = useState<Set<string>>(() => {
- if (initialStatusFilter) return new Set([initialStatusFilter]);
- return new Set();
- });
+ const [statusFilters, setStatusFilters] = useSessionState<Set<string>>(
+ 'obliance:devices:statusFilters',
+ () => (initialStatusFilter ? new Set([initialStatusFilter]) : new Set<string>()),
+ );
  // Tag filter — set of selected tags. Populated by the popover from
  // /devices/tags so admins pick from existing tags only. Filter is
  // applied server-side via deviceApi.listPaginated({ tags }) so the
  // restriction spans the whole fleet, not just the visible page.
- const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+ const [tagFilters, setTagFilters] = useSessionState<Set<string>>('obliance:devices:tagFilters', new Set<string>());
  const [tagFacets, setTagFacets] = useState<Array<{ tag: string; count: number }>>([]);
  const [tagsMenuOpen, setTagsMenuOpen] = useState(false);
  const toggleTagFilter = (tag: string) => {
@@ -90,20 +103,20 @@ export function DeviceTable({
  return next;
  });
  };
- const [osFilters, setOsFilters] = useState<Set<string>>(() => {
- if (initialOsFilter) return new Set([initialOsFilter]);
- return new Set();
- });
+ const [osFilters, setOsFilters] = useSessionState<Set<string>>(
+ 'obliance:devices:osFilters',
+ () => (initialOsFilter ? new Set([initialOsFilter]) : new Set<string>()),
+ );
  // URL-driven filters from dashboard click-throughs. They flow straight to
  // the server query — no toggle UI here yet, the user clears them by
  // navigating away or removing the query param.
- const [staleHours, setStaleHours] = useState<number | undefined>(initialStaleHours);
- const [pendingUpdatesOnly, setPendingUpdatesOnly] = useState<boolean>(!!initialPendingUpdates);
+ const [staleHours, setStaleHours] = useSessionState<number | undefined>('obliance:devices:staleHours', initialStaleHours);
+ const [pendingUpdatesOnly, setPendingUpdatesOnly] = useSessionState<boolean>('obliance:devices:pendingUpdatesOnly', !!initialPendingUpdates);
  // Lot C 3-tier OS filter: osType (existing chip) → osName → osVersion. The
  // sub-filters reset when the parent changes so the user never lands on a
  // (Linux + Windows-build) combination that matches nothing.
- const [osNameFilter, setOsNameFilter] = useState<string>('');
- const [osVersionFilter, setOsVersionFilter] = useState<string>('');
+ const [osNameFilter, setOsNameFilter] = useSessionState<string>('obliance:devices:osNameFilter', '');
+ const [osVersionFilter, setOsVersionFilter] = useSessionState<string>('obliance:devices:osVersionFilter', '');
  const [osFacets, setOsFacets] = useState<OsFacet[]>([]);
  // Lot D.1 — user-configurable line-2 fields. Persisted in localStorage so
  // the choice survives reloads. Toggling a checkbox in the popover writes
@@ -129,13 +142,14 @@ export function DeviceTable({
  // now the single canonical page for both audiences. The URL param
  // ?approvalStatus=pending overrides the default — used by the
  // sidebar admin deep-link "Agents".
- const [approvalFilter, setApprovalFilter] = useState<ApprovalFilter>(
+ const [approvalFilter, setApprovalFilter] = useSessionState<ApprovalFilter>(
+ 'obliance:devices:approvalFilter',
  (initialApprovalFilter as ApprovalFilter | undefined) ?? (canManageApproval ? '' : 'approved'),
  );
  // Default = no explicit sort → enrolment order, tree-grouped. Clicking a
  // column cycles asc → desc → back to default (empty).
- const [sortBy, setSortBy] = useState<SortField>('');
- const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+ const [sortBy, setSortBy] = useSessionState<SortField>('obliance:devices:sortBy', '');
+ const [sortOrder, setSortOrder] = useSessionState<'asc' | 'desc'>('obliance:devices:sortOrder', 'asc');
 
  // Data — `devices` is the accumulated list across infinite-scroll
  // fetches in flat mode, and the whole scope in tree mode.
@@ -176,7 +190,7 @@ export function DeviceTable({
  const [changeGroupOpen, setChangeGroupOpen] = useState(false);
  const [transferOpen, setTransferOpen] = useState(false);
  const [runScriptOpen, setRunScriptOpen] = useState(false);
- const [tenantFilters, setTenantFilters] = useState<Set<number>>(new Set());
+ const [tenantFilters, setTenantFilters] = useSessionState<Set<number>>('obliance:devices:tenantFilters', new Set<number>());
  const toggleTenantFilter = (tid: number) => {
  setTenantFilters((prev) => {
  const next = new Set(prev);

@@ -4,11 +4,22 @@ import { Server as SocketIOServer } from 'socket.io';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { SocketEvents, isMasterTenant } from '@obliance/shared';
-import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck } from '@obliance/shared';
+import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck, DeviceIdentityFingerprint } from '@obliance/shared';
 import { appConfigService } from './appConfig.service';
 import { settingsService } from './settings.service';
 import { SETTINGS_KEYS } from '@obliance/shared';
 import { obligateService } from './obligate.service';
+
+// JSONB columns come back as either an already-parsed array (pg's default
+// when the driver knows it's JSONB) or as a raw string in some edge paths.
+// This shim normalises both shapes to a typed array, defaulting to [] on
+// corruption so a bad row never crashes the device read path.
+function safeParseFingerprints(raw: string): DeviceIdentityFingerprint[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
 
 // ── Agent version cache (re-read from disk every 5 min) ──────────────────────
 let _cachedVersion: string | null = null;
@@ -111,6 +122,13 @@ class DeviceService {
       lifecycleStatus: row.lifecycle_status ?? 'unknown',
       scheduleAlert: row.schedule_alert ? (typeof row.schedule_alert === 'string' ? JSON.parse(row.schedule_alert) : row.schedule_alert) : null,
       uninstallAt: row.uninstall_at ? new Date(row.uninstall_at).toISOString() : null,
+      identityFingerprints: Array.isArray(row.identity_fingerprints)
+        ? row.identity_fingerprints
+        : (typeof row.identity_fingerprints === 'string' ? safeParseFingerprints(row.identity_fingerprints) : []),
+      duplicateAgentIdSuspected: row.duplicate_agent_id_suspected ?? false,
+      duplicateAgentIdAcknowledgedAt: row.duplicate_agent_id_acknowledged_at
+        ? new Date(row.duplicate_agent_id_acknowledged_at).toISOString()
+        : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -808,6 +826,150 @@ class DeviceService {
     obligateService.registerDeviceLink(data.uuid, `/devices/${row.id}`).catch(() => {});
 
     return { deviceId: row.id, isNew: true };
+  }
+
+  // ─── Identity-fingerprint tracking (duplicate machine_uuid detection) ───
+  // Called from the push route on every contact, AFTER the device fields
+  // are updated. Compares the new (hostname, ipLocal, ipPublic, mac) tuple
+  // against the last seen one — appends to the rolling buffer only on
+  // change, then re-evaluates the duplicate-suspected flag.
+  //
+  // Detection thresholds (all measured in the last 30 minutes):
+  //   - >=2 distinct hostnames    → strong signal (one machine almost
+  //                                  never renames itself twice)
+  //   - >=3 distinct ipLocals     → lighter weight (DHCP renewal can
+  //                                  legitimately bump IP once or twice)
+  //   - >=2 distinct mac addresses → MACs effectively never change for a
+  //                                   single physical NIC
+  //
+  // The agent stays oblivious — it pushes its identity, the server is the
+  // sole judge of whether two machines are fighting over the same UUID.
+  async recordIdentityFingerprint(
+    deviceId: number,
+    tenantId: number,
+    next: { hostname: string | null; ipLocal: string | null; ipPublic: string | null; mac: string | null },
+  ): Promise<void> {
+    const row = await db('devices').where({ id: deviceId }).select(
+      'hostname', 'display_name', 'identity_fingerprints',
+      'duplicate_agent_id_suspected', 'duplicate_agent_id_acknowledged_at',
+    ).first();
+    if (!row) return;
+
+    const buffer: DeviceIdentityFingerprint[] = Array.isArray(row.identity_fingerprints)
+      ? row.identity_fingerprints
+      : (typeof row.identity_fingerprints === 'string' ? safeParseFingerprints(row.identity_fingerprints) : []);
+
+    const last = buffer[buffer.length - 1];
+    const same = last
+      && last.hostname === next.hostname
+      && last.ipLocal === next.ipLocal
+      && last.ipPublic === next.ipPublic
+      && last.mac === next.mac;
+    if (same) return;
+
+    const observedAt = new Date().toISOString();
+    buffer.push({ ...next, observedAt });
+    // Bound the buffer: keep at most 10 distinct samples. Older
+    // alternations have decayed out of the detection window anyway.
+    const trimmed = buffer.length > 10 ? buffer.slice(-10) : buffer;
+
+    // Evaluate the duplicate-id flag over the last 30 min. Two signals:
+    //   - "Ping-pong": a previous value comes BACK after we saw a different
+    //     one. A single legitimate rename only ever moves FORWARD; two
+    //     machines fighting over the same UUID will alternate, so the same
+    //     hostname (or IP, or MAC) reappears after being replaced. This is
+    //     the strongest signal and catches the typical VM-clone case.
+    //   - "Spread": >=3 distinct hostnames in 30 min is suspicious on its
+    //     own even without a back-flip (one machine almost never renames
+    //     itself twice in 30 min). Same logic for >=4 IPs (DHCP renewal
+    //     can plausibly bump one or two) and >=3 MACs (NIC changes are
+    //     very rare).
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    const recent = trimmed.filter((f) => new Date(f.observedAt).getTime() >= cutoff);
+    const hostSeq = recent.map((f) => f.hostname).filter((x): x is string => !!x);
+    const ipSeq = recent.map((f) => f.ipLocal).filter((x): x is string => !!x);
+    const macSeq = recent.map((f) => f.mac).filter((x): x is string => !!x);
+    const pingPong = (seq: string[]): boolean => {
+      const seen = new Set<string>();
+      let prev: string | null = null;
+      for (const v of seq) {
+        if (prev !== null && v !== prev && seen.has(v)) return true;
+        seen.add(v);
+        prev = v;
+      }
+      return false;
+    };
+    const hosts = new Set(hostSeq);
+    const ips = new Set(ipSeq);
+    const macs = new Set(macSeq);
+    const newFlag =
+      pingPong(hostSeq) || pingPong(ipSeq) || pingPong(macSeq) ||
+      hosts.size >= 3 || ips.size >= 4 || macs.size >= 3;
+
+    const wasFlagged = !!row.duplicate_agent_id_suspected;
+
+    await db('devices').where({ id: deviceId }).update({
+      identity_fingerprints: JSON.stringify(trimmed),
+      duplicate_agent_id_suspected: newFlag,
+    });
+
+    // Fire UI + bell + automation notifications only on the false→true
+    // transition. The acknowledge path trims the buffer so a transient
+    // ack doesn't suppress a fresh wave of evidence — the flag re-fires
+    // naturally next time the buffer crosses threshold.
+    if (newFlag && !wasFlagged) {
+      const dispName = (row.display_name as string | null) || (row.hostname as string | null) || `#${deviceId}`;
+      const hostList = Array.from(hosts).slice(0, 6).join(', ');
+      try {
+        const { liveAlertService } = await import('./liveAlert.service');
+        await liveAlertService.add(tenantId, {
+          severity: 'warning',
+          title: `${dispName}: ID agent dupliqué suspecté`,
+          message: hostList
+            ? `Plusieurs machines semblent partager le même agent ID — hostnames vus: ${hostList}`
+            : 'Plusieurs machines semblent partager le même agent ID (alternance d\'IP/MAC observée).',
+          navigateTo: `/devices/${deviceId}`,
+          stableKey: `device:${deviceId}:duplicate_agent_id`,
+        });
+      } catch (alertErr) {
+        logger.error({ alertErr, deviceId }, 'duplicate-agent-id live-alert failed');
+      }
+    }
+
+    if (this.io && wasFlagged !== newFlag) {
+      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, {
+        deviceId, duplicateAgentIdSuspected: newFlag,
+      });
+    }
+  }
+
+  // Admin clicks "Acknowledge" on the warning banner. Trims the buffer to
+  // its latest entry (so the next push starts from a clean slate) and
+  // clears the flag. If duplication continues, the next ~2-3 differing
+  // pushes will re-flag automatically.
+  async acknowledgeDuplicateAgentId(deviceId: number, tenantId: number): Promise<void> {
+    const row = await db('devices')
+      .where({ id: deviceId, tenant_id: tenantId })
+      .select('identity_fingerprints')
+      .first();
+    if (!row) return;
+
+    const buffer: DeviceIdentityFingerprint[] = Array.isArray(row.identity_fingerprints)
+      ? row.identity_fingerprints
+      : (typeof row.identity_fingerprints === 'string' ? safeParseFingerprints(row.identity_fingerprints) : []);
+    const trimmed = buffer.slice(-1);
+
+    await db('devices').where({ id: deviceId, tenant_id: tenantId }).update({
+      identity_fingerprints: JSON.stringify(trimmed),
+      duplicate_agent_id_suspected: false,
+      duplicate_agent_id_acknowledged_at: new Date(),
+    });
+
+    if (this.io) {
+      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_UPDATED, {
+        deviceId, duplicateAgentIdSuspected: false,
+      });
+    }
   }
 
   // ─── Push handling ────────────────────────────────────────────────────────
