@@ -5008,7 +5008,7 @@ export function DeviceDetailPage() {
  many distinct hostnames / IPs / MACs on this single agent_id in
  a short window (typical VM-cloning without machine-id regen). */}
  {device.duplicateAgentIdSuspected && (
- <DuplicateAgentIdBanner device={device} onAcknowledged={() => fetchDevice(deviceId)} />
+ <DuplicateAgentIdBanner device={device} onAcknowledged={async () => { await fetchDevice(deviceId); }} />
  )}
 
  {/* Header */}

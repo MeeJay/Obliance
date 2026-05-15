@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, AlertTriangle, ExternalLink, Loader2, X, ChevronDown, ChevronRight, Bug } from 'lucide-react';
+import { AlertCircle, ExternalLink, Loader2, X, ChevronDown, ChevronRight, Bug } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { cveApi } from '@/api/cve.api';

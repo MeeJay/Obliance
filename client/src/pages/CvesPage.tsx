@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Shield, AlertCircle, AlertTriangle, RefreshCw, Loader2, ExternalLink, X, ChevronRight, Search } from 'lucide-react';
+import { Shield, AlertCircle, RefreshCw, Loader2, ExternalLink, X, ChevronRight, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { cveApi } from '@/api/cve.api';
