@@ -79,6 +79,54 @@ function parseCpe(cpe: string): { vendor: string | null; product: string | null 
   return { vendor: cleanup(parts[3]), product: cleanup(parts[4]) };
 }
 
+// Token helpers for matching. Splitting on the broad punctuation set
+// (space, underscore, dash, dot, slash, comma, parens) lets us compare
+// "Acrobat_Reader_DC" against "Adobe Acrobat Reader DC" cleanly while
+// rejecting bogus substring overlap like "ios" inside "iotop".
+function tokenSet(name: string | null | undefined): Set<string> {
+  if (!name) return new Set();
+  return new Set(
+    name
+      .toLowerCase()
+      .split(/[\s_\-./\\,()[\]]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0),
+  );
+}
+
+function subsetOf(needle: Set<string>, haystack: Set<string>): boolean {
+  if (needle.size === 0) return false;
+  for (const t of needle) if (!haystack.has(t)) return false;
+  return true;
+}
+
+// OS-level CVE compatibility check. CISA/NVD scope OS CVEs via part='o'
+// CPEs (e.g. cpe:2.3:o:cisco:ios:* for Cisco IOS, cpe:2.3:o:microsoft:
+// windows_10:* for Windows 10). We only land such a CVE on a device
+// whose os_type makes physical sense — otherwise stock Linux boxes
+// would inherit every Cisco / Juniper / network-OS CVE in the catalog.
+function osTypeCompatible(cveVendor: string, cveProductTokens: Set<string>, osType: string): boolean {
+  const v = cveVendor.toLowerCase();
+  const t = osType.toLowerCase();
+  if (!t) return false;
+  if (t === 'windows') return v === 'microsoft' && cveProductTokens.has('windows');
+  if (t === 'macos') return v === 'apple' && (cveProductTokens.has('macos') || cveProductTokens.has('mac') || cveProductTokens.has('os'));
+  if (t === 'linux') {
+    if (v === 'linux' && (cveProductTokens.has('kernel') || cveProductTokens.has('linux'))) return true;
+    // Common distro vendors
+    return ['canonical', 'ubuntu', 'debian', 'redhat', 'fedora', 'centos', 'suse', 'opensuse', 'oracle', 'alpinelinux', 'alpine', 'arch', 'rocky', 'almalinux'].includes(v);
+  }
+  if (t === 'freebsd') return v === 'freebsd';
+  return false;
+}
+
+function safeParseJsonArray(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch { return []; }
+}
+
 class CveService {
   // ─── Sync from NVD (KEV-flagged subset) ──────────────────────────────────
   // Method name stays `syncCisaKev` because the callers don't care that
@@ -198,61 +246,135 @@ class CveService {
   // ─── Matching ────────────────────────────────────────────────────────────
   //
   // Run a fresh match for ONE device. Compares the latest software
-  // inventory against the entire CVE catalog and writes new device_cves
-  // rows (idempotent via unique constraint on (device_id, cve_id,
-  // matched_product)). Dismissed matches are preserved — they keep
-  // suppressing the same noise on subsequent rescans.
+  // inventory against the CVE catalog and writes device_cves rows.
+  //
+  // Stale non-dismissed matches are purged at the start so a stricter
+  // algorithm rev (like this one) actually drops the false positives
+  // accumulated by previous runs. Dismissed rows are preserved — they
+  // keep suppressing the same noise on re-match.
+  //
+  // Anti-FP rules (the previous algorithm matched everything that had
+  // any substring overlap, which produced Cisco IOS hits on Linux iotop
+  // and Firefox hits on stock servers):
+  //
+  //   1. TOKEN-based product match, not substring. We split both the
+  //      software name AND the CVE product by space/underscore/dash/dot
+  //      and require ALL CVE tokens to be present in the software-name
+  //      token set. "ios" no longer matches "iotop".
+  //   2. CPE PART filter. Each CVE's affected products are described as
+  //      cpe:2.3:<part>:vendor:product:… where part ∈ {a=app, o=OS,
+  //      h=hardware}.
+  //        - part=h → skip entirely (we don't track hardware exposure)
+  //        - part=o → require OS-type compatibility with the device
+  //          (Cisco IOS CVEs don't land on Linux/Windows/macOS hosts).
+  //   3. SHORT-PRODUCT guard. CVE products under 4 chars (`ios`, `git`,
+  //      `vim`, `go`, …) require an explicit vendor match — without one
+  //      they're too noisy.
+  //   4. SYNTHETIC OS rows replace the publisher='linux' kludge with a
+  //      proper "Microsoft Windows", "Apple macOS", "Linux kernel" +
+  //      distro entry so OS-level CVEs actually land on the right boxes.
   async rescanDevice(deviceId: number): Promise<number> {
     const device = await db('devices').where({ id: deviceId })
-      .select('id', 'tenant_id', 'os_type', 'os_name', 'os_version')
+      .select('id', 'tenant_id', 'os_type', 'os_name', 'os_version', 'os_distro')
       .first();
     if (!device) return 0;
 
-    // Pull latest inventory rows (single snapshot — device_inventory_software
-    // can carry historical scans but we only care about the most recent).
+    // Drop stale (non-dismissed) matches so a stricter rev of the
+    // algorithm propagates cleanly. Dismissed rows are kept — they
+    // continue suppressing false positives the admin already triaged.
+    await db('device_cves')
+      .where({ device_id: deviceId })
+      .whereNull('dismissed_at')
+      .delete();
+
     const software = await db('device_inventory_software')
       .where({ device_id: deviceId })
       .whereRaw(`scanned_at = (SELECT MAX(scanned_at) FROM device_inventory_software WHERE device_id = ?)`, [deviceId])
       .select('id', 'name', 'version', 'publisher');
 
-    // Synthetic "OS" row so OS-level CVEs (e.g. Microsoft Windows, Linux
-    // kernel) can match against a publisher+product pair. Without this,
-    // CVE-2023-XXXXX Windows-level entries would never land on a Windows
-    // device just because the kernel isn't listed as installed software.
-    if (device.os_type && device.os_name) {
-      software.push({
-        id: null,
-        name: device.os_name as string,
-        version: (device.os_version as string | null) ?? null,
-        publisher: device.os_type === 'windows' ? 'Microsoft' : (device.os_type as string),
-      } as any);
+    // Synthetic OS rows so OS-level CVEs (Windows, macOS, Linux kernel)
+    // can land on the device even when the kernel isn't in the package
+    // inventory. We include enough tokens so token-based matching works
+    // both ways (e.g. "linux kernel ubuntu" matches CVEs on "linux_kernel"
+    // AND CVEs scoped to vendor "ubuntu").
+    const osType = (device.os_type as string | null) ?? '';
+    const osName = (device.os_name as string | null) ?? '';
+    const osDistro = (device.os_distro as string | null) ?? '';
+    const osVersion = (device.os_version as string | null) ?? null;
+    if (osType === 'windows') {
+      software.push({ id: null, name: `Microsoft Windows ${osName || ''}`.trim(), version: osVersion, publisher: 'Microsoft' } as any);
+    } else if (osType === 'macos') {
+      software.push({ id: null, name: `Apple macOS ${osName || ''}`.trim(), version: osVersion, publisher: 'Apple' } as any);
+    } else if (osType === 'linux') {
+      software.push({ id: null, name: 'Linux Kernel', version: osVersion, publisher: 'Linux' } as any);
+      if (osDistro) software.push({ id: null, name: osDistro, version: osVersion, publisher: osDistro } as any);
+      if (osName && osName.toLowerCase() !== osDistro.toLowerCase()) {
+        software.push({ id: null, name: osName, version: osVersion, publisher: osDistro || osName } as any);
+      }
+    } else if (osType === 'freebsd') {
+      software.push({ id: null, name: 'FreeBSD', version: osVersion, publisher: 'freebsd' } as any);
     }
 
     if (software.length === 0) return 0;
 
-    const allCves = await db('cves').select('id', 'vendor', 'product');
+    const allCves = await db('cves').select('id', 'vendor', 'product', 'cpe_matches');
+
+    // Pre-tokenize the inventory once per device.
+    const swTokenized = software.map((s) => ({
+      raw: s,
+      nameTokens: tokenSet(s.name as string),
+      publisher: ((s.publisher as string | null) ?? '').toLowerCase(),
+    }));
 
     let inserted = 0;
-    for (const sw of software) {
-      const swName = (sw.name as string | null)?.toLowerCase() ?? '';
-      const swPublisher = (sw.publisher as string | null)?.toLowerCase() ?? '';
-      const swVersion = sw.version as string | null;
-      if (!swName) continue;
+    for (const cve of allCves) {
+      const cveVendor = ((cve.vendor as string | null) ?? '').toLowerCase();
+      const cveProduct = ((cve.product as string | null) ?? '').toLowerCase();
+      if (!cveProduct) continue;
 
-      for (const cve of allCves) {
-        const cveVendor = (cve.vendor as string | null)?.toLowerCase() ?? '';
-        const cveProduct = (cve.product as string | null)?.toLowerCase() ?? '';
-        if (!cveProduct) continue;
+      const cveProductTokens = tokenSet(cveProduct);
+      if (cveProductTokens.size === 0) continue;
 
-        let confidence: 'high' | 'medium' | 'low' | null = null;
-        const productHit = swName.includes(cveProduct) || cveProduct.includes(swName);
-        const vendorHit = cveVendor && (swPublisher.includes(cveVendor) || cveVendor.includes(swPublisher));
+      // CPE part introspection — feed comes back as parsed JSON via knex.
+      const cpes: string[] = Array.isArray(cve.cpe_matches)
+        ? (cve.cpe_matches as string[])
+        : (typeof cve.cpe_matches === 'string' ? safeParseJsonArray(cve.cpe_matches as string) : []);
+      const cpeParts = new Set<string>();
+      for (const c of cpes) {
+        const p = c.split(':')[2];
+        if (p) cpeParts.add(p);
+      }
+      // Hardware CVEs (routers, IoT boards) can't be matched against
+      // device_inventory_software — skip them outright. They're real
+      // CVEs but we have no signal to act on.
+      if (cpeParts.size > 0 && !cpeParts.has('a') && !cpeParts.has('o') && cpeParts.has('h')) continue;
 
-        if (productHit && vendorHit) confidence = 'high';
-        else if (productHit && cveProduct.length >= 6) confidence = 'medium';
-        else if (productHit) confidence = 'low';
+      const osScoped = cpeParts.has('o') && !cpeParts.has('a');
 
-        if (!confidence) continue;
+      // Short product name (<4 chars, e.g. "ios", "git", "vim") without
+      // a vendor field is a guaranteed FP magnet — only run them when
+      // we can cross-check the vendor.
+      const shortProduct = cveProduct.length < 4;
+      if (shortProduct && !cveVendor) continue;
+
+      // OS-level CVEs must match the device's OS family. Cisco IOS CVE
+      // (vendor=cisco, product=ios) is part=o → must NOT match Linux.
+      if (osScoped && !osTypeCompatible(cveVendor, cveProductTokens, osType)) continue;
+
+      for (const sw of swTokenized) {
+        const productMatch = subsetOf(cveProductTokens, sw.nameTokens);
+        if (!productMatch) continue;
+
+        const vendorMatch =
+          !!cveVendor &&
+          !!sw.publisher &&
+          (sw.publisher.includes(cveVendor) || cveVendor.includes(sw.publisher));
+
+        let confidence: 'high' | 'medium' | 'low';
+        if (vendorMatch) confidence = 'high';
+        else if (shortProduct) continue; // already filtered above but defence in depth
+        else if (cveProduct.length >= 6) confidence = 'medium';
+        else confidence = 'low';
 
         try {
           await db('device_cves')
@@ -260,18 +382,18 @@ class CveService {
               device_id: deviceId,
               tenant_id: device.tenant_id,
               cve_id: cve.id,
-              matched_software_id: sw.id ?? null,
-              matched_vendor: sw.publisher ?? null,
-              matched_product: sw.name,
-              matched_version: swVersion,
+              matched_software_id: (sw.raw.id as number | null) ?? null,
+              matched_vendor: (sw.raw.publisher as string | null) ?? null,
+              matched_product: sw.raw.name,
+              matched_version: (sw.raw.version as string | null) ?? null,
               match_confidence: confidence,
               matched_at: new Date(),
             })
             .onConflict(['device_id', 'cve_id', 'matched_product'])
             .merge({
-              matched_software_id: sw.id ?? null,
-              matched_vendor: sw.publisher ?? null,
-              matched_version: swVersion,
+              matched_software_id: (sw.raw.id as number | null) ?? null,
+              matched_vendor: (sw.raw.publisher as string | null) ?? null,
+              matched_version: (sw.raw.version as string | null) ?? null,
               match_confidence: confidence,
               matched_at: new Date(),
             });
