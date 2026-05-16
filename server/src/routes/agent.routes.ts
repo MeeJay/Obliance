@@ -136,6 +136,11 @@ router.post('/push', agentAuth, async (req, res, next) => {
       const NAMES: Record<number, string> = {
         11: 'Big Sur', 12: 'Monterey', 13: 'Ventura',
         14: 'Sonoma', 15: 'Sequoia',
+        // Apple renumbered macOS from 15→26 at WWDC 2025 to align with
+        // iOS — macOS Tahoe is the first under the new scheme. Future
+        // releases land in the `macOS X` generic branch below until
+        // their marketing name is added here.
+        26: 'Tahoe',
       };
       if (NAMES[major]) return NAMES[major];
       if (major === 10) {
