@@ -122,6 +122,42 @@ router.post('/push', agentAuth, async (req, res, next) => {
       return 'other';
     }
 
+    // gopsutil reports `Platform = "darwin"` for every Mac, so naïvely
+    // storing it as `os_name` makes the dashboard "Version" filter list
+    // a single "darwin" entry for the entire fleet. Same idea as the
+    // Windows convention: the major version maps to a marketing name
+    // (Sonoma / Sequoia / etc.) and that's what users mentally key on.
+    function macOsRelease(version: string | undefined): string | null {
+      if (!version) return null;
+      const m = version.match(/^(\d+)(?:\.(\d+))?/);
+      if (!m) return null;
+      const major = parseInt(m[1], 10);
+      const minor = m[2] ? parseInt(m[2], 10) : 0;
+      const NAMES: Record<number, string> = {
+        11: 'Big Sur', 12: 'Monterey', 13: 'Ventura',
+        14: 'Sonoma', 15: 'Sequoia',
+      };
+      if (NAMES[major]) return NAMES[major];
+      if (major === 10) {
+        const LEGACY: Record<number, string> = {
+          15: 'Catalina', 14: 'Mojave', 13: 'High Sierra',
+          12: 'Sierra', 11: 'El Capitan', 10: 'Yosemite',
+        };
+        return LEGACY[minor] ?? `macOS 10.${minor}`;
+      }
+      // Future releases — keep the major number visible so the version
+      // filter doesn't show "darwin" while we update the table.
+      return `macOS ${major}`;
+    }
+
+    function deriveOsName(osType: string, version: string | undefined, fallback: string | undefined): string | null {
+      if (osType === 'macos') {
+        const name = macOsRelease(version);
+        if (name) return name;
+      }
+      return fallback ?? null;
+    }
+
     // Look up device regardless of approval status
     let device = await db('devices')
       .where({ uuid: deviceUuid, tenant_id: tenantId })
@@ -136,7 +172,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         uuid: deviceUuid,
         hostname: hostname || deviceUuid,
         osType: toOsType(osInfo?.platform),
-        osName: osInfo?.distro || osInfo?.platform,
+        osName: deriveOsName(toOsType(osInfo?.platform), osInfo?.release, osInfo?.distro || osInfo?.platform) || undefined,
         osVersion: osInfo?.release,
         osArch: osInfo?.arch,
         agentVersion,
@@ -153,7 +189,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
       await db('devices').where({ id: device.id }).update({
         hostname: hostname || device.hostname,
         os_type: toOsType(osInfo?.platform) || device.os_type,
-        os_name: osInfo?.distro || osInfo?.platform || device.os_name,
+        os_name: deriveOsName(toOsType(osInfo?.platform), osInfo?.release, osInfo?.distro || osInfo?.platform) || device.os_name,
         os_version: osInfo?.release || device.os_version,
         os_arch: osInfo?.arch || device.os_arch,
         agent_version: agentVersion || device.agent_version,
