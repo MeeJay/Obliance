@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Shield, AlertCircle, RefreshCw, Loader2, ExternalLink, X, ChevronRight, Search } from 'lucide-react';
+import { Shield, AlertCircle, RefreshCw, Loader2, ExternalLink, X, ChevronRight, Search, Database, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { cveApi } from '@/api/cve.api';
 import { useAuthStore } from '@/store/authStore';
 import { TenantBadge } from '@/components/common/TenantBadge';
-import type { CveAggregated, CveAffectedDevice, CveStats } from '@obliance/shared';
+import type { CveAggregated, CveAffectedDevice, CveStats, CveSourceStats } from '@obliance/shared';
+
+// GHSA advisories without a CVE id (cveId starts with "GHSA-") aren't on
+// NVD — route those to github.com/advisories, everything else to NVD.
+function cveDetailUrl(cveId: string): string {
+  if (cveId?.startsWith('GHSA-')) return `https://github.com/advisories/${cveId}`;
+  return `https://nvd.nist.gov/vuln/detail/${cveId}`;
+}
 
 // Mirrors UpdatesPage in shape: header counters, filter chips, list of
 // CVEs sorted by severity / KEV / affected-count. Clicking a row pops a
@@ -32,23 +39,43 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
  const [severity, setSeverity] = useState<string>('');
  const [kevOnly, setKevOnly] = useState(false);
  const [selectedCve, setSelectedCve] = useState<CveAggregated | null>(null);
- const [syncing, setSyncing] = useState(false);
+ const [syncing, setSyncing] = useState<string | null>(null); // null | 'all' | sourceKey
+ const [sources, setSources] = useState<CveSourceStats[]>([]);
+ const [sourcesOpen, setSourcesOpen] = useState(false);
+ const sourcesRef = useRef<HTMLDivElement | null>(null);
 
  const load = async () => {
    setIsLoading(true);
    try {
-     const [aggregated, stat] = await Promise.all([
+     const [aggregated, stat, srcs] = await Promise.all([
        cveApi.listAggregated({ search: search || undefined, severity: severity || undefined, kevOnly, pageSize: 200 }),
        cveApi.getStats(),
+       cveApi.listSources().catch(() => [] as CveSourceStats[]),
      ]);
      setItems(aggregated.items);
      setStats(stat);
+     setSources(srcs);
    } catch {
      toast.error(t('common.error') || 'Loading CVEs failed');
    } finally {
      setIsLoading(false);
    }
  };
+
+ // Close the sources dropdown on outside-click + Escape.
+ useEffect(() => {
+   if (!sourcesOpen) return;
+   const onClick = (e: MouseEvent) => {
+     if (sourcesRef.current && !sourcesRef.current.contains(e.target as Node)) setSourcesOpen(false);
+   };
+   const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSourcesOpen(false); };
+   document.addEventListener('mousedown', onClick);
+   document.addEventListener('keydown', onKey);
+   return () => {
+     document.removeEventListener('mousedown', onClick);
+     document.removeEventListener('keydown', onKey);
+   };
+ }, [sourcesOpen]);
 
  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [severity, kevOnly]);
 
@@ -59,11 +86,22 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
    // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [search]);
 
- const handleSync = async () => {
-   setSyncing(true);
+ // `source` undefined → sync every registered source. With a key →
+ // refresh only that one (used by the per-source rows in the selector).
+ const handleSync = async (sourceKey?: string) => {
+   const tag = sourceKey ?? 'all';
+   setSyncing(tag);
    try {
-     const sync = await cveApi.sync();
-     toast.success(t('cves.syncDone', { upserted: sync.upserted }) || `CISA KEV: ${sync.upserted} CVEs synced`);
+     const result = await cveApi.sync(sourceKey);
+     if (result.sources) {
+       const ok = result.sources.filter((s) => s.ok);
+       const ko = result.sources.filter((s) => !s.ok);
+       const totalUpserted = ok.reduce((acc, s) => acc + (s.upserted ?? 0), 0);
+       toast.success(`Sync: ${ok.length}/${result.sources.length} sources OK, ${totalUpserted} CVE upserted`);
+       if (ko.length > 0) toast.error(`Failed: ${ko.map((s) => `${s.source} — ${s.error ?? '?'}`).join('; ')}`);
+     } else {
+       toast.success(t('cves.syncDone', { upserted: result.upserted ?? 0 }) || `Synced ${result.upserted ?? 0} CVEs`);
+     }
      const rescan = await cveApi.rescan();
      toast.success(t('cves.rescanDone', { devices: rescan.devices, matches: rescan.matches }) || `Rescan: ${rescan.devices} devices, ${rescan.matches} matches`);
      await load();
@@ -74,9 +112,17 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
      const detail = err?.response?.data?.error || err?.message;
      toast.error(detail ? `CVE sync: ${detail}` : (t('cves.syncFailed') || 'CVE sync failed'));
    } finally {
-     setSyncing(false);
+     setSyncing(null);
    }
  };
+
+ // Pick the source with the freshest CVE for the button label so the
+ // admin sees at a glance which catalog is "leading" right now.
+ const freshest = sources.reduce<CveSourceStats | null>((best, s) => {
+   if (!s.latestPublished) return best;
+   if (!best?.latestPublished) return s;
+   return new Date(s.latestPublished) > new Date(best.latestPublished) ? s : best;
+ }, null);
 
  const totalCves = stats?.totalCves ?? 0;
 
@@ -124,15 +170,28 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
          {t('common.refresh') || 'Refresh'}
        </button>
        {isAdmin() && (
-         <button
-           onClick={handleSync}
-           disabled={syncing}
-           className="px-3 py-1.5 text-sm bg-accent text-white rounded-md flex items-center gap-1.5 disabled:opacity-50"
-           title={t('cves.syncTooltip') || 'Pull CISA KEV catalog + rescan the fleet'}
-         >
-           {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-           {t('cves.syncButton') || 'Sync CISA KEV'}
-         </button>
+         <div ref={sourcesRef} className="relative">
+           <button
+             onClick={() => setSourcesOpen((v) => !v)}
+             disabled={!!syncing}
+             className="px-3 py-1.5 text-sm bg-accent text-white rounded-md flex items-center gap-1.5 disabled:opacity-50"
+             title={t('cves.sourcesTooltip') || 'Pick a CVE source to sync'}
+           >
+             {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+             {t('cves.sourcesButton') || 'Sources'}
+             <ChevronDown className="w-3 h-3 opacity-70" />
+           </button>
+           {sourcesOpen && (
+             <SourcesDropdown
+               sources={sources}
+               freshestKey={freshest?.key ?? null}
+               syncing={syncing}
+               onSync={(key) => { setSourcesOpen(false); void handleSync(key); }}
+               onSyncAll={() => { setSourcesOpen(false); void handleSync(); }}
+               onClose={() => setSourcesOpen(false)}
+             />
+           )}
+         </div>
        )}
      </div>
 
@@ -154,6 +213,7 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
                <th className="px-3 py-2 text-xs text-text-muted uppercase">{t('cves.colCve') || 'CVE'}</th>
                <th className="px-3 py-2 text-xs text-text-muted uppercase">{t('cves.colProduct') || 'Product'}</th>
                <th className="px-3 py-2 text-xs text-text-muted uppercase">{t('cves.colSeverity') || 'Severity'}</th>
+               <th className="px-3 py-2 text-xs text-text-muted uppercase">{t('cves.colPatched') || 'Patched in'}</th>
                <th className="px-3 py-2 text-xs text-text-muted uppercase text-right">{t('cves.colDevices') || 'Devices'}</th>
                <th className="px-3 py-2 text-xs text-text-muted uppercase">{t('cves.colDue') || 'Due'}</th>
                <th className="w-8"></th>
@@ -174,7 +234,7 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
                        </span>
                      )}
                      <a
-                       href={`https://nvd.nist.gov/vuln/detail/${c.cveId}`}
+                       href={cveDetailUrl(c.cveId)}
                        target="_blank" rel="noopener noreferrer"
                        onClick={(e) => e.stopPropagation()}
                        className="font-mono text-xs text-accent hover:underline"
@@ -190,6 +250,13 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
                  </td>
                  <td className="px-3 py-2">
                    <SeverityBadge severity={c.severity ?? 'unknown'} />
+                 </td>
+                 <td className="px-3 py-2 text-xs">
+                   {c.firstPatchedVersion ? (
+                     <span className="text-green-400 font-mono">{c.firstPatchedVersion}</span>
+                   ) : (
+                     <span className="text-text-muted/60">—</span>
+                   )}
                  </td>
                  <td className="px-3 py-2 text-right tabular-nums">
                    <div className="font-medium">{c.deviceCount}</div>
@@ -215,6 +282,100 @@ export function CvesPage(_props: { embedded?: boolean } = {}) {
      {selectedCve && (
        <AffectedDevicesDrawer cve={selectedCve} onClose={() => setSelectedCve(null)} />
      )}
+   </div>
+ );
+}
+
+function SourcesDropdown({
+ sources, freshestKey, syncing, onSync, onSyncAll, onClose,
+}: {
+ sources: CveSourceStats[];
+ freshestKey: string | null;
+ syncing: string | null;
+ onSync: (key: string) => void;
+ onSyncAll: () => void;
+ onClose: () => void;
+}) {
+ const { t } = useTranslation();
+ const fmt = (iso: string | null) => {
+   if (!iso) return '—';
+   const d = new Date(iso);
+   const days = Math.round((Date.now() - d.getTime()) / (24 * 3600 * 1000));
+   if (days === 0) return t('cves.today') || "Aujourd'hui";
+   if (days === 1) return t('cves.yesterday') || 'Hier';
+   if (days < 30) return t('cves.daysAgo', { days }) || `Il y a ${days}j`;
+   return d.toLocaleDateString();
+ };
+ return (
+   <div className="absolute right-0 top-full mt-1 w-[420px] bg-bg-secondary border border-bg-tertiary rounded-md shadow-2xl z-30 overflow-hidden">
+     <div className="px-3 py-2 text-[11px] uppercase font-semibold text-text-muted bg-bg-tertiary/40 border-b border-bg-tertiary">
+       {t('cves.sourcesHeading') || 'Sources de CVE'}
+     </div>
+     <div className="divide-y divide-bg-tertiary">
+       {sources.length === 0 && (
+         <div className="px-3 py-4 text-sm text-text-muted text-center">
+           {t('cves.noSources') || 'Aucune source enregistrée.'}
+         </div>
+       )}
+       {sources.map((s) => {
+         const isFreshest = s.key === freshestKey && s.count > 0;
+         const isSyncing = syncing === s.key;
+         return (
+           <div key={s.key} className="px-3 py-3">
+             <div className="flex items-start gap-2">
+               <div className="flex-1 min-w-0">
+                 <div className="flex items-center gap-2">
+                   <span className="text-sm font-semibold text-text-primary">{s.label}</span>
+                   {isFreshest && (
+                     <span className="text-[9px] uppercase px-1.5 py-0.5 rounded-full border border-green-400/40 text-green-400 bg-green-400/10 font-semibold">
+                       {t('cves.freshestBadge') || 'Le plus récent'}
+                     </span>
+                   )}
+                 </div>
+                 <div className="text-[11px] text-text-muted mt-0.5 leading-tight">{s.description}</div>
+                 <div className="mt-2 flex items-center gap-4 text-[11px] text-text-muted">
+                   <span>
+                     <span className="text-text-primary font-medium tabular-nums">{s.count}</span>{' '}
+                     {t('cves.entries') || 'entrées'}
+                   </span>
+                   <span title={s.latestPublished ? new Date(s.latestPublished).toLocaleString() : ''}>
+                     {t('cves.lastPublished') || 'Dernière publication'}: <span className="text-text-primary">{fmt(s.latestPublished)}</span>
+                   </span>
+                   <span title={s.lastSyncedAt ? new Date(s.lastSyncedAt).toLocaleString() : ''}>
+                     {t('cves.lastSync') || 'Dernier sync'}: <span className="text-text-primary">{fmt(s.lastSyncedAt)}</span>
+                   </span>
+                 </div>
+               </div>
+               <button
+                 onClick={() => onSync(s.key)}
+                 disabled={syncing !== null}
+                 className="px-2 py-1 text-xs rounded border border-bg-tertiary text-text-primary hover:bg-bg-tertiary disabled:opacity-50 flex items-center gap-1 shrink-0"
+                 title={t('cves.syncThis') || 'Synchroniser cette source'}
+               >
+                 {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                 {t('cves.sync') || 'Sync'}
+               </button>
+             </div>
+           </div>
+         );
+       })}
+     </div>
+     <div className="px-3 py-2 bg-bg-tertiary/40 border-t border-bg-tertiary flex items-center justify-between">
+       <button
+         onClick={onClose}
+         className="text-xs text-text-muted hover:text-text-primary"
+       >
+         {t('common.close') || 'Fermer'}
+       </button>
+       <button
+         onClick={onSyncAll}
+         disabled={syncing !== null}
+         className="text-xs px-3 py-1 rounded bg-accent text-white disabled:opacity-50 flex items-center gap-1.5"
+       >
+         {syncing === 'all' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+         {t('cves.syncAll') || 'Tout synchroniser'}
+       </button>
+     </div>
    </div>
  );
 }
@@ -274,7 +435,7 @@ function AffectedDevicesDrawer({ cve, onClose }: { cve: CveAggregated; onClose: 
            <div className="flex items-center gap-2">
              {cve.kevFlag && <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />}
              <a
-               href={`https://nvd.nist.gov/vuln/detail/${cve.cveId}`}
+               href={cveDetailUrl(cve.cveId)}
                target="_blank" rel="noopener noreferrer"
                className="font-mono text-sm text-accent hover:underline"
              >
@@ -286,6 +447,12 @@ function AffectedDevicesDrawer({ cve, onClose }: { cve: CveAggregated; onClose: 
            {(cve.vendor || cve.product) && (
              <div className="text-xs text-text-muted mt-1">
                {cve.vendor ? `${cve.vendor} / ` : ''}{cve.product}
+             </div>
+           )}
+           {cve.firstPatchedVersion && (
+             <div className="text-xs mt-1.5">
+               <span className="text-text-muted">{t('cves.patchedIn') || 'Patched in'}: </span>
+               <span className="text-green-400 font-mono">{cve.firstPatchedVersion}</span>
              </div>
            )}
          </div>

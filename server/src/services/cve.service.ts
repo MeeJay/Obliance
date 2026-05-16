@@ -30,13 +30,28 @@ import { isMasterTenant } from '@obliance/shared';
 // UAs, missing Sec-Fetch headers, …) — fighting it is a losing arms
 // race. NVD is purpose-built for programmatic consumption, replicates
 // every CISA KEV entry verbatim under the same `cisa*` fields, AND
-// enriches them with CVSS scores that CISA KEV doesn't expose. Bonus:
-// the same endpoint can later return non-KEV CVEs by dropping `hasKev`.
+// enriches them with CVSS scores that CISA KEV doesn't expose.
 //
-// Rate limit (anonymous): 5 requests / 30s rolling. We only need 1 call
-// per sync (max 2000 results/page, current KEV catalog ~1300 entries).
-const NVD_KEV_URL =
-  'https://services.nvd.nist.gov/rest/json/cves/2.0?hasKev&resultsPerPage=2000';
+// Rate limit (anonymous): 5 requests / 30s rolling. KEV fits in 1 call
+// (~1300 entries); the recent-CRITICAL feed paginates if needed
+// (default 2000 per page, typical ~600 entries / 90d).
+const NVD_BASE = 'https://services.nvd.nist.gov/rest/json/cves/2.0';
+const NVD_KEV_URL = `${NVD_BASE}?hasKev&resultsPerPage=2000`;
+
+// Source registry — drives both the runtime sync dispatcher and the UI
+// "sources" selector. Each source maps to a `source` value in the
+// `cves` table so the same row schema can carry several catalogs side
+// by side and the admin can compare them.
+export type CveSourceKey = 'nvd_kev' | 'nvd_recent_critical' | 'ghsa';
+
+// GHSA — GitHub Security Advisories. REST API, OSS package focus.
+// Without GITHUB_TOKEN: 60 req/h, ~6000 advisories max per sync. With
+// a token: 5000 req/h. We cap pagination at 30 pages (3000 entries)
+// per call and walk only the most recent — sync runs daily, so a
+// rolling window stays current without exhausting the rate limit.
+const GHSA_BASE = 'https://api.github.com/advisories';
+const GHSA_WINDOW_DAYS = 90;
+const GHSA_MAX_PAGES = 30;
 
 interface NvdCveItem {
   cve: {
@@ -51,7 +66,14 @@ interface NvdCveItem {
     };
     configurations?: Array<{
       nodes?: Array<{
-        cpeMatch?: Array<{ criteria: string; vulnerable?: boolean }>;
+        cpeMatch?: Array<{
+          criteria: string;
+          vulnerable?: boolean;
+          versionStartIncluding?: string;
+          versionStartExcluding?: string;
+          versionEndIncluding?: string;
+          versionEndExcluding?: string;
+        }>;
       }>;
     }>;
     cisaExploitAdd?: string;
@@ -127,20 +149,115 @@ function safeParseJsonArray(raw: string): string[] {
   } catch { return []; }
 }
 
+// ── GHSA types ──────────────────────────────────────────────────────────────
+// Subset of the GitHub Security Advisories REST schema we actually read.
+// Full schema docs: https://docs.github.com/en/rest/security-advisories/global-advisories
+interface GhsaVuln {
+  package?: { ecosystem?: string; name?: string };
+  vulnerable_version_range?: string;
+  first_patched_version?: string | null;
+}
+interface GhsaAdvisory {
+  ghsa_id: string;
+  cve_id: string | null;
+  summary?: string;
+  description?: string;
+  severity?: string;                          // low|medium|high|critical
+  cvss?: { score?: number; vector_string?: string };
+  identifiers?: Array<{ type: string; value: string }>;
+  references?: Array<{ url?: string }>;
+  published_at?: string;
+  updated_at?: string;
+  vulnerabilities?: GhsaVuln[];
+}
+
+// Parse the GitHub-style `Link` header and pull out the URL flagged
+// `rel="next"`. Returns null when we're on the last page.
+function parseLinkHeaderNext(header: string | null): string | null {
+  if (!header) return null;
+  for (const part of header.split(',')) {
+    const m = /<([^>]+)>;\s*rel="next"/.exec(part.trim());
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// Source registry — single place that defines every CVE source the app
+// knows about. The UI selector reads this list verbatim. To add a new
+// source: define its label / URL / kevFlag policy here, plumb a case in
+// the dispatcher below, and it shows up in the selector with live stats.
+export interface CveSourceMeta {
+  key: CveSourceKey;
+  label: string;
+  description: string;
+}
+const CVE_SOURCES: CveSourceMeta[] = [
+  {
+    key: 'nvd_kev',
+    label: 'NVD — CISA KEV',
+    description: 'CVE flaggées par CISA comme activement exploitées dans la nature. Catalogue compact (~1300 entrées), signal le plus actionnable.',
+  },
+  {
+    key: 'nvd_recent_critical',
+    label: 'NVD — CRITICAL récentes (90j)',
+    description: 'CVE CVSS 9+ publiées dans les 90 derniers jours. Capte les nouvelles vulnérabilités avant que CISA ne les ajoute au KEV.',
+  },
+  {
+    key: 'ghsa',
+    label: 'GitHub Security Advisories',
+    description: 'Advisories OSS (npm, pip, gem, cargo, maven, NuGet, …) sur les 90 derniers jours. Complémentaire à NVD pour les paquets de langage installés. Token GitHub optionnel (env GITHUB_TOKEN) pour relever le rate limit 60→5000 req/h.',
+  },
+];
+
 class CveService {
-  // ─── Sync from NVD (KEV-flagged subset) ──────────────────────────────────
-  // Method name stays `syncCisaKev` because the callers don't care that
-  // we changed transport — same conceptual catalog (CISA KEV entries),
-  // just pulled via NIST's API to bypass CISA's WAF.
-  async syncCisaKev(): Promise<{ fetched: number; upserted: number; failed: number }> {
+  listSourcesMeta(): CveSourceMeta[] { return CVE_SOURCES; }
+
+  // ─── Sync dispatcher ─────────────────────────────────────────────────────
+  // Routes a sync request to the right NVD endpoint. `syncCisaKev` kept
+  // as alias for backward compat (legacy callers + cron).
+  async syncCisaKev() { return this.syncSource('nvd_kev'); }
+
+  async syncSource(key: CveSourceKey): Promise<{ fetched: number; upserted: number; failed: number }> {
+    if (key === 'nvd_kev') return this._syncFromNvd('nvd_kev', NVD_KEV_URL, /* forceKev */ true);
+    if (key === 'nvd_recent_critical') {
+      // Window: last 90 days. NVD requires both pubStartDate and
+      // pubEndDate when one is given. CRITICAL = CVSS 9-10.
+      const end = new Date();
+      const start = new Date(Date.now() - 90 * 24 * 3600 * 1000);
+      const url =
+        `${NVD_BASE}?cvssV3Severity=CRITICAL` +
+        `&pubStartDate=${encodeURIComponent(start.toISOString())}` +
+        `&pubEndDate=${encodeURIComponent(end.toISOString())}` +
+        `&resultsPerPage=2000`;
+      return this._syncFromNvd('nvd_recent_critical', url, /* forceKev */ false);
+    }
+    if (key === 'ghsa') return this._syncFromGhsa();
+    throw new Error(`Unknown CVE source: ${key}`);
+  }
+
+  // Sync every source in sequence. Skips sources that throw so a single
+  // failing source doesn't take the whole job down. Used by the daily
+  // cron + the "Sync all" button.
+  async syncAllSources(): Promise<Array<{ source: CveSourceKey; ok: boolean; fetched?: number; upserted?: number; failed?: number; error?: string }>> {
+    const results: Array<{ source: CveSourceKey; ok: boolean; fetched?: number; upserted?: number; failed?: number; error?: string }> = [];
+    for (const meta of CVE_SOURCES) {
+      try {
+        const r = await this.syncSource(meta.key);
+        results.push({ source: meta.key, ok: true, ...r });
+      } catch (err) {
+        results.push({ source: meta.key, ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return results;
+  }
+
+  private async _syncFromNvd(sourceKey: CveSourceKey, url: string, forceKev: boolean): Promise<{ fetched: number; upserted: number; failed: number }> {
     const now = new Date();
     let feed: NvdFeed;
     try {
-      const res = await fetch(NVD_KEV_URL, {
+      const res = await fetch(url, {
         headers: {
           'Accept': 'application/json',
-          // NVD docs ask for a descriptive UA so they can contact you on
-          // abuse — keep something neutral and identifiable.
           'User-Agent': 'Obliance-RMM CVE sync (+https://obliance.io)',
         },
       });
@@ -158,7 +275,7 @@ class CveService {
         throw new Error('NVD payload malformed (vulnerabilities missing)');
       }
     } catch (err) {
-      logger.error({ err }, 'NVD fetch failed');
+      logger.error({ err, sourceKey }, 'NVD fetch failed');
       throw err;
     }
 
@@ -182,65 +299,257 @@ class CveService {
         ?? cve.metrics?.cvssMetricV2?.[0]?.cvssData
         ?? null;
       const cvssScore = typeof metric?.baseScore === 'number' ? metric.baseScore : null;
-      const severity = (metric?.baseSeverity ?? '').toLowerCase() || 'high'; // KEV → at least 'high'
+      // KEV sources default to 'high' since the feed itself is exploited-
+      // in-the-wild. Other sources rely on the real CVSS severity.
+      const severity =
+        (metric?.baseSeverity ?? '').toLowerCase()
+        || (forceKev ? 'high' : 'unknown');
 
       // Extract vendor / product from the FIRST CPE match. Store every
       // CPE string we saw under cpe_matches for advanced matchers later.
+      // Also pull the version-range info — used by the UI to display
+      // "Patched in X.Y.Z" / "Vulnerable from A.B.C…".
       const allCpes: string[] = [];
+      const affectedVersions: Array<{
+        cpe: string;
+        vendor: string | null;
+        product: string | null;
+        versionStartIncluding: string | null;
+        versionStartExcluding: string | null;
+        versionEndIncluding: string | null;
+        versionEndExcluding: string | null;
+      }> = [];
       for (const cfg of cve.configurations ?? []) {
         for (const node of cfg.nodes ?? []) {
           for (const m of node.cpeMatch ?? []) {
-            if (m.criteria) allCpes.push(m.criteria);
+            if (!m.criteria || m.vulnerable === false) continue;
+            allCpes.push(m.criteria);
+            const p = parseCpe(m.criteria);
+            affectedVersions.push({
+              cpe: m.criteria,
+              vendor: p.vendor,
+              product: p.product,
+              versionStartIncluding: m.versionStartIncluding ?? null,
+              versionStartExcluding: m.versionStartExcluding ?? null,
+              versionEndIncluding: m.versionEndIncluding ?? null,
+              versionEndExcluding: m.versionEndExcluding ?? null,
+            });
           }
         }
       }
       const parsed = allCpes.length > 0 ? parseCpe(allCpes[0]) : { vendor: null, product: null };
+      // First patched version = the earliest known fix. NVD encodes
+      // "fixed in vX" via versionEndExcluding (the upper bound a vuln
+      // range stops at — so the patched build is exactly that value).
+      // versionEndIncluding means the range still includes that version
+      // (less actionable as "patched in"), so we prefer Excluding.
+      let firstPatched: string | null = null;
+      for (const av of affectedVersions) {
+        if (av.versionEndExcluding) { firstPatched = av.versionEndExcluding; break; }
+      }
+      if (!firstPatched) {
+        for (const av of affectedVersions) {
+          if (av.versionEndIncluding) { firstPatched = `> ${av.versionEndIncluding}`; break; }
+        }
+      }
+
+      const kevFlag = forceKev || !!cve.cisaExploitAdd;
+      // For non-KEV sources we fall back to NVD's own publication date
+      // for the name (no cisaVulnerabilityName).
+      const cveName = cve.cisaVulnerabilityName ?? null;
 
       try {
         await db('cves')
           .insert({
             cve_id: cve.id,
-            source: 'nvd_kev',
+            source: sourceKey,
             vendor: parsed.vendor,
             product: parsed.product,
-            name: cve.cisaVulnerabilityName ?? null,
+            name: cveName,
             description: desc,
             severity,
             cvss_score: cvssScore,
-            kev_flag: true,
+            kev_flag: kevFlag,
             published_at: cve.published ? new Date(cve.published) : (cve.cisaExploitAdd ? new Date(cve.cisaExploitAdd) : null),
             modified_at: cve.lastModified ? new Date(cve.lastModified) : now,
             due_date: cve.cisaActionDue ? new Date(cve.cisaActionDue) : null,
             required_action: cve.cisaRequiredAction ?? null,
             references: JSON.stringify([]),
             cpe_matches: JSON.stringify(allCpes),
+            affected_versions: JSON.stringify(affectedVersions),
+            first_patched_version: firstPatched,
             synced_at: now,
           })
           .onConflict('cve_id')
           .merge({
+            // Keep the FIRST seen source — don't let a later non-KEV sync
+            // overwrite a row that came from KEV. We do however refresh
+            // every other field so the metadata stays fresh.
             vendor: parsed.vendor,
             product: parsed.product,
-            name: cve.cisaVulnerabilityName ?? null,
+            name: cveName,
             description: desc,
             severity,
             cvss_score: cvssScore,
-            kev_flag: true,
+            kev_flag: db.raw('GREATEST(cves.kev_flag::int, ?::int)::boolean', [kevFlag ? 1 : 0]),
             modified_at: cve.lastModified ? new Date(cve.lastModified) : now,
             due_date: cve.cisaActionDue ? new Date(cve.cisaActionDue) : null,
             required_action: cve.cisaRequiredAction ?? null,
             cpe_matches: JSON.stringify(allCpes),
+            affected_versions: JSON.stringify(affectedVersions),
+            first_patched_version: firstPatched,
             synced_at: now,
             updated_at: now,
           });
         upserted++;
       } catch (err) {
-        logger.error({ err, cve: cve.id }, 'NVD KEV row upsert failed');
+        logger.error({ err, cve: cve.id, sourceKey }, 'NVD row upsert failed');
         failed++;
       }
     }
 
-    logger.info({ fetched: feed.vulnerabilities.length, upserted, failed }, 'NVD KEV sync complete');
+    logger.info({ fetched: feed.vulnerabilities.length, upserted, failed, sourceKey }, 'NVD sync complete');
     return { fetched: feed.vulnerabilities.length, upserted, failed };
+  }
+
+  // ─── Sync from GitHub Security Advisories ────────────────────────────────
+  // OSS-package focused (npm, pip, gem, cargo, maven, NuGet, …). Paginates
+  // via the standard GitHub Link header, stops when we cross the rolling
+  // window or hit GHSA_MAX_PAGES. The cron runs daily so a 90-day window
+  // is plenty to stay current without slamming the rate limit.
+  private async _syncFromGhsa(): Promise<{ fetched: number; upserted: number; failed: number }> {
+    const now = new Date();
+    const cutoff = Date.now() - GHSA_WINDOW_DAYS * 24 * 3600 * 1000;
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'Obliance-RMM CVE sync (+https://obliance.io)',
+    };
+    // GITHUB_TOKEN raises the rate limit 60→5000 req/h. Without it we
+    // still work but the first sync may be slow on a large window.
+    const token = process.env.GITHUB_TOKEN?.trim();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let nextUrl: string | null = `${GHSA_BASE}?per_page=100&sort=published&direction=desc`;
+    let fetched = 0;
+    let upserted = 0;
+    let failed = 0;
+    let page = 0;
+
+    while (nextUrl && page < GHSA_MAX_PAGES) {
+      page++;
+      let res: Response;
+      try {
+        res = await fetch(nextUrl, { headers });
+      } catch (err) {
+        logger.error({ err, nextUrl }, 'GHSA fetch failed');
+        throw err;
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`GHSA fetch HTTP ${res.status}: ${body.slice(0, 200)}`);
+      }
+      const advisories = (await res.json()) as GhsaAdvisory[];
+      if (!Array.isArray(advisories) || advisories.length === 0) break;
+
+      let crossedCutoff = false;
+      for (const adv of advisories) {
+        fetched++;
+        const pubAt = adv.published_at ? new Date(adv.published_at).getTime() : 0;
+        if (pubAt && pubAt < cutoff) { crossedCutoff = true; continue; }
+        try {
+          await this._upsertGhsa(adv, now);
+          upserted++;
+        } catch (err) {
+          logger.error({ err, ghsa: adv.ghsa_id }, 'GHSA upsert failed');
+          failed++;
+        }
+      }
+      if (crossedCutoff) break;
+
+      // Parse Link header for the `rel="next"` URL. GitHub paginates
+      // via this standard envelope — when there's no next link we've
+      // hit the end.
+      nextUrl = parseLinkHeaderNext(res.headers.get('Link'));
+    }
+
+    logger.info({ fetched, upserted, failed, pages: page }, 'GHSA sync complete');
+    return { fetched, upserted, failed };
+  }
+
+  private async _upsertGhsa(adv: GhsaAdvisory, now: Date): Promise<void> {
+    // GHSA advisories often carry a CVE id; when they don't we use the
+    // GHSA-XXXX-XXXX-XXXX identifier as the catalog key. Both formats
+    // stay distinct so we never collide with NVD rows.
+    const cveId = adv.cve_id || adv.ghsa_id;
+    if (!cveId) return;
+
+    const vulns = Array.isArray(adv.vulnerabilities) ? adv.vulnerabilities : [];
+    const firstVuln = vulns[0];
+
+    // GHSA vendor concept = package ecosystem (npm, pip, gem, etc.) —
+    // we store the ecosystem in `vendor` and the package name in
+    // `product`. Token-based matching naturally lets a Linux package
+    // named `python3-requests` match a GHSA on pip/requests.
+    const vendor = firstVuln?.package?.ecosystem?.toLowerCase() ?? null;
+    const product = firstVuln?.package?.name ?? null;
+
+    // Aggregate every package's version-range data so the UI can show
+    // the patched-from version + the vulnerable range. Use the FIRST
+    // vuln's first_patched_version as the canonical "Patched in" hint.
+    const affectedVersions = vulns.map((v) => ({
+      cpe: null,
+      vendor: v.package?.ecosystem ?? null,
+      product: v.package?.name ?? null,
+      vulnerableRange: v.vulnerable_version_range ?? null,
+      firstPatchedVersion: v.first_patched_version ?? null,
+    }));
+    const firstPatched = vulns.find((v) => !!v.first_patched_version)?.first_patched_version ?? null;
+
+    const severity = (adv.severity ?? '').toLowerCase() || 'unknown';
+    const cvssScore = typeof adv.cvss?.score === 'number' ? adv.cvss.score : null;
+
+    await db('cves')
+      .insert({
+        cve_id: cveId,
+        source: 'ghsa',
+        vendor,
+        product,
+        name: adv.summary ?? null,
+        description: adv.description ?? null,
+        severity,
+        cvss_score: cvssScore,
+        kev_flag: false,
+        published_at: adv.published_at ? new Date(adv.published_at) : null,
+        modified_at: adv.updated_at ? new Date(adv.updated_at) : now,
+        due_date: null,
+        required_action: null,
+        references: JSON.stringify((adv.references ?? []).map((r) => r.url).filter(Boolean)),
+        cpe_matches: JSON.stringify([]),
+        affected_versions: JSON.stringify(affectedVersions),
+        first_patched_version: firstPatched,
+        synced_at: now,
+      })
+      .onConflict('cve_id')
+      .merge({
+        // Same GREATEST-on-kev_flag trick as the NVD path: a CVE that
+        // was already flagged KEV by another source must keep that flag
+        // when GHSA back-fills it without one.
+        vendor,
+        product,
+        name: adv.summary ?? null,
+        description: adv.description ?? null,
+        severity,
+        cvss_score: cvssScore,
+        kev_flag: db.raw('GREATEST(cves.kev_flag::int, 0::int)::boolean'),
+        modified_at: adv.updated_at ? new Date(adv.updated_at) : now,
+        references: JSON.stringify((adv.references ?? []).map((r) => r.url).filter(Boolean)),
+        affected_versions: JSON.stringify(affectedVersions),
+        first_patched_version: firstPatched,
+        synced_at: now,
+        updated_at: now,
+      });
   }
 
   // ─── Matching ────────────────────────────────────────────────────────────
@@ -361,6 +670,14 @@ class CveService {
       // (vendor=cisco, product=ios) is part=o → must NOT match Linux.
       if (osScoped && !osTypeCompatible(cveVendor, cveProductTokens, osType)) continue;
 
+      // Single-token CVE product names (e.g. `core`, `node`, `http`,
+      // `server`) match anywhere there's a package with that token in
+      // its name, so we require an explicit vendor cross-check before
+      // declaring a hit. Was: CVE-2020-15505 (Ivanti MobileIron
+      // vendor=mobileiron, product=core) lighting up `libevent-core`,
+      // `initramfs-tools-core` on stock Linux.
+      const singleToken = cveProductTokens.size === 1;
+
       for (const sw of swTokenized) {
         const productMatch = subsetOf(cveProductTokens, sw.nameTokens);
         if (!productMatch) continue;
@@ -369,6 +686,10 @@ class CveService {
           !!cveVendor &&
           !!sw.publisher &&
           (sw.publisher.includes(cveVendor) || cveVendor.includes(sw.publisher));
+
+        // Single-token products are too generic to act on without
+        // a vendor confirmation — drop them silently.
+        if (singleToken && !vendorMatch) continue;
 
         let confidence: 'high' | 'medium' | 'low';
         if (vendorMatch) confidence = 'high';
@@ -465,6 +786,7 @@ class CveService {
         'c.id', 'c.cve_id', 'c.vendor', 'c.product', 'c.name',
         'c.severity', 'c.cvss_score', 'c.kev_flag',
         'c.published_at', 'c.due_date',
+        'c.first_patched_version',
         db.raw('COUNT(DISTINCT dc.device_id)::int as device_count'),
         db.raw("COUNT(DISTINCT dc.device_id) FILTER (WHERE dc.match_confidence = 'high')::int as high_count"),
         db.raw("COUNT(DISTINCT dc.device_id) FILTER (WHERE dc.match_confidence = 'medium')::int as medium_count"),
@@ -490,6 +812,7 @@ class CveService {
         id: r.id, cveId: r.cve_id, vendor: r.vendor, product: r.product, name: r.name,
         severity: r.severity, cvssScore: r.cvss_score ? parseFloat(r.cvss_score) : null,
         kevFlag: r.kev_flag, publishedAt: r.published_at, dueDate: r.due_date,
+        firstPatchedVersion: r.first_patched_version ?? null,
         deviceCount: r.device_count,
         highCount: r.high_count, mediumCount: r.medium_count, lowCount: r.low_count,
       })),
@@ -538,6 +861,7 @@ class CveService {
         'c.id as cve_pk', 'c.cve_id', 'c.vendor', 'c.product', 'c.name',
         'c.severity', 'c.cvss_score', 'c.kev_flag',
         'c.published_at', 'c.due_date', 'c.description', 'c.required_action',
+        'c.first_patched_version',
       )
       .orderByRaw(`
         CASE WHEN c.kev_flag THEN 0 ELSE 1 END,
@@ -557,6 +881,7 @@ class CveService {
         severity: r.severity, cvssScore: r.cvss_score ? parseFloat(r.cvss_score) : null,
         kevFlag: r.kev_flag, publishedAt: r.published_at, dueDate: r.due_date,
         description: r.description, requiredAction: r.required_action,
+        firstPatchedVersion: r.first_patched_version ?? null,
       },
     }));
   }
@@ -570,6 +895,42 @@ class CveService {
       dismissed_by: userId,
     });
     return updated > 0;
+  }
+
+  // Per-source aggregate stats — drives the UI source selector. One row
+  // per source key registered in CVE_SOURCES, even if it has 0 CVE in
+  // the catalog (so the user sees the option exists and can sync it).
+  // `latestPublished` is the most recent CVE publication date in the
+  // source, `lastSyncedAt` is when we last hit the upstream feed.
+  async getSourcesStats(): Promise<Array<{
+    key: CveSourceKey; label: string; description: string;
+    count: number; latestPublished: string | null; lastSyncedAt: string | null;
+  }>> {
+    const rows = await db('cves')
+      .select('source')
+      .count('* as count')
+      .max('published_at as latest_published')
+      .max('synced_at as last_synced_at')
+      .groupBy('source') as Array<{ source: string; count: string | number; latest_published: Date | null; last_synced_at: Date | null }>;
+    const byKey = new Map<string, { count: number; latest: Date | null; lastSync: Date | null }>();
+    for (const r of rows) {
+      byKey.set(r.source, {
+        count: Number(r.count),
+        latest: r.latest_published,
+        lastSync: r.last_synced_at,
+      });
+    }
+    return this.listSourcesMeta().map((m) => {
+      const s = byKey.get(m.key);
+      return {
+        key: m.key,
+        label: m.label,
+        description: m.description,
+        count: s?.count ?? 0,
+        latestPublished: s?.latest ? new Date(s.latest).toISOString() : null,
+        lastSyncedAt: s?.lastSync ? new Date(s.lastSync).toISOString() : null,
+      };
+    });
   }
 
   async getStats(tenantId: number) {

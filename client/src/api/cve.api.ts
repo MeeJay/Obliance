@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { CveAggregated, CveAffectedDevice, CveStats, DeviceCve } from '@obliance/shared';
+import type { CveAggregated, CveAffectedDevice, CveStats, CveSourceStats, DeviceCve } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string }
 
@@ -38,11 +38,21 @@ export const cveApi = {
   async dismiss(deviceCveId: number): Promise<void> {
     await apiClient.post(`/cves/device-cve/${deviceCveId}/dismiss`);
   },
-  /** Admin trigger: forces a CISA KEV refresh (otherwise scheduled daily
-   *  by the server cron). Heavy on the matcher when followed by rescan. */
-  async sync(): Promise<{ fetched: number; upserted: number; failed: number }> {
-    const res = await apiClient.post<ApiResponse<{ fetched: number; upserted: number; failed: number }>>('/cves/sync');
-    return res.data.data ?? { fetched: 0, upserted: 0, failed: 0 };
+  /** Per-source stats — count, latest publication date, last sync time —
+   *  for every CVE catalog the server knows about. Drives the selector
+   *  in the CVE page so the admin can compare sources before picking
+   *  which one to refresh. */
+  async listSources(): Promise<CveSourceStats[]> {
+    const res = await apiClient.get<ApiResponse<CveSourceStats[]>>('/cves/sources');
+    return res.data.data ?? [];
+  },
+  /** Admin trigger: forces a sync. With `source` set, only that catalog
+   *  is refreshed. Without, every registered source is synced in sequence
+   *  (same routine the daily cron runs). */
+  async sync(source?: string): Promise<{ fetched?: number; upserted?: number; failed?: number; sources?: Array<{ source: string; ok: boolean; fetched?: number; upserted?: number; failed?: number; error?: string }> }> {
+    const url = source ? `/cves/sync?source=${encodeURIComponent(source)}` : '/cves/sync';
+    const res = await apiClient.post<ApiResponse<any>>(url);
+    return res.data.data ?? {};
   },
   async rescan(): Promise<{ devices: number; matches: number }> {
     const res = await apiClient.post<ApiResponse<{ devices: number; matches: number }>>('/cves/rescan');

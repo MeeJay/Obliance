@@ -79,18 +79,36 @@ router.post('/device-cve/:id/dismiss', requireRole('admin'), async (req, res, ne
   } catch (err) { next(err); }
 });
 
-// POST /api/cves/sync — manual trigger for the CISA KEV catalog sync.
-// Admin-only since it hits an external endpoint and can be expensive on
-// re-rescan if abused. The same routine is also scheduled by index.ts to
-// run daily, this endpoint is for force-refresh.
+// GET /api/cves/sources — per-source stats for the UI selector.
+// Returns one entry per known source with count + most recent published
+// CVE date + last sync timestamp. Stats are fleet-global (not tenant
+// scoped) since the CVE catalog is shared.
+router.get('/sources', async (_req, res, next) => {
+  try {
+    const sources = await cveService.getSourcesStats();
+    res.json({ data: sources });
+  } catch (err) { next(err); }
+});
+
+// POST /api/cves/sync[?source=KEY]
+//   - With `source` query param → sync only that source
+//   - Without → sync ALL registered sources (used by the cron + the
+//     "Sync all" button)
+// Admin-only because it hits external endpoints and triggers a rescan.
 //
 // We surface the underlying error message to the client (not just a
 // generic 500) so the admin can debug network / proxy issues without
 // having to shell into the container for logs.
-router.post('/sync', requireRole('admin'), async (_req, res) => {
+router.post('/sync', requireRole('admin'), async (req, res) => {
   try {
-    const result = await cveService.syncCisaKev();
-    res.json({ data: result });
+    const source = (req.query.source as string | undefined)?.trim();
+    if (source) {
+      const result = await cveService.syncSource(source as any);
+      res.json({ data: { source, ...result } });
+    } else {
+      const results = await cveService.syncAllSources();
+      res.json({ data: { sources: results } });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'CVE sync failed';
     res.status(500).json({ error: msg });

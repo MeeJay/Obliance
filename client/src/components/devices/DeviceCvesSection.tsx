@@ -7,6 +7,13 @@ import { cveApi } from '@/api/cve.api';
 import { useAuthStore } from '@/store/authStore';
 import type { DeviceCve } from '@obliance/shared';
 
+// Same GHSA/NVD dispatch as CvesPage — keep them in sync if you move
+// this into a shared util later.
+function cveDetailUrl(cveId: string): string {
+  if (cveId?.startsWith('GHSA-')) return `https://github.com/advisories/${cveId}`;
+  return `https://nvd.nist.gov/vuln/detail/${cveId}`;
+}
+
 // Per-device CVE list embedded in the Compliance tab of DeviceDetailPage.
 //
 // Lazy-loaded so we don't fetch /cves/device/:id for users who never open
@@ -114,7 +121,7 @@ export function DeviceCvesSection({ deviceId }: Props) {
                    </span>
                  )}
                  <a
-                   href={`https://nvd.nist.gov/vuln/detail/${it.cve.cveId}`}
+                   href={cveDetailUrl(it.cve.cveId)}
                    target="_blank" rel="noopener noreferrer"
                    className="font-mono text-xs text-accent hover:underline flex items-center gap-1"
                  >
@@ -136,6 +143,12 @@ export function DeviceCvesSection({ deviceId }: Props) {
                <div className="text-[11px] text-text-muted mt-1 truncate">
                  {t('cves.matchedAs') || 'Matched via'}: {[it.matchedVendor, it.matchedProduct, it.matchedVersion].filter(Boolean).join(' · ') || '—'}
                </div>
+               {it.cve.firstPatchedVersion && (
+                 <div className="text-[11px] mt-1">
+                   <span className="text-text-muted">{t('cves.patchedIn') || 'Patched in'}: </span>
+                   <span className="text-green-400 font-mono">{it.cve.firstPatchedVersion}</span>
+                 </div>
+               )}
                {it.cve.requiredAction && (
                  <div className="text-[11px] text-text-muted mt-1 italic">
                    {t('cves.requiredAction') || 'CISA action'}: {it.cve.requiredAction}

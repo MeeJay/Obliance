@@ -309,6 +309,12 @@ export interface Cve {
   publishedAt: string | null;
   dueDate: string | null;                           // CISA KEV remediation deadline
   requiredAction: string | null;
+  /** Earliest known fixed version, derived from the NVD cpeMatch's
+   *  `versionEndExcluding` (the upper bound the vulnerability stops at —
+   *  so the patched build is exactly that version). Prefixed with "> "
+   *  when only `versionEndIncluding` was available. Null when NVD has
+   *  no version range for this CVE. */
+  firstPatchedVersion: string | null;
 }
 
 /** Aggregated row for the fleet-wide CVE list — one entry per CVE with
@@ -325,6 +331,7 @@ export interface CveAggregated {
   kevFlag: boolean;
   publishedAt: string | null;
   dueDate: string | null;
+  firstPatchedVersion: string | null;
   deviceCount: number;
   highCount: number;
   mediumCount: number;
@@ -360,6 +367,21 @@ export interface CveStats {
   affectedDevices: number;
   kevCves: number;
   criticalCves: number;
+}
+
+export type CveSourceKey = 'nvd_kev' | 'nvd_recent_critical' | 'ghsa';
+
+/** Per-source aggregate exposed by GET /api/cves/sources. Drives the
+ *  CVE source selector dropdown in the UI: lets the admin compare the
+ *  registered catalogs (entry count, most recent CVE publication, last
+ *  sync time) and pick which one to refresh. */
+export interface CveSourceStats {
+  key: CveSourceKey;
+  label: string;
+  description: string;
+  count: number;
+  latestPublished: string | null;
+  lastSyncedAt: string | null;
 }
 
 export interface ScheduleAlert {
