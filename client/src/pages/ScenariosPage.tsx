@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, Upload, FileText, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
 
 /** Trigger a browser download of a JS object as JSON. Used by the
@@ -136,6 +137,7 @@ interface ScenarioFormData {
  timeoutSeconds: number;
  notifyOnSuccess: boolean;
  notifyOnFailure: boolean;
+ bypassPrivacyMode: boolean;
  notificationChannels: AutomationNotificationBinding[];
  /** Master-only fan-out target tenants. Null = local. */
  targetTenantIds: number[] | null;
@@ -155,6 +157,7 @@ const defaultForm: ScenarioFormData = {
  timeoutSeconds: 3600,
  notifyOnSuccess: false,
  notifyOnFailure: true,
+ bypassPrivacyMode: false,
  notificationChannels: [],
  targetTenantIds: null,
 };
@@ -184,6 +187,7 @@ function ScenarioStatusBadge({ status }: { status: ScenarioStatus }) {
 }
 
 export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  /** A scenario is read-only for the active tenant when it's owned by
  * another tenant AND we're not on the master tenant. Master always
@@ -398,6 +402,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  timeoutSeconds: full.timeoutSeconds,
  notifyOnSuccess: full.notifyOnSuccess,
  notifyOnFailure: full.notifyOnFailure,
+ bypassPrivacyMode: !!full.bypassPrivacyMode,
  notificationChannels: full.notificationChannels ?? [],
  targetTenantIds: full.targetTenantIds ?? null,
  });
@@ -444,17 +449,26 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  timeoutSeconds: form.timeoutSeconds,
  notifyOnSuccess: form.notifyOnSuccess,
  notifyOnFailure: form.notifyOnFailure,
+ bypassPrivacyMode: form.bypassPrivacyMode,
  notificationChannels: form.notificationChannels,
  // Master-only fan-out — server ignores this from non-master callers.
  targetTenantIds: form.targetTenantIds,
  };
 
  if (editingScenario) {
- await scenarioApi.update(editingScenario.id, payload);
- toast.success('Scenario updated');
+ // Server returns 202 with { approvalId, status: 'pending_approval' }
+ // when the bypass-privacy toggle flip needs second-admin sign-off.
+ // Axios passes that through as a normal success — surface it as a
+ // distinct toast so the admin knows the change isn't live yet.
+ const out = (await scenarioApi.update(editingScenario.id, payload)) as any;
+ if (out && out.status === 'pending_approval') {
+ toast.success(t('scenarios.privacyBypass.pendingApprovalToast') || 'Scenario saved — privacy-bypass toggle awaiting admin approval', { duration: 6000 });
+ } else {
+ toast.success(t('scenarios.savedToast') || 'Scenario updated');
+ }
  } else {
  await scenarioApi.create(payload);
- toast.success('Scenario created');
+ toast.success(t('scenarios.createdToast') || 'Scenario created');
  }
  setShowForm(false);
  setEditingScenario(null);
@@ -998,6 +1012,35 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  />
  </div>
  </div>
+ </div>
+
+ {/* Privacy bypass toggle — when on, the scenario runs on
+ devices currently in privacy mode. Default off. Flipping
+ this on is gated by the action-restriction matrix under
+ `scenario.bypass_privacy_mode` (default = double admin
+ approval), so the save call may return 202 / require 2FA
+ instead of completing immediately. */}
+ <div className="pt-4">
+ <h3 className="text-sm font-semibold text-text-primary mb-3">
+ {t('scenarios.privacyBypass.title') || 'Privacy mode'}
+ </h3>
+ <label className="flex items-start gap-3 px-3 py-3 rounded-lg bg-bg-tertiary cursor-pointer hover:border-accent/40 border border-transparent transition-colors">
+ <input
+ type="checkbox"
+ checked={form.bypassPrivacyMode}
+ onChange={(e) => setForm({ ...form, bypassPrivacyMode: e.target.checked })}
+ className="mt-0.5 w-4 h-4 accent-accent cursor-pointer"
+ />
+ <div className="flex-1">
+ <div className="text-sm font-medium text-text-primary">
+ {t('scenarios.privacyBypass.label') || 'Bypass privacy mode'}
+ </div>
+ <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
+ {t('scenarios.privacyBypass.hint') ||
+  "When off (default), devices in privacy mode are skipped silently. When on, the scenario runs on them too — overrides a user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings."}
+ </div>
+ </div>
+ </label>
  </div>
 
  {/* Notifications — moved to the graph (Send notification node).

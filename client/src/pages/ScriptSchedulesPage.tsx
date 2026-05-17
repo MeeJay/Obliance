@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { scriptApi } from '@/api/script.api';
@@ -44,6 +45,7 @@ interface ScheduleFormData {
  /** Optional override for the script's default timeout. Empty = use script default. */
  timeoutSeconds: number | null;
  skipIfInFlight: boolean;
+ bypassPrivacyMode: boolean;
  enabled: boolean;
  /** Master-only fan-out: extra tenants that see this schedule in
  * read-only. Null when the schedule is local. */
@@ -68,6 +70,7 @@ const defaultForm: ScheduleFormData = {
  notificationChannels: [],
  timeoutSeconds: null,
  skipIfInFlight: true,
+ bypassPrivacyMode: false,
  enabled: true,
  targetTenantIds: null,
 };
@@ -237,6 +240,7 @@ function HistoryBatchRow({ batch }: { batch: BatchData }) {
 }
 
 export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  /** A schedule is read-only when it's owned by another tenant AND we're
  * not on the master tenant. Master always has god-view edit rights. */
@@ -332,6 +336,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  notificationChannels: schedule.notificationChannels ?? [],
  timeoutSeconds: schedule.timeoutSeconds ?? null,
  skipIfInFlight: schedule.skipIfInFlight ?? true,
+ bypassPrivacyMode: !!schedule.bypassPrivacyMode,
  enabled: schedule.enabled,
  targetTenantIds: schedule.targetTenantIds ?? null,
  });
@@ -365,6 +370,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  notificationChannels: form.notificationChannels,
  timeoutSeconds: form.timeoutSeconds,
  skipIfInFlight: form.skipIfInFlight,
+ bypassPrivacyMode: form.bypassPrivacyMode,
  enabled: form.scheduleMode === 'now' ? true : form.enabled,
  // Master-only fan-out — server ignores from non-master callers.
  targetTenantIds: form.targetTenantIds,
@@ -373,8 +379,15 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  tenantId: 0,
  };
  if (editingSchedule) {
- await scriptApi.updateSchedule(editingSchedule.id, payload);
+ // 202 + pending_approval indicates the bypass-privacy flip is gated
+ // by the action-restriction matrix and now awaits second-admin sign-
+ // off. Axios passes 202 as success, so we sniff the body shape.
+ const out = (await scriptApi.updateSchedule(editingSchedule.id, payload)) as any;
+ if (out && out.status === 'pending_approval') {
+ toast.success(t('schedules.privacyBypass.pendingApprovalToast') || 'Schedule saved — privacy-bypass toggle awaiting admin approval', { duration: 6000 });
+ } else {
  toast.success('Schedule updated');
+ }
  } else {
  await scriptApi.createSchedule(payload as any);
  toast.success('Schedule created');
@@ -696,6 +709,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  onChange={(v) => setForm({ ...form, notifyOnce: v })}
  label="Notify once"
  title="Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts."
+ />
+ <ToggleSwitch
+ checked={form.bypassPrivacyMode}
+ onChange={(v) => setForm({ ...form, bypassPrivacyMode: v })}
+ label={t('schedules.privacyBypass.label') || 'Bypass privacy mode'}
+ title={t('schedules.privacyBypass.hint') ||
+  "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings."}
  />
  </div>
 

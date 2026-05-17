@@ -28,3 +28,8 @@ CLAUDE.md
 PLAN.md
 custom/
 start.ps1
+# Build-time //go:embed payloads that the wizard sources copy in before
+# compilation and remove after. Should never be committed — the canonical
+# binaries live in agent/dist/.
+agent/cmd/wizard/obliance-agent.msi
+agent/cmd/wizard-linux/obliance-agent

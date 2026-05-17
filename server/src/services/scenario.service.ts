@@ -33,6 +33,7 @@ function rowToScenario(row: any): Scenario {
     timeoutSeconds: row.timeout_seconds,
     notifyOnSuccess: row.notify_on_success,
     notifyOnFailure: row.notify_on_failure,
+    bypassPrivacyMode: row.bypass_privacy_mode ?? false,
     notificationChannels: typeof row.notification_channels === 'string'
       ? JSON.parse(row.notification_channels)
       : (row.notification_channels || []),
@@ -313,6 +314,7 @@ export const scenarioService = {
         timeout_seconds: data.timeoutSeconds ?? 3600,
         notify_on_success: data.notifyOnSuccess ?? false,
         notify_on_failure: data.notifyOnFailure ?? true,
+        bypass_privacy_mode: (data as any).bypassPrivacyMode === true,
         notification_channels: JSON.stringify((data as any).notificationChannels || []),
         variables: JSON.stringify(data.variables || {}),
         target_tenant_ids: fanOut,
@@ -380,6 +382,7 @@ export const scenarioService = {
       if (data.timeoutSeconds !== undefined) updates.timeout_seconds = data.timeoutSeconds;
       if (data.notifyOnSuccess !== undefined) updates.notify_on_success = data.notifyOnSuccess;
       if (data.notifyOnFailure !== undefined) updates.notify_on_failure = data.notifyOnFailure;
+      if ((data as any).bypassPrivacyMode !== undefined) updates.bypass_privacy_mode = (data as any).bypassPrivacyMode === true;
       if ((data as any).notificationChannels !== undefined) updates.notification_channels = JSON.stringify((data as any).notificationChannels);
       if (data.variables !== undefined) updates.variables = JSON.stringify(data.variables);
       // Fan-out edits gated to master only — child tenant admins cannot
@@ -567,6 +570,7 @@ export const scenarioService = {
         timeoutSeconds: scenario.timeoutSeconds,
         notifyOnSuccess: scenario.notifyOnSuccess,
         notifyOnFailure: scenario.notifyOnFailure,
+        bypassPrivacyMode: scenario.bypassPrivacyMode,
         notificationChannels: scenario.notificationChannels,
         variables: scenario.variables,
         // status intentionally omitted — imports always land as 'draft'
@@ -839,6 +843,7 @@ export const scenarioService = {
         timeout_seconds: meta.timeoutSeconds ?? 3600,
         notify_on_success: meta.notifyOnSuccess ?? false,
         notify_on_failure: meta.notifyOnFailure ?? true,
+        bypass_privacy_mode: meta.bypassPrivacyMode === true,
         notification_channels: JSON.stringify(meta.notificationChannels ?? []),
         variables: JSON.stringify(meta.variables ?? {}),
         created_by: opts.userId,
@@ -982,6 +987,10 @@ export const scenarioService = {
         timeoutSeconds: 3600,
         notifyOnSuccess: false,
         notifyOnFailure: true,
+        // When true, the scenario runs on devices currently in privacy
+        // mode too. Default false — flipping it on is gated by the
+        // tenant's action-restriction matrix (`scenario.bypass_privacy_mode`).
+        bypassPrivacyMode: false,
         notificationChannels: [],
         variables: { EXAMPLE_KEY: 'EXAMPLE_VALUE' },
       },

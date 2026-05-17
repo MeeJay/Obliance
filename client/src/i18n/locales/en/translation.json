@@ -1607,7 +1607,12 @@
     "assertPassHelp": "If the script exits with a non-zero code, the device will show a \"Schedule Error\" status and a notification will be sent.",
     "assertPassBadge": "Assert",
     "notifyOnce": "Notify once",
-    "notifyOnceHint": "Only send one alert per device until recovery — no repeated notifications on consecutive failures."
+    "notifyOnceHint": "Only send one alert per device until recovery — no repeated notifications on consecutive failures.",
+    "privacyBypass": {
+      "label": "Bypass privacy mode",
+      "hint": "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings.",
+      "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
+    }
   },
   "policies": {
     "title": "Policies",
@@ -2037,6 +2042,12 @@
     "retryDelay": "Retry Delay (seconds)",
     "notifyOnSuccess": "Notify on success",
     "notifyOnFailure": "Notify on failure",
+    "privacyBypass": {
+      "title": "Privacy mode",
+      "label": "Bypass privacy mode",
+      "hint": "When off (default), devices in privacy mode are skipped silently. When on, the scenario runs on them too — overrides a user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings.",
+      "pendingApprovalToast": "Scenario saved — privacy-bypass toggle awaiting admin approval"
+    },
     "noScenarios": "No scenarios yet",
     "triggerTypes": {
       "session_login": "Session Login",

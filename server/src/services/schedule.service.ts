@@ -132,9 +132,19 @@ class ScheduleService {
       }
 
       let skipped = 0;
+      let skippedPrivacy = 0;
       for (const device of devices) {
         if (inFlight.has(device.id)) {
           skipped++;
+          continue;
+        }
+        // Privacy gate: a generic schedule shouldn't sweep over a user
+        // who has explicitly enabled privacy mode. The bypass flag is
+        // gated by the action-restriction matrix (`restricted` by
+        // default), so when an admin has enabled it the schedule is
+        // expected to run on privacy-mode devices too.
+        if (device.privacy_mode_enabled && !schedule.bypass_privacy_mode) {
+          skippedPrivacy++;
           continue;
         }
         // Check run conditions
@@ -145,6 +155,9 @@ class ScheduleService {
       }
       if (skipped > 0) {
         logger.info({ scheduleId: schedule.id, skipped }, 'schedule: skipped devices with in-flight execution');
+      }
+      if (skippedPrivacy > 0) {
+        logger.info({ scheduleId: schedule.id, skipped: skippedPrivacy }, 'schedule: skipped privacy-mode devices (bypass disabled)');
       }
 
       // Handle catch-up: find missed executions
@@ -183,6 +196,9 @@ class ScheduleService {
     for (const missedTime of missed) {
       const catchupBatchId = crypto.randomUUID();
       for (const device of devices) {
+        // Same privacy gate as the live tick — catch-up shouldn't bypass
+        // a user's privacy choice either.
+        if (device.privacy_mode_enabled && !schedule.bypass_privacy_mode) continue;
         await this.dispatchExecution(schedule, device, now, true, missedTime, catchupBatchId);
       }
     }
@@ -319,7 +335,11 @@ class ScheduleService {
       catchup_for_at: catchupForAt || null,
     }).returning('*');
 
-    // Enqueue command
+    // Enqueue command. bypassPrivacy is set when the schedule carries
+    // the flag — the agent honors it at handler time to ignore its own
+    // privacy gate. Without this signal a command sent to a privacy-mode
+    // device would be rejected by the agent even though the server has
+    // already authorized the bypass.
     const cmd = await commandService.enqueue({
       deviceId: device.id,
       tenantId: schedule.tenant_id,
@@ -332,6 +352,7 @@ class ScheduleService {
         timeoutSeconds: effectiveTimeout,
         expectedExitCode: script.expected_exit_code ?? 0,
         runAs: script.run_as,
+        ...(schedule.bypass_privacy_mode ? { bypassPrivacy: true } : {}),
       },
       priority: 'normal',
       expiresInSeconds: effectiveTimeout + 300,

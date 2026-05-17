@@ -19,7 +19,7 @@ import { isMasterTenant } from '@obliance/shared';
 
 const EXPIRY_MINUTES = 30;
 
-export type ApprovalRequestType = 'batch_command' | 'device_uninstall';
+export type ApprovalRequestType = 'batch_command' | 'device_uninstall' | 'setting_change';
 
 export interface BatchCommandPayload {
   action: string;              // 'reboot' | 'shutdown' | 'restart_agent' | ...
@@ -31,6 +31,18 @@ export interface DeviceUninstallPayload {
   deviceId: number;
 }
 
+// Generic setting flip — used today for the scenario / schedule
+// `bypass_privacy_mode` toggle. Targets a row by (entityType, entityId)
+// in the requester's tenant and overwrites a single column when the
+// second admin approves. Keep the field list narrow on the executor
+// side so an attacker can't repurpose approvals to flip unrelated rows.
+export interface SettingChangePayload {
+  entityType: 'scenario' | 'schedule';
+  entityId: number;
+  field: 'bypassPrivacyMode';
+  value: boolean;
+}
+
 export interface PendingApproval {
   id: number;
   tenantId: number;
@@ -38,7 +50,7 @@ export interface PendingApproval {
   requestedByName?: string | null;
   requestType: ApprovalRequestType;
   description: string;
-  payload: BatchCommandPayload | DeviceUninstallPayload;
+  payload: BatchCommandPayload | DeviceUninstallPayload | SettingChangePayload;
   status: 'pending' | 'approved' | 'denied' | 'executed' | 'expired' | 'cancelled';
   reviewedBy: number | null;
   reviewedByName?: string | null;
@@ -82,7 +94,7 @@ export const approvalService = {
     userId: number;
     requestType: ApprovalRequestType;
     description: string;
-    payload: BatchCommandPayload | DeviceUninstallPayload;
+    payload: BatchCommandPayload | DeviceUninstallPayload | SettingChangePayload;
   }): Promise<PendingApproval> {
     const expiresAt = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000);
     const [row] = await db('pending_approvals').insert({
@@ -159,6 +171,8 @@ export const approvalService = {
         await this._executeBatch(row.tenant_id, row.requested_by, payload as BatchCommandPayload);
       } else if (row.request_type === 'device_uninstall') {
         await this._executeUninstall(row.tenant_id, row.requested_by, payload as DeviceUninstallPayload);
+      } else if (row.request_type === 'setting_change') {
+        await this._executeSettingChange(row.tenant_id, payload as SettingChangePayload);
       }
       await db('pending_approvals').where({ id: row.id }).update({ status: 'executed', executed_at: new Date() });
     } catch (err) {
@@ -263,5 +277,25 @@ export const approvalService = {
       priority: 'urgent',
       createdBy: userId,
     });
+  },
+
+  /** Apply a single approved setting flip. Strict allowlist on
+   *  (entityType, field) so an attacker who plants a malformed approval
+   *  payload can't repurpose this to write arbitrary columns. */
+  async _executeSettingChange(tenantId: number, payload: SettingChangePayload): Promise<void> {
+    if (payload.field !== 'bypassPrivacyMode' || typeof payload.value !== 'boolean') {
+      logger.warn({ payload }, 'setting_change approval: unsupported field — ignored');
+      return;
+    }
+    const table = payload.entityType === 'scenario' ? 'scenarios'
+                : payload.entityType === 'schedule' ? 'script_schedules'
+                : null;
+    if (!table) {
+      logger.warn({ payload }, 'setting_change approval: unknown entityType — ignored');
+      return;
+    }
+    await db(table)
+      .where({ id: payload.entityId, tenant_id: tenantId })
+      .update({ bypass_privacy_mode: payload.value, updated_at: new Date() });
   },
 };

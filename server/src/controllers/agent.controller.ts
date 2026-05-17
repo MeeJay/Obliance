@@ -144,7 +144,11 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   // through agentInstallerWizard below (which can also append a
   // pre-fill config tail). The bare /download/ alias is kept here so
   // ops can fetch the un-configured template via curl in scripts.
-  'obliance-installer-wizard.exe':  'obliance-installer-wizard.exe',
+  'obliance-installer-wizard.exe':         'obliance-installer-wizard.exe',
+  // Linux equivalent of the wizard — static binary with the agent
+  // //go:embed'd. Served by agentInstallerWizardLinux below which can
+  // append the same pre-fill tail blob as the Windows variant.
+  'obliance-installer-wizard-linux-amd64': 'obliance-installer-wizard-linux-amd64',
 };
 
 export function agentDownload(req: Request, res: Response): void {
@@ -346,6 +350,63 @@ export async function agentInstallerWizard(req: Request, res: Response): Promise
 
   res.setHeader('Content-Type', 'application/octet-stream');
   res.setHeader('Content-Disposition', 'attachment; filename="obliance-installer-wizard.exe"');
+  res.setHeader('Content-Length', String(payload.length));
+  res.send(payload);
+}
+
+/**
+ * GET /api/agent/installer/wizard-linux-amd64[?keyId=N&server=URL]
+ *
+ * Linux counterpart to agentInstallerWizard. Streams the static Linux
+ * wizard binary (built by 000-RegularUpdate.bat / test-build-wizard-linux.bat
+ * into agent/dist/obliance-installer-wizard-linux-amd64) with the same
+ * OBLI_CFG tail-blob protocol for pre-filled server URL + API key.
+ *
+ * Why we need this when curl|bash already works:
+ *   - Old CentOS/RHEL boxes can't validate the Obliance TLS cert
+ *     (CA bundle pre-2018-ish) → curl errors out with HTTP 35.
+ *   - Bandwidth-restricted / air-gapped boxes where `curl | bash` can't
+ *     reach the server at all. The wizard is hand-carried via SCP / USB
+ *     and the agent inside it boots with tlsInsecureSkipVerify=true so
+ *     it sidesteps the CA store entirely.
+ */
+export async function agentInstallerWizardLinux(req: Request, res: Response): Promise<void> {
+  const binPath = path.resolve(__dirname, '../../../../agent/dist/obliance-installer-wizard-linux-amd64');
+  if (!fs.existsSync(binPath)) {
+    res.status(404).json({ error: 'Linux wizard not available (not yet built)' });
+    return;
+  }
+
+  const baseBin = fs.readFileSync(binPath);
+  const tenantId = (req as any).tenantId as number | undefined;
+  const keyIdRaw = req.query.keyId;
+  const keyId = typeof keyIdRaw === 'string' ? parseInt(keyIdRaw, 10) : NaN;
+
+  let payload: Buffer = baseBin;
+
+  if (Number.isFinite(keyId) && tenantId) {
+    const isMaster = isMasterTenant(tenantId);
+    const q = db('agent_api_keys').where({ id: keyId });
+    if (!isMaster) q.where({ tenant_id: tenantId });
+    const row = await q.first() as { key: string } | undefined;
+    if (row?.key) {
+      const overrideServer = typeof req.query.server === 'string' ? req.query.server.trim() : '';
+      const requestProto = (req.headers['x-forwarded-proto'] as string) || req.protocol;
+      const requestHost = (req.headers['x-forwarded-host'] as string) || req.get('host') || '';
+      const inferredServer = requestHost ? `${requestProto}://${requestHost}` : '';
+      const cfg = JSON.stringify({
+        serverUrl: overrideServer || inferredServer,
+        apiKey: row.key,
+      });
+      const cfgBuf = Buffer.from(cfg, 'utf8');
+      const lenBuf = Buffer.alloc(4);
+      lenBuf.writeUInt32LE(cfgBuf.length, 0);
+      payload = Buffer.concat([baseBin, cfgBuf, CFG_MAGIC, lenBuf]);
+    }
+  }
+
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'attachment; filename="obliance-installer-wizard-linux-amd64"');
   res.setHeader('Content-Length', String(payload.length));
   res.send(payload);
 }

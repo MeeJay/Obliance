@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireRole, requireAnyTenantCapability } from '../middleware/rbac';
-import { listKeys, createKey, updateKey, deleteKey, agentInstallerWizard } from '../controllers/agent.controller';
+import { listKeys, createKey, updateKey, deleteKey, agentInstallerWizard, agentInstallerWizardLinux } from '../controllers/agent.controller';
 
 const router = Router();
 
@@ -30,6 +30,17 @@ router.get(
   '/installer/wizard.exe',
   requireAnyTenantCapability('agent_config:keys', 'agent_config:approval'),
   agentInstallerWizard,
+);
+
+// Linux equivalent — same pre-fill protocol (OBLI_CFG tail blob), same
+// auth gate. Lets admins seed the wizard with a chosen API key so the
+// operator on the target box has nothing to type. Useful for old
+// CentOS/RHEL boxes that can't run `curl | bash` because of their CA
+// stores being out of date.
+router.get(
+  '/installer/wizard-linux-amd64',
+  requireAnyTenantCapability('agent_config:keys', 'agent_config:approval'),
+  agentInstallerWizardLinux,
 );
 
 export default router;

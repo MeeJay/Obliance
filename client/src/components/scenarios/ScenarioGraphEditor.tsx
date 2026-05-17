@@ -30,6 +30,8 @@ import { getSocket } from '@/socket/socketClient';
 import type { ScenarioNodeType, ScenarioEdgeCondition, Script, Device, ScriptCategory } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { NODE_TYPES, NODE_TYPE_BY_KEY, isTriggerType, type NodeTypeMeta, type NodeFieldDef } from './scenarioNodeRegistry';
+import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
+import type { AutomationNotificationBinding } from '@obliance/shared';
 
 // ── Aggregated run status across N parallel device runs ─────────────────────
 // Multi-device test runs spawn one scenario_run per device. The editor
@@ -1687,9 +1689,10 @@ function NodeConfigForm({
  </>
  )}
  {f.kind === 'channels' && (
- <div className="text-[11px] text-text-muted italic px-2 py-1 rounded bg-bg-primary">
- Configure notification channels in tenant settings; this node will use the scenario's globally bound channels.
- </div>
+ <NotificationChannelBindings
+ value={Array.isArray(cfg[f.key]) ? (cfg[f.key] as AutomationNotificationBinding[]) : []}
+ onChange={(next) => setField(f.key, next)}
+ />
  )}
  {f.kind === 'targetDevices' && (
  <TargetDevicePicker

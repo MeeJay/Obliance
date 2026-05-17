@@ -48,5 +48,17 @@ GOOS=freebsd GOARCH=amd64 go build \
   -ldflags="-s -w" \
   -o dist/obliance-watchdog-freebsd-amd64 ./cmd/watchdog/
 
+# Linux install wizard — static binary with the just-built linux/amd64
+# agent //go:embed'd. Distributed as a standalone executable for boxes
+# that can't run `curl | bash` (outdated CA stores, no outbound HTTP,
+# corporate TLS interception). Build wizard amd64 only — every Linux
+# server we'd hand-deploy to is x86_64; can add arm64 later if needed.
+echo "  [extra] install wizard linux/amd64..."
+cp dist/obliance-agent-linux-amd64 cmd/wizard-linux/obliance-agent
+GOOS=linux GOARCH=amd64 go build \
+  -ldflags="-s -w -X main.version=${VERSION}" \
+  -o dist/obliance-installer-wizard-linux-amd64 ./cmd/wizard-linux
+rm -f cmd/wizard-linux/obliance-agent
+
 echo "Done. Binaries:"
-ls -lh dist/obliance-agent-linux-* dist/obliance-agent-freebsd-* dist/obliance-watchdog-linux-* dist/obliance-watchdog-freebsd-*
+ls -lh dist/obliance-agent-linux-* dist/obliance-agent-freebsd-* dist/obliance-watchdog-linux-* dist/obliance-watchdog-freebsd-* dist/obliance-installer-wizard-linux-*

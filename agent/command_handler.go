@@ -143,12 +143,16 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	var result interface{}
 	var execErr error
 
-	// Privacy mode: reject remote-access commands, unless a valid unlock
-	// token is provided in the payload for the requested feature.
+	// Privacy mode: reject remote-access commands, unless EITHER a valid
+	// unlock token is provided for the requested feature OR the server
+	// flagged the command as an admin-authorized bypass (set by the
+	// scenario / schedule "bypass privacy mode" toggle, which is itself
+	// gated by the per-tenant action-restriction matrix server-side).
 	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
+		bypass, _ := cmd.Payload["bypassPrivacy"].(bool)
 		token, _ := cmd.Payload["unlockToken"].(string)
 		feature := privacyFeatureForCommand(cmd.Type)
-		if !CheckUnlockToken(token, feature) {
+		if !bypass && !CheckUnlockToken(token, feature) {
 			log.Printf("Command %s (%s) blocked by privacy mode", cmd.ID, cmd.Type)
 			d.addAck(CommandAck{
 				CommandID:   cmd.ID,
@@ -158,7 +162,11 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 			})
 			return
 		}
-		log.Printf("Command %s (%s) allowed via privacy unlock token", cmd.ID, cmd.Type)
+		if bypass {
+			log.Printf("Command %s (%s) allowed via server-authorized privacy bypass", cmd.ID, cmd.Type)
+		} else {
+			log.Printf("Command %s (%s) allowed via privacy unlock token", cmd.ID, cmd.Type)
+		}
 	}
 
 	switch cmd.Type {
@@ -1924,8 +1932,9 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 // without waiting for the next HTTP push cycle.
 func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 	if IsPrivacyMode() && isBlockedByPrivacy(cmd.Type) {
+		bypass, _ := cmd.Payload["bypassPrivacy"].(bool)
 		token, _ := cmd.Payload["unlockToken"].(string)
-		if !CheckUnlockToken(token, privacyFeatureForCommand(cmd.Type)) {
+		if !bypass && !CheckUnlockToken(token, privacyFeatureForCommand(cmd.Type)) {
 			return nil, fmt.Errorf("privacy mode is enabled — remote access denied")
 		}
 	}

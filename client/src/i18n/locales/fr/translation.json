@@ -1581,7 +1581,12 @@
     "assertPassHelp": "Si le script se termine avec un code de sortie non nul, l'appareil affichera \"Erreur planification\" et une notification sera envoyée.",
     "assertPassBadge": "Assert",
     "notifyOnce": "Notifier une seule fois",
-    "notifyOnceHint": "N'envoie qu'une seule alerte par appareil jusqu'au rétablissement — pas de notifications répétées sur des échecs consécutifs."
+    "notifyOnceHint": "N'envoie qu'une seule alerte par appareil jusqu'au rétablissement — pas de notifications répétées sur des échecs consécutifs.",
+    "privacyBypass": {
+      "label": "Passer à travers le mode privacy",
+      "hint": "Désactivée (par défaut), les appareils en mode privacy sont silencieusement ignorés. Activée, la planification s'exécute aussi sur ces appareils — outrepasse le choix explicite de l'utilisateur. L'activation peut exiger une validation administrateur selon la matrice de restrictions du tenant.",
+      "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
+    }
   },
   "policies": {
     "title": "Politiques",
@@ -2036,6 +2041,12 @@
     "retryDelay": "Retry Delay (seconds)",
     "notifyOnSuccess": "Notify on success",
     "notifyOnFailure": "Notify on failure",
+    "privacyBypass": {
+      "title": "Mode privacy",
+      "label": "Passer à travers le mode privacy",
+      "hint": "Désactivée (par défaut), les appareils en mode privacy sont silencieusement ignorés. Activée, le scénario s'exécute aussi sur ces appareils — outrepasse le choix explicite de l'utilisateur. L'activation peut exiger une validation administrateur selon la matrice de restrictions du tenant.",
+      "pendingApprovalToast": "Scénario enregistré — le passage en privacy attend la validation d'un second administrateur"
+    },
     "noScenarios": "No scenarios yet",
     "triggerTypes": {
       "session_login": "Session Login",

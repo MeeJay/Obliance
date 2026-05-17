@@ -29,6 +29,7 @@ function rowToSchedule(row: any) {
     timeoutSeconds: row.timeout_seconds ?? null,
     skipIfInFlight: row.skip_if_in_flight !== false,
     notifyOnce: row.notify_once ?? false,
+    bypassPrivacyMode: row.bypass_privacy_mode ?? false,
     notificationChannels: typeof row.notification_channels === 'string'
       ? JSON.parse(row.notification_channels)
       : (row.notification_channels ?? []),
@@ -157,6 +158,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
       run_conditions: JSON.stringify(req.body.runConditions || []),
       assert_pass: req.body.assertPass ?? false,
       notify_once: req.body.notifyOnce ?? false,
+      bypass_privacy_mode: req.body.bypassPrivacyMode === true,
       notification_channels: JSON.stringify(req.body.notificationChannels ?? []),
       timeout_seconds: req.body.timeoutSeconds ?? null,
       skip_if_in_flight: req.body.skipIfInFlight !== false,
@@ -181,6 +183,26 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 
 router.patch('/:id', requireRole('admin'), async (req, res, next) => {
   try {
+    // Restriction gate on the false→true bypass-privacy transition. Same
+    // pattern as scenario PUT: only fires on the rising edge, queues a
+    // setting_change approval when restricted, and strips the flip from
+    // the update so the rest of the form still saves.
+    if (req.body && req.body.bypassPrivacyMode === true) {
+      const current = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! })
+        .first('bypass_privacy_mode', 'name');
+      if (current && !current.bypass_privacy_mode) {
+        const { applyRestriction } = await import('../services/restriction.service');
+        const approved = await applyRestriction(res, {
+          req,
+          actionKey: 'schedule.bypass_privacy_mode',
+          approvalRequestType: 'setting_change',
+          approvalDescription: `Enable privacy-mode bypass on schedule "${current.name}"`,
+          approvalPayload: { entityType: 'schedule', entityId: Number(req.params.id), field: 'bypassPrivacyMode', value: true },
+        });
+        if (!approved) return;
+      }
+    }
+
     const updates: any = { updated_at: new Date(), updated_by: req.session.userId };
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.enabled !== undefined) updates.enabled = req.body.enabled;
@@ -188,6 +210,7 @@ router.patch('/:id', requireRole('admin'), async (req, res, next) => {
     if (req.body.catchupEnabled !== undefined) updates.catchup_enabled = req.body.catchupEnabled;
     if (req.body.assertPass !== undefined) updates.assert_pass = req.body.assertPass;
     if (req.body.notifyOnce !== undefined) updates.notify_once = req.body.notifyOnce;
+    if (req.body.bypassPrivacyMode !== undefined) updates.bypass_privacy_mode = req.body.bypassPrivacyMode === true;
     if (req.body.targetType !== undefined) updates.target_type = req.body.targetType;
     if (req.body.targetIds !== undefined) updates.target_ids = JSON.stringify(req.body.targetIds);
     if (req.body.scriptId !== undefined) updates.script_id = req.body.scriptId;

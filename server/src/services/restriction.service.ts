@@ -76,6 +76,12 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   { key: 'command.kill_process',         label: 'Kill a process',           category: 'Processes' },
   // Scripts — manual execution from the UI (schedules are un-gated).
   { key: 'script.execute_manual',        label: 'Manually execute a script', category: 'Scripts' },
+  // Bypass-privacy toggles on automations — flipping these on lets an
+  // automation run on a device whose user has explicitly enabled privacy
+  // mode. Default is "restricted" (double admin approval) so an admin
+  // can't single-handedly override a user's privacy choice.
+  { key: 'scenario.bypass_privacy_mode', label: 'Allow a scenario to run on privacy-mode devices', category: 'Automations' },
+  { key: 'schedule.bypass_privacy_mode', label: 'Allow a schedule to run on privacy-mode devices', category: 'Automations' },
   // Tenant config surfaces — editing these pages changes who can do what.
   // Defaults live in DEFAULT_RESTRICTIONS below; we don't auto-seed the
   // management ones so fresh installs without TOTP don't lock admins out.
@@ -119,6 +125,11 @@ export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = 
   // Clearing the audit log deletes accountability — always require a
   // second admin to approve. Doesn't need TOTP.
   'audit.clear':                  'restricted',
+  // Privacy-mode bypass on automations — restricted by default so two
+  // admins must sign off before an automation can sweep across a device
+  // whose user has opted into privacy. Migration 102 seeds the same.
+  'scenario.bypass_privacy_mode': 'restricted',
+  'schedule.bypass_privacy_mode': 'restricted',
   // Remote sessions / services / processes / tenant-config management
   // (users/teams/permissions/settings/profile/restrictions-config) are
   // intentionally NOT defaulted — admins opt in from the matrix once they

@@ -30,9 +30,22 @@ interface AggregateResult {
   failedDeviceNames: string[];
 }
 
-/** Resolve a channel row -> sendable config + plugin, then dispatch. */
+/** Resolve a channel row -> sendable config + plugin, then dispatch.
+ *  Visibility rule mirrors `notificationService.getAllChannels(tenantId)`:
+ *  a channel is dispatchable from this tenant if it is owned by the tenant
+ *  OR shared into it via `notification_channel_tenants` (master-tenant
+ *  channel sharing). Without this, scenarios/schedules on a child tenant
+ *  that bind a master-owned channel would silently no-op at send time. */
 async function dispatch(channelId: number, tenantId: number, subject: string, body: string): Promise<void> {
-  const row = await db('notification_channels').where({ id: channelId, tenant_id: tenantId, is_enabled: true }).first();
+  const row = await db('notification_channels')
+    .where({ id: channelId, is_enabled: true })
+    .andWhere(function () {
+      this.where('tenant_id', tenantId).orWhereIn(
+        'id',
+        db('notification_channel_tenants').select('channel_id').where({ tenant_id: tenantId }),
+      );
+    })
+    .first();
   if (!row) return;
   const plugin = getPlugin(row.type);
   if (!plugin) {

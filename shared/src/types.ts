@@ -814,6 +814,11 @@ export interface ScriptSchedule {
   skipIfInFlight: boolean;
   /** If true, only send one alert notification per device until recovery. */
   notifyOnce: boolean;
+  /** When true, the schedule fires on devices currently in privacy mode.
+   *  When false (default), privacy-mode devices are skipped at run time.
+   *  Flipping this on is gated by the action-restriction matrix
+   *  (`schedule.bypass_privacy_mode`, default `restricted`). */
+  bypassPrivacyMode: boolean;
   /** Number of approved + alive devices this schedule actually resolves to. */
   resolvedDeviceCount?: number;
   script?: Script;
@@ -1963,6 +1968,12 @@ export interface Scenario {
   notifyOnSuccess: boolean;
   notifyOnFailure: boolean;
   notificationChannels: AutomationNotificationBinding[];
+  /** When true, the scenario runs on devices currently in privacy mode.
+   *  When false (default), privacy-mode devices are skipped at fan-out
+   *  time so an automation policy doesn't quietly override a user's
+   *  privacy choice. Flipping this on is gated by the action-restriction
+   *  matrix (`scenario.bypass_privacy_mode`, default `restricted`). */
+  bypassPrivacyMode: boolean;
   variables: Record<string, string>;
   steps?: ScenarioStep[];
   /** Populated by the list endpoint (cheap COUNT subquery). The detail

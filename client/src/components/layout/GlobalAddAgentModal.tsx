@@ -33,6 +33,7 @@ export function GlobalAddAgentModal() {
  const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
  const [osTab, setOsTab] = useState<OsTab>('windows');
  const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'legacy' | 'manual'>('modern');
+ const [linuxMode, setLinuxMode] = useState<'modern' | 'manual'>('modern');
  const [dropdownOpen, setDropdownOpen] = useState(false);
 
  useEffect(() => {
@@ -216,11 +217,56 @@ export function GlobalAddAgentModal() {
  )}
  {osTab === 'linux' && (
  <div className="p-4 space-y-2">
- <p className="text-xs font-medium text-text-muted">{t('addAgent.linuxHint')}</p>
+ <div className="flex items-center justify-between gap-2">
+ <p className="text-xs font-medium text-text-muted">
+ {linuxMode === 'manual'
+ ? (t('addAgent.linuxManualHint') || 'Download the wizard binary, copy it to the target box (scp / SFTP / USB), chmod +x and run as root. Agent is embedded — works on boxes with broken CA stores or no outbound HTTP.')
+ : t('addAgent.linuxHint')}
+ </p>
+ <select
+ value={linuxMode}
+ onChange={e => setLinuxMode(e.target.value as any)}
+ className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted"
+ >
+ <option value="modern">curl | bash</option>
+ <option value="manual">Manual / offline (wizard)</option>
+ </select>
+ </div>
+ {linuxMode === 'manual' ? (
+ <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3">
+ <div className="flex-1 text-xs text-text-secondary">
+ <div className="font-medium text-text-primary mb-0.5">
+ {t('addAgent.linuxManualTitle') || 'Obliance Install Wizard (Linux)'}
+ </div>
+ <div className="text-text-muted leading-relaxed">
+ {t('addAgent.linuxManualDescription') ||
+ 'Static Linux binary with agent embedded. Pre-filled with the selected API key. Run as root — sets up systemd or SysV init automatically, skips TLS verification for boxes with outdated CA bundles.'}
+ </div>
+ </div>
+ {selectedKey ? (
+ <a
+ href={`/api/agent/installer/wizard-linux-amd64?keyId=${selectedKey.id}`}
+ download="obliance-installer-wizard-linux-amd64"
+ className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors"
+ >
+ {t('addAgent.manualDownload') || 'Download wizard'}
+ </a>
+ ) : (
+ <button
+ disabled
+ title={t('addAgent.pickKeyFirst') || 'Pick an API key first'}
+ className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-bg-secondary text-text-muted cursor-not-allowed"
+ >
+ {t('addAgent.manualDownload') || 'Download wizard'}
+ </button>
+ )}
+ </div>
+ ) : (
  <div className="flex items-start gap-2 rounded-md bg-bg-tertiary p-3">
  <code className="flex-1 text-xs font-mono text-text-primary break-all leading-relaxed">{linuxCmd}</code>
  <CopyButton text={linuxCmd} />
  </div>
+ )}
  </div>
  )}
  {osTab === 'macos' && (

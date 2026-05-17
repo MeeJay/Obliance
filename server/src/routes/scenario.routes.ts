@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { db } from '../db';
 import { requireRole } from '../middleware/rbac';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
@@ -321,7 +322,29 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 // PUT /:id — update scenario
 router.put('/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    const scenario = await scenarioService.update(parseInt(req.params.id), req.tenantId!, req.body, req.session.userId!);
+    const id = parseInt(req.params.id);
+    // Bypass-privacy-mode toggle is restriction-gated. Only fire the gate
+    // on the false→true transition so re-saving an already-bypassing
+    // scenario (or untoggling it) doesn't require fresh 2FA / a second
+    // admin's approval. When restricted, applyRestriction queues a
+    // setting_change approval and strips the field from the update so
+    // the rest of the form still saves.
+    if (req.body && req.body.bypassPrivacyMode === true) {
+      const current = await db('scenarios').where({ id, tenant_id: req.tenantId! }).first('bypass_privacy_mode');
+      if (current && !current.bypass_privacy_mode) {
+        const { applyRestriction } = await import('../services/restriction.service');
+        const approved = await applyRestriction(res, {
+          req,
+          actionKey: 'scenario.bypass_privacy_mode',
+          approvalRequestType: 'setting_change',
+          approvalDescription: `Enable privacy-mode bypass on scenario "${(await db('scenarios').where({ id }).first('name'))?.name ?? id}"`,
+          approvalPayload: { entityType: 'scenario', entityId: id, field: 'bypassPrivacyMode', value: true },
+        });
+        if (!approved) return;
+      }
+    }
+
+    const scenario = await scenarioService.update(id, req.tenantId!, req.body, req.session.userId!);
     try {
       const { auditService } = await import('../services/audit.service');
       await auditService.logReq(req, 'scenario.updated', {

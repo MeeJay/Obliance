@@ -97,14 +97,25 @@ function resolveActionTargets(run: any, node: ScenarioNode): number[] {
 
 /** Drop any device id that isn't in the scenario's tenant — tenant
  *  isolation must hold even if a stale targetDeviceIds entry survives
- *  a tenant transfer. Returns the surviving id list. */
-async function validateTargetsInTenant(tenantId: number, deviceIds: number[]): Promise<number[]> {
+ *  a tenant transfer. Also drops privacy-mode devices unless the run's
+ *  scenario carries `bypass_privacy_mode=true`: a generic automation
+ *  policy should NOT silently sweep over a device whose user has
+ *  explicitly enabled privacy. Returns the surviving id list. */
+async function validateTargetsInTenant(tenantId: number, deviceIds: number[], scenarioId?: number): Promise<number[]> {
   if (deviceIds.length === 0) return [];
-  const rows = await db('devices')
+  let bypass = false;
+  if (scenarioId) {
+    const s = await db('scenarios').where({ id: scenarioId }).first('bypass_privacy_mode');
+    bypass = !!s?.bypass_privacy_mode;
+  }
+  const q = db('devices')
     .where({ tenant_id: tenantId })
     .whereIn('id', deviceIds)
-    .select('id');
-  return rows.map((r: any) => r.id);
+    .select('id', 'privacy_mode_enabled');
+  const rows = await q as Array<{ id: number; privacy_mode_enabled: boolean }>;
+  return rows
+    .filter((r) => bypass || !r.privacy_mode_enabled)
+    .map((r) => r.id);
 }
 
 // ── Edge selection ───────────────────────────────────────────────────────────
@@ -215,6 +226,18 @@ export const scenarioGraphService = {
   }): Promise<string> {
     const scenario = await db('scenarios').where({ id: scenarioId }).first();
     if (!scenario) throw new Error(`Scenario ${scenarioId} not found`);
+
+    // Privacy gate at the run entry. When the scenario doesn't carry the
+    // bypass flag and the target device has privacy mode on, we don't
+    // even create a run row — silently skip and return an empty id so
+    // callers don't surface a false failure. The action-restriction
+    // matrix gates flipping bypass_privacy_mode on (`restricted` by
+    // default), so this is the user's explicit policy taking effect.
+    const device = await db('devices').where({ id: deviceId }).first('privacy_mode_enabled');
+    if (device?.privacy_mode_enabled && !scenario.bypass_privacy_mode) {
+      logger.info({ scenarioId, deviceId }, 'scenario run skipped: device in privacy mode and bypass not enabled');
+      return '';
+    }
 
     // Compose the trigger_source carrier so _advance can detect single-
     // node test runs. Format: "<base>|__single_node" with empty base ok.
@@ -632,7 +655,7 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
         run_as: string | null;
       } | undefined;
     if (!script) throw new Error(`run_script: script ${cfg.scriptId} not found in tenant`);
-    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node), run.scenario_id);
     if (targets.length === 0) throw new Error('run_script: no valid target device in tenant');
     const effectiveTimeout = cfg.timeoutSeconds ?? script.timeout_seconds ?? 300;
     if (targets.length > 1) {
@@ -642,6 +665,12 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
         expected: targets.length, received: 0, worstExit: null, stdouts: [], stderrs: [],
       });
     }
+    // When bypass_privacy_mode is on, tell the agent so it ignores its
+    // own privacy gate for this command. The agent enforces it at the
+    // handler layer; without this signal the agent would reject the
+    // command even though the server let it through.
+    const sCfg = await db('scenarios').where({ id: run.scenario_id }).first('bypass_privacy_mode');
+    const bypassPrivacy = !!sCfg?.bypass_privacy_mode;
     for (const deviceId of targets) {
       await commandService.enqueue({
         deviceId,
@@ -655,6 +684,7 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
           timeoutSeconds: effectiveTimeout,
           expectedExitCode: script.expected_exit_code ?? 0,
           runAs: script.run_as,
+          ...(bypassPrivacy ? { bypassPrivacy: true } : {}),
         },
         priority: 'high',
         sourceType: 'scenario_node',
@@ -723,19 +753,21 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   run_command: async ({ run, node, nodeRunId }) => {
     const cfg = node.config as { commandType?: string; payload?: Record<string, unknown>; timeoutSeconds?: number };
     if (!cfg.commandType) throw new Error('run_command node missing commandType');
-    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node), run.scenario_id);
     if (targets.length === 0) throw new Error('run_command: no valid target device in tenant');
     if (targets.length > 1) {
       pendingFanOuts.set(nodeRunId, {
         expected: targets.length, received: 0, worstExit: null, stdouts: [], stderrs: [],
       });
     }
+    const sCfg = await db('scenarios').where({ id: run.scenario_id }).first('bypass_privacy_mode');
+    const bypassPrivacy = !!sCfg?.bypass_privacy_mode;
     for (const deviceId of targets) {
       await commandService.enqueue({
         deviceId,
         tenantId: run.tenant_id,
         type: cfg.commandType as any,
-        payload: cfg.payload ?? {},
+        payload: { ...(cfg.payload ?? {}), ...(bypassPrivacy ? { bypassPrivacy: true } : {}) },
         priority: 'high',
         sourceType: 'scenario_node',
         sourceId: nodeRunId,
@@ -760,7 +792,7 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
     };
     const add = new Set(toArr(cfg.add));
     const remove = new Set(toArr(cfg.remove));
-    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node), run.scenario_id);
     if (targets.length === 0) throw new Error('tag_device: no valid target device in tenant');
     let worstExit = 0;
     for (const deviceId of targets) {
@@ -788,7 +820,7 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
       const grp = await db('device_groups').where({ id: groupId, tenant_id: run.tenant_id }).first();
       if (!grp) throw new Error(`move_device_to_group: group ${groupId} not in tenant`);
     }
-    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node));
+    const targets = await validateTargetsInTenant(run.tenant_id, resolveActionTargets(run, node), run.scenario_id);
     if (targets.length === 0) throw new Error('move_device_to_group: no valid target device in tenant');
     await db('devices').whereIn('id', targets).where({ tenant_id: run.tenant_id }).update({
       group_id: groupId,
