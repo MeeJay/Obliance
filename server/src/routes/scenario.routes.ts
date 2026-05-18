@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { db } from '../db';
 import { requireRole } from '../middleware/rbac';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
