@@ -36,10 +36,24 @@ router.get('/', async (req, res, next) => {
       tenantIdsArr = tenantIds.split(',').map((v: string) => parseInt(v.trim())).filter(Number.isFinite);
     }
 
+    // osName / osVersion accept either a single value (legacy single-
+    // select callers) or a comma-separated list / repeated param
+    // (multi-select picker in DeviceTable). Service normalises both
+    // shapes into a WHERE IN clause.
+    const parseStringList = (raw: unknown): string[] | undefined => {
+      if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+      if (typeof raw === 'string' && raw.length > 0) return raw.split(',').map((s) => s.trim()).filter(Boolean);
+      return undefined;
+    };
+    const osNames = parseStringList(osName);
+    const osVersions = parseStringList(osVersion);
+
     const result = await deviceService.getDevices(req.tenantId!, {
       groupId: groupId ? parseInt(groupId) : undefined,
       includeSubgroups: includeSubgroups === 'true',
-      status, approvalStatus, search, osType, osName, osVersion,
+      status, approvalStatus, search, osType,
+      osName: osNames,
+      osVersion: osVersions,
       page: page ? parseInt(page) : undefined,
       pageSize: pageSize ? parseInt(pageSize) : undefined,
       sortBy, sortOrder,

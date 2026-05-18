@@ -88,10 +88,13 @@ export const deviceApi = {
     /** Filter to only devices with at least one available device_update. Used
      *  by the dashboard "MAJ en attente" hero card click-through. */
     pendingUpdates?: boolean;
-    /** Lot C 3-tier OS filter: exact match on the marketing name. */
-    osName?: string;
-    /** Lot C 3-tier OS filter: exact match on the build/version string. */
-    osVersion?: string;
+    /** Lot C 3-tier OS filter: marketing name. Single string OR array
+     *  for multi-select (axios serialises arrays as repeated query params,
+     *  which the server collapses with whereIn). */
+    osName?: string | string[];
+    /** Lot C 3-tier OS filter: build / version string. Same single /
+     *  array semantics as osName. */
+    osVersion?: string | string[];
     /** Restrict to devices carrying ANY of these tags (OR semantics). */
     tags?: string[];
     /** Master-only: narrow the god view to a tenant subset. The DeviceTable

@@ -149,11 +149,13 @@ class DeviceService {
      *  to only devices with at least one device_updates row in 'available'. */
     pendingUpdates?: boolean;
     /** Lot C 3-tier OS filter: marketing name (e.g. "Microsoft Windows 10
-     *  IoT Enterprise LTSC 2021") — exact match. Sub-filter under osType. */
-    osName?: string;
-    /** Lot C 3-tier OS filter: build / version string (e.g. "10.0.19044.7184").
-     *  Exact match. Sub-filter under osName. */
-    osVersion?: string;
+     *  IoT Enterprise LTSC 2021"). Accepts a single string (legacy
+     *  single-select callers) OR an array of strings — multi-select
+     *  in the DeviceTable picker. Translated to a WHERE IN clause. */
+    osName?: string | string[];
+    /** Lot C 3-tier OS filter: build / version string (e.g.
+     *  "10.0.19044.7184"). Same single/multi semantics as osName. */
+    osVersion?: string | string[];
     /** Restrict to devices carrying ANY of these tags (OR semantics).
      *  Empty/missing means no filter. Tags are matched against the
      *  JSONB array stored on `devices.tags`. */
@@ -221,8 +223,16 @@ class DeviceService {
       q = q.where({ 'devices.status': filters.status });
     }
     if (filters?.osType) q = q.where({ 'devices.os_type': filters.osType });
-    if (filters?.osName) q = q.where({ 'devices.os_name': filters.osName });
-    if (filters?.osVersion) q = q.where({ 'devices.os_version': filters.osVersion });
+    if (filters?.osName) {
+      const arr = Array.isArray(filters.osName) ? filters.osName : [filters.osName];
+      if (arr.length === 1) q = q.where({ 'devices.os_name': arr[0] });
+      else if (arr.length > 1) q = q.whereIn('devices.os_name', arr);
+    }
+    if (filters?.osVersion) {
+      const arr = Array.isArray(filters.osVersion) ? filters.osVersion : [filters.osVersion];
+      if (arr.length === 1) q = q.where({ 'devices.os_version': arr[0] });
+      else if (arr.length > 1) q = q.whereIn('devices.os_version', arr);
+    }
     if (filters?.approvalStatus === 'suspended') {
       q = q.where({ 'devices.status': 'suspended' });
     } else if (filters?.approvalStatus) {

@@ -112,11 +112,33 @@ export function DeviceTable({
  // navigating away or removing the query param.
  const [staleHours, setStaleHours] = useSessionState<number | undefined>('obliance:devices:staleHours', initialStaleHours);
  const [pendingUpdatesOnly, setPendingUpdatesOnly] = useSessionState<boolean>('obliance:devices:pendingUpdatesOnly', !!initialPendingUpdates);
- // Lot C 3-tier OS filter: osType (existing chip) → osName → osVersion. The
- // sub-filters reset when the parent changes so the user never lands on a
- // (Linux + Windows-build) combination that matches nothing.
- const [osNameFilter, setOsNameFilter] = useSessionState<string>('obliance:devices:osNameFilter', '');
- const [osVersionFilter, setOsVersionFilter] = useSessionState<string>('obliance:devices:osVersionFilter', '');
+ // Lot C 3-tier OS filter: osType (existing chip) → osName → osVersion.
+ // Each sub-filter is a Set<string> backing a multi-select popover so
+ // admins can OR together several Windows versions or Linux distros in
+ // one go. The sets reset when the parent (osType / osName) changes so
+ // the user never lands on a combination that matches nothing.
+ // Key suffix `:multi` distinguishes the new Set-backed state from old
+ // single-string session values that were stored under the unsuffixed
+ // key — without it, a returning admin would deserialise `""` as a
+ // string and the next `.size` access would crash.
+ const [osNameFilter, setOsNameFilter] = useSessionState<Set<string>>('obliance:devices:osNameFilter:multi', new Set<string>());
+ const [osVersionFilter, setOsVersionFilter] = useSessionState<Set<string>>('obliance:devices:osVersionFilter:multi', new Set<string>());
+ const [osNameMenuOpen, setOsNameMenuOpen] = useState(false);
+ const [osVersionMenuOpen, setOsVersionMenuOpen] = useState(false);
+ const toggleOsNameFilter = (name: string) => {
+ setOsNameFilter((prev) => {
+ const next = new Set(prev);
+ if (next.has(name)) next.delete(name); else next.add(name);
+ return next;
+ });
+ };
+ const toggleOsVersionFilter = (v: string) => {
+ setOsVersionFilter((prev) => {
+ const next = new Set(prev);
+ if (next.has(v)) next.delete(v); else next.add(v);
+ return next;
+ });
+ };
  const [osFacets, setOsFacets] = useState<OsFacet[]>([]);
  // Lot D.1 — user-configurable line-2 fields. Persisted in localStorage so
  // the choice survives reloads. Toggling a checkbox in the popover writes
@@ -328,8 +350,8 @@ export function DeviceTable({
  search: debouncedSearch || undefined,
  status: statusFilters.size === 1 ? [...statusFilters][0] : undefined,
  osType: osFilters.size === 1 ? [...osFilters][0] : undefined,
- osName: osNameFilter || undefined,
- osVersion: osVersionFilter || undefined,
+ osName: osNameFilter.size > 0 ? [...osNameFilter] : undefined,
+ osVersion: osVersionFilter.size > 0 ? [...osVersionFilter] : undefined,
  groupId: ungroupedOnly ? undefined : (groupId ?? undefined),
  includeSubgroups: ungroupedOnly ? undefined : (groupId ? true : undefined),
  ungrouped: ungroupedOnly ? true : undefined,
@@ -397,10 +419,10 @@ export function DeviceTable({
  // Otherwise a stale "Win 11 build X" sub-filter would survive a switch to
  // Linux and result in zero rows.
  useEffect(() => {
- setOsNameFilter('');
- setOsVersionFilter('');
+ setOsNameFilter(new Set());
+ setOsVersionFilter(new Set());
  }, [osFilters]);
- useEffect(() => { setOsVersionFilter(''); }, [osNameFilter]);
+ useEffect(() => { setOsVersionFilter(new Set()); }, [osNameFilter]);
 
  // Infinite-scroll sentinel — a 1 px div below the flat list. When it
  // enters the viewport (± 200 px early-load margin), we append the
@@ -505,7 +527,7 @@ export function DeviceTable({
  const allChecked = devices.length > 0 && devices.every(d => selectedIds.has(d.id));
  const someChecked = selectedIds.size > 0 && !allChecked;
 
- const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || !!osNameFilter || !!osVersionFilter || tagFilters.size > 0;
+ const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || osNameFilter.size > 0 || osVersionFilter.size > 0 || tagFilters.size > 0;
 
  const handleSort = (field: SortField) => {
  if (field === '') return;
@@ -562,11 +584,20 @@ export function DeviceTable({
  .map(([osName, count]) => ({ osName, count }));
  }, [osFacets, selectedOsType]);
  const osVersionOptions = useMemo(() => {
- if (!selectedOsType || !osNameFilter) return [];
- return osFacets
- .filter(f => f.osType === selectedOsType && f.osName === osNameFilter && f.osVersion)
- .map(f => ({ osVersion: f.osVersion as string, count: f.count }))
- .sort((a, b) => a.osVersion.localeCompare(b.osVersion));
+ if (!selectedOsType) return [];
+ // When osName filter is set, only show versions belonging to those
+ // names. When unset, show every version under the OS family so the
+ // admin can drill straight to a build without picking a name first.
+ const m = new Map<string, number>();
+ for (const f of osFacets) {
+ if (f.osType !== selectedOsType) continue;
+ if (osNameFilter.size > 0 && !osNameFilter.has(f.osName ?? '')) continue;
+ if (!f.osVersion) continue;
+ m.set(f.osVersion, (m.get(f.osVersion) ?? 0) + f.count);
+ }
+ return [...m.entries()]
+ .map(([osVersion, count]) => ({ osVersion, count }))
+ .sort((a, b) => a.osVersion.localeCompare(b.osVersion, undefined, { numeric: true }));
  }, [osFacets, selectedOsType, osNameFilter]);
 
  return (
@@ -617,8 +648,8 @@ export function DeviceTable({
  setSearch('');
  setStatusFilters(new Set());
  setOsFilters(new Set());
- setOsNameFilter('');
- setOsVersionFilter('');
+ setOsNameFilter(new Set());
+ setOsVersionFilter(new Set());
  }}
  className="p-2 text-text-muted hover:text-text-primary"><X className="w-3.5 h-3.5" /></button>
  )}
@@ -767,32 +798,124 @@ export function DeviceTable({
  </button>
  ))}
 
- {/* Lot C cascading sub-filters: osName once a family is picked, then
- osVersion once a name is picked. Both dropdowns surface live
- counts so admins know the fleet shape before drilling. */}
+ {/* Lot C cascading sub-filters: osName once a family is picked,
+ then osVersion. Each is a multi-select popover (same UX as the
+ tag picker just below): checkbox per option, live count, OR
+ semantics on the server. Lets admins narrow to e.g.
+ (Windows 10 + Windows 11) in one shot. */}
  {osNameOptions.length > 0 && (
- <select
- value={osNameFilter}
- onChange={(e) => setOsNameFilter(e.target.value)}
- className="ml-1 max-w-[260px] truncate px-2 py-1 text-xs rounded-full border border-transparent bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50"
+ <div className="relative ml-1">
+ <button
+ onClick={() => setOsNameMenuOpen((v) => !v)}
+ className={clsx(
+ 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[260px] truncate',
+ osNameFilter.size > 0
+ ? 'bg-accent/10 border-accent text-accent'
+ : 'border-transparent text-text-muted hover:border-accent/30',
+ )}
+ title={t('devices.filters.osNames', 'Filtrer par version')}
  >
- <option value="">{t('devices.filters.allOsNames', 'Toutes les versions')}</option>
+ {osNameFilter.size > 0
+ ? (osNameFilter.size === 1
+ ? shortenOsName([...osNameFilter][0])
+ : t('devices.filters.osNamesCount', '{{count}} versions', { count: osNameFilter.size }))
+ : t('devices.filters.allOsNames', 'Toutes les versions')}
+ {osNameFilter.size > 0 && (
+ <span className="text-[10px] text-accent/80 ml-0.5">{osNameFilter.size}</span>
+ )}
+ </button>
+ {osNameMenuOpen && (
+ <>
+ <div className="fixed inset-0 z-10" onClick={() => setOsNameMenuOpen(false)} />
+ <div className="absolute left-0 top-full mt-1 w-72 max-h-[320px] flex flex-col bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
+ <div className="px-3 py-2 flex items-center justify-between">
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+ {t('devices.filters.osNamesTitle', 'Versions')}
+ </span>
+ {osNameFilter.size > 0 && (
+ <button
+ onClick={() => setOsNameFilter(new Set())}
+ className="text-[11px] text-accent hover:underline"
+ >
+ {t('common.clear', 'Effacer')}
+ </button>
+ )}
+ </div>
+ <div className="overflow-y-auto">
  {osNameOptions.map(({ osName, count }) => (
- <option key={osName} value={osName}>{shortenOsName(osName)} ({count})</option>
+ <label key={osName} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
+ <input
+ type="checkbox"
+ checked={osNameFilter.has(osName)}
+ onChange={() => toggleOsNameFilter(osName)}
+ className="accent-accent"
+ />
+ <span className="flex-1 truncate" title={osName}>{shortenOsName(osName)}</span>
+ <span className="text-[10px] text-text-muted">{count}</span>
+ </label>
  ))}
- </select>
+ </div>
+ </div>
+ </>
+ )}
+ </div>
  )}
  {osVersionOptions.length > 0 && (
- <select
- value={osVersionFilter}
- onChange={(e) => setOsVersionFilter(e.target.value)}
- className="max-w-[200px] truncate px-2 py-1 text-xs rounded-full border border-transparent bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50"
+ <div className="relative">
+ <button
+ onClick={() => setOsVersionMenuOpen((v) => !v)}
+ className={clsx(
+ 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[200px] truncate',
+ osVersionFilter.size > 0
+ ? 'bg-accent/10 border-accent text-accent'
+ : 'border-transparent text-text-muted hover:border-accent/30',
+ )}
+ title={t('devices.filters.builds', 'Filtrer par build')}
  >
- <option value="">{t('devices.filters.allBuilds', 'Tous les builds')}</option>
+ {osVersionFilter.size > 0
+ ? (osVersionFilter.size === 1
+ ? [...osVersionFilter][0]
+ : t('devices.filters.buildsCount', '{{count}} builds', { count: osVersionFilter.size }))
+ : t('devices.filters.allBuilds', 'Tous les builds')}
+ {osVersionFilter.size > 0 && (
+ <span className="text-[10px] text-accent/80 ml-0.5">{osVersionFilter.size}</span>
+ )}
+ </button>
+ {osVersionMenuOpen && (
+ <>
+ <div className="fixed inset-0 z-10" onClick={() => setOsVersionMenuOpen(false)} />
+ <div className="absolute left-0 top-full mt-1 w-64 max-h-[320px] flex flex-col bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
+ <div className="px-3 py-2 flex items-center justify-between">
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+ {t('devices.filters.buildsTitle', 'Builds')}
+ </span>
+ {osVersionFilter.size > 0 && (
+ <button
+ onClick={() => setOsVersionFilter(new Set())}
+ className="text-[11px] text-accent hover:underline"
+ >
+ {t('common.clear', 'Effacer')}
+ </button>
+ )}
+ </div>
+ <div className="overflow-y-auto">
  {osVersionOptions.map(({ osVersion, count }) => (
- <option key={osVersion} value={osVersion}>{osVersion} ({count})</option>
+ <label key={osVersion} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
+ <input
+ type="checkbox"
+ checked={osVersionFilter.has(osVersion)}
+ onChange={() => toggleOsVersionFilter(osVersion)}
+ className="accent-accent"
+ />
+ <span className="flex-1 truncate font-mono" title={osVersion}>{osVersion}</span>
+ <span className="text-[10px] text-text-muted">{count}</span>
+ </label>
  ))}
- </select>
+ </div>
+ </div>
+ </>
+ )}
+ </div>
  )}
 
  {/* Tag filter — popover listing every tag currently applied

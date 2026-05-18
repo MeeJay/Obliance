@@ -543,7 +543,15 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
  const [software, setSoftware] = useState<SoftwareEntry[]>([]);
  const [softwareTotal, setSoftwareTotal] = useState(0);
  const [softwareSearch, setSoftwareSearch] = useState('');
+ // Debounced copy of the search box — drives the API call. The visible
+ // input updates instantly (so typing is responsive), the request fires
+ // 300 ms after the user stops typing. Was: every keystroke flipped
+ // isLoading=true, unmounted the table, and refetched hardware too.
+ const [debouncedSoftwareSearch, setDebouncedSoftwareSearch] = useState('');
  const [isLoading, setIsLoading] = useState(true);
+ // Separate flag for the in-place software refetch so the keystroke-
+ // driven query doesn't replace the whole tab with a centered spinner.
+ const [softwareLoading, setSoftwareLoading] = useState(false);
  const [activeSection, setActiveSection] = useState<'hardware' | 'software'>('hardware');
  const [licenses, setLicenses] = useState<DeviceLicense[]>([]);
  const [showLicenseForm, setShowLicenseForm] = useState(false);
@@ -554,25 +562,43 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
  }, [deviceId]);
  useEffect(() => { loadLicenses(); }, [loadLicenses]);
 
+ // Debounce the search input. 300 ms feels snappy without hammering
+ // the server on every letter; matches the DeviceTable debounce.
  useEffect(() => {
- const load = async () => {
+ const t = setTimeout(() => setDebouncedSoftwareSearch(softwareSearch), 300);
+ return () => clearTimeout(t);
+ }, [softwareSearch]);
+
+ // Hardware fetch runs once per device — never re-fired by a search
+ // keystroke. Pulling it out of the search effect was the other half of
+ // the "every letter rebuilds the whole tab" bug.
+ useEffect(() => {
+ let cancelled = false;
  setIsLoading(true);
- try {
- const [hw, sw] = await Promise.all([
- inventoryApi.getHardware(deviceId),
- inventoryApi.getSoftware(deviceId, { search: softwareSearch }),
- ]);
- setHardware(hw);
+ inventoryApi.getHardware(deviceId)
+ .then((hw) => { if (!cancelled) setHardware(hw); })
+ .catch(() => { if (!cancelled) toast.error('Failed to load inventory'); })
+ .finally(() => { if (!cancelled) setIsLoading(false); });
+ return () => { cancelled = true; };
+ }, [deviceId]);
+
+ // Software fetch — re-runs on the debounced search. Uses a local
+ // `softwareLoading` flag so the table stays mounted and only the rows
+ // dim while the new query is in flight. `setIsLoading` is intentionally
+ // NOT touched here.
+ useEffect(() => {
+ let cancelled = false;
+ setSoftwareLoading(true);
+ inventoryApi.getSoftware(deviceId, { search: debouncedSoftwareSearch })
+ .then((sw) => {
+ if (cancelled) return;
  setSoftware(sw.items);
  setSoftwareTotal(sw.total);
- } catch {
- toast.error('Failed to load inventory');
- } finally {
- setIsLoading(false);
- }
- };
- load();
- }, [deviceId, softwareSearch]);
+ })
+ .catch(() => { /* keep the previous list visible on transient failures */ })
+ .finally(() => { if (!cancelled) setSoftwareLoading(false); });
+ return () => { cancelled = true; };
+ }, [deviceId, debouncedSoftwareSearch]);
 
  const handleScan = async () => {
  try {
@@ -836,6 +862,7 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
 
  {activeSection === 'software' && (
  <div className="space-y-3">
+ <div className="relative">
  <input
  type="text"
  value={softwareSearch}
@@ -843,7 +870,11 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
  placeholder="Search software..."
  className="w-full px-3 py-2 bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent text-sm"
  />
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ {softwareLoading && (
+ <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted animate-spin" />
+ )}
+ </div>
+ <div className={clsx('bg-bg-secondary rounded-xl overflow-hidden transition-opacity', softwareLoading && 'opacity-60')}>
  <table className="w-full">
  <thead>
  <tr className="">
