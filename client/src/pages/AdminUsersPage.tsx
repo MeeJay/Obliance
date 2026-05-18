@@ -1503,9 +1503,22 @@ function RestrictionsTab() {
  const save = async () => {
  setSaving(true);
  try {
- const r = await restrictionApi.setMap(map);
+ // Server returns 202 with { approvalId, status: 'pending_approval' }
+ // when `tenant.manage_restrictions` is gated as restricted — axios
+ // passes that through as a normal success but `r.map` is undefined
+ // in that shape. Guard against overwriting state with undefined
+ // (which would crash on the next render at `map[a.key]`) and surface
+ // the pending-approval state to the admin instead.
+ const r = await restrictionApi.setMap(map) as any;
+ if (r && r.status === 'pending_approval') {
+ toast.success('Changes saved — awaiting second admin approval', { duration: 6000 });
+ setDirty(false);
+ return;
+ }
+ if (r && r.map) {
  setMap(r.map);
  setDirty(false);
+ }
  } finally {
  setSaving(false);
  }
@@ -1560,7 +1573,7 @@ function RestrictionsTab() {
  </div>
  <div className="divide-y divide-border/40">
  {acts.map((a) => {
- const entry = map[a.key];
+ const entry = (map ?? {})[a.key];
  const level: 'none' | RestrictionLevel = entry ? entry.level : 'none';
  return (
  <div key={a.key} className="flex items-center gap-3 px-3 py-2">

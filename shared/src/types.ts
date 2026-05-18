@@ -1894,7 +1894,17 @@ export interface ScenarioRetryPolicy {
   retryDelaySeconds: number;
 }
 
-export type AutomationNotificationMode = 'on_error' | 'summary';
+/**
+ * - 'per_device': dispatch immediately for each device that traverses
+ *   the node. One message per device, regardless of success/failure.
+ * - 'summary':    wait until every fanned-out device has finished and
+ *   send a single recap (OK: N / Failed: M).
+ *
+ * Legacy `'on_error'` is accepted for read so older bindings still
+ * dispatch; it's treated as `per_device` but filters to failure-only
+ * messages. New rows should write 'per_device' or 'summary'.
+ */
+export type AutomationNotificationMode = 'per_device' | 'summary' | 'on_error';
 
 export interface AutomationNotificationBinding {
   channelId: number;

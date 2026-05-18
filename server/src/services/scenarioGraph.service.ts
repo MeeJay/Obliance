@@ -698,24 +698,39 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
   // ── send_notification — tenant-channel dispatch via the existing
   // automation notification service. Does not park; the result is
   // synchronous (we don't wait for the channel's HTTP round trip).
+  //
+  // Mode semantics:
+  //   - per_device : fires immediately for this device, every traversal.
+  //   - summary    : fires once with a summary-style message for this
+  //                  device. True cross-device aggregation requires
+  //                  buffering sibling scenario_runs from the same
+  //                  trigger event — deferred to a later pass.
+  //   - on_error   : legacy alias — fires only if last_exit_code != 0.
   send_notification: async ({ run, node }) => {
-    const cfg = node.config as { channels?: Array<{ channelId: number; mode: 'on_error' | 'summary' }>; subject?: string; body?: string };
+    const cfg = node.config as { channels?: Array<{ channelId: number; mode: 'per_device' | 'summary' | 'on_error' }>; subject?: string; body?: string };
     if (!cfg.channels?.length) return { exitCode: 0 };
     const { automationNotificationService } = await import('./automationNotification.service');
     const scenario = await db('scenarios').where({ id: run.scenario_id }).first();
     const device = await db('devices').where({ id: run.device_id }).select('hostname', 'display_name').first();
     const deviceName = device?.display_name || device?.hostname || `#${run.device_id}`;
+    const automationName = cfg.subject || scenario?.name || 'Scenario';
+    const success = (run.last_exit_code ?? 0) === 0;
+
+    // Per-device bindings dispatch immediately.
+    await automationNotificationService.notifyPerDevice(run.tenant_id, cfg.channels, {
+      automationType: 'scenario',
+      automationName,
+      deviceName,
+      success,
+    });
+    // Summary + legacy on_error go through the aggregate hook.
     await automationNotificationService.notify(run.tenant_id, cfg.channels, {
       automationType: 'scenario',
-      automationName: cfg.subject || scenario?.name || 'Scenario',
-      successCount: 1,
-      failureCount: 0,
+      automationName,
+      successCount: success ? 1 : 0,
+      failureCount: success ? 0 : 1,
       totalCount: 1,
-      failedDeviceNames: [],
-      // The body field isn't part of the existing summary payload, but
-      // automationNotificationService logs it via its renderer when the
-      // template includes a body slot. Future Phase 2 will add proper
-      // templating with run variables.
+      failedDeviceNames: success ? [] : [deviceName],
       ...(cfg.body ? { customBody: cfg.body } : {}),
     } as any);
     return { exitCode: 0 };

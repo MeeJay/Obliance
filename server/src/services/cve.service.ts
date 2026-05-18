@@ -149,6 +149,96 @@ function safeParseJsonArray(raw: string): string[] {
   } catch { return []; }
 }
 
+// ── Version comparison ──────────────────────────────────────────────────────
+// Permissive dotted-numeric comparator. Designed for vendor strings that
+// don't follow strict semver: Chrome "148.0.7778.168", Firefox "120.0",
+// Windows "10.0.19045.5247", Linux kernels "6.5.0-21-generic". We split
+// on dots and any leading run of digits per component is used as the
+// numeric weight; non-numeric trailing tags (e.g. "-rc1", "-generic")
+// are stripped for the comparison so "148.0.7778.168" cleanly compares
+// greater than "94.0.4606.61".
+//
+// Returns -1 / 0 / +1, or null when either input can't be parsed at all
+// (then the caller MUST treat the match as undecidable — never silently
+// "passes" the range check, because that's how false positives leaked
+// in the previous algorithm).
+function parseVersionComponents(v: string | null | undefined): number[] | null {
+  if (!v) return null;
+  // Strip a leading `v` prefix ("v1.2.3") and anything from the first
+  // `+` (build metadata) or whitespace onwards.
+  const trimmed = String(v).trim().replace(/^v/i, '').split(/[\s+]/)[0];
+  if (!trimmed) return null;
+  // Split on dots, dashes, underscores — but keep numeric prefixes per
+  // segment so "0-21-generic" → [0, 21] (generic is ignored).
+  const parts = trimmed.split(/[.\-_]/).map((p) => {
+    const m = p.match(/^\d+/);
+    return m ? parseInt(m[0], 10) : NaN;
+  }).filter((n) => Number.isFinite(n));
+  return parts.length > 0 ? parts : null;
+}
+
+function compareVersions(a: string | null | undefined, b: string | null | undefined): number | null {
+  const av = parseVersionComponents(a);
+  const bv = parseVersionComponents(b);
+  if (!av || !bv) return null;
+  const len = Math.max(av.length, bv.length);
+  for (let i = 0; i < len; i++) {
+    const x = av[i] ?? 0;
+    const y = bv[i] ?? 0;
+    if (x < y) return -1;
+    if (x > y) return 1;
+  }
+  return 0;
+}
+
+interface AffectedRange {
+  versionStartIncluding: string | null;
+  versionStartExcluding: string | null;
+  versionEndIncluding: string | null;
+  versionEndExcluding: string | null;
+}
+
+/** Returns true when `installed` falls inside the range. A null bound
+ *  is treated as open-ended on that side. If the installed version
+ *  can't be parsed against a bound, that bound is treated as
+ *  unsatisfied (defensive — we'd rather drop the FP than create one). */
+function installedInRange(installed: string, range: AffectedRange): boolean {
+  if (range.versionStartIncluding) {
+    const c = compareVersions(installed, range.versionStartIncluding);
+    if (c === null || c < 0) return false;
+  }
+  if (range.versionStartExcluding) {
+    const c = compareVersions(installed, range.versionStartExcluding);
+    if (c === null || c <= 0) return false;
+  }
+  if (range.versionEndIncluding) {
+    const c = compareVersions(installed, range.versionEndIncluding);
+    if (c === null || c > 0) return false;
+  }
+  if (range.versionEndExcluding) {
+    const c = compareVersions(installed, range.versionEndExcluding);
+    if (c === null || c >= 0) return false;
+  }
+  return true;
+}
+
+/** True when the installed software's version still matters for this
+ *  CVE — i.e. it lands inside at least one affected range. When no
+ *  range info exists we keep the match (can't tell). When ranges exist
+ *  but the installed version is unparseable we *drop* the match — the
+ *  classic FP "Chrome 148 is patched, why are we flagging it" came from
+ *  blindly trusting the product match when no version logic ran. */
+function versionStillVulnerable(installedVersion: string | null, ranges: AffectedRange[]): boolean {
+  if (!ranges.length) return true; // no range info — keep the match
+  if (!installedVersion) return true; // can't compare — keep, but mark low conf upstream
+  const parsed = parseVersionComponents(installedVersion);
+  if (!parsed) return true; // unparseable installed version — keep, low conf
+  for (const r of ranges) {
+    if (installedInRange(installedVersion, r)) return true;
+  }
+  return false;
+}
+
 // ── GHSA types ──────────────────────────────────────────────────────────────
 // Subset of the GitHub Security Advisories REST schema we actually read.
 // Full schema docs: https://docs.github.com/en/rest/security-advisories/global-advisories
@@ -626,7 +716,7 @@ class CveService {
 
     if (software.length === 0) return 0;
 
-    const allCves = await db('cves').select('id', 'vendor', 'product', 'cpe_matches');
+    const allCves = await db('cves').select('id', 'vendor', 'product', 'cpe_matches', 'affected_versions', 'first_patched_version');
 
     // Pre-tokenize the inventory once per device.
     const swTokenized = software.map((s) => ({
@@ -678,6 +768,48 @@ class CveService {
       // `initramfs-tools-core` on stock Linux.
       const singleToken = cveProductTokens.size === 1;
 
+      // Parse the per-CVE affected ranges ONCE per CVE — avoids re-parsing
+      // for every software row. Empty list = no range info (keep the match
+      // and rely on the product/vendor guard alone). When ranges exist we
+      // drop hits where the installed version sits above the patched
+      // boundary (was: Chrome 148 still flagged for a CVE patched in 94).
+      const rangesRaw = cve.affected_versions as unknown;
+      let ranges: AffectedRange[] = [];
+      try {
+        const parsed: any = typeof rangesRaw === 'string' ? JSON.parse(rangesRaw) : rangesRaw;
+        if (Array.isArray(parsed)) {
+          ranges = parsed.map((r: any) => ({
+            versionStartIncluding: r?.versionStartIncluding ?? null,
+            versionStartExcluding: r?.versionStartExcluding ?? null,
+            versionEndIncluding: r?.versionEndIncluding ?? null,
+            versionEndExcluding: r?.versionEndExcluding ?? null,
+          })).filter((r) =>
+            r.versionStartIncluding || r.versionStartExcluding ||
+            r.versionEndIncluding || r.versionEndExcluding,
+          );
+        }
+      } catch { ranges = []; }
+      // Fallback ceiling: if we know the first-patched version but have
+      // no explicit ranges (older catalog rows that pre-date the
+      // affected_versions column), build a synthetic upper bound so we
+      // still drop "installed >= patched" cases. The catalog uses
+      // "> X" to flag a vendor that only published a versionEndIncluding
+      // (so X itself is vulnerable, fix lands somewhere after); we map
+      // that to versionEndIncluding to preserve the inclusive semantic.
+      if (ranges.length === 0 && cve.first_patched_version) {
+        const raw = String(cve.first_patched_version);
+        const inclusive = raw.startsWith('>');
+        const fp = raw.replace(/^>\s*/, '');
+        if (fp) {
+          ranges = [{
+            versionStartIncluding: null,
+            versionStartExcluding: null,
+            versionEndIncluding: inclusive ? fp : null,
+            versionEndExcluding: inclusive ? null : fp,
+          }];
+        }
+      }
+
       for (const sw of swTokenized) {
         const productMatch = subsetOf(cveProductTokens, sw.nameTokens);
         if (!productMatch) continue;
@@ -690,6 +822,14 @@ class CveService {
         // Single-token products are too generic to act on without
         // a vendor confirmation — drop them silently.
         if (singleToken && !vendorMatch) continue;
+
+        // Version gate — only when we have ranges AND the installed
+        // version parses cleanly. Apps with parseable versions get the
+        // exact filter; rows with no inventory version (publisher-only
+        // synthetic OS rows often) fall back to the conservative
+        // "keep, low confidence" path.
+        const installedVersion = (sw.raw.version as string | null) ?? null;
+        if (!versionStillVulnerable(installedVersion, ranges)) continue;
 
         let confidence: 'high' | 'medium' | 'low';
         if (vendorMatch) confidence = 'high';

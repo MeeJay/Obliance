@@ -95,10 +95,19 @@ function buildSummaryMessage(r: AggregateResult): string {
   return `[Obliance] "${r.automationName}" — OK: ${r.successCount} / Failed: ${r.failureCount}`;
 }
 
+/** Per-device message — fires for EVERY device that traversed the node,
+ *  regardless of success/failure. Used by `mode: 'per_device'`. */
+function buildPerDeviceMessage(r: AggregateResult, deviceName: string, success: boolean): string {
+  const verb = success ? 'completed on' : 'failed on';
+  return `[Obliance] "${r.automationName}" ${verb} ${deviceName}`;
+}
+
 export const automationNotificationService = {
   /**
-   * Send notifications for a completed automation batch/run according to
-   * the configured bindings. Callers provide the aggregate result.
+   * Aggregate dispatch — used by `mode: 'summary'` and legacy
+   * `mode: 'on_error'` (failure-only). For per-device dispatch the
+   * caller should use `notifyPerDevice` from inside the node executor
+   * loop instead.
    */
   async notify(
     tenantId: number,
@@ -109,12 +118,39 @@ export const automationNotificationService = {
     for (const b of bindings) {
       const subject = `${result.automationType === 'schedule' ? 'Schedule' : 'Scenario'}: ${result.automationName}`;
       let body: string | null = null;
-      if (b.mode === 'on_error') {
-        body = buildOnErrorMessage(result);
-      } else if ((b.mode as AutomationNotificationMode) === 'summary') {
+      if (b.mode === 'summary') {
         body = buildSummaryMessage(result);
+      } else if (b.mode === 'on_error') {
+        // Legacy alias kept so old bindings still work; only fires when
+        // at least one device failed.
+        body = buildOnErrorMessage(result);
       }
+      // `per_device` is intentionally a no-op here — it's dispatched
+      // per-device from the executor, not from the aggregate hook.
       if (!body) continue;
+      await dispatch(b.channelId, tenantId, subject, body);
+    }
+  },
+
+  /** Per-device hook — call once per (device, completion) for bindings
+   *  in `per_device` mode. Skips any binding that isn't per_device. */
+  async notifyPerDevice(
+    tenantId: number,
+    bindings: AutomationNotificationBinding[],
+    args: { automationType: 'schedule' | 'scenario'; automationName: string; deviceName: string; success: boolean },
+  ): Promise<void> {
+    if (!bindings || bindings.length === 0) return;
+    for (const b of bindings) {
+      if (b.mode !== 'per_device') continue;
+      const subject = `${args.automationType === 'schedule' ? 'Schedule' : 'Scenario'}: ${args.automationName}`;
+      const body = buildPerDeviceMessage({
+        automationType: args.automationType,
+        automationName: args.automationName,
+        successCount: args.success ? 1 : 0,
+        failureCount: args.success ? 0 : 1,
+        totalCount: 1,
+        failedDeviceNames: args.success ? [] : [args.deviceName],
+      }, args.deviceName, args.success);
       await dispatch(b.channelId, tenantId, subject, body);
     }
   },

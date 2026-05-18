@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, Upload, FileText, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
 
 /** Trigger a browser download of a JS object as JSON. Used by the
@@ -1024,23 +1025,17 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <h3 className="text-sm font-semibold text-text-primary mb-3">
  {t('scenarios.privacyBypass.title') || 'Privacy mode'}
  </h3>
- <label className="flex items-start gap-3 px-3 py-3 rounded-lg bg-bg-tertiary cursor-pointer hover:border-accent/40 border border-transparent transition-colors">
- <input
- type="checkbox"
+ <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-bg-tertiary">
+ <ToggleSwitch
  checked={form.bypassPrivacyMode}
- onChange={(e) => setForm({ ...form, bypassPrivacyMode: e.target.checked })}
- className="mt-0.5 w-4 h-4 accent-accent cursor-pointer"
+ onChange={(v) => setForm({ ...form, bypassPrivacyMode: v })}
+ label={t('scenarios.privacyBypass.label') || 'Bypass privacy mode'}
  />
- <div className="flex-1">
- <div className="text-sm font-medium text-text-primary">
- {t('scenarios.privacyBypass.label') || 'Bypass privacy mode'}
- </div>
- <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
+ <div className="flex-1 text-[11px] text-text-muted leading-snug">
  {t('scenarios.privacyBypass.hint') ||
   "When off (default), devices in privacy mode are skipped silently. When on, the scenario runs on them too — overrides a user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings."}
  </div>
  </div>
- </label>
  </div>
 
  {/* Notifications — moved to the graph (Send notification node).
