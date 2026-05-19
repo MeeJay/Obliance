@@ -4,7 +4,7 @@ import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import {
  Terminal as TerminalIcon, X, Maximize2, Minus, Plus,
- AlertTriangle, Keyboard,
+ AlertTriangle, Keyboard, Copy, Radio, RotateCcw, Ungroup,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { VirtualKeyPanel } from '@/components/VirtualKeyPanel';
@@ -68,6 +68,17 @@ export function GlobalShellPanel() {
  const [pickerOpen, setPickerOpen] = useState(false);
  const [pickerSearch, setPickerSearch] = useState('');
  const [isFullscreen, setIsFullscreen] = useState(false);
+ // Broadcast mode: when on, keystrokes typed in any grouped tile fan
+ // out to every WS in the group. The flag is mirrored to a ref so the
+ // xterm `onData` closure captured at runtime-construction time can
+ // read the current value without being torn down/rebuilt every toggle.
+ const [broadcast, setBroadcast] = useState(false);
+ const broadcastRef = useRef(false);
+ useEffect(() => { broadcastRef.current = broadcast; }, [broadcast]);
+ // Drag-and-drop grouping — id of the tab currently being dragged and
+ // the tab the pointer is hovering over. Both reset on drop/end.
+ const [dragId, setDragId] = useState<string | null>(null);
+ const [dragOverId, setDragOverId] = useState<string | null>(null);
  const nativeTop = useNativeTopOffset();
 
  // Recently-used device ids for the "+" picker, persisted in localStorage.
@@ -118,7 +129,7 @@ export function GlobalShellPanel() {
  selectionBackground: '#7c6af730',
  },
  fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
- fontSize: 14,
+ fontSize: 16,
  cursorBlink: true,
  convertEol: true,
  });
@@ -145,8 +156,23 @@ export function GlobalShellPanel() {
  };
 
  term.onData((data: string) => {
+ const encoded = new TextEncoder().encode(data);
+ // Broadcast mode — when active, every keystroke in any grouped
+ // tile fans out to every other grouped session's WS. The check
+ // happens at keystroke time so toggling the flag takes effect on
+ // the next character without re-creating runtimes.
+ const g = useRemoteShellStore.getState().groupedIds;
+ if (broadcastRef.current && g.includes(session.id) && g.length >= 2) {
+ for (const id of g) {
+ const rt = runtimes.current.get(id);
+ if (rt?.ws && rt.ws.readyState === WebSocket.OPEN) {
+ rt.ws.send(encoded);
+ }
+ }
+ return;
+ }
  if (ws.readyState === WebSocket.OPEN) {
- ws.send(new TextEncoder().encode(data));
+ ws.send(encoded);
  }
  });
  term.onResize(({ cols, rows }) => {
@@ -293,6 +319,95 @@ export function GlobalShellPanel() {
  try { rt?.term.focus(); } catch {}
  }, [activeId]);
 
+ // Copy the visible+scrollback buffer of a session to the clipboard.
+ // If the user has a selection (drag-highlight inside xterm), prefer
+ // that; otherwise dump the whole buffer. Trailing whitespace is
+ // trimmed so an empty-row tail doesn't leave the clipboard with
+ // hundreds of blank lines.
+ const copyTerminal = async (id: string) => {
+ const rt = runtimes.current.get(id);
+ if (!rt) return;
+ let text = '';
+ try { text = rt.term.getSelection() ?? ''; } catch {}
+ if (!text) {
+ try {
+ const buf = rt.term.buffer.active;
+ const lines: string[] = [];
+ for (let i = 0; i < buf.length; i++) {
+ lines.push(buf.getLine(i)?.translateToString(true) ?? '');
+ }
+ text = lines.join('\n').replace(/\s+$/, '');
+ } catch { /* no buffer yet — empty copy */ }
+ }
+ try {
+ await navigator.clipboard.writeText(text);
+ toast.success(text ? 'Terminal contents copied' : 'Nothing to copy');
+ } catch {
+ toast.error('Clipboard blocked by the browser');
+ }
+ };
+
+ // Reconnect a session that hit `error` or `disconnected`. Tears down
+ // the dead runtime and opens a fresh tunnel; the new tab inherits
+ // group membership so the layout doesn't shift. Wait for
+ // REMOTE_TUNNEL_READY before adding the new tab so the runtime's WS
+ // doesn't open against an agent that hasn't reconnected yet.
+ const handleReconnect = async (id: string) => {
+ const s = useRemoteShellStore.getState().sessions.find((x) => x.id === id);
+ if (!s) return;
+ const wasGrouped = useRemoteShellStore.getState().groupedIds.includes(id);
+ const oldRt = runtimes.current.get(id);
+ try { oldRt?.ws?.close(); } catch {}
+ try { oldRt?.term.dispose(); } catch {}
+ runtimes.current.delete(id);
+ removeSession(id);
+ try {
+ const fresh = await remoteApi.startSession(s.deviceId, s.protocol);
+ const socket = getSocket();
+ const add = () => {
+ addSession({
+ id: fresh.sessionToken,
+ deviceId: s.deviceId,
+ deviceName: s.deviceName,
+ protocol: s.protocol,
+ sessionToken: fresh.sessionToken,
+ serverSessionId: fresh.id,
+ });
+ if (wasGrouped) toggleGrouped(fresh.sessionToken);
+ };
+ if (!socket) { add(); return; }
+ const onReady = (rs: any) => {
+ if (rs.id !== fresh.id) return;
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ add();
+ };
+ socket.on('REMOTE_TUNNEL_READY', onReady);
+ setTimeout(() => {
+ socket.off('REMOTE_TUNNEL_READY', onReady);
+ if (!useRemoteShellStore.getState().sessions.find((x) => x.id === fresh.sessionToken)) {
+ add();
+ }
+ }, 1500);
+ } catch {
+ toast.error('Reconnect failed');
+ }
+ };
+
+ // ── Drag-and-drop grouping ──────────────────────────────────────────────
+ // Dragging tab A onto tab B puts both in the active split group. If
+ // either was already in the group the other joins it; otherwise a
+ // fresh 2-tab group is created. The active tab is set to the source
+ // so the user lands in the new split immediately.
+ const handleTabDrop = (sourceId: string, targetId: string) => {
+ if (!sourceId || sourceId === targetId) return;
+ const st = useRemoteShellStore.getState();
+ // toggleGrouped flips one id at a time; calling it for each missing
+ // id converges on the union (source ∪ target ∪ existing group).
+ if (!st.groupedIds.includes(sourceId)) toggleGrouped(sourceId);
+ if (!st.groupedIds.includes(targetId)) toggleGrouped(targetId);
+ setActive(sourceId);
+ };
+
  // Close = kill the shell + tear down the local runtime. The server
  // also reacts to the browser WS dropping by calling endSession, so
  // this is effectively a no-op REST call followed by a local cleanup.
@@ -383,20 +498,52 @@ export function GlobalShellPanel() {
  s.status === 'connecting' ? 'text-yellow-400' :
  s.status === 'error' ? 'text-red-400' :
  'text-gray-400';
+ const isDeadStatus = s.status === 'error' || s.status === 'disconnected';
+ const isDropTarget = dragOverId === s.id && dragId && dragId !== s.id;
  return (
  <div
  key={s.id}
+ draggable
+ onDragStart={(e) => {
+ setDragId(s.id);
+ try {
+ e.dataTransfer.effectAllowed = 'move';
+ e.dataTransfer.setData('text/plain', s.id);
+ } catch {}
+ }}
+ onDragOver={(e) => {
+ if (!dragId || dragId === s.id) return;
+ e.preventDefault();
+ e.dataTransfer.dropEffect = 'move';
+ if (dragOverId !== s.id) setDragOverId(s.id);
+ }}
+ onDragLeave={() => {
+ if (dragOverId === s.id) setDragOverId(null);
+ }}
+ onDrop={(e) => {
+ e.preventDefault();
+ const src = dragId ?? e.dataTransfer.getData('text/plain');
+ setDragId(null);
+ setDragOverId(null);
+ if (src) handleTabDrop(src, s.id);
+ }}
+ onDragEnd={() => {
+ setDragId(null);
+ setDragOverId(null);
+ }}
  className={clsx(
- 'flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer shrink-0 transition-colors border',
+ 'flex items-center gap-1.5 px-2.5 py-1.5 rounded cursor-pointer shrink-0 transition-colors border',
  isActive
  ? 'bg-accent/15 text-text-primary border-accent/40'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary border-transparent',
  isGrouped && !isActive && 'border-purple-400/50 bg-purple-400/5',
  isGrouped && isActive && 'border-purple-400/70',
+ isDropTarget && 'ring-2 ring-accent/70 bg-accent/10',
+ dragId === s.id && 'opacity-50',
  )}
  title={isGrouped
- ? 'Ctrl+Click to remove from split group'
- : 'Click to activate · Ctrl+Click to add to split group'}
+ ? 'Drop another tab here to add it · Ctrl+Click to remove from split'
+ : 'Click to activate · Drag onto another tab to split · Ctrl+Click to toggle split'}
  onClick={(e) => {
  if (e.ctrlKey || e.metaKey) {
  e.preventDefault();
@@ -410,18 +557,27 @@ export function GlobalShellPanel() {
  }
  }}
  >
- <span className={clsx('w-1.5 h-1.5 rounded-full', statusColor.replace('text-', 'bg-'))} />
- <span className="text-xs font-medium max-w-[160px] truncate">{s.deviceName}</span>
- <span className="text-[10px] text-text-muted/80">{PROTOCOL_LABEL[s.protocol]}</span>
+ <span className={clsx('w-2 h-2 rounded-full', statusColor.replace('text-', 'bg-'))} />
+ <span className="text-sm font-medium max-w-[200px] truncate">{s.deviceName}</span>
+ <span className="text-[11px] text-text-muted/80">{PROTOCOL_LABEL[s.protocol]}</span>
  {isGrouped && (
- <span className="text-[9px] text-purple-400" title="In split group">◎</span>
+ <span className="text-[10px] text-purple-400" title="In split group">◎</span>
+ )}
+ {isDeadStatus && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleReconnect(s.id); }}
+ className="p-0.5 rounded hover:bg-accent/20 text-text-muted hover:text-accent"
+ title="Reconnect"
+ >
+ <RotateCcw className="w-3.5 h-3.5" />
+ </button>
  )}
  <button
  onClick={(e) => { e.stopPropagation(); handleDisconnect(s.id); }}
  className="p-0.5 rounded hover:bg-red-500/20 text-text-muted hover:text-red-400"
  title="Close session"
  >
- <X className="w-3 h-3" />
+ <X className="w-3.5 h-3.5" />
  </button>
  </div>
  );
@@ -458,6 +614,50 @@ export function GlobalShellPanel() {
  <span className="text-xs text-red-400 truncate max-w-xs hidden md:block">
  {activeSession.errorMsg}
  </span>
+ )}
+ {/* Copy whole buffer (or current selection) — always available
+ when there's an active session. In group mode each tile has
+ its own Copy button too. */}
+ {activeSession && !isGroupMode && (
+ <button
+ onClick={() => copyTerminal(activeSession.id)}
+ title="Copy terminal contents to clipboard"
+ className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+ >
+ <Copy className="w-4 h-4" />
+ </button>
+ )}
+ {/* Broadcast input — only meaningful in split group with 2+ tiles.
+ When on, every keystroke fans out to every grouped terminal:
+ the parallel-admin killer feature for "run the same command
+ on N similar boxes". */}
+ {isGroupMode && (
+ <button
+ onClick={() => setBroadcast((v) => !v)}
+ title={broadcast
+ ? 'Broadcast ON — keystrokes go to every grouped terminal'
+ : 'Broadcast OFF — keystrokes go to the focused terminal only'}
+ className={clsx(
+ 'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors border',
+ broadcast
+ ? 'bg-purple-400/15 text-purple-300 border-purple-400/50'
+ : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary border-transparent',
+ )}
+ >
+ <Radio className={clsx('w-3.5 h-3.5', broadcast && 'animate-pulse')} />
+ <span className="hidden sm:inline">Broadcast</span>
+ </button>
+ )}
+ {/* Ungroup all — visible whenever 2+ tabs are grouped. Cheaper
+ than Ctrl+Clicking each tab individually. */}
+ {groupedIds.length >= 2 && (
+ <button
+ onClick={() => useRemoteShellStore.getState().clearGroup()}
+ title="Clear split group"
+ className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+ >
+ <Ungroup className="w-4 h-4" />
+ </button>
  )}
  <button
  onClick={() => setShowKeys((v) => !v)}
@@ -520,24 +720,61 @@ export function GlobalShellPanel() {
  const session = sessions.find((s) => s.id === id);
  if (!session) return null;
  const isActiveTile = id === activeId;
+ const statusColor =
+ session.status === 'connected' ? 'bg-green-400' :
+ session.status === 'connecting' ? 'bg-yellow-400' :
+ session.status === 'error' ? 'bg-red-400' :
+ 'bg-gray-400';
+ const isDead = session.status === 'error' || session.status === 'disconnected';
  return (
+ // Flex column instead of absolute+pt-5. With absolute+padding the
+ // xterm canvas overran the tile bottom (last 1–2 rows clipped) on
+ // certain aspect ratios because fit-addon and the canvas
+ // renderer disagree about whether padding is content. A clean
+ // header (shrink-0) + flex-1 terminal area is reliable.
  <div
  key={id}
  className={clsx(
- 'relative rounded border overflow-hidden cursor-pointer',
+ 'flex flex-col rounded border overflow-hidden cursor-pointer min-h-0',
  isActiveTile ? 'border-accent/60' : 'border-transparent',
  )}
  onClick={() => setActive(id)}
  >
- {/* Tile header */}
- <div className="absolute top-0 left-0 right-0 flex items-center gap-1.5 px-2 py-0.5 bg-bg-primary/80 backdrop-blur /30 z-10">
- <span className="text-[10px] font-medium text-text-primary truncate flex-1">
+ <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bg-primary/90 shrink-0">
+ <span className={clsx('w-2 h-2 rounded-full shrink-0', statusColor)} />
+ <span className="text-xs font-medium text-text-primary truncate flex-1" title={session.deviceName}>
  {session.deviceName}
  </span>
- <span className="text-[9px] text-text-muted">{PROTOCOL_LABEL[session.protocol]}</span>
+ <span className="text-[11px] text-text-muted shrink-0">{PROTOCOL_LABEL[session.protocol]}</span>
+ {broadcast && (
+ <Radio className="w-3.5 h-3.5 text-purple-300 animate-pulse shrink-0" />
+ )}
+ {isDead && (
+ <button
+ onClick={(e) => { e.stopPropagation(); handleReconnect(id); }}
+ title="Reconnect"
+ className="p-0.5 rounded hover:bg-accent/20 text-text-muted hover:text-accent shrink-0"
+ >
+ <RotateCcw className="w-3.5 h-3.5" />
+ </button>
+ )}
+ <button
+ onClick={(e) => { e.stopPropagation(); copyTerminal(id); }}
+ title="Copy this terminal's contents"
+ className="p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0"
+ >
+ <Copy className="w-3.5 h-3.5" />
+ </button>
+ <button
+ onClick={(e) => { e.stopPropagation(); toggleGrouped(id); }}
+ title="Remove from split group"
+ className="p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0"
+ >
+ <Minus className="w-3.5 h-3.5" />
+ </button>
  </div>
  <div
- className="absolute inset-0 pt-5"
+ className="flex-1 min-h-0"
  ref={(el) => {
  if (el) tileRefs.current.set(id, el);
  else tileRefs.current.delete(id);
