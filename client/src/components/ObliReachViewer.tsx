@@ -15,12 +15,37 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Volume2, VolumeX } from 'lucide-react';
+import { Monitor, X, Maximize2, Keyboard, RefreshCw, AlertTriangle, Wifi, Lock, Unlock, MessageCircle, Circle, Camera, Volume2, VolumeX, Command } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
 
 // ── Frame type constants ──────────────────────────────────────────────────────
 const FRAME_H264 = 0x02;
+
+// System-key chords sendable from the viewer. Each entry is a list of
+// physical key codes (DOM KeyboardEvent.code) pressed together. The agent
+// maps these via codeToVK so they hit the remote by position. These are the
+// browser-reserved combos a viewer can't type directly (the OS swallows Win+*
+// / Alt+Tab / Ctrl+Shift+Esc before the page sees them).
+const SYSTEM_KEY_CHORDS: Array<{ label: string; codes: string[]; title: string; group: 'win' | 'window' | 'misc' }> = [
+ { label: 'Win', codes: ['MetaLeft'], title: 'Windows key — Start menu', group: 'win' },
+ { label: 'Win+D', codes: ['MetaLeft', 'KeyD'], title: 'Show / hide desktop', group: 'win' },
+ { label: 'Win+E', codes: ['MetaLeft', 'KeyE'], title: 'Open File Explorer', group: 'win' },
+ { label: 'Win+R', codes: ['MetaLeft', 'KeyR'], title: 'Run dialog', group: 'win' },
+ { label: 'Win+I', codes: ['MetaLeft', 'KeyI'], title: 'Settings', group: 'win' },
+ { label: 'Win+L', codes: ['MetaLeft', 'KeyL'], title: 'Lock the session', group: 'win' },
+ { label: 'Win+Tab', codes: ['MetaLeft', 'Tab'], title: 'Task view', group: 'win' },
+ { label: 'Win+↑', codes: ['MetaLeft', 'ArrowUp'], title: 'Maximize window', group: 'win' },
+ { label: 'Win+↓', codes: ['MetaLeft', 'ArrowDown'], title: 'Restore / minimize window', group: 'win' },
+ { label: 'Alt+Tab', codes: ['AltLeft', 'Tab'], title: 'Switch window', group: 'window' },
+ { label: 'Alt+F4', codes: ['AltLeft', 'F4'], title: 'Close active window', group: 'window' },
+ { label: 'Task Mgr', codes: ['ControlLeft', 'ShiftLeft', 'Escape'], title: 'Ctrl+Shift+Esc — Task Manager', group: 'window' },
+ { label: 'Ctrl+Esc', codes: ['ControlLeft', 'Escape'], title: 'Start menu (Ctrl+Esc)', group: 'window' },
+ { label: 'Esc', codes: ['Escape'], title: 'Escape', group: 'misc' },
+ { label: 'PrtSc', codes: ['PrintScreen'], title: 'Print Screen (full screen capture on remote)', group: 'misc' },
+ { label: 'Menu', codes: ['ContextMenu'], title: 'Context-menu key', group: 'misc' },
+ { label: 'Pause', codes: ['Pause'], title: 'Pause / Break', group: 'misc' },
+];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,6 +167,7 @@ export function ObliReachViewer({
  const [isRecording, setIsRecording] = useState(false);
  const [audioEnabled, setAudioEnabled] = useState(true); // enabled by default when available
  const [hasAudio, setHasAudio] = useState(false);
+ const [sysKeysOpen, setSysKeysOpen] = useState(false);
  const audioCtxRef = useRef<AudioContext | null>(null);
  const audioRateRef = useRef(48000);
  const audioEnabledRef = useRef(audioEnabled);
@@ -625,6 +651,32 @@ export function ObliReachViewer({
  }, 50);
  }, [sendJson]);
 
+ // Send an arbitrary chord by physical key code. Presses every code down in
+ // order, then releases in reverse — exactly how a real key combo fires.
+ // `key:''` forces the agent's physical-code path (codeToVK) so combos map
+ // by position, immune to the browser's keyboard layout (Win+R lands on the
+ // remote's R regardless of AZERTY/QWERTZ). The modifier flags are derived
+ // from the codes so the agent's SAS detection + any flag-based logic stay
+ // consistent.
+ const sendKeyChord = useCallback((codes: string[]) => {
+ if (!codes.length) return;
+ const mods = {
+ ctrl: codes.some((c) => c.startsWith('Control')),
+ alt: codes.some((c) => c.startsWith('Alt')),
+ shift: codes.some((c) => c.startsWith('Shift')),
+ meta: codes.some((c) => c.startsWith('Meta')),
+ };
+ for (const code of codes) {
+ sendJson({ type: 'key', action: 'down', code, key: '', ...mods });
+ }
+ setTimeout(() => {
+ for (const code of [...codes].reverse()) {
+ sendJson({ type: 'key', action: 'up', code, key: '', ...mods });
+ }
+ }, 40);
+ setSysKeysOpen(false);
+ }, [sendJson]);
+
  const handleFullscreen = useCallback(() => {
  if (!isFullscreen) {
  document.documentElement.requestFullscreen?.();
@@ -903,6 +955,53 @@ export function ObliReachViewer({
  <Keyboard className="w-3.5 h-3.5" />
  <span className="hidden sm:inline">Ctrl+Alt+Del</span>
  </button>
+
+ {/* ── System keys — Windows/Alt/system combos the browser swallows ── */}
+ <div className="relative">
+ <button
+ onClick={() => setSysKeysOpen((v) => !v)}
+ disabled={status !== 'streaming'}
+ title="Send system keys (Win, Alt+Tab, Task Manager…)"
+ className={clsx(
+ 'flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors disabled:opacity-40',
+ sysKeysOpen
+ ? 'bg-accent/15 text-accent'
+ : 'bg-bg-secondary text-text-muted hover:text-text-primary hover:bg-bg-tertiary',
+ )}
+ >
+ <Command className="w-3.5 h-3.5" />
+ <span className="hidden sm:inline">System keys</span>
+ </button>
+ {sysKeysOpen && status === 'streaming' && (
+ <>
+ <div className="fixed inset-0 z-40" onClick={() => setSysKeysOpen(false)} />
+ <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-bg-secondary rounded-lg shadow-2xl p-2 space-y-2">
+ {(['win', 'window', 'misc'] as const).map((g) => {
+ const keys = SYSTEM_KEY_CHORDS.filter((k) => k.group === g);
+ if (keys.length === 0) return null;
+ const heading = g === 'win' ? 'Windows' : g === 'window' ? 'Windows & apps' : 'Misc';
+ return (
+ <div key={g}>
+ <div className="px-1 pb-1 text-[10px] font-mono uppercase tracking-wider text-text-muted">{heading}</div>
+ <div className="flex flex-wrap gap-1">
+ {keys.map((k) => (
+ <button
+ key={k.label}
+ onClick={() => sendKeyChord(k.codes)}
+ title={k.title}
+ className="px-2 py-1 text-[11px] font-mono font-semibold bg-bg-tertiary rounded hover:bg-accent/10 hover:text-accent transition-colors"
+ >
+ {k.label}
+ </button>
+ ))}
+ </div>
+ </div>
+ );
+ })}
+ </div>
+ </>
+ )}
+ </div>
 
  <button
  onClick={handleFullscreen}
