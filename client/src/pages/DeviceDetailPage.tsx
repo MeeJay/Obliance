@@ -22,6 +22,7 @@ import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
+import { EditVmModal, CreateVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
 import { commandApi } from '@/api/command.api';
 import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
@@ -3619,6 +3620,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  const [loading, setLoading] = useState(true);
  const [busyVmId, setBusyVmId] = useState<string | null>(null);
  const [refreshing, setRefreshing] = useState(false);
+ const [modal, setModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: import('@obliance/shared').VirtualMachine } | { kind: 'create' } | null>(null);
 
  const load = useCallback(async () => {
  try { setVms(await hypervApi.listForDevice(deviceId)); }
@@ -3626,6 +3628,19 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  finally { setLoading(false); }
  }, [deviceId]);
  useEffect(() => { load(); }, [load]);
+
+ // Adapter matching the modals' RunAction signature. Surfaces pending-approval
+ // + reloads the list after the host re-enumerates.
+ const runVm = useCallback(async (vmId: string, action: import('@obliance/shared').VmAction, params?: Record<string, unknown>) => {
+ const out = await hypervApi.action(deviceId, vmId, action, params);
+ if (out && out.status === 'pending_approval') {
+ toast.success(t('hyperv.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+ } else {
+ toast.success(t('hyperv.actionQueued') || 'Action sent to host');
+ }
+ setTimeout(() => load(), 2500);
+ return out;
+ }, [deviceId, load, t]);
 
  const handleRefresh = async () => {
  setRefreshing(true);
@@ -3672,6 +3687,14 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  <h3 className="text-sm font-semibold text-text-primary">
  {t('hyperv.title') || 'Hyper-V virtual machines'} <span className="text-text-muted font-normal">({vms.length})</span>
  </h3>
+ <div className="flex items-center gap-2">
+ <button
+ onClick={() => setModal({ kind: 'create' })}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
+ >
+ <Plus className="w-3.5 h-3.5" />
+ {t('hyperv.newVm') || 'New VM'}
+ </button>
  <button
  onClick={handleRefresh}
  disabled={refreshing}
@@ -3681,7 +3704,17 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  {t('hyperv.refresh') || 'Refresh'}
  </button>
  </div>
- <HyperVVmTable vms={vms} busyVmId={busyVmId} onAction={handleAction} />
+ </div>
+ <HyperVVmTable
+ vms={vms}
+ busyVmId={busyVmId}
+ onAction={handleAction}
+ onEdit={(vm) => setModal({ kind: 'edit', vm })}
+ onCheckpoints={(vm) => setModal({ kind: 'checkpoints', vm })}
+ />
+ {modal?.kind === 'edit' && <EditVmModal vm={modal.vm} run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
+ {modal?.kind === 'checkpoints' && <CheckpointModal vm={modal.vm} run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
+ {modal?.kind === 'create' && <CreateVmModal run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
  </div>
  );
 }

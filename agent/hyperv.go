@@ -17,20 +17,40 @@ import (
 // the server sends a hyperv_list_vms command. Control actions arrive as
 // hyperv_control commands carrying { action, vmId, params }.
 
+// HyperVCheckpoint mirrors VmCheckpoint in shared/types.ts.
+type HyperVCheckpoint struct {
+	Name       string `json:"name"`
+	CreatedAt  string `json:"createdAt"`
+	ParentName string `json:"parentName"`
+}
+
 // HyperVVM is the per-VM payload posted to the server. Field names match the
 // server's ingest mapper (hyperV.service.ts).
 type HyperVVM struct {
-	VMId            string   `json:"vmId"`
-	Name            string   `json:"name"`
-	State           string   `json:"state"`    // normalised: running|off|saved|paused|transitioning|unknown
-	RawState        string   `json:"rawState"` // hypervisor-native string
-	CPUCount        int      `json:"cpuCount"`
-	MemoryBytes     int64    `json:"memoryBytes"`
-	UptimeSeconds   int64    `json:"uptimeSeconds"`
-	CheckpointCount int      `json:"checkpointCount"`
-	IPAddresses     []string `json:"ipAddresses"`
-	Generation      int      `json:"generation"`
-	Notes           string   `json:"notes"`
+	VMId            string             `json:"vmId"`
+	Name            string             `json:"name"`
+	State           string             `json:"state"`    // normalised: running|off|saved|paused|transitioning|unknown
+	RawState        string             `json:"rawState"` // hypervisor-native string
+	CPUCount        int                `json:"cpuCount"`
+	MemoryBytes     int64              `json:"memoryBytes"`
+	UptimeSeconds   int64              `json:"uptimeSeconds"`
+	CheckpointCount int                `json:"checkpointCount"`
+	Checkpoints     []HyperVCheckpoint `json:"checkpoints"`
+	IPAddresses     []string           `json:"ipAddresses"`
+	Generation      int                `json:"generation"`
+	Notes           string             `json:"notes"`
+	// Live consumption + richer info (best-effort; zero/empty when the VM is
+	// off or the data isn't available).
+	CPUUsagePercent    int    `json:"cpuUsagePercent"`
+	MemoryDemandBytes  int64  `json:"memoryDemandBytes"`
+	DynamicMemory      bool   `json:"dynamicMemory"`
+	Heartbeat          string `json:"heartbeat"`          // integration-services heartbeat (OkApplicationsHealthy, NoContact, …)
+	IntegrationSvcVer  string `json:"integrationSvcVer"`  // guest integration services version
+	Version            string `json:"version"`            // VM configuration version
+	StatusText         string `json:"statusText"`         // operational status ("Operating normally", …)
+	GuestOS            string `json:"guestOs"`            // guest OS name via KVP, if exposed
+	AutomaticStart     string `json:"automaticStart"`     // Nothing | Start | StartIfRunning
+	AutomaticStop      string `json:"automaticStop"`      // TurnOff | Save | ShutDown
 }
 
 type hyperVVMsBody struct {

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
   AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, Box,
-  Building2,
+  Building2, Server, LayoutDashboard,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -19,6 +19,7 @@ import { useUiStore } from '@/store/uiStore';
 import { clsx } from 'clsx';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
+import { EditVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
 import type { VirtualMachine, VmAction } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
@@ -555,10 +556,23 @@ export function DashboardPage() {
   const [dashTab, setDashTab] = useState<'overview' | 'hyperv'>('overview');
   const [hyperVms, setHyperVms] = useState<VirtualMachine[]>([]);
   const [hvBusyVmId, setHvBusyVmId] = useState<string | null>(null);
+  const [hvModal, setHvModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: VirtualMachine } | null>(null);
   const loadHyperVms = useCallback(() => {
     hypervApi.listForTenant().then(setHyperVms).catch(() => setHyperVms([]));
   }, []);
   useEffect(() => { loadHyperVms(); }, [loadHyperVms]);
+  // Run adapter for the modals — bound to the modal VM's host device.
+  const runHvForVm = useCallback((vm: VirtualMachine) =>
+    async (vmId: string, action: VmAction, params?: Record<string, unknown>) => {
+      const out = await hypervApi.action(vm.hostDeviceId, vmId, action, params);
+      if (out && out.status === 'pending_approval') {
+        toast.success(t('hyperv.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+      } else {
+        toast.success(t('hyperv.actionQueued') || 'Action sent to host');
+      }
+      setTimeout(loadHyperVms, 2500);
+      return out;
+    }, [loadHyperVms, t]);
   const handleHvAction = async (vm: VirtualMachine, action: VmAction) => {
     if (action === 'delete' && !confirm(t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? Irreversible.`)) return;
     let params: Record<string, unknown> | undefined;
@@ -750,24 +764,23 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Tab bar — Overview vs Hyper-V. The Hyper-V tab only shows when the
-          tenant has at least one VM reported by a host agent. */}
+      {/* Tab bar — same segmented control as /automations. The Hyper-V tab
+          only shows when the tenant has at least one VM reported by a host. */}
       {hyperVms.length > 0 && (
-        <div className="flex items-center gap-1 border-b border-border/40">
+        <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
           {([
-            { id: 'overview' as const, label: t('dashboard.tabOverview', 'Vue d’ensemble') },
-            { id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})` },
+            { id: 'overview' as const, label: t('dashboard.tabOverview', 'Vue d’ensemble'), icon: <LayoutDashboard size={16} /> },
+            { id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})`, icon: <Server size={16} /> },
           ]).map((tb) => (
             <button
               key={tb.id}
               onClick={() => setDashTab(tb.id)}
               className={clsx(
-                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                dashTab === tb.id
-                  ? 'border-accent text-text-primary'
-                  : 'border-transparent text-text-muted hover:text-text-primary',
+                'flex items-center gap-2 flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors justify-center',
+                dashTab === tb.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
               )}
             >
+              {tb.icon}
               {tb.label}
             </button>
           ))}
@@ -775,7 +788,18 @@ export function DashboardPage() {
       )}
 
       {dashTab === 'hyperv' ? (
-        <HyperVVmTable vms={hyperVms} busyVmId={hvBusyVmId} showHost onAction={handleHvAction} />
+        <>
+          <HyperVVmTable
+            vms={hyperVms}
+            busyVmId={hvBusyVmId}
+            showHost
+            onAction={handleHvAction}
+            onEdit={(vm) => setHvModal({ kind: 'edit', vm })}
+            onCheckpoints={(vm) => setHvModal({ kind: 'checkpoints', vm })}
+          />
+          {hvModal?.kind === 'edit' && <EditVmModal vm={hvModal.vm} run={runHvForVm(hvModal.vm)} onClose={() => { setHvModal(null); setTimeout(loadHyperVms, 2500); }} />}
+          {hvModal?.kind === 'checkpoints' && <CheckpointModal vm={hvModal.vm} run={runHvForVm(hvModal.vm)} onClose={() => { setHvModal(null); setTimeout(loadHyperVms, 2500); }} />}
+        </>
       ) : (
       <>
       {/* Hero row — featured Total + 4 KPIs with deltas. Each card is a Link

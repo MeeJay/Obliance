@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { isMasterTenant } from '@obliance/shared';
-import type { VirtualMachine, VmState, VirtualizationHostType } from '@obliance/shared';
+import type { VirtualMachine, VmState, VirtualizationHostType, VmCheckpoint } from '@obliance/shared';
 
 // Virtualization (Hyper-V) service. Stores the VM inventory reported by host
 // agents and reads it back for the device-detail tab + tenant-wide grid.
@@ -19,9 +19,20 @@ interface IncomingVM {
   memoryBytes?: number | null;
   uptimeSeconds?: number | null;
   checkpointCount?: number | null;
+  checkpoints?: unknown;
   ipAddresses?: unknown;
   generation?: number | null;
   notes?: string | null;
+  cpuUsagePercent?: number | null;
+  memoryDemandBytes?: number | null;
+  dynamicMemory?: boolean;
+  heartbeat?: string | null;
+  integrationSvcVer?: string | null;
+  version?: string | null;
+  statusText?: string | null;
+  guestOs?: string | null;
+  automaticStart?: string | null;
+  automaticStop?: string | null;
 }
 
 function rowToVM(row: any): VirtualMachine {
@@ -38,13 +49,31 @@ function rowToVM(row: any): VirtualMachine {
     memoryBytes: row.memory_bytes != null ? Number(row.memory_bytes) : null,
     uptimeSeconds: row.uptime_seconds != null ? Number(row.uptime_seconds) : null,
     checkpointCount: row.checkpoint_count ?? null,
+    checkpoints: typeof row.checkpoints === 'string' ? JSON.parse(row.checkpoints) : (row.checkpoints ?? []),
     ipAddresses: typeof row.ip_addresses === 'string' ? JSON.parse(row.ip_addresses) : (row.ip_addresses ?? []),
     generation: row.generation ?? null,
     notes: row.notes ?? null,
+    ...(() => {
+      const m = typeof row.metrics === 'string' ? safeJson(row.metrics) : (row.metrics ?? {});
+      return {
+        cpuUsagePercent: m.cpuUsagePercent ?? null,
+        memoryDemandBytes: m.memoryDemandBytes != null ? Number(m.memoryDemandBytes) : null,
+        dynamicMemory: !!m.dynamicMemory,
+        heartbeat: m.heartbeat ?? null,
+        integrationServicesVersion: m.integrationSvcVer ?? null,
+        configVersion: m.version ?? null,
+        statusText: m.statusText ?? null,
+        guestOs: m.guestOs ?? null,
+        automaticStart: m.automaticStart ?? null,
+        automaticStop: m.automaticStop ?? null,
+      };
+    })(),
     updatedAt: row.updated_at,
     hostName: row.host_name ?? undefined,
   };
 }
+
+function safeJson(s: string): any { try { return JSON.parse(s); } catch { return {}; } }
 
 export const hyperVService = {
   /** Replace the VM set for a host with the agent's freshly-reported list. */
@@ -62,6 +91,13 @@ export const hyperVService = {
         const ips = Array.isArray(v.ipAddresses)
           ? (v.ipAddresses as unknown[]).filter((x): x is string => typeof x === 'string')
           : [];
+        const checkpoints: VmCheckpoint[] = Array.isArray(v.checkpoints)
+          ? (v.checkpoints as any[]).map((c) => ({
+              name: String(c?.name ?? ''),
+              createdAt: c?.createdAt ? String(c.createdAt) : null,
+              parentName: c?.parentName ? String(c.parentName) : null,
+            })).filter((c) => c.name)
+          : [];
         const payload = {
           tenant_id: tenantId,
           host_device_id: hostDeviceId,
@@ -74,6 +110,19 @@ export const hyperVService = {
           memory_bytes: v.memoryBytes ?? null,
           uptime_seconds: v.uptimeSeconds ?? null,
           checkpoint_count: v.checkpointCount ?? null,
+          checkpoints: JSON.stringify(checkpoints),
+          metrics: JSON.stringify({
+            cpuUsagePercent: v.cpuUsagePercent ?? null,
+            memoryDemandBytes: v.memoryDemandBytes ?? null,
+            dynamicMemory: !!v.dynamicMemory,
+            heartbeat: v.heartbeat ?? null,
+            integrationSvcVer: v.integrationSvcVer ?? null,
+            version: v.version ?? null,
+            statusText: v.statusText ?? null,
+            guestOs: v.guestOs ?? null,
+            automaticStart: v.automaticStart ?? null,
+            automaticStop: v.automaticStop ?? null,
+          }),
           ip_addresses: JSON.stringify(ips),
           generation: v.generation ?? null,
           notes: v.notes ?? null,

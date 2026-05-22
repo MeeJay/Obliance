@@ -2143,6 +2143,14 @@ export type VmAction =
   | 'create'
   | 'delete';
 
+export interface VmCheckpoint {
+  name: string;
+  /** ISO timestamp the checkpoint was taken, if known. */
+  createdAt: string | null;
+  /** Parent checkpoint name (checkpoint tree), if any. */
+  parentName: string | null;
+}
+
 export interface VirtualMachine {
   id: number;
   tenantId: number;
@@ -2161,11 +2169,32 @@ export interface VirtualMachine {
   uptimeSeconds: number | null;
   /** Number of checkpoints/snapshots. */
   checkpointCount: number | null;
+  /** Checkpoint details for the management modal. Populated by the agent
+   *  enumeration; may be empty even when checkpointCount > 0 on older
+   *  agents that only reported the count. */
+  checkpoints: VmCheckpoint[];
   /** Guest IP addresses reported via integration services, if any. */
   ipAddresses: string[];
   /** Hyper-V VM generation (1 or 2), null for other hypervisors. */
   generation: number | null;
   notes: string | null;
+  // ── Live consumption + richer info (best-effort) ──
+  /** Host-CPU usage attributed to this VM, percent. */
+  cpuUsagePercent: number | null;
+  /** Memory the guest is actively demanding (dynamic memory), bytes. */
+  memoryDemandBytes: number | null;
+  dynamicMemory: boolean;
+  /** Integration-services heartbeat status string. */
+  heartbeat: string | null;
+  integrationServicesVersion: string | null;
+  /** VM configuration version. */
+  configVersion: string | null;
+  /** Operational status text ("Operating normally", …). */
+  statusText: string | null;
+  /** Guest OS name (KVP), if the guest reports it. */
+  guestOs: string | null;
+  automaticStart: string | null;
+  automaticStop: string | null;
   updatedAt: string;
   /** Joined for the tenant-wide grid: the host device's display name. */
   hostName?: string;

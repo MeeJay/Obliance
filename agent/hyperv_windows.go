@@ -36,18 +36,36 @@ func detectVirtualizationHost() string {
 
 // ── Enumeration ──────────────────────────────────────────────────────────────
 
+// psCheckpoint mirrors the checkpoint sub-object emitted by the enum script.
+type psCheckpoint struct {
+	Name       string `json:"name"`
+	CreatedAt  string `json:"createdAt"`
+	ParentName string `json:"parentName"`
+}
+
 // psVM mirrors the ConvertTo-Json shape emitted by enumerateHyperVVMs's script.
 type psVM struct {
-	VMId            string      `json:"vmId"`
-	Name            string      `json:"name"`
-	RawState        string      `json:"rawState"`
-	CPUCount        int         `json:"cpuCount"`
-	MemoryBytes     int64       `json:"memoryBytes"`
-	UptimeSeconds   int64       `json:"uptimeSeconds"`
-	CheckpointCount int         `json:"checkpointCount"`
-	IPAddresses     interface{} `json:"ipAddresses"` // string | []string | null
-	Generation      int         `json:"generation"`
-	Notes           string      `json:"notes"`
+	VMId              string         `json:"vmId"`
+	Name              string         `json:"name"`
+	RawState          string         `json:"rawState"`
+	CPUCount          int            `json:"cpuCount"`
+	MemoryBytes       int64          `json:"memoryBytes"`
+	UptimeSeconds     int64          `json:"uptimeSeconds"`
+	CheckpointCount   int            `json:"checkpointCount"`
+	Checkpoints       []psCheckpoint `json:"checkpoints"`
+	IPAddresses       interface{}    `json:"ipAddresses"` // string | []string | null
+	Generation        int            `json:"generation"`
+	Notes             string         `json:"notes"`
+	CPUUsagePercent   int            `json:"cpuUsagePercent"`
+	MemoryDemandBytes int64          `json:"memoryDemandBytes"`
+	DynamicMemory     bool           `json:"dynamicMemory"`
+	Heartbeat         string         `json:"heartbeat"`
+	IntegrationSvcVer string         `json:"integrationSvcVer"`
+	Version           string         `json:"version"`
+	StatusText        string         `json:"statusText"`
+	GuestOS           string         `json:"guestOs"`
+	AutomaticStart    string         `json:"automaticStart"`
+	AutomaticStop     string         `json:"automaticStop"`
 }
 
 const enumScript = `
@@ -55,22 +73,46 @@ $ErrorActionPreference = 'SilentlyContinue'
 $vms = Get-VM | ForEach-Object {
   $vm = $_
   $ips = @(); try { $ips = @(($vm | Get-VMNetworkAdapter).IPAddresses) } catch {}
-  $cp = 0; try { $cp = @(Get-VMCheckpoint -VMName $vm.Name).Count } catch {}
+  $cps = @()
+  try {
+    $cps = @(Get-VMCheckpoint -VMName $vm.Name | ForEach-Object {
+      [pscustomobject]@{
+        name       = $_.Name
+        createdAt  = if ($_.CreationTime) { $_.CreationTime.ToUniversalTime().ToString('o') } else { '' }
+        parentName = "$($_.ParentSnapshotName)"
+      }
+    })
+  } catch {}
+  $guestOs = ''
+  try { $guestOs = "$(($vm | Get-VMKvpData -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'OSName' }).Data)" } catch {}
+  $isVer = ''
+  try { $isVer = "$((Get-VMIntegrationService -VMName $vm.Name -Name 'Guest Service Interface' -ErrorAction SilentlyContinue).PrimaryStatusDescription)" } catch {}
   [pscustomobject]@{
-    vmId            = $vm.VMId.Guid
-    name            = $vm.Name
-    rawState        = "$($vm.State)"
-    cpuCount        = [int]$vm.ProcessorCount
-    memoryBytes     = [int64]$vm.MemoryAssigned
-    uptimeSeconds   = [int64]$vm.Uptime.TotalSeconds
-    checkpointCount = [int]$cp
-    ipAddresses     = $ips
-    generation      = [int]$vm.Generation
-    notes           = "$($vm.Notes)"
+    vmId              = $vm.VMId.Guid
+    name              = $vm.Name
+    rawState          = "$($vm.State)"
+    cpuCount          = [int]$vm.ProcessorCount
+    memoryBytes       = [int64]$vm.MemoryAssigned
+    uptimeSeconds     = [int64]$vm.Uptime.TotalSeconds
+    checkpointCount   = [int]$cps.Count
+    checkpoints       = $cps
+    ipAddresses       = $ips
+    generation        = [int]$vm.Generation
+    notes             = "$($vm.Notes)"
+    cpuUsagePercent   = [int]$vm.CPUUsage
+    memoryDemandBytes = [int64]$vm.MemoryDemand
+    dynamicMemory     = [bool]$vm.DynamicMemoryEnabled
+    heartbeat         = "$($vm.Heartbeat)"
+    integrationSvcVer = "$($vm.IntegrationServicesVersion)"
+    version           = "$($vm.Version)"
+    statusText        = "$($vm.Status)"
+    guestOs           = $guestOs
+    automaticStart    = "$($vm.AutomaticStartAction)"
+    automaticStop     = "$($vm.AutomaticStopAction)"
   }
 }
 # Force an array even for 0/1 VMs so ConvertTo-Json yields [] / [ {} ].
-ConvertTo-Json -InputObject @($vms) -Compress -Depth 4
+ConvertTo-Json -InputObject @($vms) -Compress -Depth 5
 `
 
 func normaliseVMState(raw string) string {
@@ -118,18 +160,33 @@ func enumerateHyperVVMs() ([]HyperVVM, error) {
 				}
 			}
 		}
+		cps := make([]HyperVCheckpoint, 0, len(r.Checkpoints))
+		for _, c := range r.Checkpoints {
+			cps = append(cps, HyperVCheckpoint{Name: c.Name, CreatedAt: c.CreatedAt, ParentName: c.ParentName})
+		}
 		vms = append(vms, HyperVVM{
-			VMId:            r.VMId,
-			Name:            r.Name,
-			State:           normaliseVMState(r.RawState),
-			RawState:        r.RawState,
-			CPUCount:        r.CPUCount,
-			MemoryBytes:     r.MemoryBytes,
-			UptimeSeconds:   r.UptimeSeconds,
-			CheckpointCount: r.CheckpointCount,
-			IPAddresses:     ips,
-			Generation:      r.Generation,
-			Notes:           r.Notes,
+			VMId:              r.VMId,
+			Name:              r.Name,
+			State:             normaliseVMState(r.RawState),
+			RawState:          r.RawState,
+			CPUCount:          r.CPUCount,
+			MemoryBytes:       r.MemoryBytes,
+			UptimeSeconds:     r.UptimeSeconds,
+			CheckpointCount:   r.CheckpointCount,
+			Checkpoints:       cps,
+			IPAddresses:       ips,
+			Generation:        r.Generation,
+			Notes:             r.Notes,
+			CPUUsagePercent:   r.CPUUsagePercent,
+			MemoryDemandBytes: r.MemoryDemandBytes,
+			DynamicMemory:     r.DynamicMemory,
+			Heartbeat:         r.Heartbeat,
+			IntegrationSvcVer: r.IntegrationSvcVer,
+			Version:           r.Version,
+			StatusText:        r.StatusText,
+			GuestOS:           r.GuestOS,
+			AutomaticStart:    r.AutomaticStart,
+			AutomaticStop:     r.AutomaticStop,
 		})
 	}
 	return vms, nil
