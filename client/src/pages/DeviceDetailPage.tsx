@@ -3629,6 +3629,22 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  }, [deviceId]);
  useEffect(() => { load(); }, [load]);
 
+ // Live updates while the tab is open: (1) listen for the server's
+ // HYPERV_VMS_UPDATED broadcast (fired whenever the host re-posts — after
+ // an action settles, an inventory scan, or a live ping); (2) ping the
+ // host every 4s so changes made directly on the host surface quickly.
+ // The ephemeral ping doesn't hit the command queue / task history.
+ useEffect(() => {
+ const socket = getSocket();
+ const onUpdate = (p: { hostDeviceId: number; vms: import('@obliance/shared').VirtualMachine[] }) => {
+ if (p.hostDeviceId === deviceId) setVms(p.vms);
+ };
+ socket?.on('HYPERV_VMS_UPDATED', onUpdate);
+ hypervApi.live(deviceId).catch(() => {});
+ const iv = setInterval(() => { hypervApi.live(deviceId).catch(() => {}); }, 4000);
+ return () => { socket?.off('HYPERV_VMS_UPDATED', onUpdate); clearInterval(iv); };
+ }, [deviceId]);
+
  // Adapter matching the modals' RunAction signature. Surfaces pending-approval
  // + reloads the list after the host re-enumerates.
  const runVm = useCallback(async (vmId: string, action: import('@obliance/shared').VmAction, params?: Record<string, unknown>) => {

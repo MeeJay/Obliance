@@ -16,9 +16,15 @@ export const hypervApi = {
     return res.data.data ?? [];
   },
 
-  /** Ask the host agent to re-enumerate its VMs. */
+  /** Ask the host agent to re-enumerate its VMs (durable, shows in history). */
   async refresh(deviceId: number): Promise<void> {
     await apiClient.post(`/hyperv/devices/${deviceId}/refresh`);
+  },
+
+  /** Live heartbeat — ephemeral WS enumerate, no task-history row. Called on
+   *  a short interval while a Hyper-V view is open. */
+  async live(deviceId: number): Promise<void> {
+    await apiClient.post(`/hyperv/devices/${deviceId}/live`);
   },
 
   /** Run an action on a VM. Returns the response data — when the action is

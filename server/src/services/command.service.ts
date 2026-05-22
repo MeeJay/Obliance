@@ -151,7 +151,11 @@ class CommandService {
 
       // If no row was updated, this is a synthetic/periodic command from the agent.
       // Insert it into command_queue so it appears in task history (only for terminal acks).
-      if (affected === 0 && isTerminal && ack.commandType) {
+      // EXCEPT high-frequency polling commands (e.g. live Hyper-V VM
+      // enumeration pushed every few seconds while an operator watches the
+      // Hyper-V view) — persisting those would flood task history.
+      const NOISY_EPHEMERAL = new Set(['hyperv_list_vms']);
+      if (affected === 0 && isTerminal && ack.commandType && !NOISY_EPHEMERAL.has(ack.commandType)) {
         try {
           const now = new Date();
           await db('command_queue').insert({

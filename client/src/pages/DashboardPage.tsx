@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 import { useUiStore } from '@/store/uiStore';
 import { clsx } from 'clsx';
+import { getSocket } from '@/socket/socketClient';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
 import { EditVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
@@ -561,6 +562,35 @@ export function DashboardPage() {
     hypervApi.listForTenant().then(setHyperVms).catch(() => setHyperVms([]));
   }, []);
   useEffect(() => { loadHyperVms(); }, [loadHyperVms]);
+  // Stable signature of the distinct host ids so the live-ping interval only
+  // resets when the set of hosts changes, not on every metric tick.
+  const hvHostIdsKey = useMemo(
+    () => [...new Set(hyperVms.map((v) => v.hostDeviceId))].sort((a, b) => a - b).join(','),
+    [hyperVms],
+  );
+  // Live updates while the Hyper-V tab is open: merge the server's per-host
+  // broadcast into the tenant grid, and ping each host every 5s so changes
+  // made directly on a host surface quickly. Capped to avoid hammering very
+  // large fleets; for >25 hosts we rely on the broadcast + manual refresh.
+  useEffect(() => {
+    if (dashTab !== 'hyperv') return;
+    const socket = getSocket();
+    const onUpdate = (p: { hostDeviceId: number; vms: VirtualMachine[] }) => {
+      setHyperVms((prev) => {
+        const nameByHost = new Map(prev.map((v) => [v.hostDeviceId, v.hostName]));
+        const others = prev.filter((v) => v.hostDeviceId !== p.hostDeviceId);
+        return [...others, ...p.vms].map((v) => v.hostName ? v : { ...v, hostName: nameByHost.get(v.hostDeviceId) });
+      });
+    };
+    socket?.on('HYPERV_VMS_UPDATED', onUpdate);
+    const ping = () => {
+      const hosts = hvHostIdsKey ? hvHostIdsKey.split(',').map(Number) : [];
+      if (hosts.length > 0 && hosts.length <= 25) hosts.forEach((h) => hypervApi.live(h).catch(() => {}));
+    };
+    ping();
+    const iv = setInterval(ping, 5000);
+    return () => { socket?.off('HYPERV_VMS_UPDATED', onUpdate); clearInterval(iv); };
+  }, [dashTab, hvHostIdsKey]);
   // Run adapter for the modals — bound to the modal VM's host device.
   const runHvForVm = useCallback((vm: VirtualMachine) =>
     async (vmId: string, action: VmAction, params?: Record<string, unknown>) => {

@@ -444,12 +444,25 @@ func (d *CommandDispatcher) handleHyperVControl(cmd AgentCommand) (interface{}, 
 	if err != nil {
 		return nil, err
 	}
-	// Re-post the VM list (best-effort) so the new state lands without
-	// waiting for the next inventory cycle.
+	// Re-post the VM list now AND a few more times as the VM settles. Power
+	// verbs (Start-VM/Stop-VM/…) return while the VM is still transitioning,
+	// so an immediate post captures "Starting", not "Running". The staggered
+	// reposts (+4s/+10s/+20s) let the final steady state land within ~20s
+	// without the operator hitting Refresh. Detached goroutine so the
+	// command ack returns immediately.
 	cfg := d.makeConfig()
 	if perr := postHyperVVMs(cfg); perr != nil {
 		log.Printf("Command %s: post-action VM refresh failed: %v", cmd.ID, perr)
 	}
+	go func() {
+		for _, delay := range []time.Duration{4 * time.Second, 10 * time.Second, 20 * time.Second} {
+			time.Sleep(delay)
+			if perr := postHyperVVMs(cfg); perr != nil {
+				log.Printf("hyper-v settle repost failed: %v", perr)
+				return
+			}
+		}
+	}()
 	return map[string]interface{}{"message": msg}, nil
 }
 

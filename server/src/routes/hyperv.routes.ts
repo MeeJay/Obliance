@@ -42,6 +42,8 @@ router.get('/devices/:id/vms', requireDeviceRead('id'), async (req, res, next) =
 });
 
 // POST /api/hyperv/devices/:id/refresh — ask the host agent to re-enumerate.
+// Manual one-shot (button) — goes through the durable command queue so it
+// shows in task history.
 router.post('/devices/:id/refresh', requireDeviceRead('id'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -54,6 +56,30 @@ router.post('/devices/:id/refresh', requireDeviceRead('id'), async (req, res, ne
       priority: 'high', expiresInSeconds: 120, createdBy: req.session.userId,
     });
     res.json({ data: cmd });
+  } catch (err) { next(err); }
+});
+
+// POST /api/hyperv/devices/:id/live — live heartbeat from an open Hyper-V
+// view. Pushes an EPHEMERAL enumerate over the WS command channel (instant,
+// no command-queue row → no task-history spam; `hyperv_list_vms` is on the
+// noisy-ephemeral denylist in command.service). The client calls this on a
+// short interval while the view is open so external changes (a VM started
+// directly on the host) surface within a few seconds. Falls back to nothing
+// when the agent isn't connected on the WS channel — the periodic GET still
+// shows the last-known state.
+router.post('/devices/:id/live', requireDeviceRead('id'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const isAdmin = req.session.role === 'admin';
+    if (!isAdmin && !(await permissionService.canUseCapability(req.session.userId!, id, false, 'hyperv:view'))) {
+      return res.status(403).json({ error: 'hyperv:view capability required' });
+    }
+    const { agentHub } = await import('../services/agentHub.service');
+    const { randomUUID } = await import('crypto');
+    const delivered = agentHub.push(id, {
+      type: 'command', id: randomUUID(), commandType: 'hyperv_list_vms', payload: {},
+    });
+    res.json({ data: { delivered } });
   } catch (err) { next(err); }
 });
 

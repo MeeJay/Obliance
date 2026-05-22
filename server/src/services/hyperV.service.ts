@@ -134,6 +134,14 @@ export const hyperVService = {
           .merge();
       }
     });
+
+    // Push the fresh list to any open Hyper-V views (device-detail tab +
+    // dashboard tenant grid) so they update live without polling.
+    try {
+      const { getIO } = await import('../socket');
+      const vmsOut = await this.listForDevice(hostDeviceId);
+      getIO().to(`tenant:${tenantId}`).emit('HYPERV_VMS_UPDATED', { hostDeviceId, tenantId, vms: vmsOut });
+    } catch { /* socket not ready — clients fall back to polling */ }
   },
 
   /** VMs hosted on a single device. */
