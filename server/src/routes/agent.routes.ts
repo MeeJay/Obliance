@@ -94,8 +94,12 @@ router.post('/push', agentAuth, async (req, res, next) => {
       lastLoggedInUser?: string;
       distroFamily?: string;
       agentFlavor?: 'modern' | 'legacy';
+      virtualizationHost?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor, virtualizationHost } = body;
+    // Only accept the hypervisor types we know about; anything else (or "")
+    // clears the flag so a downgraded/uninstalled host stops showing the tab.
+    const vhost = (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(virtualizationHost ?? '') ? virtualizationHost! : null);
 
     // The Go 1.20 legacy agent doesn't include `distroFamily` in its push
     // body (and lacks every WebSocket tunnel / ObliReach / software
@@ -206,6 +210,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         airgap_enabled: typeof airgapMode === 'boolean' ? airgapMode : device.airgap_enabled,
         last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
         os_distro: distroFamily || device.os_distro,
+        virtualization_host_type: vhost,
         last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
         timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),
@@ -354,6 +359,29 @@ router.post('/inventory', agentAuth, async (req, res, next) => {
       await inventoryService.saveSoftware(device.id, data.software);
     }
 
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/hyperv-vms
+// Called by the host agent after enumerating its VMs (inventory cadence or
+// the hyperv_list_vms command). Replaces the stored VM set for the host.
+router.post('/hyperv-vms', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices').where({ uuid: deviceUuid, tenant_id: tenantId }).first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { hostType, vms } = req.body as { hostType?: string; vms?: any[] };
+    const ht = (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(hostType ?? '') ? hostType! : 'hyperv') as any;
+    const { hyperVService } = await import('../services/hyperV.service');
+    await hyperVService.ingestVMs(device.id, tenantId, ht, Array.isArray(vms) ? vms : []);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

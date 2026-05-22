@@ -56,6 +56,9 @@ const VALID_CAPABILITIES = new Set([
   'agent_config:discovery',
   'agent_config:keys',
   'agent_config:approval',
+  'hyperv:view',
+  'hyperv:power',
+  'hyperv:manage',
 ]);
 
 function rowToPermission(row: any): TeamPermission {

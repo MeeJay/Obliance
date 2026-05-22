@@ -1622,6 +1622,21 @@
       "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
     }
   },
+  "hyperv": {
+    "title": "Hyper-V virtual machines",
+    "refresh": "Refresh",
+    "noVms": "No virtual machines on this host.",
+    "actionQueued": "Action sent to host",
+    "pendingApproval": "Action saved — awaiting second admin approval",
+    "confirmDelete": "Delete VM \"{{name}}\"? This is irreversible.",
+    "checkpointNamePrompt": "Checkpoint name (optional):",
+    "col": { "name": "Name", "host": "Host", "state": "State", "memory": "Memory", "uptime": "Uptime", "actions": "Actions" },
+    "state": { "running": "Running", "off": "Off", "saved": "Saved", "paused": "Paused", "transitioning": "Working…", "unknown": "Unknown" },
+    "action": {
+      "start": "Start", "stop": "Power off (hard)", "shutdown": "Shut down", "restart": "Restart",
+      "save": "Save state", "pause": "Pause", "resume": "Resume", "checkpoint": "Create checkpoint", "delete": "Delete VM"
+    }
+  },
   "policies": {
     "title": "Policies",
     "tabUpdates": "Updates",

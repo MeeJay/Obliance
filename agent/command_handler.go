@@ -170,6 +170,11 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	}
 
 	switch cmd.Type {
+	case "hyperv_list_vms":
+		result, execErr = d.handleHyperVListVMs(cmd)
+	case "hyperv_control":
+		result, execErr = d.handleHyperVControl(cmd)
+
 	case "scan_inventory":
 		result, execErr = d.handleScanInventory(cmd)
 
@@ -392,10 +397,60 @@ func (d *CommandDispatcher) handleScanInventory(cmd AgentCommand) (interface{}, 
 	if postErr := PostInventory(inv, cfg); postErr != nil {
 		return nil, fmt.Errorf("post inventory: %w", postErr)
 	}
+	// Refresh the Hyper-V VM list on the inventory cadence — best-effort,
+	// never fails the inventory scan. No-op on non-hosts.
+	if detectVirtualizationHost() != "" {
+		if err := postHyperVVMs(cfg); err != nil {
+			log.Printf("Command %s: hyper-v VM refresh failed: %v", cmd.ID, err)
+		}
+	}
 	return map[string]interface{}{
 		"softwareCount": len(inv.Software),
 		"diskCount":     len(inv.Disks),
 	}, nil
+}
+
+// handleHyperVListVMs enumerates VMs and posts them to the server on demand
+// (triggered by the UI "refresh" button). No-op + clear error on non-hosts.
+func (d *CommandDispatcher) handleHyperVListVMs(cmd AgentCommand) (interface{}, error) {
+	if detectVirtualizationHost() == "" {
+		return nil, fmt.Errorf("this host is not a Hyper-V host")
+	}
+	cfg := d.makeConfig()
+	if err := postHyperVVMs(cfg); err != nil {
+		return nil, fmt.Errorf("post hyper-v VMs: %w", err)
+	}
+	return map[string]interface{}{"status": "refreshed"}, nil
+}
+
+// handleHyperVControl performs a power/checkpoint/edit/create/delete action on
+// a VM. The server has already gated the action by capability + restriction;
+// the agent just executes it. After the action we re-post the VM list so the
+// UI reflects the new state quickly.
+func (d *CommandDispatcher) handleHyperVControl(cmd AgentCommand) (interface{}, error) {
+	if detectVirtualizationHost() == "" {
+		return nil, fmt.Errorf("this host is not a Hyper-V host")
+	}
+	action, _ := cmd.Payload["action"].(string)
+	vmID, _ := cmd.Payload["vmId"].(string)
+	params, _ := cmd.Payload["params"].(map[string]interface{})
+	if action == "" {
+		return nil, fmt.Errorf("hyperv_control: missing action")
+	}
+	if vmID == "" && action != "create" {
+		return nil, fmt.Errorf("hyperv_control: missing vmId")
+	}
+	msg, err := runHyperVControl(action, vmID, params)
+	if err != nil {
+		return nil, err
+	}
+	// Re-post the VM list (best-effort) so the new state lands without
+	// waiting for the next inventory cycle.
+	cfg := d.makeConfig()
+	if perr := postHyperVVMs(cfg); perr != nil {
+		log.Printf("Command %s: post-action VM refresh failed: %v", cmd.ID, perr)
+	}
+	return map[string]interface{}{"message": msg}, nil
 }
 
 func (d *CommandDispatcher) handleScanUpdates(cmd AgentCommand) (interface{}, error) {

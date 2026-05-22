@@ -20,6 +20,8 @@ import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
+import { hypervApi } from '@/api/hyperv.api';
+import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
 import { commandApi } from '@/api/command.api';
 import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
@@ -48,7 +50,7 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'settings' | `cs:${number}`;
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'hyperv' | 'settings' | `cs:${number}`;
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
  { id: 'overview', label: 'Overview', icon: Monitor },
@@ -3606,6 +3608,84 @@ const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: stri
  cancelled: { color: 'text-gray-400', bg: 'bg-gray-400/10', label: 'Cancelled' },
 };
 
+// ─── Hyper-V Tab ─────────────────────────────────────────────────────────────
+// VM list + power/checkpoint/delete control for a virtualization host. Only
+// mounted when device.virtualizationHostType is set. Actions go through the
+// server's capability + restriction gate (so some return 202 pending-approval
+// or trigger the 2FA modal transparently via the axios interceptor).
+function HyperVTab({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
+ const [vms, setVms] = useState<import('@obliance/shared').VirtualMachine[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [busyVmId, setBusyVmId] = useState<string | null>(null);
+ const [refreshing, setRefreshing] = useState(false);
+
+ const load = useCallback(async () => {
+ try { setVms(await hypervApi.listForDevice(deviceId)); }
+ catch { /* keep previous list */ }
+ finally { setLoading(false); }
+ }, [deviceId]);
+ useEffect(() => { load(); }, [load]);
+
+ const handleRefresh = async () => {
+ setRefreshing(true);
+ try {
+ await hypervApi.refresh(deviceId);
+ // The agent re-enumerates async; give it a moment then reload.
+ setTimeout(() => { load(); setRefreshing(false); }, 2500);
+ } catch {
+ toast.error(t('common.error') || 'Failed');
+ setRefreshing(false);
+ }
+ };
+
+ const handleAction = async (vm: import('@obliance/shared').VirtualMachine, action: import('@obliance/shared').VmAction) => {
+ if (action === 'delete' && !confirm(t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? This is irreversible.`)) return;
+ let params: Record<string, unknown> | undefined;
+ if (action === 'checkpoint_create') {
+ const name = prompt(t('hyperv.checkpointNamePrompt') || 'Checkpoint name (optional):') ?? '';
+ params = name ? { checkpointName: name } : undefined;
+ }
+ setBusyVmId(vm.vmId);
+ try {
+ const out = await hypervApi.action(deviceId, vm.vmId, action, params);
+ if (out && out.status === 'pending_approval') {
+ toast.success(t('hyperv.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+ } else {
+ toast.success(t('hyperv.actionQueued') || 'Action sent to host');
+ }
+ setTimeout(() => load(), 2500);
+ } catch (e: any) {
+ toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
+ } finally {
+ setBusyVmId(null);
+ }
+ };
+
+ if (loading) {
+ return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+ }
+
+ return (
+ <div className="space-y-3">
+ <div className="flex items-center justify-between">
+ <h3 className="text-sm font-semibold text-text-primary">
+ {t('hyperv.title') || 'Hyper-V virtual machines'} <span className="text-text-muted font-normal">({vms.length})</span>
+ </h3>
+ <button
+ onClick={handleRefresh}
+ disabled={refreshing}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ >
+ <RefreshCw className={clsx('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+ {t('hyperv.refresh') || 'Refresh'}
+ </button>
+ </div>
+ <HyperVVmTable vms={vms} busyVmId={busyVmId} onAction={handleAction} />
+ </div>
+ );
+}
+
 type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'remediation';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
@@ -5546,6 +5626,14 @@ export function DeviceDetailPage() {
  if (remoteIdx >= 0) {
  tabList.splice(remoteIdx + 1, 0, ...customTabs as any);
  }
+ // Hyper-V tab only when the agent flagged this host as a virtualization
+ // host. Inserted just before Settings.
+ if (device.virtualizationHostType) {
+ const settingsIdx = tabList.findIndex((t) => t.id === 'settings');
+ const hvTab = { id: 'hyperv' as Tab, label: 'Hyper-V', icon: Server };
+ if (settingsIdx >= 0) tabList.splice(settingsIdx, 0, hvTab as any);
+ else tabList.push(hvTab as any);
+ }
  return tabList;
  })().map((tab) => {
  const Icon = tab.icon;
@@ -5621,6 +5709,7 @@ export function DeviceDetailPage() {
  {activeTab === 'services' && <ServicesTab device={device} />}
  {activeTab === 'processes' && <ProcessesTab device={device} />}
  {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
+ {activeTab === 'hyperv' && <HyperVTab deviceId={device.id} />}
  {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
  {typeof activeTab === 'string' && activeTab.startsWith('cs:') && (() => {
  const id = parseInt(activeTab.slice(3));

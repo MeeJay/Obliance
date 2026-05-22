@@ -1596,6 +1596,21 @@
       "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
     }
   },
+  "hyperv": {
+    "title": "Machines virtuelles Hyper-V",
+    "refresh": "Rafraîchir",
+    "noVms": "Aucune machine virtuelle sur cet hôte.",
+    "actionQueued": "Action envoyée à l'hôte",
+    "pendingApproval": "Action enregistrée — en attente de validation d'un second administrateur",
+    "confirmDelete": "Supprimer la VM « {{name}} » ? Cette action est irréversible.",
+    "checkpointNamePrompt": "Nom du point de contrôle (optionnel) :",
+    "col": { "name": "Nom", "host": "Hôte", "state": "État", "memory": "Mémoire", "uptime": "Uptime", "actions": "Actions" },
+    "state": { "running": "Démarrée", "off": "Éteinte", "saved": "Sauvegardée", "paused": "En pause", "transitioning": "En cours…", "unknown": "Inconnu" },
+    "action": {
+      "start": "Démarrer", "stop": "Forcer l'arrêt", "shutdown": "Arrêter", "restart": "Redémarrer",
+      "save": "Sauvegarder l'état", "pause": "Mettre en pause", "resume": "Reprendre", "checkpoint": "Créer un point de contrôle", "delete": "Supprimer la VM"
+    }
+  },
   "policies": {
     "title": "Politiques",
     "tabUpdates": "Mises à jour",

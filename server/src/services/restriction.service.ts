@@ -82,6 +82,20 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   // can't single-handedly override a user's privacy choice.
   { key: 'scenario.bypass_privacy_mode', label: 'Allow a scenario to run on privacy-mode devices', category: 'Automations' },
   { key: 'schedule.bypass_privacy_mode', label: 'Allow a schedule to run on privacy-mode devices', category: 'Automations' },
+  // Hyper-V / virtualization. Power actions on a VM are low-risk (a guest
+  // reboot is no worse than rebooting a physical box); checkpoints, edits and
+  // especially create/delete escalate. delete = double-admin by default.
+  { key: 'hyperv.vm_start',             label: 'Start a VM',                     category: 'Hyper-V' },
+  { key: 'hyperv.vm_stop',              label: 'Power off a VM (hard)',          category: 'Hyper-V' },
+  { key: 'hyperv.vm_shutdown',          label: 'Shut down a VM (graceful)',      category: 'Hyper-V' },
+  { key: 'hyperv.vm_restart',           label: 'Restart a VM',                   category: 'Hyper-V' },
+  { key: 'hyperv.vm_save',              label: 'Save / pause / resume a VM',     category: 'Hyper-V' },
+  { key: 'hyperv.vm_checkpoint',        label: 'Create a VM checkpoint',         category: 'Hyper-V' },
+  { key: 'hyperv.vm_checkpoint_apply',  label: 'Apply / restore a VM checkpoint',category: 'Hyper-V' },
+  { key: 'hyperv.vm_checkpoint_delete', label: 'Delete a VM checkpoint',         category: 'Hyper-V' },
+  { key: 'hyperv.vm_edit',              label: 'Edit VM settings (vCPU / RAM / …)', category: 'Hyper-V' },
+  { key: 'hyperv.vm_create',            label: 'Create a VM',                    category: 'Hyper-V' },
+  { key: 'hyperv.vm_delete',            label: 'Delete a VM',                    category: 'Hyper-V' },
   // Tenant config surfaces — editing these pages changes who can do what.
   // Defaults live in DEFAULT_RESTRICTIONS below; we don't auto-seed the
   // management ones so fresh installs without TOTP don't lock admins out.
@@ -130,6 +144,15 @@ export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = 
   // whose user has opted into privacy. Migration 102 seeds the same.
   'scenario.bypass_privacy_mode': 'restricted',
   'schedule.bypass_privacy_mode': 'restricted',
+  // Hyper-V defaults follow the product owner's spec: power actions are
+  // un-gated (none), checkpoint-restore/delete + edit + create require a
+  // fresh 2FA (sensitive), and deleting a VM needs a second admin
+  // (restricted). Plain checkpoint creation is non-destructive → none.
+  'hyperv.vm_checkpoint_apply':  'sensitive',
+  'hyperv.vm_checkpoint_delete': 'sensitive',
+  'hyperv.vm_edit':              'sensitive',
+  'hyperv.vm_create':            'sensitive',
+  'hyperv.vm_delete':            'restricted',
   // Remote sessions / services / processes / tenant-config management
   // (users/teams/permissions/settings/profile/restrictions-config) are
   // intentionally NOT defaulted — admins opt in from the matrix once they

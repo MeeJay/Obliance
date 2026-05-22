@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
@@ -16,6 +16,11 @@ import {
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 import { useUiStore } from '@/store/uiStore';
+import { clsx } from 'clsx';
+import { hypervApi } from '@/api/hyperv.api';
+import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
+import type { VirtualMachine, VmAction } from '@obliance/shared';
+import toast from 'react-hot-toast';
 
 // ── Sparkline (filled area + line) ───────────────────────────────────────────
 
@@ -545,6 +550,37 @@ export function DashboardPage() {
   const [versions, setVersions] = useState<AgentVersionRow[]>([]);
   const [disks, setDisks] = useState<DiskSaturationResult>({ count: 0, threshold: 0, top: [] });
   const [activityRange, setActivityRange] = useState<ActivityRange>('14j');
+  // Hyper-V tenant grid (Dashboard tab). The tab only appears when the
+  // tenant has at least one VM reported by a Hyper-V host.
+  const [dashTab, setDashTab] = useState<'overview' | 'hyperv'>('overview');
+  const [hyperVms, setHyperVms] = useState<VirtualMachine[]>([]);
+  const [hvBusyVmId, setHvBusyVmId] = useState<string | null>(null);
+  const loadHyperVms = useCallback(() => {
+    hypervApi.listForTenant().then(setHyperVms).catch(() => setHyperVms([]));
+  }, []);
+  useEffect(() => { loadHyperVms(); }, [loadHyperVms]);
+  const handleHvAction = async (vm: VirtualMachine, action: VmAction) => {
+    if (action === 'delete' && !confirm(t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? Irreversible.`)) return;
+    let params: Record<string, unknown> | undefined;
+    if (action === 'checkpoint_create') {
+      const name = prompt(t('hyperv.checkpointNamePrompt') || 'Checkpoint name (optional):') ?? '';
+      params = name ? { checkpointName: name } : undefined;
+    }
+    setHvBusyVmId(vm.vmId);
+    try {
+      const out = await hypervApi.action(vm.hostDeviceId, vm.vmId, action, params);
+      if (out && out.status === 'pending_approval') {
+        toast.success(t('hyperv.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+      } else {
+        toast.success(t('hyperv.actionQueued') || 'Action sent to host');
+      }
+      setTimeout(loadHyperVms, 2500);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
+    } finally {
+      setHvBusyVmId(null);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -714,6 +750,34 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Tab bar — Overview vs Hyper-V. The Hyper-V tab only shows when the
+          tenant has at least one VM reported by a host agent. */}
+      {hyperVms.length > 0 && (
+        <div className="flex items-center gap-1 border-b border-border/40">
+          {([
+            { id: 'overview' as const, label: t('dashboard.tabOverview', 'Vue d’ensemble') },
+            { id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})` },
+          ]).map((tb) => (
+            <button
+              key={tb.id}
+              onClick={() => setDashTab(tb.id)}
+              className={clsx(
+                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                dashTab === tb.id
+                  ? 'border-accent text-text-primary'
+                  : 'border-transparent text-text-muted hover:text-text-primary',
+              )}
+            >
+              {tb.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {dashTab === 'hyperv' ? (
+        <HyperVVmTable vms={hyperVms} busyVmId={hvBusyVmId} showHost onAction={handleHvAction} />
+      ) : (
+      <>
       {/* Hero row — featured Total + 4 KPIs with deltas. Each card is a Link
           to the matching filtered /devices view so the user can drill into
           the underlying agents in one click. */}
@@ -997,6 +1061,8 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+      </>
+      )}
 
     </div>
   );

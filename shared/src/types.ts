@@ -220,6 +220,10 @@ export interface Device {
   privacyPasswordSetAt: string | null;
   airgapEnabled: boolean;
   airgapEnabledAt: string | null;
+  /** Set when the agent detects a hypervisor role on the host (today only
+   *  'hyperv' on Windows). null = not a virtualization host. Drives the
+   *  conditional Hyper-V tab in device detail + the tenant Hyper-V view. */
+  virtualizationHostType: VirtualizationHostType | null;
   /** Total count of watchdog-triggered agent restarts since install. */
   watchdogRestartCount: number;
   /** Timestamp of the last watchdog-triggered restart. */
@@ -578,7 +582,9 @@ export type CommandType =
   | 'upload_file'
   | 'remediate_rule'
   | 'scan_network'
-  | 'check_software_compliance';
+  | 'check_software_compliance'
+  | 'hyperv_list_vms'
+  | 'hyperv_control';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -1469,7 +1475,14 @@ export type Capability =
   // the top of /devices for non-admins, plus the per-row approve /
   // refuse buttons. Server-side gate sits next to requireRole('admin')
   // on the device approval routes.
-  | 'agent_config:approval';
+  | 'agent_config:approval'
+  // Hyper-V (device-scoped — scoped to the host device/group). view = read
+  // the VM list; power = start/stop/restart/save; manage = checkpoints,
+  // edit, create, delete. Each manage action is additionally gated by the
+  // action-restriction matrix (hyperv.*).
+  | 'hyperv:view'
+  | 'hyperv:power'
+  | 'hyperv:manage';
 
 export interface TeamPermission {
   id: number;
@@ -2096,4 +2109,66 @@ export interface ScenarioStepRun {
   retryAttempt: number;
   step?: ScenarioStep;
 }
+
+// ─── VIRTUALIZATION (Hyper-V, extensible) ─────────────────────────────────────
+//
+// Generic virtualization-host model so we can add ESXi / Proxmox / KVM later
+// without reshaping the schema. A device becomes a "virtualization host" when
+// the agent detects a hypervisor role; the VMs it hosts are reported as
+// VirtualMachine rows. Today only `hyperv` is implemented agent-side.
+
+export type VirtualizationHostType = 'hyperv' | 'esxi' | 'proxmox' | 'kvm';
+
+// Normalised lifecycle state across hypervisors. Hyper-V's native states map:
+//   Running→running, Off→off, Saved→saved, Paused→paused,
+//   Starting/Stopping/…→transitioning.
+export type VmState = 'running' | 'off' | 'saved' | 'paused' | 'transitioning' | 'unknown';
+
+// Actions a viewer can request on a VM. The server maps each to a restriction
+// key (hyperv.<action>) + a required capability before enqueueing the agent
+// command. `power off` (stop) is intentionally non-destructive-tier; delete is
+// the double-admin one.
+export type VmAction =
+  | 'start'
+  | 'stop'        // power off (hard)
+  | 'shutdown'    // graceful guest shutdown (needs integration services)
+  | 'restart'
+  | 'save'        // save state
+  | 'pause'
+  | 'resume'
+  | 'checkpoint_create'
+  | 'checkpoint_apply'
+  | 'checkpoint_delete'
+  | 'edit'        // vCPU / memory / etc.
+  | 'create'
+  | 'delete';
+
+export interface VirtualMachine {
+  id: number;
+  tenantId: number;
+  /** devices.id of the host this VM runs on. */
+  hostDeviceId: number;
+  hostType: VirtualizationHostType;
+  /** Hypervisor-native VM id (Hyper-V VMId GUID). Stable across renames. */
+  vmId: string;
+  name: string;
+  state: VmState;
+  /** Raw hypervisor state string for display/debug (e.g. "Running", "Off"). */
+  rawState: string | null;
+  cpuCount: number | null;
+  /** Assigned memory in bytes (demand for dynamic memory). */
+  memoryBytes: number | null;
+  uptimeSeconds: number | null;
+  /** Number of checkpoints/snapshots. */
+  checkpointCount: number | null;
+  /** Guest IP addresses reported via integration services, if any. */
+  ipAddresses: string[];
+  /** Hyper-V VM generation (1 or 2), null for other hypervisors. */
+  generation: number | null;
+  notes: string | null;
+  updatedAt: string;
+  /** Joined for the tenant-wide grid: the host device's display name. */
+  hostName?: string;
+}
+
 

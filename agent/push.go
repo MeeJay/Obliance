@@ -67,6 +67,10 @@ type pushBody struct {
 	Events                []AgentEvent `json:"events,omitempty"`
 	WatchdogRestartCount  int          `json:"watchdogRestartCount,omitempty"`
 	WatchdogLastRestartAt string       `json:"watchdogLastRestartAt,omitempty"`
+	// Virtualization host type detected on this machine ("hyperv" today),
+	// or "" when the host runs no recognised hypervisor role. Cheap +
+	// cached, so safe to send on every push.
+	VirtualizationHost    string       `json:"virtualizationHost,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -209,6 +213,7 @@ func push(cfg *Config) {
 		Events:                drainEvents(),
 		WatchdogRestartCount:  wdCount,
 		WatchdogLastRestartAt: wdLast,
+		VirtualizationHost:    detectVirtualizationHost(),
 	}
 
 	data, err := json.Marshal(body)

@@ -34,6 +34,12 @@ export const CAPABILITY_VALUES = [
   'agent_config:discovery',
   'agent_config:keys',
   'agent_config:approval',
+  // Hyper-V (device-scoped). view = see the VM list on hosts the team can
+  // reach; power = start/stop/restart/save; manage = checkpoints, edit,
+  // create, delete (each further gated by the action-restriction matrix).
+  'hyperv:view',
+  'hyperv:power',
+  'hyperv:manage',
 ] as const;
 
 export const setTeamPermissionsSchema = z.object({

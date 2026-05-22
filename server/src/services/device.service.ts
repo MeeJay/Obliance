@@ -92,6 +92,7 @@ class DeviceService {
       privacyPasswordSetAt: row.privacy_password_set_at ?? null,
       airgapEnabled: row.airgap_enabled ?? false,
       airgapEnabledAt: row.airgap_enabled_at ?? null,
+      virtualizationHostType: row.virtualization_host_type ?? null,
       watchdogRestartCount: row.watchdog_restart_count ?? 0,
       watchdogLastRestartAt: row.watchdog_last_restart_at ?? null,
       agentFlavor: (row.agent_flavor ?? 'modern') as 'modern' | 'legacy',
