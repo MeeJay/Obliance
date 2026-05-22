@@ -174,6 +174,8 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 		result, execErr = d.handleHyperVListVMs(cmd)
 	case "hyperv_control":
 		result, execErr = d.handleHyperVControl(cmd)
+	case "hyperv_console_thumbnail":
+		result, execErr = d.handleHyperVConsoleThumbnail(cmd)
 
 	case "scan_inventory":
 		result, execErr = d.handleScanInventory(cmd)
@@ -464,6 +466,31 @@ func (d *CommandDispatcher) handleHyperVControl(cmd AgentCommand) (interface{}, 
 		}
 	}()
 	return map[string]interface{}{"message": msg}, nil
+}
+
+// handleHyperVConsoleThumbnail captures a VM console framebuffer and posts it
+// to the server, which relays it to open console previews/viewers. Pushed
+// ephemerally (no history). width/height optional (default 640x480).
+func (d *CommandDispatcher) handleHyperVConsoleThumbnail(cmd AgentCommand) (interface{}, error) {
+	if detectVirtualizationHost() == "" {
+		return nil, fmt.Errorf("this host is not a Hyper-V host")
+	}
+	vmID, _ := cmd.Payload["vmId"].(string)
+	if vmID == "" {
+		return nil, fmt.Errorf("hyperv_console_thumbnail: missing vmId")
+	}
+	w, h := 640, 480
+	if v, ok := cmd.Payload["width"].(float64); ok && v > 0 {
+		w = int(v)
+	}
+	if v, ok := cmd.Payload["height"].(float64); ok && v > 0 {
+		h = int(v)
+	}
+	cfg := d.makeConfig()
+	if err := postHyperVThumbnail(cfg, vmID, w, h); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"status": "captured"}, nil
 }
 
 func (d *CommandDispatcher) handleScanUpdates(cmd AgentCommand) (interface{}, error) {

@@ -232,6 +232,15 @@ export const settingsService = {
   /**
    * Resolve for global scope (just hardcoded defaults + global overrides)
    */
+  /** Resolve a single global numeric setting (override → hardcoded default).
+   *  Coerces the stored value (which may be a JSON string) to a number. */
+  async getGlobalNumber(tenantId: number, key: SettingKey): Promise<number> {
+    const overrides = await this.getByScope(tenantId, 'global', null);
+    const raw = overrides[key];
+    const n = typeof raw === 'string' ? Number(raw) : raw;
+    return Number.isFinite(n) ? (n as number) : (HARDCODED_DEFAULTS[key] as number);
+  },
+
   async resolveGlobal(tenantId: number): Promise<{ resolved: ResolvedSettings; overrides: Record<string, number> }> {
     const allKeys = Object.values(SETTINGS_KEYS);
     const resolved: ResolvedSettings = {} as ResolvedSettings;

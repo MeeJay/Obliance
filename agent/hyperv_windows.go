@@ -3,8 +3,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"strings"
 	"sync"
 )
@@ -290,6 +295,77 @@ func runHyperVControl(action, vmID string, params map[string]interface{}) (strin
 		return "", fmt.Errorf("%s", msg)
 	}
 	return fmt.Sprintf("hyperv %s ok", action), nil
+}
+
+// ── Console thumbnail (A layer) ──────────────────────────────────────────────
+//
+// Grabs the VM framebuffer via Msvm_VirtualSystemManagementService.
+// GetVirtualSystemThumbnailImage — the same RGB565 thumbnail Hyper-V Manager
+// and VMConnect render as a preview. Works at BIOS / boot / login, no guest
+// agent. We ask PowerShell/CIM for the raw RGB565 bytes (base64) + actual
+// dimensions, then convert to PNG in Go.
+
+const thumbScriptTmpl = `
+$ErrorActionPreference='Stop'
+$ns='root\virtualization\v2'
+$vm = Get-CimInstance -Namespace $ns -ClassName Msvm_ComputerSystem -Filter "Name='%s'"
+if (-not $vm) { throw 'vm not found' }
+$vssd = Get-CimAssociatedInstance -InputObject $vm -Namespace $ns -ResultClassName Msvm_VirtualSystemSettingData -Association Msvm_SettingsDefineState | Select-Object -First 1
+$svc = Get-CimInstance -Namespace $ns -ClassName Msvm_VirtualSystemManagementService
+$res = Invoke-CimMethod -InputObject $svc -MethodName GetVirtualSystemThumbnailImage -Arguments @{ TargetSystem = $vssd; WidthPixels = [uint16]%d; HeightPixels = [uint16]%d }
+if ($res.ReturnValue -ne 0 -or -not $res.ImageData) { throw "thumbnail unavailable (rv=$($res.ReturnValue))" }
+# width/height come back implicitly via the byte count (w*h*2); echo requested.
+Write-Output ("%d %d " + [Convert]::ToBase64String($res.ImageData))
+`
+
+// captureHyperVThumbnail returns a base64-encoded PNG of the VM console at
+// (w x h). Errors when the VM has no framebuffer (rare) or the host refuses.
+func captureHyperVThumbnail(vmID string, w, h int) (string, error) {
+	script := fmt.Sprintf(thumbScriptTmpl, psEscape(vmID), w, h, w, h)
+	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	if err != nil {
+		return "", fmt.Errorf("thumbnail capture failed: %w", err)
+	}
+	fields := strings.Fields(strings.TrimSpace(string(out)))
+	if len(fields) < 3 {
+		return "", fmt.Errorf("unexpected thumbnail output")
+	}
+	gw, gh := w, h
+	fmt.Sscanf(fields[0], "%d", &gw)
+	fmt.Sscanf(fields[1], "%d", &gh)
+	raw, err := base64.StdEncoding.DecodeString(fields[2])
+	if err != nil {
+		return "", fmt.Errorf("decode thumbnail bytes: %w", err)
+	}
+	pngBytes, err := rgb565ToPNG(raw, gw, gh)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(pngBytes), nil
+}
+
+// rgb565ToPNG converts a little-endian RGB565 framebuffer to PNG bytes.
+func rgb565ToPNG(data []byte, w, h int) ([]byte, error) {
+	if w <= 0 || h <= 0 {
+		return nil, fmt.Errorf("invalid thumbnail dimensions %dx%d", w, h)
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	n := w * h
+	for i := 0; i < n; i++ {
+		if 2*i+1 >= len(data) {
+			break
+		}
+		px := uint16(data[2*i]) | uint16(data[2*i+1])<<8
+		r := uint8((px>>11)&0x1f) << 3
+		g := uint8((px>>5)&0x3f) << 2
+		b := uint8(px&0x1f) << 3
+		img.SetRGBA(i%w, i/w, color.RGBA{R: r, G: g, B: b, A: 255})
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // ── PowerShell helpers ───────────────────────────────────────────────────────

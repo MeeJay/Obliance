@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
-  ArrowUp, ArrowDown,
+  ArrowUp, ArrowDown, Monitor,
 } from 'lucide-react';
 import type { VirtualMachine, VmAction, VmState } from '@obliance/shared';
+import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
 
 interface Props {
   vms: VirtualMachine[];
@@ -49,6 +50,8 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedVmId, setExpandedVmId] = useState<string | null>(null);
+  const [consoleVm, setConsoleVm] = useState<VirtualMachine | null>(null);
 
   const stateLabel = (s: VmState) => t(`hyperv.state.${s}`) || s;
 
@@ -148,7 +151,16 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                   return (
                     <tr key={vm.vmId} className="hover:bg-bg-tertiary/40 transition-colors">
                       <td className="px-4 py-2.5 text-sm text-text-primary font-medium">
-                        <span className={clsx(showHost && 'pl-5 inline-block')}>{vm.name}</span>
+                        <span className={clsx('inline-flex items-center gap-1.5', showHost && 'pl-5')}>
+                          <button
+                            onClick={() => setExpandedVmId(expandedVmId === vm.vmId ? null : vm.vmId)}
+                            title={t('hyperv.consolePreview') || 'Console preview'}
+                            className="text-text-muted hover:text-text-primary"
+                          >
+                            {expandedVmId === vm.vmId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                          </button>
+                          {vm.name}
+                        </span>
                         {vm.checkpointCount ? <span className="ml-2 text-[10px] text-text-muted">({vm.checkpointCount} cp)</span> : null}
                       </td>
                       <td className="px-4 py-2.5">
@@ -186,6 +198,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                                 <div className="fixed inset-0 z-40" onClick={() => setMenuVmId(null)} />
                                 <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1">
                                   {([
+                                    { kind: 'console', label: t('hyperv.openConsole') || 'Console…', icon: Monitor, danger: false, show: true },
                                     { kind: 'action', action: 'stop' as VmAction, label: t('hyperv.action.stop') || 'Power off (hard)', icon: Square, danger: false, show: !off },
                                     { kind: 'action', action: 'save' as VmAction, label: t('hyperv.action.save') || 'Save state', icon: Save, danger: false, show: running },
                                     { kind: 'action', action: 'pause' as VmAction, label: t('hyperv.action.pause') || 'Pause', icon: Pause, danger: false, show: running },
@@ -199,6 +212,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                                         setMenuVmId(null);
                                         if (i.kind === 'edit') onEdit?.(vm);
                                         else if (i.kind === 'checkpoints') onCheckpoints?.(vm);
+                                        else if (i.kind === 'console') setConsoleVm(vm);
                                         else onAction(vm, i.action);
                                       }}
                                       className={clsx('w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-bg-tertiary transition-colors', i.danger ? 'text-red-400' : 'text-text-primary')}
@@ -215,11 +229,29 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                     </tr>
                   );
                 })}
+                {!isCollapsed && expandedVmId && g.vms.some((v) => v.vmId === expandedVmId) && (() => {
+                  const evm = g.vms.find((v) => v.vmId === expandedVmId)!;
+                  return (
+                    <tr key={`preview:${evm.vmId}`}>
+                      <td colSpan={colCount} className="px-4 pb-4 pt-1 bg-bg-tertiary/20">
+                        <HyperVConsolePreview hostDeviceId={evm.hostDeviceId} vmId={evm.vmId} onOpenFull={() => setConsoleVm(evm)} />
+                      </td>
+                    </tr>
+                  );
+                })()}
               </Fragment>
             );
           })}
         </tbody>
       </table>
+      {consoleVm && (
+        <HyperVConsoleModal
+          hostDeviceId={consoleVm.hostDeviceId}
+          vmId={consoleVm.vmId}
+          vmName={consoleVm.name}
+          onClose={() => setConsoleVm(null)}
+        />
+      )}
     </div>
   );
 }

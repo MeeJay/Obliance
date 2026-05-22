@@ -10,6 +10,7 @@ export const SETTINGS_KEYS = {
   NOTIFICATION_COOLDOWN:    'notificationCooldown',   // min seconds between alerts
   INVENTORY_RETENTION_DAYS: 'inventoryRetentionDays', // how long to keep inventory snapshots
   AUTO_APPROVE_DEVICES:     'autoApproveDevices',     // auto-approve new agents
+  TFA_TRUST_HOURS:          'tfaTrustHours',          // how long a "trust this IP" 2FA grant lasts
 } as const;
 
 export type SettingKey = typeof SETTINGS_KEYS[keyof typeof SETTINGS_KEYS];
@@ -93,6 +94,16 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     type: 'boolean',
     defaultValue: false,
   },
+  {
+    key: SETTINGS_KEYS.TFA_TRUST_HOURS,
+    label: '2FA "Trust this IP" duration',
+    description: 'How long a "Trust this IP" choice skips the 2FA prompt for a user from the same IP after a successful code. 0 = disable IP trust (always prompt).',
+    type: 'number',
+    unit: 'hours',
+    min: 0,
+    max: 8760,
+    defaultValue: 24,
+  },
 ];
 
 export const HARDCODED_DEFAULTS: Record<SettingKey, number | boolean> = {
@@ -103,4 +114,5 @@ export const HARDCODED_DEFAULTS: Record<SettingKey, number | boolean> = {
   [SETTINGS_KEYS.NOTIFICATION_COOLDOWN]:    300,
   [SETTINGS_KEYS.INVENTORY_RETENTION_DAYS]: 90,
   [SETTINGS_KEYS.AUTO_APPROVE_DEVICES]:     false,
+  [SETTINGS_KEYS.TFA_TRUST_HOURS]:          24,
 };

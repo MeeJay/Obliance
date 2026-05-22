@@ -27,6 +27,17 @@ export const hypervApi = {
     await apiClient.post(`/hyperv/devices/${deviceId}/live`);
   },
 
+  /** Request a fresh console thumbnail (read-only preview, layer A). The
+   *  frame arrives via the HYPERV_THUMBNAIL socket event; a cached frame (if
+   *  any) is returned synchronously for an immediate first paint. */
+  async requestThumbnail(deviceId: number, vmId: string, width = 640, height = 480): Promise<{ delivered: boolean; cached: { pngBase64: string; width: number; height: number } | null }> {
+    const res = await apiClient.post<{ data?: { delivered: boolean; cached: any } }>(
+      `/hyperv/devices/${deviceId}/vms/${encodeURIComponent(vmId)}/thumbnail`,
+      { width, height },
+    );
+    return res.data.data ?? { delivered: false, cached: null };
+  },
+
   /** Run an action on a VM. Returns the response data — when the action is
    *  gated by the restriction matrix the server replies 202 with
    *  { status: 'pending_approval' } (axios treats it as success), and the

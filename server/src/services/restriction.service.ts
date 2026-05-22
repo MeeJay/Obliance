@@ -328,8 +328,9 @@ export const restrictionService = {
       }
 
       // Grant IP trust ONLY if the user explicitly opted in. Default off.
+      // Duration comes from the tenant's `tfaTrustHours` setting (0 disables).
       if (ip && req.body?.trustIp === true) {
-        await tfaTrustService.grant(userId, ip);
+        await tfaTrustService.grant(userId, ip, tenantId);
       }
 
       return { ok: true };

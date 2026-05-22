@@ -1,13 +1,10 @@
 import { db } from '../db';
 import type { Request } from 'express';
 
-// Window during which a (user, ip) pair is trusted after a successful
-// TOTP verification. Chosen to match typical RMM "login session of the
-// day" expectations — admins do most of their work in a single workday,
-// and an attacker who stole a session cookie AND came from the same IP
-// (behind the same NAT) already has enough to cause damage without this
-// cache.
-const TRUST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
+// Fallback window when no tenant setting is available (matches the
+// historical 24h default). The effective duration is configurable per
+// tenant via the `tfaTrustHours` general setting; 0 disables IP trust.
+const DEFAULT_TRUST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
 
 export function clientIp(req: Request): string {
   const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
@@ -32,10 +29,22 @@ export const tfaTrustService = {
     }
   },
 
-  /** Mark a (user, ip) pair as trusted for TRUST_WINDOW_MS. */
-  async grant(userId: number, ip: string): Promise<void> {
+  /** Mark a (user, ip) pair as trusted for the tenant-configured window.
+   *  `tenantId` resolves the `tfaTrustHours` setting; 0 hours = trust
+   *  disabled (no row written, so the user is always re-prompted). */
+  async grant(userId: number, ip: string, tenantId?: number): Promise<void> {
     if (!userId || !ip) return;
-    const until = new Date(Date.now() + TRUST_WINDOW_MS);
+    let windowMs = DEFAULT_TRUST_WINDOW_MS;
+    if (tenantId) {
+      try {
+        const { settingsService } = await import('./settings.service');
+        const { SETTINGS_KEYS } = await import('@obliance/shared');
+        const hours = await settingsService.getGlobalNumber(tenantId, SETTINGS_KEYS.TFA_TRUST_HOURS);
+        if (hours <= 0) return; // IP trust disabled — never grant.
+        windowMs = hours * 60 * 60 * 1000;
+      } catch { /* fall back to default window */ }
+    }
+    const until = new Date(Date.now() + windowMs);
     try {
       await db('tfa_trusted_sessions')
         .insert({ user_id: userId, ip_address: ip, trusted_until: until })

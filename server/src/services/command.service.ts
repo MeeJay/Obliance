@@ -154,7 +154,7 @@ class CommandService {
       // EXCEPT high-frequency polling commands (e.g. live Hyper-V VM
       // enumeration pushed every few seconds while an operator watches the
       // Hyper-V view) — persisting those would flood task history.
-      const NOISY_EPHEMERAL = new Set(['hyperv_list_vms']);
+      const NOISY_EPHEMERAL = new Set(['hyperv_list_vms', 'hyperv_console_thumbnail']);
       if (affected === 0 && isTerminal && ack.commandType && !NOISY_EPHEMERAL.has(ack.commandType)) {
         try {
           const now = new Date();

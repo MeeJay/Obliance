@@ -584,7 +584,8 @@ export type CommandType =
   | 'scan_network'
   | 'check_software_compliance'
   | 'hyperv_list_vms'
-  | 'hyperv_control';
+  | 'hyperv_control'
+  | 'hyperv_console_thumbnail';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

@@ -83,6 +83,31 @@ router.post('/devices/:id/live', requireDeviceRead('id'), async (req, res, next)
   } catch (err) { next(err); }
 });
 
+// POST /api/hyperv/devices/:id/vms/:vmId/thumbnail — request a fresh console
+// frame. Ephemeral WS push (no history); the frame returns via the
+// HYPERV_THUMBNAIL Socket.io broadcast. Read-only console preview (layer A).
+router.post('/devices/:id/vms/:vmId/thumbnail', requireDeviceRead('id'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const vmId = String(req.params.vmId);
+    const isAdmin = req.session.role === 'admin';
+    if (!isAdmin && !(await permissionService.canUseCapability(req.session.userId!, id, false, 'hyperv:view'))) {
+      return res.status(403).json({ error: 'hyperv:view capability required' });
+    }
+    const width = Math.min(1280, Math.max(160, parseInt(String(req.body?.width ?? '640'), 10) || 640));
+    const height = Math.min(1024, Math.max(120, parseInt(String(req.body?.height ?? '480'), 10) || 480));
+    const { agentHub } = await import('../services/agentHub.service');
+    const { randomUUID } = await import('crypto');
+    const delivered = agentHub.push(id, {
+      type: 'command', id: randomUUID(), commandType: 'hyperv_console_thumbnail', payload: { vmId, width, height },
+    });
+    // Serve the cached frame (if any) for an immediate first paint.
+    const { hyperVConsoleStore } = await import('../services/hyperVConsole.service');
+    const cached = hyperVConsoleStore.get(id, vmId);
+    res.json({ data: { delivered, cached } });
+  } catch (err) { next(err); }
+});
+
 // GET /api/hyperv/vms — tenant-wide grid (Dashboard tab). Non-admins are
 // scoped to the host devices they can see.
 router.get('/vms', async (req, res, next) => {

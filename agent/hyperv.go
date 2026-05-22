@@ -59,6 +59,55 @@ type hyperVVMsBody struct {
 	VMs        []HyperVVM `json:"vms"`
 }
 
+type hyperVThumbBody struct {
+	DeviceUUID string `json:"deviceUuid"`
+	VMId       string `json:"vmId"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	PNGBase64  string `json:"pngBase64"`
+}
+
+// postHyperVThumbnail captures the VM console framebuffer and ships it to the
+// server (which relays it to any open console preview/viewer). No-op on
+// non-hosts.
+func postHyperVThumbnail(cfg *Config, vmID string, w, h int) error {
+	if detectVirtualizationHost() == "" {
+		return nil
+	}
+	if w <= 0 {
+		w = 640
+	}
+	if h <= 0 {
+		h = 480
+	}
+	pngB64, err := captureHyperVThumbnail(vmID, w, h)
+	if err != nil {
+		return fmt.Errorf("capture thumbnail: %w", err)
+	}
+	body := hyperVThumbBody{DeviceUUID: cfg.DeviceUUID, VMId: vmID, Width: w, Height: h, PNGBase64: pngB64}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", cfg.ServerURL+"/api/agent/hyperv-thumbnail", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", cfg.APIKey)
+	req.Header.Set("X-Device-UUID", cfg.DeviceUUID)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("hyperv-thumbnail POST returned HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // postHyperVVMs ships the current VM inventory to the server. No-op when the
 // host isn't a hypervisor.
 func postHyperVVMs(cfg *Config) error {

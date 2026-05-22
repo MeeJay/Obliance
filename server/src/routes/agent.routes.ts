@@ -386,6 +386,34 @@ router.post('/hyperv-vms', agentAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/agent/hyperv-thumbnail
+// VM console framebuffer (PNG, base64) captured by the host agent. Relayed
+// to open console previews/viewers via Socket.io; the latest frame per VM is
+// also cached in memory for an immediate first paint.
+router.post('/hyperv-thumbnail', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices').where({ uuid: deviceUuid, tenant_id: tenantId }).first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const { vmId, pngBase64, width, height } = req.body as { vmId?: string; pngBase64?: string; width?: number; height?: number };
+    if (!vmId || !pngBase64) return res.status(400).json({ error: 'vmId and pngBase64 required' });
+
+    const { hyperVConsoleStore } = await import('../services/hyperVConsole.service');
+    hyperVConsoleStore.put(device.id, vmId, { pngBase64, width: width ?? 0, height: height ?? 0 });
+
+    try {
+      const { getIO } = await import('../socket');
+      getIO().to(`tenant:${tenantId}`).emit('HYPERV_THUMBNAIL', {
+        hostDeviceId: device.id, vmId, pngBase64, width: width ?? 0, height: height ?? 0, at: Date.now(),
+      });
+    } catch { /* socket not ready */ }
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 // POST /api/agent/updates
 // Called by the agent after a scan_updates command completes.
 // Upserts the list of available OS/software updates.
