@@ -21,6 +21,11 @@ export function LoginPage() {
 
  // If we arrived here with ?error=sso_failed, don't auto-redirect to Obligate again
  const ssoFailed = searchParams.get('error') === 'sso_failed';
+ // Break-glass: ?local=1 forces the local username/password form and skips
+ // the automatic SSO redirect. Lets a local admin sign in even when SSO is
+ // enabled and Obligate is up — the escape hatch when SSO is misconfigured
+ // (e.g. no permission-group mapping yet) so you can never be fully locked out.
+ const forceLocal = searchParams.get('local') === '1' || searchParams.get('local') === 'true';
 
  const [step, setStep] = useState<Step>('credentials');
  const [mfaMethods, setMfaMethods] = useState<{ totp: boolean; email: boolean }>({ totp: false, email: false });
@@ -30,7 +35,7 @@ export function LoginPage() {
 
  // SSO state: 'checking' = initial check, 'redirecting' = going to Obligate,
  // 'unavailable' = Obligate down (show local login + warning), 'local' = no Obligate configured
- const [ssoState, setSsoState] = useState<'checking' | 'redirecting' | 'unavailable' | 'local'>(ssoFailed ? 'unavailable' : 'checking');
+ const [ssoState, setSsoState] = useState<'checking' | 'redirecting' | 'unavailable' | 'local'>(ssoFailed ? 'unavailable' : forceLocal ? 'local' : 'checking');
 
  const checkSso = () => {
  return fetch('/api/auth/sso-config')
@@ -69,11 +74,12 @@ export function LoginPage() {
  .then(r => r.json())
  .then((d: { success?: boolean }) => {
  if (d.success) { navigate('/', { replace: true }); return; }
- // No session — check Obligate unless we just failed
- if (!ssoFailed) checkSso();
+ // No session — check Obligate unless we just failed or local was forced
+ if (forceLocal) setSsoState('local');
+ else if (!ssoFailed) checkSso();
  else setSsoState('unavailable');
  })
- .catch(() => { if (!ssoFailed) checkSso(); });
+ .catch(() => { if (forceLocal) setSsoState('local'); else if (!ssoFailed) checkSso(); });
  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
  // Poll Obligate every 60s when unavailable — redirect as soon as it comes back

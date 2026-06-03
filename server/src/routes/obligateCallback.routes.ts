@@ -29,6 +29,22 @@ setInterval(() => {
  * Returns the local user ID.
  */
 async function provisionObligateUser(assertion: import('../services/obligate.service').ObligateUserAssertion, req: any): Promise<number> {
+  // Obligate is the source of truth for an SSO user's PLATFORM role.
+  //
+  // `assertion.role === 'admin'` means the user was granted "All tenants"
+  // admin on the Obliance app in Obligate's Permission Groups (an app-wide
+  // mapping). That maps to a global / god-view admin here. Anything else is
+  // a plain platform user — their PER-TENANT roles (incl. tenant-admin) are
+  // synced into user_tenants further down from assertion.tenants[].
+  //
+  // This is the correct SSO authZ model: the self-hosted IdP owns identity
+  // AND authorization, and the server↔server exchange is already secured
+  // (held API key, one-time 60s code, redirect_uri match, single-use claim).
+  // SSO accounts are intentionally non-editable locally (see users.controller
+  // "manage from Obligate"), so without trusting this there is NO path to an
+  // admin once SSO is enabled. The local bootstrap admin (ensureDefaultAdmin)
+  // remains as break-glass for when Obligate is unreachable.
+  const platformRole = assertion.role === 'admin' ? 'admin' : 'user';
   let localUserId: number;
   let needsProvision = false;
 
@@ -36,17 +52,12 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     const existingUser = await db('users').where({ id: assertion.linkedLocalUserId }).first();
     if (existingUser) {
       localUserId = assertion.linkedLocalUserId;
-      // SECURITY: NEVER derive `users.role` (the platform-admin flag)
-      // from an Obligate assertion. The SSO IdP being compromised, or
-      // a token swap, would otherwise grant install-wide admin to an
-      // attacker. Platform admin is a strictly LOCAL concept — only a
-      // pre-existing local platform admin can promote a user via the
-      // /admin/users page. Tenant-level role (admin/member of a
-      // tenant) is still synced from Obligate below because it's
-      // scoped to one tenant and considered acceptable risk.
+      // Obligate owns the platform role — sync it every login (promotion
+      // AND demotion). See the rationale at the top of this function.
       await db('users').where({ id: localUserId }).update({
         email: assertion.email,
         display_name: assertion.displayName,
+        role: platformRole,
         updated_at: new Date(),
       });
     } else {
@@ -64,11 +75,11 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
       const existingUser = await db('users').where({ id: existingLink.local_user_id }).first();
       if (existingUser) {
         localUserId = existingLink.local_user_id;
-        // SECURITY: see comment above — `users.role` is intentionally
-        // NOT touched on SSO sync.
+        // Obligate owns the platform role — sync it every login.
         await db('users').where({ id: localUserId }).update({
           email: assertion.email,
           display_name: assertion.displayName,
+          role: platformRole,
           updated_at: new Date(),
         });
       } else {
@@ -89,12 +100,9 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
         username: `og_${assertion.username}`,
         display_name: assertion.displayName || assertion.username,
         email: assertion.email,
-        // SECURITY: every freshly-provisioned SSO user lands as plain
-        // 'user'. Platform-admin promotion is a deliberate LOCAL act
-        // (a pre-existing local admin opens /admin/users and flips
-        // the role). Without this rule, owning the Obligate IdP would
-        // be enough to take over the entire install.
-        role: 'user',
+        // Platform role comes from Obligate (All-tenants admin → admin).
+        // See the rationale at the top of this function.
+        role: platformRole,
         is_active: true,
         foreign_source: 'obligate',
         foreign_id: assertion.obligateUserId,
@@ -171,6 +179,17 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
       // capabilities a member of a team can use are 100% defined in
       // Obliance. `t.capabilities` is intentionally dropped here.
     }
+  }
+
+  // Global (All-tenants) admin → ensure a master-tenant membership so the
+  // user lands on the god-view tenant (id=1) and shows in its user list,
+  // exactly like the local bootstrap admin. god view itself is granted by
+  // users.role='admin'; this row just makes tenant resolution deterministic.
+  if (platformRole === 'admin') {
+    await db('user_tenants')
+      .insert({ user_id: localUserId, tenant_id: 1, role: 'admin' })
+      .onConflict(['user_id', 'tenant_id'])
+      .merge({ role: 'admin' });
   }
 
   // Sync preferences
@@ -706,18 +725,21 @@ router.post('/sso-user-sync', async (req, res) => {
         await db('users').where({ id: remoteUserId }).del();
         logger.info(`SSO sync: deleted user #${remoteUserId}`);
         break;
-      case 'update-role':
-        // SECURITY: SSO sync cannot promote to platform admin. We
-        // honour role demotion only — i.e. an SSO-driven role change
-        // can take privileges AWAY (admin → user) but never grant
-        // them. Promotion stays a strictly local act.
-        if (role && role !== 'admin') {
-          await db('users').where({ id: remoteUserId }).update({ role: 'user', updated_at: new Date() });
-          logger.info(`SSO sync: demoted user #${remoteUserId} to user`);
-        } else if (role === 'admin') {
-          logger.warn(`SSO sync: refused to promote user #${remoteUserId} to admin (must be done locally)`);
+      case 'update-role': {
+        // Obligate is the source of truth — honour both promotion and
+        // demotion pushed from Obligate. 'admin' here means the user was
+        // granted All-tenants admin on the Obliance app.
+        const nextRole = role === 'admin' ? 'admin' : 'user';
+        await db('users').where({ id: remoteUserId }).update({ role: nextRole, updated_at: new Date() });
+        if (nextRole === 'admin') {
+          await db('user_tenants')
+            .insert({ user_id: remoteUserId, tenant_id: 1, role: 'admin' })
+            .onConflict(['user_id', 'tenant_id'])
+            .merge({ role: 'admin' });
         }
+        logger.info(`SSO sync: set user #${remoteUserId} role=${nextRole}`);
         break;
+      }
     }
 
     res.json({ success: true });

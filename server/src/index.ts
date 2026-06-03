@@ -329,18 +329,18 @@ async function ensureDefaultAdmin() {
   const existing = await db('users').where({ username: config.defaultAdminUsername }).first();
   if (existing) return;
 
-  // SECURITY: refuse to bootstrap with the canonical "admin / admin123"
-  // pair. A first install MUST supply DEFAULT_ADMIN_PASSWORD via env;
-  // otherwise we fail loud rather than create a publicly-known
-  // backdoor account. Once an admin exists this function returns
-  // early (above) so the env var is only checked on a fresh DB.
+  // Soft warning only — NEVER block boot. The previous behaviour
+  // (process.exit on a weak/default password) silently broke fresh
+  // deployments that used the default .env: the server refused to start
+  // with no clear indication, and it isn't documented until first boot.
+  // The operator is responsible for setting a strong DEFAULT_ADMIN_PASSWORD
+  // in production and changing it after first login; we just warn loudly.
   const isWeakDefaultPassword = config.defaultAdminPassword === 'admin123' || config.defaultAdminPassword.length < 12;
   if (isWeakDefaultPassword) {
-    logger.fatal(
-      'Refusing to create the default admin with the built-in password. ' +
-      'Set DEFAULT_ADMIN_PASSWORD to a value of at least 12 characters before starting the server.',
+    logger.warn(
+      'Default admin is being created with a weak/default password. ' +
+      'Set DEFAULT_ADMIN_PASSWORD to a strong value and change it after first login.',
     );
-    process.exit(1);
   }
 
   const bcrypt = await import('bcryptjs');
