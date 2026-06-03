@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
-  ArrowUp, ArrowDown, Monitor,
+  ArrowUp, ArrowDown, Monitor, Search, X,
 } from 'lucide-react';
 import type { VirtualMachine, VmAction, VmState } from '@obliance/shared';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
@@ -14,6 +14,10 @@ interface Props {
   busyVmId?: string | null;
   /** Group rows by host (tenant-wide grid) — host acts like a /devices group. */
   showHost?: boolean;
+  /** Show a search box that filters VMs by partial name (and host name),
+   *  case-insensitive. The host group header stays visible for any host
+   *  that still has a matching VM. */
+  searchable?: boolean;
   onAction: (vm: VirtualMachine, action: VmAction) => void;
   onEdit?: (vm: VirtualMachine) => void;
   onCheckpoints?: (vm: VirtualMachine) => void;
@@ -44,7 +48,7 @@ function fmtUptime(sec: number | null): string {
   return `${m}m`;
 }
 
-export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onCheckpoints }: Props) {
+export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, onEdit, onCheckpoints }: Props) {
   const { t } = useTranslation();
   const [menuVmId, setMenuVmId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -52,6 +56,19 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [expandedVmId, setExpandedVmId] = useState<string | null>(null);
   const [consoleVm, setConsoleVm] = useState<VirtualMachine | null>(null);
+  const [search, setSearch] = useState('');
+
+  // Partial, case-insensitive match on the VM name (primary) and host name.
+  // e.g. "ows" matches "OVPMK1OWS13". Filtering happens BEFORE grouping so a
+  // host stays visible as its group header as long as one of its VMs matches.
+  const filteredVms = useMemo(() => {
+    if (!searchable) return vms;
+    const q = search.trim().toLowerCase();
+    if (!q) return vms;
+    return vms.filter((vm) =>
+      vm.name.toLowerCase().includes(q) || (vm.hostName ?? '').toLowerCase().includes(q),
+    );
+  }, [vms, search, searchable]);
 
   const stateLabel = (s: VmState) => t(`hyperv.state.${s}`) || s;
 
@@ -75,27 +92,19 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
     };
   }, [sortKey, sortDir]);
 
-  // Group by host name when showHost; otherwise one flat group.
+  // Group by host name when showHost; otherwise one flat group. Uses the
+  // search-filtered set so hosts with no matching VM drop out entirely.
   const groups = useMemo(() => {
-    if (!showHost) return [{ host: '', vms: [...vms].sort(cmp) }];
+    if (!showHost) return [{ host: '', vms: [...filteredVms].sort(cmp) }];
     const m = new Map<string, VirtualMachine[]>();
-    for (const vm of vms) {
+    for (const vm of filteredVms) {
       const h = vm.hostName ?? `#${vm.hostDeviceId}`;
       (m.get(h) ?? m.set(h, []).get(h)!).push(vm);
     }
     return [...m.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([host, list]) => ({ host, vms: list.sort(cmp) }));
-  }, [vms, cmp, showHost]);
-
-  if (vms.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-text-muted">
-        <Server className="w-8 h-8 opacity-50" />
-        <p className="text-sm">{t('hyperv.noVms') || 'No virtual machines on this host.'}</p>
-      </div>
-    );
-  }
+  }, [filteredVms, cmp, showHost]);
 
   const SortHead = ({ k, label, cls }: { k: SortKey; label: string; cls?: string }) => (
     <th className={clsx('px-4 py-3 text-left text-xs font-medium text-text-muted uppercase cursor-pointer select-none hover:text-text-primary', cls)} onClick={() => toggleSort(k)}>
@@ -109,7 +118,37 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
   const colCount = 7;
 
   return (
-    <div className="bg-bg-secondary rounded-xl overflow-visible">
+    <div className="space-y-3">
+      {searchable && vms.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('hyperv.searchPlaceholder') || 'Search VM or host…'}
+            className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {vms.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-12 text-text-muted">
+          <Server className="w-8 h-8 opacity-50" />
+          <p className="text-sm">{t('hyperv.noVms') || 'No virtual machines on this host.'}</p>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-12 text-text-muted">
+          <Search className="w-8 h-8 opacity-50" />
+          <p className="text-sm">{t('hyperv.noMatch') || 'No VM matches your search.'}</p>
+        </div>
+      ) : (
+      <div className="bg-bg-secondary rounded-xl overflow-visible">
       <table className="w-full">
         <thead>
           <tr>
@@ -149,7 +188,8 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                   const off = vm.state === 'off';
                   const paused = vm.state === 'paused';
                   return (
-                    <tr key={vm.vmId} className="hover:bg-bg-tertiary/40 transition-colors">
+                    <Fragment key={vm.vmId}>
+                    <tr className="hover:bg-bg-tertiary/40 transition-colors">
                       <td className="px-4 py-2.5 text-sm text-text-primary font-medium">
                         <span className={clsx('inline-flex items-center gap-1.5', showHost && 'pl-5')}>
                           <button
@@ -227,23 +267,24 @@ export function HyperVVmTable({ vms, busyVmId, showHost, onAction, onEdit, onChe
                         </div>
                       </td>
                     </tr>
+                    {expandedVmId === vm.vmId && (
+                      <tr key={`preview:${vm.vmId}`}>
+                        <td colSpan={colCount} className="px-4 pb-4 pt-1 bg-bg-tertiary/20">
+                          <HyperVConsolePreview hostDeviceId={vm.hostDeviceId} vmId={vm.vmId} onOpenFull={() => setConsoleVm(vm)} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
-                {!isCollapsed && expandedVmId && g.vms.some((v) => v.vmId === expandedVmId) && (() => {
-                  const evm = g.vms.find((v) => v.vmId === expandedVmId)!;
-                  return (
-                    <tr key={`preview:${evm.vmId}`}>
-                      <td colSpan={colCount} className="px-4 pb-4 pt-1 bg-bg-tertiary/20">
-                        <HyperVConsolePreview hostDeviceId={evm.hostDeviceId} vmId={evm.vmId} onOpenFull={() => setConsoleVm(evm)} />
-                      </td>
-                    </tr>
-                  );
-                })()}
               </Fragment>
             );
           })}
         </tbody>
       </table>
+      </div>
+      )}
+
       {consoleVm && (
         <HyperVConsoleModal
           hostDeviceId={consoleVm.hostDeviceId}

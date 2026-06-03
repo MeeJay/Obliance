@@ -64,27 +64,15 @@ type hyperVThumbBody struct {
 	VMId       string `json:"vmId"`
 	Width      int    `json:"width"`
 	Height     int    `json:"height"`
-	PNGBase64  string `json:"pngBase64"`
+	PNGBase64  string `json:"pngBase64,omitempty"`
+	// Set when the framebuffer couldn't be captured (VM off, no integration
+	// video, host refused). The server relays it to the open console so the
+	// UI shows the reason instead of an endless spinner.
+	Error string `json:"error,omitempty"`
 }
 
-// postHyperVThumbnail captures the VM console framebuffer and ships it to the
-// server (which relays it to any open console preview/viewer). No-op on
-// non-hosts.
-func postHyperVThumbnail(cfg *Config, vmID string, w, h int) error {
-	if detectVirtualizationHost() == "" {
-		return nil
-	}
-	if w <= 0 {
-		w = 640
-	}
-	if h <= 0 {
-		h = 480
-	}
-	pngB64, err := captureHyperVThumbnail(vmID, w, h)
-	if err != nil {
-		return fmt.Errorf("capture thumbnail: %w", err)
-	}
-	body := hyperVThumbBody{DeviceUUID: cfg.DeviceUUID, VMId: vmID, Width: w, Height: h, PNGBase64: pngB64}
+// postThumbBody POSTs a thumbnail body (frame or error) to the server.
+func postThumbBody(cfg *Config, body hyperVThumbBody) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -106,6 +94,29 @@ func postHyperVThumbnail(cfg *Config, vmID string, w, h int) error {
 		return fmt.Errorf("hyperv-thumbnail POST returned HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// postHyperVThumbnail captures the VM console framebuffer and ships it to the
+// server (which relays it to any open console preview/viewer). On capture
+// failure it ships the ERROR instead, so the UI can explain why. No-op on
+// non-hosts.
+func postHyperVThumbnail(cfg *Config, vmID string, w, h int) error {
+	if detectVirtualizationHost() == "" {
+		return nil
+	}
+	if w <= 0 {
+		w = 640
+	}
+	if h <= 0 {
+		h = 480
+	}
+	pngB64, capErr := captureHyperVThumbnail(vmID, w, h)
+	if capErr != nil {
+		// Best-effort error relay; return the original capture error.
+		_ = postThumbBody(cfg, hyperVThumbBody{DeviceUUID: cfg.DeviceUUID, VMId: vmID, Error: capErr.Error()})
+		return capErr
+	}
+	return postThumbBody(cfg, hyperVThumbBody{DeviceUUID: cfg.DeviceUUID, VMId: vmID, Width: w, Height: h, PNGBase64: pngB64})
 }
 
 // postHyperVVMs ships the current VM inventory to the server. No-op when the

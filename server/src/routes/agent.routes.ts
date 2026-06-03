@@ -398,14 +398,29 @@ router.post('/hyperv-thumbnail', agentAuth, async (req, res, next) => {
     const device = await db('devices').where({ uuid: deviceUuid, tenant_id: tenantId }).first();
     if (!device) return res.status(404).json({ error: 'Device not found' });
 
-    const { vmId, pngBase64, width, height } = req.body as { vmId?: string; pngBase64?: string; width?: number; height?: number };
-    if (!vmId || !pngBase64) return res.status(400).json({ error: 'vmId and pngBase64 required' });
+    const { vmId, pngBase64, width, height, error } = req.body as { vmId?: string; pngBase64?: string; width?: number; height?: number; error?: string };
+    if (!vmId) return res.status(400).json({ error: 'vmId required' });
+
+    const { getIO } = await import('../socket');
+
+    // Capture-error path: the agent couldn't grab a framebuffer (VM off, no
+    // integration video, host refused). Relay the reason so the open console
+    // shows it instead of spinning forever. No cache write.
+    if (error) {
+      try {
+        getIO().to(`tenant:${tenantId}`).emit('HYPERV_THUMBNAIL', {
+          hostDeviceId: device.id, vmId, error: String(error).slice(0, 300), at: Date.now(),
+        });
+      } catch { /* socket not ready */ }
+      return res.json({ ok: true });
+    }
+
+    if (!pngBase64) return res.status(400).json({ error: 'pngBase64 or error required' });
 
     const { hyperVConsoleStore } = await import('../services/hyperVConsole.service');
     hyperVConsoleStore.put(device.id, vmId, { pngBase64, width: width ?? 0, height: height ?? 0 });
 
     try {
-      const { getIO } = await import('../socket');
       getIO().to(`tenant:${tenantId}`).emit('HYPERV_THUMBNAIL', {
         hostDeviceId: device.id, vmId, pngBase64, width: width ?? 0, height: height ?? 0, at: Date.now(),
       });

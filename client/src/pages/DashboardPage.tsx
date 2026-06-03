@@ -823,6 +823,7 @@ export function DashboardPage() {
             vms={hyperVms}
             busyVmId={hvBusyVmId}
             showHost
+            searchable
             onAction={handleHvAction}
             onEdit={(vm) => setHvModal({ kind: 'edit', vm })}
             onCheckpoints={(vm) => setHvModal({ kind: 'checkpoints', vm })}

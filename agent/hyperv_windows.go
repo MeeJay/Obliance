@@ -10,6 +10,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os/exec"
 	"strings"
 	"sync"
 )
@@ -313,31 +314,44 @@ if (-not $vm) { throw 'vm not found' }
 $vssd = Get-CimAssociatedInstance -InputObject $vm -Namespace $ns -ResultClassName Msvm_VirtualSystemSettingData -Association Msvm_SettingsDefineState | Select-Object -First 1
 $svc = Get-CimInstance -Namespace $ns -ClassName Msvm_VirtualSystemManagementService
 $res = Invoke-CimMethod -InputObject $svc -MethodName GetVirtualSystemThumbnailImage -Arguments @{ TargetSystem = $vssd; WidthPixels = [uint16]%d; HeightPixels = [uint16]%d }
-if ($res.ReturnValue -ne 0 -or -not $res.ImageData) { throw "thumbnail unavailable (rv=$($res.ReturnValue))" }
-# width/height come back implicitly via the byte count (w*h*2); echo requested.
-Write-Output ("%d %d " + [Convert]::ToBase64String($res.ImageData))
+if ($res.ReturnValue -ne 0 -or -not $res.ImageData) { throw "thumbnail unavailable (rv=$($res.ReturnValue)) - VM may be off or have no framebuffer" }
+# Emit ONLY the base64 (no prefix). The image is exactly WidthPixels x
+# HeightPixels (the method scales the framebuffer), so Go reuses the
+# requested dimensions. Outputting just base64 lets Go strip any line
+# wrapping PowerShell might introduce on the long string.
+[Convert]::ToBase64String($res.ImageData)
 `
 
 // captureHyperVThumbnail returns a base64-encoded PNG of the VM console at
-// (w x h). Errors when the VM has no framebuffer (rare) or the host refuses.
+// (w x h). Errors carry a human reason (VM off / no framebuffer / host
+// refused) so the UI can show why the console is blank.
 func captureHyperVThumbnail(vmID string, w, h int) (string, error) {
-	script := fmt.Sprintf(thumbScriptTmpl, psEscape(vmID), w, h, w, h)
+	script := fmt.Sprintf(thumbScriptTmpl, psEscape(vmID), w, h)
 	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
-		return "", fmt.Errorf("thumbnail capture failed: %w", err)
+		// .Output() keeps stdout clean (just the base64). On failure the
+		// PowerShell `throw` text lands on stderr, captured here, so the UI
+		// shows the real reason (VM off / no framebuffer) not just "exit 1".
+		reason := ""
+		if ee, ok := err.(*exec.ExitError); ok {
+			reason = strings.TrimSpace(string(ee.Stderr))
+		}
+		if reason == "" {
+			reason = err.Error()
+		}
+		return "", fmt.Errorf("%s", reason)
 	}
-	fields := strings.Fields(strings.TrimSpace(string(out)))
-	if len(fields) < 3 {
-		return "", fmt.Errorf("unexpected thumbnail output")
+	// Strip ALL whitespace (incl. any newlines PowerShell may have wrapped
+	// the long base64 string with) before decoding.
+	b64 := strings.Join(strings.Fields(string(out)), "")
+	if b64 == "" {
+		return "", fmt.Errorf("empty thumbnail output")
 	}
-	gw, gh := w, h
-	fmt.Sscanf(fields[0], "%d", &gw)
-	fmt.Sscanf(fields[1], "%d", &gh)
-	raw, err := base64.StdEncoding.DecodeString(fields[2])
+	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return "", fmt.Errorf("decode thumbnail bytes: %w", err)
 	}
-	pngBytes, err := rgb565ToPNG(raw, gw, gh)
+	pngBytes, err := rgb565ToPNG(raw, w, h)
 	if err != nil {
 		return "", err
 	}
