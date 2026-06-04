@@ -176,6 +176,10 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 		result, execErr = d.handleHyperVControl(cmd)
 	case "hyperv_console_thumbnail":
 		result, execErr = d.handleHyperVConsoleThumbnail(cmd)
+	case "veeam_list_jobs":
+		result, execErr = d.handleVeeamListJobs(cmd)
+	case "veeam_control":
+		result, execErr = d.handleVeeamControl(cmd)
 
 	case "scan_inventory":
 		result, execErr = d.handleScanInventory(cmd)
@@ -406,6 +410,12 @@ func (d *CommandDispatcher) handleScanInventory(cmd AgentCommand) (interface{}, 
 			log.Printf("Command %s: hyper-v VM refresh failed: %v", cmd.ID, err)
 		}
 	}
+	// Same for the Veeam job list. No-op on non-backup-hosts.
+	if detectBackupHost() != "" {
+		if err := postVeeamJobs(cfg); err != nil {
+			log.Printf("Command %s: veeam job refresh failed: %v", cmd.ID, err)
+		}
+	}
 	return map[string]interface{}{
 		"softwareCount": len(inv.Software),
 		"diskCount":     len(inv.Disks),
@@ -491,6 +501,56 @@ func (d *CommandDispatcher) handleHyperVConsoleThumbnail(cmd AgentCommand) (inte
 		return nil, err
 	}
 	return map[string]interface{}{"status": "captured"}, nil
+}
+
+// handleVeeamListJobs enumerates Veeam jobs and posts them to the server on
+// demand (UI "refresh" button). No-op + clear error on non-backup-hosts.
+func (d *CommandDispatcher) handleVeeamListJobs(cmd AgentCommand) (interface{}, error) {
+	if detectBackupHost() == "" {
+		return nil, fmt.Errorf("this host is not a Veeam B&R server")
+	}
+	cfg := d.makeConfig()
+	if err := postVeeamJobs(cfg); err != nil {
+		return nil, fmt.Errorf("post veeam jobs: %w", err)
+	}
+	return map[string]interface{}{"status": "refreshed"}, nil
+}
+
+// handleVeeamControl runs a start/stop/retry/enable/disable action on a job.
+// The server has already gated the action by capability + restriction; the
+// agent just executes it. After the action we re-post the job list (plus a
+// few staggered reposts) so the UI reflects the new state quickly — Start/Stop
+// return while the session is still transitioning.
+func (d *CommandDispatcher) handleVeeamControl(cmd AgentCommand) (interface{}, error) {
+	if detectBackupHost() == "" {
+		return nil, fmt.Errorf("this host is not a Veeam B&R server")
+	}
+	action, _ := cmd.Payload["action"].(string)
+	jobID, _ := cmd.Payload["jobId"].(string)
+	if action == "" {
+		return nil, fmt.Errorf("veeam_control: missing action")
+	}
+	if jobID == "" {
+		return nil, fmt.Errorf("veeam_control: missing jobId")
+	}
+	msg, err := runVeeamControl(action, jobID)
+	if err != nil {
+		return nil, err
+	}
+	cfg := d.makeConfig()
+	if perr := postVeeamJobs(cfg); perr != nil {
+		log.Printf("Command %s: post-action job refresh failed: %v", cmd.ID, perr)
+	}
+	go func() {
+		for _, delay := range []time.Duration{5 * time.Second, 15 * time.Second, 30 * time.Second} {
+			time.Sleep(delay)
+			if perr := postVeeamJobs(cfg); perr != nil {
+				log.Printf("veeam settle repost failed: %v", perr)
+				return
+			}
+		}
+	}()
+	return map[string]interface{}{"message": msg}, nil
 }
 
 func (d *CommandDispatcher) handleScanUpdates(cmd AgentCommand) (interface{}, error) {

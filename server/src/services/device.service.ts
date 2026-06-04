@@ -93,6 +93,7 @@ class DeviceService {
       airgapEnabled: row.airgap_enabled ?? false,
       airgapEnabledAt: row.airgap_enabled_at ?? null,
       virtualizationHostType: row.virtualization_host_type ?? null,
+      backupHostType: row.backup_host_type ?? null,
       watchdogRestartCount: row.watchdog_restart_count ?? 0,
       watchdogLastRestartAt: row.watchdog_last_restart_at ?? null,
       agentFlavor: (row.agent_flavor ?? 'modern') as 'modern' | 'legacy',
@@ -1405,6 +1406,20 @@ class DeviceService {
     });
   }
 
+  /** True when `groupId` OR any of its ancestor groups is flagged always_on,
+   *  so devices there must stay powered on (offline = critical). Inheritance
+   *  is resolved via the closure table (descendant_id → ancestor_id, which
+   *  includes the group itself at depth 0). */
+  async isGroupAlwaysOn(groupId: number | null): Promise<boolean> {
+    if (!groupId) return false;
+    const row = await db('device_groups as g')
+      .join('device_group_closure as c', 'c.ancestor_id', 'g.id')
+      .where('c.descendant_id', groupId)
+      .where('g.always_on', true)
+      .first('g.id');
+    return !!row;
+  }
+
   // ─── Offline detection ────────────────────────────────────────────────────
   async checkOfflineDevices() {
     try {
@@ -1465,8 +1480,13 @@ class DeviceService {
             const dispName = (device as any).display_name || device.hostname || `#${device.id}`;
             const lastSeen = device.last_push_at ? new Date(device.last_push_at) : null;
             const minutesAgo = lastSeen ? Math.max(1, Math.round((now.getTime() - lastSeen.getTime()) / 60_000)) : null;
+            // "Always On" groups treat an offline device as a CRITICAL fault —
+            // a server that stops answering Obliance is an incident. Ordinary
+            // groups (user workstations) shrug off a power-off: the bell alert
+            // drops to benign 'info' and no channel notification fires.
+            const alwaysOn = await this.isGroupAlwaysOn(device.group_id);
             await liveAlertService.add(device.tenant_id, {
-              severity: 'critical',
+              severity: alwaysOn ? 'critical' : 'info',
               title: `${dispName}: Hors ligne`,
               message: minutesAgo != null
                 ? `Aucun push reçu depuis ${minutesAgo} min.`
@@ -1474,6 +1494,20 @@ class DeviceService {
               navigateTo: `/devices/${device.id}`,
               stableKey: `device:${device.id}:offline`,
             });
+            // Immediate outbound notification (Slack / email / …) for
+            // Always-On groups only — resolved through the same global → group
+            // → device channel-binding chain as metric alerts.
+            if (alwaysOn) {
+              try {
+                const { notificationService } = await import('./notification.service');
+                await notificationService.sendForAgent(
+                  device.id, dispName, 'alert', 'online',
+                  ['Serveur Always-On hors ligne — ne répond plus à Obliance'], 'alert',
+                );
+              } catch (notifErr) {
+                logger.error(notifErr, 'always-on offline channel notification failed');
+              }
+            }
           } catch (alertErr) {
             logger.error(alertErr, 'live-alert (offline) failed');
           }

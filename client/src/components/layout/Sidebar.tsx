@@ -224,8 +224,10 @@ function GroupRow({
     ? groupDevices.filter(d => deviceMatchesSearch(d, searchQuery))
     : groupDevices;
 
-  const onlineCount = groupDevices.filter(d => d.status === 'online').length;
-  const offlineCount = groupDevices.filter(d => d.status === 'offline').length;
+  const onlineCount   = groupDevices.filter(d => d.status === 'online').length;
+  const warningCount  = groupDevices.filter(d => d.status === 'warning').length;
+  const criticalCount = groupDevices.filter(d => d.status === 'critical').length;
+  const offlineCount  = groupDevices.filter(d => d.status === 'offline').length;
 
   // If searching and no devices match in this group/subtree, hide it
   if (searchQuery && filteredDevices.length === 0 && group.children.length === 0) {
@@ -266,13 +268,14 @@ function GroupRow({
           <Server size={14} className="shrink-0 text-text-muted" />
           <span className="truncate flex-1 text-[13px] font-medium">{anonymize(group.name)}</span>
           {groupDevices.length > 0 && (
-            <span className="flex items-center gap-1.5 shrink-0">
-              {onlineCount > 0 && (
-                <span className="text-[11px] text-green-400 font-mono font-medium">{onlineCount}</span>
-              )}
-              {offlineCount > 0 && (
-                <span className="text-[11px] text-text-muted font-mono font-medium">{offlineCount}</span>
-              )}
+            <span
+              className="flex items-center gap-1.5 shrink-0 text-[11px] font-mono font-medium"
+              title={`${onlineCount} online · ${warningCount} warning · ${criticalCount} critical · ${offlineCount} offline · ${groupDevices.length} total`}
+            >
+              {onlineCount   > 0 && <span className="text-green-400">{onlineCount}</span>}
+              {warningCount  > 0 && <span className="text-amber-400">{warningCount}</span>}
+              {criticalCount > 0 && <span className="text-red-400">{criticalCount}</span>}
+              {offlineCount  > 0 && <span className="text-text-muted">{offlineCount}</span>}
             </span>
           )}
         </Link>

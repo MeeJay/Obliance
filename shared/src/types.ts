@@ -96,6 +96,12 @@ export interface DeviceGroup {
   description: string | null;
   sortOrder: number;
   groupNotifications: boolean;
+  /** When true, devices in this group (and sub-groups, via inheritance) are
+   *  expected to be permanently powered on. A device going offline is then
+   *  treated as a CRITICAL fault: immediate channel notification + a
+   *  'critical'-severity bell alert (vs the benign 'info' used for ordinary
+   *  workstations). Default false. */
+  alwaysOn: boolean;
   groupConfig: DeviceGroupConfig;
   /** Lot D.2 — per-group metric thresholds. Empty object means "use system
    *  default". Each metric key may set a `warn` and/or `crit` percentage. */
@@ -224,6 +230,10 @@ export interface Device {
    *  'hyperv' on Windows). null = not a virtualization host. Drives the
    *  conditional Hyper-V tab in device detail + the tenant Hyper-V view. */
   virtualizationHostType: VirtualizationHostType | null;
+  /** Set when the agent detects a backup product (today only 'veeam' = a
+   *  Veeam B&R server). null = not a backup host. Drives the conditional
+   *  Backups tab in device detail + the tenant Backups view. */
+  backupHostType: BackupHostType | null;
   /** Total count of watchdog-triggered agent restarts since install. */
   watchdogRestartCount: number;
   /** Timestamp of the last watchdog-triggered restart. */
@@ -585,7 +595,9 @@ export type CommandType =
   | 'check_software_compliance'
   | 'hyperv_list_vms'
   | 'hyperv_control'
-  | 'hyperv_console_thumbnail';
+  | 'hyperv_console_thumbnail'
+  | 'veeam_list_jobs'
+  | 'veeam_control';
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -1483,7 +1495,12 @@ export type Capability =
   // action-restriction matrix (hyperv.*).
   | 'hyperv:view'
   | 'hyperv:power'
-  | 'hyperv:manage';
+  | 'hyperv:manage'
+  // Veeam backups (device-scoped — scoped to the VBR host device/group).
+  // view = read job list + state; control = start/stop/retry/enable/disable
+  // (each further gated by the action-restriction matrix veeam.*).
+  | 'veeam:view'
+  | 'veeam:control';
 
 export interface TeamPermission {
   id: number;
@@ -2201,4 +2218,55 @@ export interface VirtualMachine {
   hostName?: string;
 }
 
+// ─── BACKUP (Veeam B&R, extensible) ───────────────────────────────────────────
+//
+// Generic backup-host model so we can add other products later without
+// reshaping the schema. A device becomes a "backup host" when the agent
+// detects a backup product (today only `veeam` = Veeam Backup & Replication
+// on the VBR server). The jobs it manages are reported as BackupJob rows.
 
+export type BackupHostType = 'veeam';
+
+// Normalised job lifecycle state. Veeam's GetLastState() maps:
+//   Working→running, Idle/Stopped→idle, Starting/Stopping→transitioning,
+//   Pausing/Postprocessing→transitioning. Disabled schedule → disabled.
+export type BackupJobState = 'running' | 'idle' | 'transitioning' | 'disabled' | 'unknown';
+
+// Last run outcome. Veeam GetLastResult(): Success / Warning / Failed / None.
+export type BackupJobResult = 'success' | 'warning' | 'failed' | 'none';
+
+// Actions a viewer can request on a job. Each maps server-side to a required
+// capability + a restriction key before enqueueing the agent command.
+export type BackupJobAction = 'start' | 'stop' | 'retry' | 'enable' | 'disable';
+
+export interface BackupJob {
+  id: number;
+  tenantId: number;
+  /** devices.id of the VBR host running this job. */
+  hostDeviceId: number;
+  hostType: BackupHostType;
+  /** Veeam VBR job Id (GUID) — stable across renames. */
+  jobId: string;
+  name: string;
+  /** Backup / Replica / BackupCopy / Agent / … (raw Veeam JobType). */
+  jobType: string | null;
+  state: BackupJobState;
+  rawState: string | null;
+  lastResult: BackupJobResult;
+  /** Whether the job's schedule is enabled. */
+  scheduleEnabled: boolean;
+  lastRunStart: string | null;
+  lastRunEnd: string | null;
+  nextRun: string | null;
+  /** Live progress % when the job is running, else null. */
+  progressPercent: number | null;
+  processedBytes: number | null;
+  transferredBytes: number | null;
+  /** Last run duration in seconds. */
+  durationSeconds: number | null;
+  repository: string | null;
+  description: string | null;
+  updatedAt: string;
+  /** Joined for the tenant-wide grid: the host device's display name. */
+  hostName?: string;
+}

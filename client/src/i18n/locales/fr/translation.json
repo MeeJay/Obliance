@@ -291,7 +291,7 @@
     "averageComplianceSub": "policies actives",
     "viewPolicies": "Voir les policies",
     "diskSaturated": "Disques saturés",
-    "diskSaturatedSub": "> {{threshold}}% utilisés",
+    "diskSaturatedSub": "au-dessus du seuil par appareil",
     "diskSaturatedNone": "Aucun disque critique",
     "remoteSessions": "Sessions remote",
     "remoteSessionsSub": "live · ObliReach + tunnels",
@@ -318,6 +318,10 @@
     "noData": "Aucune donnée",
     "tooltipOnline": "{{online}} en ligne sur {{total}} ({{pct}}%)",
     "tooltipAlerts": "{{warning}} warning · {{critical}} critical",
+    "tooltipReachable": "{{reachable}} en ligne · {{offline}} hors ligne · {{total}} total",
+    "tooltipOffline": "{{count}} hors ligne",
+    "tooltipWarning": "{{count}} en warning",
+    "tooltipCritical": "{{count}} en critique",
     "tooltipNoCompliance": "Aucune policy de conformité appliquée",
     "tooltipCompliance": "Conformité : {{pct}}% sur {{count}} policy(ies)",
     "tooltipNoUpdates": "Aucune MAJ en attente",
@@ -505,6 +509,8 @@
       "isGeneral": "Groupe général (visible par tous les utilisateurs)",
       "groupNotifications": "Notifications groupées",
       "groupNotificationsDesc": "Envoie une notification unique lorsque le premier moniteur tombe, et une récupération quand tous sont de nouveau disponibles.",
+      "alwaysOn": "Always On (serveurs)",
+      "alwaysOnDesc": "Les appareils sont censés rester allumés en permanence. Si l’un ne répond plus à Obliance, c’est un défaut critique : alerte critique + notification immédiate (au lieu d’un simple « hors ligne » bénin pour les postes utilisateurs).",
       "sortOrder": "Ordre parmi les frères",
       "moveUp": "Déplacer vers le haut",
       "moveDown": "Déplacer vers le bas"
@@ -1594,6 +1600,49 @@
       "label": "Passer à travers le mode privacy",
       "hint": "Désactivée (par défaut), les appareils en mode privacy sont silencieusement ignorés. Activée, la planification s'exécute aussi sur ces appareils — outrepasse le choix explicite de l'utilisateur. L'activation peut exiger une validation administrateur selon la matrice de restrictions du tenant.",
       "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
+    }
+  },
+  "veeam": {
+    "title": "Tâches de sauvegarde Veeam",
+    "tabLabel": "Sauvegardes",
+    "refresh": "Rafraîchir",
+    "noJobs": "Aucune tâche de sauvegarde sur cet hôte.",
+    "noMatch": "Aucune tâche ne correspond à votre recherche.",
+    "searchPlaceholder": "Rechercher une tâche ou un hôte…",
+    "actionQueued": "Action envoyée à l'hôte",
+    "pendingApproval": "Action enregistrée — en attente de validation d'un second administrateur",
+    "confirmStop": "Arrêter la tâche « {{name}} » en cours ? La sauvegarde sera incomplète.",
+    "jobs": "tâches",
+    "failed": "en échec",
+    "scheduleDisabled": "Désactivée",
+    "col": {
+      "name": "Tâche",
+      "state": "État",
+      "lastResult": "Dernier résultat",
+      "lastRun": "Dernière exécution",
+      "nextRun": "Prochaine exécution",
+      "repository": "Référentiel",
+      "actions": "Actions"
+    },
+    "state": {
+      "running": "En cours",
+      "idle": "Inactive",
+      "transitioning": "En transition",
+      "disabled": "Désactivée",
+      "unknown": "Inconnu"
+    },
+    "result": {
+      "success": "Succès",
+      "warning": "Avertissement",
+      "failed": "Échec",
+      "none": "—"
+    },
+    "action": {
+      "start": "Démarrer",
+      "stop": "Arrêter",
+      "retry": "Réessayer les éléments en échec",
+      "enable": "Activer la planification",
+      "disable": "Désactiver la planification"
     }
   },
   "hyperv": {

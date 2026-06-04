@@ -95,11 +95,14 @@ router.post('/push', agentAuth, async (req, res, next) => {
       distroFamily?: string;
       agentFlavor?: 'modern' | 'legacy';
       virtualizationHost?: string;
+      backupHost?: string;
     };
-    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor, virtualizationHost } = body;
+    const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor, virtualizationHost, backupHost } = body;
     // Only accept the hypervisor types we know about; anything else (or "")
     // clears the flag so a downgraded/uninstalled host stops showing the tab.
     const vhost = (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(virtualizationHost ?? '') ? virtualizationHost! : null);
+    // Same for the backup-host role ("veeam" today); "" clears the Backups tab.
+    const bhost = (['veeam'].includes(backupHost ?? '') ? backupHost! : null);
 
     // The Go 1.20 legacy agent doesn't include `distroFamily` in its push
     // body (and lacks every WebSocket tunnel / ObliReach / software
@@ -211,6 +214,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
         os_distro: distroFamily || device.os_distro,
         virtualization_host_type: vhost,
+        backup_host_type: bhost,
         last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
         timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),
@@ -382,6 +386,29 @@ router.post('/hyperv-vms', agentAuth, async (req, res, next) => {
     const ht = (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(hostType ?? '') ? hostType! : 'hyperv') as any;
     const { hyperVService } = await import('../services/hyperV.service');
     await hyperVService.ingestVMs(device.id, tenantId, ht, Array.isArray(vms) ? vms : []);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/agent/veeam-jobs
+// Called by the host agent after enumerating its Veeam jobs (inventory cadence
+// or the veeam_list_jobs command). Replaces the stored job set for the host.
+router.post('/veeam-jobs', agentAuth, async (req, res, next) => {
+  try {
+    const deviceUuid = req.headers['x-device-uuid'] as string | undefined;
+    if (!deviceUuid) return res.status(400).json({ error: 'X-Device-UUID header required' });
+
+    const tenantId = req.agentTenantId!;
+    const device = await db('devices').where({ uuid: deviceUuid, tenant_id: tenantId }).first();
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    if (device.approval_status === 'refused' || device.status === 'suspended') {
+      return res.status(403).json({ error: 'Device access denied' });
+    }
+
+    const { hostType, jobs } = req.body as { hostType?: string; jobs?: any[] };
+    const ht = (['veeam'].includes(hostType ?? '') ? hostType! : 'veeam') as any;
+    const { veeamService } = await import('../services/veeam.service');
+    await veeamService.ingestJobs(device.id, tenantId, ht, Array.isArray(jobs) ? jobs : []);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

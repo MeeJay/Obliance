@@ -16,6 +16,7 @@ interface UpdateGroupRequest {
   description?: string | null;
   sortOrder?: number;
   groupNotifications?: boolean;
+  alwaysOn?: boolean;
   groupConfig?: DeviceGroup['groupConfig'];
   /** Lot D.2 — group-level metric thresholds (warn / crit per metric kind).
    *  Empty object resets to system default. */

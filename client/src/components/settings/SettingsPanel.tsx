@@ -82,7 +82,12 @@ export function SettingsPanel({ scope, scopeId, title }: SettingsPanelProps) {
  </h2>
  )}
  <div>
- {SETTINGS_DEFINITIONS.map((def) => (
+ {SETTINGS_DEFINITIONS
+ // Global-only policies (data retention, auto-approve, 2FA IP trust)
+ // make no sense per group/device — hide them outside the global scope
+ // so they don't clutter (or imply they're overridable in) a group panel.
+ .filter((def) => scope === 'global' || !def.globalOnly)
+ .map((def) => (
  <SettingField
  key={def.key}
  definition={def}

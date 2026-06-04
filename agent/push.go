@@ -71,6 +71,9 @@ type pushBody struct {
 	// or "" when the host runs no recognised hypervisor role. Cheap +
 	// cached, so safe to send on every push.
 	VirtualizationHost    string       `json:"virtualizationHost,omitempty"`
+	// Backup host type detected on this machine ("veeam" today), or "" when
+	// the host runs no recognised backup-server role. Cheap + cached.
+	BackupHost            string       `json:"backupHost,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -214,6 +217,7 @@ func push(cfg *Config) {
 		WatchdogRestartCount:  wdCount,
 		WatchdogLastRestartAt: wdLast,
 		VirtualizationHost:    detectVirtualizationHost(),
+		BackupHost:            detectBackupHost(),
 	}
 
 	data, err := json.Marshal(body)

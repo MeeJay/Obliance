@@ -96,6 +96,14 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   { key: 'hyperv.vm_edit',              label: 'Edit VM settings (vCPU / RAM / …)', category: 'Hyper-V' },
   { key: 'hyperv.vm_create',            label: 'Create a VM',                    category: 'Hyper-V' },
   { key: 'hyperv.vm_delete',            label: 'Delete a VM',                    category: 'Hyper-V' },
+  // Veeam / backups. start / retry / enable ensure backups run (benign);
+  // stop interrupts a running job and disable silently turns off scheduled
+  // backups (real data-loss risk) → default-gated with 2FA.
+  { key: 'veeam.job_start',             label: 'Start a backup job',             category: 'Backups' },
+  { key: 'veeam.job_stop',              label: 'Stop a running backup job',      category: 'Backups' },
+  { key: 'veeam.job_retry',             label: 'Retry a backup job',             category: 'Backups' },
+  { key: 'veeam.job_enable',            label: 'Enable a backup job schedule',   category: 'Backups' },
+  { key: 'veeam.job_disable',           label: 'Disable a backup job schedule',  category: 'Backups' },
   // Tenant config surfaces — editing these pages changes who can do what.
   // Defaults live in DEFAULT_RESTRICTIONS below; we don't auto-seed the
   // management ones so fresh installs without TOTP don't lock admins out.
@@ -144,6 +152,10 @@ export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = 
   // whose user has opted into privacy. Migration 102 seeds the same.
   'scenario.bypass_privacy_mode': 'restricted',
   'schedule.bypass_privacy_mode': 'restricted',
+  // Veeam: stopping a running backup and disabling a backup schedule are the
+  // risky ones (incomplete/no backup) → 2FA. start/retry/enable stay un-gated.
+  'veeam.job_stop':              'sensitive',
+  'veeam.job_disable':           'sensitive',
   // Hyper-V defaults follow the product owner's spec: power actions are
   // un-gated (none), checkpoint-restore/delete + edit + create require a
   // fresh 2FA (sensitive), and deleting a VM needs a second admin

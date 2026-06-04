@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
-  AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, Box,
-  Building2, Server, LayoutDashboard,
+  AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, WifiOff, Box,
+  Building2, Server, LayoutDashboard, Database,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -21,7 +21,9 @@ import { getSocket } from '@/socket/socketClient';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
 import { EditVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
-import type { VirtualMachine, VmAction } from '@obliance/shared';
+import { veeamApi } from '@/api/veeam.api';
+import { BackupJobTable } from '@/components/veeam/BackupJobTable';
+import type { VirtualMachine, VmAction, BackupJob, BackupJobAction } from '@obliance/shared';
 import toast from 'react-hot-toast';
 
 // ── Sparkline (filled area + line) ───────────────────────────────────────────
@@ -350,7 +352,7 @@ function DiskSaturationCard({ data }: { data: DiskSaturationResult }) {
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.diskSaturated', 'Disques saturés')}</div>
-          <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.diskSaturatedSub', 'au-dessus du seuil défini')}</div>
+          <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.diskSaturatedSub', 'au-dessus du seuil par appareil')}</div>
         </div>
         <div className={`font-display text-[30px] font-semibold ${data.count > 0 ? 'text-amber-400' : 'text-text-muted'} leading-none`}>{data.count}</div>
       </div>
@@ -398,9 +400,12 @@ function RemoteSessionsCard({ active }: { active: number }) {
 
 function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children?: React.ReactNode; depth?: number }) {
   const { t } = useTranslation();
-  const upPct = group.total > 0 ? Math.round((group.online / group.total) * 100) : 0;
+  // "En ligne" = reachable = every device the agent is talking to, alert or
+  // not (online + warning + critical). The old card showed only status==='online'
+  // which actually meant "no alert" and hid warned/critical-but-reachable boxes.
+  const reachable = group.online + group.warning + group.critical;
+  const upPct = group.total > 0 ? Math.round((reachable / group.total) * 100) : 0;
   const barColor = upPct >= 95 ? 'bg-green-400' : upPct >= 70 ? 'bg-amber-400' : 'bg-accent';
-  const warnings = group.warning + group.critical;
 
   // Conformité — green ≥90 / amber ≥70 / red <70 / muted if no policy
   const complianceColor =
@@ -415,40 +420,77 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
     upPct >= 70 ? 'text-amber-400' :
                   'text-accent';
 
+  // Click-through → the filtered /devices list (this group + a status). Each
+  // gauge is its OWN link, which is why the card can't be one wrapping <Link>
+  // anymore (nested anchors are invalid HTML).
+  const deviceLink = (status?: string) => {
+    const p = new URLSearchParams();
+    if (group.groupId != null) p.set('groupId', String(group.groupId));
+    if (status) p.set('status', status);
+    const qs = p.toString();
+    return `/devices${qs ? `?${qs}` : ''}`;
+  };
+
   return (
     <div className={`rounded-lg px-4 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_4px_18px_-8px_rgba(0,0,0,0.45)] ${depth > 0 ? 'bg-bg-tertiary' : 'bg-bg-secondary'}`}>
-      <Link
-        to={group.groupId ? `/group/${group.groupId}` : '/devices'}
-        className="flex items-center gap-3 group min-w-0"
-      >
-        <FolderOpen size={depth > 0 ? 14 : 16} className="text-accent shrink-0" />
-        <span className="text-[14px] font-semibold text-text-primary truncate min-w-0">
-          {anonymize(group.groupName) || t('dashboard.ungrouped', 'Sans groupe')}
-        </span>
+      <div className="flex items-center gap-3 min-w-0">
+        <Link
+          to={group.groupId ? `/group/${group.groupId}` : '/devices'}
+          className="flex items-center gap-2 min-w-0 group hover:opacity-90"
+        >
+          <FolderOpen size={depth > 0 ? 14 : 16} className="text-accent shrink-0" />
+          <span className="text-[14px] font-semibold text-text-primary truncate min-w-0">
+            {anonymize(group.groupName) || t('dashboard.ungrouped', 'Sans groupe')}
+          </span>
+        </Link>
 
-        <div
-          className="flex items-center gap-1.5 ml-2"
-          title={t('dashboard.tooltipOnline', '{{online}} en ligne sur {{total}} ({{pct}}%)', { online: group.online, total: group.total, pct: upPct })}
+        {/* En ligne (joignables) / total */}
+        <Link
+          to={deviceLink('connected')}
+          className="flex items-center gap-1.5 ml-2 hover:opacity-80"
+          title={t('dashboard.tooltipReachable', '{{reachable}} en ligne · {{offline}} hors ligne · {{total}} total', { reachable, offline: group.offline, total: group.total })}
         >
           <Wifi size={13} className={onlineColor} />
           <span className="font-mono text-[12px] text-text-secondary">
-            <span className={onlineColor}>{group.online}</span>
+            <span className={onlineColor}>{reachable}</span>
             <span className="text-text-muted"> / {group.total}</span>
           </span>
-        </div>
+        </Link>
 
         <div className="flex-1 min-w-0 max-w-[300px] h-1.5 bg-white/[0.04] rounded overflow-hidden mx-2">
           <div className={`h-full ${barColor}`} style={{ width: `${upPct}%` }} />
         </div>
 
         <div className="flex items-center gap-3 ml-auto shrink-0">
-          {warnings > 0 && (
-            <div
-              className="flex items-center gap-1 font-mono text-[12px] text-amber-400"
-              title={t('dashboard.tooltipAlerts', '{{warning}} warning · {{critical}} critical', { warning: group.warning, critical: group.critical })}
+          {/* Hors ligne */}
+          {group.offline > 0 && (
+            <Link
+              to={deviceLink('disconnected')}
+              className="flex items-center gap-1 font-mono text-[12px] text-text-muted hover:text-text-secondary"
+              title={t('dashboard.tooltipOffline', '{{count}} hors ligne', { count: group.offline })}
             >
-              <AlertTriangle size={13} /> {warnings}
-            </div>
+              <WifiOff size={13} /> {group.offline}
+            </Link>
+          )}
+          {/* Warning */}
+          {group.warning > 0 && (
+            <Link
+              to={deviceLink('warning')}
+              className="flex items-center gap-1 font-mono text-[12px] text-amber-400 hover:text-amber-300"
+              title={t('dashboard.tooltipWarning', '{{count}} en warning', { count: group.warning })}
+            >
+              <AlertTriangle size={13} /> {group.warning}
+            </Link>
+          )}
+          {/* Critical */}
+          {group.critical > 0 && (
+            <Link
+              to={deviceLink('critical')}
+              className="flex items-center gap-1 font-mono text-[12px] text-red-400 hover:text-red-300"
+              title={t('dashboard.tooltipCritical', '{{count}} en critique', { count: group.critical })}
+            >
+              <AlertCircle size={13} /> {group.critical}
+            </Link>
           )}
           <div
             className={`flex items-center gap-1 font-mono text-[12px] ${complianceColor}`}
@@ -473,7 +515,7 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
             {group.pendingUpdates}
           </div>
         </div>
-      </Link>
+      </div>
       {children && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 pl-3 border-l border-border ml-1">
           {children}
@@ -554,7 +596,7 @@ export function DashboardPage() {
   const [activityRange, setActivityRange] = useState<ActivityRange>('14j');
   // Hyper-V tenant grid (Dashboard tab). The tab only appears when the
   // tenant has at least one VM reported by a Hyper-V host.
-  const [dashTab, setDashTab] = useState<'overview' | 'hyperv'>('overview');
+  const [dashTab, setDashTab] = useState<'overview' | 'hyperv' | 'veeam'>('overview');
   const [hyperVms, setHyperVms] = useState<VirtualMachine[]>([]);
   const [hvBusyVmId, setHvBusyVmId] = useState<string | null>(null);
   const [hvModal, setHvModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: VirtualMachine } | null>(null);
@@ -623,6 +665,58 @@ export function DashboardPage() {
       toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
     } finally {
       setHvBusyVmId(null);
+    }
+  };
+
+  // Veeam tenant grid (Dashboard tab). The tab only appears when the tenant
+  // has at least one backup job reported by a Veeam B&R host.
+  const [veeamJobs, setVeeamJobs] = useState<BackupJob[]>([]);
+  const [veeamBusyJobId, setVeeamBusyJobId] = useState<string | null>(null);
+  const loadVeeamJobs = useCallback(() => {
+    veeamApi.listForTenant().then(setVeeamJobs).catch(() => setVeeamJobs([]));
+  }, []);
+  useEffect(() => { loadVeeamJobs(); }, [loadVeeamJobs]);
+  const veeamHostIdsKey = useMemo(
+    () => [...new Set(veeamJobs.map((j) => j.hostDeviceId))].sort((a, b) => a - b).join(','),
+    [veeamJobs],
+  );
+  // Live updates while the Veeam tab is open: merge the server's per-host
+  // broadcast into the tenant grid + ping each host every 5s. Capped to 25
+  // hosts to avoid hammering very large fleets.
+  useEffect(() => {
+    if (dashTab !== 'veeam') return;
+    const socket = getSocket();
+    const onUpdate = (p: { hostDeviceId: number; jobs: BackupJob[] }) => {
+      setVeeamJobs((prev) => {
+        const nameByHost = new Map(prev.map((j) => [j.hostDeviceId, j.hostName]));
+        const others = prev.filter((j) => j.hostDeviceId !== p.hostDeviceId);
+        return [...others, ...p.jobs].map((j) => j.hostName ? j : { ...j, hostName: nameByHost.get(j.hostDeviceId) });
+      });
+    };
+    socket?.on('VEEAM_JOBS_UPDATED', onUpdate);
+    const ping = () => {
+      const hosts = veeamHostIdsKey ? veeamHostIdsKey.split(',').map(Number) : [];
+      if (hosts.length > 0 && hosts.length <= 25) hosts.forEach((h) => veeamApi.live(h).catch(() => {}));
+    };
+    ping();
+    const iv = setInterval(ping, 5000);
+    return () => { socket?.off('VEEAM_JOBS_UPDATED', onUpdate); clearInterval(iv); };
+  }, [dashTab, veeamHostIdsKey]);
+  const handleVeeamAction = async (job: BackupJob, action: BackupJobAction) => {
+    if (action === 'stop' && !confirm(t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`)) return;
+    setVeeamBusyJobId(job.jobId);
+    try {
+      const out = await veeamApi.action(job.hostDeviceId, job.jobId, action);
+      if (out && out.status === 'pending_approval') {
+        toast.success(t('veeam.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+      } else {
+        toast.success(t('veeam.actionQueued') || 'Action sent to host');
+      }
+      setTimeout(loadVeeamJobs, 2500);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
+    } finally {
+      setVeeamBusyJobId(null);
     }
   };
 
@@ -794,13 +888,15 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Tab bar — same segmented control as /automations. The Hyper-V tab
-          only shows when the tenant has at least one VM reported by a host. */}
-      {hyperVms.length > 0 && (
+      {/* Tab bar — same segmented control as /automations. The Hyper-V and
+          Backups tabs only show when the tenant has at least one VM / backup
+          job reported by a host. */}
+      {(hyperVms.length > 0 || veeamJobs.length > 0) && (
         <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
           {([
             { id: 'overview' as const, label: t('dashboard.tabOverview', 'Vue d’ensemble'), icon: <LayoutDashboard size={16} /> },
-            { id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})`, icon: <Server size={16} /> },
+            ...(hyperVms.length > 0 ? [{ id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})`, icon: <Server size={16} /> }] : []),
+            ...(veeamJobs.length > 0 ? [{ id: 'veeam' as const, label: `${t('veeam.tabLabel') || 'Backups'} (${veeamJobs.length})`, icon: <Database size={16} /> }] : []),
           ]).map((tb) => (
             <button
               key={tb.id}
@@ -831,6 +927,14 @@ export function DashboardPage() {
           {hvModal?.kind === 'edit' && <EditVmModal vm={hvModal.vm} run={runHvForVm(hvModal.vm)} onClose={() => { setHvModal(null); setTimeout(loadHyperVms, 2500); }} />}
           {hvModal?.kind === 'checkpoints' && <CheckpointModal vm={hvModal.vm} run={runHvForVm(hvModal.vm)} onClose={() => { setHvModal(null); setTimeout(loadHyperVms, 2500); }} />}
         </>
+      ) : dashTab === 'veeam' ? (
+        <BackupJobTable
+          jobs={veeamJobs}
+          busyJobId={veeamBusyJobId}
+          showHost
+          searchable
+          onAction={handleVeeamAction}
+        />
       ) : (
       <>
       {/* Hero row — featured Total + 4 KPIs with deltas. Each card is a Link

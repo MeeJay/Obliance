@@ -291,7 +291,7 @@
     "averageComplianceSub": "active policies",
     "viewPolicies": "View policies",
     "diskSaturated": "Saturated disks",
-    "diskSaturatedSub": "> {{threshold}}% used",
+    "diskSaturatedSub": "above the per-device threshold",
     "diskSaturatedNone": "No critical disks",
     "remoteSessions": "Remote sessions",
     "remoteSessionsSub": "live · ObliReach + tunnels",
@@ -318,6 +318,10 @@
     "noData": "No data",
     "tooltipOnline": "{{online}} online of {{total}} ({{pct}}%)",
     "tooltipAlerts": "{{warning}} warning · {{critical}} critical",
+    "tooltipReachable": "{{reachable}} online · {{offline}} offline · {{total}} total",
+    "tooltipOffline": "{{count}} offline",
+    "tooltipWarning": "{{count}} warning",
+    "tooltipCritical": "{{count}} critical",
     "tooltipNoCompliance": "No compliance policy applied",
     "tooltipCompliance": "Compliance: {{pct}}% across {{count}} policy(ies)",
     "tooltipNoUpdates": "No pending updates",
@@ -505,6 +509,8 @@
       "isGeneral": "General group (visible to all users)",
       "groupNotifications": "Group notifications",
       "groupNotificationsDesc": "Send a single notification when the first monitor goes down, and one recovery when all are back up.",
+      "alwaysOn": "Always On (servers)",
+      "alwaysOnDesc": "Devices here are expected to stay powered on at all times. If one stops responding to Obliance it's a critical fault: critical alert + immediate notification (instead of the benign 'offline' used for user workstations).",
       "sortOrder": "Order among siblings",
       "moveUp": "Move up",
       "moveDown": "Move down"
@@ -1620,6 +1626,49 @@
       "label": "Bypass privacy mode",
       "hint": "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings.",
       "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
+    }
+  },
+  "veeam": {
+    "title": "Veeam backup jobs",
+    "tabLabel": "Backups",
+    "refresh": "Refresh",
+    "noJobs": "No backup jobs on this host.",
+    "noMatch": "No job matches your search.",
+    "searchPlaceholder": "Search job or host…",
+    "actionQueued": "Action sent to host",
+    "pendingApproval": "Action saved — awaiting second admin approval",
+    "confirmStop": "Stop the running job \"{{name}}\"? The backup will be incomplete.",
+    "jobs": "jobs",
+    "failed": "failed",
+    "scheduleDisabled": "Disabled",
+    "col": {
+      "name": "Job",
+      "state": "State",
+      "lastResult": "Last result",
+      "lastRun": "Last run",
+      "nextRun": "Next run",
+      "repository": "Repository",
+      "actions": "Actions"
+    },
+    "state": {
+      "running": "Running",
+      "idle": "Idle",
+      "transitioning": "Transitioning",
+      "disabled": "Disabled",
+      "unknown": "Unknown"
+    },
+    "result": {
+      "success": "Success",
+      "warning": "Warning",
+      "failed": "Failed",
+      "none": "—"
+    },
+    "action": {
+      "start": "Start",
+      "stop": "Stop",
+      "retry": "Retry failed items",
+      "enable": "Enable schedule",
+      "disable": "Disable schedule"
     }
   },
   "hyperv": {

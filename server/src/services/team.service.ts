@@ -59,6 +59,8 @@ const VALID_CAPABILITIES = new Set([
   'hyperv:view',
   'hyperv:power',
   'hyperv:manage',
+  'veeam:view',
+  'veeam:control',
 ]);
 
 function rowToPermission(row: any): TeamPermission {

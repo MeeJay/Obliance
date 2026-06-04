@@ -31,6 +31,7 @@ interface GroupFormData {
  name: string;
  description: string;
  groupNotifications: boolean;
+ alwaysOn: boolean;
 }
 
 export function GroupEditPage() {
@@ -49,6 +50,7 @@ export function GroupEditPage() {
  name: group?.name ?? '',
  description: group?.description ?? '',
  groupNotifications: group?.groupNotifications ?? false,
+ alwaysOn: group?.alwaysOn ?? false,
  });
 
  // Position state (admin only)
@@ -83,6 +85,7 @@ export function GroupEditPage() {
  name: g.name,
  description: g.description ?? '',
  groupNotifications: g.groupNotifications,
+ alwaysOn: g.alwaysOn,
  });
  })
  .catch(() => toast.error(t('groups.failedUpdate')))
@@ -117,6 +120,7 @@ export function GroupEditPage() {
  name: form.name,
  description: form.description || null,
  groupNotifications: form.groupNotifications,
+ alwaysOn: form.alwaysOn,
  });
  toast.success(t('groups.updated'));
  fetchGroups();
@@ -222,6 +226,23 @@ export function GroupEditPage() {
  </div>
  <p className="text-xs text-text-muted ml-6">
  {t('groups.form.groupNotificationsDesc')}
+ </p>
+ </div>
+ <div className="space-y-1">
+ <div className="flex items-center gap-2">
+ <input
+ type="checkbox"
+ id="group-always-on"
+ checked={form.alwaysOn}
+ onChange={(e) => setForm({ ...form, alwaysOn: e.target.checked })}
+ className="h-4 w-4 rounded border-transparent bg-bg-tertiary text-accent focus:ring-accent"
+ />
+ <label htmlFor="group-always-on" className="text-sm text-text-secondary">
+ {t('groups.form.alwaysOn') || 'Always On (serveurs)'}
+ </label>
+ </div>
+ <p className="text-xs text-text-muted ml-6">
+ {t('groups.form.alwaysOnDesc') || 'Les appareils sont censés rester allumés en permanence. Si l’un ne répond plus à Obliance, c’est un défaut critique : alerte critique + notification immédiate (au lieu d’un simple « hors ligne » bénin pour les postes utilisateurs).'}
  </p>
  </div>
  <div className="flex items-center gap-3 pt-2">

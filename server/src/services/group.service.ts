@@ -11,6 +11,7 @@ interface GroupRow {
   description: string | null;
   sort_order: number;
   group_notifications: boolean;
+  always_on: boolean;
   group_config: DeviceGroupConfig | null;
   thresholds: MetricThresholds | string | null;
   uuid: string;
@@ -29,6 +30,7 @@ function rowToGroup(row: GroupRow & { tenant_name?: string | null }): DeviceGrou
     description: row.description,
     sortOrder: row.sort_order,
     groupNotifications: row.group_notifications,
+    alwaysOn: (row as any).always_on ?? false,
     groupConfig: row.group_config
       ? (typeof row.group_config === 'string' ? JSON.parse(row.group_config) : row.group_config)
       : {},
@@ -135,6 +137,7 @@ export const groupService = {
       description?: string | null;
       sortOrder?: number;
       groupNotifications?: boolean;
+      alwaysOn?: boolean;
       groupConfig?: DeviceGroupConfig;
       thresholds?: MetricThresholds;
       /** Tri-state metric alerts toggle. `null` = use system default (true). */
@@ -150,6 +153,7 @@ export const groupService = {
     if (data.description !== undefined) updateData.description = data.description;
     if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder;
     if (data.groupNotifications !== undefined) updateData.group_notifications = data.groupNotifications;
+    if (data.alwaysOn !== undefined) updateData.always_on = data.alwaysOn;
     if (data.groupConfig !== undefined) updateData.group_config = JSON.stringify(data.groupConfig);
     if (data.thresholds !== undefined) updateData.thresholds = JSON.stringify(data.thresholds);
     if (data.metricAlertsEnabled !== undefined) updateData.metric_alerts_enabled = data.metricAlertsEnabled;

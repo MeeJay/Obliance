@@ -24,7 +24,12 @@ export interface LiveAlertRow {
   message: string;
   navigateTo: string | null;
   stableKey: string | null;
-  read: boolean;
+  // ISO timestamp when the user marked it read, or null when unread.
+  // MUST be `readAt` (not `read`) to match the shared LiveAlert contract
+  // the client reads — the client checks `!alert.readAt`. A previous
+  // `read: boolean` field meant `readAt` was always undefined client-side,
+  // so every alert came back unread on every reload.
+  readAt: string | null;
   createdAt: string; // ISO
 }
 
@@ -38,7 +43,7 @@ function rowToAlert(row: Record<string, unknown>): LiveAlertRow {
     message: row.message as string,
     navigateTo: row.navigate_to as string | null,
     stableKey: row.stable_key as string | null,
-    read: row.read_at !== null,
+    readAt: row.read_at ? new Date(row.read_at as string | Date).toISOString() : null,
     createdAt: (row.created_at as Date).toISOString(),
   };
 }

@@ -52,6 +52,7 @@ export const updateGroupSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
   isGeneral: z.boolean().optional(),
   groupNotifications: z.boolean().optional(),
+  alwaysOn: z.boolean().optional(),
   thresholds: metricThresholdsSchema.optional(),
   groupConfig: groupConfigSchema.optional(),
   // Tri-state: true = alerts on, false = off, null = inherit system default.

@@ -24,6 +24,10 @@ export interface SettingDefinition {
   min?: number;
   max?: number;
   defaultValue: number | boolean;
+  /** Tenant-wide policy that makes no sense to override per group/device.
+   *  When true, the setting is only shown/editable at the global scope —
+   *  the group and device settings panels hide it. */
+  globalOnly?: boolean;
 }
 
 export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
@@ -86,6 +90,7 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     min: 7,
     max: 365,
     defaultValue: 90,
+    globalOnly: true,
   },
   {
     key: SETTINGS_KEYS.AUTO_APPROVE_DEVICES,
@@ -93,6 +98,7 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     description: 'Automatically approve new devices when they register',
     type: 'boolean',
     defaultValue: false,
+    globalOnly: true,
   },
   {
     key: SETTINGS_KEYS.TFA_TRUST_HOURS,
@@ -103,6 +109,7 @@ export const SETTINGS_DEFINITIONS: SettingDefinition[] = [
     min: 0,
     max: 8760,
     defaultValue: 24,
+    globalOnly: true,
   },
 ];
 

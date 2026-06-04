@@ -40,6 +40,9 @@ export const CAPABILITY_VALUES = [
   'hyperv:view',
   'hyperv:power',
   'hyperv:manage',
+  // Veeam backups (device-scoped). view = read job list; control = run actions.
+  'veeam:view',
+  'veeam:control',
 ] as const;
 
 export const setTeamPermissionsSchema = z.object({

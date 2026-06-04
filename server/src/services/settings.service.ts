@@ -47,6 +47,10 @@ export const settingsService = {
     // Validate key
     const def = SETTINGS_DEFINITIONS.find((d: SettingDefinition) => d.key === key);
     if (!def) throw new Error(`Unknown setting key: ${key}`);
+    // Tenant-wide policies can only be set at the global scope.
+    if (def.globalOnly && scope !== 'global') {
+      throw new Error(`Setting ${key} is global-only and cannot be overridden per ${scope}`);
+    }
     if ((def.min !== undefined && value < def.min) || (def.max !== undefined && value > def.max)) {
       throw new Error(`Value for ${key} must be between ${def.min} and ${def.max}`);
     }

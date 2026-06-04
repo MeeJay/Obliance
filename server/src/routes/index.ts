@@ -53,6 +53,7 @@ import restrictionRoutes from './restriction.routes';
 import oblireachDesktopRoutes from './oblireachDesktop.routes';
 import cveRoutes from './cve.routes';
 import hypervRoutes from './hyperv.routes';
+import veeamRoutes from './veeam.routes';
 
 const router = Router();
 
@@ -114,6 +115,7 @@ tenantRouter.use('/devices/:id/privacy', privacyGateRoutes);
 tenantRouter.use('/custom-sections', customSectionRoutes);
 tenantRouter.use('/cves',           cveRoutes);
 tenantRouter.use('/hyperv',         hypervRoutes);
+tenantRouter.use('/veeam',          veeamRoutes);
 
 router.use('/', tenantRouter);
 

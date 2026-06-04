@@ -8,7 +8,7 @@ import {
  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
- ArrowRightLeft, Pencil, Check, StickyNote,
+ ArrowRightLeft, Pencil, Check, StickyNote, Database,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
@@ -23,6 +23,8 @@ import { inventoryApi } from '@/api/inventory.api';
 import { hypervApi } from '@/api/hyperv.api';
 import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
 import { EditVmModal, CreateVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
+import { veeamApi } from '@/api/veeam.api';
+import { BackupJobTable } from '@/components/veeam/BackupJobTable';
 import { commandApi } from '@/api/command.api';
 import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
@@ -51,7 +53,7 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'hyperv' | 'settings' | `cs:${number}`;
+type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'hyperv' | 'veeam' | 'settings' | `cs:${number}`;
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
  { id: 'overview', label: 'Overview', icon: Monitor },
@@ -3735,6 +3737,97 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  );
 }
 
+// ─── Veeam Backups Tab ───────────────────────────────────────────────────────
+// Backup-job list + start/stop/retry/enable/disable control for a Veeam B&R
+// host. Only mounted when device.backupHostType is set. Actions go through the
+// server's capability + restriction gate (so some return 202 pending-approval
+// or trigger the 2FA modal transparently via the axios interceptor).
+function VeeamTab({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
+ const [jobs, setJobs] = useState<import('@obliance/shared').BackupJob[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [busyJobId, setBusyJobId] = useState<string | null>(null);
+ const [refreshing, setRefreshing] = useState(false);
+
+ const load = useCallback(async () => {
+ try { setJobs(await veeamApi.listForDevice(deviceId)); }
+ catch { /* keep previous list */ }
+ finally { setLoading(false); }
+ }, [deviceId]);
+ useEffect(() => { load(); }, [load]);
+
+ // Live updates while the tab is open: listen for the server's
+ // VEEAM_JOBS_UPDATED broadcast + ping the host every 5s so changes made
+ // directly in the Veeam console surface quickly. The ping is ephemeral
+ // (no command-queue / task-history row).
+ useEffect(() => {
+ const socket = getSocket();
+ const onUpdate = (p: { hostDeviceId: number; jobs: import('@obliance/shared').BackupJob[] }) => {
+ if (p.hostDeviceId === deviceId) setJobs(p.jobs);
+ };
+ socket?.on('VEEAM_JOBS_UPDATED', onUpdate);
+ veeamApi.live(deviceId).catch(() => {});
+ const iv = setInterval(() => { veeamApi.live(deviceId).catch(() => {}); }, 5000);
+ return () => { socket?.off('VEEAM_JOBS_UPDATED', onUpdate); clearInterval(iv); };
+ }, [deviceId]);
+
+ const handleAction = async (job: import('@obliance/shared').BackupJob, action: import('@obliance/shared').BackupJobAction) => {
+ if (action === 'stop' && !confirm(t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`)) return;
+ setBusyJobId(job.jobId);
+ try {
+ const out = await veeamApi.action(deviceId, job.jobId, action);
+ if (out && out.status === 'pending_approval') {
+ toast.success(t('veeam.pendingApproval') || 'Action saved — awaiting second admin approval', { duration: 6000 });
+ } else {
+ toast.success(t('veeam.actionQueued') || 'Action sent to host');
+ }
+ setTimeout(() => load(), 2500);
+ } catch (e: any) {
+ toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
+ } finally {
+ setBusyJobId(null);
+ }
+ };
+
+ const handleRefresh = async () => {
+ setRefreshing(true);
+ try {
+ await veeamApi.refresh(deviceId);
+ setTimeout(() => { load(); setRefreshing(false); }, 2500);
+ } catch {
+ toast.error(t('common.error') || 'Failed');
+ setRefreshing(false);
+ }
+ };
+
+ if (loading) {
+ return <div className="flex items-center justify-center h-48"><RefreshCw className="w-5 h-5 animate-spin text-text-muted" /></div>;
+ }
+
+ return (
+ <div className="space-y-3">
+ <div className="flex items-center justify-between">
+ <h3 className="text-sm font-semibold text-text-primary">
+ {t('veeam.title') || 'Veeam backup jobs'} <span className="text-text-muted font-normal">({jobs.length})</span>
+ </h3>
+ <button
+ onClick={handleRefresh}
+ disabled={refreshing}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ >
+ <RefreshCw className={clsx('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+ {t('veeam.refresh') || 'Refresh'}
+ </button>
+ </div>
+ <BackupJobTable
+ jobs={jobs}
+ busyJobId={busyJobId}
+ onAction={handleAction}
+ />
+ </div>
+ );
+}
+
 type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'remediation';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
@@ -5683,6 +5776,14 @@ export function DeviceDetailPage() {
  if (settingsIdx >= 0) tabList.splice(settingsIdx, 0, hvTab as any);
  else tabList.push(hvTab as any);
  }
+ // Veeam Backups tab only when the agent flagged this host as a backup
+ // server. Inserted just before Settings.
+ if (device.backupHostType) {
+ const settingsIdx = tabList.findIndex((t) => t.id === 'settings');
+ const veeamTab = { id: 'veeam' as Tab, label: 'Backups', icon: Database };
+ if (settingsIdx >= 0) tabList.splice(settingsIdx, 0, veeamTab as any);
+ else tabList.push(veeamTab as any);
+ }
  return tabList;
  })().map((tab) => {
  const Icon = tab.icon;
@@ -5759,6 +5860,7 @@ export function DeviceDetailPage() {
  {activeTab === 'processes' && <ProcessesTab device={device} />}
  {activeTab === 'commands' && <CommandsTab deviceId={device.id} />}
  {activeTab === 'hyperv' && <HyperVTab deviceId={device.id} />}
+ {activeTab === 'veeam' && <VeeamTab deviceId={device.id} />}
  {activeTab === 'settings' && <DeviceSettingsTab device={device} onSaved={() => fetchDevice(deviceId)} adminMode={isAdmin()} onDeleted={() => navigate('/devices')} onManagePrivacyPassword={(mode) => setManagePasswordMode(mode)} />}
  {typeof activeTab === 'string' && activeTab.startsWith('cs:') && (() => {
  const id = parseInt(activeTab.slice(3));
