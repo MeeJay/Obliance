@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   DndContext,
@@ -80,6 +80,35 @@ const STATUS_DOT: Record<DeviceStatus, string> = {
   updating:          'bg-blue-400 animate-pulse',
   update_error:      'bg-orange-400',
 };
+
+// ── Sidebar device ordering ───────────────────────────────────────────────────
+// Inside a group, devices are alphabetical by default, BUT any device with an
+// abnormal status bubbles to the top of its group — most-urgent first. Within
+// each tier the order stays alphabetical. Groups themselves keep their manual
+// order (only the devices inside are reordered).
+//
+//   Critical > Warn > Other (any other non-normal state) > Updating > Normal (online)
+const SIDEBAR_STATUS_TIER: Partial<Record<DeviceStatus, number>> = {
+  critical: 0,
+  warning:  1,
+  // "Other" = every non-normal state not tiered here → falls through to 2.
+  updating: 3,
+  online:   4,
+};
+function sidebarStatusTier(s: DeviceStatus): number {
+  // offline / suspended / pending / pending_uninstall / maintenance /
+  // update_error → "Other" (2): not normal, so they rise above online/updating.
+  return SIDEBAR_STATUS_TIER[s] ?? 2;
+}
+function sortSidebarDevices(devices: Device[]): Device[] {
+  return [...devices].sort((a, b) => {
+    const tier = sidebarStatusTier(a.status) - sidebarStatusTier(b.status);
+    if (tier !== 0) return tier;
+    const na = (a.displayName ?? a.hostname ?? '').toLowerCase();
+    const nb = (b.displayName ?? b.hostname ?? '').toLowerCase();
+    return na.localeCompare(nb, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
 
 function DeviceStatusDot({ status }: { status: DeviceStatus }) {
   const dot = STATUS_DOT[status] ?? 'bg-gray-400';
@@ -591,8 +620,14 @@ export function Sidebar() {
       : []),
   ];
 
+  // Reorder devices for the sidebar: abnormal statuses bubble to the top of
+  // their group, then alphabetical. `.filter()` below is stable, so every
+  // group + ungrouped list inherits this order; the group tree keeps its
+  // manual order untouched.
+  const sortedDevices = useMemo(() => sortSidebarDevices(devices), [devices]);
+
   // ── Ungrouped devices ──────────────────────────────────────────────────────
-  const ungroupedDevices = devices.filter(d => d.groupId === null);
+  const ungroupedDevices = sortedDevices.filter(d => d.groupId === null);
   const filteredUngrouped = search
     ? ungroupedDevices.filter(d => deviceMatchesSearch(d, search))
     : ungroupedDevices;
@@ -664,7 +699,7 @@ export function Sidebar() {
               <GroupRow
                 key={group.id}
                 group={group}
-                devices={devices}
+                devices={sortedDevices}
                 searchQuery={search}
                 hideDeviceRows={hideDeviceRows}
               />
@@ -704,7 +739,7 @@ export function Sidebar() {
               <GroupRow
                 key={group.id}
                 group={group}
-                devices={devices}
+                devices={sortedDevices}
                 searchQuery={search}
                 hideDeviceRows={hideDeviceRows}
               />
