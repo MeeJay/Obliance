@@ -98,11 +98,21 @@ router.post('/push', agentAuth, async (req, res, next) => {
       backupHost?: string;
     };
     const { deviceUuid, metrics, acks = [], agentVersion, hostname, osInfo, ipLocal, macAddress, privacyMode, airgapMode, lastLoggedInUser, distroFamily, agentFlavor, virtualizationHost, backupHost } = body;
-    // Only accept the hypervisor types we know about; anything else (or "")
-    // clears the flag so a downgraded/uninstalled host stops showing the tab.
-    const vhost = (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(virtualizationHost ?? '') ? virtualizationHost! : null);
-    // Same for the backup-host role ("veeam" today); "" clears the Backups tab.
-    const bhost = (['veeam'].includes(backupHost ?? '') ? backupHost! : null);
+    // Host-role flags (hypervisor / backup server). Tri-state on purpose:
+    //   - field ABSENT (undefined)  => agent doesn't report this role at all
+    //     (legacy Go 1.20 agent, or a modern agent older than the feature) =>
+    //     `undefined` sentinel => KEEP whatever is already stored. Without this
+    //     a legacy push would write null on every contact and permanently wipe
+    //     a value a modern agent on the same host had set.
+    //   - field PRESENT but unknown/"" => a real clear (role uninstalled /
+    //     downgraded) => null => hide the tab.
+    //   - field PRESENT and known => set that role.
+    const vhost = virtualizationHost === undefined
+      ? undefined
+      : (['hyperv', 'esxi', 'proxmox', 'kvm'].includes(virtualizationHost) ? virtualizationHost : null);
+    const bhost = backupHost === undefined
+      ? undefined
+      : (['veeam'].includes(backupHost) ? backupHost : null);
 
     // The Go 1.20 legacy agent doesn't include `distroFamily` in its push
     // body (and lacks every WebSocket tunnel / ObliReach / software
@@ -213,8 +223,8 @@ router.post('/push', agentAuth, async (req, res, next) => {
         airgap_enabled: typeof airgapMode === 'boolean' ? airgapMode : device.airgap_enabled,
         last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
         os_distro: distroFamily || device.os_distro,
-        virtualization_host_type: vhost,
-        backup_host_type: bhost,
+        virtualization_host_type: vhost !== undefined ? vhost : device.virtualization_host_type,
+        backup_host_type: bhost !== undefined ? bhost : device.backup_host_type,
         last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
         timezone: osInfo?.timezone || device.timezone,
         updated_at: new Date(),

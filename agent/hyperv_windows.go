@@ -13,30 +13,49 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
-// ── Detection (cached) ───────────────────────────────────────────────────────
+// ── Detection (asymmetric timed cache) ───────────────────────────────────────
 
 var (
-	hyperVDetectOnce sync.Once
-	hyperVHostType   string
+	hyperVDetectMu sync.Mutex
+	hyperVHostType string
+	hyperVProbedAt time.Time
+	hyperVProbed   bool
 )
 
+// hyperVNegativeTTL bounds how stale a NEGATIVE detection can be (see
+// detectBackupHost in veeam_windows.go for the rationale). The Hyper-V role
+// install reboots, so this bug rarely bites here, but we keep the behaviour
+// symmetric so a role added to a never-rebooted host is still picked up.
+const hyperVNegativeTTL = 10 * time.Minute
+
 // detectVirtualizationHost returns "hyperv" when the Hyper-V role is present
-// and the management service is installed, else "". Cached for process life —
-// the role doesn't change without a reboot.
+// and the management service is installed, else "". Positive result is sticky
+// for process life; negatives are re-probed every hyperVNegativeTTL.
 func detectVirtualizationHost() string {
-	hyperVDetectOnce.Do(func() {
-		// vmms = Hyper-V Virtual Machine Management service. Present only when
-		// the role is installed. We don't require it to be Running (a host with
-		// the role but the service stopped is still a Hyper-V host).
-		out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
-			"if (Get-Service vmms -ErrorAction SilentlyContinue) { 'yes' } else { 'no' }",
-		).Output()
-		if err == nil && strings.TrimSpace(string(out)) == "yes" {
-			hyperVHostType = "hyperv"
-		}
-	})
+	hyperVDetectMu.Lock()
+	defer hyperVDetectMu.Unlock()
+
+	if hyperVHostType == "hyperv" {
+		return hyperVHostType
+	}
+	if hyperVProbed && time.Since(hyperVProbedAt) < hyperVNegativeTTL {
+		return hyperVHostType
+	}
+	hyperVProbed = true
+	hyperVProbedAt = time.Now()
+
+	// vmms = Hyper-V Virtual Machine Management service. Present only when the
+	// role is installed. We don't require it to be Running (a host with the
+	// role but the service stopped is still a Hyper-V host).
+	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
+		"if (Get-Service vmms -ErrorAction SilentlyContinue) { 'yes' } else { 'no' }",
+	).Output()
+	if err == nil && strings.TrimSpace(string(out)) == "yes" {
+		hyperVHostType = "hyperv"
+	}
 	return hyperVHostType
 }
 

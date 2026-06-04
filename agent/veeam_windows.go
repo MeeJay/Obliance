@@ -5,33 +5,80 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
-// ── Detection (cached) ───────────────────────────────────────────────────────
+// ── Detection (asymmetric timed cache) ───────────────────────────────────────
 
 var (
-	veeamDetectOnce sync.Once
-	backupHostType  string
+	backupDetectMu sync.Mutex
+	backupHostType string    // "" until first positive detection; then "veeam"
+	backupProbedAt time.Time // last time the probe actually ran
+	backupProbed   bool
 )
 
+// backupNegativeTTL bounds how stale a NEGATIVE detection can be. A host that
+// installs Veeam AFTER the agent started is picked up within one window. A
+// positive result is sticky for process life (a confirmed VBR host won't stop
+// being one without a restart), so the probe never runs again once it succeeds.
+const backupNegativeTTL = 10 * time.Minute
+
 // detectBackupHost returns "veeam" when the Veeam B&R server role is present
-// (the VeeamBackupSvc service exists), else "". Cached for process life — the
-// role doesn't change without an install/uninstall + restart.
+// (the VeeamBackupSvc service exists), else "".
+//
+// IMPORTANT: do NOT cache a negative result for the whole process life (the old
+// sync.Once behaviour). The agent is long-lived and a Veeam install does NOT
+// restart it (unlike a Hyper-V role install, which reboots), so a once-only
+// probe would leave a freshly-installed VBR host invisible forever. Instead we
+// re-probe negatives every backupNegativeTTL while keeping the per-push cost at
+// ~zero once detected.
 func detectBackupHost() string {
-	veeamDetectOnce.Do(func() {
-		// VeeamBackupSvc = the Veeam Backup Service, present only on a VBR
-		// server. We don't require Running (a stopped service is still a VBR
-		// host); presence is enough.
-		out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command",
-			"if (Get-Service VeeamBackupSvc -ErrorAction SilentlyContinue) { 'yes' } else { 'no' }",
-		).Output()
-		if err == nil && strings.TrimSpace(string(out)) == "yes" {
-			backupHostType = "veeam"
-		}
-	})
+	backupDetectMu.Lock()
+	defer backupDetectMu.Unlock()
+
+	if backupHostType == "veeam" {
+		return backupHostType
+	}
+	if backupProbed && time.Since(backupProbedAt) < backupNegativeTTL {
+		return backupHostType
+	}
+	backupProbed = true
+	backupProbedAt = time.Now()
+
+	// Multi-signal probe — the exact Windows service SHORT name has drifted
+	// across Veeam B&R versions (it is NOT reliably "VeeamBackupSvc" on v12),
+	// so a single Get-Service by name misses real VBR servers. We accept ANY
+	// of three independent markers of a VBR server install:
+	//   1. the registry key the VBR server install creates
+	//      (HKLM:\SOFTWARE\Veeam\Veeam Backup and Replication);
+	//   2. a service whose short name starts with "VeeamBackup";
+	//   3. a service whose DISPLAY name is "Veeam Backup Service" (stable label).
+	// Over-detecting a console-only box is harmless: the job enumerate would
+	// just come back empty. Missing a real server is the failure we must avoid.
+	const probe = `$ErrorActionPreference='SilentlyContinue'
+$found=$false
+if (Test-Path 'HKLM:\SOFTWARE\Veeam\Veeam Backup and Replication') { $found=$true }
+if (-not $found) {
+  $svc = Get-Service | Where-Object { $_.Name -like 'VeeamBackup*' -or $_.DisplayName -like 'Veeam Backup Service*' }
+  if ($svc) { $found=$true }
+}
+if ($found) { 'yes' } else { 'no' }`
+	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", probe).Output()
+	res := strings.TrimSpace(string(out))
+	if err == nil && res == "yes" {
+		backupHostType = "veeam"
+	}
+	// One log line per actual probe (≤ once per TTL for non-Veeam hosts) so a
+	// mis-detection is diagnosable from the agent log instead of invisible.
+	if err != nil {
+		log.Printf("Veeam detection probe error: %v", err)
+	} else {
+		log.Printf("Veeam detection probe: %q -> backupHost=%q", res, backupHostType)
+	}
 	return backupHostType
 }
 
