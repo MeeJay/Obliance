@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -86,21 +87,24 @@ if ($found) { 'yes' } else { 'no' }`
 // legacy PSSnapIn (VBR 9/10) and connects to the local VBR server. Prepended
 // to every Veeam script.
 //
-// The agent runs as NT AUTHORITY\SYSTEM. Veeam's RBAC does NOT grant SYSTEM any
-// role by default, so Connect-VBRServer throws "access denied" — which we must
-// SURFACE, not swallow, otherwise the operator sees an empty "no jobs" list and
-// has no idea it's a permissions problem. The fix on the VBR host is to add
-// NT AUTHORITY\SYSTEM under Veeam Console > Users and Roles (role: Veeam Backup
-// Administrator, "This is a service account" checked). We let the failure throw
-// so postVeeamJobs/control return the real reason in the agent log + task ack.
+// $ErrorActionPreference is 'Continue', NOT 'Stop': a confirmed-working manual
+// run (Connect-VBRServer OK as SYSTEM, Get-VBRJob returns the jobs) only differs
+// from the agent in that the agent set 'Stop' — under which a benign
+// non-terminating error (e.g. the v12 Get-VBRJob deprecation notice) aborts the
+// whole script BEFORE ConvertTo-Json runs, yielding empty stdout that looks like
+// "no jobs". We instead handle the ONE error that must surface — a failed
+// Connect — explicitly: write it to stderr and exit non-zero so the Go caller
+// reports the real reason. Everything else degrades gracefully via the per-field
+// try/catch in the enum script.
 const loadModulePreamble = `
-$ErrorActionPreference='Stop'
+$ErrorActionPreference='Continue'
+$WarningPreference='SilentlyContinue'
 if (Get-Module -ListAvailable -Name Veeam.Backup.PowerShell) {
   Import-Module Veeam.Backup.PowerShell -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | Out-Null
 } else {
   try { Add-PSSnapin -Name VeeamPSSnapIn -ErrorAction SilentlyContinue } catch {}
 }
-Connect-VBRServer -Server localhost -ErrorAction Stop | Out-Null
+try { Connect-VBRServer -Server localhost -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine('VEEAM_CONNECT_FAILED: ' + $_.Exception.Message); exit 2 }
 `
 
 // ── Enumeration ──────────────────────────────────────────────────────────────
@@ -202,9 +206,30 @@ func normaliseJobResult(raw string) string {
 	}
 }
 
+// runVeeamPS executes a Veeam PowerShell script via a temp .ps1 + `-File`,
+// NOT `-Command`. A large multi-line script full of embedded quotes (the job
+// enumerator) passed as a single `-Command` argument gets mangled by Go's
+// Windows command-line arg escaping → PowerShell mis-parses it → empty/garbage
+// stdout that looks like "no jobs". `-File` on a temp script is exactly what a
+// working manual run uses, and sidesteps all quoting. ExecutionPolicy Bypass so
+// a restricted machine policy can't block our own temp script.
+func runVeeamPS(script string) ([]byte, error) {
+	f, err := os.CreateTemp("", "obl-veeam-*.ps1")
+	if err != nil {
+		return nil, err
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	if _, werr := f.WriteString(script); werr != nil {
+		f.Close()
+		return nil, werr
+	}
+	f.Close()
+	return hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmp).Output()
+}
+
 func enumerateVeeamJobs() ([]VeeamJob, error) {
-	script := loadModulePreamble + enumJobsScript
-	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := runVeeamPS(loadModulePreamble + enumJobsScript)
 	if err != nil {
 		reason := ""
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -284,8 +309,7 @@ func runVeeamControl(action, jobID string) (string, error) {
 		return "", fmt.Errorf("unknown veeam action %q", action)
 	}
 
-	script := loadModulePreamble + jobRef + cmd
-	out, err := hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := runVeeamPS(loadModulePreamble + jobRef + cmd)
 	if err != nil {
 		reason := ""
 		if ee, ok := err.(*exec.ExitError); ok {
