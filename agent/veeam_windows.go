@@ -84,16 +84,23 @@ if ($found) { 'yes' } else { 'no' }`
 
 // loadModulePreamble loads the Veeam PowerShell module (VBR 11/12) or the
 // legacy PSSnapIn (VBR 9/10) and connects to the local VBR server. Prepended
-// to every Veeam script. Connect runs as the agent's SYSTEM context, which is
-// a Veeam admin on the VBR box, so no credentials are needed.
+// to every Veeam script.
+//
+// The agent runs as NT AUTHORITY\SYSTEM. Veeam's RBAC does NOT grant SYSTEM any
+// role by default, so Connect-VBRServer throws "access denied" — which we must
+// SURFACE, not swallow, otherwise the operator sees an empty "no jobs" list and
+// has no idea it's a permissions problem. The fix on the VBR host is to add
+// NT AUTHORITY\SYSTEM under Veeam Console > Users and Roles (role: Veeam Backup
+// Administrator, "This is a service account" checked). We let the failure throw
+// so postVeeamJobs/control return the real reason in the agent log + task ack.
 const loadModulePreamble = `
 $ErrorActionPreference='Stop'
 if (Get-Module -ListAvailable -Name Veeam.Backup.PowerShell) {
-  Import-Module Veeam.Backup.PowerShell -ErrorAction SilentlyContinue | Out-Null
+  Import-Module Veeam.Backup.PowerShell -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | Out-Null
 } else {
   try { Add-PSSnapin -Name VeeamPSSnapIn -ErrorAction SilentlyContinue } catch {}
 }
-try { Connect-VBRServer -Server localhost -ErrorAction SilentlyContinue | Out-Null } catch {}
+Connect-VBRServer -Server localhost -ErrorAction Stop | Out-Null
 `
 
 // ── Enumeration ──────────────────────────────────────────────────────────────
@@ -117,7 +124,14 @@ type psJob struct {
 }
 
 const enumJobsScript = `
-$jobs = Get-VBRJob | ForEach-Object {
+# Get-VBRJob (deprecated in v12 but still returns VM/replica/backup-copy jobs;
+# suppress the deprecation warning) PLUS Get-VBRComputerBackupJob (agent /
+# protection-group jobs that Get-VBRJob does NOT return). The per-field try/catch
+# below tolerates the two job object models having different members.
+$src = @()
+try { $src += Get-VBRJob -WarningAction SilentlyContinue } catch {}
+try { $src += Get-VBRComputerBackupJob -WarningAction SilentlyContinue } catch {}
+$jobs = $src | ForEach-Object {
   $j = $_
   $lastResult=''; try { $lastResult = "$($j.GetLastResult())" } catch {}
   $state=''; try { $state = "$($j.GetLastState())" } catch {}
@@ -199,15 +213,26 @@ func enumerateVeeamJobs() ([]VeeamJob, error) {
 		if reason == "" {
 			reason = err.Error()
 		}
+		// Surface the real cause (most commonly "access denied" because SYSTEM
+		// has no Veeam role) instead of letting it look like an empty job list.
+		log.Printf("Veeam enumerate failed: %s", reason)
 		return nil, fmt.Errorf("%s", reason)
 	}
 	trimmed := strings.TrimSpace(string(out))
 	if trimmed == "" {
+		log.Printf("Veeam enumerate: connected, 0 jobs returned")
 		return []VeeamJob{}, nil
 	}
 	var raw []psJob
 	if err := json.Unmarshal([]byte(trimmed), &raw); err != nil {
-		return nil, fmt.Errorf("parse job json: %w", err)
+		// PowerShell's ConvertTo-Json unwraps a single-element array into a bare
+		// object — retry as one object so a host with exactly one job still works.
+		var single psJob
+		if err2 := json.Unmarshal([]byte(trimmed), &single); err2 == nil {
+			raw = []psJob{single}
+		} else {
+			return nil, fmt.Errorf("parse job json: %w", err)
+		}
 	}
 	jobs := make([]VeeamJob, 0, len(raw))
 	for _, r := range raw {
@@ -230,6 +255,7 @@ func enumerateVeeamJobs() ([]VeeamJob, error) {
 			Description:      r.Description,
 		})
 	}
+	log.Printf("Veeam enumerate: %d job(s)", len(jobs))
 	return jobs, nil
 }
 
