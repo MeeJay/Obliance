@@ -2191,6 +2191,23 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 			return nil, err
 		}
 		return map[string]string{"message": "airgap disabled"}, nil
+	// Hyper-V + Veeam: these arrive over the WS command channel (live tab pings,
+	// ephemeral console thumbnails, refresh, control actions). They exist in the
+	// async executeCommand switch too, but WS commands flow through ExecuteSync —
+	// without these branches they hit `default` and the agent answers
+	// "unknown command type". That is exactly what left the Hyper-V console blank
+	// and forced Veeam/Hyper-V live updates to rely on the slow inventory cadence.
+	// KEEP IN SYNC with executeCommand's switch.
+	case "hyperv_list_vms":
+		return d.handleHyperVListVMs(cmd)
+	case "hyperv_control":
+		return d.handleHyperVControl(cmd)
+	case "hyperv_console_thumbnail":
+		return d.handleHyperVConsoleThumbnail(cmd)
+	case "veeam_list_jobs":
+		return d.handleVeeamListJobs(cmd)
+	case "veeam_control":
+		return d.handleVeeamControl(cmd)
 	case "live_metrics":
 		// Mirror of the HandleCommand case — required because incoming WS
 		// commands flow through ExecuteSync, not HandleCommand. Without
