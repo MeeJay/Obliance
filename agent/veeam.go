@@ -5,8 +5,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 )
+
+// Veeam enumeration is gated: NEVER two at once (single-flight), and never more
+// often than veeamMinInterval. A browser "Backups" tab live-pings every 5s and a
+// Connect-VBRServer can take seconds — without this gate, concurrent/back-to-back
+// connects would pile up sessions on the Veeam Backup Service. This bounds the
+// agent to one polite Connect→Disconnect cycle per interval regardless of pings.
+var (
+	veeamRunMu   sync.Mutex
+	veeamBusy    bool
+	veeamLastRun time.Time
+)
+
+const veeamMinInterval = 10 * time.Second
+
+func veeamEnumTryAcquire() bool {
+	veeamRunMu.Lock()
+	defer veeamRunMu.Unlock()
+	if veeamBusy {
+		return false
+	}
+	if !veeamLastRun.IsZero() && time.Since(veeamLastRun) < veeamMinInterval {
+		return false
+	}
+	veeamBusy = true
+	return true
+}
+
+func veeamEnumRelease() {
+	veeamRunMu.Lock()
+	veeamBusy = false
+	veeamLastRun = time.Now()
+	veeamRunMu.Unlock()
+}
 
 // Veeam Backup & Replication support. Detection + job enumeration + control,
 // via the Veeam PowerShell module on the VBR server. Platform-specific work
@@ -51,6 +85,12 @@ func postVeeamJobs(cfg *Config) error {
 	if host == "" {
 		return nil
 	}
+	// Skip silently if another enumeration is in flight or one ran very
+	// recently — protects the Veeam Backup Service from a poll storm.
+	if !veeamEnumTryAcquire() {
+		return nil
+	}
+	defer veeamEnumRelease()
 	jobs, err := enumerateVeeamJobs()
 	if err != nil {
 		return fmt.Errorf("enumerate Veeam jobs: %w", err)

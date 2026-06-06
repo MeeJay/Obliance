@@ -3,6 +3,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -225,11 +227,41 @@ func runVeeamPS(script string) ([]byte, error) {
 		return nil, werr
 	}
 	f.Close()
-	return hiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmp).Output()
+	// Hard timeout + whole-process-tree kill: a hung Connect-VBRServer /
+	// Get-VBRJob must NOT keep powershell (or the Veeam COM/shell children it
+	// spawned, and the server-side session they hold) alive. The Job Object
+	// kills the entire tree on timeout — a bare Process.Kill would orphan the
+	// children and leak their Veeam session.
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := newCmdContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmp)
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	runErr := runCmdContextWithJobObject(ctx, cmd)
+	if ctx.Err() == context.DeadlineExceeded {
+		return outBuf.Bytes(), fmt.Errorf("veeam powershell timed out after 90s (process tree killed)")
+	}
+	if runErr != nil {
+		reason := strings.TrimSpace(errBuf.String())
+		if reason == "" {
+			reason = runErr.Error()
+		}
+		return outBuf.Bytes(), fmt.Errorf("%s", reason)
+	}
+	return outBuf.Bytes(), nil
+}
+
+// wrapVeeamBody guarantees Disconnect-VBRServer runs after the body, even on
+// error. loadModulePreamble does the Connect; a Connect with no matching
+// Disconnect leaves a session the Veeam Backup Service holds until its own
+// timeout, and repeated polling would otherwise accumulate them.
+func wrapVeeamBody(body string) string {
+	return "try {\n" + body + "\n} finally { try { Disconnect-VBRServer -ErrorAction SilentlyContinue | Out-Null } catch {} }\n"
 }
 
 func enumerateVeeamJobs() ([]VeeamJob, error) {
-	out, err := runVeeamPS(loadModulePreamble + enumJobsScript)
+	out, err := runVeeamPS(loadModulePreamble + wrapVeeamBody(enumJobsScript))
 	if err != nil {
 		reason := ""
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -309,7 +341,7 @@ func runVeeamControl(action, jobID string) (string, error) {
 		return "", fmt.Errorf("unknown veeam action %q", action)
 	}
 
-	out, err := runVeeamPS(loadModulePreamble + jobRef + cmd)
+	out, err := runVeeamPS(loadModulePreamble + wrapVeeamBody(jobRef+cmd))
 	if err != nil {
 		reason := ""
 		if ee, ok := err.(*exec.ExitError); ok {
