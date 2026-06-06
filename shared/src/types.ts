@@ -596,6 +596,9 @@ export type CommandType =
   | 'hyperv_list_vms'
   | 'hyperv_control'
   | 'hyperv_console_thumbnail'
+  | 'open_vm_console'
+  | 'close_vm_console'
+  | 'install_vm_console'
   | 'veeam_list_jobs'
   | 'veeam_control';
 
@@ -1198,7 +1201,7 @@ export interface KnownSoftwareApp {
 
 // ─── REMOTE SESSIONS ─────────────────────────────────────────────────────────
 
-export type RemoteProtocol = 'rdp' | 'ssh' | 'cmd' | 'powershell' | 'oblireach';
+export type RemoteProtocol = 'rdp' | 'ssh' | 'cmd' | 'powershell' | 'oblireach' | 'vmconsole';
 export type RemoteSessionStatus = 'waiting' | 'connecting' | 'active' | 'closed' | 'failed' | 'timeout' | 'expired';
 
 export interface RemoteSession {

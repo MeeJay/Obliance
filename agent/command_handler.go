@@ -2150,6 +2150,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleUninstallAgent()
 	case "install_oblireach":
 		return d.handleInstallOblireach(cmd)
+	case "install_vm_console":
+		return d.handleInstallVmConsole(cmd)
 	case "disable_privacy_mode":
 		if err := SetPrivacyMode(false, "remote"); err != nil {
 			return nil, err

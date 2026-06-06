@@ -59,6 +59,25 @@ router.post('/devices/:id/refresh', requireDeviceRead('id'), async (req, res, ne
   } catch (err) { next(err); }
 });
 
+// POST /api/hyperv/devices/:id/install-console — pre-download the interactive
+// VM-console helper (~130 MB FreeRDP+H.264 bundle) onto the host. Live-only WS
+// push; the helper also auto-downloads on the first console open.
+router.post('/devices/:id/install-console', requireDeviceRead('id'), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const isAdmin = req.session.role === 'admin';
+    if (!isAdmin && !(await permissionService.canUseCapability(req.session.userId!, id, false, 'hyperv:view'))) {
+      return res.status(403).json({ error: 'hyperv:view capability required' });
+    }
+    const { agentHub } = await import('../services/agentHub.service');
+    const { randomUUID } = await import('crypto');
+    const delivered = agentHub.push(id, {
+      type: 'command', id: randomUUID(), commandType: 'install_vm_console', payload: {},
+    });
+    res.json({ data: { delivered } });
+  } catch (err) { next(err); }
+});
+
 // POST /api/hyperv/devices/:id/live — live heartbeat from an open Hyper-V
 // view. Pushes an EPHEMERAL enumerate over the WS command channel (instant,
 // no command-queue row → no task-history spam; `hyperv_list_vms` is on the

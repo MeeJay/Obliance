@@ -18,6 +18,7 @@ const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; de
  ssh: { label: 'SSH', color: 'text-green-400 bg-green-400/10 border-green-400/30', description: 'Secure Shell terminal' },
  cmd: { label: 'CMD', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', description: 'Windows Command Prompt' },
  powershell: { label: 'PowerShell', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30', description: 'Windows PowerShell terminal' },
+ vmconsole: { label: 'VM Console', color: 'text-violet-400 bg-violet-400/10 border-violet-400/30', description: 'Hyper-V VM interactive console (FreeRDP)' },
 };
 
 const STATUS_CONFIG: Record<RemoteSessionStatus, { label: string; color: string; pulse?: boolean }> = {

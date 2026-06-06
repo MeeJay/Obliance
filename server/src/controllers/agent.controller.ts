@@ -140,6 +140,9 @@ const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   'oblireach-agent-linux-amd64':    'oblireach-agent-linux-amd64',
   'oblireach-agent-darwin-amd64':   'oblireach-agent-darwin-amd64',
   'oblireach-agent-darwin-arm64':   'oblireach-agent-darwin-arm64',
+  // Hyper-V VM interactive console helper (FreeRDP + H.264) — downloaded
+  // on-demand only on Hyper-V hosts (it's ~130 MB with its DLL bundle).
+  'vmconsole.zip':                  'vmconsole.zip',
   // Install wizard — Windows .exe with the MSI //go:embed'd. Served
   // through agentInstallerWizard below (which can also append a
   // pre-fill config tail). The bare /download/ alias is kept here so

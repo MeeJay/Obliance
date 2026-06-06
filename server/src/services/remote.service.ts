@@ -40,6 +40,8 @@ class RemoteService {
     protocol: RemoteProtocol = 'oblireach',
     /** WTS session ID to capture (Windows only). Omit to capture the console session. */
     wtsSessionId?: number,
+    /** Hyper-V VM GUID — required when protocol === 'vmconsole'. */
+    vmId?: string,
   ): Promise<RemoteSession> {
     const sessionToken = crypto.randomBytes(32).toString('hex');
 
@@ -90,6 +92,23 @@ class RemoteService {
             .where({ device_uuid: device.uuid, tenant_id: tenantId })
             .update({ pending_command: JSON.stringify(orCmd) });
         }
+      }
+    } else if (protocol === 'vmconsole') {
+      // Hyper-V VM interactive console: the Obliance agent spawns the bundled
+      // FreeRDP helper which streams the VM console as H.264 into the same relay.
+      // Live-only — there is no DB-queue fallback (an interactive stream needs
+      // the agent online right now); if undelivered the session simply times out.
+      const vmPayload: Record<string, unknown> = { ...commandPayload, vmId };
+      const delivered = agentHub.push(deviceId, {
+        type: 'command',
+        id: `vmc_${sessionToken.slice(0, 8)}`,
+        commandType: 'open_vm_console',
+        payload: vmPayload,
+      });
+      if (!delivered) {
+        await db('remote_sessions').where({ session_token: sessionToken })
+          .update({ status: 'failed', end_reason: 'agent_offline' });
+        logger.warn({ deviceId }, 'vm console: agent offline, session failed');
       }
     } else {
       // RDP / SSH / Shell: prefer instant command channel, fall back to DB queue.

@@ -8,10 +8,11 @@ export const remoteApi = {
     const res = await apiClient.get<ApiResponse<{ items: RemoteSession[]; total: number }>>('/remote/sessions', { params });
     return res.data.data ?? { items: [], total: 0 };
   },
-  async startSession(deviceId: number, protocol: RemoteProtocol, notes?: string, sessionId?: number): Promise<RemoteSession> {
+  async startSession(deviceId: number, protocol: RemoteProtocol, notes?: string, sessionId?: number, vmId?: string): Promise<RemoteSession> {
     const res = await apiClient.post<ApiResponse<RemoteSession>>('/remote/sessions', {
       deviceId, protocol, notes,
       ...(sessionId !== undefined ? { sessionId } : {}),
+      ...(vmId !== undefined ? { vmId } : {}),
     });
     return res.data.data!;
   },

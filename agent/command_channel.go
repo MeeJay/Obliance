@@ -229,6 +229,10 @@ func dispatchHubCommand(d *CommandDispatcher, msg hubCommand, sendAck func(hubAc
 			result, cmdErr = d.handleOpenRemoteTunnel(cmd)
 		case "close_remote_tunnel":
 			result, cmdErr = d.handleCloseRemoteTunnel(cmd)
+		case "open_vm_console":
+			result, cmdErr = d.handleOpenVmConsole(cmd)
+		case "close_vm_console":
+			result, cmdErr = d.handleCloseVmConsole(cmd)
 		default:
 			// All other command types are executed synchronously so the
 			// result can be sent back via the WS channel immediately.

@@ -3623,6 +3623,27 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  const [busyVmId, setBusyVmId] = useState<string | null>(null);
  const [refreshing, setRefreshing] = useState(false);
  const [modal, setModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: import('@obliance/shared').VirtualMachine } | { kind: 'create' } | null>(null);
+ const [liveConsole, setLiveConsole] = useState<{ token: string | null; sessionId: string; vmName: string } | null>(null);
+ const openLiveConsole = useCallback(async (vm: import('@obliance/shared').VirtualMachine) => {
+ try {
+ const sess = await remoteApi.startSession(deviceId, 'vmconsole', undefined, undefined, vm.vmId);
+ setLiveConsole({ token: sess.sessionToken ?? null, sessionId: String(sess.id), vmName: vm.name });
+ } catch (e: any) {
+ toast.error(e?.response?.data?.error || (t('hyperv.consoleError') || 'Could not open the interactive console'));
+ }
+ }, [deviceId, t]);
+ const [installingConsole, setInstallingConsole] = useState(false);
+ const handleInstallConsole = async () => {
+ setInstallingConsole(true);
+ try {
+ await hypervApi.installConsole(deviceId);
+ toast.success(t('hyperv.consoleInstalling') || 'Installing the console helper on the host (~130 MB download)…', { duration: 7000 });
+ } catch (e: any) {
+ toast.error(e?.response?.data?.error || (t('common.error') || 'Failed'));
+ } finally {
+ setTimeout(() => setInstallingConsole(false), 3000);
+ }
+ };
 
  const load = useCallback(async () => {
  try { setVms(await hypervApi.listForDevice(deviceId)); }
@@ -3707,6 +3728,15 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  </h3>
  <div className="flex items-center gap-2">
  <button
+ onClick={handleInstallConsole}
+ disabled={installingConsole}
+ title={t('hyperv.installConsoleHint') || 'Download the interactive console helper (~130 MB) onto this host'}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-secondary text-text-muted rounded-lg hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+ >
+ <Download className={clsx('w-3.5 h-3.5', installingConsole && 'animate-pulse')} />
+ {t('hyperv.installConsole') || 'Install console'}
+ </button>
+ <button
  onClick={() => setModal({ kind: 'create' })}
  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/20 transition-colors"
  >
@@ -3729,10 +3759,21 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  onAction={handleAction}
  onEdit={(vm) => setModal({ kind: 'edit', vm })}
  onCheckpoints={(vm) => setModal({ kind: 'checkpoints', vm })}
+ onInteractiveConsole={openLiveConsole}
  />
  {modal?.kind === 'edit' && <EditVmModal vm={modal.vm} run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
  {modal?.kind === 'checkpoints' && <CheckpointModal vm={modal.vm} run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
  {modal?.kind === 'create' && <CreateVmModal run={runVm} onClose={() => { setModal(null); setTimeout(load, 2500); }} />}
+ {liveConsole && (
+ <ObliReachViewer
+ sessionToken={liveConsole.token}
+ deviceName={liveConsole.vmName}
+ onClose={async () => {
+ try { await remoteApi.endSession(liveConsole.sessionId); } catch {}
+ setLiveConsole(null);
+ }}
+ />
+ )}
  </div>
  );
 }

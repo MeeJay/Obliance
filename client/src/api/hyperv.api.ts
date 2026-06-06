@@ -21,6 +21,12 @@ export const hypervApi = {
     await apiClient.post(`/hyperv/devices/${deviceId}/refresh`);
   },
 
+  /** Pre-download the interactive VM-console helper onto the host (~130 MB). */
+  async installConsole(deviceId: number): Promise<{ delivered: boolean }> {
+    const res = await apiClient.post<{ data?: { delivered: boolean } }>(`/hyperv/devices/${deviceId}/install-console`);
+    return res.data.data ?? { delivered: false };
+  },
+
   /** Live heartbeat — ephemeral WS enumerate, no task-history row. Called on
    *  a short interval while a Hyper-V view is open. */
   async live(deviceId: number): Promise<void> {

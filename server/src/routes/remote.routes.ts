@@ -8,7 +8,7 @@ const router = Router();
 
 router.post('/sessions', async (req, res, next) => {
   try {
-    const { deviceId, protocol, sessionId } = req.body;
+    const { deviceId, protocol, sessionId, vmId } = req.body;
 
     // Permission check — need 'remote' capability
     if (req.session.role !== 'admin') {
@@ -41,6 +41,7 @@ router.post('/sessions', async (req, res, next) => {
     const session = await remoteService.createSession(
       deviceId, req.tenantId!, req.session.userId!, protocol,
       typeof sessionId === 'number' ? sessionId : undefined,
+      typeof vmId === 'string' ? vmId : undefined,
     );
     try {
       const { auditService } = await import('../services/audit.service');

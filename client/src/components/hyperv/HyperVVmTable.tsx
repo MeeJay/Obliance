@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
-  ArrowUp, ArrowDown, Monitor, Search, X,
+  ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X,
 } from 'lucide-react';
 import type { VirtualMachine, VmAction, VmState } from '@obliance/shared';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
@@ -21,6 +21,8 @@ interface Props {
   onAction: (vm: VirtualMachine, action: VmAction) => void;
   onEdit?: (vm: VirtualMachine) => void;
   onCheckpoints?: (vm: VirtualMachine) => void;
+  /** Open the live interactive console (Layer B, FreeRDP H.264 stream). */
+  onInteractiveConsole?: (vm: VirtualMachine) => void;
 }
 
 type SortKey = 'name' | 'state' | 'cpu' | 'mem' | 'uptime';
@@ -48,7 +50,7 @@ function fmtUptime(sec: number | null): string {
   return `${m}m`;
 }
 
-export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, onEdit, onCheckpoints }: Props) {
+export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
   const { t } = useTranslation();
   const [menuVmId, setMenuVmId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -238,7 +240,8 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, o
                                 <div className="fixed inset-0 z-40" onClick={() => setMenuVmId(null)} />
                                 <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1">
                                   {([
-                                    { kind: 'console', label: t('hyperv.openConsole') || 'Console…', icon: Monitor, danger: false, show: true },
+                                    { kind: 'liveconsole', label: t('hyperv.interactiveConsole') || 'Interactive console', icon: MonitorPlay, danger: false, show: !!onInteractiveConsole && (running || paused) },
+                                    { kind: 'console', label: t('hyperv.openConsole') || 'Console preview…', icon: Monitor, danger: false, show: true },
                                     { kind: 'action', action: 'stop' as VmAction, label: t('hyperv.action.stop') || 'Power off (hard)', icon: Square, danger: false, show: !off },
                                     { kind: 'action', action: 'save' as VmAction, label: t('hyperv.action.save') || 'Save state', icon: Save, danger: false, show: running },
                                     { kind: 'action', action: 'pause' as VmAction, label: t('hyperv.action.pause') || 'Pause', icon: Pause, danger: false, show: running },
@@ -253,6 +256,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, o
                                         if (i.kind === 'edit') onEdit?.(vm);
                                         else if (i.kind === 'checkpoints') onCheckpoints?.(vm);
                                         else if (i.kind === 'console') setConsoleVm(vm);
+                                        else if (i.kind === 'liveconsole') onInteractiveConsole?.(vm);
                                         else onAction(vm, i.action);
                                       }}
                                       className={clsx('w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-bg-tertiary transition-colors', i.danger ? 'text-red-400' : 'text-text-primary')}
