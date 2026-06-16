@@ -194,7 +194,10 @@ router.get('/aggregated', async (req, res, next) => {
 // GET /updates/aggregated/:updateUid/devices — devices affected by a specific update
 router.get('/aggregated/:updateUid/devices', async (req, res, next) => {
   try {
-    const devices = await updateService.getUpdateDevices(req.tenantId!, req.params.updateUid);
+    const { groupId } = req.query as any;
+    const devices = await updateService.getUpdateDevices(
+      req.tenantId!, req.params.updateUid, groupId ? parseInt(groupId) : undefined,
+    );
     res.json({ data: devices });
   } catch (err) { next(err); }
 });

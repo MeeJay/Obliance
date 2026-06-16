@@ -50,8 +50,8 @@ export const updateApi = {
     const res = await apiClient.get<ApiResponse<{ items: AggregatedUpdate[]; total: number; page: number; pageSize: number }>>('/updates/aggregated', { params });
     return res.data.data ?? { items: [], total: 0, page: 1, pageSize: 50 };
   },
-  async getUpdateDevices(updateUid: string): Promise<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>> {
-    const res = await apiClient.get<ApiResponse<Array<any>>>(`/updates/aggregated/${encodeURIComponent(updateUid)}/devices`);
+  async getUpdateDevices(updateUid: string, groupId?: number): Promise<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>> {
+    const res = await apiClient.get<ApiResponse<Array<any>>>(`/updates/aggregated/${encodeURIComponent(updateUid)}/devices`, { params: groupId ? { groupId } : {} });
     return res.data.data ?? [];
   },
   async bulkApproveByTitle(updateUid: string, groupId?: number): Promise<{ approved: number }> {

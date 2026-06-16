@@ -340,7 +340,7 @@ class UpdateService {
   /**
    * Returns the list of devices affected by a specific update title.
    */
-  async getUpdateDevices(tenantId: number, updateUid: string) {
+  async getUpdateDevices(tenantId: number, updateUid: string, groupId?: number) {
     // Master god-view: surface the owning tenant on each row so the UI can
     // render a TenantBadge next to the device name. Child tenants stay
     // strictly scoped to their own rows.
@@ -355,6 +355,13 @@ class UpdateService {
       )
       .orderBy('device_name');
     if (!isMaster) q.where({ 'du.tenant_id': tenantId });
+    if (groupId) {
+      // Same group + sub-groups closure as getAggregatedUpdates, so the
+      // expanded device list matches the row's scoped device count and only
+      // shows the devices an approval/deploy would actually touch.
+      q.whereIn('d.group_id',
+        db('device_group_closure').where('ancestor_id', groupId).select('descendant_id'));
+    }
     const rows = await q;
     return rows.map((r: any) => ({
       id: r.id, deviceId: r.device_id, deviceName: r.device_name,

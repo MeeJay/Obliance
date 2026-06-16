@@ -143,7 +143,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  if (expandedUid === uid) { setExpandedUid(null); return; }
  setExpandedUid(uid);
  try {
- const devices = await updateApi.getUpdateDevices(uid);
+ const devices = await updateApi.getUpdateDevices(uid, selectedGroupId);
  setExpandedDevices(devices);
  } catch { setExpandedDevices([]); }
  };
