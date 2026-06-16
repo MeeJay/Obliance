@@ -1411,6 +1411,11 @@
   "updates": {
     "title": "Updates",
     "subtitle": "Manage software updates across your fleet",
+    "scope": {
+      "all": "All devices",
+      "hint": "Scope the list and approvals to a group (and its sub-groups)",
+      "none": "No groups"
+    },
     "tabs": {
       "updates": "Available Updates",
       "policies": "Update Policies"

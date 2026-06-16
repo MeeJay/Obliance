@@ -224,13 +224,17 @@ router.post('/bulk-approve-titles', requireRole('admin'), async (req, res, next)
   } catch (err) { next(err); }
 });
 
-// POST /updates/bulk-deploy — deploy all approved updates across all affected devices
+// POST /updates/bulk-deploy — deploy all approved updates across affected
+// devices, optionally scoped to a group (+ its sub-groups via closure).
 router.post('/bulk-deploy', requireRole('admin'), async (req, res, next) => {
   try {
-    const deviceIds = await db('device_updates')
-      .where({ tenant_id: req.tenantId!, status: 'approved' })
-      .distinct('device_id')
-      .pluck('device_id');
+    const { groupId } = req.body as { groupId?: number };
+    let q = db('device_updates').where({ tenant_id: req.tenantId!, status: 'approved' });
+    if (groupId) {
+      q = q.whereIn('device_id', db('devices').whereIn('group_id',
+        db('device_group_closure').where('ancestor_id', groupId).select('descendant_id')).select('id'));
+    }
+    const deviceIds = await q.distinct('device_id').pluck('device_id');
 
     let totalDispatched = 0;
     for (const deviceId of deviceIds) {
@@ -253,12 +257,15 @@ router.post('/bulk-approve-and-deploy', requireRole('admin'), async (req, res, n
       approved += await updateService.bulkApproveByTitle(req.tenantId!, uid, req.session.userId!, groupId);
     }
 
-    // Deploy on all devices that now have these approved updates
-    const deviceIds = await db('device_updates')
+    // Deploy on the devices (within the group scope) that now have these approved
+    let dq = db('device_updates')
       .where({ tenant_id: req.tenantId!, status: 'approved' })
-      .whereIn('update_uid', updateUids)
-      .distinct('device_id')
-      .pluck('device_id');
+      .whereIn('update_uid', updateUids);
+    if (groupId) {
+      dq = dq.whereIn('device_id', db('devices').whereIn('group_id',
+        db('device_group_closure').where('ancestor_id', groupId).select('descendant_id')).select('id'));
+    }
+    const deviceIds = await dq.distinct('device_id').pluck('device_id');
 
     let dispatched = 0;
     for (const deviceId of deviceIds) {

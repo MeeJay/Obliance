@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor, CheckSquare, Square, ChevronRight, Check, Minus, FolderOpen } from 'lucide-react';
+import { Package, AlertCircle, AlertTriangle, Info, RefreshCw, Plus, Edit, Trash2, Shield, X, Monitor, CheckSquare, Square, ChevronRight, ChevronDown, Check, Minus, FolderOpen, FolderTree, Globe } from 'lucide-react';
 import { updateApi } from '@/api/update.api';
 import { groupsApi } from '@/api/groups.api';
 import type { DeviceGroupTreeNode } from '@obliance/shared';
@@ -83,7 +83,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  const [aggPageSize, setAggPageSize] = useState(100);
  const [selectedSeverity, setSelectedSeverity] = useState('');
  const [selectedSource, setSelectedSource] = useState('');
- const [selectedGroupId] = useState<number | undefined>(undefined);
+ const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
  const [expandedUid, setExpandedUid] = useState<string | null>(null);
  const [expandedDevices, setExpandedDevices] = useState<Array<{ id: number; deviceId: number; deviceName: string; groupId: number | null; status: string }>>([]);
  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
@@ -313,6 +313,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Source filter + bulk actions */}
  {activeTab === 'updates' && (
  <div className="flex items-center gap-3 flex-wrap">
+ <GroupScopePicker value={selectedGroupId} onChange={setSelectedGroupId} />
  <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)} className="px-3 py-1.5 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent">
  <option value="">All sources</option>
  <option value="windows_update">Windows Update</option>
@@ -366,7 +367,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  onClick={async () => {
  try {
- const r = await updateApi.bulkDeploy();
+ const r = await updateApi.bulkDeploy(selectedGroupId);
  toast.success(`${r.dispatched} update(s) deployed to ${r.devices} device(s)`);
  await load();
  } catch { toast.error('Deploy failed'); }
@@ -375,10 +376,10 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  >
  Deploy all approved
  </button>
- <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
+ <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
  {t('updates.actions.approveAllCritical')}
  </button>
- <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important','moderate','optional','unknown']); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors">
+ <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important','moderate','optional','unknown'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors">
  {t('updates.actions.approveAll')}
  </button>
  </div>
@@ -820,6 +821,83 @@ function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[
  return (
  <div className="rounded-lg bg-bg-tertiary max-h-60 overflow-y-auto py-1">
  {tree.map(n => renderNode(n, 0))}
+ </div>
+ );
+}
+
+// Single-select hierarchical group scope picker. Selecting a node scopes the
+// Updates list + approve/deploy to that group AND all its sub-groups (closure,
+// resolved server-side). The tree mirrors the real group hierarchy.
+function GroupScopePicker({ value, onChange }: { value: number | undefined; onChange: (id: number | undefined) => void }) {
+ const { t } = useTranslation();
+ const [open, setOpen] = useState(false);
+ const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
+ const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+ useEffect(() => {
+ groupsApi.tree().then((tr) => {
+ setTree(tr);
+ const all = new Set<number>();
+ const walk = (ns: DeviceGroupTreeNode[]) => { for (const n of ns) { all.add(n.id); walk(n.children); } };
+ walk(tr); setExpanded(all);
+ }).catch(() => {});
+ }, []);
+
+ const findName = (ns: DeviceGroupTreeNode[], id: number): string | undefined => {
+ for (const n of ns) { if (n.id === id) return n.name; const r = findName(n.children, id); if (r) return r; }
+ return undefined;
+ };
+ const label = value ? (findName(tree, value) || `#${value}`) : (t('updates.scope.all') || 'All devices');
+ const toggleExpand = (id: number) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+ const renderNode = (node: DeviceGroupTreeNode, depth: number): React.ReactNode => {
+ const hasChildren = node.children.length > 0;
+ const isExpanded = expanded.has(node.id);
+ const isSel = value === node.id;
+ return (
+ <div key={node.id}>
+ <div className={clsx('flex items-center gap-1.5 py-1.5 rounded hover:bg-bg-tertiary', isSel && 'bg-accent/10')}
+ style={{ paddingLeft: `${8 + depth * 18}px`, paddingRight: 8 }}>
+ <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
+ className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary', !hasChildren && 'invisible')}>
+ <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+ </button>
+ <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', isSel ? 'text-accent' : 'text-text-muted')} />
+ <button type="button" onClick={() => { onChange(node.id); setOpen(false); }}
+ className={clsx('flex-1 text-left text-sm truncate', isSel ? 'text-accent font-medium' : 'text-text-primary')}>
+ {node.name}
+ </button>
+ <span className="text-text-muted text-[10px] shrink-0">{node.total ?? node.deviceCount ?? 0}</span>
+ </div>
+ {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
+ </div>
+ );
+ };
+
+ return (
+ <div className="relative">
+ <button type="button" onClick={() => setOpen(o => !o)}
+ title={t('updates.scope.hint') || 'Scope the list + approvals to a group (and its sub-groups)'}
+ className={clsx('flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors',
+ value ? 'bg-accent/10 text-accent border border-accent/30' : 'bg-bg-secondary text-text-primary hover:bg-bg-tertiary')}>
+ <FolderTree className="w-3.5 h-3.5 shrink-0" />
+ <span className="truncate max-w-[180px]">{label}</span>
+ <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
+ </button>
+ {open && (
+ <>
+ <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+ <div className="absolute left-0 top-full mt-1 z-50 w-72 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden">
+ <button type="button" onClick={() => { onChange(undefined); setOpen(false); }}
+ className={clsx('w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-bg-tertiary', !value ? 'text-accent font-medium' : 'text-text-primary')}>
+ <Globe className="w-3.5 h-3.5" /> {t('updates.scope.all') || 'All devices'}
+ </button>
+ <div className="max-h-64 overflow-y-auto py-1 border-t border-border/40">
+ {tree.length ? tree.map(n => renderNode(n, 0)) : <p className="text-sm text-text-muted px-3 py-2">{t('updates.scope.none') || 'No groups'}</p>}
+ </div>
+ </div>
+ </>
+ )}
  </div>
  );
 }

@@ -276,7 +276,13 @@ class UpdateService {
 
     if (filters?.severity) baseQ = baseQ.where({ 'du.severity': filters.severity });
     if (filters?.source) baseQ = baseQ.where({ 'du.source': filters.source });
-    if (filters?.groupId) baseQ = baseQ.where({ 'd.group_id': filters.groupId });
+    if (filters?.groupId) {
+      // Scope to the selected group AND all its sub-groups (closure table —
+      // includes self at depth 0), so picking a parent covers its children.
+      // Mirrors the schedule-target resolution.
+      baseQ = baseQ.whereIn('d.group_id',
+        db('device_group_closure').where('ancestor_id', filters.groupId).select('descendant_id'));
+    }
 
     // Count total distinct titles
     const countResult = await baseQ.clone()
@@ -366,7 +372,9 @@ class UpdateService {
       .where({ tenant_id: tenantId, update_uid: updateUid, status: 'available' });
 
     if (groupId) {
-      q = q.whereIn('device_id', db('devices').where({ group_id: groupId }).select('id'));
+      // Group + all sub-groups (closure), so approving on a parent covers its children.
+      q = q.whereIn('device_id', db('devices').whereIn('group_id',
+        db('device_group_closure').where('ancestor_id', groupId).select('descendant_id')).select('id'));
     }
 
     const count = await q.update({
@@ -387,7 +395,9 @@ class UpdateService {
       .whereIn('severity', severities);
 
     if (groupId) {
-      q = q.whereIn('device_id', db('devices').where({ group_id: groupId }).select('id'));
+      // Group + all sub-groups (closure).
+      q = q.whereIn('device_id', db('devices').whereIn('group_id',
+        db('device_group_closure').where('ancestor_id', groupId).select('descendant_id')).select('id'));
     }
 
     const count = await q.update({
@@ -417,7 +427,11 @@ class UpdateService {
           })
           .orWhere(function() {
             if (device.group_id) {
-              this.where({ target_type: 'group', target_id: device.group_id });
+              // A policy on ANY ancestor group applies to this device, so a
+              // policy on a parent covers its sub-groups (closure: the device's
+              // group + all its ancestors). Matches the manual-approval scoping.
+              this.where('target_type', 'group').whereIn('target_id',
+                db('device_group_closure').where('descendant_id', device.group_id).select('ancestor_id'));
             }
           });
       });
