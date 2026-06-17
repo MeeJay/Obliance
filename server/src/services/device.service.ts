@@ -111,6 +111,7 @@ class DeviceService {
       sensorDisplayNames: row.sensor_display_names || {},
       notificationTypes: row.notification_types || {},
       latestMetrics: row.latest_metrics || {},
+      peakMetrics: row.peak_metrics || null,
       geoLat: row.geo_lat ? parseFloat(row.geo_lat) : null,
       geoLng: row.geo_lng ? parseFloat(row.geo_lng) : null,
       geoCity: row.geo_city ?? null,
@@ -990,7 +991,7 @@ class DeviceService {
 
     // Capture previous status + version to detect transitions
     const prev = await db('devices').where({ id: deviceId })
-      .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'metric_alerts_enabled')
+      .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'metric_alerts_enabled', 'peak_metrics')
       .first();
     const prevStatus = prev?.status as string | undefined;
     const prevOfflineAt = prev?.last_offline_at ? new Date(prev.last_offline_at) : null;
@@ -998,11 +999,29 @@ class DeviceService {
     const prevPrivacy = !!prev?.privacy_mode_enabled;
     const prevAirgap = !!prev?.airgap_enabled;
 
+    // Running peak (max) usage for the micro-inventory export. Element-wise max
+    // against the previous peak so it never decreases; `since` is stamped once.
+    // disk% = the fullest disk this push (matches the dashboard's disk gauge).
+    const m = push.metrics || {};
+    const curCpu = Number(m.cpu?.percent) || 0;
+    const curRam = Number(m.memory?.percent) || 0;
+    const curDisk = (m.disks || []).reduce((mx, d) => Math.max(mx, Number(d?.percent) || 0), 0);
+    const prevPeak = (prev?.peak_metrics && typeof prev.peak_metrics === 'object')
+      ? prev.peak_metrics as { cpu?: number; ram?: number; disk?: number; since?: string }
+      : null;
+    const peakMetrics = {
+      cpu: Math.max(prevPeak?.cpu ?? 0, curCpu),
+      ram: Math.max(prevPeak?.ram ?? 0, curRam),
+      disk: Math.max(prevPeak?.disk ?? 0, curDisk),
+      since: prevPeak?.since ?? now.toISOString(),
+    };
+
     // Update last seen, metrics, agent version — but never override pending_uninstall status
     await db('devices').where({ id: deviceId }).update({
       last_seen_at: now,
       last_push_at: now,
       latest_metrics: JSON.stringify(push.metrics),
+      peak_metrics: JSON.stringify(peakMetrics),
       agent_version: push.agentVersion || db.raw('agent_version'),
       updated_at: now,
     });

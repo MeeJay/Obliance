@@ -278,6 +278,9 @@ export interface Device {
   sensorDisplayNames: Record<string, string>;
   notificationTypes: DeviceNotificationTypes;
   latestMetrics: DeviceMetrics;
+  /** Running peak (max) resource usage accumulated server-side since `since`.
+   *  Null until the device pushes at least once after the feature shipped. */
+  peakMetrics: DevicePeakMetrics | null;
   scheduleAlert: ScheduleAlert | null;
   uninstallAt: string | null;
   /** Rolling history (last ~10) of distinct (hostname, ipLocal, ipPublic,
@@ -529,6 +532,16 @@ export interface DeviceMetrics {
   gpus?: Array<{ model: string; utilizationPct: number; vramUsedMb: number; vramTotalMb: number; engines?: Array<{ label: string; pct: number }> }>;
   loadAvg?: number;
   updatedAt?: string;
+}
+
+/** Highest CPU / RAM / disk percentages ever observed for a device, plus the
+ *  ISO timestamp tracking started. Accumulated in handlePush (element-wise max
+ *  against the previous peak) — see migration 112_device_peak_metrics. */
+export interface DevicePeakMetrics {
+  cpu: number;
+  ram: number;
+  disk: number;
+  since: string;
 }
 
 // ─── AGENT API KEYS ──────────────────────────────────────────────────────────

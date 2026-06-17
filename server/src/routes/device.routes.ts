@@ -109,40 +109,97 @@ router.get('/export', async (req, res, next) => {
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     const baseName = `obliance-devices-${ts}`;
 
-    // Rows for the export — stable column order
-    const columns = [
+    // Rows for the export — stable column order. `pdf: false` keeps a column
+    // out of the (width-constrained) PDF while still exporting it to CSV/XLSX,
+    // so the spreadsheet holds the full micro-inventory and the PDF stays
+    // readable.
+    const columns: Array<{ header: string; key: string; width: number; pdf?: boolean }> = [
       { header: 'Hostname',       key: 'hostname',      width: 24 },
       { header: 'Display Name',   key: 'displayName',   width: 24 },
       { header: 'Status',         key: 'status',        width: 12 },
       { header: 'OS',             key: 'osName',        width: 18 },
-      { header: 'OS Version',     key: 'osVersion',     width: 16 },
-      { header: 'Architecture',   key: 'osArch',        width: 10 },
-      { header: 'Agent Version',  key: 'agentVersion',  width: 12 },
+      { header: 'OS Version',     key: 'osVersion',     width: 16, pdf: false },
+      { header: 'Architecture',   key: 'osArch',        width: 10, pdf: false },
+      { header: 'Agent Version',  key: 'agentVersion',  width: 12, pdf: false },
       { header: 'Group',          key: 'groupName',     width: 20 },
+      // ── Micro-inventory: capacity (total) + current + peak (max) ──────────
+      { header: 'CPU Model',       key: 'cpuModel',     width: 30, pdf: false },
+      { header: 'CPU Cores',       key: 'cpuCores',     width: 9 },
+      { header: 'CPU % Now',       key: 'cpuPct',       width: 9,  pdf: false },
+      { header: 'CPU % Max',       key: 'cpuPeak',      width: 9 },
+      { header: 'RAM Total (GB)',  key: 'ramTotalGb',   width: 12 },
+      { header: 'RAM Used (GB)',   key: 'ramUsedGb',    width: 12, pdf: false },
+      { header: 'RAM % Now',       key: 'ramPct',       width: 9,  pdf: false },
+      { header: 'RAM % Max',       key: 'ramPeak',      width: 9 },
+      { header: 'Disk Total (GB)', key: 'diskTotalGb',  width: 13 },
+      { header: 'Disk Used (GB)',  key: 'diskUsedGb',   width: 13, pdf: false },
+      { header: 'Disk % Now',      key: 'diskPct',      width: 9,  pdf: false },
+      { header: 'Disk % Max',      key: 'diskPeak',     width: 9 },
+      { header: 'Disks',           key: 'diskCount',    width: 7,  pdf: false },
+      { header: 'GPU',             key: 'gpu',          width: 26, pdf: false },
+      { header: 'Peak Since',      key: 'peakSince',    width: 22, pdf: false },
+      // ── Network / identity ────────────────────────────────────────────────
       { header: 'Local IP',       key: 'ipLocal',       width: 16 },
-      { header: 'Public IP',      key: 'ipPublic',      width: 16 },
-      { header: 'MAC Address',    key: 'macAddress',    width: 18 },
+      { header: 'Public IP',      key: 'ipPublic',      width: 16, pdf: false },
+      { header: 'MAC Address',    key: 'macAddress',    width: 18, pdf: false },
       { header: 'Last Seen',      key: 'lastSeenAt',    width: 22 },
-      { header: 'Last User',      key: 'lastLoggedInUser', width: 18 },
-      { header: 'Agent UUID',     key: 'uuid',          width: 38 },
+      { header: 'Last User',      key: 'lastLoggedInUser', width: 18, pdf: false },
+      { header: 'Agent UUID',     key: 'uuid',          width: 38, pdf: false },
     ];
 
-    const rows = devices.map((d: any) => ({
-      hostname:         d.hostname ?? '',
-      displayName:      d.displayName ?? '',
-      status:           d.status ?? '',
-      osName:           d.osName ?? d.osType ?? '',
-      osVersion:        d.osVersion ?? '',
-      osArch:           d.osArch ?? '',
-      agentVersion:     d.agentVersion ?? '',
-      groupName:        d.groupName ?? '',
-      ipLocal:          d.ipLocal ?? '',
-      ipPublic:         d.ipPublic ?? '',
-      macAddress:       d.macAddress ?? '',
-      lastSeenAt:       d.lastSeenAt ?? '',
-      lastLoggedInUser: d.lastLoggedInUser ?? '',
-      uuid:             d.uuid ?? '',
-    }));
+    // Round helpers — blank (not 0) when a value is unknown, so an offline
+    // device that never reported metrics doesn't read as "0 GB / 0 %".
+    const r1 = (n: number) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : '');
+    const r0 = (n: number) => (Number.isFinite(n) ? Math.round(n) : '');
+
+    const rows = devices.map((d: any) => {
+      const mt = d.latestMetrics || {};
+      const cpu = mt.cpu || {};
+      const mem = mt.memory || {};
+      const disks: any[] = Array.isArray(mt.disks) ? mt.disks : [];
+      const peak = d.peakMetrics || null;
+
+      // RAM: prefer live (more precise) then fall back to static inventory.
+      const ramTotalGb = mem.totalMb ? mem.totalMb / 1024 : (d.ramTotalGb ?? NaN);
+      const ramUsedGb  = mem.usedMb ? mem.usedMb / 1024 : NaN;
+      // Disk: sum capacity/used across mounts; "now" = the fullest mount.
+      const diskTotalGb = disks.reduce((s, dk) => s + (Number(dk.totalGb) || 0), 0);
+      const diskUsedGb  = disks.reduce((s, dk) => s + (Number(dk.usedGb) || 0), 0);
+      const diskPctNow  = disks.reduce((mx, dk) => Math.max(mx, Number(dk.percent) || 0), NaN);
+      const gpu = Array.isArray(mt.gpus) ? mt.gpus.map((g: any) => g.model).filter(Boolean).join(', ') : '';
+
+      return {
+        hostname:         d.hostname ?? '',
+        displayName:      d.displayName ?? '',
+        status:           d.status ?? '',
+        osName:           d.osName ?? d.osType ?? '',
+        osVersion:        d.osVersion ?? '',
+        osArch:           d.osArch ?? '',
+        agentVersion:     d.agentVersion ?? '',
+        groupName:        d.groupName ?? '',
+        cpuModel:         d.cpuModel ?? cpu.model ?? '',
+        cpuCores:         d.cpuCores ?? (Array.isArray(cpu.cores) ? cpu.cores.length : '') ?? '',
+        cpuPct:           r0(Number(cpu.percent)),
+        cpuPeak:          peak ? r0(Number(peak.cpu)) : '',
+        ramTotalGb:       r1(ramTotalGb),
+        ramUsedGb:        r1(ramUsedGb),
+        ramPct:           r0(Number(mem.percent)),
+        ramPeak:          peak ? r0(Number(peak.ram)) : '',
+        diskTotalGb:      disks.length ? r1(diskTotalGb) : '',
+        diskUsedGb:       disks.length ? r1(diskUsedGb) : '',
+        diskPct:          r0(diskPctNow),
+        diskPeak:         peak ? r0(Number(peak.disk)) : '',
+        diskCount:        disks.length || '',
+        gpu,
+        peakSince:        peak?.since ?? '',
+        ipLocal:          d.ipLocal ?? '',
+        ipPublic:         d.ipPublic ?? '',
+        macAddress:       d.macAddress ?? '',
+        lastSeenAt:       d.lastSeenAt ?? '',
+        lastLoggedInUser: d.lastLoggedInUser ?? '',
+        uuid:             d.uuid ?? '',
+      };
+    });
 
     const ExcelJS = (await import('exceljs')).default;
 
@@ -174,11 +231,14 @@ router.get('/export', async (req, res, next) => {
       return res.send(Buffer.from(buffer as any));
     }
 
-    // PDF via playwright (renders an HTML table to PDF).
+    // PDF via playwright (renders an HTML table to PDF). Curated column subset
+    // (drop `pdf: false`) so the page stays readable — the full inventory is in
+    // the CSV/XLSX exports.
+    const pdfColumns = columns.filter((c) => c.pdf !== false);
     const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-    const headHtml = columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join('');
+    const headHtml = pdfColumns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join('');
     const rowsHtml = rows.map((r) =>
-      `<tr>${columns.map((c) => `<td>${escapeHtml(String((r as any)[c.key] ?? ''))}</td>`).join('')}</tr>`
+      `<tr>${pdfColumns.map((c) => `<td>${escapeHtml(String((r as any)[c.key] ?? ''))}</td>`).join('')}</tr>`
     ).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Devices</title><style>
 body { font-family: -apple-system, Segoe UI, sans-serif; font-size: 9px; color: #111; margin: 20px; }
