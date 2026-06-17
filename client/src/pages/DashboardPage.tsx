@@ -23,7 +23,8 @@ import { HyperVVmTable } from '@/components/hyperv/HyperVVmTable';
 import { EditVmModal, CheckpointModal } from '@/components/hyperv/HyperVModals';
 import { veeamApi } from '@/api/veeam.api';
 import { BackupJobTable } from '@/components/veeam/BackupJobTable';
-import type { VirtualMachine, VmAction, BackupJob, BackupJobAction } from '@obliance/shared';
+import type { VirtualMachine, VmAction, BackupJob, BackupJobAction, DeviceStatus } from '@obliance/shared';
+import { mergeById } from '@/utils/mergeById';
 import toast from 'react-hot-toast';
 
 // ── Sparkline (filled area + line) ───────────────────────────────────────────
@@ -584,7 +585,16 @@ function OsConnectivityCard({ data }: {
 
 export function DashboardPage() {
   const { t } = useTranslation();
-  const { fetchDevices, summary, fetchSummary } = useDeviceStore();
+  const { fetchDevices, summary, fetchSummary, devices } = useDeviceStore();
+
+  // Real-time host status (online/offline/...) by host device id, fed from the
+  // device store (kept live by useSocket DEVICE_ONLINE/OFFLINE/UPDATED). Passed
+  // to the Hyper-V / Veeam grids so each host's drawer header shows its state.
+  const hostStatusById = useMemo(() => {
+    const m = new Map<number, DeviceStatus>();
+    devices.forEach((d) => m.set(d.id, d.status));
+    return m;
+  }, [devices]);
   const { openAddAgentModal } = useUiStore();
   const isAdmin = useAuthStore((s) => s.isAdmin)();
   const [isLoading, setIsLoading] = useState(true);
@@ -600,8 +610,13 @@ export function DashboardPage() {
   const [hyperVms, setHyperVms] = useState<VirtualMachine[]>([]);
   const [hvBusyVmId, setHvBusyVmId] = useState<string | null>(null);
   const [hvModal, setHvModal] = useState<{ kind: 'edit' | 'checkpoints'; vm: VirtualMachine } | null>(null);
+  const [hvRefreshing, setHvRefreshing] = useState(false);
+  // mergeById keeps row identity for unchanged VMs so idle polls don't re-render
+  // the grid (no flicker); only genuinely changed rows update.
   const loadHyperVms = useCallback(() => {
-    hypervApi.listForTenant().then(setHyperVms).catch(() => setHyperVms([]));
+    hypervApi.listForTenant()
+      .then((fresh) => setHyperVms((prev) => mergeById(prev, fresh, (v) => v.vmId)))
+      .catch(() => setHyperVms([]));
   }, []);
   useEffect(() => { loadHyperVms(); }, [loadHyperVms]);
   // Stable signature of the distinct host ids so the live-ping interval only
@@ -621,7 +636,10 @@ export function DashboardPage() {
       setHyperVms((prev) => {
         const nameByHost = new Map(prev.map((v) => [v.hostDeviceId, v.hostName]));
         const others = prev.filter((v) => v.hostDeviceId !== p.hostDeviceId);
-        return [...others, ...p.vms].map((v) => v.hostName ? v : { ...v, hostName: nameByHost.get(v.hostDeviceId) });
+        const incoming = p.vms.map((v) => v.hostName ? v : { ...v, hostName: nameByHost.get(v.hostDeviceId) });
+        // Preserve identity for unchanged rows → no flicker, and a no-op when
+        // the broadcast carries nothing new.
+        return mergeById(prev, [...others, ...incoming], (v) => v.vmId);
       });
     };
     socket?.on('HYPERV_VMS_UPDATED', onUpdate);
@@ -633,6 +651,15 @@ export function DashboardPage() {
     const iv = setInterval(ping, 5000);
     return () => { socket?.off('HYPERV_VMS_UPDATED', onUpdate); clearInterval(iv); };
   }, [dashTab, hvHostIdsKey]);
+
+  // Dashboard Hyper-V refresh: ping every host over the ephemeral WS channel
+  // (instant re-enumerate) — the result streams back via HYPERV_VMS_UPDATED.
+  const handleHvRefresh = useCallback(() => {
+    const hosts = hvHostIdsKey ? hvHostIdsKey.split(',').map(Number) : [];
+    setHvRefreshing(true);
+    Promise.all(hosts.map((h) => hypervApi.live(h).catch(() => {})))
+      .finally(() => setTimeout(() => { loadHyperVms(); setHvRefreshing(false); }, 1200));
+  }, [hvHostIdsKey, loadHyperVms]);
   // Run adapter for the modals — bound to the modal VM's host device.
   const runHvForVm = useCallback((vm: VirtualMachine) =>
     async (vmId: string, action: VmAction, params?: Record<string, unknown>) => {
@@ -672,8 +699,11 @@ export function DashboardPage() {
   // has at least one backup job reported by a Veeam B&R host.
   const [veeamJobs, setVeeamJobs] = useState<BackupJob[]>([]);
   const [veeamBusyJobId, setVeeamBusyJobId] = useState<string | null>(null);
+  const [veeamRefreshing, setVeeamRefreshing] = useState(false);
   const loadVeeamJobs = useCallback(() => {
-    veeamApi.listForTenant().then(setVeeamJobs).catch(() => setVeeamJobs([]));
+    veeamApi.listForTenant()
+      .then((fresh) => setVeeamJobs((prev) => mergeById(prev, fresh, (j) => j.jobId)))
+      .catch(() => setVeeamJobs([]));
   }, []);
   useEffect(() => { loadVeeamJobs(); }, [loadVeeamJobs]);
   const veeamHostIdsKey = useMemo(
@@ -690,7 +720,8 @@ export function DashboardPage() {
       setVeeamJobs((prev) => {
         const nameByHost = new Map(prev.map((j) => [j.hostDeviceId, j.hostName]));
         const others = prev.filter((j) => j.hostDeviceId !== p.hostDeviceId);
-        return [...others, ...p.jobs].map((j) => j.hostName ? j : { ...j, hostName: nameByHost.get(j.hostDeviceId) });
+        const incoming = p.jobs.map((j) => j.hostName ? j : { ...j, hostName: nameByHost.get(j.hostDeviceId) });
+        return mergeById(prev, [...others, ...incoming], (j) => j.jobId);
       });
     };
     socket?.on('VEEAM_JOBS_UPDATED', onUpdate);
@@ -702,6 +733,13 @@ export function DashboardPage() {
     const iv = setInterval(ping, 5000);
     return () => { socket?.off('VEEAM_JOBS_UPDATED', onUpdate); clearInterval(iv); };
   }, [dashTab, veeamHostIdsKey]);
+
+  const handleVeeamRefresh = useCallback(() => {
+    const hosts = veeamHostIdsKey ? veeamHostIdsKey.split(',').map(Number) : [];
+    setVeeamRefreshing(true);
+    Promise.all(hosts.map((h) => veeamApi.live(h).catch(() => {})))
+      .finally(() => setTimeout(() => { loadVeeamJobs(); setVeeamRefreshing(false); }, 1200));
+  }, [veeamHostIdsKey, loadVeeamJobs]);
   const handleVeeamAction = async (job: BackupJob, action: BackupJobAction) => {
     if (action === 'stop' && !confirm(t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`)) return;
     setVeeamBusyJobId(job.jobId);
@@ -920,6 +958,9 @@ export function DashboardPage() {
             busyVmId={hvBusyVmId}
             showHost
             searchable
+            hostStatusById={hostStatusById}
+            onRefresh={handleHvRefresh}
+            refreshing={hvRefreshing}
             onAction={handleHvAction}
             onEdit={(vm) => setHvModal({ kind: 'edit', vm })}
             onCheckpoints={(vm) => setHvModal({ kind: 'checkpoints', vm })}
@@ -933,6 +974,9 @@ export function DashboardPage() {
           busyJobId={veeamBusyJobId}
           showHost
           searchable
+          hostStatusById={hostStatusById}
+          onRefresh={handleVeeamRefresh}
+          refreshing={veeamRefreshing}
           onAction={handleVeeamAction}
         />
       ) : (

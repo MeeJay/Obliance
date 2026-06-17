@@ -2232,6 +2232,9 @@ export interface VirtualMachine {
   updatedAt: string;
   /** Joined for the tenant-wide grid: the host device's display name. */
   hostName?: string;
+  /** Joined for the tenant-wide grid: the host device's tags, so the grid can
+   *  filter VMs by their host's tags. */
+  hostTags?: string[];
 }
 
 // ─── BACKUP (Veeam B&R, extensible) ───────────────────────────────────────────
@@ -2285,4 +2288,7 @@ export interface BackupJob {
   updatedAt: string;
   /** Joined for the tenant-wide grid: the host device's display name. */
   hostName?: string;
+  /** Joined for the tenant-wide grid: the host device's tags, so the grid can
+   *  filter jobs by their host's tags. */
+  hostTags?: string[];
 }

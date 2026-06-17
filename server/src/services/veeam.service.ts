@@ -61,8 +61,13 @@ function rowToJob(row: any): BackupJob {
     description: row.description ?? null,
     updatedAt: row.updated_at,
     hostName: row.host_name ?? undefined,
+    hostTags: row.host_tags != null
+      ? (typeof row.host_tags === 'string' ? safeJsonArr(row.host_tags) : row.host_tags)
+      : undefined,
   };
 }
+
+function safeJsonArr(s: string): string[] { try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch { return []; } }
 
 export const veeamService = {
   /** Replace the job set for a host with the agent's freshly-reported list. */
@@ -130,7 +135,7 @@ export const veeamService = {
     const isMaster = isMasterTenant(tenantId);
     const q = db('device_backup_jobs as bj')
       .leftJoin('devices as d', 'd.id', 'bj.host_device_id')
-      .select('bj.*', db.raw('COALESCE(d.display_name, d.hostname) as host_name'))
+      .select('bj.*', db.raw('COALESCE(d.display_name, d.hostname) as host_name'), db.raw('d.tags as host_tags'))
       .orderBy('host_name', 'asc')
       .orderBy('bj.name', 'asc');
     if (!isMaster) q.where('bj.tenant_id', tenantId);

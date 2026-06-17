@@ -70,6 +70,9 @@ function rowToVM(row: any): VirtualMachine {
     })(),
     updatedAt: row.updated_at,
     hostName: row.host_name ?? undefined,
+    hostTags: row.host_tags != null
+      ? (typeof row.host_tags === 'string' ? safeJson(row.host_tags) : row.host_tags)
+      : undefined,
   };
 }
 
@@ -158,7 +161,7 @@ export const hyperVService = {
     const isMaster = isMasterTenant(tenantId);
     const q = db('device_virtual_machines as vm')
       .leftJoin('devices as d', 'd.id', 'vm.host_device_id')
-      .select('vm.*', db.raw('COALESCE(d.display_name, d.hostname) as host_name'))
+      .select('vm.*', db.raw('COALESCE(d.display_name, d.hostname) as host_name'), db.raw('d.tags as host_tags'))
       .orderBy('host_name', 'asc')
       .orderBy('vm.name', 'asc');
     if (!isMaster) q.where('vm.tenant_id', tenantId);

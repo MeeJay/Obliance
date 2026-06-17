@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, RotateCcw, MoreHorizontal, Database, ChevronDown, ChevronRight,
   ArrowUp, ArrowDown, Search, X, CheckCircle2, AlertTriangle, XCircle, MinusCircle,
-  CalendarOff, CalendarClock, HardDriveDownload,
+  CalendarOff, CalendarClock, HardDriveDownload, Tag, RefreshCw,
 } from 'lucide-react';
-import type { BackupJob, BackupJobAction, BackupJobState, BackupJobResult } from '@obliance/shared';
+import type { BackupJob, BackupJobAction, BackupJobState, BackupJobResult, DeviceStatus } from '@obliance/shared';
+import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 
 interface Props {
   jobs: BackupJob[];
@@ -17,6 +18,12 @@ interface Props {
   searchable?: boolean;
   /** When false, hide the action controls (read-only viewer without control). */
   canControl?: boolean;
+  /** Real-time host status by host device id (from the device store) — renders
+   *  an online/offline badge in each host's drawer header (tenant-wide grid). */
+  hostStatusById?: Map<number, DeviceStatus>;
+  /** When set, shows a Refresh button that re-enumerates the host(s). */
+  onRefresh?: () => void;
+  refreshing?: boolean;
   onAction: (job: BackupJob, action: BackupJobAction) => void;
 }
 
@@ -53,22 +60,51 @@ function fmtDate(iso: string | null): string {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canControl = true, onAction }: Props) {
+export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canControl = true, hostStatusById, onRefresh, refreshing, onAction }: Props) {
   const { t } = useTranslation();
   const [menuJobId, setMenuJobId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
 
+  const toggleTag = (tag: string) => setTagFilters((prev) => {
+    const next = new Set(prev);
+    next.has(tag) ? next.delete(tag) : next.add(tag);
+    return next;
+  });
+
+  // Tags present on the displayed hosts (tenant-wide grid only), with the
+  // number of distinct hosts carrying each — drives the host tag filter.
+  const availableTags = useMemo(() => {
+    if (!showHost) return [] as Array<{ tag: string; count: number }>;
+    const hostsByTag = new Map<string, Set<number>>();
+    for (const j of jobs) {
+      for (const tg of j.hostTags ?? []) {
+        if (!hostsByTag.has(tg)) hostsByTag.set(tg, new Set());
+        hostsByTag.get(tg)!.add(j.hostDeviceId);
+      }
+    }
+    return [...hostsByTag.entries()]
+      .map(([tag, hosts]) => ({ tag, count: hosts.size }))
+      .sort((a, b) => a.tag.localeCompare(b.tag));
+  }, [jobs, showHost]);
+
+  // Host tag filter (OR semantics) runs first, then the search box.
   const filteredJobs = useMemo(() => {
-    if (!searchable) return jobs;
-    const q = search.trim().toLowerCase();
-    if (!q) return jobs;
-    return jobs.filter((j) =>
-      j.name.toLowerCase().includes(q) || (j.hostName ?? '').toLowerCase().includes(q),
-    );
-  }, [jobs, search, searchable]);
+    let list = jobs;
+    if (tagFilters.size > 0) {
+      list = list.filter((j) => (j.hostTags ?? []).some((tg) => tagFilters.has(tg)));
+    }
+    if (searchable) {
+      const q = search.trim().toLowerCase();
+      if (q) list = list.filter((j) =>
+        j.name.toLowerCase().includes(q) || (j.hostName ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [jobs, search, searchable, tagFilters]);
 
   const stateLabel = (s: BackupJobState) => t(`veeam.state.${s}`) || s;
   const resultLabel = (r: BackupJobResult) => t(`veeam.result.${r}`) || r;
@@ -118,19 +154,65 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
 
   return (
     <div className="space-y-3">
-      {searchable && jobs.length > 0 && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('veeam.searchPlaceholder') || 'Search job or host…'}
-            className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
-              <X className="w-3.5 h-3.5" />
+      {availableTags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 text-xs text-text-muted">
+            <Tag className="w-3.5 h-3.5" /> {t('veeam.filterByTag') || 'Hosts by tag:'}
+          </span>
+          {availableTags.map(({ tag, count }) => {
+            const active = tagFilters.has(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={clsx(
+                  'px-2.5 py-1 text-xs rounded-full border transition-colors',
+                  active
+                    ? 'bg-accent/15 text-accent border-accent/40'
+                    : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:bg-bg-tertiary',
+                )}
+              >
+                {tag} <span className="opacity-60">{count}</span>
+              </button>
+            );
+          })}
+          {tagFilters.size > 0 && (
+            <button type="button" onClick={() => setTagFilters(new Set())} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+              <X className="w-3.5 h-3.5" /> {t('common.clear') || 'Clear'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {(searchable || onRefresh) && jobs.length > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {searchable ? (
+            <div className="relative max-w-sm flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('veeam.searchPlaceholder') || 'Search job or host…'}
+                className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ) : <span />}
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={clsx('w-4 h-4', refreshing && 'animate-spin')} />
+              {t('veeam.refresh') || 'Refresh'}
             </button>
           )}
         </div>
@@ -164,6 +246,8 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
           {groups.map((g) => {
             const isCollapsed = collapsed.has(g.host);
             const failed = g.jobs.filter((j) => j.lastResult === 'failed').length;
+            const hostId = g.jobs[0]?.hostDeviceId;
+            const hostStatus = hostId != null ? hostStatusById?.get(hostId) : undefined;
             return (
               <Fragment key={g.host || '__flat'}>
                 {showHost && (
@@ -176,6 +260,7 @@ export function BackupJobTable({ jobs, busyJobId, showHost, searchable, canContr
                         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         <Database className="w-3.5 h-3.5 text-text-muted" />
                         {g.host}
+                        {hostStatus && <DeviceStatusBadge status={hostStatus} size="sm" />}
                         <span className="text-text-muted font-normal">
                           · {g.jobs.length} {t('veeam.jobs') || 'jobs'}
                           {failed > 0 && <span className="text-red-400"> · {failed} {t('veeam.failed') || 'failed'}</span>}

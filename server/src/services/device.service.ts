@@ -310,10 +310,18 @@ class DeviceService {
       disk: `NULLIF(latest_metrics->'disks'->0->>'percent','')::float`,
     };
 
+    // Sort by name = sort by the DISPLAYED label (display name, falling back to
+    // hostname when empty) so the table order matches the sidebar / dashboard
+    // (e.g. "003-BUCCANEER, 015-PIONEER, 017-ARES" rather than raw hostname
+    // order ARES/BUCCANEER/PIONEER).
+    const nameSortExpr = `COALESCE(NULLIF(devices.display_name, ''), devices.hostname)`;
+
     let qOrdered = q;
     const wantsMetric = filters?.sortBy && metricSortExpr[filters.sortBy];
     if (wantsMetric) {
       qOrdered = qOrdered.orderByRaw(`${metricSortExpr[filters!.sortBy!]} ${sortDir} ${nullsOrder}`);
+    } else if (filters?.sortBy === 'name') {
+      qOrdered = qOrdered.orderByRaw(`${nameSortExpr} ${sortDir}`);
     } else if (filters?.sortBy && SORT_MAP[filters.sortBy]) {
       qOrdered = qOrdered.orderBy(SORT_MAP[filters.sortBy], sortDir);
     } else {
@@ -449,12 +457,18 @@ class DeviceService {
     };
     const sortDir = filters?.sortOrder === 'desc' ? 'desc' : 'asc';
     // Same default as getDevices: empty/missing sortBy → enrolment order.
+    // Name sorts by the displayed label (display name → hostname), matching the
+    // table / sidebar order.
     const sortCol = (filters?.sortBy && SORT_MAP[filters.sortBy]) ? SORT_MAP[filters.sortBy] : 'devices.id';
     const exportDir = (filters?.sortBy && SORT_MAP[filters.sortBy]) ? sortDir : 'asc';
 
-    const rows = await q
-      .select('devices.*', 'device_groups.name as group_name')
-      .orderBy(sortCol, exportDir);
+    let rowsQuery = q.select('devices.*', 'device_groups.name as group_name');
+    if (filters?.sortBy === 'name') {
+      rowsQuery = rowsQuery.orderByRaw(`COALESCE(NULLIF(devices.display_name, ''), devices.hostname) ${sortDir}`);
+    } else {
+      rowsQuery = rowsQuery.orderBy(sortCol, exportDir);
+    }
+    const rows = await rowsQuery;
 
     const items = rows.map((row: any) => {
       const device = this.rowToDevice(row);

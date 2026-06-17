@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
-  ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X, Download,
+  ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X, Download, Tag, RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type { VirtualMachine, VmAction, VmState } from '@obliance/shared';
+import type { VirtualMachine, VmAction, VmState, DeviceStatus } from '@obliance/shared';
 import { hypervApi } from '@/api/hyperv.api';
+import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
 
 interface Props {
@@ -23,6 +24,12 @@ interface Props {
   /** Host device id for a single-host view — scopes the export to that host.
    *  Omit for the tenant-wide grid (export covers every visible host). */
   hostDeviceId?: number;
+  /** Real-time host status by host device id (from the device store) — renders
+   *  an online/offline badge in each host's drawer header (tenant-wide grid). */
+  hostStatusById?: Map<number, DeviceStatus>;
+  /** When set, shows a Refresh button that re-enumerates the host(s). */
+  onRefresh?: () => void;
+  refreshing?: boolean;
   onAction: (vm: VirtualMachine, action: VmAction) => void;
   onEdit?: (vm: VirtualMachine) => void;
   onCheckpoints?: (vm: VirtualMachine) => void;
@@ -55,7 +62,7 @@ function fmtUptime(sec: number | null): string {
   return `${m}m`;
 }
 
-export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceId, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
+export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceId, hostStatusById, onRefresh, refreshing, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
   const { t } = useTranslation();
   const [menuVmId, setMenuVmId] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -84,18 +91,48 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
   const [expandedVmId, setExpandedVmId] = useState<string | null>(null);
   const [consoleVm, setConsoleVm] = useState<VirtualMachine | null>(null);
   const [search, setSearch] = useState('');
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+
+  const toggleTag = (tag: string) => setTagFilters((prev) => {
+    const next = new Set(prev);
+    next.has(tag) ? next.delete(tag) : next.add(tag);
+    return next;
+  });
+
+  // Tags present on the displayed hosts (tenant-wide grid only), with the
+  // number of distinct hosts carrying each — drives the host tag filter.
+  const availableTags = useMemo(() => {
+    if (!showHost) return [] as Array<{ tag: string; count: number }>;
+    const hostsByTag = new Map<string, Set<number>>();
+    for (const vm of vms) {
+      for (const tg of vm.hostTags ?? []) {
+        if (!hostsByTag.has(tg)) hostsByTag.set(tg, new Set());
+        hostsByTag.get(tg)!.add(vm.hostDeviceId);
+      }
+    }
+    return [...hostsByTag.entries()]
+      .map(([tag, hosts]) => ({ tag, count: hosts.size }))
+      .sort((a, b) => a.tag.localeCompare(b.tag));
+  }, [vms, showHost]);
 
   // Partial, case-insensitive match on the VM name (primary) and host name.
   // e.g. "ows" matches "OVPMK1OWS13". Filtering happens BEFORE grouping so a
   // host stays visible as its group header as long as one of its VMs matches.
+  // Host tag filter (OR semantics, matching the /devices chip filter) runs
+  // first: keep only VMs whose host carries at least one selected tag.
   const filteredVms = useMemo(() => {
-    if (!searchable) return vms;
-    const q = search.trim().toLowerCase();
-    if (!q) return vms;
-    return vms.filter((vm) =>
-      vm.name.toLowerCase().includes(q) || (vm.hostName ?? '').toLowerCase().includes(q),
-    );
-  }, [vms, search, searchable]);
+    let list = vms;
+    if (tagFilters.size > 0) {
+      list = list.filter((vm) => (vm.hostTags ?? []).some((tg) => tagFilters.has(tg)));
+    }
+    if (searchable) {
+      const q = search.trim().toLowerCase();
+      if (q) list = list.filter((vm) =>
+        vm.name.toLowerCase().includes(q) || (vm.hostName ?? '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [vms, search, searchable, tagFilters]);
 
   const stateLabel = (s: VmState) => t(`hyperv.state.${s}`) || s;
 
@@ -146,6 +183,37 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
 
   return (
     <div className="space-y-3">
+      {availableTags.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 text-xs text-text-muted">
+            <Tag className="w-3.5 h-3.5" /> {t('hyperv.filterByTag') || 'Hosts by tag:'}
+          </span>
+          {availableTags.map(({ tag, count }) => {
+            const active = tagFilters.has(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={clsx(
+                  'px-2.5 py-1 text-xs rounded-full border transition-colors',
+                  active
+                    ? 'bg-accent/15 text-accent border-accent/40'
+                    : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:bg-bg-tertiary',
+                )}
+              >
+                {tag} <span className="opacity-60">{count}</span>
+              </button>
+            );
+          })}
+          {tagFilters.size > 0 && (
+            <button type="button" onClick={() => setTagFilters(new Set())} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+              <X className="w-3.5 h-3.5" /> {t('common.clear') || 'Clear'}
+            </button>
+          )}
+        </div>
+      )}
+
       {vms.length > 0 && (
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {searchable ? (
@@ -166,6 +234,18 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
             </div>
           ) : <span />}
 
+          <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={clsx('w-4 h-4', refreshing && 'animate-spin')} />
+              {t('hyperv.refresh') || 'Refresh'}
+            </button>
+          )}
           <div className="relative">
             <button
               type="button"
@@ -187,6 +267,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                 </div>
               </>
             )}
+          </div>
           </div>
         </div>
       )}
@@ -219,6 +300,8 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
           {groups.map((g) => {
             const isCollapsed = collapsed.has(g.host);
             const running = g.vms.filter((v) => v.state === 'running').length;
+            const hostId = g.vms[0]?.hostDeviceId;
+            const hostStatus = hostId != null ? hostStatusById?.get(hostId) : undefined;
             return (
               <Fragment key={g.host || '__flat'}>
                 {showHost && (
@@ -231,6 +314,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         <Server className="w-3.5 h-3.5 text-text-muted" />
                         {g.host}
+                        {hostStatus && <DeviceStatusBadge status={hostStatus} size="sm" />}
                         <span className="text-text-muted font-normal">· {g.vms.length} VM · {running} {t('hyperv.running') || 'running'}</span>
                       </button>
                     </td>

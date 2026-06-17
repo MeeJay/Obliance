@@ -49,6 +49,7 @@ import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
 import { isAgentReachable } from '@/utils/deviceStatus';
+import { mergeById } from '@/utils/mergeById';
 import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -3646,7 +3647,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  };
 
  const load = useCallback(async () => {
- try { setVms(await hypervApi.listForDevice(deviceId)); }
+ try { const fresh = await hypervApi.listForDevice(deviceId); setVms((prev) => mergeById(prev, fresh, (v) => v.vmId)); }
  catch { /* keep previous list */ }
  finally { setLoading(false); }
  }, [deviceId]);
@@ -3660,7 +3661,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  useEffect(() => {
  const socket = getSocket();
  const onUpdate = (p: { hostDeviceId: number; vms: import('@obliance/shared').VirtualMachine[] }) => {
- if (p.hostDeviceId === deviceId) setVms(p.vms);
+ if (p.hostDeviceId === deviceId) setVms((prev) => mergeById(prev, p.vms, (v) => v.vmId));
  };
  socket?.on('HYPERV_VMS_UPDATED', onUpdate);
  hypervApi.live(deviceId).catch(() => {});
@@ -3792,7 +3793,7 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
  const [refreshing, setRefreshing] = useState(false);
 
  const load = useCallback(async () => {
- try { setJobs(await veeamApi.listForDevice(deviceId)); }
+ try { const fresh = await veeamApi.listForDevice(deviceId); setJobs((prev) => mergeById(prev, fresh, (j) => j.jobId)); }
  catch { /* keep previous list */ }
  finally { setLoading(false); }
  }, [deviceId]);
@@ -3805,7 +3806,7 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
  useEffect(() => {
  const socket = getSocket();
  const onUpdate = (p: { hostDeviceId: number; jobs: import('@obliance/shared').BackupJob[] }) => {
- if (p.hostDeviceId === deviceId) setJobs(p.jobs);
+ if (p.hostDeviceId === deviceId) setJobs((prev) => mergeById(prev, p.jobs, (j) => j.jobId));
  };
  socket?.on('VEEAM_JOBS_UPDATED', onUpdate);
  veeamApi.live(deviceId).catch(() => {});
