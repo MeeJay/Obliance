@@ -1653,6 +1653,7 @@
   "hyperv": {
     "title": "Machines virtuelles Hyper-V",
     "refresh": "Rafraîchir",
+    "export": "Exporter",
     "noVms": "Aucune machine virtuelle sur cet hôte.",
     "noMatch": "Aucune VM ne correspond à votre recherche.",
     "searchPlaceholder": "Rechercher une VM ou un hôte…",

@@ -1679,6 +1679,7 @@
   "hyperv": {
     "title": "Hyper-V virtual machines",
     "refresh": "Refresh",
+    "export": "Export",
     "noVms": "No virtual machines on this host.",
     "noMatch": "No VM matches your search.",
     "searchPlaceholder": "Search VM or host…",

@@ -3756,6 +3756,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  <HyperVVmTable
  vms={vms}
  busyVmId={busyVmId}
+ hostDeviceId={deviceId}
  onAction={handleAction}
  onEdit={(vm) => setModal({ kind: 'edit', vm })}
  onCheckpoints={(vm) => setModal({ kind: 'checkpoints', vm })}

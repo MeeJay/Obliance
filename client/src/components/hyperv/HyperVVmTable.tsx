@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
-  ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X,
+  ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X, Download,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { VirtualMachine, VmAction, VmState } from '@obliance/shared';
+import { hypervApi } from '@/api/hyperv.api';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
 
 interface Props {
@@ -18,6 +20,9 @@ interface Props {
    *  case-insensitive. The host group header stays visible for any host
    *  that still has a matching VM. */
   searchable?: boolean;
+  /** Host device id for a single-host view — scopes the export to that host.
+   *  Omit for the tenant-wide grid (export covers every visible host). */
+  hostDeviceId?: number;
   onAction: (vm: VirtualMachine, action: VmAction) => void;
   onEdit?: (vm: VirtualMachine) => void;
   onCheckpoints?: (vm: VirtualMachine) => void;
@@ -50,9 +55,29 @@ function fmtUptime(sec: number | null): string {
   return `${m}m`;
 }
 
-export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
+export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceId, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
   const { t } = useTranslation();
   const [menuVmId, setMenuVmId] = useState<string | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (format: 'csv' | 'xlsx' | 'pdf') => {
+    setExportMenuOpen(false);
+    setIsExporting(true);
+    try {
+      const { blob, filename } = await hypervApi.export(format, hostDeviceId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -121,21 +146,48 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, onAction, o
 
   return (
     <div className="space-y-3">
-      {searchable && vms.length > 0 && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('hyperv.searchPlaceholder') || 'Search VM or host…'}
-            className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
-              <X className="w-3.5 h-3.5" />
+      {vms.length > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {searchable ? (
+            <div className="relative max-w-sm flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('hyperv.searchPlaceholder') || 'Search VM or host…'}
+                className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ) : <span />}
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((o) => !o)}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {t('hyperv.export') || 'Export'}
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
-          )}
+            {exportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1">
+                  <button type="button" onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">CSV</button>
+                  <button type="button" onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">Excel (XLSX)</button>
+                  <button type="button" onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">PDF</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

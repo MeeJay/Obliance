@@ -55,4 +55,17 @@ export const hypervApi = {
     );
     return res.data.data ?? res.data;
   },
+
+  /** Export the VM inventory (allocated vCPU/RAM + host + everything stored).
+   *  Pass `deviceId` to scope to one host; omit for the tenant-wide grid. */
+  async export(format: 'csv' | 'xlsx' | 'pdf', deviceId?: number): Promise<{ blob: Blob; filename: string }> {
+    const res = await apiClient.get('/hyperv/export', {
+      params: { format, ...(deviceId ? { deviceId } : {}) },
+      responseType: 'blob',
+    });
+    const cd = res.headers['content-disposition'] || res.headers['Content-Disposition'] || '';
+    const match = /filename="([^"]+)"/.exec(cd);
+    const filename = match ? match[1] : `obliance-hyperv-vms.${format}`;
+    return { blob: res.data as Blob, filename };
+  },
 };
