@@ -316,12 +316,27 @@ class DeviceService {
     // order ARES/BUCCANEER/PIONEER).
     const nameSortExpr = `COALESCE(NULLIF(devices.display_name, ''), devices.hostname)`;
 
+    // Sort by status = visual priority, NOT the raw enum string (whose
+    // alphabetical order is meaningless). Mirrors the sidebar tiers:
+    //   critical > warning > updating > other > offline > online
+    // Offline is the lowest before online on purpose (a workstation powering
+    // off is normal). asc → most-urgent first.
+    const statusSortExpr = `CASE devices.status
+        WHEN 'critical' THEN 0
+        WHEN 'warning' THEN 1
+        WHEN 'updating' THEN 2
+        WHEN 'offline' THEN 4
+        WHEN 'online' THEN 5
+        ELSE 3 END`;
+
     let qOrdered = q;
     const wantsMetric = filters?.sortBy && metricSortExpr[filters.sortBy];
     if (wantsMetric) {
       qOrdered = qOrdered.orderByRaw(`${metricSortExpr[filters!.sortBy!]} ${sortDir} ${nullsOrder}`);
     } else if (filters?.sortBy === 'name') {
       qOrdered = qOrdered.orderByRaw(`${nameSortExpr} ${sortDir}`);
+    } else if (filters?.sortBy === 'status') {
+      qOrdered = qOrdered.orderByRaw(`${statusSortExpr} ${sortDir}, ${nameSortExpr} asc`);
     } else if (filters?.sortBy && SORT_MAP[filters.sortBy]) {
       qOrdered = qOrdered.orderBy(SORT_MAP[filters.sortBy], sortDir);
     } else {
@@ -465,6 +480,13 @@ class DeviceService {
     let rowsQuery = q.select('devices.*', 'device_groups.name as group_name');
     if (filters?.sortBy === 'name') {
       rowsQuery = rowsQuery.orderByRaw(`COALESCE(NULLIF(devices.display_name, ''), devices.hostname) ${sortDir}`);
+    } else if (filters?.sortBy === 'status') {
+      // Visual priority, mirroring getDevices / the sidebar (offline lowest
+      // before online), not the meaningless raw-enum alphabetical order.
+      rowsQuery = rowsQuery.orderByRaw(`CASE devices.status
+          WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 WHEN 'updating' THEN 2
+          WHEN 'offline' THEN 4 WHEN 'online' THEN 5 ELSE 3 END ${sortDir},
+          COALESCE(NULLIF(devices.display_name, ''), devices.hostname) asc`);
     } else {
       rowsQuery = rowsQuery.orderBy(sortCol, exportDir);
     }
@@ -1460,9 +1482,17 @@ class DeviceService {
       // device.service.ts indirectly via deviceService.handlePush().
       const { agentHub } = await import('./agentHub.service');
 
-      // Find online devices that haven't pushed in too long
+      // Find reachable devices that haven't pushed in too long. We include
+      // 'warning' and 'critical' (not just 'online'): once an agent stops
+      // answering, its last metric-based colour is meaningless ("red because
+      // CPU was high an hour ago, before it vanished" tells the admin nothing)
+      // and the machine must read as OFFLINE so a dead box is discernible from
+      // a permanently-noisy one. 'updating'/'update_error' keep their own
+      // lifecycle below (a device is expected to be briefly unreachable during
+      // an update — flipping it offline would lose the stuck-update signal).
       const devices = await db('devices')
-        .where({ status: 'online', approval_status: 'approved' })
+        .whereIn('status', ['online', 'warning', 'critical'])
+        .where({ approval_status: 'approved' })
         .whereNotNull('last_push_at');
 
       const now = new Date();

@@ -87,18 +87,24 @@ const STATUS_DOT: Record<DeviceStatus, string> = {
 // each tier the order stays alphabetical. Groups themselves keep their manual
 // order (only the devices inside are reordered).
 //
-//   Critical > Warn > Other (any other non-normal state) > Updating > Normal (online)
+//   Critical > Warn > Updating > Other (any other non-normal state) > Offline > Normal (online)
+//
+// Offline sits the LOWEST before online, on purpose: a workstation powering
+// off is normal and shouldn't dominate the top of the list. The live colours
+// (red/yellow/blue) stay above it because they flag something happening on a
+// REACHABLE machine — an offline box already lost those colours (see the
+// offline sweep, which now repaints stale warning/critical devices grey).
 const SIDEBAR_STATUS_TIER: Partial<Record<DeviceStatus, number>> = {
   critical: 0,
   warning:  1,
-  // "Other" = every non-normal state not tiered here → falls through to 2.
-  updating: 3,
-  online:   4,
+  updating: 2,
+  // "Other" (maintenance / suspended / pending / pending_uninstall /
+  // update_error) → falls through to 3.
+  offline:  4,
+  online:   5,
 };
 function sidebarStatusTier(s: DeviceStatus): number {
-  // offline / suspended / pending / pending_uninstall / maintenance /
-  // update_error → "Other" (2): not normal, so they rise above online/updating.
-  return SIDEBAR_STATUS_TIER[s] ?? 2;
+  return SIDEBAR_STATUS_TIER[s] ?? 3;
 }
 function sortSidebarDevices(devices: Device[]): Device[] {
   return [...devices].sort((a, b) => {
