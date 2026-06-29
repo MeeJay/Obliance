@@ -1400,6 +1400,7 @@
     "avg": "Moyenne",
     "peak": "Pic",
     "delta": "Δ utilisé",
+    "deltaHint": "Écart de la moyenne vs la tranche plus longue (1H↔24h, 24h↔7j, 7j↔30j)",
     "disksTitle": "Disques (par volume)",
     "volume": "Volume",
     "used": "Utilisé",

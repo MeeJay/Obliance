@@ -1400,6 +1400,7 @@
     "avg": "Average",
     "peak": "Peak",
     "delta": "Δ used",
+    "deltaHint": "Average vs the next-longer window (1H↔24h, 24h↔7d, 7d↔30d)",
     "disksTitle": "Disks (per volume)",
     "volume": "Volume",
     "used": "Used",

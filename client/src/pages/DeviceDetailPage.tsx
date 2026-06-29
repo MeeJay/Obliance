@@ -380,18 +380,9 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
       </span>
     );
   };
-  // Trend chip in a CPU/RAM card header: last hour vs the 24h baseline (rising = red).
-  const TrendChip = ({ recent, baseline }: { recent: number | null; baseline: number | null }) => {
-    if (recent == null || baseline == null) return null;
-    return <DeltaValue value={Math.round((recent - baseline) * 10) / 10} suffix="pt" threshold={1} />;
-  };
-
   const MetricCard = ({ title, accent, data }: { title: string; accent: string; data: DeviceMetricsHistory['cpu'] }) => (
     <div className="p-3 bg-bg-tertiary rounded-lg">
-      <div className="flex items-center justify-between gap-2">
-        <span className={clsx('text-xs font-semibold', accent)}>{title}</span>
-        <span className="text-[10px]"><TrendChip recent={data['1h'].avg} baseline={data['24h'].avg} /></span>
-      </div>
+      <span className={clsx('text-xs font-semibold', accent)}>{title}</span>
       <table className="w-full text-xs mt-2">
         <thead>
           <tr className="text-text-muted">
@@ -400,15 +391,30 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
           </tr>
         </thead>
         <tbody>
-          {([
-            { label: t('deviceHistory.avg') || 'Moyenne', pick: 'avg' as const },
-            { label: t('deviceHistory.peak') || 'Pic', pick: 'peak' as const },
-          ]).map((r) => (
-            <tr key={r.pick}>
-              <td className="text-text-muted py-0.5 pr-2">{r.label}</td>
-              {windows.map((w) => <td key={w.key} className="text-right font-mono text-text-primary tabular-nums">{pct(data[w.key][r.pick])}</td>)}
-            </tr>
-          ))}
+          <tr>
+            <td className="text-text-muted py-0.5 pr-2">{t('deviceHistory.avg') || 'Moyenne'}</td>
+            {windows.map((w) => <td key={w.key} className="text-right font-mono text-text-primary tabular-nums">{pct(data[w.key].avg)}</td>)}
+          </tr>
+          {/* Δ per window = this window's average vs the NEXT-longer window
+              (1H↔24h, 24h↔7j, 7j↔30j) → "where am I right now vs the broader trend". */}
+          <tr title={t('deviceHistory.deltaHint') || 'Écart de la moyenne vs la tranche plus longue'}>
+            <td className="text-text-muted/60 py-0.5 pr-2 text-[10px]">Δ</td>
+            {windows.map((w, i) => {
+              const next = windows[i + 1];
+              const a = data[w.key].avg;
+              const b = next ? data[next.key].avg : null;
+              const d = (a != null && b != null) ? Math.round((a - b) * 10) / 10 : null;
+              return (
+                <td key={w.key} className="text-right text-[10px]">
+                  {next && d != null ? <DeltaValue value={d} suffix="pt" threshold={0.5} /> : <span className="text-text-muted/40">—</span>}
+                </td>
+              );
+            })}
+          </tr>
+          <tr>
+            <td className="text-text-muted py-0.5 pr-2">{t('deviceHistory.peak') || 'Pic'}</td>
+            {windows.map((w) => <td key={w.key} className="text-right font-mono text-text-primary tabular-nums">{pct(data[w.key].peak)}</td>)}
+          </tr>
         </tbody>
       </table>
     </div>
