@@ -25,6 +25,14 @@ function safeParseFingerprints(raw: string): DeviceIdentityFingerprint[] {
 let _cachedVersion: string | null = null;
 let _cachedVersionAt = 0;
 
+// Circuit breaker for the per-push metric-history writes. If they start failing
+// (e.g. a schema mismatch / missing table after a botched migration), we must
+// NOT keep firing failing DB round-trips on every push from every device — that
+// saturates the connection pool and slows the whole app. After a few
+// consecutive failures we pause history writes for a cooldown, then retry.
+let _historyDisabledUntil = 0;
+let _historyFailures = 0;
+
 function getAgentVersion(): string {
   const now = Date.now();
   if (_cachedVersion && now - _cachedVersionAt < 5 * 60 * 1000) {
@@ -2199,16 +2207,27 @@ class DeviceService {
     cpu: number, ram: number,
     disks: Array<{ mount: string; pct: number; usedGb: number; totalGb: number }>,
   ): Promise<void> {
-    const five = new Date(now); five.setUTCMinutes(Math.floor(five.getUTCMinutes() / 5) * 5, 0, 0);
-    const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
-    const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
-    await this.upsertCpuRamBucket('device_metric_5min', deviceId, tenantId, five, cpu, ram);
-    await this.upsertCpuRamBucket('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
-    await this.upsertCpuRamBucket('device_metric_daily', deviceId, tenantId, day, cpu, ram);
-    for (const d of disks) {
-      await this.upsertDiskBucket('device_disk_5min', deviceId, tenantId, d.mount, five, d.pct, d.usedGb, d.totalGb);
-      await this.upsertDiskBucket('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
-      await this.upsertDiskBucket('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
+    // Circuit breaker: skip while paused after repeated failures (schema issue).
+    if (Date.now() < _historyDisabledUntil) return;
+    try {
+      const five = new Date(now); five.setUTCMinutes(Math.floor(five.getUTCMinutes() / 5) * 5, 0, 0);
+      const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
+      const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
+      await this.upsertCpuRamBucket('device_metric_5min', deviceId, tenantId, five, cpu, ram);
+      await this.upsertCpuRamBucket('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
+      await this.upsertCpuRamBucket('device_metric_daily', deviceId, tenantId, day, cpu, ram);
+      for (const d of disks) {
+        await this.upsertDiskBucket('device_disk_5min', deviceId, tenantId, d.mount, five, d.pct, d.usedGb, d.totalGb);
+        await this.upsertDiskBucket('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
+        await this.upsertDiskBucket('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
+      }
+      _historyFailures = 0; // success resets the breaker
+    } catch (err) {
+      if (++_historyFailures >= 3) {
+        _historyDisabledUntil = Date.now() + 10 * 60 * 1000; // pause 10 min
+        _historyFailures = 0;
+        logger.error(err, 'metric-history writes paused 10min after repeated failures (missing table / schema mismatch?)');
+      }
     }
   }
 
@@ -2235,6 +2254,9 @@ class DeviceService {
    *  are tiny (≤72 hourly / ≤30 daily rows × N volumes) so we aggregate in JS.
    *  Gaps (offline) just mean fewer buckets — never counted as 0. */
   async getDeviceMetricsHistory(deviceId: number, tenantId: number) {
+    const emptyWin = () => ({ avg: null, peak: null, min: null });
+    const emptyWindows = () => ({ '1h': emptyWin(), '24h': emptyWin(), '7d': emptyWin(), '30d': emptyWin() });
+    try {
     const isMaster = isMasterTenant(tenantId);
     const r1 = (n: any): number | null => {
       const v = Number(n);
@@ -2314,6 +2336,12 @@ class DeviceService {
       ram: { '1h': cr1.ram, '24h': cr24.ram, '7d': cr7.ram, '30d': cr30.ram },
       disks,
     };
+    } catch (err) {
+      // Never 500 / make the History section vanish on a transient schema issue;
+      // degrade to an empty (but valid) payload — migration 114 heals the tables.
+      logger.error(err, 'getDeviceMetricsHistory failed — returning empty');
+      return { cpu: emptyWindows(), ram: emptyWindows(), disks: [] };
+    }
   }
 }
 
