@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Device, FleetSummary, AgentApiKey, ServiceInfo } from '@obliance/shared';
+import type { Device, FleetSummary, AgentApiKey, ServiceInfo, DeviceMetricsHistory } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -196,6 +196,11 @@ export const deviceApi = {
   },
   async getById(id: number): Promise<Device> {
     const res = await apiClient.get<ApiResponse<Device>>(`/devices/${id}`);
+    return res.data.data!;
+  },
+  /** Windowed CPU/RAM avg·peak·min + disk usage/delta over 24h/7d/30d. */
+  async getMetricsHistory(id: number): Promise<DeviceMetricsHistory> {
+    const res = await apiClient.get<ApiResponse<DeviceMetricsHistory>>(`/devices/${id}/metrics/history`);
     return res.data.data!;
   },
   /** Resolve which tenant a device lives in. Used when the user follows a

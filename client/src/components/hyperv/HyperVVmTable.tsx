@@ -72,7 +72,13 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
     setExportMenuOpen(false);
     setIsExporting(true);
     try {
-      const { blob, filename } = await hypervApi.export(format, hostDeviceId);
+      // Export exactly what the grid currently shows — honour the active host
+      // tag filter and the search box (same criteria as filteredVms).
+      const { blob, filename } = await hypervApi.export(format, {
+        deviceId: hostDeviceId,
+        tags: tagFilters.size ? [...tagFilters] : undefined,
+        search: search.trim() || undefined,
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

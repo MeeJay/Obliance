@@ -315,11 +315,9 @@ func push(cfg *Config) {
 			}
 		}
 
-		// Version piggybacked on push response — skip update while a tunnel is
-		// active so we never restart the agent mid-session.
-		if result.LatestVersion != "" && activeTunnels.count() == 0 {
-			applyUpdateIfNewer(cfg, result.LatestVersion)
-		}
+		// result.LatestVersion is still parsed and reported for the "update
+		// available" UI badge, but the agent no longer auto-applies it — updates
+		// are admin-triggered via the update_agent command.
 
 	case 202:
 		log.Printf("Device pending approval...")
@@ -349,9 +347,7 @@ func push(cfg *Config) {
 				return
 			}
 		}
-		if result.LatestVersion != "" && activeTunnels.count() == 0 {
-			applyUpdateIfNewer(cfg, result.LatestVersion)
-		}
+		// No auto-update here either — version is display-only (see case 200).
 
 	case 401:
 		idx := backoffLevel

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireRole, requireAnyTenantCapability } from '../middleware/rbac';
-import { listKeys, createKey, updateKey, deleteKey, agentInstallerWizard, agentInstallerWizardLinux } from '../controllers/agent.controller';
+import { listKeys, createKey, updateKey, deleteKey, agentInstallerWizard, agentInstallerWizardX86, agentInstallerWizardLinux } from '../controllers/agent.controller';
 
 const router = Router();
 
@@ -30,6 +30,13 @@ router.get(
   '/installer/wizard.exe',
   requireAnyTenantCapability('agent_config:keys', 'agent_config:approval'),
   agentInstallerWizard,
+);
+
+// 32-bit (x86) install wizard — same pre-fill protocol + auth gate.
+router.get(
+  '/installer/wizard-x86.exe',
+  requireAnyTenantCapability('agent_config:keys', 'agent_config:approval'),
+  agentInstallerWizardX86,
 );
 
 // Linux equivalent — same pre-fill protocol (OBLI_CFG tail blob), same

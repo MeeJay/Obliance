@@ -31,6 +31,7 @@ import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { fileApi } from '@/api/file.api';
 import { getSocket } from '@/socket/socketClient';
+import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
 import type { Device, Command } from '@obliance/shared';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -651,6 +652,30 @@ export default function FileExplorerTab({ device }: Props) {
  const breadcrumbs = splitBreadcrumb(currentPath, device.osType);
  const isRoot = !currentPath;
 
+ // Defensive guard: if an agent build can't browse directories at all
+ // (list_directory), show an explanatory banner instead of a dead toolbar.
+ // Both current flavors support browsing/create/rename/delete; only file
+ // TRANSFER (upload_file/download_file) is legacy-unsupported and is greyed
+ // per-action below — so in practice this banner is reserved for future
+ // capability-restricted builds.
+ if (!isCommandSupported(device, 'list_directory')) {
+ return (
+ <div className="bg-bg-secondary rounded-xl p-10 text-center text-text-muted text-sm flex flex-col items-center gap-2">
+ <FolderOpen className="w-8 h-8 opacity-40" />
+ <p>{unsupportedTooltip(t)}</p>
+ </div>
+ );
+ }
+
+ // Per-command capability flags. Some agent builds (legacy) browse and
+ // mutate the filesystem but can't stream file bytes — gate upload/download
+ // individually so those buttons grey out while the rest stays usable.
+ const canCreateDir = isCommandSupported(device, 'create_directory');
+ const canUpload = isCommandSupported(device, 'upload_file');
+ const canDownload = isCommandSupported(device, 'download_file');
+ const canRename = isCommandSupported(device, 'rename_file');
+ const canDelete = isCommandSupported(device, 'delete_file');
+
  return (
  <div className="flex gap-3">
  <div className={clsx(
@@ -711,17 +736,17 @@ export default function FileExplorerTab({ device }: Props) {
  </button>
  <button
  onClick={handleCreateFolder}
- disabled={loading || isRoot}
+ disabled={loading || isRoot || !canCreateDir}
  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={t('fileExplorer.newFolder')}
+ title={canCreateDir ? t('fileExplorer.newFolder') : unsupportedTooltip(t)}
  >
  <FolderPlus className="w-4 h-4" />
  </button>
  <button
  onClick={handleUploadClick}
- disabled={loading || isRoot}
+ disabled={loading || isRoot || !canUpload}
  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={t('fileExplorer.upload')}
+ title={canUpload ? t('fileExplorer.upload') : unsupportedTooltip(t)}
  >
  <Upload className="w-4 h-4" />
  </button>
@@ -903,7 +928,7 @@ export default function FileExplorerTab({ device }: Props) {
  </div>
  ) : (
  <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
- {!file.isDir && isEditableText(file) && (
+ {!file.isDir && isEditableText(file) && canDownload && (
  <button
  onClick={(e) => {
  e.stopPropagation();
@@ -921,8 +946,9 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  handleDownload(file);
  }}
- className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors"
- title={t('fileExplorer.download')}
+ disabled={!canDownload}
+ className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ title={canDownload ? t('fileExplorer.download') : unsupportedTooltip(t)}
  >
  <Download className="w-3.5 h-3.5" />
  </button>
@@ -932,8 +958,9 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  startRename(file);
  }}
- className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors"
- title={t('fileExplorer.rename')}
+ disabled={!canRename}
+ className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ title={canRename ? t('fileExplorer.rename') : unsupportedTooltip(t)}
  >
  <Pencil className="w-3.5 h-3.5" />
  </button>
@@ -942,8 +969,9 @@ export default function FileExplorerTab({ device }: Props) {
  e.stopPropagation();
  setDeletingFile(file.path);
  }}
- className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
- title={t('fileExplorer.delete')}
+ disabled={!canDelete}
+ className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ title={canDelete ? t('fileExplorer.delete') : unsupportedTooltip(t)}
  >
  <Trash2 className="w-3.5 h-3.5" />
  </button>
@@ -1008,7 +1036,7 @@ export default function FileExplorerTab({ device }: Props) {
  </button>
  ) : (
  <>
- {editable && (
+ {editable && canDownload && (
  <button
  onClick={() => { handleOpenEditor(file); close(); }}
  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
@@ -1019,7 +1047,9 @@ export default function FileExplorerTab({ device }: Props) {
  )}
  <button
  onClick={() => { handleDownload(file); close(); }}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ disabled={!canDownload}
+ title={canDownload ? undefined : unsupportedTooltip(t)}
+ className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
  >
  <Download className="w-3.5 h-3.5 text-accent" />
  Download
@@ -1029,14 +1059,18 @@ export default function FileExplorerTab({ device }: Props) {
  <div className="h-px bg-border my-1" />
  <button
  onClick={() => { startRename(file); close(); }}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ disabled={!canRename}
+ title={canRename ? undefined : unsupportedTooltip(t)}
+ className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
  >
  <Pencil className="w-3.5 h-3.5 text-accent" />
  Rename
  </button>
  <button
  onClick={() => { setDeletingFile(file.path); close(); }}
- className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 transition-colors text-left"
+ disabled={!canDelete}
+ title={canDelete ? undefined : unsupportedTooltip(t)}
+ className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-400/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-left"
  >
  <Trash2 className="w-3.5 h-3.5" />
  Delete

@@ -253,6 +253,7 @@
   "dashboard": {
     "title": "Fleet Overview",
     "viewAll": "View all devices",
+    "devicesWithUpdates": "{{count}} device(s) with an update available",
     "pendingUpdates": "Pending updates",
     "manage": "Manage",
     "view": "View",
@@ -1202,8 +1203,14 @@
       "runScriptParamWarn": "This script declares required parameters. Use the dedicated run page to fill them in.",
       "runScriptOpenRunPage": "Open run page →",
       "runScriptConfirm": "Run",
-      "runScriptDispatched": "Script dispatched to {{count}} devices"
+      "runScriptDispatched": "Script dispatched to {{count}} devices",
+      "updateAgent": "Update agent"
     },
+    "action": {
+      "updateAgent": "Update agent",
+      "updateAgentConfirm": "Update the agent on {{count}} device(s)?"
+    },
+    "majPill": "Upd",
     "actions": {
       "view": "View",
       "refuse": "Refuse",
@@ -1385,9 +1392,23 @@
     "systemBadge": "System",
     "userBadge": "Custom"
   },
+  "deviceHistory": {
+    "title": "History",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "disk": "Disk",
+    "avg": "Average",
+    "peak": "Peak",
+    "delta": "Δ used",
+    "disksTitle": "Disks (per volume)",
+    "volume": "Volume",
+    "used": "Used",
+    "empty": "No data yet — history fills in as the agent reports."
+  },
   "deviceDetail": {
     "tabSettings": "Settings",
     "notFound": "Device not found",
+    "updateBanner": "Agent update available",
     "locate": {
       "switching": "Switching to {{tenant}}…",
       "backLink": "← Back to devices"
@@ -1584,6 +1605,7 @@
     "selectKey": "API Key",
     "chooseKey": "Select an API key...",
     "windowsHint": "Run in PowerShell as Administrator",
+    "windowsX86Hint": "Run in PowerShell (admin) — 32-bit Windows (Win7/Win10 x86). Full modern agent, all features.",
     "linuxHint": "Run in terminal (root or sudo)",
     "macosHint": "Run in terminal (Apple Silicon & Intel)",
     "freebsdHint": "Run in a root shell on FreeBSD / OPNsense:",
@@ -1936,7 +1958,11 @@
     "updating": "Updating",
     "updateError": "Update Error",
     "refused": "Refused",
-    "scheduleError": "Schedule Error"
+    "scheduleError": "Schedule Error",
+    "updateAvailable": "Update available"
+  },
+  "commands": {
+    "unsupportedOnAgent": "Not supported by this agent build"
   },
   "chat": {
     "discussionWith": "Discussion with {{name}}",

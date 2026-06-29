@@ -13,6 +13,7 @@ import {
   agentInstallerMacos,
   agentInstallerWindows,
   agentInstallerWindowsMsi,
+  agentInstallerWindowsMsiX86,
   agentInstallerFreebsd,
 } from '../controllers/agent.controller';
 import { geolocationService } from '../services/geolocation.service';
@@ -39,6 +40,8 @@ router.get('/installer/windows',   agentInstallerWindows);
 router.get('/installer/freebsd',   agentInstallerFreebsd);
 // Convenience URL matching Obliview pattern: /api/agent/installer/windows.msi
 router.get('/installer/windows.msi', agentInstallerWindowsMsi);
+// 32-bit (x86) MSI for old 32-bit Windows (Win7/Win10 x86).
+router.get('/installer/windows-x86.msi', agentInstallerWindowsMsiX86);
 
 // GET /api/agent/ws
 // This endpoint is normally upgraded to a WebSocket by the Node.js upgrade

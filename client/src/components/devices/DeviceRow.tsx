@@ -277,7 +277,7 @@ export const DeviceRow = memo(function DeviceRow({
           </div>
         )}
 
-        <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} scheduleAlert={device.scheduleAlert} size="sm" />
+        <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} scheduleAlert={device.scheduleAlert} size="sm" updateAvailable={device.updateAvailable} />
 
         <span className={clsx('text-xs flex-shrink-0 tabular-nums w-8 text-right', lastSeen.color)}>
           {lastSeen.text}
@@ -329,7 +329,17 @@ export const DeviceRow = memo(function DeviceRow({
             <span key="os" className="truncate max-w-[180px]" title={osFullTextRaw}>{osFullText || '\u2014'}</span>
           ),
           fieldOn('agentVersion') && (
-            <span key="agent">v{device.agentVersion || '?'}</span>
+            <span key="agent" className="inline-flex items-center gap-1">
+              v{device.agentVersion || '?'}
+              {device.updateAvailable && (
+                <span
+                  className="text-[9px] px-1 rounded border border-blue-400/40 bg-blue-400/10 text-blue-400 font-semibold uppercase tracking-wider"
+                  title={t('deviceStatus.updateAvailable') || 'Update available'}
+                >
+                  {t('devices.majPill') || 'MAJ'}
+                </span>
+              )}
+            </span>
           ),
           fieldOn('group') && (
             <span key="group" className="inline-flex items-center gap-1">

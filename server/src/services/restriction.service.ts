@@ -49,6 +49,7 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
   { key: 'command.shutdown',             label: 'Shutdown a device',        category: 'Power' },
   { key: 'command.sleep',                label: 'Sleep a device',           category: 'Power' },
   { key: 'command.restart_agent',        label: 'Restart agent',            category: 'Power' },
+  { key: 'command.update_agent',         label: 'Update agent',             category: 'Power' },
   { key: 'command.uninstall_agent',      label: 'Uninstall agent',          category: 'Power' },
   { key: 'command.enable_airgap',        label: 'Enable airgap',            category: 'Isolation' },
   { key: 'command.disable_airgap',       label: 'Disable airgap',           category: 'Isolation' },
@@ -124,7 +125,10 @@ export const RESTRICTABLE_ACTIONS: { key: string; label: string; category: strin
 export const DEFAULT_RESTRICTIONS: Record<string, 'restricted' | 'sensitive'> = {
   'command.reboot':               'sensitive',
   'command.shutdown':             'sensitive',
-  // sleep + restart_agent = none (not listed)
+  // sleep + restart_agent + update_agent = none (not listed). update_agent
+  // sits at 'none' on purpose — pushing an agent update is frictionless by
+  // default (admins can opt into approval/TOTP from the matrix), unlike
+  // uninstall_agent which defaults to 'restricted'.
   'command.uninstall_agent':      'restricted',
   'command.enable_airgap':        'sensitive',
   'command.disable_airgap':       'restricted',

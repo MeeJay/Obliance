@@ -44,11 +44,12 @@ import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
 import { DeviceCvesSection } from '@/components/devices/DeviceCvesSection';
-import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds, DeviceMetricsHistory } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
 import { isAgentReachable } from '@/utils/deviceStatus';
+import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
 import { mergeById } from '@/utils/mergeById';
 import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
@@ -336,6 +337,115 @@ function NoteBanner({
 
 // ─── Overview Tab ──────────────────────────────────────────────────────────────
 
+// Per-device metric history (avg/peak/delta over 24h·7j·30j) from the
+// pre-aggregated buckets. Sits below "Live Metrics" in the Overview tab.
+function MetricsHistorySection({ deviceId }: { deviceId: number }) {
+  const { t } = useTranslation();
+  const [hist, setHist] = useState<DeviceMetricsHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    deviceApi.getMetricsHistory(deviceId)
+      .then((h) => { if (active) setHist(h); })
+      .catch(() => { if (active) setHist(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [deviceId]);
+
+  if (loading || !hist) return null;
+
+  const windows = [
+    { key: '24h' as const, label: '24h' },
+    { key: '7d' as const, label: '7j' },
+    { key: '30d' as const, label: '30j' },
+  ];
+  const pct = (n: number | null) => (n == null ? '—' : `${n}%`);
+  const delta = (n: number | null) => (n == null ? '—' : `${n > 0 ? '+' : ''}${n} Go`);
+
+  const hasCpuRam = hist.cpu['24h'].avg != null || hist.cpu['7d'].avg != null || hist.cpu['30d'].avg != null;
+  const hasData = hasCpuRam || hist.disks.length > 0;
+
+  const MetricCard = ({ title, accent, rows }: { title: string; accent: string; rows: Array<{ label: string; vals: string[] }> }) => (
+    <div className="p-3 bg-bg-tertiary rounded-lg">
+      <span className={clsx('text-xs font-semibold', accent)}>{title}</span>
+      <table className="w-full text-xs mt-2">
+        <thead>
+          <tr className="text-text-muted">
+            <th className="text-left font-medium pb-1"></th>
+            {windows.map((w) => <th key={w.key} className="text-right font-medium pb-1">{w.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td className="text-text-muted py-0.5 pr-2">{r.label}</td>
+              {r.vals.map((v, i) => <td key={i} className="text-right font-mono text-text-primary tabular-nums">{v}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="p-4 bg-bg-secondary rounded-xl space-y-3">
+      <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wide">{t('deviceHistory.title') || 'Historique'}</h3>
+      {!hasData ? (
+        <p className="text-xs text-text-muted">{t('deviceHistory.empty') || "Pas encore de données — l'historique se remplit au fil des remontées de l'agent."}</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <MetricCard title={t('deviceHistory.cpu') || 'CPU'} accent="text-cyan-400" rows={[
+              { label: t('deviceHistory.avg') || 'Moyenne', vals: windows.map((w) => pct(hist.cpu[w.key].avg)) },
+              { label: t('deviceHistory.peak') || 'Pic', vals: windows.map((w) => pct(hist.cpu[w.key].peak)) },
+            ]} />
+            <MetricCard title={t('deviceHistory.ram') || 'RAM'} accent="text-violet-400" rows={[
+              { label: t('deviceHistory.avg') || 'Moyenne', vals: windows.map((w) => pct(hist.ram[w.key].avg)) },
+              { label: t('deviceHistory.peak') || 'Pic', vals: windows.map((w) => pct(hist.ram[w.key].peak)) },
+            ]} />
+          </div>
+
+          {hist.disks.length > 0 && (
+            <div className="p-3 bg-bg-tertiary rounded-lg">
+              <span className="text-xs font-semibold text-amber-400">{t('deviceHistory.disksTitle') || 'Disques (par volume)'}</span>
+              <div className="overflow-x-auto mt-2">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-text-muted">
+                      <th className="text-left font-medium pb-1 pr-2">{t('deviceHistory.volume') || 'Volume'}</th>
+                      <th className="text-right font-medium pb-1 px-2">{t('deviceHistory.used') || 'Utilisé'}</th>
+                      <th className="text-right font-medium pb-1 px-2">{t('deviceHistory.peak') || 'Pic'} 30j</th>
+                      <th className="text-right font-medium pb-1 px-2">Δ 24h</th>
+                      <th className="text-right font-medium pb-1 px-2">Δ 7j</th>
+                      <th className="text-right font-medium pb-1 pl-2">Δ 30j</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hist.disks.map((d) => (
+                      <tr key={d.mount}>
+                        <td className="text-text-primary py-0.5 pr-2 font-medium truncate max-w-[120px]" title={d.mount}>{d.mount}</td>
+                        <td className="text-right font-mono text-text-primary tabular-nums px-2">
+                          {d.usedGb ?? '—'} / {d.totalGb ?? '—'} Go
+                        </td>
+                        <td className="text-right font-mono text-text-muted tabular-nums px-2">{pct(d.windows['30d'].peakPct)}</td>
+                        <td className="text-right font-mono text-text-primary tabular-nums px-2">{delta(d.windows['24h'].deltaGb)}</td>
+                        <td className="text-right font-mono text-text-primary tabular-nums px-2">{delta(d.windows['7d'].deltaGb)}</td>
+                        <td className="text-right font-mono text-text-primary tabular-nums pl-2">{delta(d.windows['30d'].deltaGb)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
  const metrics = device.latestMetrics;
 
@@ -448,6 +558,9 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
  </div>
  )}
 
+ {/* Metric history — avg/peak/delta over 24h·7j·30j (pre-aggregated buckets) */}
+ <MetricsHistorySection deviceId={device.id} />
+
  {/* Quick info cards */}
  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
  <div className="p-3 bg-bg-secondary rounded-xl flex items-center gap-2.5">
@@ -544,7 +657,8 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
 
 // ─── Inventory Tab ──────────────────────────────────────────────────────────────
 
-function InventoryTab({ deviceId }: { deviceId: number }) {
+function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: Device['agentFlavor'] }) {
+ const { t } = useTranslation();
  const [hardware, setHardware] = useState<HardwareInventory | null>(null);
  const [software, setSoftware] = useState<SoftwareEntry[]>([]);
  const [softwareTotal, setSoftwareTotal] = useState(0);
@@ -638,7 +752,9 @@ function InventoryTab({ deviceId }: { deviceId: number }) {
  </div>
  <button
  onClick={handleScan}
- className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
+ disabled={!isCommandSupported({ agentFlavor }, 'scan_inventory')}
+ title={isCommandSupported({ agentFlavor }, 'scan_inventory') ? undefined : unsupportedTooltip(t)}
+ className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Scan className="w-3.5 h-3.5" />
  Scan now
@@ -1351,7 +1467,7 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
 
 // ─── Updates Tab ──────────────────────────────────────────────────────────────
 
-function UpdatesTab({ deviceId }: { deviceId: number }) {
+function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: Device['agentFlavor'] }) {
  const { t } = useTranslation();
  const [updates, setUpdates] = useState<DeviceUpdate[]>([]);
  const [isLoading, setIsLoading] = useState(true);
@@ -1542,7 +1658,9 @@ function UpdatesTab({ deviceId }: { deviceId: number }) {
  )}
  <button
  onClick={handleScan}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary"
+ disabled={!isCommandSupported({ agentFlavor }, 'scan_updates')}
+ title={isCommandSupported({ agentFlavor }, 'scan_updates') ? undefined : unsupportedTooltip(t)}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Scan className="w-3.5 h-3.5" />
  {t('updates.actions.scan')}
@@ -2988,6 +3106,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 // ─── Remote Tab ──────────────────────────────────────────────────────────────
 
 function RemoteTab({ device }: { device: Device }) {
+ const { t } = useTranslation();
  const [sessions, setSessions] = useState<RemoteSession[]>([]);
  const [isLoading, setIsLoading] = useState(false);
  const [isStarting, setIsStarting] = useState(false);
@@ -3413,8 +3532,8 @@ function RemoteTab({ device }: { device: Device }) {
  ) : (
  <button
  onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
- disabled={!isOnline || isStarting || orInstalled === null}
- title={orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'}
+ disabled={!isOnline || isStarting || orInstalled === null || !isCommandSupported(device, 'install_oblireach')}
+ title={!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy')}
  className="flex items-center gap-2 px-4 py-2 bg-gray-500/10 text-gray-400 border border-gray-500/30 rounded-lg hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
  >
  <MonitorPlay className="w-4 h-4" />
@@ -4167,6 +4286,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
 // ─── Services Tab ──────────────────────────────────────────────────────────────
 
 function ServicesTab({ device }: { device: Device }) {
+ const { t } = useTranslation();
  const [services, setServices] = useState<ServiceInfo[]>([]);
  const [isLoadingServices, setIsLoadingServices] = useState(false);
  // Per-service pending action: name → 'start' | 'stop' | 'restart'
@@ -4299,7 +4419,8 @@ function ServicesTab({ device }: { device: Device }) {
  )}
  <button
  onClick={handleListServices}
- disabled={isLoadingServices}
+ disabled={isLoadingServices || !isCommandSupported(device, 'list_services')}
+ title={isCommandSupported(device, 'list_services') ? undefined : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
  >
  {isLoadingServices ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -4373,11 +4494,11 @@ function ServicesTab({ device }: { device: Device }) {
  {/* Start — only when stopped */}
  <button
  onClick={() => handleServiceAction(svc.name, 'start_service')}
- disabled={!isStopped || !!pending}
- title={`Start ${svc.name}`}
+ disabled={!isStopped || !!pending || !isCommandSupported(device, 'start_service')}
+ title={isCommandSupported(device, 'start_service') ? `Start ${svc.name}` : unsupportedTooltip(t)}
  className={clsx(
  'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
- isStopped && !pending
+ isStopped && !pending && isCommandSupported(device, 'start_service')
  ? 'text-green-400 bg-green-400/10 border-green-400/30 hover:bg-green-400/20'
  : 'text-text-muted/30 border-transparent cursor-not-allowed',
  )}
@@ -4388,11 +4509,11 @@ function ServicesTab({ device }: { device: Device }) {
  {/* Stop — only when running */}
  <button
  onClick={() => handleServiceAction(svc.name, 'stop_service')}
- disabled={!isRunning || !!pending}
- title={`Stop ${svc.name}`}
+ disabled={!isRunning || !!pending || !isCommandSupported(device, 'stop_service')}
+ title={isCommandSupported(device, 'stop_service') ? `Stop ${svc.name}` : unsupportedTooltip(t)}
  className={clsx(
  'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors',
- isRunning && !pending
+ isRunning && !pending && isCommandSupported(device, 'stop_service')
  ? 'text-red-400 bg-red-400/10 border-red-400/30 hover:bg-red-400/20'
  : 'text-text-muted/30 border-transparent cursor-not-allowed',
  )}
@@ -4403,8 +4524,8 @@ function ServicesTab({ device }: { device: Device }) {
  {/* Restart — always available */}
  <button
  onClick={() => handleServiceAction(svc.name, 'restart_service')}
- disabled={!!pending}
- title={`Restart ${svc.name}`}
+ disabled={!!pending || !isCommandSupported(device, 'restart_service')}
+ title={isCommandSupported(device, 'restart_service') ? `Restart ${svc.name}` : unsupportedTooltip(t)}
  className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-blue-400 hover:bg-blue-400/10 border border-transparent hover:border-blue-400/20 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {pending === 'restart_service' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
@@ -4432,6 +4553,7 @@ type SortField = 'name' | 'pid' | 'cpuPercent' | 'memBytes' | 'user';
 type SortDir = 'asc' | 'desc';
 
 function ProcessesTab({ device }: { device: Device }) {
+ const { t } = useTranslation();
  const [processes, setProcesses] = useState<ProcessInfo[]>([]);
  const [filter, setFilter] = useState('');
  const [sortField, setSortField] = useState<SortField>('cpuPercent');
@@ -4652,8 +4774,8 @@ function ProcessesTab({ device }: { device: Device }) {
  <td className="px-4 py-1.5 text-right">
  <button
  onClick={() => handleKill(proc.pid, proc.name)}
- disabled={killing}
- title={`Kill ${proc.name} (PID ${proc.pid})`}
+ disabled={killing || !isCommandSupported(device, 'kill_process')}
+ title={isCommandSupported(device, 'kill_process') ? `Kill ${proc.name} (PID ${proc.pid})` : unsupportedTooltip(t)}
  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
  >
  {killing ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
@@ -4870,6 +4992,22 @@ export function DeviceDetailPage() {
  toast.error(`Failed to send ${type} command`);
  } finally {
  setHeaderPending((p) => { const n = new Set(p); n.delete(type); return n; });
+ }
+ };
+
+ // Force-applies an agent update via the 'update_agent' command. The server
+ // resolves the target version + arch-aware MSI; the agent applies it (no
+ // self-update anymore). Goes through the standard command restriction flow.
+ const handleUpdateAgent = async () => {
+ if (!confirm((t('devices.action.updateAgentConfirm', { count: 1 }) as string) || 'Update the agent on 1 device(s)?')) return;
+ setHeaderPending((p) => new Set(p).add('update_agent'));
+ try {
+ await commandApi.enqueue(deviceId, 'update_agent', {}, 'high');
+ toast.success(t('devices.action.updateAgent') || 'Update agent');
+ } catch {
+ toast.error(t('common.error') || 'Something went wrong');
+ } finally {
+ setHeaderPending((p) => { const n = new Set(p); n.delete('update_agent'); return n; });
  }
  };
 
@@ -5300,6 +5438,27 @@ export function DeviceDetailPage() {
  </div>
  )}
 
+ {/* Agent update-available banner — admins force-apply the update from
+ here (agents no longer self-update). Hidden while the agent is
+ already mid-update / errored (the status badge covers those). */}
+ {device.updateAvailable && device.status !== 'updating' && device.status !== 'update_error' && (
+ <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-blue-400/40 bg-blue-500/10 text-blue-300">
+ <Download className="w-5 h-5 shrink-0" />
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-semibold">{t('deviceDetail.updateBanner') || 'Agent update available'}</p>
+ </div>
+ <button
+ onClick={handleUpdateAgent}
+ disabled={headerPending.has('update_agent') || !isCommandSupported(device, 'update_agent')}
+ title={!isCommandSupported(device, 'update_agent') ? unsupportedTooltip(t) : undefined}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+ >
+ {headerPending.has('update_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+ {t('devices.action.updateAgent') || 'Update agent'}
+ </button>
+ </div>
+ )}
+
  {/* Duplicate agent ID banner — fires when the server observes too
  many distinct hostnames / IPs / MACs on this single agent_id in
  a short window (typical VM-cloning without machine-id regen). */}
@@ -5502,8 +5661,8 @@ export function DeviceDetailPage() {
  {/* ── Scan All ── */}
  <button
  onClick={handleScanAll}
- disabled={isScanningAll || !isAgentReachable(device.status)}
- title="Scan All — triggers inventory, updates and compliance scans"
+ disabled={isScanningAll || !isAgentReachable(device.status) || !(isCommandSupported(device, 'scan_inventory') && isCommandSupported(device, 'scan_updates') && isCommandSupported(device, 'check_compliance'))}
+ title={(isCommandSupported(device, 'scan_inventory') && isCommandSupported(device, 'scan_updates') && isCommandSupported(device, 'check_compliance')) ? 'Scan All — triggers inventory, updates and compliance scans' : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
@@ -5700,10 +5859,21 @@ export function DeviceDetailPage() {
  </>
  )}
  <div className="w-px h-5 bg-border" />
+ {device.updateAvailable && device.status !== 'updating' && device.status !== 'update_error' && (
+ <button
+ onClick={handleUpdateAgent}
+ disabled={headerPending.has('update_agent') || !isCommandSupported(device, 'update_agent')}
+ title={!isCommandSupported(device, 'update_agent') ? unsupportedTooltip(t) : (t('devices.action.updateAgent') || 'Update agent')}
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {headerPending.has('update_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+ {t('devices.action.updateAgent') || 'Update agent'}
+ </button>
+ )}
  <button
  onClick={() => handleHeaderAction('restart_agent')}
- disabled={headerPending.has('restart_agent')}
- title="Restart Agent"
+ disabled={headerPending.has('restart_agent') || !isCommandSupported(device, 'restart_agent')}
+ title={isCommandSupported(device, 'restart_agent') ? 'Restart Agent' : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -5711,8 +5881,8 @@ export function DeviceDetailPage() {
  </button>
  <button
  onClick={() => handleHeaderAction('sleep')}
- disabled={headerPending.has('sleep')}
- title="Suspend device (sleep)"
+ disabled={headerPending.has('sleep') || !isCommandSupported(device, 'sleep')}
+ title={isCommandSupported(device, 'sleep') ? 'Suspend device (sleep)' : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {headerPending.has('sleep') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Moon className="w-3.5 h-3.5" />}
@@ -5720,8 +5890,8 @@ export function DeviceDetailPage() {
  </button>
  <button
  onClick={() => handleHeaderAction('reboot')}
- disabled={headerPending.has('reboot')}
- title="Reboot device"
+ disabled={headerPending.has('reboot') || !isCommandSupported(device, 'reboot')}
+ title={isCommandSupported(device, 'reboot') ? 'Reboot device' : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -5729,8 +5899,8 @@ export function DeviceDetailPage() {
  </button>
  <button
  onClick={() => handleHeaderAction('shutdown')}
- disabled={headerPending.has('shutdown')}
- title="Shutdown device"
+ disabled={headerPending.has('shutdown') || !isCommandSupported(device, 'shutdown')}
+ title={isCommandSupported(device, 'shutdown') ? 'Shutdown device' : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
@@ -5885,9 +6055,9 @@ export function DeviceDetailPage() {
  {/* Tab content */}
  <div>
  {activeTab === 'overview' && <OverviewTab device={device} onSaved={() => fetchDevice(deviceId)} />}
- {activeTab === 'inventory' && <InventoryTab deviceId={device.id} />}
+ {activeTab === 'inventory' && <InventoryTab deviceId={device.id} agentFlavor={device.agentFlavor} />}
  {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
- {activeTab === 'updates' && <UpdatesTab deviceId={device.id} />}
+ {activeTab === 'updates' && <UpdatesTab deviceId={device.id} agentFlavor={device.agentFlavor} />}
  {activeTab === 'compliance' && (
  <div className="space-y-4">
  {/* CVE section — auto-hides when the device has zero matches AND

@@ -14,13 +14,14 @@ import { groupsApi } from '@/api/groups.api';
 import { DeviceRow } from '@/components/devices/DeviceRow';
 import { StyledCheckbox } from '@/components/devices/StyledCheckbox';
 import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
-import type { Device, DeviceGroupTreeNode } from '@obliance/shared';
+import type { Device, DeviceGroupTreeNode, CommandType } from '@obliance/shared';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { anonymize } from '@/utils/anonymize';
 import { shortenOsName } from '@/utils/osLabel';
+import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
 import {
  LINE2_FIELDS,
  loadVisibleFields,
@@ -512,6 +513,15 @@ export function DeviceTable({
  await Promise.all(ids.map(id => deviceApi.delete(id)));
  toast.success(t('devices.batch.deleted', { count: ids.length }));
  } else {
+ // Agents no longer self-update — pushing 'update_agent' force-applies
+ // the latest MSI. The batch menu item is greyed unless every selected
+ // device supports it, and the server additionally skips legacy agents
+ // (they can't self-update), so the action is safe to fan out across a
+ // whole group selection; the toast reports the real dispatched count.
+ if (action === 'update_agent') {
+ const count = selectAllGroup && groupId ? total : selectedIds.size;
+ if (!confirm((t('devices.action.updateAgentConfirm', { count }) as string) || `Update the agent on ${count} device(s)?`)) { setIsBatchRunning(false); return; }
+ }
  const result = await deviceApi.batch({
  groupId: selectAllGroup && groupId ? groupId : undefined,
  deviceIds: selectAllGroup && groupId ? undefined : Array.from(selectedIds),
@@ -526,6 +536,18 @@ export function DeviceTable({
  const hasSelection = selectedIds.size > 0;
  const allChecked = devices.length > 0 && devices.every(d => selectedIds.has(d.id));
  const someChecked = selectedIds.size > 0 && !allChecked;
+
+ // A batch command is only offered when EVERY selected device's agent can
+ // run it. Legacy (Go 1.20) agents support a reduced command set; mixing
+ // one into the selection greys out the unsupported actions so the admin
+ // can't dispatch a command that would silently no-op on part of the fleet.
+ // Devices not in the loaded set (whole-group "select all") resolve to
+ // permissive — the server no-ops anything the agent can't honour.
+ const everySupports = useCallback((cmd: CommandType): boolean =>
+ Array.from(selectedIds).every((id) => {
+ const d = devices.find((x) => x.id === id);
+ return !d || isCommandSupported(d, cmd);
+ }), [selectedIds, devices]);
 
  const hasFilters = debouncedSearch || statusFilters.size > 0 || osFilters.size > 0 || osNameFilter.size > 0 || osVersionFilter.size > 0 || tagFilters.size > 0;
 
@@ -1019,21 +1041,26 @@ export function DeviceTable({
  <ShieldCheck className="w-3.5 h-3.5 text-green-400" /> {t('devices.batch.approve')}
  </button>
  )}
- <button onClick={() => handleBatchAction('restart_agent')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
+ <button onClick={() => handleBatchAction('restart_agent')} disabled={!everySupports('restart_agent')} title={everySupports('restart_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
  <RotateCcw className="w-3.5 h-3.5 text-blue-400" /> {t('devices.batch.restartAgent')}
  </button>
- <button onClick={() => handleBatchAction('reboot')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
+ <button onClick={() => handleBatchAction('reboot')} disabled={!everySupports('reboot')} title={everySupports('reboot') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
  <RotateCcw className="w-3.5 h-3.5 text-orange-400" /> {t('devices.batch.reboot')}
  </button>
- <button onClick={() => handleBatchAction('shutdown')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
+ <button onClick={() => handleBatchAction('shutdown')} disabled={!everySupports('shutdown')} title={everySupports('shutdown') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
  <PowerOff className="w-3.5 h-3.5 text-red-400" /> {t('devices.batch.shutdown')}
  </button>
- <button onClick={() => handleBatchAction('scan_inventory')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
+ <button onClick={() => handleBatchAction('scan_inventory')} disabled={!everySupports('scan_inventory')} title={everySupports('scan_inventory') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
  <Search className="w-3.5 h-3.5 text-text-muted" /> {t('devices.batch.scanInventory')}
+ </button>
+ <button onClick={() => handleBatchAction('update_agent')} disabled={!everySupports('update_agent')} title={everySupports('update_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+ <Download className="w-3.5 h-3.5 text-blue-400" /> {t('devices.action.updateAgent') || 'Update agent'}
  </button>
  <button
  onClick={() => { setBatchMenuOpen(false); setRunScriptOpen(true); }}
- className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
+ disabled={!everySupports('run_script')}
+ title={everySupports('run_script') ? undefined : unsupportedTooltip(t)}
+ className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
  >
  <Terminal className="w-3.5 h-3.5 text-accent" />
  {t('devices.batch.runScript') || 'Run script…'}
@@ -1065,7 +1092,7 @@ export function DeviceTable({
  <button onClick={() => handleBatchAction('delete')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
  <Trash2 className="w-3.5 h-3.5" /> {t('devices.batch.delete')}
  </button>
- <button onClick={() => handleBatchAction('uninstall_agent')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
+ <button onClick={() => handleBatchAction('uninstall_agent')} disabled={!everySupports('uninstall_agent')} title={everySupports('uninstall_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
  <UserX className="w-3.5 h-3.5" /> {t('devices.batch.uninstall')}
  </button>
  </>)}

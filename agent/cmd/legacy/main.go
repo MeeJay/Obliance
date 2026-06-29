@@ -1007,8 +1007,9 @@ func executeCommand(cmd agentCommand) {
 		"scan_network",
 		"download_file", "upload_file",
 		"check_software_compliance", "install_software", "uninstall_software",
-		"remediate_rule":
-		execErr = fmt.Errorf("not supported on legacy agent")
+		"remediate_rule",
+		"update_agent":
+		execErr = fmt.Errorf("not supported on legacy agent (redeploy MSI to update)")
 
 	default:
 		execErr = fmt.Errorf("unsupported on legacy agent")

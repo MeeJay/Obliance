@@ -218,6 +218,11 @@ async function main() {
   // Start inventory retention job (every 6h)
   setInterval(() => deviceService.pruneInventory(), 6 * 60 * 60 * 1000);
 
+  // Per-device metric-history retention (hourly ≤72h, daily ≤40d). The history
+  // buckets are written incrementally on each push; this just prunes. Every 6h.
+  deviceService.pruneMetricHistory().catch(() => {});
+  setInterval(() => deviceService.pruneMetricHistory(), 6 * 60 * 60 * 1000);
+
   // Daily fleet snapshot for the dashboard hero deltas + timeseries chart.
   // Run once on boot (idempotent via onConflict merge) so a fresh deploy has
   // a "today" row right away, then every 24h. The chart synthesises today's

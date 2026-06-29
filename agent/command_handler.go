@@ -243,6 +243,9 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 	case "restart_agent":
 		execErr = d.handleRestartAgent(cmd)
 
+	case "update_agent":
+		execErr = d.handleUpdateAgent(cmd)
+
 	case "uninstall_agent":
 		execErr = d.handleUninstallAgent()
 
@@ -2080,6 +2083,32 @@ func (d *CommandDispatcher) handleRestartAgent(cmd AgentCommand) error {
 	return nil
 }
 
+// handleUpdateAgent applies an agent update on admin request (the update_agent
+// command). Unlike the removed auto-update path, this is explicit and FORCED:
+// it applies the target version (from the command payload, else the latest
+// published version) regardless of version comparison — the admin asked for it.
+// Arch-aware MSI selection (x86 vs x64) happens inside applyUpdateIfNewer. The
+// update runs in a goroutine after a short delay so the command ack is sent
+// first; msiserver (Windows) / the service manager (Unix) then restarts the
+// agent on the new version. No-op safety: the updateMu guard inside
+// applyUpdateIfNewer prevents concurrent updates.
+func (d *CommandDispatcher) handleUpdateAgent(cmd AgentCommand) error {
+	cfg := d.makeConfig()
+	target, _ := cmd.Payload["version"].(string)
+	if target == "" {
+		target = fetchLatestVersion(cfg)
+	}
+	if target == "" {
+		return fmt.Errorf("update_agent: could not resolve a target version")
+	}
+	log.Printf("Command %s: admin-triggered agent update to %s", cmd.ID, target)
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		applyUpdateIfNewer(cfg, target, true)
+	}()
+	return nil
+}
+
 // ── ExecuteSync ───────────────────────────────────────────────────────────────
 
 // ExecuteSync runs a command synchronously and returns (result, error).
@@ -2146,6 +2175,8 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		return nil, d.handleSleep(cmd)
 	case "restart_agent":
 		return nil, d.handleRestartAgent(cmd)
+	case "update_agent":
+		return nil, d.handleUpdateAgent(cmd)
 	case "uninstall_agent":
 		return nil, d.handleUninstallAgent()
 	case "install_oblireach":

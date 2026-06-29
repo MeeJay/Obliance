@@ -76,6 +76,11 @@ class DeviceService {
       cpuCores: row.cpu_cores,
       ramTotalGb: row.ram_total_gb,
       agentVersion: row.agent_version,
+      // Server-computed: the agent reports a version and it differs from the
+      // version this server ships. Surfaces the "update available" picto + the
+      // Update button (which fires the `update_agent` command). Empty when the
+      // device has never reported a version or is already current.
+      updateAvailable: !!row.agent_version && row.agent_version !== getAgentVersion(),
       status: row.status,
       approvalStatus: row.approval_status,
       approvedBy: row.approved_by,
@@ -222,6 +227,13 @@ class DeviceService {
       // change; the agent itself never recovers from that without
       // human intervention, so functionally it's "offline + tag").
       q = q.whereIn('devices.status', ['offline', 'update_error']);
+    } else if (filters?.status === 'outdated') {
+      // Virtual status for the dashboard "agent update available" link — devices
+      // whose agent_version differs from the latest published build (same string
+      // for x64/x86). Mirrors Device.updateAvailable. Agents no longer self-
+      // update, so this is the working set for a manual update_agent rollout.
+      const latest = getAgentVersion();
+      q = q.whereNotNull('devices.agent_version').whereRaw('devices.agent_version <> ?', [latest]);
     } else if (filters?.status) {
       q = q.where({ 'devices.status': filters.status });
     }
@@ -435,6 +447,13 @@ class DeviceService {
       // change; the agent itself never recovers from that without
       // human intervention, so functionally it's "offline + tag").
       q = q.whereIn('devices.status', ['offline', 'update_error']);
+    } else if (filters?.status === 'outdated') {
+      // Virtual status for the dashboard "agent update available" link — devices
+      // whose agent_version differs from the latest published build (same string
+      // for x64/x86). Mirrors Device.updateAvailable. Agents no longer self-
+      // update, so this is the working set for a manual update_agent rollout.
+      const latest = getAgentVersion();
+      q = q.whereNotNull('devices.agent_version').whereRaw('devices.agent_version <> ?', [latest]);
     } else if (filters?.status) {
       q = q.where({ 'devices.status': filters.status });
     }
@@ -1042,6 +1061,17 @@ class DeviceService {
     const curCpu = Number(m.cpu?.percent) || 0;
     const curRam = Number(m.memory?.percent) || 0;
     const curDisk = (m.disks || []).reduce((mx, d) => Math.max(mx, Number(d?.percent) || 0), 0);
+    // Per-volume disk snapshot for the history (skip removable/empty media so
+    // a plugged USB stick doesn't pollute the per-volume trend).
+    const histDisks = (Array.isArray(m.disks) ? m.disks : [])
+      .filter((d: any) => d && d.mount && d.removable !== true && (Number(d.totalGb) || 0) > 0)
+      .map((d: any) => ({
+        mount: String(d.mount),
+        pct: Number(d.percent) || 0,
+        usedGb: Number(d.usedGb) || 0,
+        totalGb: Number(d.totalGb) || 0,
+      }));
+    const hasMetrics = !!(m.cpu || m.memory || histDisks.length);
     const prevPeak = (prev?.peak_metrics && typeof prev.peak_metrics === 'object')
       ? prev.peak_metrics as { cpu?: number; ram?: number; disk?: number; since?: string }
       : null;
@@ -1061,6 +1091,13 @@ class DeviceService {
       agent_version: push.agentVersion || db.raw('agent_version'),
       updated_at: now,
     });
+
+    // Fold this push into the pre-aggregated metric-history buckets (best-effort;
+    // history must never break a push). One atomic UPSERT per granularity.
+    if (hasMetrics) {
+      this.recordMetricHistory(deviceId, tenantId, now, curCpu, curRam, histDisks)
+        .catch((err) => logger.error(err, 'recordMetricHistory failed'));
+    }
     // ── Status resolution (single authority) ──────────────────────────────
     // Push handling used to FORCE status='online' first, then let the
     // threshold check flip it back. That created two problems:
@@ -2105,6 +2142,168 @@ class DeviceService {
     } catch (err) {
       logger.error(err, 'Fleet daily snapshot failed');
     }
+  }
+
+  // ─── Per-device metric history (pre-aggregated rolling buckets) ────────────
+  // See migration 113. No raw samples: each push folds into one hourly + one
+  // daily bucket via atomic UPSERTs. CPU/RAM are device-level; disk is
+  // PER-VOLUME (a full system disk ≠ a calm data disk). Metric columns are NOT
+  // indexed → the hot current bucket gets HOT updates without index bloat.
+
+  private async upsertCpuRamBucket(
+    table: 'device_metric_hourly' | 'device_metric_daily',
+    deviceId: number, tenantId: number, bucket: Date, cpu: number, ram: number,
+  ): Promise<void> {
+    await db(table)
+      .insert({
+        device_id: deviceId, tenant_id: tenantId, bucket,
+        cpu_sum: cpu, ram_sum: ram, samples: 1, cpu_max: cpu, cpu_min: cpu, ram_max: ram, ram_min: ram,
+      })
+      .onConflict(['device_id', 'bucket'])
+      .merge({
+        cpu_sum: db.raw(`${table}.cpu_sum + EXCLUDED.cpu_sum`),
+        ram_sum: db.raw(`${table}.ram_sum + EXCLUDED.ram_sum`),
+        samples: db.raw(`${table}.samples + 1`),
+        cpu_max: db.raw(`GREATEST(${table}.cpu_max, EXCLUDED.cpu_max)`),
+        cpu_min: db.raw(`LEAST(${table}.cpu_min, EXCLUDED.cpu_min)`),
+        ram_max: db.raw(`GREATEST(${table}.ram_max, EXCLUDED.ram_max)`),
+        ram_min: db.raw(`LEAST(${table}.ram_min, EXCLUDED.ram_min)`),
+      });
+  }
+
+  private async upsertDiskBucket(
+    table: 'device_disk_hourly' | 'device_disk_daily',
+    deviceId: number, tenantId: number, mount: string, bucket: Date,
+    pct: number, usedGb: number, totalGb: number,
+  ): Promise<void> {
+    await db(table)
+      .insert({
+        device_id: deviceId, tenant_id: tenantId, mount, bucket,
+        pct_sum: pct, samples: 1, pct_max: pct, pct_min: pct, used_gb_last: usedGb, total_gb_last: totalGb,
+      })
+      .onConflict(['device_id', 'mount', 'bucket'])
+      .merge({
+        pct_sum: db.raw(`${table}.pct_sum + EXCLUDED.pct_sum`),
+        samples: db.raw(`${table}.samples + 1`),
+        pct_max: db.raw(`GREATEST(${table}.pct_max, EXCLUDED.pct_max)`),
+        pct_min: db.raw(`LEAST(${table}.pct_min, EXCLUDED.pct_min)`),
+        used_gb_last: db.raw('EXCLUDED.used_gb_last'),
+        total_gb_last: db.raw('EXCLUDED.total_gb_last'),
+      });
+  }
+
+  /** Fold one push into the hourly + daily buckets (CPU/RAM + one row per disk
+   *  volume). Best-effort (caller swallows errors — history never breaks a push). */
+  async recordMetricHistory(
+    deviceId: number, tenantId: number, now: Date,
+    cpu: number, ram: number,
+    disks: Array<{ mount: string; pct: number; usedGb: number; totalGb: number }>,
+  ): Promise<void> {
+    const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
+    const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
+    await this.upsertCpuRamBucket('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
+    await this.upsertCpuRamBucket('device_metric_daily', deviceId, tenantId, day, cpu, ram);
+    for (const d of disks) {
+      await this.upsertDiskBucket('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
+      await this.upsertDiskBucket('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
+    }
+  }
+
+  /** Retention: hourly ≤72h (covers 24h window + margin), daily ≤40d (covers 30d). */
+  async pruneMetricHistory(): Promise<void> {
+    try {
+      const hourlyCutoff = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const dailyCutoff = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      const mh = await db('device_metric_hourly').where('bucket', '<', hourlyCutoff).del();
+      const md = await db('device_metric_daily').where('bucket', '<', dailyCutoff).del();
+      const dh = await db('device_disk_hourly').where('bucket', '<', hourlyCutoff).del();
+      const dd = await db('device_disk_daily').where('bucket', '<', dailyCutoff).del();
+      logger.info({ metricHourly: mh, metricDaily: md, diskHourly: dh, diskDaily: dd }, 'Metric-history prune complete');
+    } catch (err) {
+      logger.error(err, 'Metric-history prune failed');
+    }
+  }
+
+  /** Windowed avg/peak/min CPU·RAM (device-level) + per-volume disk %·delta over
+   *  24h/7d/30d. 24h reads the hourly tables, 7d/30d the daily tables. The sets
+   *  are tiny (≤72 hourly / ≤30 daily rows × N volumes) so we aggregate in JS.
+   *  Gaps (offline) just mean fewer buckets — never counted as 0. */
+  async getDeviceMetricsHistory(deviceId: number, tenantId: number) {
+    const isMaster = isMasterTenant(tenantId);
+    const r1 = (n: any): number | null => {
+      const v = Number(n);
+      return Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
+    };
+    const nowMs = Date.now();
+    const H24 = nowMs - 24 * 3600_000, D7 = nowMs - 7 * 24 * 3600_000, D30 = nowMs - 30 * 24 * 3600_000;
+    const scoped = (table: string) => {
+      const q = db(table).where({ device_id: deviceId });
+      if (!isMaster) q.where({ tenant_id: tenantId });
+      return q;
+    };
+
+    const [crHourly, crDaily, dkHourly, dkDaily] = await Promise.all([
+      scoped('device_metric_hourly').where('bucket', '>=', new Date(H24)).orderBy('bucket', 'asc'),
+      scoped('device_metric_daily').where('bucket', '>=', new Date(D30)).orderBy('bucket', 'asc'),
+      scoped('device_disk_hourly').where('bucket', '>=', new Date(H24)).orderBy('bucket', 'asc'),
+      scoped('device_disk_daily').where('bucket', '>=', new Date(D30)).orderBy('bucket', 'asc'),
+    ]);
+
+    const aggCpuRam = (rows: any[]) => {
+      let cpuSum = 0, ramSum = 0, samples = 0, cpuMax = 0, ramMax = 0, cpuMin = Infinity, ramMin = Infinity;
+      for (const r of rows) {
+        cpuSum += Number(r.cpu_sum) || 0; ramSum += Number(r.ram_sum) || 0; samples += Number(r.samples) || 0;
+        cpuMax = Math.max(cpuMax, Number(r.cpu_max) || 0); ramMax = Math.max(ramMax, Number(r.ram_max) || 0);
+        cpuMin = Math.min(cpuMin, Number(r.cpu_min)); ramMin = Math.min(ramMin, Number(r.ram_min));
+      }
+      return {
+        cpu: { avg: samples ? r1(cpuSum / samples) : null, peak: samples ? r1(cpuMax) : null, min: samples ? r1(cpuMin) : null },
+        ram: { avg: samples ? r1(ramSum / samples) : null, peak: samples ? r1(ramMax) : null, min: samples ? r1(ramMin) : null },
+      };
+    };
+    const cr24 = aggCpuRam(crHourly);
+    const cr7 = aggCpuRam(crDaily.filter((r: any) => new Date(r.bucket).getTime() >= D7));
+    const cr30 = aggCpuRam(crDaily);
+
+    const mounts = Array.from(new Set([...dkDaily, ...dkHourly].map((r: any) => String(r.mount)))).sort((a, b) => a.localeCompare(b));
+    const diskWindow = (rows: any[], sinceMs: number, mount: string) => {
+      let pctSum = 0, samples = 0, pctMax = 0, oldestUsed: number | null = null, lastUsed: number | null = null;
+      for (const r of rows) {
+        if (String(r.mount) !== mount || new Date(r.bucket).getTime() < sinceMs) continue;
+        pctSum += Number(r.pct_sum) || 0; samples += Number(r.samples) || 0; pctMax = Math.max(pctMax, Number(r.pct_max) || 0);
+        if (oldestUsed === null) oldestUsed = Number(r.used_gb_last); // rows asc → first kept = oldest
+        lastUsed = Number(r.used_gb_last);
+      }
+      return {
+        avgPct: samples ? r1(pctSum / samples) : null,
+        peakPct: samples ? r1(pctMax) : null,
+        deltaGb: (oldestUsed !== null && lastUsed !== null) ? r1(lastUsed - oldestUsed) : null,
+      };
+    };
+    const disks = mounts.map((mount) => {
+      let latestUsed: number | null = null, latestTotal: number | null = null, latestMs = -Infinity;
+      for (const r of [...dkDaily, ...dkHourly] as any[]) {
+        if (String(r.mount) !== mount) continue;
+        const b = new Date(r.bucket).getTime();
+        if (b >= latestMs) { latestMs = b; latestUsed = Number(r.used_gb_last); latestTotal = Number(r.total_gb_last); }
+      }
+      return {
+        mount,
+        usedGb: r1(latestUsed),
+        totalGb: r1(latestTotal),
+        windows: {
+          '24h': diskWindow(dkHourly, H24, mount),
+          '7d': diskWindow(dkDaily, D7, mount),
+          '30d': diskWindow(dkDaily, D30, mount),
+        },
+      };
+    });
+
+    return {
+      cpu: { '24h': cr24.cpu, '7d': cr7.cpu, '30d': cr30.cpu },
+      ram: { '24h': cr24.ram, '7d': cr7.ram, '30d': cr30.ram },
+      disks,
+    };
   }
 }
 

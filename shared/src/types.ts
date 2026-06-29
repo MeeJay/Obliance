@@ -209,6 +209,12 @@ export interface Device {
   ramTotalGb: number | null;
   // Agent
   agentVersion: string | null;
+  /** Computed server-side: true when this device's agent_version differs from
+   *  the latest published agent version (same version string for x64/x86).
+   *  Drives the "update available" picto/badge + the manual Update button.
+   *  Agents no longer self-update — updates are triggered from Obliance via
+   *  the `update_agent` command. */
+  updateAvailable: boolean;
   status: DeviceStatus;
   approvalStatus: ApprovalStatus;
   approvedBy: number | null;
@@ -544,6 +550,39 @@ export interface DevicePeakMetrics {
   since: string;
 }
 
+/** avg / peak / min of a percentage metric over one window (null = no data). */
+export interface MetricWindow {
+  avg: number | null;
+  peak: number | null;
+  min: number | null;
+}
+
+/** Per-window stats for one disk volume. */
+export interface DiskVolumeWindow {
+  /** Average / peak fill % of this volume over the window. */
+  avgPct: number | null;
+  peakPct: number | null;
+  /** Growth of used space over the window (GB; negative = freed). */
+  deltaGb: number | null;
+}
+
+/** History for one disk volume (mount), with per-window stats + current usage. */
+export interface DiskVolumeHistory {
+  mount: string;
+  /** Latest used / total capacity (GB) for this volume. */
+  usedGb: number | null;
+  totalGb: number | null;
+  windows: { '24h': DiskVolumeWindow; '7d': DiskVolumeWindow; '30d': DiskVolumeWindow };
+}
+
+/** Per-device windowed metric history (24h / 7d / 30d), from the pre-aggregated
+ *  buckets (migration 113). CPU/RAM are device-level; disk is per-volume. */
+export interface DeviceMetricsHistory {
+  cpu: { '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
+  ram: { '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
+  disks: DiskVolumeHistory[];
+}
+
 // ─── AGENT API KEYS ──────────────────────────────────────────────────────────
 
 export interface AgentApiKey {
@@ -575,6 +614,7 @@ export type CommandType =
   | 'shutdown'
   | 'sleep'
   | 'restart_agent'
+  | 'update_agent'
   | 'list_services'
   | 'restart_service'
   | 'start_service'
@@ -614,6 +654,29 @@ export type CommandType =
   | 'install_vm_console'
   | 'veeam_list_jobs'
   | 'veeam_control';
+
+/** Commands the legacy Go 1.20 agent (Server 2008 R2 / 2012) can execute.
+ *  Mirror of its dispatch switch (agent/cmd/legacy/main.go). The modern agent
+ *  supports EVERY CommandType; the legacy agent lacks tunnels, ObliReach,
+ *  Hyper-V, Veeam, VM console, file transfer, software compliance, custom
+ *  sections, privacy-password management AND self-update (update_agent).
+ *  Used to grey out unsupported actions in the UI per device.agentFlavor. */
+export const LEGACY_AGENT_COMMANDS: readonly CommandType[] = [
+  'run_script', 'cancel_script', 'restart_agent', 'scan_inventory', 'reboot', 'shutdown', 'sleep',
+  'list_processes', 'kill_process', 'list_services', 'restart_service', 'start_service', 'stop_service',
+  'list_directory', 'create_directory', 'rename_file', 'delete_file', 'check_compliance', 'scan_updates',
+  'install_update', 'install_updates', 'uninstall_agent', 'list_wts_sessions', 'disable_privacy_mode',
+  'enable_airgap', 'disable_airgap',
+];
+
+/** Whether an agent of the given flavor can execute a command. Modern agents
+ *  (and unknown/null = assume modern, the safe default — at worst a rare legacy
+ *  agent shows an action that errors gracefully) support everything; legacy
+ *  agents are limited to LEGACY_AGENT_COMMANDS. */
+export function agentSupportsCommand(flavor: 'modern' | 'legacy' | null | undefined, command: CommandType): boolean {
+  if (flavor !== 'legacy') return true;
+  return LEGACY_AGENT_COMMANDS.includes(command);
+}
 
 export type CommandStatus = 'pending' | 'sent' | 'ack_running' | 'success' | 'failure' | 'timeout' | 'cancelled';
 export type CommandPriority = 'low' | 'normal' | 'high' | 'urgent';

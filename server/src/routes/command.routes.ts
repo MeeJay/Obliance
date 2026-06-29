@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { commandService } from '../services/command.service';
+import { getAgentVersion } from '../services/device.service';
 import { agentHub } from '../services/agentHub.service';
 import { permissionService } from '../services/permission.service';
 import { privacyGateService } from '../services/privacyGate.service';
@@ -38,6 +39,10 @@ router.post('/', async (req, res, next) => {
       'install_software', 'uninstall_software', 'check_software_compliance',
       'enable_privacy_mode',
       'upload_file', 'download_file',
+      // The legacy Go 1.20 agent has no self-update path (no MSI, deployed
+      // via sc create) — it explicitly rejects update_agent. Refuse here so
+      // the admin gets a clear error instead of a ghost command.
+      'update_agent',
     ];
     if (device.agent_flavor === 'legacy' && LEGACY_INCOMPATIBLE.includes(type)) {
       return next(new AppError(409,
@@ -64,6 +69,8 @@ router.post('/', async (req, res, next) => {
       'install_software',
       'uninstall_software',
       'check_software_compliance',
+      // Force-applying an agent update is an admin-only operation.
+      'update_agent',
     ];
 
     if (req.session.role !== 'admin') {
@@ -100,6 +107,18 @@ router.post('/', async (req, res, next) => {
         return next(new AppError(423, `Privacy mode is active — unlock required for feature '${feature}'`));
       }
       effectivePayload = { ...payload, unlockToken: token };
+    }
+
+    // Force-update: stamp the server's current agent version into the payload
+    // when the caller didn't supply one, so the agent applies exactly the
+    // build this server ships (the agent falls back to GET /api/agent/version
+    // only if even this is missing).
+    if (type === 'update_agent' && !effectivePayload?.version) {
+      const ver = getAgentVersion();
+      if (!ver) {
+        return next(new AppError(409, 'Cannot determine the latest agent version (agent/VERSION missing).'));
+      }
+      effectivePayload = { ...effectivePayload, version: ver };
     }
 
     // ── Action restriction gate ───────────────────────────────────────────

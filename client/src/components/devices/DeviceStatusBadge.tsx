@@ -21,14 +21,21 @@ interface Props {
   scheduleAlert?: ScheduleAlert | null;
   size?: 'sm' | 'md';
   showDot?: boolean;
+  /** When true, render a small blue "Update available" pill next to the
+   *  status — unless the device is already mid-update / errored, in which
+   *  case the status badge itself already conveys the update state. */
+  updateAvailable?: boolean;
 }
 
-export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size = 'md', showDot = true }: Props) {
+export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size = 'md', showDot = true, updateAvailable = false }: Props) {
   const { t } = useTranslation();
   const isRefused = approvalStatus === 'refused';
   const cfg = isRefused
     ? { i18nKey: 'deviceStatus.refused', color: 'text-red-400 bg-red-400/10 border-red-400/30', dot: 'bg-red-400' }
     : STATUS_CONFIG[status] ?? STATUS_CONFIG.offline;
+  // The update-available pill is redundant while the agent is already
+  // updating or has errored mid-update — the status badge says it.
+  const showUpdateAvailable = updateAvailable && status !== 'updating' && status !== 'update_error';
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={clsx(
@@ -50,6 +57,18 @@ export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size 
         >
           <span className={clsx('rounded-full bg-orange-400 animate-pulse', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2')} />
           {t('deviceStatus.scheduleError')}
+        </span>
+      )}
+      {showUpdateAvailable && (
+        <span
+          className={clsx(
+            'inline-flex items-center font-medium border rounded-full',
+            size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5',
+            'text-blue-400 bg-blue-400/10 border-blue-400/30',
+          )}
+          title={t('deviceStatus.updateAvailable') || 'Update available'}
+        >
+          {t('deviceStatus.updateAvailable') || 'Update available'}
         </span>
       )}
     </span>

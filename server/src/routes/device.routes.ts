@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import dns from 'dns/promises';
-import { deviceService } from '../services/device.service';
+import { deviceService, getAgentVersion } from '../services/device.service';
 import { customMetricService } from '../services/customMetric.service';
 import { customSectionService } from '../services/customSection.service';
 import { commandService } from '../services/command.service';
@@ -688,7 +688,7 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
   try {
     const { groupId, deviceIds, action } = req.body as {
       groupId?: number; deviceIds?: number[];
-      action: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep' | 'scan_inventory' | 'scan_updates' | 'check_compliance';
+      action: 'restart_agent' | 'reboot' | 'shutdown' | 'sleep' | 'scan_inventory' | 'scan_updates' | 'check_compliance' | 'update_agent';
     };
     if (!action) return res.status(400).json({ error: 'action required' });
 
@@ -702,8 +702,11 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
     }
     if (!ids.length) return res.json({ data: { dispatched: 0 } });
 
-    // Gate destructive actions via the per-action restriction policy.
-    const destructive = ['reboot', 'shutdown', 'restart_agent', 'sleep'].includes(action);
+    // Gate destructive actions via the per-action restriction policy. update_agent
+    // is included so the batch path honours the same restriction matrix as the
+    // single-command path (POST /api/commands) — otherwise an admin who set
+    // command.update_agent to 'sensitive'/'restricted' would have it bypassed here.
+    const destructive = ['reboot', 'shutdown', 'restart_agent', 'sleep', 'update_agent'].includes(action);
     if (destructive) {
       const { applyRestriction } = await import('../services/restriction.service');
       const approved = await applyRestriction(res, {
@@ -717,12 +720,33 @@ router.post('/batch', requireRole('admin'), async (req, res, next) => {
       if (!approved) return;
     }
 
+    // update_agent carries the server's current agent version in the
+    // payload so the agent applies exactly that build (it falls back to
+    // GET /api/agent/version if absent). Legacy (Go 1.20) agents reject
+    // update_agent, so skip them in the batch rather than queuing a ghost
+    // command that hangs forever.
+    let targetIds = ids;
+    let updatePayload: { version: string } | undefined;
+    if (action === 'update_agent') {
+      const ver = getAgentVersion();
+      if (!ver) {
+        return res.status(409).json({ error: 'Cannot determine the latest agent version (agent/VERSION missing).' });
+      }
+      updatePayload = { version: ver };
+      const flavorRows = await db('devices')
+        .whereIn('id', ids)
+        .where({ tenant_id: req.tenantId! })
+        .select('id', 'agent_flavor');
+      targetIds = flavorRows.filter((r: any) => r.agent_flavor !== 'legacy').map((r: any) => r.id);
+    }
+
     let dispatched = 0;
-    for (const deviceId of ids) {
+    for (const deviceId of targetIds) {
       await commandService.enqueue({
         deviceId,
         tenantId: req.tenantId!,
         type: action as any,
+        payload: updatePayload,
         priority: 'normal',
         createdBy: req.session.userId,
       });
@@ -777,6 +801,16 @@ router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
       });
     }
     res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/metrics/history — windowed CPU/RAM avg·peak·min + disk
+// usage/delta over 24h / 7d / 30d, from the pre-aggregated metric buckets.
+router.get('/:id/metrics/history', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const history = await deviceService.getDeviceMetricsHistory(deviceId, req.tenantId!);
+    res.json({ data: history });
   } catch (err) { next(err); }
 });
 

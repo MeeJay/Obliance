@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
   AlertTriangle, AlertCircle, HardDrive, ShieldCheck, FolderTree, Wifi, WifiOff, Box,
-  Building2, Server, LayoutDashboard, Database,
+  Building2, Server, LayoutDashboard, Database, Download,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDeviceStore } from '@/store/deviceStore';
@@ -282,7 +282,7 @@ function MiniStat({ icon, label, value, sub, color = 'text-text-primary', to }: 
 
 // ── Top versions agent (horizontal bars) ─────────────────────────────────────
 
-function AgentVersionsCard({ rows }: { rows: AgentVersionRow[] }) {
+function AgentVersionsCard({ rows, updatesAvailable }: { rows: AgentVersionRow[]; updatesAvailable: number }) {
   const { t } = useTranslation();
   const max = Math.max(...rows.map(r => r.count), 1);
   return (
@@ -291,6 +291,15 @@ function AgentVersionsCard({ rows }: { rows: AgentVersionRow[] }) {
         <div className="text-[15px] font-semibold text-text-primary">{t('dashboard.topAgentVersions', 'Top versions agent')}</div>
         <div className="text-[11px] font-mono text-text-muted tracking-wider">{t('dashboard.agentVersionsSub', 'distribution du parc')}</div>
       </div>
+      {updatesAvailable > 0 && (
+        <Link
+          to="/devices?status=outdated"
+          className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-1 rounded text-[12px] font-mono text-blue-400 hover:bg-bg-hover transition-colors"
+        >
+          <Download size={13} className="shrink-0" />
+          <span>{t('dashboard.devicesWithUpdates', { count: updatesAvailable }) || `${updatesAvailable} device(s) with an update available`}</span>
+        </Link>
+      )}
       {rows.length === 0 ? (
         <div className="text-text-muted text-sm py-4">{t('dashboard.noVersionsReported', 'Aucune version reportée')}</div>
       ) : (
@@ -808,6 +817,14 @@ export function DashboardPage() {
   const stale       = summary?.staleDevices ?? 0;
   const upToDate    = summary?.agentUpToDate ?? 0;
   const outdated    = summary?.agentOutdated ?? 0;
+  // Devices the server flagged as having an agent update available. Computed
+  // from the live device set (the summary doesn't carry this count), so it
+  // tracks the same `updateAvailable` flag surfaced on /devices rows.
+  const updatesAvailable = useMemo(() => {
+    let n = 0;
+    devices.forEach((d) => { if (d.updateAvailable) n += 1; });
+    return n;
+  }, [devices]);
   const latestVer   = summary?.latestAgentVersion ?? '';
   const remoteSess  = summary?.activeRemoteSessions ?? 0;
   const upcoming    = summary?.upcomingSchedules ?? 0;
@@ -1203,7 +1220,7 @@ export function DashboardPage() {
 
       {/* Secondary metrics row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <AgentVersionsCard rows={versions} />
+        <AgentVersionsCard rows={versions} updatesAvailable={updatesAvailable} />
         <ComplianceGauge score={summary?.complianceScore ?? null} />
         <DiskSaturationCard data={disks} />
         <RemoteSessionsCard active={remoteSess} />

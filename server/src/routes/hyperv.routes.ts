@@ -230,6 +230,22 @@ router.get('/export', async (req, res, next) => {
       vms = await hyperVService.listForTenant(req.tenantId!, hostIds);
     }
 
+    // Honour the grid's active filters so the export contains exactly the rows
+    // the user sees (not the whole inventory). Mirrors HyperVVmTable: host tag
+    // filter (OR semantics) + search on VM name / host name (case-insensitive).
+    const tagsRaw = req.query.tags;
+    const tags = Array.isArray(tagsRaw)
+      ? tagsRaw.map(String)
+      : (typeof tagsRaw === 'string' && tagsRaw ? tagsRaw.split(',').map((s) => s.trim()).filter(Boolean) : []);
+    if (tags.length) {
+      vms = vms.filter((v: any) => Array.isArray(v.hostTags) && v.hostTags.some((tg: string) => tags.includes(tg)));
+    }
+    const search = (typeof req.query.search === 'string' ? req.query.search : '').trim().toLowerCase();
+    if (search) {
+      vms = vms.filter((v: any) =>
+        (v.name || '').toLowerCase().includes(search) || (v.hostName || '').toLowerCase().includes(search));
+    }
+
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
     const baseName = `obliance-hyperv-vms-${ts}`;
 

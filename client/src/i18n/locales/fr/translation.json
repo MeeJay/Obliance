@@ -253,6 +253,7 @@
   "dashboard": {
     "title": "Vue d'ensemble",
     "viewAll": "Voir tous les appareils",
+    "devicesWithUpdates": "{{count}} appareil(s) avec mise à jour disponible",
     "pendingUpdates": "Mises à jour en attente",
     "manage": "Gérer",
     "view": "Voir",
@@ -1202,8 +1203,14 @@
       "runScriptParamWarn": "Ce script déclare des paramètres obligatoires. Utilisez la page d'exécution dédiée pour les renseigner.",
       "runScriptOpenRunPage": "Ouvrir la page d'exécution →",
       "runScriptConfirm": "Exécuter",
-      "runScriptDispatched": "Script envoyé à {{count}} appareils"
+      "runScriptDispatched": "Script envoyé à {{count}} appareils",
+      "updateAgent": "Mettre à jour l'agent"
     },
+    "action": {
+      "updateAgent": "Mettre à jour l'agent",
+      "updateAgentConfirm": "Mettre à jour l'agent sur {{count}} appareil(s) ?"
+    },
+    "majPill": "MAJ",
     "actions": {
       "view": "Voir",
       "refuse": "Refuser",
@@ -1385,9 +1392,23 @@
     "systemBadge": "Système",
     "userBadge": "Personnalisé"
   },
+  "deviceHistory": {
+    "title": "Historique",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "disk": "Disque",
+    "avg": "Moyenne",
+    "peak": "Pic",
+    "delta": "Δ utilisé",
+    "disksTitle": "Disques (par volume)",
+    "volume": "Volume",
+    "used": "Utilisé",
+    "empty": "Pas encore de données — l'historique se remplit au fil des remontées de l'agent."
+  },
   "deviceDetail": {
     "tabSettings": "Paramètres",
     "notFound": "Appareil introuvable",
+    "updateBanner": "Mise à jour de l'agent disponible",
     "locate": {
       "switching": "Bascule vers {{tenant}}…",
       "backLink": "← Retour aux appareils"
@@ -1558,6 +1579,7 @@
     "selectKey": "Clé API",
     "chooseKey": "Sélectionnez une clé API...",
     "windowsHint": "Exécuter dans PowerShell en tant qu'administrateur",
+    "windowsX86Hint": "Exécuter dans PowerShell (admin) — Windows 32 bits (Win7/Win10 x86). Agent moderne complet, toutes les fonctionnalités.",
     "linuxHint": "Exécuter dans le terminal (root ou sudo)",
     "macosHint": "Exécuter dans le terminal (Apple Silicon & Intel)",
     "freebsdHint": "Exécuter dans un shell root sur FreeBSD / OPNsense :",
@@ -1910,7 +1932,11 @@
     "updating": "Mise à jour",
     "updateError": "Erreur MAJ",
     "refused": "Refusé",
-    "scheduleError": "Erreur planification"
+    "scheduleError": "Erreur planification",
+    "updateAvailable": "Mise à jour dispo"
+  },
+  "commands": {
+    "unsupportedOnAgent": "Non supporté par cette version d'agent"
   },
   "chat": {
     "discussionWith": "Discussion avec {{name}}",

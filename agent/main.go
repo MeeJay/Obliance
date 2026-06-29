@@ -221,10 +221,13 @@ func isStrictlyNewer(remote, current string) bool {
 
 // ── Auto-update ───────────────────────────────────────────────────────────────
 
-// checkForUpdate calls GET /api/agent/version once (at startup) and delegates
-// to applyUpdateIfNewer. During normal operation the version is piggybacked
-// on every push response, so this startup check just handles the initial boot.
-func checkForUpdate(cfg *Config) {
+// fetchLatestVersion queries GET /api/agent/version and returns the latest
+// published agent version ("" on error). The agent NO LONGER self-updates
+// automatically — updates are triggered from Obliance via the `update_agent`
+// command (admin-controlled, to avoid mass simultaneous-update storms). This
+// helper is the fallback the command handler uses when the command payload
+// omits an explicit target version.
+func fetchLatestVersion(cfg *Config) string {
 	type versionResponse struct {
 		Version string `json:"version"`
 	}
@@ -232,17 +235,17 @@ func checkForUpdate(cfg *Config) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Get(cfg.ServerURL + "/api/agent/version")
 	if err != nil {
-		log.Printf("Auto-update: version check failed: %v", err)
-		return
+		log.Printf("update_agent: version check failed: %v", err)
+		return ""
 	}
 	defer resp.Body.Close()
 
 	var info versionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil || info.Version == "" {
-		return
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		log.Printf("update_agent: version response decode failed: %v", err)
+		return ""
 	}
-
-	applyUpdateIfNewer(cfg, info.Version)
+	return info.Version
 }
 
 // verifyFileSHA256 checks the SHA-256 of a downloaded file against the expected hash.
@@ -263,20 +266,22 @@ func verifyFileSHA256(filePath, expectedHash string) bool {
 	return actual == expectedHash
 }
 
-// updateMu prevents concurrent auto-update attempts. Multiple goroutines
-// (checkForUpdate, commandPoller, push) may call applyUpdateIfNewer at the
-// same time; without this guard they race on the same temp files, causing one
-// goroutine to delete the MSI that the other's batch script needs — silently
-// breaking the update.
+// updateMu prevents concurrent update attempts. Updates are now only triggered
+// by the admin-initiated update_agent command (handleUpdateAgent); without this
+// guard two concurrent update commands could race on the same temp files,
+// causing one goroutine to delete the MSI the other's installer needs —
+// silently breaking the update.
 var updateMu sync.Mutex
 var updateInProgress bool
 
-// applyUpdateIfNewer downloads and applies an update when remoteVersion is
-// strictly newer than the running agentVersion. Safe to call from push()
-// (periodic) and checkForUpdate (startup) — exits/restarts if an update is
-// applied, returns immediately if already up to date or on any error.
-func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
-	if !isStrictlyNewer(remoteVersion, agentVersion) {
+// applyUpdateIfNewer downloads and applies an agent update. With force=false it
+// only proceeds when remoteVersion is strictly newer than the running version.
+// With force=true (the admin-triggered `update_agent` command) it always applies
+// the requested version — the admin explicitly asked, so version comparison is
+// skipped. Returns after launching the installer; on Windows msiserver stops
+// the service via SCM (no os.Exit); on Unix it execs the new binary.
+func applyUpdateIfNewer(cfg *Config, remoteVersion string, force bool) {
+	if !force && !isStrictlyNewer(remoteVersion, agentVersion) {
 		return
 	}
 
@@ -295,18 +300,23 @@ func applyUpdateIfNewer(cfg *Config, remoteVersion string) {
 		updateMu.Unlock()
 	}()
 
-	log.Printf("Auto-update: new version available %s → %s, downloading...", agentVersion, remoteVersion)
+	log.Printf("Agent update: applying %s → %s (force=%v), downloading...", agentVersion, remoteVersion, force)
 
 	// Notify the server we are about to go offline for an update.
 	// This sets the "UPDATING" badge in the UI and suppresses offline alerts
-	// for up to 10 minutes, so admins are not paged during a routine update.
+	// for up to 10 minutes, so admins are not paged during the update.
 	notifyServerUpdating(cfg)
 
 	// On Windows we download the full MSI so that the installer handles
 	// service registration and other setup. On other platforms we download the bare binary.
 	var filename string
 	if runtime.GOOS == "windows" {
-		filename = "obliance-agent.msi"
+		// Arch-aware: 32-bit Windows installs the x86 MSI, 64-bit the default.
+		if runtime.GOARCH == "386" {
+			filename = "obliance-agent-x86.msi"
+		} else {
+			filename = "obliance-agent.msi"
+		}
 	} else {
 		filename = fmt.Sprintf("obliance-agent-%s-%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -548,11 +558,11 @@ func mainLoop(cfg *Config) {
 	// instead of waiting for the next poll cycle (up to 60 s).
 	go runCommandChannel(dispatcher, cfg.ServerURL, cfg.APIKey, cfg.TlsInsecureSkipVerify)
 
-	// Check for a newer version before starting the command poller.
-	// On Linux/macOS: atomic rename + exit (service manager restarts with new binary).
-	// On Windows: writes %TEMP%\obliance-update.bat, exits; batch stops service,
-	//             moves new exe in place, restarts service.
-	checkForUpdate(cfg)
+	// NOTE: the agent no longer self-updates at startup (or on any push/poll).
+	// Updates are triggered exclusively from Obliance via the `update_agent`
+	// command, so a published version never causes a spontaneous fleet-wide
+	// update storm. The version is still reported for display ("update
+	// available" badge); applying it is admin-initiated.
 
 	// Start the dedicated command-poll goroutine — fallback for when the
 	// command channel is temporarily down.  Polls GET /api/agent/commands

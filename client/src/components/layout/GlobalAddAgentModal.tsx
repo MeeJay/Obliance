@@ -32,7 +32,7 @@ export function GlobalAddAgentModal() {
  const [keys, setKeys] = useState<AgentApiKey[]>([]);
  const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
  const [osTab, setOsTab] = useState<OsTab>('windows');
- const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'legacy' | 'manual'>('modern');
+ const [legacyWindows, setLegacyWindows] = useState<'modern' | 'oldtls' | 'x86' | 'legacy' | 'manual'>('modern');
  const [linuxMode, setLinuxMode] = useState<'modern' | 'manual'>('modern');
  const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -54,6 +54,8 @@ export function GlobalAddAgentModal() {
  const macosCmd = selectedKey ? `sudo bash -c "$(curl -fsSL '${deviceApi.getInstallerUrl('macos', selectedKey.key)}')"` : '';
  const windowsCmdModern = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
  const windowsCmdOldTls = selectedKey ? `$m="$env:TEMP\\obliance-agent.msi"; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/installer/windows.msi" -Destination $m; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
+ // 32-bit Windows (x86) — same modern flow, points at the dedicated x86 MSI.
+ const windowsCmdX86 = selectedKey ? `$m="$env:TEMP\\obliance-agent-x86.msi"; Invoke-WebRequest "${origin}/api/agent/installer/windows-x86.msi" -OutFile $m -UseBasicParsing; Start-Process msiexec -ArgumentList "/i \`"$m\`" SERVERURL=\`"${origin}\`" APIKEY=\`"${selectedKey.key}\`" /quiet" -Wait -Verb RunAs; Remove-Item $m` : '';
  // Use New-Service instead of sc.exe — PowerShell's argument splitter
  // mangles sc.exe's `binPath= "quoted path" ...` syntax (the space after
  // `=` makes every token a separate arg, so sc.exe prints help + start
@@ -61,7 +63,7 @@ export function GlobalAddAgentModal() {
  // that is written verbatim into the ImagePath registry value, bypassing
  // the whole quoting mess. Available on Server 2008 R2 / PowerShell 2.0+.
  const windowsCmdLegacy = selectedKey ? `$d="C:\\Program Files\\OblianceAgent"; New-Item -ItemType Directory -Force -Path $d | Out-Null; Import-Module BitsTransfer; Start-BitsTransfer -Source "${origin}/api/agent/download/obliance-legacy.exe" -Destination "$d\\obliance-agent.exe"; New-Service -Name OblianceAgent -BinaryPathName "\`"$d\\obliance-agent.exe\`" --url ${origin} --key ${selectedKey.key}" -StartupType Automatic -DisplayName "Obliance Monitoring Agent"; Start-Service OblianceAgent` : '';
- const windowsCmd = legacyWindows === 'legacy' ? windowsCmdLegacy : legacyWindows === 'oldtls' ? windowsCmdOldTls : windowsCmdModern;
+ const windowsCmd = legacyWindows === 'legacy' ? windowsCmdLegacy : legacyWindows === 'oldtls' ? windowsCmdOldTls : legacyWindows === 'x86' ? windowsCmdX86 : windowsCmdModern;
  const freebsdCmd = selectedKey ? `fetch -qo - "${deviceApi.getInstallerUrl('freebsd', selectedKey.key)}" | sh` : '';
 
  const osTabs: Array<{ id: OsTab; label: string; icon: React.ReactNode }> = [
@@ -160,6 +162,7 @@ export function GlobalAddAgentModal() {
  <p className="text-xs font-medium text-text-muted">
  {legacyWindows === 'legacy' ? 'Run in PowerShell (admin) — Server 2008 R2 / 2012'
  : legacyWindows === 'oldtls' ? 'Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)'
+ : legacyWindows === 'x86' ? (t('addAgent.windowsX86Hint') || 'Run in PowerShell (admin) — 32-bit Windows (Win7/Win10 x86). Full modern agent, all features.')
  : legacyWindows === 'manual' ? (t('addAgent.manualHint') || 'Download the wizard EXE, copy it to the target box (USB / RDP clipboard / share), double-click. MSI is embedded — no internet required on the target.')
  : t('addAgent.windowsHint')}
  </p>
@@ -168,7 +171,8 @@ export function GlobalAddAgentModal() {
  onChange={e => setLegacyWindows(e.target.value as any)}
  className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted"
  >
- <option value="modern">Windows 10+</option>
+ <option value="modern">Windows 10+ (64-bit)</option>
+ <option value="x86">Windows 7/10 (32-bit)</option>
  <option value="oldtls">Server 2012/2016</option>
  <option value="legacy">Server 2008 R2</option>
  <option value="manual">Manual / offline (wizard)</option>

@@ -57,10 +57,19 @@ export const hypervApi = {
   },
 
   /** Export the VM inventory (allocated vCPU/RAM + host + everything stored).
-   *  Pass `deviceId` to scope to one host; omit for the tenant-wide grid. */
-  async export(format: 'csv' | 'xlsx' | 'pdf', deviceId?: number): Promise<{ blob: Blob; filename: string }> {
+   *  Pass `deviceId` to scope to one host; omit for the tenant-wide grid.
+   *  `tags`/`search` mirror the grid's active filters so the export contains
+   *  exactly the rows currently displayed (not the whole inventory). */
+  async export(
+    format: 'csv' | 'xlsx' | 'pdf',
+    opts: { deviceId?: number; tags?: string[]; search?: string } = {},
+  ): Promise<{ blob: Blob; filename: string }> {
+    const params: Record<string, any> = { format };
+    if (opts.deviceId) params.deviceId = opts.deviceId;
+    if (opts.tags && opts.tags.length) params.tags = opts.tags.join(',');
+    if (opts.search && opts.search.trim()) params.search = opts.search.trim();
     const res = await apiClient.get('/hyperv/export', {
-      params: { format, ...(deviceId ? { deviceId } : {}) },
+      params,
       responseType: 'blob',
     });
     const cd = res.headers['content-disposition'] || res.headers['Content-Disposition'] || '';

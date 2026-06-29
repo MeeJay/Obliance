@@ -113,6 +113,10 @@ export function desktopVersion(_req: Request, res: Response): void {
 const ALLOWED_AGENT_BINARIES: Record<string, string> = {
   // Windows: full MSI installer (handles service, PawnIO driver, etc.)
   'obliance-agent.msi':             'obliance-agent.msi',
+  // Windows 32-bit (x86): full MSI built from product-x86.wxs — modern agent,
+  // full feature parity (own UpgradeCode, separate from the x64 MSI).
+  'obliance-agent-x86.msi':         'obliance-agent-x86.msi',
+  'obliance-installer-wizard-x86.exe': 'obliance-installer-wizard-x86.exe',
   // Windows: bare exe (kept for manual / legacy use)
   'obliance-agent.exe':             'obliance-agent.exe',
   // Windows legacy: Go 1.20 build for Server 2008 R2 / 2012 / 2016
@@ -271,14 +275,24 @@ export function agentInstallerFreebsd(req: Request, res: Response): void {
 }
 
 export function agentInstallerWindowsMsi(_req: Request, res: Response): void {
-  const msiPath = path.resolve(__dirname, '../../../../agent/dist/obliance-agent.msi');
+  serveMsi(res, 'obliance-agent.msi');
+}
+
+// 32-bit (x86) MSI — built from agent/installer/product-x86.wxs into
+// agent/dist/obliance-agent-x86.msi. Completely separate artifact from the
+// x64 MSI above (own UpgradeCode / component GUIDs), so the two never collide.
+export function agentInstallerWindowsMsiX86(_req: Request, res: Response): void {
+  serveMsi(res, 'obliance-agent-x86.msi');
+}
+
+function serveMsi(res: Response, file: string): void {
+  const msiPath = path.resolve(__dirname, `../../../../agent/dist/${file}`);
   if (!fs.existsSync(msiPath)) {
     res.status(404).json({ error: 'MSI installer not available (not yet built)' });
     return;
   }
-
   res.setHeader('Content-Type', 'application/x-msi');
-  res.setHeader('Content-Disposition', 'attachment; filename="obliance-agent.msi"');
+  res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
   res.sendFile(msiPath);
 }
 
@@ -310,7 +324,18 @@ export function agentInstallerWindowsMsi(_req: Request, res: Response): void {
 const CFG_MAGIC = Buffer.from('OBLI_CFG', 'utf8');
 
 export async function agentInstallerWizard(req: Request, res: Response): Promise<void> {
-  const exePath = path.resolve(__dirname, '../../../../agent/dist/obliance-installer-wizard.exe');
+  return streamWizard(req, res, 'obliance-installer-wizard.exe');
+}
+
+// 32-bit (x86) install wizard — same OBLI_CFG pre-fill protocol, points at the
+// windows/386 build (agent/dist/obliance-installer-wizard-x86.exe) which embeds
+// the x86 MSI. Separate from the x64 wizard above; no shared state.
+export async function agentInstallerWizardX86(req: Request, res: Response): Promise<void> {
+  return streamWizard(req, res, 'obliance-installer-wizard-x86.exe');
+}
+
+async function streamWizard(req: Request, res: Response, exeFile: string): Promise<void> {
+  const exePath = path.resolve(__dirname, `../../../../agent/dist/${exeFile}`);
   if (!fs.existsSync(exePath)) {
     res.status(404).json({ error: 'Wizard installer not available (not yet built)' });
     return;
@@ -352,7 +377,7 @@ export async function agentInstallerWizard(req: Request, res: Response): Promise
   }
 
   res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', 'attachment; filename="obliance-installer-wizard.exe"');
+  res.setHeader('Content-Disposition', `attachment; filename="${exeFile}"`);
   res.setHeader('Content-Length', String(payload.length));
   res.send(payload);
 }
