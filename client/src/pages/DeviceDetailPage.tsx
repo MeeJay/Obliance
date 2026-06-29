@@ -8,7 +8,7 @@ import {
  Server, Power, RotateCcw, Loader2, ScanLine, ChevronDown, ChevronRight, Play, Square, Activity,
  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
- ArrowRightLeft, Pencil, Check, StickyNote, Database,
+ ArrowRightLeft, Pencil, Check, StickyNote, Database, TrendingUp, TrendingDown, Minus,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
@@ -357,19 +357,41 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
   if (loading || !hist) return null;
 
   const windows = [
+    { key: '1h' as const, label: '1H' },
     { key: '24h' as const, label: '24h' },
     { key: '7d' as const, label: '7j' },
     { key: '30d' as const, label: '30j' },
   ];
   const pct = (n: number | null) => (n == null ? '—' : `${n}%`);
-  const delta = (n: number | null) => (n == null ? '—' : `${n > 0 ? '+' : ''}${n} Go`);
 
-  const hasCpuRam = hist.cpu['24h'].avg != null || hist.cpu['7d'].avg != null || hist.cpu['30d'].avg != null;
+  const hasCpuRam = (['1h', '24h', '7d', '30d'] as const).some((w) => hist.cpu[w].avg != null);
   const hasData = hasCpuRam || hist.disks.length > 0;
 
-  const MetricCard = ({ title, accent, rows }: { title: string; accent: string; rows: Array<{ label: string; vals: string[] }> }) => (
+  // Signed value with a red/green "graph" arrow. Rising = red (resource filling
+  // up / load climbing), falling = green, flat = muted.
+  const DeltaValue = ({ value, suffix, threshold = 0.05 }: { value: number | null; suffix?: string; threshold?: number }) => {
+    if (value == null) return <span className="text-text-muted">—</span>;
+    const up = value > threshold, down = value < -threshold;
+    const Icon = up ? TrendingUp : down ? TrendingDown : Minus;
+    return (
+      <span className={clsx('inline-flex items-center justify-end gap-1 font-mono tabular-nums', up ? 'text-red-400' : down ? 'text-green-400' : 'text-text-muted')}>
+        <Icon className="w-3 h-3 shrink-0" />
+        {value > 0 ? '+' : ''}{value}{suffix}
+      </span>
+    );
+  };
+  // Trend chip in a CPU/RAM card header: last hour vs the 24h baseline (rising = red).
+  const TrendChip = ({ recent, baseline }: { recent: number | null; baseline: number | null }) => {
+    if (recent == null || baseline == null) return null;
+    return <DeltaValue value={Math.round((recent - baseline) * 10) / 10} suffix="pt" threshold={1} />;
+  };
+
+  const MetricCard = ({ title, accent, data }: { title: string; accent: string; data: DeviceMetricsHistory['cpu'] }) => (
     <div className="p-3 bg-bg-tertiary rounded-lg">
-      <span className={clsx('text-xs font-semibold', accent)}>{title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className={clsx('text-xs font-semibold', accent)}>{title}</span>
+        <span className="text-[10px]"><TrendChip recent={data['1h'].avg} baseline={data['24h'].avg} /></span>
+      </div>
       <table className="w-full text-xs mt-2">
         <thead>
           <tr className="text-text-muted">
@@ -378,10 +400,13 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.label}>
+          {([
+            { label: t('deviceHistory.avg') || 'Moyenne', pick: 'avg' as const },
+            { label: t('deviceHistory.peak') || 'Pic', pick: 'peak' as const },
+          ]).map((r) => (
+            <tr key={r.pick}>
               <td className="text-text-muted py-0.5 pr-2">{r.label}</td>
-              {r.vals.map((v, i) => <td key={i} className="text-right font-mono text-text-primary tabular-nums">{v}</td>)}
+              {windows.map((w) => <td key={w.key} className="text-right font-mono text-text-primary tabular-nums">{pct(data[w.key][r.pick])}</td>)}
             </tr>
           ))}
         </tbody>
@@ -397,14 +422,8 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <MetricCard title={t('deviceHistory.cpu') || 'CPU'} accent="text-cyan-400" rows={[
-              { label: t('deviceHistory.avg') || 'Moyenne', vals: windows.map((w) => pct(hist.cpu[w.key].avg)) },
-              { label: t('deviceHistory.peak') || 'Pic', vals: windows.map((w) => pct(hist.cpu[w.key].peak)) },
-            ]} />
-            <MetricCard title={t('deviceHistory.ram') || 'RAM'} accent="text-violet-400" rows={[
-              { label: t('deviceHistory.avg') || 'Moyenne', vals: windows.map((w) => pct(hist.ram[w.key].avg)) },
-              { label: t('deviceHistory.peak') || 'Pic', vals: windows.map((w) => pct(hist.ram[w.key].peak)) },
-            ]} />
+            <MetricCard title={t('deviceHistory.cpu') || 'CPU'} accent="text-cyan-400" data={hist.cpu} />
+            <MetricCard title={t('deviceHistory.ram') || 'RAM'} accent="text-violet-400" data={hist.ram} />
           </div>
 
           {hist.disks.length > 0 && (
@@ -417,6 +436,7 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
                       <th className="text-left font-medium pb-1 pr-2">{t('deviceHistory.volume') || 'Volume'}</th>
                       <th className="text-right font-medium pb-1 px-2">{t('deviceHistory.used') || 'Utilisé'}</th>
                       <th className="text-right font-medium pb-1 px-2">{t('deviceHistory.peak') || 'Pic'} 30j</th>
+                      <th className="text-right font-medium pb-1 px-2">Δ 1H</th>
                       <th className="text-right font-medium pb-1 px-2">Δ 24h</th>
                       <th className="text-right font-medium pb-1 px-2">Δ 7j</th>
                       <th className="text-right font-medium pb-1 pl-2">Δ 30j</th>
@@ -430,9 +450,10 @@ function MetricsHistorySection({ deviceId }: { deviceId: number }) {
                           {d.usedGb ?? '—'} / {d.totalGb ?? '—'} Go
                         </td>
                         <td className="text-right font-mono text-text-muted tabular-nums px-2">{pct(d.windows['30d'].peakPct)}</td>
-                        <td className="text-right font-mono text-text-primary tabular-nums px-2">{delta(d.windows['24h'].deltaGb)}</td>
-                        <td className="text-right font-mono text-text-primary tabular-nums px-2">{delta(d.windows['7d'].deltaGb)}</td>
-                        <td className="text-right font-mono text-text-primary tabular-nums pl-2">{delta(d.windows['30d'].deltaGb)}</td>
+                        <td className="px-2"><DeltaValue value={d.windows['1h'].deltaGb} suffix=" Go" /></td>
+                        <td className="px-2"><DeltaValue value={d.windows['24h'].deltaGb} suffix=" Go" /></td>
+                        <td className="px-2"><DeltaValue value={d.windows['7d'].deltaGb} suffix=" Go" /></td>
+                        <td className="pl-2"><DeltaValue value={d.windows['30d'].deltaGb} suffix=" Go" /></td>
                       </tr>
                     ))}
                   </tbody>

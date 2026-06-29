@@ -572,14 +572,15 @@ export interface DiskVolumeHistory {
   /** Latest used / total capacity (GB) for this volume. */
   usedGb: number | null;
   totalGb: number | null;
-  windows: { '24h': DiskVolumeWindow; '7d': DiskVolumeWindow; '30d': DiskVolumeWindow };
+  windows: { '1h': DiskVolumeWindow; '24h': DiskVolumeWindow; '7d': DiskVolumeWindow; '30d': DiskVolumeWindow };
 }
 
-/** Per-device windowed metric history (24h / 7d / 30d), from the pre-aggregated
- *  buckets (migration 113). CPU/RAM are device-level; disk is per-volume. */
+/** Per-device windowed metric history (1h / 24h / 7d / 30d), from the pre-
+ *  aggregated buckets (migration 113): 5-min buckets → 1h, hourly → 24h, daily →
+ *  7d/30d. CPU/RAM are device-level; disk is per-volume. */
 export interface DeviceMetricsHistory {
-  cpu: { '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
-  ram: { '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
+  cpu: { '1h': MetricWindow; '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
+  ram: { '1h': MetricWindow; '24h': MetricWindow; '7d': MetricWindow; '30d': MetricWindow };
   disks: DiskVolumeHistory[];
 }
 

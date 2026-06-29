@@ -2151,7 +2151,7 @@ class DeviceService {
   // indexed → the hot current bucket gets HOT updates without index bloat.
 
   private async upsertCpuRamBucket(
-    table: 'device_metric_hourly' | 'device_metric_daily',
+    table: 'device_metric_5min' | 'device_metric_hourly' | 'device_metric_daily',
     deviceId: number, tenantId: number, bucket: Date, cpu: number, ram: number,
   ): Promise<void> {
     await db(table)
@@ -2172,7 +2172,7 @@ class DeviceService {
   }
 
   private async upsertDiskBucket(
-    table: 'device_disk_hourly' | 'device_disk_daily',
+    table: 'device_disk_5min' | 'device_disk_hourly' | 'device_disk_daily',
     deviceId: number, tenantId: number, mount: string, bucket: Date,
     pct: number, usedGb: number, totalGb: number,
   ): Promise<void> {
@@ -2199,26 +2199,32 @@ class DeviceService {
     cpu: number, ram: number,
     disks: Array<{ mount: string; pct: number; usedGb: number; totalGb: number }>,
   ): Promise<void> {
+    const five = new Date(now); five.setUTCMinutes(Math.floor(five.getUTCMinutes() / 5) * 5, 0, 0);
     const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
     const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
+    await this.upsertCpuRamBucket('device_metric_5min', deviceId, tenantId, five, cpu, ram);
     await this.upsertCpuRamBucket('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
     await this.upsertCpuRamBucket('device_metric_daily', deviceId, tenantId, day, cpu, ram);
     for (const d of disks) {
+      await this.upsertDiskBucket('device_disk_5min', deviceId, tenantId, d.mount, five, d.pct, d.usedGb, d.totalGb);
       await this.upsertDiskBucket('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
       await this.upsertDiskBucket('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
     }
   }
 
-  /** Retention: hourly ≤72h (covers 24h window + margin), daily ≤40d (covers 30d). */
+  /** Retention: 5-min ≤3h (covers 1h window + margin), hourly ≤72h (24h), daily ≤40d (30d). */
   async pruneMetricHistory(): Promise<void> {
     try {
+      const fiveCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000);
       const hourlyCutoff = new Date(Date.now() - 72 * 60 * 60 * 1000);
       const dailyCutoff = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      const m5 = await db('device_metric_5min').where('bucket', '<', fiveCutoff).del();
       const mh = await db('device_metric_hourly').where('bucket', '<', hourlyCutoff).del();
       const md = await db('device_metric_daily').where('bucket', '<', dailyCutoff).del();
+      const d5 = await db('device_disk_5min').where('bucket', '<', fiveCutoff).del();
       const dh = await db('device_disk_hourly').where('bucket', '<', hourlyCutoff).del();
       const dd = await db('device_disk_daily').where('bucket', '<', dailyCutoff).del();
-      logger.info({ metricHourly: mh, metricDaily: md, diskHourly: dh, diskDaily: dd }, 'Metric-history prune complete');
+      logger.info({ metric5min: m5, metricHourly: mh, metricDaily: md, disk5min: d5, diskHourly: dh, diskDaily: dd }, 'Metric-history prune complete');
     } catch (err) {
       logger.error(err, 'Metric-history prune failed');
     }
@@ -2235,16 +2241,18 @@ class DeviceService {
       return Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
     };
     const nowMs = Date.now();
-    const H24 = nowMs - 24 * 3600_000, D7 = nowMs - 7 * 24 * 3600_000, D30 = nowMs - 30 * 24 * 3600_000;
+    const H1 = nowMs - 60 * 60_000, H24 = nowMs - 24 * 3600_000, D7 = nowMs - 7 * 24 * 3600_000, D30 = nowMs - 30 * 24 * 3600_000;
     const scoped = (table: string) => {
       const q = db(table).where({ device_id: deviceId });
       if (!isMaster) q.where({ tenant_id: tenantId });
       return q;
     };
 
-    const [crHourly, crDaily, dkHourly, dkDaily] = await Promise.all([
+    const [cr5min, crHourly, crDaily, dk5min, dkHourly, dkDaily] = await Promise.all([
+      scoped('device_metric_5min').where('bucket', '>=', new Date(H1)).orderBy('bucket', 'asc'),
       scoped('device_metric_hourly').where('bucket', '>=', new Date(H24)).orderBy('bucket', 'asc'),
       scoped('device_metric_daily').where('bucket', '>=', new Date(D30)).orderBy('bucket', 'asc'),
+      scoped('device_disk_5min').where('bucket', '>=', new Date(H1)).orderBy('bucket', 'asc'),
       scoped('device_disk_hourly').where('bucket', '>=', new Date(H24)).orderBy('bucket', 'asc'),
       scoped('device_disk_daily').where('bucket', '>=', new Date(D30)).orderBy('bucket', 'asc'),
     ]);
@@ -2261,11 +2269,12 @@ class DeviceService {
         ram: { avg: samples ? r1(ramSum / samples) : null, peak: samples ? r1(ramMax) : null, min: samples ? r1(ramMin) : null },
       };
     };
+    const cr1 = aggCpuRam(cr5min);
     const cr24 = aggCpuRam(crHourly);
     const cr7 = aggCpuRam(crDaily.filter((r: any) => new Date(r.bucket).getTime() >= D7));
     const cr30 = aggCpuRam(crDaily);
 
-    const mounts = Array.from(new Set([...dkDaily, ...dkHourly].map((r: any) => String(r.mount)))).sort((a, b) => a.localeCompare(b));
+    const mounts = Array.from(new Set([...dkDaily, ...dkHourly, ...dk5min].map((r: any) => String(r.mount)))).sort((a, b) => a.localeCompare(b));
     const diskWindow = (rows: any[], sinceMs: number, mount: string) => {
       let pctSum = 0, samples = 0, pctMax = 0, oldestUsed: number | null = null, lastUsed: number | null = null;
       for (const r of rows) {
@@ -2282,7 +2291,7 @@ class DeviceService {
     };
     const disks = mounts.map((mount) => {
       let latestUsed: number | null = null, latestTotal: number | null = null, latestMs = -Infinity;
-      for (const r of [...dkDaily, ...dkHourly] as any[]) {
+      for (const r of [...dkDaily, ...dkHourly, ...dk5min] as any[]) {
         if (String(r.mount) !== mount) continue;
         const b = new Date(r.bucket).getTime();
         if (b >= latestMs) { latestMs = b; latestUsed = Number(r.used_gb_last); latestTotal = Number(r.total_gb_last); }
@@ -2292,6 +2301,7 @@ class DeviceService {
         usedGb: r1(latestUsed),
         totalGb: r1(latestTotal),
         windows: {
+          '1h': diskWindow(dk5min, H1, mount),
           '24h': diskWindow(dkHourly, H24, mount),
           '7d': diskWindow(dkDaily, D7, mount),
           '30d': diskWindow(dkDaily, D30, mount),
@@ -2300,8 +2310,8 @@ class DeviceService {
     });
 
     return {
-      cpu: { '24h': cr24.cpu, '7d': cr7.cpu, '30d': cr30.cpu },
-      ram: { '24h': cr24.ram, '7d': cr7.ram, '30d': cr30.ram },
+      cpu: { '1h': cr1.cpu, '24h': cr24.cpu, '7d': cr7.cpu, '30d': cr30.cpu },
+      ram: { '1h': cr1.ram, '24h': cr24.ram, '7d': cr7.ram, '30d': cr30.ram },
       disks,
     };
   }

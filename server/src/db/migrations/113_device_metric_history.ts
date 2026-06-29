@@ -4,9 +4,9 @@ import type { Knex } from 'knex';
  * Per-device metric HISTORY via pre-aggregated rolling buckets.
  *
  * No raw per-push samples: each push folds into ONE bucket per granularity via
- * an atomic UPSERT (device.service.recordMetricHistory). Hourly buckets feed the
- * 24h window, daily buckets the 7d/30d windows. A prune job keeps hourly ≤72h
- * and daily ≤40d.
+ * an atomic UPSERT (device.service.recordMetricHistory). 5-min buckets feed the
+ * 1h window, hourly buckets the 24h window, daily buckets the 7d/30d windows. A
+ * prune job keeps 5-min ≤3h, hourly ≤72h, daily ≤40d.
  *
  *  - CPU/RAM are DEVICE-level → device_metric_hourly / _daily.
  *  - Disk is PER-VOLUME (a full system disk ≠ a calm data disk) → device_disk_
@@ -51,8 +51,10 @@ const DISK_COLS = (t: Knex.CreateTableBuilder) => {
 };
 
 export async function up(knex: Knex): Promise<void> {
+  if (!(await knex.schema.hasTable('device_metric_5min'))) await knex.schema.createTable('device_metric_5min', CPU_RAM_COLS);
   if (!(await knex.schema.hasTable('device_metric_hourly'))) await knex.schema.createTable('device_metric_hourly', CPU_RAM_COLS);
   if (!(await knex.schema.hasTable('device_metric_daily'))) await knex.schema.createTable('device_metric_daily', CPU_RAM_COLS);
+  if (!(await knex.schema.hasTable('device_disk_5min'))) await knex.schema.createTable('device_disk_5min', DISK_COLS);
   if (!(await knex.schema.hasTable('device_disk_hourly'))) await knex.schema.createTable('device_disk_hourly', DISK_COLS);
   if (!(await knex.schema.hasTable('device_disk_daily'))) await knex.schema.createTable('device_disk_daily', DISK_COLS);
 }
@@ -60,6 +62,8 @@ export async function up(knex: Knex): Promise<void> {
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('device_disk_daily');
   await knex.schema.dropTableIfExists('device_disk_hourly');
+  await knex.schema.dropTableIfExists('device_disk_5min');
   await knex.schema.dropTableIfExists('device_metric_daily');
   await knex.schema.dropTableIfExists('device_metric_hourly');
+  await knex.schema.dropTableIfExists('device_metric_5min');
 }
