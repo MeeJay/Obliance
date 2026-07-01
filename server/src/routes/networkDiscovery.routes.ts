@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { networkDiscoveryService } from '../services/networkDiscovery.service';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 
 const router = Router();
 
@@ -39,7 +39,7 @@ router.get('/stats', async (req, res, next) => {
 
 // DELETE /api/network-discovery/:id
 // Remove a single discovered device entry (admin only).
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', requireTenantCapability('agent_config:discovery'), async (req, res, next) => {
   try {
     const deleted = await networkDiscoveryService.remove(
       parseInt(req.params.id, 10),

@@ -490,7 +490,7 @@ router.post('/bulk/approve', requireTenantCapability('agent_config:approval'), a
 });
 
 // DELETE /api/devices/bulk/delete
-router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
+router.delete('/bulk/delete', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const { ids, deviceIds } = req.body;
     const list = ids ?? deviceIds ?? [];
@@ -505,7 +505,7 @@ router.delete('/bulk/delete', requireRole('admin'), async (req, res, next) => {
 // Honours the tenant's `device.transfer_tenant` restriction policy — if
 // the action is Sensitive the whole batch prompts for TOTP once; if
 // Restricted the batch hits the approvals queue as a single request.
-router.post('/batch/transfer', requireRole('admin'), async (req, res, next) => {
+router.post('/batch/transfer', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const { deviceIds, targetTenantId, targetApiKeyId } = req.body as {
       deviceIds: number[]; targetTenantId: number; targetApiKeyId: number;
@@ -620,7 +620,7 @@ router.post('/batch/transfer', requireRole('admin'), async (req, res, next) => {
 // Body: { deviceIds: number[], groupId: number | null }
 // Fires the 'group_join' scenario trigger for each device whose group actually
 // changed, matching the single-device PATCH flow.
-router.post('/batch/change-group', requireRole('admin'), async (req, res, next) => {
+router.post('/batch/change-group', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const { deviceIds, groupId } = req.body as { deviceIds: number[]; groupId: number | null };
     if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
@@ -887,7 +887,7 @@ router.post('/:id/refuse', requireTenantCapability('agent_config:approval'), asy
 });
 
 // POST /api/devices/:id/suspend
-router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/suspend', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.suspendDevice(id, req.tenantId!);
@@ -904,7 +904,7 @@ router.post('/:id/suspend', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /api/devices/:id/unsuspend
-router.post('/:id/unsuspend', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/unsuspend', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.unsuspendDevice(id, req.tenantId!);
@@ -1019,7 +1019,7 @@ router.post('/:id/privacy-mode/disable', requireRole('admin'), async (req, res, 
 });
 
 // POST /api/devices/:id/airgap/enable — enable airgap mode on device
-router.post('/:id/airgap/enable', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/airgap/enable', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.getDeviceById(id, req.tenantId!);
@@ -1071,7 +1071,7 @@ router.post('/:id/airgap/enable', requireRole('admin'), async (req, res, next) =
 });
 
 // POST /api/devices/:id/airgap/disable — disable airgap mode on device
-router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/airgap/disable', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const device = await deviceService.getDeviceById(id, req.tenantId!);
@@ -1116,7 +1116,7 @@ router.post('/:id/airgap/disable', requireRole('admin'), async (req, res, next) 
 
 // POST /api/devices/:id/uninstall — mark as pending_uninstall + send uninstall command to agent.
 // Routed through 2-step approval when the tenant has opted in.
-router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/uninstall', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const existing = await deviceService.getDeviceById(id, req.tenantId!);
@@ -1147,7 +1147,7 @@ router.post('/:id/uninstall', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /api/devices/:id/cancel-uninstall — abort a pending uninstall, restore to offline
-router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/cancel-uninstall', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const device = await deviceService.cancelUninstall(parseInt(req.params.id), req.tenantId!);
     if (!device) return res.status(404).json({ error: 'Device not found' });
@@ -1158,7 +1158,7 @@ router.post('/:id/cancel-uninstall', requireRole('admin'), async (req, res, next
 // GET /api/devices/transfer/candidates — tenant-level list, same body
 // shape as the per-device variant below. Used by the bulk transfer UI
 // where no single deviceId is relevant.
-router.get('/transfer/candidates', requireRole('admin'), async (req, res, next) => {
+router.get('/transfer/candidates', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const userId = req.session.userId!;
     const isPlatformAdmin = req.session.role === 'admin';
@@ -1195,7 +1195,7 @@ router.get('/transfer/candidates', requireRole('admin'), async (req, res, next) 
 // GET /api/devices/:id/transfer/candidates — list the tenants the caller
 // can transfer INTO (must be admin there, or platform admin) along with
 // their API keys. Excludes the current tenant.
-router.get('/:id/transfer/candidates', requireRole('admin'), async (req, res, next) => {
+router.get('/:id/transfer/candidates', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const userId = req.session.userId!;
     const isPlatformAdmin = req.session.role === 'admin';
@@ -1246,7 +1246,7 @@ router.get('/:id/transfer/candidates', requireRole('admin'), async (req, res, ne
 // picks up the new API key on its next push.
 //
 // Body: { targetTenantId: number, targetApiKeyId: number }
-router.post('/:id/transfer', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/transfer', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const deviceId = parseInt(req.params.id);
     const { targetTenantId, targetApiKeyId } = req.body as { targetTenantId: number; targetApiKeyId: number };
@@ -1352,7 +1352,7 @@ router.post('/:id/transfer', requireRole('admin'), async (req, res, next) => {
 });
 
 // DELETE /api/devices/:id
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', requireTenantCapability('devices.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const existing = await deviceService.getDeviceById(id, req.tenantId!);

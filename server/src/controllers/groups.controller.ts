@@ -279,7 +279,6 @@ export const groupsController = {
   async updateAgentGroupConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const groupId = parseInt(req.params.id, 10);
-      if (req.session.role !== 'admin') throw new AppError(403, 'Admin only');
 
       const group = await groupService.getById(groupId);
       if (!group) throw new AppError(404, 'Group not found');

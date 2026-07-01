@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { softwareComplianceService } from '../services/softwareCompliance.service';
-import { requireRole, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
+import { requireTenantCapability, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
@@ -25,7 +25,7 @@ router.get('/lists', async (req, res, next) => {
 });
 
 // POST /software-compliance/lists — create (admin)
-router.post('/lists', requireRole('admin'), async (req, res, next) => {
+router.post('/lists', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     const list = await softwareComplianceService.createList(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -42,7 +42,7 @@ router.post('/lists', requireRole('admin'), async (req, res, next) => {
 });
 
 // PUT /software-compliance/lists/:id — update (admin)
-router.put('/lists/:id', requireRole('admin'), async (req, res, next) => {
+router.put('/lists/:id', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     const list = await softwareComplianceService.updateList(parseInt(req.params.id), req.tenantId!, req.body);
     try {
@@ -57,7 +57,7 @@ router.put('/lists/:id', requireRole('admin'), async (req, res, next) => {
 });
 
 // DELETE /software-compliance/lists/:id — delete (admin)
-router.delete('/lists/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/lists/:id', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     await softwareComplianceService.deleteList(parseInt(req.params.id), req.tenantId!);
     try {

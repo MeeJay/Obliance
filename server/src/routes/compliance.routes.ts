@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { complianceService } from '../services/compliance.service';
-import { requireRole, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
+import { requireTenantCapability, requireDeviceWriteParam, requireDeviceRead } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 
@@ -13,7 +13,7 @@ router.get('/policies', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/policies', requireRole('admin'), async (req, res, next) => {
+router.post('/policies', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     const policy = await complianceService.createPolicy(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -22,14 +22,14 @@ router.post('/policies', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/policies/:id', requireRole('admin'), async (req, res, next) => {
+router.put('/policies/:id', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     const policy = await complianceService.updatePolicy(parseInt(req.params.id), req.tenantId!, req.body);
     res.json({ data: policy });
   } catch (err) { next(err); }
 });
 
-router.delete('/policies/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/policies/:id', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     await complianceService.deletePolicy(parseInt(req.params.id), req.tenantId!);
     res.status(204).send();
@@ -222,7 +222,7 @@ router.get('/ignored/:deviceId', async (req, res, next) => {
 });
 
 // POST /compliance/sync-presets — force sync preset rules to existing policies
-router.post('/sync-presets', requireRole('admin'), async (_req, res, next) => {
+router.post('/sync-presets', requireTenantCapability('compliance'), async (_req, res, next) => {
   try {
     const synced = await complianceService.syncPresetsToExistingPolicies();
     res.json({ data: { synced } });
@@ -243,7 +243,7 @@ router.get('/templates', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/templates', requireRole('admin'), async (req, res, next) => {
+router.post('/templates', requireTenantCapability('compliance'), async (req, res, next) => {
   try {
     const t = await complianceService.createTemplate(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,

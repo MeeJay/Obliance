@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { logger } from '../utils/logger';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import { isMasterTenant } from '@obliance/shared';
 
 const router = Router();
@@ -115,7 +115,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', requireRole('admin'), async (req, res, next) => {
+router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     // Compute next_run_at: for one-time = fire_once_at, for cron = parse
     // the expression to get the actual next fire time.
@@ -181,7 +181,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireRole('admin'), async (req, res, next) => {
+router.patch('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     // Restriction gate on the false→true bypass-privacy transition. Same
     // pattern as scenario PUT: only fires on the rising edge, queues a
@@ -395,7 +395,7 @@ router.get('/for-device/:deviceId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const existing = await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).first();
     await db('script_schedules').where({ id: req.params.id, tenant_id: req.tenantId! }).delete();

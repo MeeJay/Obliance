@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
 
@@ -12,7 +12,7 @@ const router = Router();
 // the bulk importer can iterate and route through the per-scenario
 // import flow with the same conflict resolution UI. Optionally
 // embeds scripts via `?includeScripts=1`.
-router.get('/export-all', requireRole('admin'), async (req, res, next) => {
+router.get('/export-all', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const includeScripts = req.query.includeScripts === '1' || req.query.includeScripts === 'true';
     const list = await scenarioService.list(req.tenantId!);
@@ -36,7 +36,7 @@ router.get('/export-all', requireRole('admin'), async (req, res, next) => {
 // POST /import-bulk — accepts the bulk export body and runs each
 // scenario through the standard import path with a shared
 // conflictResolutions map. Reports per-scenario success/error.
-router.post('/import-bulk', requireRole('admin'), async (req, res, next) => {
+router.post('/import-bulk', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const { bundle, conflictResolutions } = req.body as {
       bundle: { scenarios: any[] };
@@ -99,7 +99,7 @@ router.get('/templates', async (req, res, next) => {
 });
 
 // POST /templates/:index/instantiate — create a scenario from a template
-router.post('/templates/:index/instantiate', requireRole('admin'), async (req, res, next) => {
+router.post('/templates/:index/instantiate', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const { scenarioTemplates } = await import('../services/scenario-templates');
     const index = parseInt(req.params.index);
@@ -195,7 +195,7 @@ router.get('/runs/:runId', async (req, res, next) => {
 });
 
 // POST /runs/:runId/cancel — cancel run
-router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) => {
+router.post('/runs/:runId/cancel', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     await scenarioService.cancelRun(req.params.runId, req.tenantId!);
     res.json({ data: { success: true } });
@@ -206,7 +206,7 @@ router.post('/runs/:runId/cancel', requireRole('admin'), async (req, res, next) 
 // Used by the "Stop scenario" button on the scenarios overview when
 // the admin wants to abort all current runs at once. Returns the
 // number of runs that were transitioned to 'cancelled'.
-router.post('/:id/cancel-runs', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/cancel-runs', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
     const cancelled = await scenarioService.cancelAllRuns(scenarioId, req.tenantId!);
@@ -250,7 +250,7 @@ router.get('/', async (req, res, next) => {
 //   list of script-uuid conflicts so the UI can prompt the user.
 //   When provided, the server commits the import inside one
 //   transaction and returns the created scenario.
-router.post('/import', requireRole('admin'), async (req, res, next) => {
+router.post('/import', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const { payload, conflictResolutions } = req.body as {
       payload: any;
@@ -297,7 +297,7 @@ router.get('/:id/export', async (req, res, next) => {
 });
 
 // POST / — create scenario
-router.post('/', requireRole('admin'), async (req, res, next) => {
+router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const scenario = await scenarioService.create(req.tenantId!, req.body, req.session.userId!);
     // v2: convert the freshly created scenario into the graph model so
@@ -319,7 +319,7 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
 });
 
 // PUT /:id — update scenario
-router.put('/:id', requireRole('admin'), async (req, res, next) => {
+router.put('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     // Bypass-privacy-mode toggle is restriction-gated. Only fire the gate
@@ -356,7 +356,7 @@ router.put('/:id', requireRole('admin'), async (req, res, next) => {
 });
 
 // DELETE /:id — delete scenario
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+router.delete('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     await scenarioService.delete(parseInt(req.params.id), req.tenantId!);
     try {
@@ -370,7 +370,7 @@ router.delete('/:id', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /:id/enable — activate scenario
-router.post('/:id/enable', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/enable', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     await scenarioService.enable(parseInt(req.params.id), req.tenantId!);
     try {
@@ -382,7 +382,7 @@ router.post('/:id/enable', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /:id/disable — disable scenario
-router.post('/:id/disable', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/disable', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     await scenarioService.disable(parseInt(req.params.id), req.tenantId!);
     try {
@@ -394,7 +394,7 @@ router.post('/:id/disable', requireRole('admin'), async (req, res, next) => {
 });
 
 // POST /:id/trigger — manual trigger on specified devices
-router.post('/:id/trigger', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/trigger', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     const { deviceIds } = req.body;
     const runs = await scenarioService.triggerManual(parseInt(req.params.id), deviceIds, req.tenantId!);
@@ -496,7 +496,7 @@ router.get('/:id/graph', async (req, res, next) => {
 // frontend-only `clientId` (any string) so edges can reference newly
 // created nodes before the DB hands out real ids. The server resolves
 // clientId → id when wiring edges.
-router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
+router.put('/:id/graph', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
     // Master tenant can edit any scenario (god view); child tenants
@@ -569,7 +569,7 @@ router.put('/:id/graph', requireRole('admin'), async (req, res, next) => {
 // to test disabled or draft scenarios from the editor before going
 // live. Permission isn't bypassed: the requireRole('admin') guard above
 // still applies, plus the device tenant check below.
-router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next) => {
+router.post('/:id/start-graph-run', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
     const body = req.body as {
@@ -680,7 +680,7 @@ router.post('/:id/start-graph-run', requireRole('admin'), async (req, res, next)
 // scenario, plus their per-node-run trace, so the graph editor can
 // resume the live-viewer state when reopened mid-run. Defaults to
 // runs created within the last hour OR still in 'running' state.
-router.get('/:id/active-runs', requireRole('admin'), async (req, res, next) => {
+router.get('/:id/active-runs', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
     const scenarioId = parseInt(req.params.id);
     const sinceMin = parseInt(String(req.query.sinceMinutes ?? '60')) || 60;

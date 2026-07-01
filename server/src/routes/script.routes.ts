@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { scriptService } from '../services/script.service';
 import { scheduleService } from '../services/schedule.service';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
@@ -29,7 +29,7 @@ router.get('/categories', async (req, res, next) => {
 });
 
 // POST /api/scripts/categories
-router.post('/categories', requireRole('admin'), async (req, res, next) => {
+router.post('/categories', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -47,8 +47,8 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/scripts (admin only)
-router.post('/', requireRole('admin'), async (req, res, next) => {
+// POST /api/scripts (scripts.manage capability; admins bypass)
+router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const script = await scriptService.createScript(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
@@ -64,11 +64,11 @@ router.post('/', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT/PATCH /api/scripts/:id (admin only)
-router.put('/:id', requireRole('admin'), async (req, res, next) => {
+// PUT/PATCH /api/scripts/:id (scripts.manage capability; admins bypass)
+router.put('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   return handleScriptUpdate(req, res, next);
 });
-router.patch('/:id', requireRole('admin'), async (req, res, next) => {
+router.patch('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   return handleScriptUpdate(req, res, next);
 });
 async function handleScriptUpdate(req: any, res: any, next: any) {
@@ -103,8 +103,8 @@ async function handleScriptUpdate(req: any, res: any, next: any) {
   } catch (err) { next(err); }
 }
 
-// POST /api/scripts/:id/clone (admin only)
-router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
+// POST /api/scripts/:id/clone (scripts.manage capability; admins bypass)
+router.post('/:id/clone', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const original = await scriptService.getScriptById(parseInt(req.params.id), req.tenantId!);
     if (!original) return res.status(404).json({ error: 'Script not found' });
@@ -127,8 +127,8 @@ router.post('/:id/clone', requireRole('admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/scripts/:id (admin only)
-router.delete('/:id', requireRole('admin'), async (req, res, next) => {
+// DELETE /api/scripts/:id (scripts.manage capability; admins bypass)
+router.delete('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
     const existing = await scriptService.getScriptById(id, req.tenantId!);

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { usersController } from '../controllers/users.controller';
 import { requireAuth } from '../middleware/auth';
-import { requireRole } from '../middleware/rbac';
+import { requireTenantCapability } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
 import {
   createUserSchema,
@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 router.use(requireAuth);
-router.use(requireRole('admin'));
+router.use(requireTenantCapability('users.manage'));
 
 router.get('/', usersController.list);
 router.get('/:id', usersController.getById);

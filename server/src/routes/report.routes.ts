@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { reportService } from '../services/report.service';
-import { requireTenantCapability } from '../middleware/rbac';
+import { requireTenantCapability, requireAnyTenantCapability } from '../middleware/rbac';
 import fs from 'fs';
 
 const router = Router();
@@ -11,7 +11,7 @@ const router = Router();
 // don't have to grant three separate flags. Old `manage_reports`
 // rows are filtered out by the team.service VALID_CAPABILITIES set
 // and replaced by migration 090's seeding rule.
-router.use(requireTenantCapability('supervision:read'));
+router.use(requireAnyTenantCapability('reports', 'supervision:read'));
 
 router.get('/', async (req, res, next) => {
   try { res.json(await reportService.getReports(req.tenantId!)); } catch (err) { next(err); }
