@@ -12,6 +12,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <title>Obliance</title>
+    <!-- FOUC prevention: apply the saved theme (especially the light
+         Obli Daylight) before the JS bundle boots, so a reload doesn't flash
+         the wrong palette. Mirrors the allowlist in utils/theme.ts. -->
+    <script>
+      try {
+        var t = localStorage.getItem('oa-theme');
+        if (t === 'obli-operator' || t === 'obli-daylight' || t === 'modern' || t === 'neon') {
+          document.documentElement.dataset.theme = t;
+        }
+      } catch (e) {}
+    </script>
+    <style>[data-theme="obli-daylight"] body { background: #fafbfd; }</style>
   </head>
   <body class="bg-bg-primary text-text-primary">
     <div id="root"></div>

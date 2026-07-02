@@ -18,7 +18,7 @@ export function applyTheme(theme: AppTheme): void {
 export function loadSavedTheme(): AppTheme {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'obli-operator' || saved === 'modern' || saved === 'neon') return saved;
+    if (saved === 'obli-operator' || saved === 'modern' || saved === 'neon' || saved === 'obli-daylight') return saved;
   } catch {
     // ignore
   }

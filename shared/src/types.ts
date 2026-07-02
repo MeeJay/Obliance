@@ -31,7 +31,7 @@ export interface UserWithPassword extends User {
   totpSecret: string | null;
 }
 
-export type AppTheme = 'obli-operator' | 'modern' | 'neon';
+export type AppTheme = 'obli-operator' | 'modern' | 'neon' | 'obli-daylight';
 
 export interface UserPreferences {
   toastEnabled?: boolean;

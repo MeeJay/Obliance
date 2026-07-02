@@ -50,6 +50,52 @@
   --c-primary:               224 58 58;
 }
 
+/* ── Obli Daylight — light companion to Obli Operator (Obliance red accent) ─
+   Soft-white surface, depth via shadow (no borders), slate-900 text. Every
+   token Obliance uses MUST be redeclared here: :root above is the dark
+   obli-operator, so any omitted token would inherit a DARK value on light. */
+[data-theme="obli-daylight"] {
+  --c-bg-primary:            250 251 253;   /* #fafbfd  page bg */
+  --c-bg-secondary:          255 255 255;   /* #ffffff  cards */
+  --c-bg-tertiary:           243 245 249;   /* #f3f5f9  input/toolbar */
+  --c-bg-hover:              15 23 42 / 0.04;
+  --c-bg-active:             15 23 42 / 0.07;
+
+  --c-border:                15 23 42 / 0.08;
+  --c-border-light:          15 23 42 / 0.12;
+
+  --c-text-primary:          15 23 42;      /* slate-900 */
+  --c-text-secondary:        71 85 105;     /* slate-600 */
+  --c-text-muted:            148 163 184;   /* slate-400 */
+
+  --c-status-up:             16 163 96;
+  --c-status-up-bg:          220 252 231;
+  --c-status-down:           148 163 184;
+  --c-status-down-bg:        241 245 249;
+  --c-status-pending:        37 99 235;
+  --c-status-pending-bg:     219 234 254;
+  --c-status-maintenance:    100 116 139;
+  --c-status-maintenance-bg: 241 245 249;
+  --c-status-paused:         148 163 184;
+  --c-status-paused-bg:      241 245 249;
+  --c-status-warning:        217 119 6;
+  --c-status-critical:       220 38 38;
+
+  --c-accent:                220 38 38;    /* Obliance red-600, tuned for white */
+  --c-accent-hover:          239 68 68;
+  --c-accent-dark:           153 27 27;
+  --c-accent-text:           255 255 255;
+  --c-primary:               220 38 38;
+
+  --shadow-card: 0 1px 2px 0 rgba(15,23,42,0.04), 0 6px 24px -12px rgba(15,23,42,0.10);
+  --shadow-glow: 0 0 0 1px rgb(var(--c-accent) / 0.18) inset, 0 8px 32px -12px rgb(var(--c-accent) / 0.22);
+}
+
+[data-theme="obli-daylight"] body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fafbfd;
+}
+
 /* ── Modern UI (legacy) — fond très sombre, teinte rouge ultra-subtile ──── */
 [data-theme="modern"] {
   --c-bg-primary:            14 11 12;
