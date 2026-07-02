@@ -24,9 +24,21 @@ const config: Knex.Config = {
     loadExtensions: isCompiled ? ['.js'] : ['.ts'],
   },
   pool: {
+    // An RMM ingests a push from every device on a short interval; each push
+    // runs several sequential queries (status resolve, threshold resolve,
+    // metric-history writes, trigger dispatch). max:10 was a hard throttle —
+    // under a real fleet the pool stayed saturated and every request (UI
+    // included) queued behind push traffic, which read as "the whole app is
+    // slow". 25 gives push ingestion headroom without starving Postgres.
+    // NOTE: keep pool.max × server-replicas comfortably under the Postgres
+    // max_connections (default 100).
     min: 2,
-    max: 10,
+    max: 25,
   },
+  // Fail fast instead of hanging a request forever when the pool is starved,
+  // so a transient spike surfaces as a logged error rather than a silent stall
+  // on an unrelated UI call. (Knex top-level option; default is 60s.)
+  acquireConnectionTimeout: 20_000,
 };
 
 export default config;

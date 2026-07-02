@@ -14,6 +14,25 @@ import type {
   ScenarioStepRunStatus,
 } from '@obliance/shared';
 
+// ── Hot-path guard ───────────────────────────────────────────────────────────
+// fireTrigger() is called on EVERY agent push (metric_custom always, plus
+// metric_warning/critical on transitions and agent_back_online on recovery).
+// Without a guard that meant a `scenario_nodes ⋈ scenarios` JOIN per push per
+// device even when the tenant owns ZERO scenarios of that trigger type — a
+// pure-overhead query that saturated the pool under a real fleet.
+//
+// This cache remembers, per (tenant, triggerNodeType), whether any active node
+// of that type exists. A short TTL means a freshly-created scenario starts
+// matching within ~20s (imperceptible); a busy tenant with matching nodes pays
+// the JOIN as before. `bustTriggerExistCache()` clears it on scenario writes so
+// activations take effect immediately rather than waiting out the TTL.
+const triggerExistCache = new Map<string, { count: number; at: number }>();
+const TRIGGER_EXIST_TTL_MS = 20_000;
+
+export function bustTriggerExistCache(): void {
+  triggerExistCache.clear();
+}
+
 // ── Row mappers ─────────────────────────────────────────────────────────────
 
 function rowToScenario(row: any): Scenario {
@@ -1282,6 +1301,7 @@ export const scenarioService = {
       .where({ id, tenant_id: tenantId })
       .update({ status: 'active', updated_at: new Date() })
       .returning('*');
+    bustTriggerExistCache(); // a scenario just became active — re-evaluate on next push
     return row ? rowToScenario(row) : null;
   },
 
@@ -1290,6 +1310,7 @@ export const scenarioService = {
       .where({ id, tenant_id: tenantId })
       .update({ status: 'disabled', updated_at: new Date() })
       .returning('*');
+    bustTriggerExistCache();
     return row ? rowToScenario(row) : null;
   },
 
@@ -1304,12 +1325,26 @@ export const scenarioService = {
     // rather than scenarios.trigger_type, and fires startRun once per
     // matching node so the engine starts at the right entry point.
     const triggerNodeType = `trigger_${triggerType}`;
+
+    // Hot-path short-circuit: if we recently confirmed this tenant has no
+    // active node of this trigger type, skip the JOIN entirely. This is the
+    // common case for metric_custom (fired on every push) and eliminates a
+    // per-push DB round-trip for tenants without such scenarios.
+    const cacheKey = `${tenantId}:${triggerNodeType}`;
+    const cached = triggerExistCache.get(cacheKey);
+    if (cached && cached.count === 0 && Date.now() - cached.at < TRIGGER_EXIST_TTL_MS) {
+      return;
+    }
+
     const triggerNodes = await db('scenario_nodes as n')
       .join('scenarios as s', 's.id', 'n.scenario_id')
       .where({ 's.tenant_id': tenantId, 's.status': 'active', 'n.type': triggerNodeType })
       .select('n.id as node_id', 'n.config as node_config', 's.id as scenario_id') as Array<{
         node_id: number; node_config: any; scenario_id: number;
       }>;
+
+    triggerExistCache.set(cacheKey, { count: triggerNodes.length, at: Date.now() });
+    if (triggerNodes.length === 0) return;
 
     for (const tn of triggerNodes) {
       try {
