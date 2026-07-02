@@ -497,7 +497,15 @@ router.get('/connected-apps', async (req, res) => {
       res.status(401).json({ success: false, error: 'Authentication required' });
       return;
     }
-    const apps = await obligateService.getConnectedApps();
+    // Scope the app switcher to the caller's Obligate entitlements. A local
+    // (non-SSO) user has no Obligate id → we pass null and Obligate returns
+    // nothing user-scoped; only SSO-provisioned users get the filtered list.
+    const row = await db('users')
+      .where({ id: req.session.userId })
+      .select('foreign_source', 'foreign_id')
+      .first() as { foreign_source: string | null; foreign_id: number | null } | undefined;
+    const obligateUserId = row?.foreign_source === 'obligate' && row.foreign_id ? row.foreign_id : null;
+    const apps = await obligateService.getConnectedApps(obligateUserId);
     res.json({ success: true, data: apps });
   } catch (err) {
     res.json({ success: true, data: [] });

@@ -300,12 +300,21 @@ export const obligateService = {
   /**
    * Get the list of connected apps from Obligate (for cross-app nav buttons).
    */
-  async getConnectedApps(): Promise<Array<{ appType: string; name: string; baseUrl: string; icon: string | null; color: string | null }>> {
+  async getConnectedApps(
+    obligateUserId?: number | null,
+  ): Promise<Array<{ appType: string; name: string; baseUrl: string; icon: string | null; color: string | null }>> {
     const raw = await appConfigService.getObligateRaw();
     if (!raw.url || !raw.apiKey) return [];
 
+    // Scope to the user's Obligate entitlements when we know who they are.
+    // Without the userId, Obligate returns EVERY connected app, so the
+    // header app switcher would show apps the user has no access to (the
+    // whole point of the switcher is to only surface reachable apps).
+    const url = obligateUserId
+      ? `${raw.url}/api/apps/connected?userId=${encodeURIComponent(obligateUserId)}`
+      : `${raw.url}/api/apps/connected`;
     try {
-      const res = await fetch(`${raw.url}/api/apps/connected`, {
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${raw.apiKey}` },
       });
       if (!res.ok) return [];
