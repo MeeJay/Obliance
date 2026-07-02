@@ -55,45 +55,50 @@
    token Obliance uses MUST be redeclared here: :root above is the dark
    obli-operator, so any omitted token would inherit a DARK value on light. */
 [data-theme="obli-daylight"] {
-  --c-bg-primary:            250 251 253;   /* #fafbfd  page bg */
-  --c-bg-secondary:          255 255 255;   /* #ffffff  cards */
-  --c-bg-tertiary:           243 245 249;   /* #f3f5f9  input/toolbar */
-  --c-bg-hover:              15 23 42 / 0.04;
-  --c-bg-active:             15 23 42 / 0.07;
+  /* Nordic Mist (Nord Snow Storm) — cushioned cool blue-gray, not clinical
+     white. Softens glare over long admin sessions. Per the Obligate spec,
+     hover/active/border MUST be plain RGB triplets (no "R G B / A"), else
+     Tailwind's rgb(var(--x) / <alpha>) emits invalid CSS and borders fall
+     back to thick black. Surfaces change; the Obliance red accent stays. */
+  --c-bg-primary:            229 233 240;   /* #e5e9f0  Snow Storm page bg */
+  --c-bg-secondary:          236 239 244;   /* #eceff4  cards */
+  --c-bg-tertiary:           216 222 233;   /* #d8dee9  input/toolbar/pill container */
+  --c-bg-hover:              222 227 236;
+  --c-bg-active:             210 217 229;
 
-  --c-border:                15 23 42 / 0.08;
-  --c-border-light:          15 23 42 / 0.12;
+  --c-border:                212 220 231;
+  --c-border-light:          224 230 240;
 
-  --c-text-primary:          15 23 42;      /* slate-900 */
-  --c-text-secondary:        71 85 105;     /* slate-600 */
-  --c-text-muted:            148 163 184;   /* slate-400 */
+  --c-text-primary:          46 52 64;      /* #2e3440  Polar Night */
+  --c-text-secondary:        76 86 106;     /* #4c566a */
+  --c-text-muted:            129 141 161;   /* #818da1 */
 
   --c-status-up:             16 163 96;
   --c-status-up-bg:          220 252 231;
   --c-status-down:           148 163 184;
-  --c-status-down-bg:        241 245 249;
+  --c-status-down-bg:        216 222 233;
   --c-status-pending:        37 99 235;
   --c-status-pending-bg:     219 234 254;
   --c-status-maintenance:    100 116 139;
-  --c-status-maintenance-bg: 241 245 249;
+  --c-status-maintenance-bg: 216 222 233;
   --c-status-paused:         148 163 184;
-  --c-status-paused-bg:      241 245 249;
+  --c-status-paused-bg:      216 222 233;
   --c-status-warning:        217 119 6;
   --c-status-critical:       220 38 38;
 
-  --c-accent:                220 38 38;    /* Obliance red-600, tuned for white */
+  --c-accent:                220 38 38;    /* Obliance red-600 — kept from Operator */
   --c-accent-hover:          239 68 68;
   --c-accent-dark:           153 27 27;
   --c-accent-text:           255 255 255;
   --c-primary:               220 38 38;
 
-  --shadow-card: 0 1px 2px 0 rgba(15,23,42,0.04), 0 6px 24px -12px rgba(15,23,42,0.10);
+  --shadow-card: 0 1px 2px 0 rgba(46,52,64,0.03), 0 6px 24px -12px rgba(46,52,64,0.08);
   --shadow-glow: 0 0 0 1px rgb(var(--c-accent) / 0.18) inset, 0 8px 32px -12px rgb(var(--c-accent) / 0.22);
 }
 
 [data-theme="obli-daylight"] body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #fafbfd;
+  background: #e5e9f0;
 }
 
 /* ── Modern UI (legacy) — fond très sombre, teinte rouge ultra-subtile ──── */
