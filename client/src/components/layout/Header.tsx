@@ -20,7 +20,7 @@ const isNativeApp = typeof window !== 'undefined' &&
 // glowing with its own brand colour. The order is fixed across the suite so
 // muscle memory carries between apps.
 
-type AppType = 'obliview' | 'obliguard' | 'oblimap' | 'obliance' | 'oblihub';
+type AppType = 'obliview' | 'obliguard' | 'oblimap' | 'obliance' | 'obliplan' | 'oblihub';
 
 interface AppEntry {
  type: AppType;
@@ -34,6 +34,7 @@ const APP_ORDER: AppEntry[] = [
  { type: 'obliguard', label: 'Obliguard', color: '#f5a623' },
  { type: 'oblimap', label: 'Oblimap', color: '#1edd8a' },
  { type: 'obliance', label: 'Obliance', color: '#e03a3a' },
+ { type: 'obliplan', label: 'Obliplan', color: '#7c6cff' },
  { type: 'oblihub', label: 'Oblihub', color: '#2d4ec9' },
 ];
 
