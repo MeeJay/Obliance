@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import apiClient from '@/api/client';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { Logo } from '@/components/common/Logo';
 
 export function ForgotPasswordPage() {
  const { t } = useTranslation();
@@ -38,7 +39,7 @@ export function ForgotPasswordPage() {
  <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
  <div className="w-full max-w-sm space-y-8">
  <div className="text-center">
- <img src="/logo.svg" alt="Obliance" className="mx-auto h-24 w-24 mb-3" />
+ <Logo className="mx-auto h-24 w-24 mb-3" />
  </div>
 
  <div className="rounded-lg bg-bg-secondary p-6 space-y-5">

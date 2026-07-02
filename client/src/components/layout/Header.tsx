@@ -8,6 +8,7 @@ import { anonymize } from '@/utils/anonymize';
 import { useSocketStore } from '@/store/socketStore';
 import { NotificationCenter } from './NotificationCenter';
 import { TenantSwitcher } from './TenantSwitcher';
+import { Logo } from '@/components/common/Logo';
 import { cn } from '@/utils/cn';
 
 /** True when running inside the Obliance native desktop app overlay. */
@@ -88,7 +89,7 @@ export function Header() {
  (pinned, collapsed, floating). Reserved width matches the default
  sidebar width so nav items below align with content. */}
  <Link to="/" className="flex items-center gap-2 shrink-0">
- <img src="/logo.svg" alt="Obliance" className="h-8 w-auto max-w-[160px] object-contain" />
+ <Logo className="h-8 w-auto max-w-[160px] object-contain" />
  </Link>
 
  {/* Tenant selector — sits left of the app switcher, preserving the
