@@ -1,0 +1,542 @@
+﻿{
+    "shelf":  {
+                  "name":  "Obliance",
+                  "description":  "Documentation Obliance - generee automatiquement a partir du code source"
+              },
+    "books":  [
+                  {
+                      "slug":  "guide-utilisateur",
+                      "title":  "Guide utilisateur",
+                      "audience":  "user",
+                      "chapters":  [
+                                       {
+                                           "slug":  "prise-en-main",
+                                           "title":  "Prise en main",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "se-connecter-a-obliance",
+                                                             "title":  "Se connecter Ã  Obliance",
+                                                             "file":  "content/guide-utilisateur/prise-en-main/se-connecter-a-obliance.md"
+                                                         },
+                                                         {
+                                                             "slug":  "assistant-configuration-initiale",
+                                                             "title":  "L\u0027assistant de configuration initiale",
+                                                             "file":  "content/guide-utilisateur/prise-en-main/assistant-configuration-initiale.md"
+                                                         },
+                                                         {
+                                                             "slug":  "decouvrir-interface-obliance",
+                                                             "title":  "DÃ©couvrir l\u0027interface Obliance",
+                                                             "file":  "content/guide-utilisateur/prise-en-main/decouvrir-interface-obliance.md"
+                                                         },
+                                                         {
+                                                             "slug":  "tableau-de-bord",
+                                                             "title":  "Le tableau de bord",
+                                                             "file":  "content/guide-utilisateur/prise-en-main/tableau-de-bord.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "gerer-les-appareils",
+                                           "title":  "Gerer les appareils",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "liste-des-appareils",
+                                                             "title":  "La liste des appareils",
+                                                             "file":  "content/guide-utilisateur/gerer-les-appareils/liste-des-appareils.md"
+                                                         },
+                                                         {
+                                                             "slug":  "actions-sur-un-appareil",
+                                                             "title":  "Agir sur un ou plusieurs appareils",
+                                                             "file":  "content/guide-utilisateur/gerer-les-appareils/actions-sur-un-appareil.md"
+                                                         },
+                                                         {
+                                                             "slug":  "fiche-detaillee-dun-appareil",
+                                                             "title":  "Explorer la fiche detaillee d\u0027un appareil",
+                                                             "file":  "content/guide-utilisateur/gerer-les-appareils/fiche-detaillee-dun-appareil.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "scripts-et-bibliotheque",
+                                           "title":  "Scripts et bibliotheque",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "bibliotheque-de-scripts",
+                                                             "title":  "La bibliotheque de scripts",
+                                                             "file":  "content/guide-utilisateur/scripts-et-bibliotheque/bibliotheque-de-scripts.md"
+                                                         },
+                                                         {
+                                                             "slug":  "creer-et-configurer-un-script",
+                                                             "title":  "Creer, modifier et configurer un script",
+                                                             "file":  "content/guide-utilisateur/scripts-et-bibliotheque/creer-et-configurer-un-script.md"
+                                                         },
+                                                         {
+                                                             "slug":  "executer-un-script-et-consulter-lhistorique",
+                                                             "title":  "Executer un script et consulter l\u0027historique",
+                                                             "file":  "content/guide-utilisateur/scripts-et-bibliotheque/executer-un-script-et-consulter-lhistorique.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "automatisations",
+                                           "title":  "Automatisations : schedules et scenarios",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "automatisations-scenarios-principes",
+                                                             "title":  "ScÃ©narios : principes et dÃ©clencheurs",
+                                                             "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-principes.md"
+                                                         },
+                                                         {
+                                                             "slug":  "automatisations-scenarios-editeur-graphe",
+                                                             "title":  "Construire un scÃ©nario avec l\u0027Ã©diteur de graphe",
+                                                             "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-editeur-graphe.md"
+                                                         },
+                                                         {
+                                                             "slug":  "automatisations-scenarios-execution-import-export",
+                                                             "title":  "ExÃ©cuter, importer et suivre un scÃ©nario",
+                                                             "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-execution-import-export.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "conformite",
+                                           "title":  "Conformite",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "conformite-vue-densemble",
+                                                             "title":  "ConformitÃ© : vue d\u0027ensemble",
+                                                             "file":  "content/guide-utilisateur/conformite/conformite-vue-densemble.md"
+                                                         },
+                                                         {
+                                                             "slug":  "conformite-catalogue-des-preregles",
+                                                             "title":  "ConformitÃ© : le catalogue des prÃ©rÃ©glages",
+                                                             "file":  "content/guide-utilisateur/conformite/conformite-catalogue-des-preregles.md"
+                                                         },
+                                                         {
+                                                             "slug":  "conformite-consulter-et-corriger-les-resultats",
+                                                             "title":  "ConformitÃ© : consulter et corriger les rÃ©sultats",
+                                                             "file":  "content/guide-utilisateur/conformite/conformite-consulter-et-corriger-les-resultats.md"
+                                                         },
+                                                         {
+                                                             "slug":  "conformite-creer-une-politique-personnalisee",
+                                                             "title":  "ConformitÃ© : crÃ©er une politique personnalisÃ©e",
+                                                             "file":  "content/guide-utilisateur/conformite/conformite-creer-une-politique-personnalisee.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "acces-a-distance",
+                                           "title":  "Acces et prise en main a distance",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "prendre-la-main-a-distance-avec-reach",
+                                                             "title":  "Prendre la main a distance avec Reach",
+                                                             "file":  "content/guide-utilisateur/acces-a-distance/prendre-la-main-a-distance-avec-reach.md"
+                                                         },
+                                                         {
+                                                             "slug":  "ouvrir-une-session-cmd-powershell-ou-ssh",
+                                                             "title":  "Ouvrir une session CMD, PowerShell ou SSH",
+                                                             "file":  "content/guide-utilisateur/acces-a-distance/ouvrir-une-session-cmd-powershell-ou-ssh.md"
+                                                         },
+                                                         {
+                                                             "slug":  "mode-confidentialite-et-acces-distant",
+                                                             "title":  "Mode confidentialite et acces a distance",
+                                                             "file":  "content/guide-utilisateur/acces-a-distance/mode-confidentialite-et-acces-distant.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "rapports-notifications-compte",
+                                           "title":  "Rapports, notifications et mon compte",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "rapports",
+                                                             "title":  "Les rapports",
+                                                             "file":  "content/guide-utilisateur/rapports-notifications-compte/rapports.md"
+                                                         },
+                                                         {
+                                                             "slug":  "notifications",
+                                                             "title":  "Mes notifications personnelles",
+                                                             "file":  "content/guide-utilisateur/rapports-notifications-compte/notifications.md"
+                                                         },
+                                                         {
+                                                             "slug":  "mon-compte",
+                                                             "title":  "Mon compte (profil)",
+                                                             "file":  "content/guide-utilisateur/rapports-notifications-compte/mon-compte.md"
+                                                         }
+                                                     ]
+                                       }
+                                   ]
+                  },
+                  {
+                      "slug":  "administration",
+                      "title":  "Administration",
+                      "audience":  "admin",
+                      "chapters":  [
+                                       {
+                                           "slug":  "utilisateurs-equipes-permissions",
+                                           "title":  "Utilisateurs, equipes et permissions",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "utilisateurs-equipes-permissions-vue-ensemble",
+                                                             "title":  "Utilisateurs, Ã©quipes et permissions : vue d\u0027ensemble",
+                                                             "file":  "content/administration/utilisateurs-equipes-permissions/utilisateurs-equipes-permissions-vue-ensemble.md"
+                                                         },
+                                                         {
+                                                             "slug":  "equipes-portees-arbre-permissions",
+                                                             "title":  "Ã‰quipes, portÃ©es et arbre de permissions",
+                                                             "file":  "content/administration/utilisateurs-equipes-permissions/equipes-portees-arbre-permissions.md"
+                                                         },
+                                                         {
+                                                             "slug":  "roles-tenant-jeux-permissions-restrictions",
+                                                             "title":  "RÃ´les de tenant, jeux de permissions et restrictions",
+                                                             "file":  "content/administration/utilisateurs-equipes-permissions/roles-tenant-jeux-permissions-restrictions.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "tenants-multi-tenant",
+                                           "title":  "Tenants et isolation multi-tenant",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "tenants-isolation-multi-tenant-concept",
+                                                             "title":  "Comprendre le multi-tenant et le tenant master",
+                                                             "file":  "content/administration/tenants-multi-tenant/tenants-isolation-multi-tenant-concept.md"
+                                                         },
+                                                         {
+                                                             "slug":  "tenants-administration-gestion",
+                                                             "title":  "Administrer les tenants",
+                                                             "file":  "content/administration/tenants-multi-tenant/tenants-administration-gestion.md"
+                                                         },
+                                                         {
+                                                             "slug":  "tenants-partage-cross-tenant-fanout",
+                                                             "title":  "Partager une entite en lecture seule entre tenants (fan-out)",
+                                                             "file":  "content/administration/tenants-multi-tenant/tenants-partage-cross-tenant-fanout.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "agents-enrolement-cles-api",
+                                           "title":  "Agents, enrolement et cles API",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "ajouter-et-enroler-un-agent",
+                                                             "title":  "Ajouter et enroler un agent",
+                                                             "file":  "content/administration/agents-enrolement-cles-api/ajouter-et-enroler-un-agent.md"
+                                                         },
+                                                         {
+                                                             "slug":  "cles-api-et-groupe-par-defaut",
+                                                             "title":  "Cles API et groupe par defaut",
+                                                             "file":  "content/administration/agents-enrolement-cles-api/cles-api-et-groupe-par-defaut.md"
+                                                         },
+                                                         {
+                                                             "slug":  "cycle-dapprobation-des-agents",
+                                                             "title":  "Cycle d\u0027approbation des agents",
+                                                             "file":  "content/administration/agents-enrolement-cles-api/cycle-dapprobation-des-agents.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "parametres-generaux",
+                                           "title":  "Parametres generaux",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "parametres-generaux-vue-ensemble",
+                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Vue d\u0027ensemble et informations systÃ¨me",
+                                                             "file":  "content/administration/parametres-generaux/parametres-generaux-vue-ensemble.md"
+                                                         },
+                                                         {
+                                                             "slug":  "parametres-securite-2fa-sso-smtp",
+                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” SÃ©curitÃ©, double authentification, SSO Obligate et serveurs SMTP",
+                                                             "file":  "content/administration/parametres-generaux/parametres-securite-2fa-sso-smtp.md"
+                                                         },
+                                                         {
+                                                             "slug":  "parametres-seuils-metriques-et-modeles-reponse",
+                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Seuils mÃ©triques globaux et modÃ¨les de rÃ©ponse rapide",
+                                                             "file":  "content/administration/parametres-generaux/parametres-seuils-metriques-et-modeles-reponse.md"
+                                                         },
+                                                         {
+                                                             "slug":  "parametres-explorateur-fichiers-import-export-scenarios",
+                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Explorateur de fichiers, import/export et scÃ©narios en masse",
+                                                             "file":  "content/administration/parametres-generaux/parametres-explorateur-fichiers-import-export-scenarios.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "supervision",
+                                           "title":  "Supervision",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "supervision-sessions-distantes",
+                                                             "title":  "Supervision - Sessions distantes",
+                                                             "file":  "content/administration/supervision/supervision-sessions-distantes.md"
+                                                         },
+                                                         {
+                                                             "slug":  "supervision-historique-et-rapports",
+                                                             "title":  "Supervision - Historique et rapports",
+                                                             "file":  "content/administration/supervision/supervision-historique-et-rapports.md"
+                                                         },
+                                                         {
+                                                             "slug":  "securite-audit-et-approbations",
+                                                             "title":  "Securite - Journal d\u0027audit et approbations",
+                                                             "file":  "content/administration/supervision/securite-audit-et-approbations.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "import-export",
+                                           "title":  "Import et export",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "import-export-vue-ensemble",
+                                                             "title":  "Import / Export - Vue d\u0027ensemble",
+                                                             "file":  "content/administration/import-export/import-export-vue-ensemble.md"
+                                                         },
+                                                         {
+                                                             "slug":  "import-export-global-admin",
+                                                             "title":  "Export et import global (module admin)",
+                                                             "file":  "content/administration/import-export/import-export-global-admin.md"
+                                                         },
+                                                         {
+                                                             "slug":  "import-export-scenarios",
+                                                             "title":  "Export et import de scenarios",
+                                                             "file":  "content/administration/import-export/import-export-scenarios.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "deploiement-mise-a-jour-parc",
+                                           "title":  "Deploiement et mise a jour du parc",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "mettre-a-jour-les-agents-du-parc",
+                                                             "title":  "Mettre a jour les agents du parc",
+                                                             "file":  "content/administration/deploiement-mise-a-jour-parc/mettre-a-jour-les-agents-du-parc.md"
+                                                         },
+                                                         {
+                                                             "slug":  "suivre-le-statut-de-mise-a-jour-dun-agent",
+                                                             "title":  "Suivre le statut de mise a jour d\u0027un agent",
+                                                             "file":  "content/administration/deploiement-mise-a-jour-parc/suivre-le-statut-de-mise-a-jour-dun-agent.md"
+                                                         },
+                                                         {
+                                                             "slug":  "agents-legacy-et-limites-de-mise-a-jour",
+                                                             "title":  "Agents legacy et limites de mise a jour",
+                                                             "file":  "content/administration/deploiement-mise-a-jour-parc/agents-legacy-et-limites-de-mise-a-jour.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "securite-bonnes-pratiques",
+                                           "title":  "Securite et bonnes pratiques",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "authentification-et-double-facteur",
+                                                             "title":  "Authentification et double facteur (2FA)",
+                                                             "file":  "content/administration/securite-bonnes-pratiques/authentification-et-double-facteur.md"
+                                                         },
+                                                         {
+                                                             "slug":  "controle-des-acces-et-permissions",
+                                                             "title":  "Controle des acces : roles, equipes et cles API",
+                                                             "file":  "content/administration/securite-bonnes-pratiques/controle-des-acces-et-permissions.md"
+                                                         },
+                                                         {
+                                                             "slug":  "durcissement-du-serveur-et-protections-reseau",
+                                                             "title":  "Durcissement du serveur : HTTPS, sessions et protection contre les abus",
+                                                             "file":  "content/administration/securite-bonnes-pratiques/durcissement-du-serveur-et-protections-reseau.md"
+                                                         }
+                                                     ]
+                                       }
+                                   ]
+                  },
+                  {
+                      "slug":  "documentation-technique",
+                      "title":  "Documentation technique",
+                      "audience":  "tech",
+                      "chapters":  [
+                                       {
+                                           "slug":  "architecture-generale",
+                                           "title":  "Architecture generale",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "monorepo-et-stack-technique",
+                                                             "title":  "Monorepo et stack technique",
+                                                             "file":  "content/documentation-technique/architecture-generale/monorepo-et-stack-technique.md"
+                                                         },
+                                                         {
+                                                             "slug":  "architecture-docker-et-deploiement",
+                                                             "title":  "Architecture Docker et deploiement",
+                                                             "file":  "content/documentation-technique/architecture-generale/architecture-docker-et-deploiement.md"
+                                                         },
+                                                         {
+                                                             "slug":  "serveur-express-configuration-et-temps-reel",
+                                                             "title":  "Serveur Express â€” configuration et temps reel",
+                                                             "file":  "content/documentation-technique/architecture-generale/serveur-express-configuration-et-temps-reel.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "serveur",
+                                           "title":  "Serveur",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "serveur-architecture-et-demarrage",
+                                                             "title":  "Serveur â€” Architecture et dÃ©marrage",
+                                                             "file":  "content/documentation-technique/serveur/serveur-architecture-et-demarrage.md"
+                                                         },
+                                                         {
+                                                             "slug":  "serveur-authentification-et-securite",
+                                                             "title":  "Serveur â€” Authentification, tenants et sÃ©curitÃ© des routes",
+                                                             "file":  "content/documentation-technique/serveur/serveur-authentification-et-securite.md"
+                                                         },
+                                                         {
+                                                             "slug":  "serveur-temps-reel-socketio-et-websockets-agents",
+                                                             "title":  "Serveur â€” Canaux temps rÃ©el : Socket.io et WebSockets agents",
+                                                             "file":  "content/documentation-technique/serveur/serveur-temps-reel-socketio-et-websockets-agents.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "client",
+                                           "title":  "Client",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "client-architecture-routing",
+                                                             "title":  "Client â€” Architecture generale et routing",
+                                                             "file":  "content/documentation-technique/client/client-architecture-routing.md"
+                                                         },
+                                                         {
+                                                             "slug":  "client-etat-api-auth",
+                                                             "title":  "Client â€” State management, couche API et authentification",
+                                                             "file":  "content/documentation-technique/client/client-etat-api-auth.md"
+                                                         },
+                                                         {
+                                                             "slug":  "client-i18n-pages-composites",
+                                                             "title":  "Client â€” i18n et pages composites (pattern embedded)",
+                                                             "file":  "content/documentation-technique/client/client-i18n-pages-composites.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "agent-go",
+                                           "title":  "Agent Go",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "agent-go-architecture-generale",
+                                                             "title":  "Agent Go â€” Architecture generale",
+                                                             "file":  "content/documentation-technique/agent-go/agent-go-architecture-generale.md"
+                                                         },
+                                                         {
+                                                             "slug":  "agent-go-communication-serveur",
+                                                             "title":  "Agent Go â€” Communication avec le serveur",
+                                                             "file":  "content/documentation-technique/agent-go/agent-go-communication-serveur.md"
+                                                         },
+                                                         {
+                                                             "slug":  "agent-go-commandes-et-securite",
+                                                             "title":  "Agent Go â€” Dispatcher de commandes et securite",
+                                                             "file":  "content/documentation-technique/agent-go/agent-go-commandes-et-securite.md"
+                                                         },
+                                                         {
+                                                             "slug":  "agent-go-sous-binaires-et-legacy",
+                                                             "title":  "Agent Go â€” Sous-binaires et agent legacy",
+                                                             "file":  "content/documentation-technique/agent-go/agent-go-sous-binaires-et-legacy.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "modele-de-donnees",
+                                           "title":  "Modele de donnees",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "modele-de-donnees-migrations-et-schema-initial",
+                                                             "title":  "Modele de donnees - Migrations et schema initial",
+                                                             "file":  "content/documentation-technique/modele-de-donnees/modele-de-donnees-migrations-et-schema-initial.md"
+                                                         },
+                                                         {
+                                                             "slug":  "modele-de-donnees-groupes-devices-et-commandes",
+                                                             "title":  "Modele de donnees - Groupes, devices et file de commandes",
+                                                             "file":  "content/documentation-technique/modele-de-donnees/modele-de-donnees-groupes-devices-et-commandes.md"
+                                                         },
+                                                         {
+                                                             "slug":  "modele-de-donnees-rbac-et-multi-tenant",
+                                                             "title":  "Modele de donnees - RBAC, permission sets et isolation multi-tenant",
+                                                             "file":  "content/documentation-technique/modele-de-donnees/modele-de-donnees-rbac-et-multi-tenant.md"
+                                                         },
+                                                         {
+                                                             "slug":  "modele-de-donnees-scenarios-v1-vs-v2",
+                                                             "title":  "Modele de donnees - Scenarios : du modele lineaire V1 au graphe V2",
+                                                             "file":  "content/documentation-technique/modele-de-donnees/modele-de-donnees-scenarios-v1-vs-v2.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "moteur-de-scenarios",
+                                           "title":  "Moteur de scenarios",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "moteur-de-scenarios-architecture-graphe-v2",
+                                                             "title":  "Moteur de scenarios â€” Architecture du graph engine v2",
+                                                             "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-architecture-graphe-v2.md"
+                                                         },
+                                                         {
+                                                             "slug":  "moteur-de-scenarios-types-de-noeuds-et-executors",
+                                                             "title":  "Moteur de scenarios â€” Types de noeuds et executors",
+                                                             "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-types-de-noeuds-et-executors.md"
+                                                         },
+                                                         {
+                                                             "slug":  "moteur-de-scenarios-export-import-json-portable",
+                                                             "title":  "Moteur de scenarios â€” Format d\u0027export/import JSON portable",
+                                                             "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-export-import-json-portable.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "integrations",
+                                           "title":  "Integrations",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "sso-obligate",
+                                                             "title":  "SSO Obligate",
+                                                             "file":  "content/documentation-technique/integrations/sso-obligate.md"
+                                                         },
+                                                         {
+                                                             "slug":  "relais-oblireach-remote-control",
+                                                             "title":  "Relais Oblireach et prise en main a distance",
+                                                             "file":  "content/documentation-technique/integrations/relais-oblireach-remote-control.md"
+                                                         },
+                                                         {
+                                                             "slug":  "plugins-de-notification",
+                                                             "title":  "Plugins de notification",
+                                                             "file":  "content/documentation-technique/integrations/plugins-de-notification.md"
+                                                         }
+                                                     ]
+                                       },
+                                       {
+                                           "slug":  "exploitation-et-contribution",
+                                           "title":  "Exploitation et contribution",
+                                           "pages":  [
+                                                         {
+                                                             "slug":  "deploiement-docker-production",
+                                                             "title":  "Deploiement Docker en production",
+                                                             "file":  "content/documentation-technique/exploitation-et-contribution/deploiement-docker-production.md"
+                                                         },
+                                                         {
+                                                             "slug":  "environnement-de-developpement",
+                                                             "title":  "Environnement de developpement",
+                                                             "file":  "content/documentation-technique/exploitation-et-contribution/environnement-de-developpement.md"
+                                                         },
+                                                         {
+                                                             "slug":  "versioning-et-releases",
+                                                             "title":  "Versioning et releases",
+                                                             "file":  "content/documentation-technique/exploitation-et-contribution/versioning-et-releases.md"
+                                                         },
+                                                         {
+                                                             "slug":  "ajouter-un-type-de-node-scenario",
+                                                             "title":  "Ajouter un type de node dans les scenarios",
+                                                             "file":  "content/documentation-technique/exploitation-et-contribution/ajouter-un-type-de-node-scenario.md"
+                                                         }
+                                                     ]
+                                       }
+                                   ]
+                  }
+              ]
+}
