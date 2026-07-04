@@ -1,4 +1,4 @@
-﻿Ce guide decrit le modele de permissions d'Obliance : roles, equipes (Teams), isolation multi-tenant et cles API des agents.
+Ce guide decrit le modele de permissions d'Obliance : roles, equipes (Teams), isolation multi-tenant et cles API des agents.
 
 ## Roles
 

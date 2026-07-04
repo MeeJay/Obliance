@@ -1,4 +1,4 @@
-﻿Le format JSON portable des scenarios permet de generer un scenario via un LLM, de le migrer entre tenants/installations, ou de le sauvegarder avant un refacto risque.
+Le format JSON portable des scenarios permet de generer un scenario via un LLM, de le migrer entre tenants/installations, ou de le sauvegarder avant un refacto risque.
 
 ## Endpoints
 
@@ -53,26 +53,26 @@ Le statut du scenario est **intentionnellement omis** a l'export (`exportScenari
 
 ## Fonctions cles (`scenario.service.ts`)
 
-### `exportScenario()` â€” lignes 456-621
+### `exportScenario()` — lignes 456-621
 
 `formatVersion` actuel : **2** (ligne 578).
 
-### `getDummyExportTemplate()` â€” ligne 984
+### `getDummyExportTemplate()` — ligne 984
 
-Retourne le squelette commente utilise par `GET /dummy-export`, avec `formatVersion: 2` (ligne 990) et un exemple de noeud par type â€” reference utilisee par un LLM pour generer un scenario valide.
+Retourne le squelette commente utilise par `GET /dummy-export`, avec `formatVersion: 2` (ligne 990) et un exemple de noeud par type — reference utilisee par un LLM pour generer un scenario valide.
 
-**A verifier avant diffusion large** : la couverture exhaustive (un exemple par `ScenarioNodeType` sans exception) n'a pas ete auditee ligne par ligne. C'est pourtant une exigence explicite de la checklist "ajouter un node type" du CLAUDE.md racine â€” a controler lors du prochain ajout de type de noeud.
+**A verifier avant diffusion large** : la couverture exhaustive (un exemple par `ScenarioNodeType` sans exception) n'a pas ete auditee ligne par ligne. C'est pourtant une exigence explicite de la checklist "ajouter un node type" du CLAUDE.md racine — a controler lors du prochain ajout de type de noeud.
 
-### `importScenario()` â€” lignes 635-761+
+### `importScenario()` — lignes 635-761+
 
 Processus **two-pass** :
 
-1. `commit: false` (ou absent) â†’ retourne la liste des conflits detectes (scripts dont l'`uuid` existe deja dans le tenant cible), avec options de resolution `skip` / `overwrite` / `new`
-2. `commit: true` + `conflictResolutions` â†’ ecrit `scenario` + `nodes` + `edges` + `scripts` + `schedules` dans **une transaction unique**
+1. `commit: false` (ou absent) → retourne la liste des conflits detectes (scripts dont l'`uuid` existe deja dans le tenant cible), avec options de resolution `skip` / `overwrite` / `new`
+2. `commit: true` + `conflictResolutions` → ecrit `scenario` + `nodes` + `edges` + `scripts` + `schedules` dans **une transaction unique**
 
 Validation structurelle stricte :
 - `clientId` requis et unique par noeud
-- `VALID_NODE_TYPES` (Set, ligne 679-688) â€” rejette tout type de noeud inconnu avec un message listant les types valides
+- `VALID_NODE_TYPES` (Set, ligne 679-688) — rejette tout type de noeud inconnu avec un message listant les types valides
 - Les cles `_comment` (aide documentaire du dummy-export) sont strippees silencieusement, ce ne sont pas des champs reels du modele
 
 ## Versions du format
@@ -86,17 +86,17 @@ La version est validee des l'entree de l'import (`scenario.service.ts`, lignes 6
 
 `migrateV1ToV2()` (`scenario.service.ts` ligne 2281) convertit un payload v1 a la volee au moment de l'import : un noeud `type: 'cooldown'` est injecte entre chaque trigger portant un `cooldownSeconds > 0` et ses cibles en aval.
 
-### Bump du formatVersion â€” regle absolue
+### Bump du formatVersion — regle absolue
 
 Toute modification de la shape du payload (rename de champ, suppression, restructuration profonde) impose de **bumper `formatVersion`** dans 3 endroits :
 
-1. `getDummyExportTemplate()` â€” la valeur retournee
-2. `exportScenario()` â€” la valeur retournee
-3. `importScenario()` â€” ajouter la branche de migration vers la nouvelle version (helper dedie, sur le modele de `migrateV1ToV2`), ou lever une erreur claire type `Re-export from a vN-aware install`
+1. `getDummyExportTemplate()` — la valeur retournee
+2. `exportScenario()` — la valeur retournee
+3. `importScenario()` — ajouter la branche de migration vers la nouvelle version (helper dedie, sur le modele de `migrateV1ToV2`), ou lever une erreur claire type `Re-export from a vN-aware install`
 
 Ne **jamais** changer la shape silencieusement sans bumper : les exports JSON archives par les admins doivent rester importables indefiniment, sous peine de casser leurs backups.
 
-## Templates pre-integres â€” structure legacy
+## Templates pre-integres — structure legacy
 
 `server/src/services/scenario-templates/index.ts` definit 12 `ScenarioTemplate`, mais leur structure interne est encore l'**ancien modele lineaire v1** : chaque template expose une liste `steps: ScenarioTemplateStep[]` (lignes 13-20), ou chaque step porte les champs `checkScript`, `resolveScript`, `timeoutSeconds` et `retryCount`.
 
@@ -110,4 +110,4 @@ Resultat : l'editeur React Flow s'ouvre toujours sur un graphe, meme pour un tem
 
 ### Sanitisation des variables de template
 
-A l'instantiation, whitelist stricte des cles connues (`template.variables`), rejet des valeurs non-string et des caracteres de controle/NUL (`scenario.routes.ts` lignes 110-124) â€” protection anti-injection dans le contenu des scripts generes.
+A l'instantiation, whitelist stricte des cles connues (`template.variables`), rejet des valeurs non-string et des caracteres de controle/NUL (`scenario.routes.ts` lignes 110-124) — protection anti-injection dans le contenu des scripts generes.

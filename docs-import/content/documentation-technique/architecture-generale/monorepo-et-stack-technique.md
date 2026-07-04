@@ -1,4 +1,4 @@
-﻿Cette page decrit l'organisation du monorepo Obliance et les responsabilites de chaque workspace npm.
+Cette page decrit l'organisation du monorepo Obliance et les responsabilites de chaque workspace npm.
 
 ## Workspaces npm
 
@@ -8,7 +8,7 @@ Le fichier racine `D:\Obliance\package.json` declare quatre workspaces npm :
 "workspaces": ["shared", "server", "client", "agent"]
 ```
 
-`agent` est liste comme workspace npm bien qu'il s'agisse de code Go â€” aucun script npm ne s'y execute reellement, c'est uniquement pour la coherence du monorepo (un seul `git clone`, une seule racine).
+`agent` est liste comme workspace npm bien qu'il s'agisse de code Go — aucun script npm ne s'y execute reellement, c'est uniquement pour la coherence du monorepo (un seul `git clone`, une seule racine).
 
 Scripts racine notables :
 
@@ -23,7 +23,7 @@ Scripts racine notables :
 
 Le `build` racine est **sequentiel et explicite** : `shared` doit etre compile avant `server` et `client`, car les deux consomment potentiellement le `dist/` de `shared`.
 
-## shared/ â€” types partages
+## shared/ — types partages
 
 `shared/package.json` : package `@obliance/shared` en version `0.1.0`, `main: dist/index.js`, `types: dist/index.d.ts`, compile via `tsc`. Aucune dependance runtime, uniquement `typescript` en devDependency.
 
@@ -31,11 +31,11 @@ Contenu de `shared/src/` (5 fichiers) :
 
 ```
 shared/src/
-â”œâ”€â”€ index.ts            # barrel export
-â”œâ”€â”€ types.ts             # ~2358 lignes â€” types metier (Device, Scenario, etc.)
-â”œâ”€â”€ settingsDefaults.ts
-â”œâ”€â”€ socketEvents.ts
-â””â”€â”€ tenants.ts           # MASTER_TENANT_ID, isMasterTenant()
+├── index.ts            # barrel export
+├── types.ts             # ~2358 lignes — types metier (Device, Scenario, etc.)
+├── settingsDefaults.ts
+├── socketEvents.ts
+└── tenants.ts           # MASTER_TENANT_ID, isMasterTenant()
 ```
 
 `shared/src/tenants.ts` :
@@ -52,10 +52,10 @@ export function isMasterTenant(tenantId: number): boolean {
 
 Point d'architecture important, source d'un piege classique en dev :
 
-- **`client/vite.config.ts`** alias `@obliance/shared` directement vers `path.resolve(__dirname, '../shared/src')` â€” le client importe les **sources TypeScript** du package shared. Consequence : le client n'a pas besoin que `npm run build:shared` ait tourne pour voir un changement de type.
-- **`server`** resout `@obliance/shared` via `node_modules` (workspace npm standard, `main: dist/index.js`) â€” donc il consomme le **JS compile**. Un changement dans `shared/src/types.ts` n'est visible cote server qu'apres un rebuild de `shared` (sauf particularites du mode watch `tsx`).
+- **`client/vite.config.ts`** alias `@obliance/shared` directement vers `path.resolve(__dirname, '../shared/src')` — le client importe les **sources TypeScript** du package shared. Consequence : le client n'a pas besoin que `npm run build:shared` ait tourne pour voir un changement de type.
+- **`server`** resout `@obliance/shared` via `node_modules` (workspace npm standard, `main: dist/index.js`) — donc il consomme le **JS compile**. Un changement dans `shared/src/types.ts` n'est visible cote server qu'apres un rebuild de `shared` (sauf particularites du mode watch `tsx`).
 
-## server/ â€” API
+## server/ — API
 
 `server/package.json` : package `@obliance/server` en version `5.1.79`, `main: dist/src/index.js`.
 
@@ -71,7 +71,7 @@ Dependances cles :
 | Ordonnancement | node-cron |
 | Divers | playwright-chromium, ssh2 |
 
-## client/ â€” SPA
+## client/ — SPA
 
 `client/package.json` : package `@obliance/client` en version `5.1.75`, `type: module`.
 
@@ -84,7 +84,7 @@ Dependances cles : react 18.3, react-router-dom 6.22, vite 5.1, socket.io-client
 /socket.io  -> http://localhost:3001   (ws: true)
 ```
 
-## agent/ â€” client Go
+## agent/ — client Go
 
 Deux modules Go distincts dans le meme repertoire `agent/` :
 
@@ -105,15 +105,15 @@ La structure reelle constatee sur le filesystem comporte **6** sous-dossiers, al
 
 ```
 agent/cmd/
-â”œâ”€â”€ diag/
-â”œâ”€â”€ legacy/
-â”œâ”€â”€ tray/
-â”œâ”€â”€ watchdog/     # non decrit dans la doc de reference
-â”œâ”€â”€ wizard/       # non decrit dans la doc de reference
-â””â”€â”€ wizard-linux/ # non decrit dans la doc de reference
+├── diag/
+├── legacy/
+├── tray/
+├── watchdog/     # non decrit dans la doc de reference
+├── wizard/       # non decrit dans la doc de reference
+└── wizard-linux/ # non decrit dans la doc de reference
 ```
 
-Le role exact de `watchdog/`, `wizard/` et `wizard-linux/` n'a pas ete audite en detail (contenu de leur `main.go`) â€” a explorer avant documentation approfondie si necessaire.
+Le role exact de `watchdog/`, `wizard/` et `wizard-linux/` n'a pas ete audite en detail (contenu de leur `main.go`) — a explorer avant documentation approfondie si necessaire.
 
 ### Cross-plateforme par suffixe de fichier
 
@@ -147,4 +147,4 @@ A traiter comme ordre de grandeur indicatif plutot que chiffre fige lors de tout
 
 ## Absence de README racine
 
-Aucun `README.md` n'existe a la racine du depot (seuls des `README.md` presents dans `node_modules/`). Les noms des images Docker Hub (`meejay/obliance-server`, `meejay/obliance-client`) ne sont documentes que dans les fichiers `docker-compose*.yml` et dans CLAUDE.md â€” il n'y a pas de point d'entree documentaire alternatif pour un nouvel arrivant.
+Aucun `README.md` n'existe a la racine du depot (seuls des `README.md` presents dans `node_modules/`). Les noms des images Docker Hub (`meejay/obliance-server`, `meejay/obliance-client`) ne sont documentes que dans les fichiers `docker-compose*.yml` et dans CLAUDE.md — il n'y a pas de point d'entree documentaire alternatif pour un nouvel arrivant.

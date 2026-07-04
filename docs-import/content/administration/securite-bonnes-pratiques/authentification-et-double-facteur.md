@@ -1,4 +1,4 @@
-﻿Ce guide explique comment configurer l'authentification des utilisateurs sur Obliance : mot de passe, double facteur (2FA) et connexion via une passerelle SSO Obligate.
+Ce guide explique comment configurer l'authentification des utilisateurs sur Obliance : mot de passe, double facteur (2FA) et connexion via une passerelle SSO Obligate.
 
 ## Mot de passe
 

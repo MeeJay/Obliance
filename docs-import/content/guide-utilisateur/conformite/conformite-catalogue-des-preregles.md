@@ -1,42 +1,42 @@
-﻿# ConformitÃ© : le catalogue des prÃ©rÃ©glages
+# Conformité : le catalogue des préréglages
 
-Obliance propose 12 prÃ©rÃ©glages de conformitÃ© prÃªts Ã  l'emploi, accessibles depuis l'onglet **Politiques** de la page ConformitÃ©.
+Obliance propose 12 préréglages de conformité prêts à l'emploi, accessibles depuis l'onglet **Politiques** de la page Conformité.
 
-## Utiliser un prÃ©rÃ©glage
+## Utiliser un préréglage
 
-Dans l'onglet **ConformitÃ©** > **Politiques**, une section **PrÃ©rÃ©glages** liste les 12 modÃ¨les disponibles. Chaque carte affiche le nombre de rÃ¨gles qu'il contient et une courte description. Deux usages possibles :
+Dans l'onglet **Conformité** > **Politiques**, une section **Préréglages** liste les 12 modèles disponibles. Chaque carte affiche le nombre de règles qu'il contient et une courte description. Deux usages possibles :
 
-- L'appliquer tel quel : la politique est crÃ©Ã©e directement avec toutes les rÃ¨gles du prÃ©rÃ©glage.
-- S'en servir de base personnalisable via le bouton **Partir d'un template** : le contenu du prÃ©rÃ©glage est repris dans l'Ã©diteur de politique, et vous pouvez ensuite ajouter, modifier ou retirer des rÃ¨gles avant de l'enregistrer sous votre propre politique.
+- L'appliquer tel quel : la politique est créée directement avec toutes les règles du préréglage.
+- S'en servir de base personnalisable via le bouton **Partir d'un template** : le contenu du préréglage est repris dans l'éditeur de politique, et vous pouvez ensuite ajouter, modifier ou retirer des règles avant de l'enregistrer sous votre propre politique.
 
-Dans les deux cas, vous choisissez ensuite la cible : tous les appareils, ou un ou plusieurs groupes prÃ©cis.
+Dans les deux cas, vous choisissez ensuite la cible : tous les appareils, ou un ou plusieurs groupes précis.
 
-## Les 12 prÃ©rÃ©glages disponibles
+## Les 12 préréglages disponibles
 
-### Bases de sÃ©curitÃ© gÃ©nÃ©riques (rÃ©fÃ©rentiel "Custom")
+### Bases de sécurité génériques (référentiel "Custom")
 
-| PrÃ©rÃ©glage | Plateforme | Contenu |
+| Préréglage | Plateforme | Contenu |
 |---|---|---|
-| **Windows Security Baseline** | Windows 10/11 et Server 2016+ | 80 rÃ¨gles couvrant le pare-feu, Windows Defender, la gestion des comptes, les identifiants, le rÃ©seau, les services, les mises Ã  jour et l'accÃ¨s distant. |
-| **Windows Haute Performance** | Windows 10/11 | RÃ¨gles orientÃ©es optimisation (postes de type gaming ou poste bureautique performant) : dÃ©sactivation de la tÃ©lÃ©mÃ©trie et des services inutiles, rÃ©duction des effets visuels, activation du profil d'alimentation haute performance, planification GPU et optimisations rÃ©seau. |
-| **Linux Security Baseline** | Debian, Ubuntu, RHEL, Fedora (compatible pare-feu UFW et firewalld) | ContrÃ´les sur le systÃ¨me de fichiers, les services activÃ©s inutilement, la configuration rÃ©seau, SSH, la politique de mots de passe et l'audit systÃ¨me. |
-| **macOS Security Baseline** | macOS 12 et ultÃ©rieur (Monterey Ã  Sequoia) | ContrÃ´les sur SIP, Gatekeeper, FileVault, le pare-feu, le rÃ©seau, les comptes, les mises Ã  jour, la confidentialitÃ©, l'audit, SSH et Safari. Les contrÃ´les s'exÃ©cutent avec des droits administrateur complets sur la machine. |
-| **FreeBSD Security Baseline** | FreeBSD | ContrÃ´les sur le systÃ¨me de fichiers, l'authentification SSH, le pare-feu PF, les services, les permissions et les mises Ã  jour via pkg / freebsd-update. |
-| **OPNsense Security Baseline** | Appliances pare-feu OPNsense | VÃ©rifie la configuration du pare-feu, les services actifs, l'authentification (y compris double authentification, LDAP ou RADIUS), les mises Ã  jour et la prÃ©sence de sauvegardes. Une partie de ces rÃ¨gles n'a pas de correction automatique disponible : elles servent surtout Ã  dÃ©tecter un Ã©cart de configuration Ã  corriger manuellement. |
+| **Windows Security Baseline** | Windows 10/11 et Server 2016+ | 80 règles couvrant le pare-feu, Windows Defender, la gestion des comptes, les identifiants, le réseau, les services, les mises à jour et l'accès distant. |
+| **Windows Haute Performance** | Windows 10/11 | Règles orientées optimisation (postes de type gaming ou poste bureautique performant) : désactivation de la télémétrie et des services inutiles, réduction des effets visuels, activation du profil d'alimentation haute performance, planification GPU et optimisations réseau. |
+| **Linux Security Baseline** | Debian, Ubuntu, RHEL, Fedora (compatible pare-feu UFW et firewalld) | Contrôles sur le système de fichiers, les services activés inutilement, la configuration réseau, SSH, la politique de mots de passe et l'audit système. |
+| **macOS Security Baseline** | macOS 12 et ultérieur (Monterey à Sequoia) | Contrôles sur SIP, Gatekeeper, FileVault, le pare-feu, le réseau, les comptes, les mises à jour, la confidentialité, l'audit, SSH et Safari. Les contrôles s'exécutent avec des droits administrateur complets sur la machine. |
+| **FreeBSD Security Baseline** | FreeBSD | Contrôles sur le système de fichiers, l'authentification SSH, le pare-feu PF, les services, les permissions et les mises à jour via pkg / freebsd-update. |
+| **OPNsense Security Baseline** | Appliances pare-feu OPNsense | Vérifie la configuration du pare-feu, les services actifs, l'authentification (y compris double authentification, LDAP ou RADIUS), les mises à jour et la présence de sauvegardes. Une partie de ces règles n'a pas de correction automatique disponible : elles servent surtout à détecter un écart de configuration à corriger manuellement. |
 
-### RÃ©fÃ©rentiels rÃ©glementaires et normatifs officiels (tous pour Windows)
+### Référentiels réglementaires et normatifs officiels (tous pour Windows)
 
-| PrÃ©rÃ©glage | RÃ©fÃ©rentiel | Contenu |
+| Préréglage | Référentiel | Contenu |
 |---|---|---|
-| **CIS Windows Level 1** | CIS Benchmark Windows 10/11 Enterprise, niveau 1 | RÃ¨gles de politique de comptes et d'attribution des droits utilisateurs. |
-| **NIST SP 800-171 (Windows)** | NIST SP 800-171 rÃ©vision 2 | Protection des informations sensibles non classifiÃ©es (CUI), rÃ¨gles regroupÃ©es par famille (contrÃ´le d'accÃ¨s, audit, gestion de la configuration, identification, rÃ©ponse aux incidents, maintenance, protection des supports...). |
-| **ISO 27001:2022 (Windows)** | ISO 27001, Annexe A | RÃ¨gles regroupÃ©es par thÃ¨me : organisationnel, humain, physique, technologique. |
-| **PCI DSS v4 (Windows)** | PCI DSS version 4.0 | Couvre les 12 exigences PCI DSS pour la partie Windows d'un environnement de traitement de cartes de paiement. Ce prÃ©rÃ©glage n'est pas un substitut Ã  un audit officiel rÃ©alisÃ© par un auditeur qualifiÃ© (QSA) : il vise Ã  prÃ©parer et fiabiliser le terrain avant un audit. |
-| **HIPAA Security Rule (Windows)** | HIPAA, 45 CFR partie 164 | RÃ¨gles administratives, physiques et techniques issues de la rÃ©glementation santÃ© amÃ©ricaine, plus des rÃ¨gles techniques complÃ©mentaires. |
-| **SOC 2 Type II (Windows)** | AICPA Trust Service Criteria | Couvre les critÃ¨res de sÃ©curitÃ©, disponibilitÃ©, intÃ©gritÃ© de traitement, confidentialitÃ© et respect de la vie privÃ©e. |
+| **CIS Windows Level 1** | CIS Benchmark Windows 10/11 Enterprise, niveau 1 | Règles de politique de comptes et d'attribution des droits utilisateurs. |
+| **NIST SP 800-171 (Windows)** | NIST SP 800-171 révision 2 | Protection des informations sensibles non classifiées (CUI), règles regroupées par famille (contrôle d'accès, audit, gestion de la configuration, identification, réponse aux incidents, maintenance, protection des supports...). |
+| **ISO 27001:2022 (Windows)** | ISO 27001, Annexe A | Règles regroupées par thème : organisationnel, humain, physique, technologique. |
+| **PCI DSS v4 (Windows)** | PCI DSS version 4.0 | Couvre les 12 exigences PCI DSS pour la partie Windows d'un environnement de traitement de cartes de paiement. Ce préréglage n'est pas un substitut à un audit officiel réalisé par un auditeur qualifié (QSA) : il vise à préparer et fiabiliser le terrain avant un audit. |
+| **HIPAA Security Rule (Windows)** | HIPAA, 45 CFR partie 164 | Règles administratives, physiques et techniques issues de la réglementation santé américaine, plus des règles techniques complémentaires. |
+| **SOC 2 Type II (Windows)** | AICPA Trust Service Criteria | Couvre les critères de sécurité, disponibilité, intégrité de traitement, confidentialité et respect de la vie privée. |
 
 ## Comment choisir
 
-- Si vous voulez simplement sÃ©curiser un parc sans contrainte rÃ©glementaire particuliÃ¨re : partez d'une des bases gÃ©nÃ©riques (**Windows Security Baseline**, **Linux Security Baseline**, **macOS Security Baseline**...) adaptÃ©e au systÃ¨me visÃ©.
-- Si votre organisation doit prouver sa conformitÃ© Ã  une norme prÃ©cise pour un client, un partenaire ou un rÃ©gulateur : choisissez le prÃ©rÃ©glage correspondant (NIST, ISO 27001, PCI DSS, HIPAA, SOC 2, CIS).
-- Rien n'empÃªche d'appliquer plusieurs prÃ©rÃ©glages en parallÃ¨le sur le mÃªme groupe d'appareils si plusieurs exigences se cumulent (par exemple Windows Security Baseline et NIST SP 800-171 en mÃªme temps).
+- Si vous voulez simplement sécuriser un parc sans contrainte réglementaire particulière : partez d'une des bases génériques (**Windows Security Baseline**, **Linux Security Baseline**, **macOS Security Baseline**...) adaptée au système visé.
+- Si votre organisation doit prouver sa conformité à une norme précise pour un client, un partenaire ou un régulateur : choisissez le préréglage correspondant (NIST, ISO 27001, PCI DSS, HIPAA, SOC 2, CIS).
+- Rien n'empêche d'appliquer plusieurs préréglages en parallèle sur le même groupe d'appareils si plusieurs exigences se cumulent (par exemple Windows Security Baseline et NIST SP 800-171 en même temps).

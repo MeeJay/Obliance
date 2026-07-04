@@ -1,8 +1,8 @@
-﻿Une fois sur la fiche d'un appareil, ses informations sont reparties en plusieurs onglets. Ce chapitre decrit le contenu de chacun.
+Une fois sur la fiche d'un appareil, ses informations sont reparties en plusieurs onglets. Ce chapitre decrit le contenu de chacun.
 
 ## Liste des onglets
 
-La fiche comporte des onglets fixes â€” **Overview, Inventory, Scripts, Updates, Compliance, Remote, Explorer, Services, Processes, Tasks, Settings** â€” auxquels s'ajoutent, selon l'equipement de la machine, des onglets conditionnels : **Hyper-V** (si la machine heberge des machines virtuelles), **Backups** (si un logiciel de sauvegarde de type Veeam y est detecte), ainsi que d'eventuelles sections personnalisees configurees pour votre organisation, inserees juste apres l'onglet Remote.
+La fiche comporte des onglets fixes — **Overview, Inventory, Scripts, Updates, Compliance, Remote, Explorer, Services, Processes, Tasks, Settings** — auxquels s'ajoutent, selon l'equipement de la machine, des onglets conditionnels : **Hyper-V** (si la machine heberge des machines virtuelles), **Backups** (si un logiciel de sauvegarde de type Veeam y est detecte), ainsi que d'eventuelles sections personnalisees configurees pour votre organisation, inserees juste apres l'onglet Remote.
 
 ## Overview
 
@@ -16,9 +16,9 @@ Deux sous-sections : **Hardware** (materiel detecte) et **Software** (logiciels 
 
 Trois sous-onglets :
 
-- **History** â€” historique des executions de scripts sur cet appareil, avec leur statut (succes, echec, en cours, en attente, delai depasse, annule, ignore, envoye), la sortie du script, et un bouton pour arreter une execution en cours ;
-- **Run** â€” lancement manuel d'un script sur cet appareil ;
-- **Schedule** â€” planification d'une execution recurrente directement depuis la fiche.
+- **History** — historique des executions de scripts sur cet appareil, avec leur statut (succes, echec, en cours, en attente, delai depasse, annule, ignore, envoye), la sortie du script, et un bouton pour arreter une execution en cours ;
+- **Run** — lancement manuel d'un script sur cet appareil ;
+- **Schedule** — planification d'une execution recurrente directement depuis la fiche.
 
 ## Updates
 
@@ -32,8 +32,8 @@ Regroupe deux volets : la liste des **vulnerabilites connues (CVE)** corresponda
 
 Gere les prises en main a distance :
 
-- **ObliReach** â€” partage d'ecran et controle a distance, avec detection automatique si le composant est installe sur la machine et comparaison entre sa version installee et la derniere version disponible ;
-- des sessions a distance de plusieurs types : **Bureau a distance (RDP)**, **Connexion securisee (SSH)**, ou **Ligne de commande (CMD / PowerShell)** â€” pour ces deux dernieres, vous choisissez le contexte d'ouverture : session de l'utilisateur connecte ou compte SYSTEME ;
+- **ObliReach** — partage d'ecran et controle a distance, avec detection automatique si le composant est installe sur la machine et comparaison entre sa version installee et la derniere version disponible ;
+- des sessions a distance de plusieurs types : **Bureau a distance (RDP)**, **Connexion securisee (SSH)**, ou **Ligne de commande (CMD / PowerShell)** — pour ces deux dernieres, vous choisissez le contexte d'ouverture : session de l'utilisateur connecte ou compte SYSTEME ;
 - sur une machine hebergeant des machines virtuelles, une **console VM** est egalement disponible.
 
 ## Explorer
@@ -42,9 +42,9 @@ Navigateur de fichiers a distance sur la machine : creation de nouveau dossier, 
 
 ## Services / Processes / Tasks
 
-- **Services** â€” liste des services systeme de la machine avec les actions Demarrer / Arreter / Redemarrer.
-- **Processes** â€” liste des processus en cours d'execution, avec la possibilite d'en arreter un par son identifiant.
-- **Tasks** â€” historique de toutes les commandes envoyees a cet appareil (filtrage, pagination, annulation d'une commande encore en attente), mis a jour automatiquement en temps reel.
+- **Services** — liste des services systeme de la machine avec les actions Demarrer / Arreter / Redemarrer.
+- **Processes** — liste des processus en cours d'execution, avec la possibilite d'en arreter un par son identifiant.
+- **Tasks** — historique de toutes les commandes envoyees a cet appareil (filtrage, pagination, annulation d'une commande encore en attente), mis a jour automatiquement en temps reel.
 
 ## Settings (reserve aux administrateurs)
 
@@ -62,7 +62,7 @@ Cet onglet regroupe toute la configuration de l'appareil :
 
 ### Mode confidentialite et mot de passe
 
-Dans la section **Privacy mode**, un administrateur peut activer le mode confidentialite a distance (bouton **Enable privacy mode**, avec confirmation) â€” disponible uniquement si l'appareil est joignable. Une fois actif, sa desactivation se fait depuis le bouton **Disable** en haut de la fiche, ou localement sur la machine.
+Dans la section **Privacy mode**, un administrateur peut activer le mode confidentialite a distance (bouton **Enable privacy mode**, avec confirmation) — disponible uniquement si l'appareil est joignable. Une fois actif, sa desactivation se fait depuis le bouton **Disable** en haut de la fiche, ou localement sur la machine.
 
 La section **Privacy password** permet de definir, changer ou retirer un mot de passe local de deverrouillage (**Set password / Change password / Remove password**), a condition que le mode confidentialite soit desactive et l'appareil joignable. Ce mot de passe n'est jamais stocke par Obliance : seule l'information "un mot de passe est defini" est connue du serveur.
 
@@ -73,7 +73,7 @@ Trois actions sensibles, reservees aux administrateurs :
 | Action | Effet |
 |---|---|
 | **Transfer to another tenant** | Deplace l'appareil vers une autre organisation. Son groupe, ses indicateurs personnalises et ses resultats de conformite sont vides ; l'agent se reconfigure automatiquement avec une nouvelle cle au prochain envoi de donnees. |
-| **Delete device** | Supprime l'appareil d'Obliance **sans** desinstaller l'agent sur la machine â€” celle-ci se reenregistrera automatiquement au prochain envoi de donnees, sauf si vous desinstallez aussi l'agent localement. |
-| **Uninstall agent** | Envoie la commande de desinstallation immediate de l'agent sur la machine. L'appareil disparait de toutes les listes et sera supprime definitivement une fois la desinstallation confirmee. Sans confirmation sous 10 minutes, l'appareil reapparait â€” un bouton **Cancel** permet d'annuler l'operation tant qu'elle est en cours. |
+| **Delete device** | Supprime l'appareil d'Obliance **sans** desinstaller l'agent sur la machine — celle-ci se reenregistrera automatiquement au prochain envoi de donnees, sauf si vous desinstallez aussi l'agent localement. |
+| **Uninstall agent** | Envoie la commande de desinstallation immediate de l'agent sur la machine. L'appareil disparait de toutes les listes et sera supprime definitivement une fois la desinstallation confirmee. Sans confirmation sous 10 minutes, l'appareil reapparait — un bouton **Cancel** permet d'annuler l'operation tant qu'elle est en cours. |
 
 Ces trois actions sont irreversibles ou impactantes : verifiez toujours que vous ciblez le bon appareil avant de confirmer.

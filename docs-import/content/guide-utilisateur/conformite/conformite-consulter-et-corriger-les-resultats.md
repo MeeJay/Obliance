@@ -1,21 +1,21 @@
-﻿# ConformitÃ© : consulter et corriger les rÃ©sultats
+# Conformité : consulter et corriger les résultats
 
-Cette page explique comment lire les rÃ©sultats de conformitÃ© de vos appareils et corriger ce qui ne va pas, depuis l'onglet **RÃ©sultats** de la page ConformitÃ© (**Politiques > ConformitÃ© > RÃ©sultats**).
+Cette page explique comment lire les résultats de conformité de vos appareils et corriger ce qui ne va pas, depuis l'onglet **Résultats** de la page Conformité (**Politiques > Conformité > Résultats**).
 
-## Filtrer les rÃ©sultats
+## Filtrer les résultats
 
-En haut de l'onglet RÃ©sultats, deux filtres permettent de cibler ce que vous regardez :
+En haut de l'onglet Résultats, deux filtres permettent de cibler ce que vous regardez :
 
-- **Par appareil** : afficher les rÃ©sultats de tous les appareils ou d'un appareil prÃ©cis.
-- **Par rÃ©fÃ©rentiel** : afficher tous les rÃ©fÃ©rentiels ou se concentrer sur un seul (par exemple uniquement les rÃ©sultats liÃ©s Ã  la politique ISO 27001).
+- **Par appareil** : afficher les résultats de tous les appareils ou d'un appareil précis.
+- **Par référentiel** : afficher tous les référentiels ou se concentrer sur un seul (par exemple uniquement les résultats liés à la politique ISO 27001).
 
-## Lire le score de conformitÃ©
+## Lire le score de conformité
 
-Pour l'ensemble filtrÃ©, la page affiche :
+Pour l'ensemble filtré, la page affiche :
 
 - Un **score moyen** en pourcentage.
-- Le nombre de rÃ¨gles **Conformes**.
-- Le nombre de rÃ¨gles **Non conformes**.
+- Le nombre de règles **Conformes**.
+- Le nombre de règles **Non conformes**.
 
 Le score est mis en couleur pour une lecture rapide :
 
@@ -25,28 +25,28 @@ Le score est mis en couleur pour une lecture rapide :
 | Jaune | Entre 50 % et 79 % |
 | Rouge | En dessous de 50 % |
 
-Chaque appareil affiche Ã©galement son propre badge avec le dÃ©tail du nombre de rÃ¨gles conformes, en attention et non conformes.
+Chaque appareil affiche également son propre badge avec le détail du nombre de règles conformes, en attention et non conformes.
 
-## Consulter le dÃ©tail d'un appareil
+## Consulter le détail d'un appareil
 
-En dÃ©pliant le dÃ©tail d'un appareil, vous voyez la liste des rÃ¨gles Ã©valuÃ©es, avec pour chaque rÃ¨gle en Ã©chec :
+En dépliant le détail d'un appareil, vous voyez la liste des règles évaluées, avec pour chaque règle en échec :
 
-- Un bouton **Remediate** (icÃ´ne clÃ©) : lance la correction automatique de cette rÃ¨gle prÃ©cise, si une correction automatique est disponible pour elle. Certaines rÃ¨gles (notamment sur les rÃ©fÃ©rentiels dÃ©claratifs comme OPNsense) n'ont pas de correction automatique et doivent Ãªtre traitÃ©es manuellement.
-- Un bouton **Ignore** (icÃ´ne Å“il barrÃ©) : permet de marquer une rÃ¨gle comme volontairement ignorÃ©e sur cet appareil (par exemple si elle ne s'applique pas Ã  ce cas prÃ©cis). La rÃ¨gle passe alors avec un badge **ignored**. Le bouton devient **Unignore** pour revenir en arriÃ¨re.
-- Un badge **remediated** apparaÃ®t sur une rÃ¨gle qui vient d'Ãªtre corrigÃ©e automatiquement.
+- Un bouton **Remediate** (icône clé) : lance la correction automatique de cette règle précise, si une correction automatique est disponible pour elle. Certaines règles (notamment sur les référentiels déclaratifs comme OPNsense) n'ont pas de correction automatique et doivent être traitées manuellement.
+- Un bouton **Ignore** (icône œil barré) : permet de marquer une règle comme volontairement ignorée sur cet appareil (par exemple si elle ne s'applique pas à ce cas précis). La règle passe alors avec un badge **ignored**. Le bouton devient **Unignore** pour revenir en arrière.
+- Un badge **remediated** apparaît sur une règle qui vient d'être corrigée automatiquement.
 
-## Corriger plusieurs rÃ¨gles en une fois
+## Corriger plusieurs règles en une fois
 
-Lorsqu'un appareil a plusieurs rÃ¨gles en Ã©chec disposant d'une correction automatique, un bouton **Fix All** (ou **Remediate all (n)**, n Ã©tant le nombre de rÃ¨gles concernÃ©es) permet de toutes les corriger en une seule action, sans avoir Ã  cliquer rÃ¨gle par rÃ¨gle.
+Lorsqu'un appareil a plusieurs règles en échec disposant d'une correction automatique, un bouton **Fix All** (ou **Remediate all (n)**, n étant le nombre de règles concernées) permet de toutes les corriger en une seule action, sans avoir à cliquer règle par règle.
 
-## Relancer un contrÃ´le
+## Relancer un contrôle
 
-Un bouton de relance (icÃ´ne de rafraÃ®chissement) permet de redÃ©clencher immÃ©diatement un contrÃ´le de conformitÃ© sur un appareil ou une politique donnÃ©e, par exemple aprÃ¨s une correction manuelle effectuÃ©e directement sur la machine, pour vÃ©rifier que le problÃ¨me est bien rÃ©solu sans attendre le prochain contrÃ´le automatique.
+Un bouton de relance (icône de rafraîchissement) permet de redéclencher immédiatement un contrôle de conformité sur un appareil ou une politique donnée, par exemple après une correction manuelle effectuée directement sur la machine, pour vérifier que le problème est bien résolu sans attendre le prochain contrôle automatique.
 
-## Bon rÃ©flexe en cas d'appareil rouge
+## Bon réflexe en cas d'appareil rouge
 
-1. Ouvrir le dÃ©tail de l'appareil concernÃ© dans l'onglet RÃ©sultats.
-2. Regarder les rÃ¨gles en Ã©chec listÃ©es.
-3. Utiliser **Fix All** si plusieurs rÃ¨gles peuvent Ãªtre corrigÃ©es automatiquement, ou **Remediate** rÃ¨gle par rÃ¨gle si vous voulez garder le contrÃ´le sur ce qui est modifiÃ©.
-4. Relancer le contrÃ´le pour confirmer que le score est remontÃ©.
-5. Si une rÃ¨gle ne peut pas Ãªtre corrigÃ©e automatiquement et ne s'applique pas Ã  cet appareil, utiliser **Ignore** plutÃ´t que de la laisser polluer le score indÃ©finiment.
+1. Ouvrir le détail de l'appareil concerné dans l'onglet Résultats.
+2. Regarder les règles en échec listées.
+3. Utiliser **Fix All** si plusieurs règles peuvent être corrigées automatiquement, ou **Remediate** règle par règle si vous voulez garder le contrôle sur ce qui est modifié.
+4. Relancer le contrôle pour confirmer que le score est remonté.
+5. Si une règle ne peut pas être corrigée automatiquement et ne s'applique pas à cet appareil, utiliser **Ignore** plutôt que de la laisser polluer le score indéfiniment.

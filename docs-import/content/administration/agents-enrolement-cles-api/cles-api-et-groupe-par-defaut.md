@@ -1,10 +1,10 @@
-﻿Les cles API sont le mecanisme qui permet a un nouvel agent de s'identifier aupres du serveur Obliance et, optionnellement, d'etre range automatiquement dans un groupe a son approbation.
+Les cles API sont le mecanisme qui permet a un nouvel agent de s'identifier aupres du serveur Obliance et, optionnellement, d'etre range automatiquement dans un groupe a son approbation.
 
 ## Ou gerer les cles API
 
 Les cles API se gerent depuis la page **Agent config** (accessible depuis la barre laterale, section administration), dans l'onglet **Cles API**. Cette page comporte 3 onglets au total :
 
-- **Cles API** â€” creation, edition et suppression des cles.
+- **Cles API** — creation, edition et suppression des cles.
 - **Custom sections**
 - **Discovery**
 

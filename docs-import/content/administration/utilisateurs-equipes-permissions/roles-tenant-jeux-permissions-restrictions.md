@@ -1,69 +1,69 @@
-﻿Au-delÃ  des Ã©quipes, Obliance propose deux rÃ©glages transverses par tenant â€” les jeux de permissions et les restrictions â€” ainsi qu'un rÃ´le simplifiÃ© par tenant.
+Au-delà des équipes, Obliance propose deux réglages transverses par tenant — les jeux de permissions et les restrictions — ainsi qu'un rôle simplifié par tenant.
 
-## RÃ´le par tenant (Member / Admin)
+## Rôle par tenant (Member / Admin)
 
-Depuis le panneau **Manage tenant access** d'un utilisateur (voir page Â« Vue d'ensemble Â»), chaque accÃ¨s Ã  un tenant porte un rÃ´le :
+Depuis le panneau **Manage tenant access** d'un utilisateur (voir page « Vue d'ensemble »), chaque accès à un tenant porte un rôle :
 
-- **Member** : l'utilisateur est soumis aux vÃ©rifications normales de capacitÃ©s et aux permissions de ses Ã©quipes.
-- **Admin** : l'utilisateur passe outre les vÃ©rifications de capacitÃ©s tenant-wide pour ce tenant prÃ©cis.
+- **Member** : l'utilisateur est soumis aux vérifications normales de capacités et aux permissions de ses équipes.
+- **Admin** : l'utilisateur passe outre les vérifications de capacités tenant-wide pour ce tenant précis.
 
-Ce rÃ´le **Admin de tenant** reste distinct du rÃ´le administrateur global de la plateforme : il ne donne ni accÃ¨s au menu Utilisateurs, ni possibilitÃ© de gÃ©rer les Ã©quipes (ces fonctions restent rÃ©servÃ©es au rÃ´le administrateur global, vÃ©rifiÃ© indÃ©pendamment du tenant).
+Ce rôle **Admin de tenant** reste distinct du rôle administrateur global de la plateforme : il ne donne ni accès au menu Utilisateurs, ni possibilité de gérer les équipes (ces fonctions restent réservées au rôle administrateur global, vérifié indépendamment du tenant).
 
-> Point de vigilance : dans le panneau d'accÃ¨s au tenant, seul le choix Member/Admin est proposÃ© â€” il n'y a pas de sÃ©lection d'un jeu de permissions personnalisÃ© Ã  cet endroit ; les jeux de permissions se gÃ¨rent sÃ©parÃ©ment dans l'onglet dÃ©diÃ© dÃ©crit ci-dessous.
+> Point de vigilance : dans le panneau d'accès au tenant, seul le choix Member/Admin est proposé — il n'y a pas de sélection d'un jeu de permissions personnalisé à cet endroit ; les jeux de permissions se gèrent séparément dans l'onglet dédié décrit ci-dessous.
 
 ## Onglet Permissions : les jeux de permissions
 
-L'onglet **Permissions** de la page Utilisateurs (composant sÃ©parÃ© de l'arbre des Ã©quipes) gÃ¨re des **jeux de permissions** (Permission Sets) : une matrice qui croise des capacitÃ©s avec des jeux nommÃ©s, valable pour l'ensemble d'un tenant.
+L'onglet **Permissions** de la page Utilisateurs (composant séparé de l'arbre des équipes) gère des **jeux de permissions** (Permission Sets) : une matrice qui croise des capacités avec des jeux nommés, valable pour l'ensemble d'un tenant.
 
-Trois jeux existent par dÃ©faut et ne peuvent pas Ãªtre supprimÃ©s :
+Trois jeux existent par défaut et ne peuvent pas être supprimés :
 
 | Jeu | Usage typique |
 |---|---|
-| **Admin** | AccÃ¨s complet aux fonctions transverses du tenant |
-| **User** | AccÃ¨s standard |
+| **Admin** | Accès complet aux fonctions transverses du tenant |
+| **User** | Accès standard |
 | **Viewer** | Consultation seule |
 
-Un administrateur peut crÃ©er des jeux personnalisÃ©s, les renommer, et cocher/dÃ©cocher des capacitÃ©s directement dans la matrice â€” chaque case bascule immÃ©diatement, sans bouton Â« Enregistrer Â» global.
+Un administrateur peut créer des jeux personnalisés, les renommer, et cocher/décocher des capacités directement dans la matrice — chaque case bascule immédiatement, sans bouton « Enregistrer » global.
 
-### CapacitÃ©s rÃ©ellement actives vs. capacitÃ©s d'affichage
+### Capacités réellement actives vs. capacités d'affichage
 
-Toutes les cases de cette matrice ne pilotent pas un comportement rÃ©el cÃ´tÃ© serveur. Sont effectivement branchÃ©es et bloquantes :
+Toutes les cases de cette matrice ne pilotent pas un comportement réel côté serveur. Sont effectivement branchées et bloquantes :
 
-- **users.manage** (gÃ¨re l'accÃ¨s Ã  la gestion des utilisateurs du tenant),
-- **supervision:read** (accÃ¨s aux sessions distantes / historique / rapports),
-- les capacitÃ©s **agent_config:\*** (dÃ©blocage de pages entiÃ¨res : sections personnalisÃ©es, dÃ©couverte rÃ©seau, clÃ©s API, approbation d'agents),
+- **users.manage** (gère l'accès à la gestion des utilisateurs du tenant),
+- **supervision:read** (accès aux sessions distantes / historique / rapports),
+- les capacités **agent_config:\*** (déblocage de pages entières : sections personnalisées, découverte réseau, clés API, approbation d'agents),
 - **cve:read**.
 
-Les autres entrÃ©es de la matrice (monitoring, devices.manage, etc.) sont pour l'instant purement indicatives dans l'interface et ne bloquent ni ne dÃ©bloquent de fonctionnalitÃ© cÃ´tÃ© serveur. Il est donc recommandÃ© de ne pas se fier Ã  ces cases pour restreindre un accÃ¨s sensible : utiliser plutÃ´t les Ã©quipes (pour les appareils) ou les restrictions (pour les actions ponctuelles) dÃ©crites ci-dessous.
+Les autres entrées de la matrice (monitoring, devices.manage, etc.) sont pour l'instant purement indicatives dans l'interface et ne bloquent ni ne débloquent de fonctionnalité côté serveur. Il est donc recommandé de ne pas se fier à ces cases pour restreindre un accès sensible : utiliser plutôt les équipes (pour les appareils) ou les restrictions (pour les actions ponctuelles) décrites ci-dessous.
 
 ## Onglet Restrictions
 
-L'onglet **Restrictions** liste des actions sensibles de la plateforme et permet de leur appliquer un niveau de contrÃ´le supplÃ©mentaire, indÃ©pendamment des Ã©quipes et des jeux de permissions. Cet onglet est rÃ©servÃ© strictement aux administrateurs globaux de la plateforme.
+L'onglet **Restrictions** liste des actions sensibles de la plateforme et permet de leur appliquer un niveau de contrôle supplémentaire, indépendamment des équipes et des jeux de permissions. Cet onglet est réservé strictement aux administrateurs globaux de la plateforme.
 
 Pour chaque action, trois niveaux sont disponibles :
 
 | Niveau | Effet |
 |---|---|
-| **None** | Aucun contrÃ´le supplÃ©mentaire |
-| **Sensitive** | L'utilisateur qui dÃ©clenche l'action doit fournir un code de revÃ©rification au moment de l'exÃ©cution |
-| **Restricted** | L'action nÃ©cessite l'approbation d'un second administrateur, via SÃ©curitÃ© > Approvals |
+| **None** | Aucun contrôle supplémentaire |
+| **Sensitive** | L'utilisateur qui déclenche l'action doit fournir un code de revérification au moment de l'exécution |
+| **Restricted** | L'action nécessite l'approbation d'un second administrateur, via Sécurité > Approvals |
 
-Chaque action peut en outre recevoir une **portÃ©e** (bouton Â« Scope: All / Include / Exclude Â») pour limiter le contrÃ´le Ã  certains appareils ou groupes seulement, plutÃ´t qu'Ã  l'ensemble du tenant.
+Chaque action peut en outre recevoir une **portée** (bouton « Scope: All / Include / Exclude ») pour limiter le contrôle à certains appareils ou groupes seulement, plutôt qu'à l'ensemble du tenant.
 
-La gestion des Ã©quipes elle-mÃªme (crÃ©ation, modification) peut Ãªtre placÃ©e sous ce rÃ©gime : si elle est configurÃ©e en Sensible ou Restreint, chaque crÃ©ation ou modification d'Ã©quipe dÃ©clenchera la revÃ©rification correspondante avant d'Ãªtre appliquÃ©e.
+La gestion des équipes elle-même (création, modification) peut être placée sous ce régime : si elle est configurée en Sensible ou Restreint, chaque création ou modification d'équipe déclenchera la revérification correspondante avant d'être appliquée.
 
-### Installation fraÃ®che
+### Installation fraîche
 
-Sur une installation rÃ©cente, il est possible que le premier chargement de l'onglet Restrictions Ã©choue si la mise Ã  jour de base de donnÃ©es correspondante n'a pas encore Ã©tÃ© appliquÃ©e. Un message d'erreur explicite s'affiche dans ce cas dans l'interface ; il suffit gÃ©nÃ©ralement d'attendre la fin de la mise Ã  jour du serveur puis de recharger la page.
+Sur une installation récente, il est possible que le premier chargement de l'onglet Restrictions échoue si la mise à jour de base de données correspondante n'a pas encore été appliquée. Un message d'erreur explicite s'affiche dans ce cas dans l'interface ; il suffit généralement d'attendre la fin de la mise à jour du serveur puis de recharger la page.
 
-## RÃ©capitulatif : quel outil pour quel besoin
+## Récapitulatif : quel outil pour quel besoin
 
-| Besoin | Outil Ã  utiliser |
+| Besoin | Outil à utiliser |
 |---|---|
-| Donner accÃ¨s Ã  des appareils/groupes prÃ©cis Ã  un utilisateur | Ã‰quipes â†’ arbre de permissions (RO/RW + capacitÃ©s) |
-| Donner un accÃ¨s complet Ã  un tenant sans passer par les Ã©quipes | RÃ´le **Admin** dans Manage tenant access |
-| DÃ©bloquer une page transverse (sessions distantes, dÃ©couverte rÃ©seau, clÃ©s API, approbation d'agents) | Jeu de permissions (capacitÃ©s agent_config:*, supervision:read) |
-| Imposer une revÃ©rification ou une double validation sur une action sensible | Restrictions (Sensitive / Restricted + portÃ©e) |
-| Autoriser la crÃ©ation de nouveaux groupes d'appareils | Indicateur Â« Peut crÃ©er Â» de l'Ã©quipe |
+| Donner accès à des appareils/groupes précis à un utilisateur | Équipes → arbre de permissions (RO/RW + capacités) |
+| Donner un accès complet à un tenant sans passer par les équipes | Rôle **Admin** dans Manage tenant access |
+| Débloquer une page transverse (sessions distantes, découverte réseau, clés API, approbation d'agents) | Jeu de permissions (capacités agent_config:*, supervision:read) |
+| Imposer une revérification ou une double validation sur une action sensible | Restrictions (Sensitive / Restricted + portée) |
+| Autoriser la création de nouveaux groupes d'appareils | Indicateur « Peut créer » de l'équipe |
 
-> Build Ã  lancer : aucun (page de documentation)
+> Build à lancer : aucun (page de documentation)

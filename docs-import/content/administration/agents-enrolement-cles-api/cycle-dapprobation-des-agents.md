@@ -1,4 +1,4 @@
-﻿Chaque agent Obliance passe par un cycle d'approbation avant d'etre pleinement operationnel. Ce chapitre decrit les differents statuts et comment les gerer depuis la page **Appareils**.
+Chaque agent Obliance passe par un cycle d'approbation avant d'etre pleinement operationnel. Ce chapitre decrit les differents statuts et comment les gerer depuis la page **Appareils**.
 
 ## Les 4 statuts d'approbation
 

@@ -1,4 +1,4 @@
-﻿Ce chapitre explique comment declencher et piloter la mise a jour des agents Obliance installes sur les postes et serveurs geres, depuis l'interface d'administration.
+Ce chapitre explique comment declencher et piloter la mise a jour des agents Obliance installes sur les postes et serveurs geres, depuis l'interface d'administration.
 
 ## Principe general
 
@@ -20,30 +20,30 @@ Le device passe alors en statut **Updating** le temps de l'operation.
 
 1. Depuis la liste des devices (**Agents**), selectionner les agents a mettre a jour a l'aide des cases a cocher.
 2. Ouvrir le menu d'actions groupees et choisir **Update agent**.
-3. Une confirmation s'affiche : *"Update the agent on {{count}} device(s)?"* â€” valider.
+3. Une confirmation s'affiche : *"Update the agent on {{count}} device(s)?"* — valider.
 4. Un message de fin recapitule combien de devices ont effectivement recu la commande.
 
-A noter : si la selection contient des agents **Legacy** (voir plus bas), ceux-ci sont automatiquement ignores par l'action groupee â€” ils n'acceptent pas cette commande. Le compte final rapporte uniquement les devices reellement mis a jour.
+A noter : si la selection contient des agents **Legacy** (voir plus bas), ceux-ci sont automatiquement ignores par l'action groupee — ils n'acceptent pas cette commande. Le compte final rapporte uniquement les devices reellement mis a jour.
 
 ## Un pill "Update available" avant meme de lancer la mise a jour
 
-Sur la liste des devices comme sur la fiche detail, un petit badge bleu **Update available** peut apparaitre a cote d'un agent : il signale que la version installee sur ce poste est differente de la version courante servie par votre installation Obliance. C'est une simple indication visuelle â€” elle ne declenche rien automatiquement, elle sert a reperer en un coup d'oeil les agents a rafraichir. Ce badge disparait des lors que l'agent est deja en cours de mise a jour ou en erreur de mise a jour, pour ne pas faire doublon avec le statut affiche.
+Sur la liste des devices comme sur la fiche detail, un petit badge bleu **Update available** peut apparaitre a cote d'un agent : il signale que la version installee sur ce poste est differente de la version courante servie par votre installation Obliance. C'est une simple indication visuelle — elle ne declenche rien automatiquement, elle sert a reperer en un coup d'oeil les agents a rafraichir. Ce badge disparait des lors que l'agent est deja en cours de mise a jour ou en erreur de mise a jour, pour ne pas faire doublon avec le statut affiche.
 
 ## Restriction et validation (Power actions)
 
 La commande de mise a jour d'agent fait partie des actions classees comme "Power" (actions potentiellement impactantes) dans le moteur de restriction d'Obliance :
 
-- Elle est **reservee aux comptes administrateur** â€” un utilisateur standard ne peut ni la voir ni la declencher, meme sur les devices auxquels il a acces en ecriture.
+- Elle est **reservee aux comptes administrateur** — un utilisateur standard ne peut ni la voir ni la declencher, meme sur les devices auxquels il a acces en ecriture.
 - Selon la configuration de securite de votre installation, elle peut etre soumise a une **validation en deux etapes** avant execution effective (le meme mecanisme que pour les autres actions sensibles du parc). Si c'est le cas chez vous, une etape de confirmation supplementaire s'affiche avant l'envoi reel de la commande.
 
 ## Que se passe-t-il concretement sur le poste ?
 
 Une fois la commande recue par l'agent :
 
-1. L'agent previent le serveur qu'il commence sa mise a jour â€” le device bascule en statut **Updating**.
+1. L'agent previent le serveur qu'il commence sa mise a jour — le device bascule en statut **Updating**.
 2. L'installeur Windows prend le relais : arret du service, remplacement des fichiers, redemarrage du service avec la nouvelle version.
 3. Des que l'agent redemarre et se reconnecte avec la nouvelle version, le device repasse automatiquement en fonctionnement normal.
 
 Ce flux est traite en detail (statuts, delais, cas d'erreur) dans la page dediee au suivi des mises a jour.
 
-â†’ Aucune action serveur ou client necessaire pour publier ce document.
+→ Aucune action serveur ou client necessaire pour publier ce document.

@@ -1,47 +1,47 @@
-﻿Ces sections, toutes rÃ©servÃ©es aux administrateurs, contrÃ´lent l'authentification des utilisateurs et l'envoi d'e-mails depuis Obliance.
+Ces sections, toutes réservées aux administrateurs, contrôlent l'authentification des utilisateurs et l'envoi d'e-mails depuis Obliance.
 
-## Section Â« SMTP Servers Â»
+## Section « SMTP Servers »
 
-Avant de pouvoir envoyer des codes de double authentification par e-mail, il faut dÃ©clarer au moins un serveur SMTP.
+Avant de pouvoir envoyer des codes de double authentification par e-mail, il faut déclarer au moins un serveur SMTP.
 
-- Table listant les serveurs configurÃ©s avec les colonnes **Nom**, **Host**, **From**.
-- Actions disponibles par ligne : **Tester la connexion** (icÃ´ne Wifi), **Ã‰diter**, **Supprimer**.
-- Un formulaire de crÃ©ation/Ã©dition demande : nom, host, port, activation TLS, nom d'utilisateur, mot de passe, adresse d'expÃ©dition (from).
-- Il est possible de dÃ©clarer plusieurs serveurs SMTP (par exemple un serveur principal et un serveur de secours), chacun pouvant ensuite Ãªtre sÃ©lectionnÃ© indÃ©pendamment comme Ã©metteur des codes OTP dans la section Security.
+- Table listant les serveurs configurés avec les colonnes **Nom**, **Host**, **From**.
+- Actions disponibles par ligne : **Tester la connexion** (icône Wifi), **Éditer**, **Supprimer**.
+- Un formulaire de création/édition demande : nom, host, port, activation TLS, nom d'utilisateur, mot de passe, adresse d'expédition (from).
+- Il est possible de déclarer plusieurs serveurs SMTP (par exemple un serveur principal et un serveur de secours), chacun pouvant ensuite être sélectionné indépendamment comme émetteur des codes OTP dans la section Security.
 
-Toujours utiliser le bouton **Tester la connexion** aprÃ¨s une crÃ©ation ou modification, avant de s'en servir pour l'envoi des codes 2FA : une erreur de configuration SMTP bloquerait la connexion des utilisateurs si le 2FA par e-mail est actif. PrivilÃ©gier une connexion SMTP chiffrÃ©e (TLS) et un mot de passe dÃ©diÃ© et robuste pour le compte d'envoi.
+Toujours utiliser le bouton **Tester la connexion** après une création ou modification, avant de s'en servir pour l'envoi des codes 2FA : une erreur de configuration SMTP bloquerait la connexion des utilisateurs si le 2FA par e-mail est actif. Privilégier une connexion SMTP chiffrée (TLS) et un mot de passe dédié et robuste pour le compte d'envoi.
 
-## Section Â« Security Â»
+## Section « Security »
 
-Trois contrÃ´les pilotent la politique de double authentification (2FA) de l'installation :
+Trois contrôles pilotent la politique de double authentification (2FA) de l'installation :
 
-| ContrÃ´le | Effet |
+| Contrôle | Effet |
 |---|---|
-| **Allow 2FA** | Autorise les utilisateurs Ã  activer eux-mÃªmes la double authentification sur leur compte |
-| **Force 2FA** | Rend la double authentification obligatoire pour tous les comptes. Ce toggle est automatiquement dÃ©sactivÃ© (grisÃ©) si Â« Allow 2FA Â» est dÃ©cochÃ© â€” il faut d'abord autoriser le 2FA avant de pouvoir le forcer |
-| **OTP via SMTP** | Liste dÃ©roulante pour choisir quel serveur SMTP (parmi ceux configurÃ©s dans Â« SMTP Servers Â») sert Ã  envoyer les codes OTP par e-mail. Option Â« None Â» disponible pour dÃ©sactiver l'envoi par e-mail |
+| **Allow 2FA** | Autorise les utilisateurs à activer eux-mêmes la double authentification sur leur compte |
+| **Force 2FA** | Rend la double authentification obligatoire pour tous les comptes. Ce toggle est automatiquement désactivé (grisé) si « Allow 2FA » est décoché — il faut d'abord autoriser le 2FA avant de pouvoir le forcer |
+| **OTP via SMTP** | Liste déroulante pour choisir quel serveur SMTP (parmi ceux configurés dans « SMTP Servers ») sert à envoyer les codes OTP par e-mail. Option « None » disponible pour désactiver l'envoi par e-mail |
 
-> **ProcÃ©dure de dÃ©blocage d'urgence** : l'interface mentionne l'existence d'un mÃ©canisme de contournement exceptionnel du 2FA forcÃ©, rÃ©servÃ© aux situations de blocage total (par exemple un compte administrateur unique verrouillÃ© hors de son second facteur) et nÃ©cessitant un accÃ¨s direct Ã  l'hÃ©bergement du serveur â€” pas seulement Ã  l'interface web. Pour des raisons de sÃ©curitÃ©, la procÃ©dure prÃ©cise n'est volontairement pas dÃ©taillÃ©e dans cette documentation : se rÃ©fÃ©rer Ã  la documentation technique interne ou contacter le support Obliance, et veiller Ã  dÃ©sactiver ce contournement dÃ¨s l'incident rÃ©solu.
+> **Procédure de déblocage d'urgence** : l'interface mentionne l'existence d'un mécanisme de contournement exceptionnel du 2FA forcé, réservé aux situations de blocage total (par exemple un compte administrateur unique verrouillé hors de son second facteur) et nécessitant un accès direct à l'hébergement du serveur — pas seulement à l'interface web. Pour des raisons de sécurité, la procédure précise n'est volontairement pas détaillée dans cette documentation : se référer à la documentation technique interne ou contacter le support Obliance, et veiller à désactiver ce contournement dès l'incident résolu.
 
-Activer la double authentification (au minimum en option, idÃ©alement en obligatoire pour les comptes admin) est recommandÃ© sur toute installation exposÃ©e sur Internet.
+Activer la double authentification (au minimum en option, idéalement en obligatoire pour les comptes admin) est recommandé sur toute installation exposée sur Internet.
 
-## Section Â« Obligate SSO Gateway Â»
+## Section « Obligate SSO Gateway »
 
-Permet de dÃ©lÃ©guer l'authentification des utilisateurs Ã  Obligate, la passerelle SSO tierce d'Obliance.
+Permet de déléguer l'authentification des utilisateurs à Obligate, la passerelle SSO tierce d'Obliance.
 
-1. Renseigner l'**URL du gateway Obligate**. L'interface vÃ©rifie que cette URL ne pointe pas vers l'application Obliance elle-mÃªme (protection contre une mauvaise configuration).
-2. Renseigner une **API Key**, gÃ©nÃ©rÃ©e cÃ´tÃ© Obligate dans *Connected Apps â†’ Add App*. Le champ est masquÃ© Ã  l'affichage ; un badge **SET** indique qu'une clÃ© est dÃ©jÃ  enregistrÃ©e sans la rÃ©vÃ©ler.
-3. Une fois l'URL et la clÃ© API renseignÃ©es, le toggle **Enable SSO** devient disponible.
+1. Renseigner l'**URL du gateway Obligate**. L'interface vérifie que cette URL ne pointe pas vers l'application Obliance elle-même (protection contre une mauvaise configuration).
+2. Renseigner une **API Key**, générée côté Obligate dans *Connected Apps → Add App*. Le champ est masqué à l'affichage ; un badge **SET** indique qu'une clé est déjà enregistrée sans la révéler.
+3. Une fois l'URL et la clé API renseignées, le toggle **Enable SSO** devient disponible.
 
-Quand **Enable SSO** est activÃ© :
+Quand **Enable SSO** est activé :
 
 - La page de connexion redirige automatiquement vers Obligate.
-- Les comptes utilisateurs sont provisionnÃ©s automatiquement au premier login via Obligate.
-- Des boutons de navigation croisÃ©e entre Obliance et Obligate apparaissent dans l'en-tÃªte de l'application.
-- L'authentification locale (identifiant/mot de passe direct dans Obliance) est dÃ©sactivÃ©e.
+- Les comptes utilisateurs sont provisionnés automatiquement au premier login via Obligate.
+- Des boutons de navigation croisée entre Obliance et Obligate apparaissent dans l'en-tête de l'application.
+- L'authentification locale (identifiant/mot de passe direct dans Obliance) est désactivée.
 
-> **Filet de sÃ©curitÃ© intÃ©grÃ©** : si le gateway Obligate devient injoignable, Obliance restaure automatiquement l'authentification locale en secours, afin de ne jamais bloquer complÃ¨tement l'accÃ¨s Ã  l'installation.
+> **Filet de sécurité intégré** : si le gateway Obligate devient injoignable, Obliance restaure automatiquement l'authentification locale en secours, afin de ne jamais bloquer complètement l'accès à l'installation.
 
-Penser Ã  faire tourner (rÃ©gÃ©nÃ©rer) l'API Key cÃ´tÃ© Obligate en cas de doute sur sa confidentialitÃ©, et Ã  limiter au strict nÃ©cessaire les personnes ayant accÃ¨s Ã  la section Obligate SSO Gateway (principe du moindre privilÃ¨ge).
+Penser à faire tourner (régénérer) l'API Key côté Obligate en cas de doute sur sa confidentialité, et à limiter au strict nécessaire les personnes ayant accès à la section Obligate SSO Gateway (principe du moindre privilège).
 
-Pour la configuration dÃ©taillÃ©e cÃ´tÃ© Obligate (crÃ©ation de l'application connectÃ©e, gestion de la clÃ© API), se rÃ©fÃ©rer Ã  la documentation dÃ©diÃ©e Ã  Obligate.
+Pour la configuration détaillée côté Obligate (création de l'application connectée, gestion de la clé API), se référer à la documentation dédiée à Obligate.

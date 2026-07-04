@@ -1,4 +1,4 @@
-﻿# Supervision - Historique et rapports
+# Supervision - Historique et rapports
 
 Cette page couvre les onglets **History** et **Reports** de l'ecran Supervision, qui permettent respectivement de consulter l'activite passee sur le parc et de generer des rapports.
 

@@ -1,8 +1,8 @@
-﻿Ce chapitre explique comment retrouver, trier et organiser vos appareils dans Obliance.
+Ce chapitre explique comment retrouver, trier et organiser vos appareils dans Obliance.
 
 ## Ou trouver la liste des appareils
 
-La liste de vos appareils est accessible depuis le menu **Appareils**. Si vous etes administrateur, vous pouvez egalement la retrouver dans le menu **Agents**, sous l'onglet **Agents** â€” c'est exactement le meme tableau, seules certaines actions supplementaires (suppression, desinstallation, transfert, filtres d'approbation) y sont visibles selon votre role.
+La liste de vos appareils est accessible depuis le menu **Appareils**. Si vous etes administrateur, vous pouvez egalement la retrouver dans le menu **Agents**, sous l'onglet **Agents** — c'est exactement le meme tableau, seules certaines actions supplementaires (suppression, desinstallation, transfert, filtres d'approbation) y sont visibles selon votre role.
 
 La page est organisee en deux zones :
 

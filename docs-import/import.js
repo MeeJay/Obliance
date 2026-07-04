@@ -49,13 +49,20 @@ if (!BASE_URL || !TOKEN_ID || !TOKEN_SECRET) {
 }
 
 function loadJson(p, fallback) {
-  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return fallback; }
+  try {
+    let raw = fs.readFileSync(p, 'utf-8');
+    if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1); // strip BOM UTF-8 (ex: Out-File -Encoding utf8 sous PowerShell)
+    return JSON.parse(raw);
+  } catch (err) {
+    if (fallback === null) console.error(`Erreur de lecture/parsing de ${p} : ${err.message}`);
+    return fallback;
+  }
 }
 function saveJson(p, obj) {
   fs.writeFileSync(p, JSON.stringify(obj, null, 2), 'utf-8');
 }
 
-const state = loadJson(STATE_PATH, { shelfId: null, books: {}, chapters: {}, pages: {} });
+const state = loadJson(STATE_PATH, { shelves: {}, books: {}, chapters: {}, pages: {} });
 
 async function api(method, endpoint, body) {
   const res = await fetch(`${BASE_URL.replace(/\/$/, '')}/api${endpoint}`, {
@@ -76,7 +83,8 @@ async function api(method, endpoint, body) {
 // ---- Lecture seule (toujours safe, meme en dry-run) ----
 async function findByName(endpoint, name) {
   const data = await api('GET', `${endpoint}?filter[name]=${encodeURIComponent(name)}&count=50`);
-  return (data.data || []).find((x) => x.name === name) || null;
+  const items = data && Array.isArray(data.data) ? data.data : [];
+  return items.find((x) => x && x.name === name) || null;
 }
 
 // ---- Creation uniquement (bloque tant que --apply n'est pas passe) ----
@@ -95,8 +103,18 @@ async function createPage(bookId, chapterId, name, markdown) {
 async function createShelf(name, description, bookIds) {
   return api('POST', '/shelves', { name, description: description || '', books: bookIds || [] });
 }
-async function attachBooksToShelf(shelfId, name, bookIds) {
-  return api('PUT', `/shelves/${shelfId}`, { name, books: bookIds });
+async function getShelf(shelfId) {
+  return api('GET', `/shelves/${shelfId}`);
+}
+// Fusionne bookIds dans la liste EXISTANTE de l'etagere au lieu de l'ecraser —
+// indispensable des qu'une etagere (ex: ObliTools) est partagee entre plusieurs
+// outils importes separement (Obliance, Obliplan, ...). Sans ca, importer
+// Obliplan apres Obliance retirerait les livres Obliance de l'etagere commune.
+async function mergeBooksIntoShelf(shelfId, name, newBookIds) {
+  const current = await getShelf(shelfId);
+  const currentIds = (current.books || []).map((b) => b.id);
+  const merged = Array.from(new Set([...currentIds, ...newBookIds]));
+  return api('PUT', `/shelves/${shelfId}`, { name, books: merged });
 }
 
 function log(...a) { console.log(...a); }
@@ -158,7 +176,8 @@ async function ensurePage(bookId, chapterId, bookSlug, chapterSlug, page) {
     log(`      [page] "${page.title}" deja creee (id=${state.pages[key]}) — ignoree.`);
     return;
   }
-  const markdown = fs.readFileSync(path.join(ROOT, page.file), 'utf-8');
+  let markdown = fs.readFileSync(path.join(ROOT, page.file), 'utf-8');
+  if (markdown.charCodeAt(0) === 0xfeff) markdown = markdown.slice(1); // strip BOM UTF-8
 
   if (!APPLY) {
     log(`      [page] (dry-run) creerait la page "${page.title}" (${markdown.length} caracteres)`);
@@ -196,32 +215,51 @@ async function main() {
     log('');
   }
 
-  // L'etagere est creee/mise a jour en dernier, une fois les livres connus.
-  if (state.shelfId) {
-    log(`Etagere "${manifest.shelf.name}" deja creee (id=${state.shelfId}).`);
-    if (APPLY && bookIds.length) await attachBooksToShelf(state.shelfId, manifest.shelf.name, bookIds);
-  } else {
-    const existingShelf = await findByName('/shelves', manifest.shelf.name);
+  // Les etageres sont creees/mises a jour en dernier, une fois les livres
+  // connus. Un meme livre peut apparaitre sur plusieurs etageres (ex: chaque
+  // livre Obliance apparait a la fois sur "ObliTools" et sur "Obliance") —
+  // manifest.shelves est donc un tableau, et chaque etagere recoit TOUS les
+  // livres de ce manifeste.
+  const shelves = manifest.shelves || (manifest.shelf ? [manifest.shelf] : []);
+  if (!state.shelves) state.shelves = {}; // migration douce depuis l'ancien state.shelfId (etagere unique)
+  if (state.shelfId && !Object.keys(state.shelves).length && shelves[0]) {
+    state.shelves[shelves[0].name] = state.shelfId;
+  }
+
+  for (const shelfDef of shelves) {
+    const trackedId = state.shelves[shelfDef.name];
+    if (trackedId) {
+      log(`Etagere "${shelfDef.name}" deja creee par ce script (id=${trackedId}) — livres fusionnes dedans.`);
+      if (APPLY && bookIds.length) await mergeBooksIntoShelf(trackedId, shelfDef.name, bookIds);
+      continue;
+    }
+
+    const existingShelf = await findByName('/shelves', shelfDef.name);
     if (existingShelf && !FORCE_REUSE) {
       throw new Error(
-        `Une etagere nommee "${manifest.shelf.name}" existe deja (id=${existingShelf.id}) et n'a pas ete creee par ce script. ` +
-        `Abandon. Renomme l'etagere dans manifest.json, ou relance avec --force-reuse.`,
+        `Une etagere nommee "${shelfDef.name}" existe deja (id=${existingShelf.id}) et n'a pas ete creee par ce script. ` +
+        `Abandon. Renomme l'etagere dans manifest.json, ou relance avec --force-reuse si tu es sur que c'est la bonne ` +
+        `(ses livres existants seront conserves, seuls les nouveaux livres de ce manifeste y seront ajoutes).`,
       );
     }
+
     if (!APPLY) {
-      log(`[etagere] (dry-run) creerait l'etagere "${manifest.shelf.name}" avec ${manifest.books.length} livre(s)`);
-    } else {
-      let shelf;
-      if (existingShelf) {
-        shelf = existingShelf;
-        await attachBooksToShelf(existingShelf.id, manifest.shelf.name, bookIds);
-      } else {
-        shelf = await createShelf(manifest.shelf.name, manifest.shelf.description, bookIds);
-      }
-      state.shelfId = shelf.id;
-      saveJson(STATE_PATH, state);
-      log(`[etagere] "${manifest.shelf.name}" prete (id=${shelf.id})`);
+      log(`[etagere] (dry-run) creerait/completerait l'etagere "${shelfDef.name}" avec ${manifest.books.length} livre(s)`);
+      continue;
     }
+
+    let shelf;
+    if (existingShelf) {
+      shelf = existingShelf;
+      await mergeBooksIntoShelf(existingShelf.id, shelfDef.name, bookIds);
+      log(`[etagere] "${shelfDef.name}" existante (id=${shelf.id}), --force-reuse actif — livres fusionnes dedans.`);
+    } else {
+      shelf = await createShelf(shelfDef.name, shelfDef.description, bookIds);
+      log(`[etagere] "${shelfDef.name}" creee (id=${shelf.id})`);
+    }
+    state.shelves[shelfDef.name] = shelf.id;
+    delete state.shelfId; // remplace l'ancien format mono-etagere
+    saveJson(STATE_PATH, state);
   }
 
   log('');
@@ -230,5 +268,6 @@ async function main() {
 
 main().catch((err) => {
   console.error('ERREUR :', err.message);
+  console.error(err.stack);
   process.exit(1);
 });

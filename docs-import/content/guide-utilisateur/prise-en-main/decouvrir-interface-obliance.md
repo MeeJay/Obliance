@@ -1,38 +1,38 @@
-﻿# DÃ©couvrir l'interface Obliance
+# Découvrir l'interface Obliance
 
-Une fois connectÃ©, l'interface d'Obliance s'organise autour de deux zones fixes : une barre supÃ©rieure et une barre latÃ©rale de navigation, qui restent visibles quelle que soit la page consultÃ©e.
+Une fois connecté, l'interface d'Obliance s'organise autour de deux zones fixes : une barre supérieure et une barre latérale de navigation, qui restent visibles quelle que soit la page consultée.
 
-## La barre supÃ©rieure
+## La barre supérieure
 
-En haut de chaque page, vous retrouvez de gauche Ã  droite :
+En haut de chaque page, vous retrouvez de gauche à droite :
 
-- le **logo Obliance**, qui ramÃ¨ne toujours au tableau de bord en un clic ;
-- le sÃ©lecteur de **Tenant** (uniquement visible si vous avez accÃ¨s Ã  plusieurs tenants) ;
-- le sÃ©lecteur d'applications ;
-- le lien **TÃ©lÃ©charger l'appli** ;
-- un indicateur de connexion temps rÃ©el ;
+- le **logo Obliance**, qui ramène toujours au tableau de bord en un clic ;
+- le sélecteur de **Tenant** (uniquement visible si vous avez accès à plusieurs tenants) ;
+- le sélecteur d'applications ;
+- le lien **Télécharger l'appli** ;
+- un indicateur de connexion temps réel ;
 - le centre de notifications ;
-- votre badge utilisateur, avec le bouton **Se dÃ©connecter**.
+- votre badge utilisateur, avec le bouton **Se déconnecter**.
 
-### Le sÃ©lecteur de Tenant
+### Le sélecteur de Tenant
 
-Un Â« tenant Â» correspond Ã  un espace de travail isolÃ© (par exemple, une sociÃ©tÃ© cliente distincte si vous gÃ©rez plusieurs organisations). Si vous n'avez accÃ¨s qu'Ã  un seul tenant, ce sÃ©lecteur ne s'affiche pas. Si vous avez accÃ¨s Ã  plusieurs tenants, un bouton **Tenant** affiche le nom du tenant actuellement sÃ©lectionnÃ© ; en cliquant dessus, une liste dÃ©roulante prÃ©sente tous les tenants auxquels vous avez accÃ¨s, avec un badge **Admin** sur ceux oÃ¹ vous avez ce rÃ´le.
+Un « tenant » correspond à un espace de travail isolé (par exemple, une société cliente distincte si vous gérez plusieurs organisations). Si vous n'avez accès qu'à un seul tenant, ce sélecteur ne s'affiche pas. Si vous avez accès à plusieurs tenants, un bouton **Tenant** affiche le nom du tenant actuellement sélectionné ; en cliquant dessus, une liste déroulante présente tous les tenants auxquels vous avez accès, avec un badge **Admin** sur ceux où vous avez ce rôle.
 
-Changer de tenant recharge automatiquement la liste des appareils et des groupes, ainsi que la connexion temps rÃ©el, pour reflÃ©ter le tenant nouvellement sÃ©lectionnÃ©.
+Changer de tenant recharge automatiquement la liste des appareils et des groupes, ainsi que la connexion temps réel, pour refléter le tenant nouvellement sélectionné.
 
-### Le sÃ©lecteur d'applications
+### Le sélecteur d'applications
 
-Une rangÃ©e de pastilles vous permet de basculer rapidement vers les autres applications de la suite auxquelles vous avez accÃ¨s : Obliview, Obliguard, Oblimap, Obliance, Obliplan, Oblihub. Seules les applications auxquelles votre compte a effectivement accÃ¨s (via l'authentification centralisÃ©e Obligate) sont affichÃ©es.
+Une rangée de pastilles vous permet de basculer rapidement vers les autres applications de la suite auxquelles vous avez accès : Obliview, Obliguard, Oblimap, Obliance, Obliplan, Oblihub. Seules les applications auxquelles votre compte a effectivement accès (via l'authentification centralisée Obligate) sont affichées.
 
-### TÃ©lÃ©charger l'appli
+### Télécharger l'appli
 
-Le lien **TÃ©lÃ©charger l'appli** vous amÃ¨ne sur une page de tÃ©lÃ©chargement. Attention : il ne s'agit pas de l'agent de supervision installÃ© sur vos appareils, mais du client de bureau **Oblireach Desktop** (fichier `.msi` pour Windows), qui permet de consulter vos sessions de prise en main Ã  distance sans avoir besoin d'un onglet de navigateur ouvert. La page affiche la derniÃ¨re version disponible ainsi que les notes de version.
+Le lien **Télécharger l'appli** vous amène sur une page de téléchargement. Attention : il ne s'agit pas de l'agent de supervision installé sur vos appareils, mais du client de bureau **Oblireach Desktop** (fichier `.msi` pour Windows), qui permet de consulter vos sessions de prise en main à distance sans avoir besoin d'un onglet de navigateur ouvert. La page affiche la dernière version disponible ainsi que les notes de version.
 
-## La barre latÃ©rale
+## La barre latérale
 
 ### Section Navigation
 
-Visible par tous les utilisateurs connectÃ©s, elle comporte quatre entrÃ©es :
+Visible par tous les utilisateurs connectés, elle comporte quatre entrées :
 
 - **Tableau de bord**
 - **Appareils**
@@ -41,40 +41,40 @@ Visible par tous les utilisateurs connectÃ©s, elle comporte quatre entrÃ©es 
 
 ### Section Administration
 
-Cette section n'apparaÃ®t que si au moins une de ses entrÃ©es vous est accessible :
+Cette section n'apparaît que si au moins une de ses entrées vous est accessible :
 
-| EntrÃ©e | Qui la voit |
+| Entrée | Qui la voit |
 |---|---|
 | Utilisateurs | Administrateurs uniquement |
-| SÃ©curitÃ© | Administrateurs uniquement (avec un badge indiquant le nombre d'approbations d'appareils en attente) |
-| Supervision | Administrateurs, ou utilisateurs disposant du droit d'accÃ¨s Ã  la supervision |
+| Sécurité | Administrateurs uniquement (avec un badge indiquant le nombre d'approbations d'appareils en attente) |
+| Supervision | Administrateurs, ou utilisateurs disposant du droit d'accès à la supervision |
 | Agent config | Administrateurs, ou utilisateurs disposant d'un droit de configuration des agents |
-| Workspace | Administrateurs connectÃ©s sur le tenant principal uniquement |
-| ParamÃ¨tres | Administrateurs uniquement |
+| Workspace | Administrateurs connectés sur le tenant principal uniquement |
+| Paramètres | Administrateurs uniquement |
 
 ### Ajouter un agent
 
-Le bouton **Ajouter un agent**, visible pour les administrateurs et pour les utilisateurs disposant du droit d'approbation des agents, ouvre une fenÃªtre de dÃ©ploiement. Il faut d'abord y choisir une clÃ© API parmi celles disponibles pour le tenant, puis un onglet correspondant au systÃ¨me d'exploitation de l'appareil Ã  ajouter :
+Le bouton **Ajouter un agent**, visible pour les administrateurs et pour les utilisateurs disposant du droit d'approbation des agents, ouvre une fenêtre de déploiement. Il faut d'abord y choisir une clé API parmi celles disponibles pour le tenant, puis un onglet correspondant au système d'exploitation de l'appareil à ajouter :
 
-| Onglet | Modes de dÃ©ploiement proposÃ©s |
+| Onglet | Modes de déploiement proposés |
 |---|---|
-| Windows | Windows 10+ (64 bits), Windows 7/10 (32 bits), Server 2012/2016, Server 2008 R2, ou un installeur autonome Ã  tÃ©lÃ©charger (mode manuel / hors ligne, sans accÃ¨s internet requis sur la machine) |
-| Linux | Une commande Ã  copier-coller, ou un binaire autonome Ã  tÃ©lÃ©charger (mode manuel / hors ligne) |
-| macOS | Une commande Ã  copier-coller |
-| FreeBSD | Une commande Ã  copier-coller |
+| Windows | Windows 10+ (64 bits), Windows 7/10 (32 bits), Server 2012/2016, Server 2008 R2, ou un installeur autonome à télécharger (mode manuel / hors ligne, sans accès internet requis sur la machine) |
+| Linux | Une commande à copier-coller, ou un binaire autonome à télécharger (mode manuel / hors ligne) |
+| macOS | Une commande à copier-coller |
+| FreeBSD | Une commande à copier-coller |
 
 ### L'arbre des groupes d'appareils
 
-Sous la navigation, la barre latÃ©rale affiche l'arbre de vos groupes d'appareils, avec pour chacun un compteur du nombre d'appareils en ligne, en alerte, critiques et hors ligne. Une barre de recherche permet de filtrer les appareils affichÃ©s par nom. Vous pouvez faire glisser un appareil d'un groupe vers un autre directement depuis cette liste.
+Sous la navigation, la barre latérale affiche l'arbre de vos groupes d'appareils, avec pour chacun un compteur du nombre d'appareils en ligne, en alerte, critiques et hors ligne. Une barre de recherche permet de filtrer les appareils affichés par nom. Vous pouvez faire glisser un appareil d'un groupe vers un autre directement depuis cette liste.
 
-Deux modes d'affichage sont disponibles (empilÃ© ou cÃ´te-Ã -cÃ´te, redimensionnable), et votre choix est mÃ©morisÃ© pour vos prochaines visites.
+Deux modes d'affichage sont disponibles (empilé ou côte-à-côte, redimensionnable), et votre choix est mémorisé pour vos prochaines visites.
 
-Si votre compte a accÃ¨s au tenant principal (le tenant Â« maÃ®tre Â»), les appareils et les groupes y sont en plus regroupÃ©s par tenant, avec un en-tÃªte pliable pour chacun (le tenant par dÃ©faut apparaissant en premier, les autres par ordre alphabÃ©tique).
+Si votre compte a accès au tenant principal (le tenant « maître »), les appareils et les groupes y sont en plus regroupés par tenant, avec un en-tête pliable pour chacun (le tenant par défaut apparaissant en premier, les autres par ordre alphabétique).
 
-### RÃ©duire ou dÃ©tacher la barre latÃ©rale
+### Réduire ou détacher la barre latérale
 
-La barre latÃ©rale peut Ãªtre rÃ©duite en une simple colonne d'icÃ´nes, ou basculÃ©e en mode flottant (elle se masque automatiquement et rÃ©apparaÃ®t au survol, avec un bouton pour l'Ã©pingler). Ces prÃ©fÃ©rences sont conservÃ©es d'une session Ã  l'autre.
+La barre latérale peut être réduite en une simple colonne d'icônes, ou basculée en mode flottant (elle se masque automatiquement et réapparaît au survol, avec un bouton pour l'épingler). Ces préférences sont conservées d'une session à l'autre.
 
-### Bas de la barre latÃ©rale
+### Bas de la barre latérale
 
-Tout en bas, un raccourci affiche votre profil (avatar, nom, identifiant, rÃ´le) ainsi qu'un bouton pour vous dÃ©connecter.
+Tout en bas, un raccourci affiche votre profil (avatar, nom, identifiant, rôle) ainsi qu'un bouton pour vous déconnecter.

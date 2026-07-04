@@ -1,38 +1,38 @@
-﻿Trois sections de la page ParamÃ¨tres, rÃ©servÃ©es aux administrateurs, couvrent respectivement le comportement de l'explorateur de fichiers distant, l'import/export global de l'installation, et la sauvegarde/restauration en masse des scÃ©narios.
+Trois sections de la page Paramètres, réservées aux administrateurs, couvrent respectivement le comportement de l'explorateur de fichiers distant, l'import/export global de l'installation, et la sauvegarde/restauration en masse des scénarios.
 
-## Section Â« File explorer â€” editable extensions Â»
+## Section « File explorer — editable extensions »
 
-Cette section contrÃ´le quelles extensions de fichiers s'ouvrent **directement dans l'Ã©diteur de texte intÃ©grÃ©** de l'explorateur de fichiers d'un agent, plutÃ´t que de dÃ©clencher un tÃ©lÃ©chargement du fichier.
+Cette section contrôle quelles extensions de fichiers s'ouvrent **directement dans l'éditeur de texte intégré** de l'explorateur de fichiers d'un agent, plutôt que de déclencher un téléchargement du fichier.
 
-- Le rÃ©glage est **transverse Ã  tous les tenants** de l'installation (pas de surcharge par tenant).
-- Les extensions sont affichÃ©es sous forme de puces (chips) supprimables individuellement.
-- Ajout d'extensions : saisie libre, plusieurs extensions sÃ©parÃ©es par une virgule ou un espace.
-- Bouton **Reset to defaults** : restaure la liste d'extensions par dÃ©faut fournie avec Obliance (un compteur indique le nombre d'extensions concernÃ©es par la remise Ã  zÃ©ro).
+- Le réglage est **transverse à tous les tenants** de l'installation (pas de surcharge par tenant).
+- Les extensions sont affichées sous forme de puces (chips) supprimables individuellement.
+- Ajout d'extensions : saisie libre, plusieurs extensions séparées par une virgule ou un espace.
+- Bouton **Reset to defaults** : restaure la liste d'extensions par défaut fournie avec Obliance (un compteur indique le nombre d'extensions concernées par la remise à zéro).
 - Bouton **Save** pour valider les changements.
 
-Typiquement utilisÃ© pour ajouter des extensions de configuration ou de script propres Ã  l'environnement (ex. fichiers `.conf`, `.ini` maison) que l'on souhaite pouvoir Ã©diter en un clic depuis l'explorateur de fichiers distant, sans repasser par un tÃ©lÃ©chargement/upload manuel.
+Typiquement utilisé pour ajouter des extensions de configuration ou de script propres à l'environnement (ex. fichiers `.conf`, `.ini` maison) que l'on souhaite pouvoir éditer en un clic depuis l'explorateur de fichiers distant, sans repasser par un téléchargement/upload manuel.
 
-## Section Â« Import / Export Â»
+## Section « Import / Export »
 
-Cette section intÃ¨gre directement la page **Import/Export** (habituellement accessible depuis le menu admin *Import/Export*) dans un encart de la page ParamÃ¨tres, pour un accÃ¨s rapide sans changer de page.
+Cette section intègre directement la page **Import/Export** (habituellement accessible depuis le menu admin *Import/Export*) dans un encart de la page Paramètres, pour un accès rapide sans changer de page.
 
-## Section Â« ScÃ©narios â€” bulk export / import Â»
+## Section « Scénarios — bulk export / import »
 
-Permet de sauvegarder ou restaurer **l'ensemble des scÃ©narios du tenant courant** en une seule opÃ©ration, en complÃ©ment de l'export unitaire disponible scÃ©nario par scÃ©nario (icÃ´ne de tÃ©lÃ©chargement sur chaque ligne, depuis la page Automations â†’ ScÃ©narios).
+Permet de sauvegarder ou restaurer **l'ensemble des scénarios du tenant courant** en une seule opération, en complément de l'export unitaire disponible scénario par scénario (icône de téléchargement sur chaque ligne, depuis la page Automations → Scénarios).
 
-Deux options d'export sont proposÃ©es :
+Deux options d'export sont proposées :
 
 | Option | Contenu du fichier JSON |
 |---|---|
-| **Export all (lean)** | Structure des scÃ©narios (Ã©tapes, dÃ©clencheurs, conditions) sans le contenu des scripts associÃ©s |
-| **Export all (with scripts)** | Structure complÃ¨te des scÃ©narios avec le contenu des scripts embarquÃ© dans le mÃªme fichier |
+| **Export all (lean)** | Structure des scénarios (étapes, déclencheurs, conditions) sans le contenu des scripts associés |
+| **Export all (with scripts)** | Structure complète des scénarios avec le contenu des scripts embarqué dans le même fichier |
 
-L'import se fait via **Import bulk JSON** : sÃ©lection d'un fichier JSON exportÃ© prÃ©cÃ©demment, puis import en masse. Un **rapport ligne par ligne** est affichÃ© Ã  l'issue de l'opÃ©ration, indiquant pour chaque scÃ©nario du fichier s'il a Ã©tÃ© importÃ© avec succÃ¨s ou en Ã©chec (avec le motif d'Ã©chec le cas Ã©chÃ©ant).
+L'import se fait via **Import bulk JSON** : sélection d'un fichier JSON exporté précédemment, puis import en masse. Un **rapport ligne par ligne** est affiché à l'issue de l'opération, indiquant pour chaque scénario du fichier s'il a été importé avec succès ou en échec (avec le motif d'échec le cas échéant).
 
 ### Cas d'usage typiques
 
-- **Sauvegarde avant une refonte** : exporter en Â« with scripts Â» avant de modifier en profondeur un scÃ©nario complexe, pour pouvoir le restaurer tel quel en cas d'erreur.
-- **Migration entre installations ou entre tenants** : exporter depuis l'installation ou le tenant source, puis importer sur la cible via cette mÃªme section.
-- **RÃ©daction assistÃ©e par IA** : le format JSON exportÃ© peut servir de modÃ¨le pour demander Ã  un assistant IA de gÃ©nÃ©rer un nouveau scÃ©nario dans le mÃªme format, avant de l'importer via **Import bulk JSON**.
+- **Sauvegarde avant une refonte** : exporter en « with scripts » avant de modifier en profondeur un scénario complexe, pour pouvoir le restaurer tel quel en cas d'erreur.
+- **Migration entre installations ou entre tenants** : exporter depuis l'installation ou le tenant source, puis importer sur la cible via cette même section.
+- **Rédaction assistée par IA** : le format JSON exporté peut servir de modèle pour demander à un assistant IA de générer un nouveau scénario dans le même format, avant de l'importer via **Import bulk JSON**.
 
-> Conserver les fichiers d'export dans un emplacement sÃ»r en dehors d'Obliance (poste local, stockage partagÃ©) : ils constituent la seule sauvegarde exploitable en cas de suppression accidentelle ou de restauration nÃ©cessaire d'un scÃ©nario.
+> Conserver les fichiers d'export dans un emplacement sûr en dehors d'Obliance (poste local, stockage partagé) : ils constituent la seule sauvegarde exploitable en cas de suppression accidentelle ou de restauration nécessaire d'un scénario.

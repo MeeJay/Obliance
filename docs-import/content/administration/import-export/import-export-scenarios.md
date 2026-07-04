@@ -1,4 +1,4 @@
-﻿Chaque scenario d'automatisation peut etre exporte individuellement (ou en lot) sous forme de fichier JSON portable, puis reimporte sur le meme tenant, un autre tenant, ou une autre installation Obliance.
+Chaque scenario d'automatisation peut etre exporte individuellement (ou en lot) sous forme de fichier JSON portable, puis reimporte sur le meme tenant, un autre tenant, ou une autre installation Obliance.
 
 ## Acces
 

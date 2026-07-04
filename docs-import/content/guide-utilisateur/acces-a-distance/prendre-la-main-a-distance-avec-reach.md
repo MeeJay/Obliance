@@ -1,4 +1,4 @@
-﻿Cette page explique comment ouvrir une session de prise en main a distance sur un appareil et utiliser les outils disponibles pendant la session.
+Cette page explique comment ouvrir une session de prise en main a distance sur un appareil et utiliser les outils disponibles pendant la session.
 
 ## Demarrer une session
 

@@ -1,4 +1,4 @@
-﻿Cette page decrit comment creer, configurer et supprimer des tenants depuis l'interface d'administration.
+Cette page decrit comment creer, configurer et supprimer des tenants depuis l'interface d'administration.
 
 ## Acces a la gestion des tenants
 
@@ -40,7 +40,7 @@ Depuis la fiche d'un tenant, un administrateur de la plateforme peut :
 
 Ce role tenant determine les droits de l'utilisateur a l'interieur de ce tenant precis (gestion des reglages du tenant, des equipes, etc.) mais ne donne aucun droit sur les autres tenants de l'installation, ni sur la liste des tenants elle-meme.
 
-Pour donner acces a un meme utilisateur sur plusieurs tenants, il faut l'ajouter comme membre de chacun de ces tenants individuellement â€” il n'existe pas de role "multi-tenant" intermediaire entre membre d'un tenant et administrateur de la plateforme.
+Pour donner acces a un meme utilisateur sur plusieurs tenants, il faut l'ajouter comme membre de chacun de ces tenants individuellement — il n'existe pas de role "multi-tenant" intermediaire entre membre d'un tenant et administrateur de la plateforme.
 
 ## Supprimer un tenant
 

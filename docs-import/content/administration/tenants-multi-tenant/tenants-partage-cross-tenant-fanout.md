@@ -1,4 +1,4 @@
-﻿Cette page decrit le mecanisme de partage cross-tenant, qui permet de diffuser une entite du tenant Default vers un ou plusieurs autres tenants en lecture seule, sans dupliquer l'entite.
+Cette page decrit le mecanisme de partage cross-tenant, qui permet de diffuser une entite du tenant Default vers un ou plusieurs autres tenants en lecture seule, sans dupliquer l'entite.
 
 ## Principe general
 

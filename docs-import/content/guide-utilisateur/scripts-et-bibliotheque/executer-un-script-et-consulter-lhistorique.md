@@ -1,4 +1,4 @@
-﻿Ce guide explique comment lancer un script a la demande sur vos appareils, et comment retrouver le resultat de ses executions.
+Ce guide explique comment lancer un script a la demande sur vos appareils, et comment retrouver le resultat de ses executions.
 
 ## Lancer un script depuis l'onglet Run
 
@@ -30,7 +30,7 @@ Dans ce cas, le script est envoye uniquement a cet appareil, sans passer par la 
 
 ## Consulter l'historique des executions
 
-L'onglet **History** (dans **Automations**) liste tous les lots d'execution de scripts (Â« batches Â»), qu'ils aient ete lances manuellement ou par une planification (**Schedule**).
+L'onglet **History** (dans **Automations**) liste tous les lots d'execution de scripts (« batches »), qu'ils aient ete lances manuellement ou par une planification (**Schedule**).
 
 Pour chaque lot d'execution, vous retrouvez :
 

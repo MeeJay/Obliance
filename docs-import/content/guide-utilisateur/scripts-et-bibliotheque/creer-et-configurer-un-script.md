@@ -1,4 +1,4 @@
-﻿Ce guide explique comment creer un nouveau script, modifier ses reglages, le dupliquer ou le supprimer depuis la bibliotheque de scripts.
+Ce guide explique comment creer un nouveau script, modifier ses reglages, le dupliquer ou le supprimer depuis la bibliotheque de scripts.
 
 ## Creer un nouveau script
 
@@ -7,7 +7,7 @@
 3. Renseignez les champs du formulaire (voir tableau ci-dessous)
 4. Cliquez sur **Save** pour enregistrer, ou **Cancel** pour abandonner
 
-Si vous n'avez encore selectionne ni cree aucun script, la zone de droite affiche le message **Â« Select a script or create a new one Â»**.
+Si vous n'avez encore selectionne ni cree aucun script, la zone de droite affiche le message **« Select a script or create a new one »**.
 
 ## Modifier un script existant
 
@@ -28,9 +28,9 @@ Si vous n'avez encore selectionne ni cree aucun script, la zone de droite affich
 | **Run As** | Contexte d'execution sur la machine : **System** ou **User** |
 | **Purpose** | Type du script : Check, Resolve, Execute, Compliance ou Custom Metric |
 | **Category** | Categorie sous laquelle le script apparaitra dans la liste (tiroirs repliables) |
-| **Parent script (optional)** | Script parent auquel rattacher celui-ci, ou **Â« â€” No parent (top level) â€” Â»** pour ne pas en definir |
+| **Parent script (optional)** | Script parent auquel rattacher celui-ci, ou **« — No parent (top level) — »** pour ne pas en definir |
 | **Tags (comma-separated)** | Mots-cles libres separes par des virgules, utiles pour la recherche et le tri |
-| **Available in Reach** | Case a cocher â€” Â« show this script in the Oblireach desktop client Â». Cochee, elle rend ce script visible et lancable depuis le client de bureau Oblireach |
+| **Available in Reach** | Case a cocher — « show this script in the Oblireach desktop client ». Cochee, elle rend ce script visible et lancable depuis le client de bureau Oblireach |
 
 Le contenu du script lui-meme (le code) se saisit egalement dans ce formulaire, dans la zone prevue a cet effet, selon le langage choisi dans **Runtime**.
 
@@ -48,11 +48,11 @@ Une copie du script est creee ; vous pouvez ensuite l'editer librement comme n'i
 1. Selectionnez le script dans la liste
 2. Cliquez sur **Delete**
 
-Le bouton **Delete** n'est pas disponible pour les scripts **Built-in** â€” ceux-ci ne peuvent etre supprimes, seulement clones.
+Le bouton **Delete** n'est pas disponible pour les scripts **Built-in** — ceux-ci ne peuvent etre supprimes, seulement clones.
 
 ## Bon a savoir avant de supprimer un script
 
 Avant de supprimer un script, verifiez son badge d'usage dans la liste :
 
 - **Unused** signifie qu'il n'est utilise dans aucun scenario ni aucune planification : la suppression est sans risque
-- Un compteur du type Â« 2 scenario(s) / 1 schedule(s) Â» signifie que le script est activement utilise ailleurs dans Obliance : sa suppression impactera ces scenarios et planifications
+- Un compteur du type « 2 scenario(s) / 1 schedule(s) » signifie que le script est activement utilise ailleurs dans Obliance : sa suppression impactera ces scenarios et planifications

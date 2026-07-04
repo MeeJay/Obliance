@@ -1,4 +1,4 @@
-﻿Le mode confidentialite (Privacy mode) permet a l'utilisateur d'une machine de bloquer temporairement les interventions a distance sur son poste. Cette page explique son fonctionnement et comment un administrateur peut, dans certains cas, continuer a intervenir malgre tout.
+Le mode confidentialite (Privacy mode) permet a l'utilisateur d'une machine de bloquer temporairement les interventions a distance sur son poste. Cette page explique son fonctionnement et comment un administrateur peut, dans certains cas, continuer a intervenir malgre tout.
 
 ## Ce que bloque le mode confidentialite
 
@@ -31,7 +31,7 @@ Ce deverrouillage :
 - Dure 15 minutes, renouvelees a chaque action (fenetre glissante).
 - Ne peut jamais depasser 2 heures au total, meme en cas d'usage continu.
 - N'est pas conserve si le serveur Obliance redemarre entre-temps : il faut alors le refaire.
-- S'applique uniquement a la fonctionnalite choisie, sur cet appareil precis â€” les autres fonctionnalites bloquees restent bloquees.
+- S'applique uniquement a la fonctionnalite choisie, sur cet appareil precis — les autres fonctionnalites bloquees restent bloquees.
 
 Les quatre familles de fonctionnalites qui peuvent etre deverrouillees individuellement sont : l'execution de scripts, la prise en main a distance (Reach, CMD, PowerShell, SSH), la consultation des sessions et processus, et la gestion des fichiers.
 

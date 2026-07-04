@@ -1,8 +1,8 @@
-﻿Les rapports permettent de generer des documents recapitulatifs sur votre parc d'appareils (etat general, conformite, mises a jour, logiciels installes, historique de scripts) et de les telecharger dans differents formats.
+Les rapports permettent de generer des documents recapitulatifs sur votre parc d'appareils (etat general, conformite, mises a jour, logiciels installes, historique de scripts) et de les telecharger dans differents formats.
 
 ## Ou trouver les rapports
 
-Les rapports se trouvent dans **Supervision > Rapports** (menu reserve aux administrateurs, ou aux utilisateurs a qui un administrateur a explicitement donne l'acces via une equipe et un jeu de permissions). Si vous ne voyez pas cet onglet, cela signifie que votre compte n'a pas ete autorise a le consulter â€” adressez-vous a votre administrateur.
+Les rapports se trouvent dans **Supervision > Rapports** (menu reserve aux administrateurs, ou aux utilisateurs a qui un administrateur a explicitement donne l'acces via une equipe et un jeu de permissions). Si vous ne voyez pas cet onglet, cela signifie que votre compte n'a pas ete autorise a le consulter — adressez-vous a votre administrateur.
 
 Une fois sur la page, vous arrivez sur la liste des rapports deja crees, avec la possibilite de filtrer par type de rapport.
 

@@ -1,4 +1,4 @@
-﻿# Plugins de notification
+# Plugins de notification
 
 Obliance expose un systeme de plugins pour l'envoi de notifications (alertes monitors, agents, groupes) vers des canaux externes, avec une interface commune et un registre central.
 
@@ -6,24 +6,24 @@ Obliance expose un systeme de plugins pour l'envoi de notifications (alertes mon
 
 ```
 server/src/notifications/
-â”œâ”€â”€ types.ts             # Interface NotificationPlugin + NotificationPayload
-â”œâ”€â”€ registry.ts           # Registre central des plugins
-â””â”€â”€ plugins/
-    â”œâ”€â”€ discord.ts
-    â”œâ”€â”€ freemobile.ts
-    â”œâ”€â”€ gotify.ts
-    â”œâ”€â”€ ntfy.ts
-    â”œâ”€â”€ pushover.ts
-    â”œâ”€â”€ slack.ts
-    â”œâ”€â”€ smtp.ts
-    â”œâ”€â”€ teams.ts
-    â”œâ”€â”€ telegram.ts
-    â””â”€â”€ webhook.ts
+├── types.ts             # Interface NotificationPlugin + NotificationPayload
+├── registry.ts           # Registre central des plugins
+└── plugins/
+    ├── discord.ts
+    ├── freemobile.ts
+    ├── gotify.ts
+    ├── ntfy.ts
+    ├── pushover.ts
+    ├── slack.ts
+    ├── smtp.ts
+    ├── teams.ts
+    ├── telegram.ts
+    └── webhook.ts
 ```
 
-10 plugins au total, tous enregistres dans `registry.ts` â€” aucun fichier orphelin.
+10 plugins au total, tous enregistres dans `registry.ts` — aucun fichier orphelin.
 
-## Interface commune â€” `server/src/notifications/types.ts`
+## Interface commune — `server/src/notifications/types.ts`
 
 ```ts
 interface NotificationPlugin {
@@ -55,7 +55,7 @@ interface NotificationPlugin {
 }
 ```
 
-## Registre â€” `server/src/notifications/registry.ts`
+## Registre — `server/src/notifications/registry.ts`
 
 Au demarrage du serveur, `registry.ts` :
 
@@ -65,22 +65,22 @@ Au demarrage du serveur, `registry.ts` :
 
 ## Deux plugins de reference
 
-### `webhookPlugin` â€” `server/src/notifications/plugins/webhook.ts`
+### `webhookPlugin` — `server/src/notifications/plugins/webhook.ts`
 
 - POST JSON generique vers une URL fournie par l'utilisateur.
 - Header `Authorization` optionnel, construit depuis `config.secret`.
 - **Protection SSRF obligatoire** : passe par `assertPublicHttpUrl()` (`server/src/utils/ssrfGuard.ts`) avant tout `fetch`.
 - Timeout de requete : `10000ms` via `AbortSignal.timeout()`.
 
-### `slackPlugin` â€” `server/src/notifications/plugins/slack.ts`
+### `slackPlugin` — `server/src/notifications/plugins/slack.ts`
 
 - POST vers un Slack **Incoming Webhook URL** (`config.webhookUrl`).
 - Formatte un message riche (`attachments`/`blocks`) avec icone et couleur mappees par statut : `up`, `alert`, `ssl_warning`, `ssl_expired`, `inactive`, `value_changed`.
-- **Ne passe pas** par `assertPublicHttpUrl()` â€” contrairement au plugin `webhook.ts` generique, l'URL Slack n'est pas soumise a la garde SSRF.
+- **Ne passe pas** par `assertPublicHttpUrl()` — contrairement au plugin `webhook.ts` generique, l'URL Slack n'est pas soumise a la garde SSRF.
 
 > Les 8 autres plugins (`discord.ts`, `telegram.ts`, `gotify.ts`, `ntfy.ts`, `pushover.ts`, `smtp.ts`, `teams.ts`, `freemobile.ts`) n'ont pas ete lus en detail dans ce lot ; `webhook.ts` et `slack.ts` servent ici de references representatives du pattern d'architecture plugin.
 
-## Garde anti-SSRF â€” `server/src/utils/ssrfGuard.ts`
+## Garde anti-SSRF — `server/src/utils/ssrfGuard.ts`
 
 `assertPublicHttpUrl()` bloque toute resolution DNS vers des plages privees/loopback/link-local/metadata avant l'emission de la requete HTTP :
 
@@ -96,7 +96,7 @@ Au demarrage du serveur, `registry.ts` :
 | `fc00::/7` | Unique local address IPv6 |
 | `fe80::/10` | Link-local IPv6 |
 
-La resolution DNS est effectuee **avant** l'emission de la requete, specifiquement pour contrer une attaque par CNAME pointant vers une IP interne â€” mecanisme documente dans le code comme **best-effort** (pas une garantie absolue contre toute technique de contournement DNS).
+La resolution DNS est effectuee **avant** l'emission de la requete, specifiquement pour contrer une attaque par CNAME pointant vers une IP interne — mecanisme documente dans le code comme **best-effort** (pas une garantie absolue contre toute technique de contournement DNS).
 
 ## Points d'entree consommant le registre
 
@@ -109,7 +109,7 @@ La resolution DNS est effectuee **avant** l'emission de la requete, specifiqueme
 | `sendForGroup` | 832 | Notification agregee de groupe |
 | (creation/test de channel) | 123, 210 | Validation d'un channel a la creation, bouton "Tester" |
 
-## Routes API â€” `server/src/routes/notifications.routes.ts`
+## Routes API — `server/src/routes/notifications.routes.ts`
 
 Toutes les routes sont protegees par `requireAuth` + `requireRole('admin')` :
 

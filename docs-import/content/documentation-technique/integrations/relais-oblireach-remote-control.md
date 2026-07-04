@@ -1,10 +1,10 @@
-﻿# Relais Oblireach et prise en main a distance
+# Relais Oblireach et prise en main a distance
 
 Deux services serveur cooperent pour la prise en main a distance : `remote.service.ts` gere le cycle de vie des sessions, `oblireachHub.service.ts` gere le canal de commande WebSocket persistant vers les agents Oblireach.
 
-## RemoteService â€” `server/src/services/remote.service.ts` (386 lignes)
+## RemoteService — `server/src/services/remote.service.ts` (386 lignes)
 
-### Creation de session â€” `createSession()`
+### Creation de session — `createSession()`
 
 A la creation d'une session de controle distant :
 
@@ -17,8 +17,8 @@ A la creation d'une session de controle distant :
 
 | Protocole | Livraison | Fallback |
 |---|---|---|
-| `oblireach` | `oblireachHub.push(device.uuid, orCmd)` â€” instantane si le WS agent est connecte | Colonne `oblireach_devices.pending_command` (JSON), drainee a la reconnexion |
-| `vmconsole` (console Hyper-V) | `agentHub.push` en live uniquement | **Aucun** â€” si echec, `status='failed'`, `end_reason='agent_offline'` |
+| `oblireach` | `oblireachHub.push(device.uuid, orCmd)` — instantane si le WS agent est connecte | Colonne `oblireach_devices.pending_command` (JSON), drainee a la reconnexion |
+| `vmconsole` (console Hyper-V) | `agentHub.push` en live uniquement | **Aucun** — si echec, `status='failed'`, `end_reason='agent_offline'` |
 | `rdp` / `ssh` / `shell` | Push WS immediat tente d'abord | `commandService.enqueue()` avec `priority:'urgent'`, `expiresInSeconds:300` |
 
 ### Relais WebSocket en memoire (tunneling)
@@ -35,9 +35,9 @@ tunnels: Map<sessionToken, { browser, agent, agentBuffer }>
 
 ### Keepalive
 
-Ping WS toutes les **15 secondes**, cote agent ET cote navigateur, pour survivre aux timeouts idle des reverse proxies intermediaires (Nginx ~60s, Nginx Proxy Manager ~20s) â€” documente explicitement en commentaire dans le code source.
+Ping WS toutes les **15 secondes**, cote agent ET cote navigateur, pour survivre aux timeouts idle des reverse proxies intermediaires (Nginx ~60s, Nginx Proxy Manager ~20s) — documente explicitement en commentaire dans le code source.
 
-## ObliReachHubService â€” `server/src/services/oblireachHub.service.ts` (299 lignes)
+## ObliReachHubService — `server/src/services/oblireachHub.service.ts` (299 lignes)
 
 Distinct du tunnel de streaming : ce service gere le **canal de commande** persistant, pas le flux video/controle lui-meme.
 
@@ -54,7 +54,7 @@ Une connexion WS persistante par agent Oblireach.
 - Remplace toute connexion existante pour le meme `deviceUuid` : `ws.close(1000, 'replaced')`.
 - Ecoute les types de messages entrants :
   - `heartbeat`
-  - `chat_message` / `chat_event` â€” relayes via Socket.io vers la room `chat:${chatId}`, et persistes en table `chat_messages`.
+  - `chat_message` / `chat_event` — relayes via Socket.io vers la room `chat:${chatId}`, et persistes en table `chat_messages`.
 - Drain automatique de toute `pending_command` en attente au moment de la reconnexion.
 
 ### `_handleHeartbeat()` (ligne 197)
@@ -76,10 +76,10 @@ agent/dist/oblireach-version.txt
 | Methode | Portee |
 |---|---|
 | `push(deviceUuid, cmd)` | Un seul agent |
-| `broadcastCommand(cmd)` | Tous les devices, tous tenants confondus â€” utilise pour le chat car il n'existe pas de mapping serveur `device â†’ chatId` ; l'agent ignore les commandes dont il n'est pas proprietaire |
+| `broadcastCommand(cmd)` | Tous les devices, tous tenants confondus — utilise pour le chat car il n'existe pas de mapping serveur `device → chatId` ; l'agent ignore les commandes dont il n'est pas proprietaire |
 | `broadcastCommandToTenant(tenantId, cmd)` | Tous les devices d'un tenant |
 
-## Routes HTTP associees â€” `server/src/routes/remote.routes.ts`
+## Routes HTTP associees — `server/src/routes/remote.routes.ts`
 
 ```
 POST /sessions
@@ -89,8 +89,8 @@ POST /relay/validate-agent
 POST /relay/issue-viewer-token
 ```
 
-> Seule la liste des routes a ete verifiee (grep) ; le detail des handlers `validate-agent` et `issue-viewer-token` (mecanisme d'auth exact) n'est pas documente ici â€” se referer au code source pour l'implementation precise.
+> Seule la liste des routes a ete verifiee (grep) ; le detail des handlers `validate-agent` et `issue-viewer-token` (mecanisme d'auth exact) n'est pas documente ici — se referer au code source pour l'implementation precise.
 
 ## Hors perimetre de cette page
 
-Le protocole cote agent Go (format exact des messages heartbeat / commandes recus, gestion du buffer local) n'a pas ete inspecte dans ce lot â€” seul le cote serveur (`oblireachHub.service.ts`) est couvert ici.
+Le protocole cote agent Go (format exact des messages heartbeat / commandes recus, gestion du buffer local) n'a pas ete inspecte dans ce lot — seul le cote serveur (`oblireachHub.service.ts`) est couvert ici.

@@ -1,4 +1,4 @@
-﻿Cette page couvre la gestion d'etat (Zustand), la couche d'appels API centralisee et le flux d'authentification/session.
+Cette page couvre la gestion d'etat (Zustand), la couche d'appels API centralisee et le flux d'authentification/session.
 
 ## Stores Zustand
 
@@ -18,7 +18,7 @@ remoteShellStore.ts
 commandStore.ts
 ```
 
-Seuls `authStore.ts` et `tenantStore.ts` sont documentes en detail ci-dessous (lecture integrale verifiee) ; les 9 autres (`deviceStore.ts`, `groupStore.ts`, `scriptStore.ts`, `commandStore.ts`, `remoteShellStore.ts`, `chatStore.ts`, `uiStore.ts`, `liveAlertsStore.ts`, `socketStore.ts`) suivent le meme pattern general mais leur contenu precis n'a pas ete relu ligne par ligne â€” a verifier au besoin avant de documenter leur API en detail.
+Seuls `authStore.ts` et `tenantStore.ts` sont documentes en detail ci-dessous (lecture integrale verifiee) ; les 9 autres (`deviceStore.ts`, `groupStore.ts`, `scriptStore.ts`, `commandStore.ts`, `remoteShellStore.ts`, `chatStore.ts`, `uiStore.ts`, `liveAlertsStore.ts`, `socketStore.ts`) suivent le meme pattern general mais leur contenu precis n'a pas ete relu ligne par ligne — a verifier au besoin avant de documenter leur API en detail.
 
 ### `authStore.ts`
 
@@ -32,7 +32,7 @@ isLoading
 isInitialized
 ```
 
-Actions : `login`, `logout`, `checkSession`, `refreshPermissions`, plus des helpers de lecture â€” `isAdmin()`, `canCreate()`, `canWriteDevice()`, `canWriteGroup()`, `getDevicePermission()`, `getGroupPermission()` â€” tous avec **bypass systematique pour les admins**.
+Actions : `login`, `logout`, `checkSession`, `refreshPermissions`, plus des helpers de lecture — `isAdmin()`, `canCreate()`, `canWriteDevice()`, `canWriteGroup()`, `getDevicePermission()`, `getGroupPermission()` — tous avec **bypass systematique pour les admins**.
 
 Flux de `login()` (`authStore.ts:69-96`) :
 
@@ -40,7 +40,7 @@ Flux de `login()` (`authStore.ts:69-96`) :
 2. Sinon : `set(user)` + `connectSocket(user.id)` + `tenantStore.fetchTenants()` + `liveAlertsStore.fetchAlerts()`.
 3. En parallele, un appel asynchrone `authApi.me()` charge `permissions` / `tenantId` **sans bloquer le rendu UI** (le premier rendu utilise le `user` deja connu, les permissions arrivent en second temps).
 
-`syncPreferencesToStore()` (`authStore.ts:21-39`) applique le theme (`obli-operator` / `modern` / `neon`, whitelist stricte â€” toute autre valeur est ignoree) et la langue depuis `user.preferences` / `user.preferredLanguage`. Le theme est **possede par Obligate** (SSO) et arrive via `user.preferences.preferredTheme`.
+`syncPreferencesToStore()` (`authStore.ts:21-39`) applique le theme (`obli-operator` / `modern` / `neon`, whitelist stricte — toute autre valeur est ignoree) et la langue depuis `user.preferences` / `user.preferredLanguage`. Le theme est **possede par Obligate** (SSO) et arrive via `user.preferences.preferredTheme`.
 
 ### `tenantStore.ts`
 
@@ -48,7 +48,7 @@ Particularite : **pas de middleware Zustand**, et surtout **`fetch()` natif** (p
 
 State : `currentTenantId`, `tenants: TenantWithRole[]`.
 
-## Couche API â€” `client.ts`
+## Couche API — `client.ts`
 
 Fichier : `client/src/api/client.ts`. Expose un module axios central `apiClient` :
 
@@ -63,9 +63,9 @@ Fichier : `client/src/api/client.ts`. Expose un module axios central `apiClient`
 
 Trois comportements geres :
 
-1. **401 avec `twoFactorRequired`** â€” appelle `awaitTwoFactorCode()` puis retente la requete une seule fois (flag interne `_tfaRetried` pour eviter une boucle infinie).
-2. **401 simple hors contexte ObliTools** â€” redirection vers `/login`.
-3. **401 / 403 / 423 sur requetes non-GET** â€” surface un `toast.error(...)` avec le `body.error` du serveur. L'import de `react-hot-toast` est fait en **lazy import** dans l'interceptor pour eviter un import circulaire.
+1. **401 avec `twoFactorRequired`** — appelle `awaitTwoFactorCode()` puis retente la requete une seule fois (flag interne `_tfaRetried` pour eviter une boucle infinie).
+2. **401 simple hors contexte ObliTools** — redirection vers `/login`.
+3. **401 / 403 / 423 sur requetes non-GET** — surface un `toast.error(...)` avec le `body.error` du serveur. L'import de `react-hot-toast` est fait en **lazy import** dans l'interceptor pour eviter un import circulaire.
 
 ### Modules API par domaine
 
@@ -79,7 +79,7 @@ Fichier unique : `client/src/socket/socketClient.ts`, qui gere toute la connexio
 
 Fichier : `client/src/components/layout/Sidebar.tsx`.
 
-- `Sidebar.tsx:403,420-426` â€” un `useEffect` avec pour dependances `[loadDeviceData, currentTenantId]` (lu via `useTenantStore`) **reset** `devices` / `groupTree` et recharge via `deviceApi.listPaginated` + `groupsApi.tree()`, avec un `setInterval` de 30s pour le refresh periodique. Ce comportement confirme la regle : la sidebar recharge automatiquement les devices au changement de tenant, sans necessiter un F5.
-- `Sidebar.tsx:428-455` â€” badge "pending approvals" (admin uniquement), charge via **import dynamique** de `approval.api`, mis a jour via les evenements socket `APPROVAL_CREATED` / `APPROVAL_UPDATED`, avec un polling de secours toutes les 60s.
+- `Sidebar.tsx:403,420-426` — un `useEffect` avec pour dependances `[loadDeviceData, currentTenantId]` (lu via `useTenantStore`) **reset** `devices` / `groupTree` et recharge via `deviceApi.listPaginated` + `groupsApi.tree()`, avec un `setInterval` de 30s pour le refresh periodique. Ce comportement confirme la regle : la sidebar recharge automatiquement les devices au changement de tenant, sans necessiter un F5.
+- `Sidebar.tsx:428-455` — badge "pending approvals" (admin uniquement), charge via **import dynamique** de `approval.api`, mis a jour via les evenements socket `APPROVAL_CREATED` / `APPROVAL_UPDATED`, avec un polling de secours toutes les 60s.
 
-â†’ Build a lancer : **client**
+→ Build a lancer : **client**

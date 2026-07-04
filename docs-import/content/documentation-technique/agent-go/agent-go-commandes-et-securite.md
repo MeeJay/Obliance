@@ -1,6 +1,6 @@
-﻿Le dispatcher de commandes est le point d'entree unique pour l'execution des actions admin sur le poste ; il applique aussi les portes de securite (privacy mode) communes a tous les canaux de transport.
+Le dispatcher de commandes est le point d'entree unique pour l'execution des actions admin sur le poste ; il applique aussi les portes de securite (privacy mode) communes a tous les canaux de transport.
 
-## CommandDispatcher â€” command_handler.go
+## CommandDispatcher — command_handler.go
 
 `agent/command_handler.go` (82 Ko) definit `CommandDispatcher`, structure portant `deviceUUID`, `apiKey`, `serverURL`, `remediationEnabled`, `tlsInsecureSkipVerify`, avec les methodes `HandleCommand`, `executeCommand`, `ExecuteSync`.
 
@@ -30,7 +30,7 @@ hyperv_list_vms, hyperv_control, hyperv_console_thumbnail
 veeam_list_jobs, veeam_control
 ```
 
-## Privacy mode â€” porte de securite commune
+## Privacy mode — porte de securite commune
 
 `isBlockedByPrivacy()` (`agent/command_handler.go:101-113`) definit la liste des commandes bloquees quand le privacy mode est actif :
 
@@ -40,7 +40,7 @@ veeam_list_jobs, veeam_control
 - `list_processes`, `kill_process`
 - Toutes les commandes file explorer (`list_directory`, `create_directory`, `rename_file`, etc.)
 
-Cette meme fonction `isBlockedByPrivacy` est invoquee a l'identique par `dispatchHubCommand()` (canal WebSocket, `agent/command_channel.go:211-224`) et par `executeCommand`/`ExecuteSync` â€” garantissant qu'aucun chemin d'execution ne contourne la porte privacy, quel que soit le canal de transport utilise (WS temps reel ou poller HTTP synchrone).
+Cette meme fonction `isBlockedByPrivacy` est invoquee a l'identique par `dispatchHubCommand()` (canal WebSocket, `agent/command_channel.go:211-224`) et par `executeCommand`/`ExecuteSync` — garantissant qu'aucun chemin d'execution ne contourne la porte privacy, quel que soit le canal de transport utilise (WS temps reel ou poller HTTP synchrone).
 
 ## Compliance checks
 
@@ -57,7 +57,7 @@ Cette meme fonction `isBlockedByPrivacy` est invoquee a l'identique par `dispatc
 
 Operateurs disponibles : `eq`, `neq`, `contains`, `not_contains`, `exists`, `not_exists`, `gt`, `lt`, `regex`.
 
-## Watchdog â€” agent/watchdog.go
+## Watchdog — agent/watchdog.go
 
 Cote agent principal, `agent/watchdog.go` (`agent/watchdog.go:1-153`) expose :
 
@@ -70,7 +70,7 @@ EnsureWatchdogRegistered
 
 Ce module maintient un fichier d'etat (`watchdog.json`) coherent avec celui lu independamment par le binaire sentinelle `agent/cmd/watchdog/main.go`. `InhibitWatchdog` est notamment appele avant tout cycle d'auto-update MSI (voir page Architecture generale) pour eviter qu'un redemarrage externe n'interrompe le remplacement du service en cours.
 
-## Build tags â€” portabilite cross-plateforme
+## Build tags — portabilite cross-plateforme
 
 Le pattern `//go:build <tag>` est utilise systematiquement pour isoler le code specifique a chaque OS, avec triplet Windows/Linux/autre-generalement-stub :
 
@@ -84,4 +84,4 @@ privacy_gate_{windows,linux,darwin,stub}.go
 service_{windows,darwin,freebsd,stub}.go
 ```
 
-Ce decoupage permet un seul module Go (`github.com/obliance/agent`) compile pour plusieurs cibles (Windows/macOS/Linux, amd64/arm64/x86) sans branches runtime couteuses â€” le compilateur elague le code non pertinent a la compilation.
+Ce decoupage permet un seul module Go (`github.com/obliance/agent`) compile pour plusieurs cibles (Windows/macOS/Linux, amd64/arm64/x86) sans branches runtime couteuses — le compilateur elague le code non pertinent a la compilation.

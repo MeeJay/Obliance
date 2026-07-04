@@ -1,6 +1,6 @@
-﻿Cette page couvre l'internationalisation du client et le pattern de pages a onglets qui composent plusieurs pages originales.
+Cette page couvre l'internationalisation du client et le pattern de pages a onglets qui composent plusieurs pages originales.
 
-## i18n â€” `client/src/i18n/index.ts`
+## i18n — `client/src/i18n/index.ts`
 
 18 locales sont importees **statiquement** (pas de lazy-load) : `ar`, `cs`, `da`, `de`, `en`, `es`, `fr`, `it`, `ja`, `ko`, `nl`, `pl`, `pt-BR`, `ru`, `sv`, `tr`, `uk`, `zh-CN`.
 
@@ -46,7 +46,7 @@ Quatre wrappers verifies en detail :
 
 Onglets : `schedules` | `scenarios` | `scripts` | `run` | `history`, qui rendent respectivement `ScriptSchedulesPage` / `ScenariosPage` / `ScriptLibraryPage` / `ScriptRunPage` / `ScriptHistoryPage` avec `embedded={true}`.
 
-`SchedulesPage.tsx:12,18` â€” le tab actif est initialise depuis `useSearchParams()` (parametre `?tab=`), avec une **whitelist stricte** `['scenarios', 'scripts', 'run', 'history']` ; toute autre valeur retombe sur l'onglet par defaut `schedules`.
+`SchedulesPage.tsx:12,18` — le tab actif est initialise depuis `useSearchParams()` (parametre `?tab=`), avec une **whitelist stricte** `['scenarios', 'scripts', 'run', 'history']` ; toute autre valeur retombe sur l'onglet par defaut `schedules`.
 
 ### `PoliciesPage.tsx` (route `/policies`)
 
@@ -58,12 +58,12 @@ Onglets : `keys` | `custom-sections` | `discovery`, qui rendent `CustomSectionsP
 
 ### `SupervisionPage.tsx` (route `/admin/supervision`)
 
-Documente dans `CLAUDE.md` avec le meme pattern (onglets Sessions distantes | Historique | Rapports rendant `RemoteSessionsPage` / `HistoryPage` / `ReportsPage`), mais le fichier n'a pas ete relu en detail dans cette verification â€” le detail exact des noms d'onglets et de la logique de `useSearchParams` associee est a confirmer directement dans le fichier avant documentation exhaustive.
+Documente dans `CLAUDE.md` avec le meme pattern (onglets Sessions distantes | Historique | Rapports rendant `RemoteSessionsPage` / `HistoryPage` / `ReportsPage`), mais le fichier n'a pas ete relu en detail dans cette verification — le detail exact des noms d'onglets et de la logique de `useSearchParams` associee est a confirmer directement dans le fichier avant documentation exhaustive.
 
 ## A verifier avant extension de cette documentation
 
 - `AdminUsersPage.tsx` (pattern Users + Teams + `NotificationsPage`) n'a pas ete relu en detail.
-- L'usage reel de la dependance `@novnc/novnc` (presente dans `client/package.json`) n'a pas ete trace dans le code â€” ne pas affirmer son role exact (VNC remote ou autre) sans verification prealable.
+- L'usage reel de la dependance `@novnc/novnc` (presente dans `client/package.json`) n'a pas ete trace dans le code — ne pas affirmer son role exact (VNC remote ou autre) sans verification prealable.
 - Le contenu detaille de `AppLayout.tsx` et `Header.tsx` n'a pas ete inspecte ligne par ligne.
 
-â†’ Build a lancer : **client**
+→ Build a lancer : **client**

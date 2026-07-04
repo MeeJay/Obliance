@@ -1,8 +1,8 @@
-﻿En dehors des rapports, Obliance peut vous alerter en temps reel directement dans l'interface grace aux notifications d'alerte personnelles, configurables depuis votre profil.
+En dehors des rapports, Obliance peut vous alerter en temps reel directement dans l'interface grace aux notifications d'alerte personnelles, configurables depuis votre profil.
 
 ## Ou regler mes notifications
 
-Rendez-vous sur **Profile** (accessible a tout utilisateur connecte, en general via le menu de votre compte) puis repÃ©rez la section **Live Alert Notifications**. Cette section gere les alertes qui s'affichent sous forme de bulle (toast) directement dans l'interface pendant que vous naviguez â€” par exemple lorsqu'un evenement survient sur un appareil que vous surveillez.
+Rendez-vous sur **Profile** (accessible a tout utilisateur connecte, en general via le menu de votre compte) puis repérez la section **Live Alert Notifications**. Cette section gere les alertes qui s'affichent sous forme de bulle (toast) directement dans l'interface pendant que vous naviguez — par exemple lorsqu'un evenement survient sur un appareil que vous surveillez.
 
 ## Activer ou desactiver les alertes
 

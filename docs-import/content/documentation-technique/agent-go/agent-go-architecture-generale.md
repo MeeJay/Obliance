@@ -1,4 +1,4 @@
-﻿L'agent Obliance est un binaire Go 1.22 multiplateforme (Windows 10+/macOS/Linux) qui centralise la remontee de metriques, l'execution de commandes admin et l'auto-update du poste supervise.
+L'agent Obliance est un binaire Go 1.22 multiplateforme (Windows 10+/macOS/Linux) qui centralise la remontee de metriques, l'execution de commandes admin et l'auto-update du poste supervise.
 
 ## Module et versioning
 
@@ -53,20 +53,20 @@ type Config struct {
 }
 ```
 
-### setupConfig() â€” priorite fichier vs registry
+### setupConfig() — priorite fichier vs registry
 
-`setupConfig()` (`agent/main.go:92-115`) applique une regle precise : le fichier `config.json` est prioritaire, **sauf** si les valeurs `ServerURL`/`APIKey` presentes dans la registry Windows (ecrites par le MSI lors de l'install) different de celles du fichier â€” auquel cas la registry ecrase le fichier. Ce mecanisme permet a une reinstallation MSI (avec une nouvelle cle API ou un nouveau serveur) de reconfigurer un agent existant sans purge manuelle de `config.json`.
+`setupConfig()` (`agent/main.go:92-115`) applique une regle precise : le fichier `config.json` est prioritaire, **sauf** si les valeurs `ServerURL`/`APIKey` presentes dans la registry Windows (ecrites par le MSI lors de l'install) different de celles du fichier — auquel cas la registry ecrase le fichier. Ce mecanisme permet a une reinstallation MSI (avec une nouvelle cle API ou un nouveau serveur) de reconfigurer un agent existant sans purge manuelle de `config.json`.
 
-Autre point durci : l'URL serveur n'est **plus jamais** auto-upgradee de `http://` vers `https://` â€” `cfg.ServerURL` est conserve tel quel (`agent/main.go:145-153`), le code porte un commentaire explicite renvoyant a un bug historique corrige (une auto-upgrade silencieuse cassait les installs on-prem en HTTP volontaire).
+Autre point durci : l'URL serveur n'est **plus jamais** auto-upgradee de `http://` vers `https://` — `cfg.ServerURL` est conserve tel quel (`agent/main.go:145-153`), le code porte un commentaire explicite renvoyant a un bug historique corrige (une auto-upgrade silencieuse cassait les installs on-prem en HTTP volontaire).
 
-## Cycle de vie â€” mainLoop()
+## Cycle de vie — mainLoop()
 
 `mainLoop()` (`agent/main.go:485-644`) demarre sequentiellement, dans cet ordre :
 
 1. `cleanupOrphanedProcesses()`
 2. Reset de `remote-session.json`
 3. `loadPrivacyState()` / `loadAirgapState()`
-4. Bootstrap ACL cible **uniquement** sur `privacy.json`, `airgap.json`, `remote-session.json` â€” pas sur tout `configDir`, pour eviter une fuite de permissions sur `config.json` (contient la cle API). Commentaire de securite explicite dans le code.
+4. Bootstrap ACL cible **uniquement** sur `privacy.json`, `airgap.json`, `remote-session.json` — pas sur tout `configDir`, pour eviter une fuite de permissions sur `config.json` (contient la cle API). Commentaire de securite explicite dans le code.
 5. `ClearWatchdogInhibit()`
 6. Goroutine `EnsureWatchdogRegistered(cfg)`
 7. `addEvent('machine_boot', nil)`
@@ -95,6 +95,6 @@ Dans les deux cas, verification SHA-256 via le header `X-Content-SHA256` avant a
 msiexec.exe /i <msi> /quiet /norestart SERVERURL=... APIKEY=... /l*v <log>
 ```
 
-Aucun script batch intermediaire. L'agent n'appelle pas `os.Exit()` â€” c'est le service Windows Installer (`msiserver`) qui stoppe/redemarre le service `OblianceAgent` via le SCM. Avant le lancement, `InhibitWatchdog(15*time.Minute)` est appele (`agent/main.go:365-368`) pour empecher le watchdog externe de redemarrer le service pendant le cycle stop/replace/start.
+Aucun script batch intermediaire. L'agent n'appelle pas `os.Exit()` — c'est le service Windows Installer (`msiserver`) qui stoppe/redemarre le service `OblianceAgent` via le SCM. Avant le lancement, `InhibitWatchdog(15*time.Minute)` est appele (`agent/main.go:365-368`) pour empecher le watchdog externe de redemarrer le service pendant le cycle stop/replace/start.
 
-Important : l'agent **ne se met plus a jour spontanement**. Les updates sont exclusivement declenchees par la commande admin `update_agent`. `fetchLatestVersion()`/`latestVersion` (`agent/main.go:222-249, 561-566`) ne servent qu'a afficher le badge Â« update available Â» cote client â€” aucune application automatique en tache de fond.
+Important : l'agent **ne se met plus a jour spontanement**. Les updates sont exclusivement declenchees par la commande admin `update_agent`. `fetchLatestVersion()`/`latestVersion` (`agent/main.go:222-249, 561-566`) ne servent qu'a afficher le badge « update available » cote client — aucune application automatique en tache de fond.

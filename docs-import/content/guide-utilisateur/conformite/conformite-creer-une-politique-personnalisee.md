@@ -1,43 +1,43 @@
-﻿# ConformitÃ© : crÃ©er une politique personnalisÃ©e
+# Conformité : créer une politique personnalisée
 
-Au-delÃ  des 12 prÃ©rÃ©glages prÃªts Ã  l'emploi, vous pouvez crÃ©er vos propres politiques de conformitÃ© depuis l'onglet **Politiques** de la page ConformitÃ© (**Politiques > ConformitÃ© > Politiques**).
+Au-delà des 12 préréglages prêts à l'emploi, vous pouvez créer vos propres politiques de conformité depuis l'onglet **Politiques** de la page Conformité (**Politiques > Conformité > Politiques**).
 
-## CrÃ©er une politique
+## Créer une politique
 
-Depuis l'onglet Politiques, la crÃ©ation d'une nouvelle politique demande de renseigner :
+Depuis l'onglet Politiques, la création d'une nouvelle politique demande de renseigner :
 
 - **Nom** de la politique.
-- **RÃ©fÃ©rentiel** : CIS, NIST, ISO 27001, PCI DSS, HIPAA, SOC 2, ou **Custom** si la politique ne correspond Ã  aucun standard officiel (c'est le cas notamment des bases "Security Baseline" et "Haute Performance" fournies par Obliance).
-- **Cible** : appliquer la politique Ã  **tous les appareils**, ou uniquement Ã  **un ou plusieurs groupes** sÃ©lectionnÃ©s.
+- **Référentiel** : CIS, NIST, ISO 27001, PCI DSS, HIPAA, SOC 2, ou **Custom** si la politique ne correspond à aucun standard officiel (c'est le cas notamment des bases "Security Baseline" et "Haute Performance" fournies par Obliance).
+- **Cible** : appliquer la politique à **tous les appareils**, ou uniquement à **un ou plusieurs groupes** sélectionnés.
 - **Description** (facultative) pour documenter le but de la politique.
-- La liste des **rÃ¨gles** qui composent la politique, ajoutÃ©es une par une via l'Ã©diteur de rÃ¨gles.
+- La liste des **règles** qui composent la politique, ajoutées une par une via l'éditeur de règles.
 
-## Partir d'un prÃ©rÃ©glage plutÃ´t que de zÃ©ro
+## Partir d'un préréglage plutôt que de zéro
 
-PlutÃ´t que de construire une politique rÃ¨gle par rÃ¨gle, le plus simple est de partir d'un prÃ©rÃ©glage existant proche de votre besoin (voir la page "ConformitÃ© : le catalogue des prÃ©rÃ©glages") et d'utiliser le bouton **Partir d'un template**. Toutes les rÃ¨gles du prÃ©rÃ©glage choisi sont alors reprises dans l'Ã©diteur, et vous pouvez :
+Plutôt que de construire une politique règle par règle, le plus simple est de partir d'un préréglage existant proche de votre besoin (voir la page "Conformité : le catalogue des préréglages") et d'utiliser le bouton **Partir d'un template**. Toutes les règles du préréglage choisi sont alors reprises dans l'éditeur, et vous pouvez :
 
-- Retirer les rÃ¨gles qui ne concernent pas votre contexte.
-- Ajouter des rÃ¨gles spÃ©cifiques Ã  votre organisation.
-- Modifier les valeurs attendues d'une rÃ¨gle existante (par exemple durcir une longueur minimale de mot de passe).
+- Retirer les règles qui ne concernent pas votre contexte.
+- Ajouter des règles spécifiques à votre organisation.
+- Modifier les valeurs attendues d'une règle existante (par exemple durcir une longueur minimale de mot de passe).
 
-Une fois les ajustements faits, vous enregistrez sous un nouveau nom : la politique d'origine (le prÃ©rÃ©glage) n'est pas modifiÃ©e, vous crÃ©ez bien une politique distincte.
+Une fois les ajustements faits, vous enregistrez sous un nouveau nom : la politique d'origine (le préréglage) n'est pas modifiée, vous créez bien une politique distincte.
 
-## A quoi ressemble une rÃ¨gle
+## A quoi ressemble une règle
 
-Chaque rÃ¨gle dÃ©finie dans une politique repose sur les mÃªmes informations, quel que soit le rÃ©fÃ©rentiel :
+Chaque règle définie dans une politique repose sur les mêmes informations, quel que soit le référentiel :
 
-- Un nom et une catÃ©gorie (par exemple "Pare-feu", "Comptes", "RÃ©seau"...).
-- Ce qui est contrÃ´lÃ© concrÃ¨tement sur la machine (une clÃ© de registre, un fichier, une commande, l'Ã©tat d'un service, une entrÃ©e de journal d'Ã©vÃ©nements, ou une politique systÃ¨me), et la valeur attendue.
-- Une maniÃ¨re de comparer la valeur trouvÃ©e Ã  la valeur attendue (Ã©gal, diffÃ©rent, contient, ne contient pas, existe, n'existe pas, supÃ©rieur, infÃ©rieur, ou expression rÃ©guliÃ¨re).
-- Un niveau de gravitÃ© si la rÃ¨gle Ã©choue : facultatif, faible, modÃ©rÃ©, Ã©levÃ© ou critique.
-- Un script de correction automatique, s'il en existe un pour cette rÃ¨gle. Une rÃ¨gle sans script de correction reste utile pour dÃ©tecter un Ã©cart, mais devra Ãªtre corrigÃ©e manuellement si elle Ã©choue.
+- Un nom et une catégorie (par exemple "Pare-feu", "Comptes", "Réseau"...).
+- Ce qui est contrôlé concrètement sur la machine (une clé de registre, un fichier, une commande, l'état d'un service, une entrée de journal d'événements, ou une politique système), et la valeur attendue.
+- Une manière de comparer la valeur trouvée à la valeur attendue (égal, différent, contient, ne contient pas, existe, n'existe pas, supérieur, inférieur, ou expression régulière).
+- Un niveau de gravité si la règle échoue : facultatif, faible, modéré, élevé ou critique.
+- Un script de correction automatique, s'il en existe un pour cette règle. Une règle sans script de correction reste utile pour détecter un écart, mais devra être corrigée manuellement si elle échoue.
 
-## GÃ©rer une politique existante appartenant Ã  un autre pÃ©rimÃ¨tre (vue multi-site)
+## Gérer une politique existante appartenant à un autre périmètre (vue multi-site)
 
-Si votre organisation gÃ¨re plusieurs sites ou entitÃ©s (vue "master"), certaines politiques de conformitÃ© peuvent avoir Ã©tÃ© crÃ©Ã©es par un autre site et simplement partagÃ©es en lecture avec le vÃ´tre. Dans ce cas, la politique affiche un badge **Master** et les boutons Modifier/Supprimer sont dÃ©sactivÃ©s : vous pouvez consulter et appliquer les rÃ©sultats de cette politique, mais seule l'entitÃ© propriÃ©taire peut la modifier ou la supprimer.
+Si votre organisation gère plusieurs sites ou entités (vue "master"), certaines politiques de conformité peuvent avoir été créées par un autre site et simplement partagées en lecture avec le vôtre. Dans ce cas, la politique affiche un badge **Master** et les boutons Modifier/Supprimer sont désactivés : vous pouvez consulter et appliquer les résultats de cette politique, mais seule l'entité propriétaire peut la modifier ou la supprimer.
 
 ## Bonnes pratiques
 
-- Donner un nom de politique explicite incluant la cible (par exemple "ISO 27001 - Serveurs Production") plutÃ´t qu'un nom gÃ©nÃ©rique, surtout si plusieurs politiques proches coexistent.
-- Cibler des groupes plutÃ´t que "tous les appareils" dÃ¨s que la politique ne s'applique pas Ã  l'ensemble du parc (une politique OPNsense n'a par exemple de sens que sur le groupe des appliances pare-feu).
-- Tester une nouvelle politique sur un petit groupe pilote avant de l'Ã©tendre Ã  tout le parc, afin de vÃ©rifier que le score obtenu et les corrections automatiques proposÃ©es correspondent bien Ã  ce qui est attendu.
+- Donner un nom de politique explicite incluant la cible (par exemple "ISO 27001 - Serveurs Production") plutôt qu'un nom générique, surtout si plusieurs politiques proches coexistent.
+- Cibler des groupes plutôt que "tous les appareils" dès que la politique ne s'applique pas à l'ensemble du parc (une politique OPNsense n'a par exemple de sens que sur le groupe des appliances pare-feu).
+- Tester une nouvelle politique sur un petit groupe pilote avant de l'étendre à tout le parc, afin de vérifier que le score obtenu et les corrections automatiques proposées correspondent bien à ce qui est attendu.

@@ -1,4 +1,4 @@
-﻿La page **Profile** regroupe tous les reglages lies a votre compte personnel : identite, mot de passe, apparence, securite et preferences d'utilisation.
+La page **Profile** regroupe tous les reglages lies a votre compte personnel : identite, mot de passe, apparence, securite et preferences d'utilisation.
 
 ## Acces a mon profil
 
@@ -49,11 +49,11 @@ Le theme choisi s'applique immediatement a titre d'apercu et reste actif a vos p
 
 Si vous utilisez les sessions de prise en main a distance (ObliReach), la section **Remote Desktop** vous permet de choisir le codec video preferentiel utilise pour la retransmission de l'ecran :
 
-- **H.264 (OpenH264)** â€” choix par defaut, le plus compatible.
-- **H.265 (HEVC)** â€” meilleure compression.
-- **VP9** â€” bonne compression.
-- **AV1** â€” compression maximale, plus exigeant en ressources processeur.
-- **JPEG** â€” solution de repli en cas de faible qualite de connexion.
+- **H.264 (OpenH264)** — choix par defaut, le plus compatible.
+- **H.265 (HEVC)** — meilleure compression.
+- **VP9** — bonne compression.
+- **AV1** — compression maximale, plus exigeant en ressources processeur.
+- **JPEG** — solution de repli en cas de faible qualite de connexion.
 
 Si l'appareil distant ne prend pas en charge le codec choisi, la connexion bascule automatiquement sur JPEG.
 

@@ -1,4 +1,4 @@
-﻿Ce guide couvre la configuration reseau et serveur recommandee pour exploiter Obliance en production de maniere securisee : HTTPS, gestion des sessions et protections anti-abus integrees.
+Ce guide couvre la configuration reseau et serveur recommandee pour exploiter Obliance en production de maniere securisee : HTTPS, gestion des sessions et protections anti-abus integrees.
 
 ## HTTPS obligatoire en production
 

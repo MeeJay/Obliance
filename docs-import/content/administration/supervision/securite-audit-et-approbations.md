@@ -1,4 +1,4 @@
-﻿# Securite - Journal d'audit et approbations
+# Securite - Journal d'audit et approbations
 
 La page **Security** est distincte de l'ecran Supervision : elle regroupe le journal d'audit et les approbations en attente. Elle est accessible aux administrateurs depuis l'entree de menu dediee, qui affiche un badge indiquant le nombre d'approbations en attente.
 

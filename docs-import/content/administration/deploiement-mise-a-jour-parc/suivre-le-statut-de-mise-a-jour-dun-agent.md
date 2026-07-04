@@ -1,4 +1,4 @@
-﻿Une fois une mise a jour d'agent declenchee, Obliance affiche un statut dedie qui permet de suivre la progression et de detecter une eventuelle anomalie, sans avoir a se connecter au poste.
+Une fois une mise a jour d'agent declenchee, Obliance affiche un statut dedie qui permet de suivre la progression et de detecter une eventuelle anomalie, sans avoir a se connecter au poste.
 
 ## Les statuts affiches pendant et apres une mise a jour
 
@@ -25,8 +25,8 @@ Si le statut **Update Error** persiste, cela indique generalement un probleme re
 
 La carte **En ligne** du tableau de bord affiche, sous un en-tete **"Dont :"**, des sous-compteurs dedies :
 
-- **en MAJ** â€” nombre de devices actuellement en cours de mise a jour (statut Updating).
-- **en erreur MAJ** â€” nombre de devices en erreur de mise a jour (statut Update Error), affiche uniquement s'il y en a au moins un.
+- **en MAJ** — nombre de devices actuellement en cours de mise a jour (statut Updating).
+- **en erreur MAJ** — nombre de devices en erreur de mise a jour (statut Update Error), affiche uniquement s'il y en a au moins un.
 
 Cela permet de reperer en un coup d'oeil, sans filtrer la liste des devices, si une campagne de mise a jour en cours se deroule normalement ou si des postes sont a surveiller.
 
@@ -42,4 +42,4 @@ A noter pour la logique des filtres de la liste : un device en **Updating** est 
 - Un device reste en **Update Error** au-dela de quelques dizaines de minutes malgre plusieurs reconnexions reseau visibles ? C'est le signe qu'une intervention locale sur le poste est necessaire.
 - Ne pas relancer une commande **Update agent** en boucle sur un device deja en erreur sans avoir verifie la cause localement : cela ne debloque pas une installation deja en echec.
 
-â†’ Aucune action serveur ou client necessaire pour publier ce document.
+→ Aucune action serveur ou client necessaire pour publier ce document.

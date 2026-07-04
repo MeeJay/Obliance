@@ -1,4 +1,4 @@
-﻿Obliance propose deux mecanismes d'import/export totalement independants, a ne pas confondre lorsqu'on prepare une migration, une sauvegarde ou un partage de configuration.
+Obliance propose deux mecanismes d'import/export totalement independants, a ne pas confondre lorsqu'on prepare une migration, une sauvegarde ou un partage de configuration.
 
 ## Les deux systemes
 

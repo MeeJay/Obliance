@@ -1,4 +1,4 @@
-﻿Reference des types de noeuds du graphe v2, de la map `EXECUTORS` qui pilote leur execution, et des patterns de ciblage multi-device.
+Reference des types de noeuds du graphe v2, de la map `EXECUTORS` qui pilote leur execution, et des patterns de ciblage multi-device.
 
 ## ScenarioNodeType
 
@@ -35,10 +35,10 @@ interface ExecutorResult {
 }
 ```
 
-- `awaitsAck: true` â†’ le moteur met le run en pause jusqu'a `handleNodeCommandAck()`
-- `terminate` â†’ fin de run immediate, sans passer par une arete
+- `awaitsAck: true` → le moteur met le run en pause jusqu'a `handleNodeCommandAck()`
+- `terminate` → fin de run immediate, sans passer par une arete
 
-## Noeud `cooldown` â€” gate de pacing partage
+## Noeud `cooldown` — gate de pacing partage
 
 Implemente lignes 602-634 de `scenarioGraph.service.ts`.
 
@@ -47,11 +47,11 @@ Implemente lignes 602-634 de `scenarioGraph.service.ts`.
 { duration: number, unit: 'seconds' | 'minutes' | 'hours' | 'days' | 'months' }
 ```
 
-Converti en secondes via `cooldownToSeconds()`. L'etat est persiste dans la table `scenario_cooldown_state`, clef composite `(scenario_id, device_id, node_id)` â€” plusieurs noeuds cooldown dans un meme scenario ont des fenetres independantes, et plusieurs triggers qui convergent vers le meme noeud cooldown partagent la meme fenetre.
+Converti en secondes via `cooldownToSeconds()`. L'etat est persiste dans la table `scenario_cooldown_state`, clef composite `(scenario_id, device_id, node_id)` — plusieurs noeuds cooldown dans un meme scenario ont des fenetres independantes, et plusieurs triggers qui convergent vers le meme noeud cooldown partagent la meme fenetre.
 
 Comportement :
-- Si le run est **dans la fenetre** de cooldown â†’ `terminate: 'success'` avec `exitCode: -1` (pas d'echec visible dans l'audit log, le run s'arrete silencieusement)
-- Sinon â†’ met a jour `last_pass_at` et laisse passer (`exitCode: 0`)
+- Si le run est **dans la fenetre** de cooldown → `terminate: 'success'` avec `exitCode: -1` (pas d'echec visible dans l'audit log, le run s'arrete silencieusement)
+- Sinon → met a jour `last_pass_at` et laisse passer (`exitCode: 0`)
 
 ## Noeud `run_script` (lignes 642-696)
 
@@ -71,11 +71,11 @@ Meme pattern que `run_script`, avec un `commandType` type (`reboot`, `shutdown`,
 setTimeout(delayMs).unref(); // retourne awaitsAck: true
 ```
 
-La reprise passe par `handleNodeCommandAck()` â€” voir la page architecture pour le janitor `rearmWaitTimersOnBoot()`.
+La reprise passe par `handleNodeCommandAck()` — voir la page architecture pour le janitor `rearmWaitTimersOnBoot()`.
 
-## Filtrage des cibles â€” `validateTargetsInTenant()`
+## Filtrage des cibles — `validateTargetsInTenant()`
 
-Lignes 104-119 : filtre les devices qui sont hors du tenant du scenario, ainsi que les devices en `privacy_mode_enabled = true` â€” sauf si `scenarios.bypass_privacy_mode = true` pour ce run.
+Lignes 104-119 : filtre les devices qui sont hors du tenant du scenario, ainsi que les devices en `privacy_mode_enabled = true` — sauf si `scenarios.bypass_privacy_mode = true` pour ce run.
 
 ## Fan-out multi-device
 
@@ -88,16 +88,16 @@ Les noeuds `run_script`, `run_command`, `tag_device` et `move_device_to_group` a
 
 Gere via la `Map` `pendingFanOuts` (lignes 59-119). Pour les noeuds asynchrones (`run_script`/`run_command`), le moteur attend **toutes** les ACKs des devices cibles avant d'avancer dans le graphe. L'exit code retenu est le **pire des exit codes** (`max`), ce qui route vers la branche d'echec si au moins un device a echoue.
 
-**Limitation MVP** notee en commentaire : un redemarrage serveur pendant un fan-out en cours laisse le noeud bloque en `running` â€” ce cas n'est pas couvert par le boot janitor `rearmWaitTimersOnBoot()` (qui ne traite que les noeuds `wait`).
+**Limitation MVP** notee en commentaire : un redemarrage serveur pendant un fan-out en cours laisse le noeud bloque en `running` — ce cas n'est pas couvert par le boot janitor `rearmWaitTimersOnBoot()` (qui ne traite que les noeuds `wait`).
 
 ## Ajouter un nouveau type de noeud
 
 Checkliste (rappelee du CLAUDE.md racine, a respecter integralement) :
 
-1. `shared/src/types.ts` â€” ajouter au type union `ScenarioNodeType` (et `ScenarioTriggerType` si c'est un trigger)
-2. `server/src/services/scenarioGraph.service.ts` â€” ajouter une entree dans `EXECUTORS`. Trigger passif : `'trigger_xxx': async () => ({ exitCode: null })`
-3. `server/src/services/scenario.service.ts`, dans `importScenario()` â€” ajouter au `VALID_NODE_TYPES` Set (ligne 679), sinon l'import rejette l'entree avec `unknown node type`
-4. `server/src/services/scenario.service.ts`, dans `getDummyExportTemplate()` (ligne 984) â€” ajouter un noeud de demonstration commente
-5. `client/src/components/scenarios/scenarioNodeRegistry.ts` â€” entree `NODE_TYPES` (`category`/`accent`/`hint`/`defaultConfig`/`fields[]`)
+1. `shared/src/types.ts` — ajouter au type union `ScenarioNodeType` (et `ScenarioTriggerType` si c'est un trigger)
+2. `server/src/services/scenarioGraph.service.ts` — ajouter une entree dans `EXECUTORS`. Trigger passif : `'trigger_xxx': async () => ({ exitCode: null })`
+3. `server/src/services/scenario.service.ts`, dans `importScenario()` — ajouter au `VALID_NODE_TYPES` Set (ligne 679), sinon l'import rejette l'entree avec `unknown node type`
+4. `server/src/services/scenario.service.ts`, dans `getDummyExportTemplate()` (ligne 984) — ajouter un noeud de demonstration commente
+5. `client/src/components/scenarios/scenarioNodeRegistry.ts` — entree `NODE_TYPES` (`category`/`accent`/`hint`/`defaultConfig`/`fields[]`)
 
 Pour un trigger evenementiel (push, cron...), ajouter aussi le `fireTrigger` correspondant dans le code emetteur (ex. `device.service.ts` pour les triggers `metric_*`) et le filtre de routage dans `scenario.service.ts` `fireTrigger`.

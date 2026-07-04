@@ -1,19 +1,19 @@
-﻿Cette page decrit l'organisation des migrations Knex et le contenu du schema initial d'Obliance.
+Cette page decrit l'organisation des migrations Knex et le contenu du schema initial d'Obliance.
 
 ## Organisation des migrations
 
 Toutes les migrations vivent dans `server/src/db/migrations/` : **122 fichiers `.ts`** au total.
 
-Convention de nommage : `NNN_description.ts` avec un numero de prefixe sur 3 chiffres. Ce prefixe **n'est pas strictement unique** â€” plusieurs collisions existent dans le depot, par exemple :
+Convention de nommage : `NNN_description.ts` avec un numero de prefixe sur 3 chiffres. Ce prefixe **n'est pas strictement unique** — plusieurs collisions existent dans le depot, par exemple :
 
 ```
 server/src/db/migrations/010_remote_protocol_cmd_powershell.ts
 server/src/db/migrations/010_oblireach_protocol.ts
 ```
 
-Des collisions similaires existent sur les prefixes `025`, `026`, `027`, `028`, `030`, `031`, `068`. Knex ne trie pas par numero parse mais par **ordre alphabetique du nom de fichier complet**, donc l'ordre d'execution reste deterministe malgre le prefixe partage â€” c'est la chaine de caracteres complete qui departage (`010_oblireach_protocol.ts` avant `010_remote_protocol_cmd_powershell.ts` alphabetiquement, `o` < `r`).
+Des collisions similaires existent sur les prefixes `025`, `026`, `027`, `028`, `030`, `031`, `068`. Knex ne trie pas par numero parse mais par **ordre alphabetique du nom de fichier complet**, donc l'ordre d'execution reste deterministe malgre le prefixe partage — c'est la chaine de caracteres complete qui departage (`010_oblireach_protocol.ts` avant `010_remote_protocol_cmd_powershell.ts` alphabetiquement, `o` < `r`).
 
-**Attention** en ajoutant une nouvelle migration : ne pas assumer que le prefixe numerique seul garantit l'ordre relatif a une autre migration du meme prefixe â€” verifier l'ordre alphabetique du nom complet si l'ordre d'execution est critique (ex. FK vers une table creee par une migration au prefixe voisin).
+**Attention** en ajoutant une nouvelle migration : ne pas assumer que le prefixe numerique seul garantit l'ordre relatif a une autre migration du meme prefixe — verifier l'ordre alphabetique du nom complet si l'ordre d'execution est critique (ex. FK vers une table creee par une migration au prefixe voisin).
 
 ## Configuration Knex
 
@@ -32,11 +32,11 @@ acquireConnectionTimeout: 20000,
 schemaName: 'public'
 ```
 
-Le `pool.max` a ete monte a 25 â€” un commentaire dans le fichier explique que la valeur precedente (10) saturait sous le trafic de push des agents : chaque agent connecte pousse ses metriques periodiquement, ce qui multiplie les connexions concurrentes cote serveur. L'`acquireConnectionTimeout` est fixe a 20000ms.
+Le `pool.max` a ete monte a 25 — un commentaire dans le fichier explique que la valeur precedente (10) saturait sous le trafic de push des agents : chaque agent connecte pousse ses metriques periodiquement, ce qui multiplie les connexions concurrentes cote serveur. L'`acquireConnectionTimeout` est fixe a 20000ms.
 
-En environnement compile (`isCompiled`), le repertoire de migrations bascule vers `dist/src/db/migrations` â€” a garder en tete en debug si une migration modifiee en local ne semble pas prise en compte dans un conteneur Docker (le conteneur execute le JS compile, pas le TS source).
+En environnement compile (`isCompiled`), le repertoire de migrations bascule vers `dist/src/db/migrations` — a garder en tete en debug si une migration modifiee en local ne semble pas prise en compte dans un conteneur Docker (le conteneur execute le JS compile, pas le TS source).
 
-## Schema initial â€” 001_initial_schema.ts
+## Schema initial — 001_initial_schema.ts
 
 `server/src/db/migrations/001_initial_schema.ts` est une migration monolithique unique qui pose l'integralite du schema de base. Elle cree :
 
@@ -67,11 +67,11 @@ L'enum `device_status` tel que cree en 001 (lignes 24-26) ne contient que :
 
 Les valeurs `pending_uninstall`, `updating` et `update_error` documentees dans le CLAUDE.md du projet ont ete ajoutees plus tard par des migrations posterieures via `ALTER TYPE ... ADD VALUE` :
 
-- `pending_uninstall` â†’ `server/src/db/migrations/017_pending_uninstall.ts`
-- `updating` â†’ `server/src/db/migrations/043_device_status_updating.ts`
-- `update_error` â†’ ajoutee par une migration posterieure non identifiee precisement dans cette passe de revue (probablement liee au meme chantier auto-update que 043 ; a confirmer sur le fichier avant de s'y referencer dans du code).
+- `pending_uninstall` → `server/src/db/migrations/017_pending_uninstall.ts`
+- `updating` → `server/src/db/migrations/043_device_status_updating.ts`
+- `update_error` → ajoutee par une migration posterieure non identifiee precisement dans cette passe de revue (probablement liee au meme chantier auto-update que 043 ; a confirmer sur le fichier avant de s'y referencer dans du code).
 
-Cette progression illustre le pattern general du projet : les enums Postgres du schema initial sont etendus au fil de l'eau par des migrations `ALTER TYPE ADD VALUE`, jamais recrees â€” donc pour connaitre l'etat courant complet d'un enum, il faut grep `ALTER TYPE device_status` (ou l'enum concerne) sur l'ensemble de `server/src/db/migrations/` plutot que de se fier uniquement a `001_initial_schema.ts`.
+Cette progression illustre le pattern general du projet : les enums Postgres du schema initial sont etendus au fil de l'eau par des migrations `ALTER TYPE ADD VALUE`, jamais recrees — donc pour connaitre l'etat courant complet d'un enum, il faut grep `ALTER TYPE device_status` (ou l'enum concerne) sur l'ensemble de `server/src/db/migrations/` plutot que de se fier uniquement a `001_initial_schema.ts`.
 
 ## Portee de cette revue
 

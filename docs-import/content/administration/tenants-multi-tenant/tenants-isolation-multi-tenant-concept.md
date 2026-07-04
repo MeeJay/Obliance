@@ -1,4 +1,4 @@
-﻿Ce chapitre explique comment Obliance isole les tenants entre eux et pourquoi un tenant particulier, le tenant **Default**, dispose d'une vue globale sur toute l'installation.
+Ce chapitre explique comment Obliance isole les tenants entre eux et pourquoi un tenant particulier, le tenant **Default**, dispose d'une vue globale sur toute l'installation.
 
 ## Qu'est-ce qu'un tenant
 
@@ -25,7 +25,7 @@ Quand un administrateur bascule sur le tenant Default, plusieurs elements de l'i
 | Scripts, scenarios, plannings, conformite | Toutes les entites de tous les tenants sont visibles ; celles qui appartiennent a un autre tenant que celui affiche sont en lecture seule | Seules les entites du tenant courant (+ celles partagees, voir page dediee) sont visibles |
 | Tableaux de bord (statistiques de parc) | Les chiffres agregent l'ensemble des tenants | Les chiffres ne couvrent que le tenant courant |
 
-Sur les entites appartenant a un autre tenant que celui actuellement affiche, un badge **"Master"** est appose a cote du nom, et les boutons de modification ou de suppression sont desactives avec l'info-bulle *"Gere par le tenant Default â€” lecture seule"*. Cela permet de consulter facilement ce qui existe ailleurs dans l'installation sans risquer de modifier une entite qui ne vous appartient pas.
+Sur les entites appartenant a un autre tenant que celui actuellement affiche, un badge **"Master"** est appose a cote du nom, et les boutons de modification ou de suppression sont desactives avec l'info-bulle *"Gere par le tenant Default — lecture seule"*. Cela permet de consulter facilement ce qui existe ailleurs dans l'installation sans risquer de modifier une entite qui ne vous appartient pas.
 
 ## Basculer entre tenants
 

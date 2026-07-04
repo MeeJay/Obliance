@@ -1,4 +1,4 @@
-﻿# Supervision - Sessions distantes
+# Supervision - Sessions distantes
 
 Cette page explique comment ouvrir et suivre une prise en main a distance d'un appareil depuis l'interface d'administration Obliance.
 

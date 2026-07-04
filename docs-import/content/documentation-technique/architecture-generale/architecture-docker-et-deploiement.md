@@ -1,4 +1,4 @@
-﻿Cette page decrit les quatre topologies Docker Compose disponibles et le contenu des deux Dockerfile du projet.
+Cette page decrit les quatre topologies Docker Compose disponibles et le contenu des deux Dockerfile du projet.
 
 ## Les quatre fichiers docker-compose
 
@@ -43,7 +43,7 @@ client:
     dockerfile: client/Dockerfile
 ```
 
-`LISTEN_PORT` par defaut vaut **3000** ici, contre 3003 en production â€” divergence constatee dans les fichiers, a garder en tete plutot qu'a supposer accidentelle sans verification aupres des mainteneurs.
+`LISTEN_PORT` par defaut vaut **3000** ici, contre 3003 en production — divergence constatee dans les fichiers, a garder en tete plutot qu'a supposer accidentelle sans verification aupres des mainteneurs.
 
 ### docker-compose.dev.yml (hot-reload)
 
@@ -69,7 +69,7 @@ Build multi-stage, base `node:24-alpine` pour **les deux** stages (builder et pr
 1. **Stage builder** : compile `shared` (`npm install && npm run build`), puis `server` (`npm install && tsc`)
 2. **Stage production** :
    - installe uniquement les dependances de prod du server : `npm install --omit=dev`
-   - `COPY` les binaires agent **pre-builds** depuis `agent/dist/` â€” **aucune compilation Go n'a lieu dans Docker**
+   - `COPY` les binaires agent **pre-builds** depuis `agent/dist/` — **aucune compilation Go n'a lieu dans Docker**
    - `COPY` egalement `oblireach-desktop/` et `obli.tools/` (le symlink `obli.tools/` est contourne via un stage intermediaire `_oblitools_dist_stage/`)
    - `HEALTHCHECK` sur `http://localhost:3001/health` toutes les 30s
    - `ENTRYPOINT server/docker-entrypoint.sh`, puis `CMD node dist/src/index.js`
@@ -88,14 +88,14 @@ Build multi-stage :
    - `HEALTHCHECK curl -sf http://localhost/` toutes les 30s
    - `EXPOSE 80`
 
-### client/nginx.conf â€” routage proxy
+### client/nginx.conf — routage proxy
 
 | Location | Cible | Particularite |
 |---|---|---|
 | `/auth/` | `http://server:3001` | Callback Obligate SSO |
 | `/api/` | `http://server:3001` | Upgrade websocket, `proxy_read_timeout` / `proxy_send_timeout` **3600s** (tunnels remote longue duree) |
 | `/socket.io/` | `http://server:3001` | Upgrade websocket |
-| `/health` | `http://server:3001` | â€” |
+| `/health` | `http://server:3001` | — |
 | `/downloads/` | `http://server:3001` | `proxy_buffering off` (streaming des gros binaires agent) |
 | `/` | fallback SPA | `try_files` vers `index.html` |
 

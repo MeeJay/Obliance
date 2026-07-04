@@ -1,21 +1,21 @@
-﻿Ce chapitre decrit les actions que vous pouvez declencher sur vos appareils, individuellement ou en lot.
+Ce chapitre decrit les actions que vous pouvez declencher sur vos appareils, individuellement ou en lot.
 
 ## Agir sur plusieurs appareils a la fois
 
 Des qu'au moins un appareil est coche dans le tableau, une barre d'actions groupees apparait avec un menu **Actions** proposant :
 
-- **Approuver** â€” pour valider un ou plusieurs appareils en attente (visible uniquement si vous avez le droit de gerer les approbations et que le filtre "En attente" est actif) ;
-- **Redemarrer l'agent** â€” relance le logiciel agent sans redemarrer la machine ;
-- **Redemarrer** â€” redemarre la machine ;
-- **Eteindre** â€” eteint la machine ;
-- **Scanner l'inventaire** â€” force une remontee immediate du materiel et des logiciels installes ;
-- **Mettre a jour l'agent** â€” declenche la mise a jour du logiciel agent vers la derniere version ;
-- **Executer un script...** â€” lance un script sur tous les appareils selectionnes ;
-- **Change group** â€” deplace les appareils selectionnes vers un autre groupe.
+- **Approuver** — pour valider un ou plusieurs appareils en attente (visible uniquement si vous avez le droit de gerer les approbations et que le filtre "En attente" est actif) ;
+- **Redemarrer l'agent** — relance le logiciel agent sans redemarrer la machine ;
+- **Redemarrer** — redemarre la machine ;
+- **Eteindre** — eteint la machine ;
+- **Scanner l'inventaire** — force une remontee immediate du materiel et des logiciels installes ;
+- **Mettre a jour l'agent** — declenche la mise a jour du logiciel agent vers la derniere version ;
+- **Executer un script...** — lance un script sur tous les appareils selectionnes ;
+- **Change group** — deplace les appareils selectionnes vers un autre groupe.
 
 Pour les administrateurs uniquement, trois actions supplementaires apparaissent : **Transfer to another tenant** (transferer vers une autre organisation), **Supprimer**, et **Desinstaller l'agent**.
 
-Si au moins un appareil selectionne ne prend pas en charge une action (par exemple un agent Legacy), le bouton correspondant est grise avec une infobulle l'indiquant â€” l'action n'est proposee que si tous les appareils selectionnes la supportent.
+Si au moins un appareil selectionne ne prend pas en charge une action (par exemple un agent Legacy), le bouton correspondant est grise avec une infobulle l'indiquant — l'action n'est proposee que si tous les appareils selectionnes la supportent.
 
 ### Executer un script en lot
 
@@ -33,21 +33,21 @@ En cliquant sur l'icone "oeil" d'une ligne, vous ouvrez la fiche complete de l'a
 
 Si l'appareil vient d'etre installe et attend une validation, seuls deux boutons apparaissent dans l'en-tete (pour les personnes autorisees a gerer les approbations) :
 
-- **Approve** (vert) â€” valide l'appareil, qui integre alors automatiquement le groupe par defaut associe a la cle d'installation utilisee ;
-- **Refuse** (rouge) â€” rejette l'appareil.
+- **Approve** (vert) — valide l'appareil, qui integre alors automatiquement le groupe par defaut associe a la cle d'installation utilisee ;
+- **Refuse** (rouge) — rejette l'appareil.
 
 ### Appareil approuve
 
 Une fois l'appareil approuve, la barre d'action de l'en-tete propose (selon vos droits et les capacites de l'agent) :
 
 - des liens croises vers d'autres outils Obliance eventuellement configures sur cette machine ;
-- **Scan All** â€” declenche en une seule fois un scan d'inventaire, un scan des mises a jour et un controle de conformite ;
+- **Scan All** — declenche en une seule fois un scan d'inventaire, un scan des mises a jour et un controle de conformite ;
 - le toggle **Airgap** (isolation reseau d'urgence, reserve aux administrateurs) ;
-- **Mettre a jour l'agent** â€” n'apparait que si une mise a jour est disponible et que l'appareil n'est pas deja en train de se mettre a jour ;
-- **Agent** â€” redemarre le logiciel agent ;
-- **Sleep** â€” met la machine en veille ;
-- **Reboot** â€” redemarre la machine ;
-- **Off** â€” eteint la machine ;
+- **Mettre a jour l'agent** — n'apparait que si une mise a jour est disponible et que l'appareil n'est pas deja en train de se mettre a jour ;
+- **Agent** — redemarre le logiciel agent ;
+- **Sleep** — met la machine en veille ;
+- **Reboot** — redemarre la machine ;
+- **Off** — eteint la machine ;
 - un bouton de rafraichissement qui recharge la fiche et force immediatement une remontee des indicateurs (metriques) de la machine.
 
 Ces boutons agissent directement sur la machine : verifiez toujours que vous ciblez le bon appareil avant de cliquer sur **Sleep**, **Reboot** ou **Off**.

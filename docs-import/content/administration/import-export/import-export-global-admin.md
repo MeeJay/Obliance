@@ -1,4 +1,4 @@
-﻿Le module **Import/Export** du menu admin permet d'exporter et de reimporter en bloc plusieurs categories de configuration de l'installation Obliance.
+Le module **Import/Export** du menu admin permet d'exporter et de reimporter en bloc plusieurs categories de configuration de l'installation Obliance.
 
 ## Acces
 
@@ -21,12 +21,12 @@ Ce module ne couvre **pas** les scripts, les schedules ni les scenarios : ces el
 
 1. Ouvrez **Import/Export** dans le menu admin.
 2. Selectionnez les sections a inclure dans l'export.
-3. Si vous avez des actions de remediation utilisant des identifiants SSH, activez ou non la case **Include SSH credentials** â€” elle est **desactivee par defaut**, ce qui exclut les identifiants SSH du fichier exporte par securite.
+3. Si vous avez des actions de remediation utilisant des identifiants SSH, activez ou non la case **Include SSH credentials** — elle est **desactivee par defaut**, ce qui exclut les identifiants SSH du fichier exporte par securite.
 4. Lancez le telechargement du fichier JSON d'export.
 
 ### Protection automatique des secrets
 
-Lors de l'export, les champs sensibles des canaux de notification (URL de webhook, cle API, jeton, mot de passe, secret, etc.) sont automatiquement remplaces par une valeur masquee dans le fichier exporte. Il n'est donc pas necessaire de nettoyer manuellement le fichier avant de le partager avec un tiers pour relecture â€” les secrets de notification ne s'y trouvent pas en clair. Les identifiants SSH des actions de remediation suivent une regle separee : ils ne sont inclus que si la case **Include SSH credentials** a ete cochee explicitement au moment de l'export.
+Lors de l'export, les champs sensibles des canaux de notification (URL de webhook, cle API, jeton, mot de passe, secret, etc.) sont automatiquement remplaces par une valeur masquee dans le fichier exporte. Il n'est donc pas necessaire de nettoyer manuellement le fichier avant de le partager avec un tiers pour relecture — les secrets de notification ne s'y trouvent pas en clair. Les identifiants SSH des actions de remediation suivent une regle separee : ils ne sont inclus que si la case **Include SSH credentials** a ete cochee explicitement au moment de l'export.
 
 ## Importer
 

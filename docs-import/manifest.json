@@ -1,21 +1,23 @@
-﻿{
-    "shelf":  {
-                  "name":  "Obliance",
-                  "description":  "Documentation Obliance - generee automatiquement a partir du code source"
-              },
+{
+    "shelves":  [
+                    {
+                        "name":  "ObliTools",
+                        "description":  "Documentation de la suite Obli* (Obliance, Obliplan, ...)"
+                    }
+                ],
     "books":  [
                   {
-                      "slug":  "guide-utilisateur",
-                      "title":  "Guide utilisateur",
-                      "audience":  "user",
+                      "slug":  "obliance",
+                      "title":  "Obliance",
+                      "audience":  "mixed",
                       "chapters":  [
                                        {
-                                           "slug":  "prise-en-main",
-                                           "title":  "Prise en main",
+                                           "slug":  "guide-utilisateur-prise-en-main",
+                                           "title":  "Guide utilisateur — Prise en main",
                                            "pages":  [
                                                          {
                                                              "slug":  "se-connecter-a-obliance",
-                                                             "title":  "Se connecter Ã  Obliance",
+                                                             "title":  "Se connecter à Obliance",
                                                              "file":  "content/guide-utilisateur/prise-en-main/se-connecter-a-obliance.md"
                                                          },
                                                          {
@@ -25,7 +27,7 @@
                                                          },
                                                          {
                                                              "slug":  "decouvrir-interface-obliance",
-                                                             "title":  "DÃ©couvrir l\u0027interface Obliance",
+                                                             "title":  "Découvrir l\u0027interface Obliance",
                                                              "file":  "content/guide-utilisateur/prise-en-main/decouvrir-interface-obliance.md"
                                                          },
                                                          {
@@ -36,8 +38,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "gerer-les-appareils",
-                                           "title":  "Gerer les appareils",
+                                           "slug":  "guide-utilisateur-gerer-les-appareils",
+                                           "title":  "Guide utilisateur — Gerer les appareils",
                                            "pages":  [
                                                          {
                                                              "slug":  "liste-des-appareils",
@@ -57,8 +59,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "scripts-et-bibliotheque",
-                                           "title":  "Scripts et bibliotheque",
+                                           "slug":  "guide-utilisateur-scripts-et-bibliotheque",
+                                           "title":  "Guide utilisateur — Scripts et bibliotheque",
                                            "pages":  [
                                                          {
                                                              "slug":  "bibliotheque-de-scripts",
@@ -78,55 +80,55 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "automatisations",
-                                           "title":  "Automatisations : schedules et scenarios",
+                                           "slug":  "guide-utilisateur-automatisations",
+                                           "title":  "Guide utilisateur — Automatisations : schedules et scenarios",
                                            "pages":  [
                                                          {
                                                              "slug":  "automatisations-scenarios-principes",
-                                                             "title":  "ScÃ©narios : principes et dÃ©clencheurs",
+                                                             "title":  "Scénarios : principes et déclencheurs",
                                                              "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-principes.md"
                                                          },
                                                          {
                                                              "slug":  "automatisations-scenarios-editeur-graphe",
-                                                             "title":  "Construire un scÃ©nario avec l\u0027Ã©diteur de graphe",
+                                                             "title":  "Construire un scénario avec l\u0027éditeur de graphe",
                                                              "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-editeur-graphe.md"
                                                          },
                                                          {
                                                              "slug":  "automatisations-scenarios-execution-import-export",
-                                                             "title":  "ExÃ©cuter, importer et suivre un scÃ©nario",
+                                                             "title":  "Exécuter, importer et suivre un scénario",
                                                              "file":  "content/guide-utilisateur/automatisations/automatisations-scenarios-execution-import-export.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "conformite",
-                                           "title":  "Conformite",
+                                           "slug":  "guide-utilisateur-conformite",
+                                           "title":  "Guide utilisateur — Conformite",
                                            "pages":  [
                                                          {
                                                              "slug":  "conformite-vue-densemble",
-                                                             "title":  "ConformitÃ© : vue d\u0027ensemble",
+                                                             "title":  "Conformité : vue d\u0027ensemble",
                                                              "file":  "content/guide-utilisateur/conformite/conformite-vue-densemble.md"
                                                          },
                                                          {
                                                              "slug":  "conformite-catalogue-des-preregles",
-                                                             "title":  "ConformitÃ© : le catalogue des prÃ©rÃ©glages",
+                                                             "title":  "Conformité : le catalogue des préréglages",
                                                              "file":  "content/guide-utilisateur/conformite/conformite-catalogue-des-preregles.md"
                                                          },
                                                          {
                                                              "slug":  "conformite-consulter-et-corriger-les-resultats",
-                                                             "title":  "ConformitÃ© : consulter et corriger les rÃ©sultats",
+                                                             "title":  "Conformité : consulter et corriger les résultats",
                                                              "file":  "content/guide-utilisateur/conformite/conformite-consulter-et-corriger-les-resultats.md"
                                                          },
                                                          {
                                                              "slug":  "conformite-creer-une-politique-personnalisee",
-                                                             "title":  "ConformitÃ© : crÃ©er une politique personnalisÃ©e",
+                                                             "title":  "Conformité : créer une politique personnalisée",
                                                              "file":  "content/guide-utilisateur/conformite/conformite-creer-une-politique-personnalisee.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "acces-a-distance",
-                                           "title":  "Acces et prise en main a distance",
+                                           "slug":  "guide-utilisateur-acces-a-distance",
+                                           "title":  "Guide utilisateur — Acces et prise en main a distance",
                                            "pages":  [
                                                          {
                                                              "slug":  "prendre-la-main-a-distance-avec-reach",
@@ -146,8 +148,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "rapports-notifications-compte",
-                                           "title":  "Rapports, notifications et mon compte",
+                                           "slug":  "guide-utilisateur-rapports-notifications-compte",
+                                           "title":  "Guide utilisateur — Rapports, notifications et mon compte",
                                            "pages":  [
                                                          {
                                                              "slug":  "rapports",
@@ -165,38 +167,31 @@
                                                              "file":  "content/guide-utilisateur/rapports-notifications-compte/mon-compte.md"
                                                          }
                                                      ]
-                                       }
-                                   ]
-                  },
-                  {
-                      "slug":  "administration",
-                      "title":  "Administration",
-                      "audience":  "admin",
-                      "chapters":  [
+                                       },
                                        {
-                                           "slug":  "utilisateurs-equipes-permissions",
-                                           "title":  "Utilisateurs, equipes et permissions",
+                                           "slug":  "administration-utilisateurs-equipes-permissions",
+                                           "title":  "Administration — Utilisateurs, equipes et permissions",
                                            "pages":  [
                                                          {
                                                              "slug":  "utilisateurs-equipes-permissions-vue-ensemble",
-                                                             "title":  "Utilisateurs, Ã©quipes et permissions : vue d\u0027ensemble",
+                                                             "title":  "Utilisateurs, équipes et permissions : vue d\u0027ensemble",
                                                              "file":  "content/administration/utilisateurs-equipes-permissions/utilisateurs-equipes-permissions-vue-ensemble.md"
                                                          },
                                                          {
                                                              "slug":  "equipes-portees-arbre-permissions",
-                                                             "title":  "Ã‰quipes, portÃ©es et arbre de permissions",
+                                                             "title":  "Équipes, portées et arbre de permissions",
                                                              "file":  "content/administration/utilisateurs-equipes-permissions/equipes-portees-arbre-permissions.md"
                                                          },
                                                          {
                                                              "slug":  "roles-tenant-jeux-permissions-restrictions",
-                                                             "title":  "RÃ´les de tenant, jeux de permissions et restrictions",
+                                                             "title":  "Rôles de tenant, jeux de permissions et restrictions",
                                                              "file":  "content/administration/utilisateurs-equipes-permissions/roles-tenant-jeux-permissions-restrictions.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "tenants-multi-tenant",
-                                           "title":  "Tenants et isolation multi-tenant",
+                                           "slug":  "administration-tenants-multi-tenant",
+                                           "title":  "Administration — Tenants et isolation multi-tenant",
                                            "pages":  [
                                                          {
                                                              "slug":  "tenants-isolation-multi-tenant-concept",
@@ -216,8 +211,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "agents-enrolement-cles-api",
-                                           "title":  "Agents, enrolement et cles API",
+                                           "slug":  "administration-agents-enrolement-cles-api",
+                                           "title":  "Administration — Agents, enrolement et cles API",
                                            "pages":  [
                                                          {
                                                              "slug":  "ajouter-et-enroler-un-agent",
@@ -237,34 +232,34 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "parametres-generaux",
-                                           "title":  "Parametres generaux",
+                                           "slug":  "administration-parametres-generaux",
+                                           "title":  "Administration — Parametres generaux",
                                            "pages":  [
                                                          {
                                                              "slug":  "parametres-generaux-vue-ensemble",
-                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Vue d\u0027ensemble et informations systÃ¨me",
+                                                             "title":  "Paramètres généraux — Vue d\u0027ensemble et informations système",
                                                              "file":  "content/administration/parametres-generaux/parametres-generaux-vue-ensemble.md"
                                                          },
                                                          {
                                                              "slug":  "parametres-securite-2fa-sso-smtp",
-                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” SÃ©curitÃ©, double authentification, SSO Obligate et serveurs SMTP",
+                                                             "title":  "Paramètres généraux — Sécurité, double authentification, SSO Obligate et serveurs SMTP",
                                                              "file":  "content/administration/parametres-generaux/parametres-securite-2fa-sso-smtp.md"
                                                          },
                                                          {
                                                              "slug":  "parametres-seuils-metriques-et-modeles-reponse",
-                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Seuils mÃ©triques globaux et modÃ¨les de rÃ©ponse rapide",
+                                                             "title":  "Paramètres généraux — Seuils métriques globaux et modèles de réponse rapide",
                                                              "file":  "content/administration/parametres-generaux/parametres-seuils-metriques-et-modeles-reponse.md"
                                                          },
                                                          {
                                                              "slug":  "parametres-explorateur-fichiers-import-export-scenarios",
-                                                             "title":  "ParamÃ¨tres gÃ©nÃ©raux â€” Explorateur de fichiers, import/export et scÃ©narios en masse",
+                                                             "title":  "Paramètres généraux — Explorateur de fichiers, import/export et scénarios en masse",
                                                              "file":  "content/administration/parametres-generaux/parametres-explorateur-fichiers-import-export-scenarios.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "supervision",
-                                           "title":  "Supervision",
+                                           "slug":  "administration-supervision",
+                                           "title":  "Administration — Supervision",
                                            "pages":  [
                                                          {
                                                              "slug":  "supervision-sessions-distantes",
@@ -284,8 +279,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "import-export",
-                                           "title":  "Import et export",
+                                           "slug":  "administration-import-export",
+                                           "title":  "Administration — Import et export",
                                            "pages":  [
                                                          {
                                                              "slug":  "import-export-vue-ensemble",
@@ -305,8 +300,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "deploiement-mise-a-jour-parc",
-                                           "title":  "Deploiement et mise a jour du parc",
+                                           "slug":  "administration-deploiement-mise-a-jour-parc",
+                                           "title":  "Administration — Deploiement et mise a jour du parc",
                                            "pages":  [
                                                          {
                                                              "slug":  "mettre-a-jour-les-agents-du-parc",
@@ -326,8 +321,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "securite-bonnes-pratiques",
-                                           "title":  "Securite et bonnes pratiques",
+                                           "slug":  "administration-securite-bonnes-pratiques",
+                                           "title":  "Administration — Securite et bonnes pratiques",
                                            "pages":  [
                                                          {
                                                              "slug":  "authentification-et-double-facteur",
@@ -345,17 +340,10 @@
                                                              "file":  "content/administration/securite-bonnes-pratiques/durcissement-du-serveur-et-protections-reseau.md"
                                                          }
                                                      ]
-                                       }
-                                   ]
-                  },
-                  {
-                      "slug":  "documentation-technique",
-                      "title":  "Documentation technique",
-                      "audience":  "tech",
-                      "chapters":  [
+                                       },
                                        {
-                                           "slug":  "architecture-generale",
-                                           "title":  "Architecture generale",
+                                           "slug":  "documentation-technique-architecture-generale",
+                                           "title":  "Documentation technique — Architecture generale",
                                            "pages":  [
                                                          {
                                                              "slug":  "monorepo-et-stack-technique",
@@ -369,82 +357,82 @@
                                                          },
                                                          {
                                                              "slug":  "serveur-express-configuration-et-temps-reel",
-                                                             "title":  "Serveur Express â€” configuration et temps reel",
+                                                             "title":  "Serveur Express — configuration et temps reel",
                                                              "file":  "content/documentation-technique/architecture-generale/serveur-express-configuration-et-temps-reel.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "serveur",
-                                           "title":  "Serveur",
+                                           "slug":  "documentation-technique-serveur",
+                                           "title":  "Documentation technique — Serveur",
                                            "pages":  [
                                                          {
                                                              "slug":  "serveur-architecture-et-demarrage",
-                                                             "title":  "Serveur â€” Architecture et dÃ©marrage",
+                                                             "title":  "Serveur — Architecture et démarrage",
                                                              "file":  "content/documentation-technique/serveur/serveur-architecture-et-demarrage.md"
                                                          },
                                                          {
                                                              "slug":  "serveur-authentification-et-securite",
-                                                             "title":  "Serveur â€” Authentification, tenants et sÃ©curitÃ© des routes",
+                                                             "title":  "Serveur — Authentification, tenants et sécurité des routes",
                                                              "file":  "content/documentation-technique/serveur/serveur-authentification-et-securite.md"
                                                          },
                                                          {
                                                              "slug":  "serveur-temps-reel-socketio-et-websockets-agents",
-                                                             "title":  "Serveur â€” Canaux temps rÃ©el : Socket.io et WebSockets agents",
+                                                             "title":  "Serveur — Canaux temps réel : Socket.io et WebSockets agents",
                                                              "file":  "content/documentation-technique/serveur/serveur-temps-reel-socketio-et-websockets-agents.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "client",
-                                           "title":  "Client",
+                                           "slug":  "documentation-technique-client",
+                                           "title":  "Documentation technique — Client",
                                            "pages":  [
                                                          {
                                                              "slug":  "client-architecture-routing",
-                                                             "title":  "Client â€” Architecture generale et routing",
+                                                             "title":  "Client — Architecture generale et routing",
                                                              "file":  "content/documentation-technique/client/client-architecture-routing.md"
                                                          },
                                                          {
                                                              "slug":  "client-etat-api-auth",
-                                                             "title":  "Client â€” State management, couche API et authentification",
+                                                             "title":  "Client — State management, couche API et authentification",
                                                              "file":  "content/documentation-technique/client/client-etat-api-auth.md"
                                                          },
                                                          {
                                                              "slug":  "client-i18n-pages-composites",
-                                                             "title":  "Client â€” i18n et pages composites (pattern embedded)",
+                                                             "title":  "Client — i18n et pages composites (pattern embedded)",
                                                              "file":  "content/documentation-technique/client/client-i18n-pages-composites.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "agent-go",
-                                           "title":  "Agent Go",
+                                           "slug":  "documentation-technique-agent-go",
+                                           "title":  "Documentation technique — Agent Go",
                                            "pages":  [
                                                          {
                                                              "slug":  "agent-go-architecture-generale",
-                                                             "title":  "Agent Go â€” Architecture generale",
+                                                             "title":  "Agent Go — Architecture generale",
                                                              "file":  "content/documentation-technique/agent-go/agent-go-architecture-generale.md"
                                                          },
                                                          {
                                                              "slug":  "agent-go-communication-serveur",
-                                                             "title":  "Agent Go â€” Communication avec le serveur",
+                                                             "title":  "Agent Go — Communication avec le serveur",
                                                              "file":  "content/documentation-technique/agent-go/agent-go-communication-serveur.md"
                                                          },
                                                          {
                                                              "slug":  "agent-go-commandes-et-securite",
-                                                             "title":  "Agent Go â€” Dispatcher de commandes et securite",
+                                                             "title":  "Agent Go — Dispatcher de commandes et securite",
                                                              "file":  "content/documentation-technique/agent-go/agent-go-commandes-et-securite.md"
                                                          },
                                                          {
                                                              "slug":  "agent-go-sous-binaires-et-legacy",
-                                                             "title":  "Agent Go â€” Sous-binaires et agent legacy",
+                                                             "title":  "Agent Go — Sous-binaires et agent legacy",
                                                              "file":  "content/documentation-technique/agent-go/agent-go-sous-binaires-et-legacy.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "modele-de-donnees",
-                                           "title":  "Modele de donnees",
+                                           "slug":  "documentation-technique-modele-de-donnees",
+                                           "title":  "Documentation technique — Modele de donnees",
                                            "pages":  [
                                                          {
                                                              "slug":  "modele-de-donnees-migrations-et-schema-initial",
@@ -469,29 +457,29 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "moteur-de-scenarios",
-                                           "title":  "Moteur de scenarios",
+                                           "slug":  "documentation-technique-moteur-de-scenarios",
+                                           "title":  "Documentation technique — Moteur de scenarios",
                                            "pages":  [
                                                          {
                                                              "slug":  "moteur-de-scenarios-architecture-graphe-v2",
-                                                             "title":  "Moteur de scenarios â€” Architecture du graph engine v2",
+                                                             "title":  "Moteur de scenarios — Architecture du graph engine v2",
                                                              "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-architecture-graphe-v2.md"
                                                          },
                                                          {
                                                              "slug":  "moteur-de-scenarios-types-de-noeuds-et-executors",
-                                                             "title":  "Moteur de scenarios â€” Types de noeuds et executors",
+                                                             "title":  "Moteur de scenarios — Types de noeuds et executors",
                                                              "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-types-de-noeuds-et-executors.md"
                                                          },
                                                          {
                                                              "slug":  "moteur-de-scenarios-export-import-json-portable",
-                                                             "title":  "Moteur de scenarios â€” Format d\u0027export/import JSON portable",
+                                                             "title":  "Moteur de scenarios — Format d\u0027export/import JSON portable",
                                                              "file":  "content/documentation-technique/moteur-de-scenarios/moteur-de-scenarios-export-import-json-portable.md"
                                                          }
                                                      ]
                                        },
                                        {
-                                           "slug":  "integrations",
-                                           "title":  "Integrations",
+                                           "slug":  "documentation-technique-integrations",
+                                           "title":  "Documentation technique — Integrations",
                                            "pages":  [
                                                          {
                                                              "slug":  "sso-obligate",
@@ -511,8 +499,8 @@
                                                      ]
                                        },
                                        {
-                                           "slug":  "exploitation-et-contribution",
-                                           "title":  "Exploitation et contribution",
+                                           "slug":  "documentation-technique-exploitation-et-contribution",
+                                           "title":  "Documentation technique — Exploitation et contribution",
                                            "pages":  [
                                                          {
                                                              "slug":  "deploiement-docker-production",

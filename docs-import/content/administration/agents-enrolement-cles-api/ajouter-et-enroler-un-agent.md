@@ -1,4 +1,4 @@
-﻿Ce chapitre explique comment deployer l'agent Obliance sur un poste ou un serveur, quelle que soit sa plateforme, depuis l'interface d'administration.
+Ce chapitre explique comment deployer l'agent Obliance sur un poste ou un serveur, quelle que soit sa plateforme, depuis l'interface d'administration.
 
 ## Ouvrir l'assistant d'ajout
 
@@ -45,4 +45,4 @@ Ces deux plateformes ne proposent qu'**une seule methode**, sans mode manuel/hor
 
 Une fois l'agent installe et demarre, il contacte le serveur Obliance avec la cle API fournie. Il apparait alors dans la liste des appareils (page **Appareils**), avec un statut d'approbation qui depend de la configuration du tenant (voir le chapitre sur le cycle d'approbation). Tant qu'il n'est pas approuve, l'agent n'est pas pleinement operationnel.
 
-> Note : la gestion au quotidien des agents (approbation, groupes, filtres) se fait depuis la page **Appareils**. La configuration des cles API, elle, se fait depuis une page d'administration dediee â€” voir les chapitres suivants pour le detail.
+> Note : la gestion au quotidien des agents (approbation, groupes, filtres) se fait depuis la page **Appareils**. La configuration des cles API, elle, se fait depuis une page d'administration dediee — voir les chapitres suivants pour le detail.

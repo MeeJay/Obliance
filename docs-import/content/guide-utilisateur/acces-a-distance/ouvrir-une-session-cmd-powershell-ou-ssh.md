@@ -1,4 +1,4 @@
-﻿En complement de la prise en main visuelle avec Reach, il est possible d'ouvrir une session en ligne de commande directement sur un appareil, sans passer par l'affichage graphique.
+En complement de la prise en main visuelle avec Reach, il est possible d'ouvrir une session en ligne de commande directement sur un appareil, sans passer par l'affichage graphique.
 
 ## Ou trouver cette fonction
 
@@ -13,8 +13,8 @@ Sur la fiche de l'appareil, dans la section **Start Remote Session**, plusieurs 
 ## Ouvrir une session Windows (CMD ou PowerShell)
 
 1. Cliquez sur **CMD** ou **PowerShell** dans la fiche de l'appareil.
-2. Une fenetre **CMD/PowerShell â€” Choose Context** s'ouvre pour choisir dans quel contexte la commande va s'executer :
-   - **SYSTEM â€” Run as NT AUTHORITY\\SYSTEM** : execution avec les droits systeme les plus eleves, independamment de toute session utilisateur ouverte.
+2. Une fenetre **CMD/PowerShell — Choose Context** s'ouvre pour choisir dans quel contexte la commande va s'executer :
+   - **SYSTEM — Run as NT AUTHORITY\\SYSTEM** : execution avec les droits systeme les plus eleves, independamment de toute session utilisateur ouverte.
    - Une session utilisateur Windows active ou deconnectee, affichee sous la forme domaine\\utilisateur avec son etat (active ou deconnectee). Choisir cette option execute les commandes dans le contexte de cet utilisateur precis.
 3. Une fois le contexte choisi, un terminal s'ouvre et se connecte a la machine distante (le delai d'etablissement de la connexion est de 60 secondes maximum avant echec).
 
