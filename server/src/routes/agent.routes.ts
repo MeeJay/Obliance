@@ -654,6 +654,12 @@ router.post('/network-scan', agentAuth, async (req, res, next) => {
 router.get('/software-repo/:uuid', agentAuth, async (req, res, next) => {
   try {
     const { softwareRepoService } = await import('../services/softwareRepo.service');
+    // Honour the per-tenant depot toggle: a disabled depot blocks agent
+    // downloads too (disable = block upload AND download).
+    const agentTenantId = (req as any).agentTenantId as number | undefined;
+    if (agentTenantId && !(await softwareRepoService.isEnabled(agentTenantId))) {
+      return res.status(403).json({ error: 'Software repository is disabled for this tenant' });
+    }
     const result = await softwareRepoService.getFilePath(req.params.uuid);
     if (!result) return res.status(404).json({ error: 'Package not found' });
     res.set('Content-Disposition', `attachment; filename="${result.filename}"`);

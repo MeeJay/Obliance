@@ -30,6 +30,7 @@ import updateRoutes from './update.routes';
 import complianceRoutes from './compliance.routes';
 import softwareComplianceRoutes from './softwareCompliance.routes';
 import softwareRepoRoutes from './softwareRepo.routes';
+import repoPublicRoutes from './repoPublic.routes';
 import remoteRoutes from './remote.routes';
 import reportRoutes from './report.routes';
 import agentRoutes from './agent.routes';
@@ -64,6 +65,7 @@ router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth r
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
 router.use('/oblireach-desktop', oblireachDesktopRoutes); // Public: desktop app version + MSI download
+router.use('/repo', repoPublicRoutes);   // script-facing software repo (per-tenant access key auth)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
 

@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { SoftwareComplianceList, SoftwareComplianceResult, KnownSoftwareApp, SoftwareRepoPackage } from '@obliance/shared';
+import type { SoftwareComplianceList, SoftwareComplianceResult, KnownSoftwareApp, SoftwareRepoPackage, SoftwareRepoSettings } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -48,6 +48,24 @@ export const softwareRepoApi = {
   },
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/software-repo/packages/${id}`);
+  },
+
+  // ── Per-tenant settings / quota / access key ──
+  async getSettings(): Promise<SoftwareRepoSettings> {
+    const res = await apiClient.get<ApiResponse<SoftwareRepoSettings>>('/software-repo/settings');
+    return res.data.data!;
+  },
+  async updateSettings(patch: { enabled?: boolean; quotaBytes?: number | null }): Promise<SoftwareRepoSettings> {
+    const res = await apiClient.put<ApiResponse<SoftwareRepoSettings>>('/software-repo/settings', patch);
+    return res.data.data!;
+  },
+  /** Returns the plaintext key ONCE — it cannot be retrieved again. */
+  async generateAccessKey(): Promise<{ key: string; prefix: string }> {
+    const res = await apiClient.post<ApiResponse<{ key: string; prefix: string }>>('/software-repo/access-key');
+    return res.data.data!;
+  },
+  async revokeAccessKey(): Promise<void> {
+    await apiClient.delete('/software-repo/access-key');
   },
 };
 

@@ -78,5 +78,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
 WORKDIR /app/server
+# The persistent bind mount is at /custom (see docker-compose). Without this,
+# config.customDir defaults to ./custom = /app/server/custom (inside the
+# container's ephemeral layer), so the software repo, uploaded packages and
+# other custom assets are silently LOST on every image upgrade / recreate.
+# Point the app at the mounted volume so uploads actually persist.
+ENV CUSTOM_DIR=/custom
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "dist/src/index.js"]

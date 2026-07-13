@@ -5,7 +5,7 @@ import {
  Monitor, Wrench, ShieldCheck, ShieldX, ShieldAlert,
  ToggleLeft, ToggleRight, ChevronRight, Check, Minus, FolderOpen,
  ArrowUp, ArrowDown, Search, Package, Upload, HardDrive,
- ExternalLink,
+ ExternalLink, Copy, KeyRound, Terminal, Ban,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { softwareComplianceApi, softwareRepoApi, type SoftwareComplianceHistoryBatch } from '@/api/softwareCompliance.api';
@@ -17,7 +17,7 @@ import type {
  SoftwareComplianceResult, SoftwareComplianceEntryResult,
  SoftwareMatchType, SoftwareInstallSource, SoftwareListType,
  DeviceGroupTreeNode, KnownSoftwareApp,
- SoftwareRepoPackage, DistroScope,
+ SoftwareRepoPackage, SoftwareRepoSettings, DistroScope,
 } from '@obliance/shared';
 import { PACKAGE_MANAGER_PLATFORM } from '@obliance/shared';
 import toast from 'react-hot-toast';
@@ -1484,38 +1484,90 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  );
 }
 
+// ── Repository helpers ──────────────────────────────────────────────────────
+
+function formatBytes(n: number): string {
+ if (n < 1024) return `${n} B`;
+ const units = ['KB', 'MB', 'GB', 'TB'];
+ let v = n / 1024, i = 0;
+ while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+ return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+/** Build a copy-paste ready download snippet for a package. The access key is
+ *  never embedded — the user fills the placeholder once. */
+function downloadSnippet(kind: 'ps' | 'sh', pkg: SoftwareRepoPackage): string {
+ const origin = window.location.origin;
+ const url = `${origin}/api/repo/download/${pkg.uuid}`;
+ const name = pkg.filename;
+ if (kind === 'ps') {
+ return [
+ '$RepoKey = "<VOTRE_CLE_DEPOT>"',
+ `Invoke-WebRequest -Uri "${url}" \``,
+ `  -Headers @{ 'X-Repo-Key' = $RepoKey } -OutFile "$env:TEMP\\${name}" -UseBasicParsing`,
+ ].join('\n');
+ }
+ return [
+ 'REPO_KEY="<VOTRE_CLE_DEPOT>"',
+ `curl -fSL -H "X-Repo-Key: $REPO_KEY" "${url}" -o "/tmp/${name}"`,
+ ].join('\n');
+}
+
+async function copyToClipboard(text: string, okMsg: string) {
+ try {
+ await navigator.clipboard.writeText(text);
+ toast.success(okMsg);
+ } catch {
+ toast.error('Clipboard unavailable');
+ }
+}
+
 // ── Repository Tab Component ────────────────────────────────────────────────
 function RepoTab() {
  const { t } = useTranslation();
+ const { isAdmin } = useAuthStore();
  const [packages, setPackages] = useState<SoftwareRepoPackage[]>([]);
+ const [settings, setSettings] = useState<SoftwareRepoSettings | null>(null);
  const [loading, setLoading] = useState(true);
  const [uploading, setUploading] = useState(false);
  const [dragOver, setDragOver] = useState(false);
  const [uploadPlatform, setUploadPlatform] = useState<'windows' | 'linux' | 'macos'>('windows');
+ const [revealedKey, setRevealedKey] = useState<string | null>(null);
+ const [snippetFor, setSnippetFor] = useState<{ uuid: string; kind: 'ps' | 'sh' } | null>(null);
  const fileInputRef = useRef<HTMLInputElement>(null);
 
- const loadPackages = useCallback(async () => {
+ const load = useCallback(async () => {
  setLoading(true);
- try { setPackages(await softwareRepoApi.list()); }
- catch { toast.error('Failed to load packages'); }
+ try {
+ const [pkgs, s] = await Promise.all([softwareRepoApi.list(), softwareRepoApi.getSettings()]);
+ setPackages(pkgs);
+ setSettings(s);
+ } catch { toast.error(t('softwareCompliance.repoLoadFailed') || 'Failed to load repository'); }
  finally { setLoading(false); }
- }, []);
+ }, [t]);
 
- useEffect(() => { loadPackages(); }, [loadPackages]);
+ useEffect(() => { load(); }, [load]);
+
+ const enabled = settings?.enabled !== false;
+ const quotaBytes = settings?.quotaBytes ?? null;
+ const usedBytes = settings?.usedBytes ?? 0;
+ const quotaFull = quotaBytes != null && usedBytes >= quotaBytes;
+ const usagePct = quotaBytes && quotaBytes > 0 ? Math.min(100, (usedBytes / quotaBytes) * 100) : 0;
 
  const handleUpload = async (file: File) => {
  setUploading(true);
  try {
  await softwareRepoApi.upload(file, uploadPlatform);
  toast.success(t('softwareCompliance.packageUploaded'));
- await loadPackages();
+ await load();
  } catch (err: any) {
- toast.error(err?.response?.data?.error || 'Upload failed');
+ toast.error(err?.response?.data?.error || t('softwareCompliance.uploadFailed') || 'Upload failed');
  } finally { setUploading(false); }
  };
 
  const handleDrop = (e: React.DragEvent) => {
  e.preventDefault(); setDragOver(false);
+ if (!enabled || quotaFull) return;
  const file = e.dataTransfer.files[0];
  if (file) handleUpload(file);
  };
@@ -1525,26 +1577,165 @@ function RepoTab() {
  try {
  await softwareRepoApi.delete(id);
  toast.success(t('softwareCompliance.packageDeleted'));
- await loadPackages();
- } catch { toast.error('Delete failed'); }
+ await load();
+ } catch { toast.error(t('common.error')); }
+ };
+
+ const handleToggleEnabled = async () => {
+ try {
+ const s = await softwareRepoApi.updateSettings({ enabled: !enabled });
+ setSettings(s);
+ toast.success(s.enabled ? (t('softwareCompliance.repoEnabled') || 'Repository enabled') : (t('softwareCompliance.repoDisabled') || 'Repository disabled'));
+ } catch { toast.error(t('common.error')); }
+ };
+
+ const handleSetQuota = async () => {
+ const current = quotaBytes != null ? String(Math.round(quotaBytes / 1024 / 1024)) : '';
+ const input = prompt(t('softwareCompliance.quotaPrompt') || 'Storage quota in MB (empty = unlimited):', current);
+ if (input === null) return;
+ const trimmed = input.trim();
+ const mb = trimmed === '' ? null : parseInt(trimmed, 10);
+ if (mb !== null && (!Number.isFinite(mb) || mb < 0)) { toast.error(t('softwareCompliance.quotaInvalid') || 'Invalid quota'); return; }
+ try {
+ const s = await softwareRepoApi.updateSettings({ quotaBytes: mb === null ? null : mb * 1024 * 1024 });
+ setSettings(s);
+ toast.success(t('softwareCompliance.quotaSaved') || 'Quota saved');
+ } catch { toast.error(t('common.error')); }
+ };
+
+ const handleGenerateKey = async () => {
+ if (settings?.hasKey && !confirm(t('softwareCompliance.regenKeyConfirm') || 'Replace the existing access key? Scripts using the old key will stop working.')) return;
+ try {
+ const { key } = await softwareRepoApi.generateAccessKey();
+ setRevealedKey(key);
+ await load();
+ toast.success(t('softwareCompliance.keyGenerated') || 'Access key generated');
+ } catch { toast.error(t('common.error')); }
+ };
+
+ const handleRevokeKey = async () => {
+ if (!confirm(t('softwareCompliance.revokeKeyConfirm') || 'Revoke the access key? Scripts using it will stop working.')) return;
+ try {
+ await softwareRepoApi.revokeAccessKey();
+ setRevealedKey(null);
+ await load();
+ toast.success(t('softwareCompliance.keyRevoked') || 'Access key revoked');
+ } catch { toast.error(t('common.error')); }
  };
 
  const platformLabel = (p: string) => p === 'windows' ? 'Windows' : p === 'linux' ? 'Linux' : p === 'macos' ? 'macOS' : p;
 
  return (
  <div className="space-y-4">
+ {/* ── Depot status: usage / quota / enable toggle ── */}
+ <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
+ <div className="flex items-center justify-between gap-3 flex-wrap">
+ <div className="flex items-center gap-2">
+ <HardDrive className="w-4 h-4 text-accent" />
+ <span className="text-sm font-semibold text-text-primary">{t('softwareCompliance.repoStorage') || 'Repository storage'}</span>
+ {!enabled && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-400/10 text-red-400 border border-red-400/30 font-medium">
+ {t('softwareCompliance.disabled')}
+ </span>
+ )}
+ </div>
+ {isAdmin && (
+ <div className="flex items-center gap-1">
+ <button
+ onClick={handleSetQuota}
+ className="text-xs px-2 py-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+ title={t('softwareCompliance.setQuota') || 'Set quota'}
+ >
+ {t('softwareCompliance.setQuota') || 'Set quota'}
+ </button>
+ <button
+ onClick={handleToggleEnabled}
+ className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+ title={enabled ? (t('softwareCompliance.disable')) : (t('softwareCompliance.enable'))}
+ >
+ {enabled ? <ToggleRight className="w-5 h-5 text-accent" /> : <ToggleLeft className="w-5 h-5 text-text-muted" />}
+ </button>
+ </div>
+ )}
+ </div>
+ {/* Usage bar */}
+ <div>
+ <div className="flex items-center justify-between text-xs mb-1">
+ <span className="text-text-muted">
+ {formatBytes(usedBytes)}{quotaBytes != null ? ` / ${formatBytes(quotaBytes)}` : ` — ${t('softwareCompliance.unlimited') || 'unlimited'}`}
+ <span className="ml-2 text-text-muted/70">({settings?.packageCount ?? packages.length} {t('softwareCompliance.packages') || 'packages'})</span>
+ </span>
+ {quotaBytes != null && <span className={clsx('font-medium', quotaFull ? 'text-red-400' : usagePct > 80 ? 'text-yellow-400' : 'text-text-muted')}>{usagePct.toFixed(0)}%</span>}
+ </div>
+ {quotaBytes != null && (
+ <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+ <div className={clsx('h-full rounded-full transition-all', quotaFull ? 'bg-red-400' : usagePct > 80 ? 'bg-yellow-400' : 'bg-accent')} style={{ width: `${usagePct}%` }} />
+ </div>
+ )}
+ </div>
+ </div>
+
+ {/* ── Script access key ── */}
+ {isAdmin && (
+ <div className="bg-bg-secondary rounded-xl p-4 space-y-2">
+ <div className="flex items-center justify-between gap-3 flex-wrap">
+ <div className="flex items-center gap-2">
+ <KeyRound className="w-4 h-4 text-accent" />
+ <span className="text-sm font-semibold text-text-primary">{t('softwareCompliance.accessKey') || 'Script access key'}</span>
+ </div>
+ <div className="flex items-center gap-1">
+ <button
+ onClick={handleGenerateKey}
+ className="text-xs px-2.5 py-1 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ >
+ {settings?.hasKey ? (t('softwareCompliance.regenKey') || 'Regenerate') : (t('softwareCompliance.generateKey') || 'Generate key')}
+ </button>
+ {settings?.hasKey && (
+ <button
+ onClick={handleRevokeKey}
+ className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+ title={t('softwareCompliance.revokeKey') || 'Revoke'}
+ >
+ <Ban className="w-4 h-4" />
+ </button>
+ )}
+ </div>
+ </div>
+ <p className="text-xs text-text-muted">{t('softwareCompliance.accessKeyHint') || 'Scripts authenticate with this key to download packages (header X-Repo-Key). One key per tenant.'}</p>
+ {revealedKey ? (
+ <div className="flex items-center gap-2 px-3 py-2 bg-bg-tertiary rounded-lg">
+ <code className="flex-1 text-xs font-mono text-green-400 break-all">{revealedKey}</code>
+ <button onClick={() => copyToClipboard(revealedKey, t('common.copied') || 'Copied')} className="p-1 text-text-muted hover:text-text-primary shrink-0"><Copy className="w-3.5 h-3.5" /></button>
+ </div>
+ ) : settings?.hasKey ? (
+ <div className="flex items-center gap-2 text-xs text-text-muted">
+ <code className="font-mono text-text-primary">{settings.keyPrefix}…</code>
+ <span className="text-text-muted/70">{t('softwareCompliance.keyHiddenHint') || '(shown once at generation — regenerate if lost)'}</span>
+ </div>
+ ) : (
+ <p className="text-xs text-text-muted italic">{t('softwareCompliance.noKey') || 'No key yet. Generate one to let scripts pull packages.'}</p>
+ )}
+ </div>
+ )}
+
  {/* Upload area */}
  <div
  className={clsx(
  'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
- dragOver ? 'border-accent bg-accent/5' : 'border-transparent hover:border-accent/40',
+ (!enabled || quotaFull) ? 'border-transparent opacity-60' : dragOver ? 'border-accent bg-accent/5' : 'border-transparent hover:border-accent/40',
  )}
- onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+ onDragOver={e => { e.preventDefault(); if (enabled && !quotaFull) setDragOver(true); }}
  onDragLeave={() => setDragOver(false)}
  onDrop={handleDrop}
  >
  <Upload className="w-8 h-8 mx-auto mb-2 text-text-muted" />
+ {!enabled ? (
+ <p className="text-sm text-red-400 font-medium mb-1">{t('softwareCompliance.repoDisabledMsg') || 'The repository is disabled for this tenant.'}</p>
+ ) : quotaFull ? (
+ <p className="text-sm text-red-400 font-medium mb-1">{t('softwareCompliance.quotaFullMsg') || 'Storage quota reached — delete packages or raise the quota.'}</p>
+ ) : (
  <p className="text-sm text-text-primary font-medium mb-1">{t('softwareCompliance.dragDrop')}</p>
+ )}
  <p className="text-xs text-text-muted mb-3">.msi, .exe, .deb, .rpm, .pkg, .dmg</p>
  <div className="flex items-center justify-center gap-2">
  <select
@@ -1558,8 +1749,8 @@ function RepoTab() {
  </select>
  <button
  onClick={() => fileInputRef.current?.click()}
- disabled={uploading}
- className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50"
+ disabled={uploading || !enabled || quotaFull}
+ className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
  >
  {uploading ? t('softwareCompliance.uploading') : t('softwareCompliance.browse')}
  </button>
@@ -1580,21 +1771,56 @@ function RepoTab() {
  <div className="space-y-1">
  {packages.map(pkg => {
  const pi = PLATFORM_ICONS[pkg.platform === 'linux' ? 'debian' : pkg.platform];
+ const showSnippet = snippetFor?.uuid === pkg.uuid;
  return (
- <div key={pkg.id} className="flex items-center gap-3 px-4 py-3 bg-bg-secondary rounded-lg">
+ <div key={pkg.id} className="bg-bg-secondary rounded-lg overflow-hidden">
+ <div className="flex items-center gap-3 px-4 py-3">
  <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
  <div className="flex-1 min-w-0">
  <p className="text-sm font-medium text-text-primary truncate">{pkg.displayName || pkg.filename}</p>
  <div className="flex items-center gap-2 mt-0.5">
- <span className="text-xs text-text-muted">{(pkg.fileSize / 1024 / 1024).toFixed(1)} MB</span>
+ <span className="text-xs text-text-muted">{formatBytes(pkg.fileSize)}</span>
  {pi && <span className={clsx('text-[9px] px-1 py-0.5 rounded border font-medium', pi.color)}>{platformLabel(pkg.platform)}</span>}
  <span className="text-xs text-text-muted">{new Date(pkg.createdAt).toLocaleDateString()}</span>
  </div>
  </div>
+ {/* Copy download command (PS / SH) */}
+ <button
+ onClick={() => setSnippetFor(showSnippet && snippetFor?.kind === 'ps' ? null : { uuid: pkg.uuid, kind: 'ps' })}
+ className={clsx('p-1.5 rounded transition-colors', showSnippet && snippetFor?.kind === 'ps' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ title={t('softwareCompliance.copyPs') || 'PowerShell download command'}
+ >
+ <Terminal className="w-4 h-4" />
+ </button>
+ <button
+ onClick={() => setSnippetFor(showSnippet && snippetFor?.kind === 'sh' ? null : { uuid: pkg.uuid, kind: 'sh' })}
+ className={clsx('p-1.5 rounded transition-colors text-[11px] font-mono w-7 h-7 flex items-center justify-center', showSnippet && snippetFor?.kind === 'sh' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ title={t('softwareCompliance.copySh') || 'Bash download command'}
+ >
+ sh
+ </button>
  <button onClick={() => handleDelete(pkg.id)}
  className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
  <Trash2 className="w-4 h-4" />
  </button>
+ </div>
+ {showSnippet && (
+ <div className="px-4 pb-3">
+ <div className="relative">
+ <pre className="text-[11px] text-text-primary font-mono bg-bg-tertiary rounded-lg p-3 pr-10 overflow-x-auto whitespace-pre">{downloadSnippet(snippetFor!.kind, pkg)}</pre>
+ <button
+ onClick={() => copyToClipboard(downloadSnippet(snippetFor!.kind, pkg), t('common.copied') || 'Copied')}
+ className="absolute top-2 right-2 p-1 text-text-muted hover:text-text-primary bg-bg-secondary rounded"
+ title={t('common.copy') || 'Copy'}
+ >
+ <Copy className="w-3.5 h-3.5" />
+ </button>
+ </div>
+ {!settings?.hasKey && (
+ <p className="text-[10px] text-yellow-400/80 mt-1">{t('softwareCompliance.snippetNeedsKey') || 'Generate an access key above and replace <VOTRE_CLE_DEPOT> in the command.'}</p>
+ )}
+ </div>
+ )}
  </div>
  );
  })}

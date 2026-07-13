@@ -1194,6 +1194,22 @@ export interface SoftwareRepoPackage {
   createdAt: string;
 }
 
+/**
+ * Per-tenant software-repository settings + live usage. Returned by
+ * GET /api/software-repo/settings. `quotaBytes: null` means unlimited.
+ * The plaintext access key is NEVER returned here — only `keyPrefix`
+ * (for display) and `hasKey`. The full key is surfaced exactly once,
+ * in the response of POST /api/software-repo/access-key.
+ */
+export interface SoftwareRepoSettings {
+  enabled: boolean;
+  quotaBytes: number | null;
+  usedBytes: number;
+  packageCount: number;
+  hasKey: boolean;
+  keyPrefix: string | null;
+}
+
 export interface SoftwareComplianceEntry {
   id: number;
   listId: number;
