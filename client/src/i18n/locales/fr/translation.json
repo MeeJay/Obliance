@@ -1847,7 +1847,14 @@
       "ungrouped": "Sans groupe",
       "selectedCount": "{{count}} sélectionné(s)",
       "selectHint": "Sélectionnez un ou plusieurs agents.",
-      "launch": "Lancer le scan sur {{count}} agent(s)"
+      "launch": "Lancer le scan sur {{count}} agent(s)",
+      "back": "Revenir à tous les groupes",
+      "toggleGroup": "Sélectionner tout le groupe",
+      "selectGroup": "Tout sélectionner",
+      "unselectGroup": "Tout désélectionner",
+      "agentsCount": "{{count}} agents",
+      "groupsHint": "{{groups}} groupe(s) · {{agents}} agents en ligne",
+      "searchResults": "{{count}} résultat(s)"
     },
     "export": {
       "button": "Exporter",

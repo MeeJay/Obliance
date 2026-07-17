@@ -1873,7 +1873,14 @@
       "ungrouped": "Ungrouped",
       "selectedCount": "{{count}} selected",
       "selectHint": "Select one or more agents.",
-      "launch": "Launch scan on {{count}} agent(s)"
+      "launch": "Launch scan on {{count}} agent(s)",
+      "back": "Back to all groups",
+      "toggleGroup": "Select the whole group",
+      "selectGroup": "Select all",
+      "unselectGroup": "Unselect all",
+      "agentsCount": "{{count}} agents",
+      "groupsHint": "{{groups}} group(s) · {{agents}} online agents",
+      "searchResults": "{{count}} result(s)"
     },
     "export": {
       "button": "Export",
