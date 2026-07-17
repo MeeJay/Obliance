@@ -21,6 +21,7 @@ interface IncomingVM {
   checkpointCount?: number | null;
   checkpoints?: unknown;
   ipAddresses?: unknown;
+  macAddresses?: unknown;
   generation?: number | null;
   notes?: string | null;
   cpuUsagePercent?: number | null;
@@ -51,6 +52,7 @@ function rowToVM(row: any): VirtualMachine {
     checkpointCount: row.checkpoint_count ?? null,
     checkpoints: typeof row.checkpoints === 'string' ? JSON.parse(row.checkpoints) : (row.checkpoints ?? []),
     ipAddresses: typeof row.ip_addresses === 'string' ? JSON.parse(row.ip_addresses) : (row.ip_addresses ?? []),
+    macAddresses: typeof row.mac_addresses === 'string' ? JSON.parse(row.mac_addresses) : (row.mac_addresses ?? []),
     generation: row.generation ?? null,
     notes: row.notes ?? null,
     ...(() => {
@@ -94,6 +96,12 @@ export const hyperVService = {
         const ips = Array.isArray(v.ipAddresses)
           ? (v.ipAddresses as unknown[]).filter((x): x is string => typeof x === 'string')
           : [];
+        // Agents older than the MAC-collection release omit macAddresses
+        // entirely; treat that as "unknown" (empty) rather than wiping a value
+        // we never had.
+        const macs = Array.isArray(v.macAddresses)
+          ? (v.macAddresses as unknown[]).filter((x): x is string => typeof x === 'string')
+          : [];
         const checkpoints: VmCheckpoint[] = Array.isArray(v.checkpoints)
           ? (v.checkpoints as any[]).map((c) => ({
               name: String(c?.name ?? ''),
@@ -127,6 +135,7 @@ export const hyperVService = {
             automaticStop: v.automaticStop ?? null,
           }),
           ip_addresses: JSON.stringify(ips),
+          mac_addresses: JSON.stringify(macs),
           generation: v.generation ?? null,
           notes: v.notes ?? null,
           updated_at: new Date(),

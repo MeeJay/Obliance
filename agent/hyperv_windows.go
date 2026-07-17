@@ -78,7 +78,8 @@ type psVM struct {
 	UptimeSeconds     int64          `json:"uptimeSeconds"`
 	CheckpointCount   int            `json:"checkpointCount"`
 	Checkpoints       []psCheckpoint `json:"checkpoints"`
-	IPAddresses       interface{}    `json:"ipAddresses"` // string | []string | null
+	IPAddresses       interface{}    `json:"ipAddresses"`  // string | []string | null
+	MACAddresses      interface{}    `json:"macAddresses"` // string | []string | null
 	Generation        int            `json:"generation"`
 	Notes             string         `json:"notes"`
 	CPUUsagePercent   int            `json:"cpuUsagePercent"`
@@ -97,7 +98,12 @@ const enumScript = `
 $ErrorActionPreference = 'SilentlyContinue'
 $vms = Get-VM | ForEach-Object {
   $vm = $_
-  $ips = @(); try { $ips = @(($vm | Get-VMNetworkAdapter).IPAddresses) } catch {}
+  # One Get-VMNetworkAdapter call feeds both IPs and MACs. IPs need integration
+  # services in the guest (often empty); MACs are known by the hypervisor itself
+  # and are therefore available for every VM.
+  $nics = @(); try { $nics = @($vm | Get-VMNetworkAdapter) } catch {}
+  $ips = @(); try { $ips = @($nics.IPAddresses) } catch {}
+  $macs = @(); try { $macs = @($nics.MacAddress) } catch {}
   $cps = @()
   try {
     $cps = @(Get-VMCheckpoint -VMName $vm.Name | ForEach-Object {
@@ -122,6 +128,7 @@ $vms = Get-VM | ForEach-Object {
     checkpointCount   = [int]$cps.Count
     checkpoints       = $cps
     ipAddresses       = $ips
+    macAddresses      = $macs
     generation        = [int]$vm.Generation
     notes             = "$($vm.Notes)"
     cpuUsagePercent   = [int]$vm.CPUUsage
@@ -139,6 +146,61 @@ $vms = Get-VM | ForEach-Object {
 # Force an array even for 0/1 VMs so ConvertTo-Json yields [] / [ {} ].
 ConvertTo-Json -InputObject @($vms) -Compress -Depth 5
 `
+
+// psStringSlice flattens a property that ConvertTo-Json may emit as a bare
+// string (single element), an array (n elements) or null (absent). Shared by
+// ipAddresses and macAddresses, which both hit this PowerShell quirk.
+func psStringSlice(v interface{}) []string {
+	out := []string{}
+	switch t := v.(type) {
+	case string:
+		if t != "" {
+			out = append(out, t)
+		}
+	case []interface{}:
+		for _, item := range t {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+	}
+	return out
+}
+
+// normaliseMACs turns Hyper-V's bare-hex MACs ("00155D010203") into the
+// canonical "00:15:5D:01:02:03" form, de-duplicates, and drops the all-zero
+// placeholder. That placeholder is not noise to keep: Hyper-V only assigns a
+// *dynamic* MAC when the VM first starts, so a never-started VM legitimately
+// reports 000000000000 — surfacing it as a real MAC would be a lie, and would
+// make every such VM collide on the same value in search.
+func normaliseMACs(raw []string) []string {
+	out := []string{}
+	seen := make(map[string]bool, len(raw))
+	for _, m := range raw {
+		hex := strings.Map(func(r rune) rune {
+			if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'F') {
+				return r
+			}
+			return -1
+		}, strings.ToUpper(m))
+		if len(hex) != 12 || hex == "000000000000" {
+			continue
+		}
+		var b strings.Builder
+		for i := 0; i < 12; i += 2 {
+			if i > 0 {
+				b.WriteByte(':')
+			}
+			b.WriteString(hex[i : i+2])
+		}
+		s := b.String()
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
 
 func normaliseVMState(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
@@ -172,19 +234,8 @@ func enumerateHyperVVMs() ([]HyperVVM, error) {
 	}
 	vms := make([]HyperVVM, 0, len(raw))
 	for _, r := range raw {
-		ips := []string{}
-		switch v := r.IPAddresses.(type) {
-		case string:
-			if v != "" {
-				ips = append(ips, v)
-			}
-		case []interface{}:
-			for _, item := range v {
-				if s, ok := item.(string); ok && s != "" {
-					ips = append(ips, s)
-				}
-			}
-		}
+		ips := psStringSlice(r.IPAddresses)
+		macs := normaliseMACs(psStringSlice(r.MACAddresses))
 		cps := make([]HyperVCheckpoint, 0, len(r.Checkpoints))
 		for _, c := range r.Checkpoints {
 			cps = append(cps, HyperVCheckpoint{Name: c.Name, CreatedAt: c.CreatedAt, ParentName: c.ParentName})
@@ -200,6 +251,7 @@ func enumerateHyperVVMs() ([]HyperVVM, error) {
 			CheckpointCount:   r.CheckpointCount,
 			Checkpoints:       cps,
 			IPAddresses:       ips,
+			MACAddresses:      macs,
 			Generation:        r.Generation,
 			Notes:             r.Notes,
 			CPUUsagePercent:   r.CPUUsagePercent,

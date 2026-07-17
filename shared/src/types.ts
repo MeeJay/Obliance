@@ -2287,8 +2287,15 @@ export interface VirtualMachine {
    *  enumeration; may be empty even when checkpointCount > 0 on older
    *  agents that only reported the count. */
   checkpoints: VmCheckpoint[];
-  /** Guest IP addresses reported via integration services, if any. */
+  /** Guest IP addresses reported via integration services, if any. Often
+   *  empty: needs a guest agent / running VM. */
   ipAddresses: string[];
+  /** MAC address per virtual NIC, canonical "00:15:5D:01:02:03" form.
+   *  Unlike ipAddresses this comes from the hypervisor, not the guest, so it
+   *  is present for every VM regardless of integration services. Empty only
+   *  for a never-started VM with a dynamic MAC (Hyper-V assigns it at first
+   *  boot), or when reported by an agent predating MAC collection. */
+  macAddresses: string[];
   /** Hyper-V VM generation (1 or 2), null for other hypervisors. */
   generation: number | null;
   notes: string | null;

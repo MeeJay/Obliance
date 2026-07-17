@@ -1681,7 +1681,7 @@
     "filterByTag": "Hôtes par tag :",
     "noVms": "Aucune machine virtuelle sur cet hôte.",
     "noMatch": "Aucune VM ne correspond à votre recherche.",
-    "searchPlaceholder": "Rechercher une VM ou un hôte…",
+    "searchPlaceholder": "Rechercher une VM, un hôte, une IP ou une MAC…",
     "actionQueued": "Action envoyée à l'hôte",
     "pendingApproval": "Action enregistrée — en attente de validation d'un second administrateur",
     "confirmDelete": "Supprimer la VM « {{name}} » ? Cette action est irréversible.",
@@ -1714,13 +1714,39 @@
     "confirmCpDelete": "Supprimer le point de contrôle « {{name}} » ?",
     "confirmCpApply": "Restaurer la VM au point de contrôle « {{name}} » ? L'état non sauvegardé depuis sera perdu.",
     "checkpointNote": "Appliquer / supprimer peut exiger un 2FA selon les restrictions du tenant. La liste se rafraîchit après ré-énumération par l'hôte.",
-    "col": { "name": "Nom", "host": "Hôte", "state": "État", "memory": "Mémoire", "uptime": "Uptime", "actions": "Actions", "guestOs": "OS invité" },
+    "col": {
+      "name": "Nom",
+      "host": "Hôte",
+      "state": "État",
+      "memory": "Mémoire",
+      "uptime": "Uptime",
+      "actions": "Actions",
+      "guestOs": "OS invité",
+      "cpu": "CPU %",
+      "mac": "MAC",
+      "ip": "IP"
+    },
     "running": "démarrées",
-    "state": { "running": "Démarrée", "off": "Éteinte", "saved": "Sauvegardée", "paused": "En pause", "transitioning": "En cours…", "unknown": "Inconnu" },
+    "state": {
+      "running": "Démarrée",
+      "off": "Éteinte",
+      "saved": "Sauvegardée",
+      "paused": "En pause",
+      "transitioning": "En cours…",
+      "unknown": "Inconnu"
+    },
     "action": {
-      "start": "Démarrer", "stop": "Forcer l'arrêt", "shutdown": "Arrêter", "restart": "Redémarrer",
-      "save": "Sauvegarder l'état", "pause": "Mettre en pause", "resume": "Reprendre", "checkpoint": "Créer un point de contrôle", "delete": "Supprimer la VM"
-    }
+      "start": "Démarrer",
+      "stop": "Forcer l'arrêt",
+      "shutdown": "Arrêter",
+      "restart": "Redémarrer",
+      "save": "Sauvegarder l'état",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "checkpoint": "Créer un point de contrôle",
+      "delete": "Supprimer la VM"
+    },
+    "columns": "Colonnes"
   },
   "policies": {
     "title": "Politiques",

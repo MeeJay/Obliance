@@ -5,9 +5,11 @@ import {
   Play, Square, Power, RotateCcw, Save, Pause, PlayCircle,
   Camera, Trash2, MoreHorizontal, Server, Cpu, ChevronDown, ChevronRight,
   ArrowUp, ArrowDown, Monitor, MonitorPlay, Search, X, Download, Tag, RefreshCw,
+  Columns, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { VirtualMachine, VmAction, VmState, DeviceStatus } from '@obliance/shared';
+import { vmMatchesSearch } from '@obliance/shared';
 import { hypervApi } from '@/api/hyperv.api';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
@@ -39,6 +41,35 @@ interface Props {
 
 type SortKey = 'name' | 'state' | 'cpu' | 'mem' | 'uptime';
 
+/** Columns the user can toggle. `name`, `state` and the action buttons are
+ *  structural and always rendered, so they aren't listed here. */
+type ColKey = 'cpu' | 'mem' | 'guestOs' | 'uptime' | 'mac' | 'ip';
+
+const OPTIONAL_COLUMNS: ReadonlyArray<{ key: ColKey; labelKey: string; fallback: string }> = [
+  { key: 'cpu',     labelKey: 'hyperv.col.cpu',     fallback: 'CPU %' },
+  { key: 'mem',     labelKey: 'hyperv.col.memory',  fallback: 'Memory' },
+  { key: 'guestOs', labelKey: 'hyperv.col.guestOs', fallback: 'Guest OS' },
+  { key: 'uptime',  labelKey: 'hyperv.col.uptime',  fallback: 'Uptime' },
+  { key: 'mac',     labelKey: 'hyperv.col.mac',     fallback: 'MAC' },
+  { key: 'ip',      labelKey: 'hyperv.col.ip',      fallback: 'IP' },
+];
+
+const DEFAULT_COLS: ColKey[] = ['cpu', 'mem', 'guestOs', 'uptime', 'mac', 'ip'];
+const COLS_STORAGE_KEY = 'obliance.hyperv.vmColumns';
+
+function loadCols(): Set<ColKey> {
+  try {
+    const raw = localStorage.getItem(COLS_STORAGE_KEY);
+    if (!raw) return new Set(DEFAULT_COLS);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set(DEFAULT_COLS);
+    const valid = parsed.filter((k): k is ColKey => OPTIONAL_COLUMNS.some((c) => c.key === k));
+    return new Set(valid);
+  } catch {
+    return new Set(DEFAULT_COLS);
+  }
+}
+
 const STATE_BADGE: Record<VmState, string> = {
   running: 'bg-green-400/10 text-green-400 border-green-400/30',
   off: 'bg-gray-400/10 text-gray-400 border-gray-400/30',
@@ -60,6 +91,25 @@ function fmtUptime(sec: number | null): string {
   if (d > 0) return `${d}d ${h}h`;
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m`;
+}
+
+/** Renders the 0..n addresses of a VM (a VM has one MAC per virtual NIC, and
+ *  may report several IPs — IPv4 + IPv6 + one per NIC). Stacked rather than
+ *  comma-joined so multi-NIC VMs stay readable; capped with a "+n" so a VM with
+ *  a dozen IPv6 addresses can't blow up the row height. */
+function AddrList({ values }: { values: string[] | undefined }) {
+  const list = values ?? [];
+  if (list.length === 0) return <span className="text-sm text-text-muted">—</span>;
+  const shown = list.slice(0, 2);
+  const rest = list.length - shown.length;
+  return (
+    <span className="flex flex-col gap-0.5" title={list.join('\n')}>
+      {shown.map((v) => (
+        <span key={v} className="text-[11px] font-mono text-text-muted leading-tight">{v}</span>
+      ))}
+      {rest > 0 && <span className="text-[10px] text-text-muted/60 leading-tight">+{rest}</span>}
+    </span>
+  );
 }
 
 export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceId, hostStatusById, onRefresh, refreshing, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
@@ -98,6 +148,16 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
   const [consoleVm, setConsoleVm] = useState<VirtualMachine | null>(null);
   const [search, setSearch] = useState('');
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+  const [cols, setCols] = useState<Set<ColKey>>(loadCols);
+  const [colMenuOpen, setColMenuOpen] = useState(false);
+
+  const showCol = (k: ColKey) => cols.has(k);
+  const toggleCol = (k: ColKey) => setCols((prev) => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    try { localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify([...next])); } catch { /* private mode */ }
+    return next;
+  });
 
   const toggleTag = (tag: string) => setTagFilters((prev) => {
     const next = new Set(prev);
@@ -132,10 +192,11 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
       list = list.filter((vm) => (vm.hostTags ?? []).some((tg) => tagFilters.has(tg)));
     }
     if (searchable) {
-      const q = search.trim().toLowerCase();
-      if (q) list = list.filter((vm) =>
-        vm.name.toLowerCase().includes(q) || (vm.hostName ?? '').toLowerCase().includes(q),
-      );
+      // Shared matcher (name / host / IP / MAC, MAC separator-insensitive) —
+      // the server export route runs the exact same function, so a CSV can't
+      // drift from what's on screen.
+      const q = search.trim();
+      if (q) list = list.filter((vm) => vmMatchesSearch(vm, q));
     }
     return list;
   }, [vms, search, searchable, tagFilters]);
@@ -185,7 +246,9 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
     </th>
   );
 
-  const colCount = 7;
+  // name + state + actions are structural; the rest is user-toggled. Drives the
+  // colSpan of the host group header and the console-preview row.
+  const colCount = 3 + OPTIONAL_COLUMNS.filter((c) => cols.has(c.key)).length;
 
   return (
     <div className="space-y-3">
@@ -229,7 +292,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('hyperv.searchPlaceholder') || 'Search VM or host…'}
+                placeholder={t('hyperv.searchPlaceholder') || 'Search VM, host, IP or MAC…'}
                 className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
               />
               {search && (
@@ -252,6 +315,43 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
               {t('hyperv.refresh') || 'Refresh'}
             </button>
           )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setColMenuOpen((o) => !o)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            >
+              <Columns className="w-4 h-4" />
+              {t('hyperv.columns') || 'Columns'}
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+            </button>
+            {colMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setColMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1">
+                  {OPTIONAL_COLUMNS.map((c) => {
+                    const on = cols.has(c.key);
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => toggleCol(c.key)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-text-primary hover:bg-bg-tertiary transition-colors"
+                      >
+                        <span className={clsx(
+                          'w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0',
+                          on ? 'bg-accent border-accent' : 'border-text-muted/40',
+                        )}>
+                          {on && <Check className="w-2.5 h-2.5 text-white" />}
+                        </span>
+                        {t(c.labelKey) || c.fallback}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
           <div className="relative">
             <button
               type="button"
@@ -295,10 +395,12 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
           <tr>
             <SortHead k="name" label={t('hyperv.col.name') || 'Name'} />
             <SortHead k="state" label={t('hyperv.col.state') || 'State'} />
-            <SortHead k="cpu" label="CPU %" cls="hidden md:table-cell" />
-            <SortHead k="mem" label={t('hyperv.col.memory') || 'Memory'} cls="hidden lg:table-cell" />
-            <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden xl:table-cell">{t('hyperv.col.guestOs') || 'Guest OS'}</th>
-            <SortHead k="uptime" label={t('hyperv.col.uptime') || 'Uptime'} cls="hidden xl:table-cell" />
+            {showCol('cpu') && <SortHead k="cpu" label={t('hyperv.col.cpu') || 'CPU %'} />}
+            {showCol('mem') && <SortHead k="mem" label={t('hyperv.col.memory') || 'Memory'} />}
+            {showCol('guestOs') && <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('hyperv.col.guestOs') || 'Guest OS'}</th>}
+            {showCol('uptime') && <SortHead k="uptime" label={t('hyperv.col.uptime') || 'Uptime'} />}
+            {showCol('mac') && <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('hyperv.col.mac') || 'MAC'}</th>}
+            {showCol('ip') && <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('hyperv.col.ip') || 'IP'}</th>}
             <th className="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase">{t('hyperv.col.actions') || 'Actions'}</th>
           </tr>
         </thead>
@@ -352,13 +454,17 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                           {stateLabel(vm.state)}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-text-muted hidden md:table-cell">{running && vm.cpuUsagePercent != null ? `${vm.cpuUsagePercent}%` : '—'}</td>
-                      <td className="px-4 py-2.5 text-sm text-text-muted hidden lg:table-cell">
-                        {fmtMem(vm.memoryBytes)}
-                        {vm.dynamicMemory && vm.memoryDemandBytes ? <span className="text-[10px] ml-1" title="Demand">({fmtMem(vm.memoryDemandBytes)})</span> : null}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-text-muted hidden xl:table-cell truncate max-w-[180px]" title={vm.guestOs ?? ''}>{vm.guestOs || '—'}</td>
-                      <td className="px-4 py-2.5 text-sm text-text-muted hidden xl:table-cell">{fmtUptime(vm.uptimeSeconds)}</td>
+                      {showCol('cpu') && <td className="px-4 py-2.5 text-sm text-text-muted">{running && vm.cpuUsagePercent != null ? `${vm.cpuUsagePercent}%` : '—'}</td>}
+                      {showCol('mem') && (
+                        <td className="px-4 py-2.5 text-sm text-text-muted">
+                          {fmtMem(vm.memoryBytes)}
+                          {vm.dynamicMemory && vm.memoryDemandBytes ? <span className="text-[10px] ml-1" title="Demand">({fmtMem(vm.memoryDemandBytes)})</span> : null}
+                        </td>
+                      )}
+                      {showCol('guestOs') && <td className="px-4 py-2.5 text-sm text-text-muted truncate max-w-[180px]" title={vm.guestOs ?? ''}>{vm.guestOs || '—'}</td>}
+                      {showCol('uptime') && <td className="px-4 py-2.5 text-sm text-text-muted">{fmtUptime(vm.uptimeSeconds)}</td>}
+                      {showCol('mac') && <td className="px-4 py-2.5"><AddrList values={vm.macAddresses} /></td>}
+                      {showCol('ip') && <td className="px-4 py-2.5"><AddrList values={vm.ipAddresses} /></td>}
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           {off || vm.state === 'saved' || paused ? (

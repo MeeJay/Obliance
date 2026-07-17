@@ -37,6 +37,13 @@ type HyperVVM struct {
 	CheckpointCount int                `json:"checkpointCount"`
 	Checkpoints     []HyperVCheckpoint `json:"checkpoints"`
 	IPAddresses     []string           `json:"ipAddresses"`
+	// MACAddresses holds one entry per virtual NIC, normalised to
+	// "00:15:5D:01:02:03". Unlike IPAddresses it does NOT need integration
+	// services in the guest — Hyper-V knows the adapter MACs itself — so it is
+	// the only network identifier available for every VM. Caveat: a VM with a
+	// *dynamic* MAC that has never been started reports all-zeroes; those are
+	// dropped rather than reported as a bogus 00:00:00:00:00:00.
+	MACAddresses    []string           `json:"macAddresses"`
 	Generation      int                `json:"generation"`
 	Notes           string             `json:"notes"`
 	// Live consumption + richer info (best-effort; zero/empty when the VM is

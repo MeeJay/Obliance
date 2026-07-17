@@ -6,6 +6,7 @@ import { hyperVService } from '../services/hyperV.service';
 import { commandService } from '../services/command.service';
 import { applyRestriction } from '../services/restriction.service';
 import type { VmAction } from '@obliance/shared';
+import { vmMatchesSearch } from '@obliance/shared';
 
 const router = Router();
 
@@ -240,10 +241,12 @@ router.get('/export', async (req, res, next) => {
     if (tags.length) {
       vms = vms.filter((v: any) => Array.isArray(v.hostTags) && v.hostTags.some((tg: string) => tags.includes(tg)));
     }
-    const search = (typeof req.query.search === 'string' ? req.query.search : '').trim().toLowerCase();
+    // Same matcher as the client grid (name / host / IP / MAC) — imported from
+    // @obliance/shared so the export can't silently drift from what the user
+    // filtered on screen.
+    const search = (typeof req.query.search === 'string' ? req.query.search : '').trim();
     if (search) {
-      vms = vms.filter((v: any) =>
-        (v.name || '').toLowerCase().includes(search) || (v.hostName || '').toLowerCase().includes(search));
+      vms = vms.filter((v: any) => vmMatchesSearch(v, search));
     }
 
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
@@ -273,6 +276,7 @@ router.get('/export', async (req, res, next) => {
       { header: 'Uptime',            key: 'uptime',       width: 12, pdf: false },
       { header: 'Checkpoints',       key: 'checkpointCount', width: 11 },
       { header: 'IP Addresses',      key: 'ipAddresses',  width: 26, pdf: false },
+      { header: 'MAC Addresses',     key: 'macAddresses', width: 26, pdf: false },
       { header: 'Heartbeat',         key: 'heartbeat',    width: 18, pdf: false },
       { header: 'Integration Svc',   key: 'integrationServicesVersion', width: 14, pdf: false },
       { header: 'Config Version',    key: 'configVersion', width: 12, pdf: false },
@@ -298,6 +302,7 @@ router.get('/export', async (req, res, next) => {
       uptime:          fmtUptime(v.uptimeSeconds),
       checkpointCount: v.checkpointCount ?? 0,
       ipAddresses:     Array.isArray(v.ipAddresses) ? v.ipAddresses.join(', ') : '',
+      macAddresses:    Array.isArray(v.macAddresses) ? v.macAddresses.join(', ') : '',
       heartbeat:       v.heartbeat ?? '',
       integrationServicesVersion: v.integrationServicesVersion ?? '',
       configVersion:   v.configVersion ?? '',

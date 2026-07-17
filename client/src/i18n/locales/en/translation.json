@@ -1707,7 +1707,7 @@
     "filterByTag": "Hosts by tag:",
     "noVms": "No virtual machines on this host.",
     "noMatch": "No VM matches your search.",
-    "searchPlaceholder": "Search VM or host…",
+    "searchPlaceholder": "Search VM, host, IP or MAC…",
     "actionQueued": "Action sent to host",
     "pendingApproval": "Action saved — awaiting second admin approval",
     "confirmDelete": "Delete VM \"{{name}}\"? This is irreversible.",
@@ -1740,13 +1740,39 @@
     "confirmCpDelete": "Delete checkpoint \"{{name}}\"?",
     "confirmCpApply": "Restore VM to checkpoint \"{{name}}\"? Unsaved state since then is lost.",
     "checkpointNote": "Apply / delete may require 2FA depending on tenant restrictions. The list refreshes after the host re-enumerates.",
-    "col": { "name": "Name", "host": "Host", "state": "State", "memory": "Memory", "uptime": "Uptime", "actions": "Actions", "guestOs": "Guest OS" },
+    "col": {
+      "name": "Name",
+      "host": "Host",
+      "state": "State",
+      "memory": "Memory",
+      "uptime": "Uptime",
+      "actions": "Actions",
+      "guestOs": "Guest OS",
+      "cpu": "CPU %",
+      "mac": "MAC",
+      "ip": "IP"
+    },
     "running": "running",
-    "state": { "running": "Running", "off": "Off", "saved": "Saved", "paused": "Paused", "transitioning": "Working…", "unknown": "Unknown" },
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "saved": "Saved",
+      "paused": "Paused",
+      "transitioning": "Working…",
+      "unknown": "Unknown"
+    },
     "action": {
-      "start": "Start", "stop": "Power off (hard)", "shutdown": "Shut down", "restart": "Restart",
-      "save": "Save state", "pause": "Pause", "resume": "Resume", "checkpoint": "Create checkpoint", "delete": "Delete VM"
-    }
+      "start": "Start",
+      "stop": "Power off (hard)",
+      "shutdown": "Shut down",
+      "restart": "Restart",
+      "save": "Save state",
+      "pause": "Pause",
+      "resume": "Resume",
+      "checkpoint": "Create checkpoint",
+      "delete": "Delete VM"
+    },
+    "columns": "Columns"
   },
   "policies": {
     "title": "Policies",
