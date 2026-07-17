@@ -1639,7 +1639,7 @@ function RepoTab() {
  </span>
  )}
  </div>
- {isAdmin && (
+ {isAdmin() && (
  <div className="flex items-center gap-1">
  <button
  onClick={handleSetQuota}
@@ -1676,7 +1676,7 @@ function RepoTab() {
  </div>
 
  {/* ── Script access key ── */}
- {isAdmin && (
+ {isAdmin() && (
  <div className="bg-bg-secondary rounded-xl p-4 space-y-2">
  <div className="flex items-center justify-between gap-3 flex-wrap">
  <div className="flex items-center gap-2">
