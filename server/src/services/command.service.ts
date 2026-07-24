@@ -328,10 +328,10 @@ class CommandService {
                     // the per-disk snapshot and evaluate health alerts. Purely
                     // additive — plain metric scripts have no `disks` key.
                     try {
-                      const raw = (result?.stdout ?? '').trim();
+                      const raw = String(result?.stdout ?? '').trim();
                       const jsonStr = raw.startsWith('{')
                         ? raw
-                        : (raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '');
+                        : (raw.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean).pop() ?? '');
                       if (jsonStr.startsWith('{')) {
                         const obj = JSON.parse(jsonStr);
                         if (Array.isArray(obj?.disks) && obj.disks.length) {
