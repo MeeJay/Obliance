@@ -209,6 +209,11 @@ async function main() {
   scheduleService.start();    // Script scheduler + catch-up
   commandService.startCleanupJob();  // Expire timed-out commands
 
+  // Native SMART disk-health collector (server-driven, zero agent change)
+  import('./services/diskHealthCollector.service')
+    .then(({ diskHealthCollector }) => diskHealthCollector.start())
+    .catch((err) => logger.error(err, 'diskHealthCollector failed to start'));
+
   // Start device offline detection job (every 30s)
   setInterval(() => deviceService.checkOfflineDevices(), 30_000);
 
@@ -319,6 +324,9 @@ async function main() {
   const shutdown = async () => {
     logger.info('Shutting down...');
     scheduleService.stop();
+    import('./services/diskHealthCollector.service')
+      .then(({ diskHealthCollector }) => diskHealthCollector.stop())
+      .catch(() => {});
     remoteWss.close();
     server.close(() => {
       db.destroy();

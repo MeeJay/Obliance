@@ -7,6 +7,7 @@ import authRoutes from './auth.routes';
 import twoFactorRoutes from './twoFactor.routes';
 import obligateCallbackRoutes from './obligateCallback.routes';
 import oblitoolsRoutes from './oblitools.routes';
+import agentToolsRoutes from './agentTools.routes';
 import profileRoutes from './profile.routes';
 import tenantRoutes from './tenant.routes';
 import usersRoutes from './users.routes';
@@ -66,6 +67,7 @@ router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth 
 router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
 router.use('/oblireach-desktop', oblireachDesktopRoutes); // Public: desktop app version + MSI download
 router.use('/repo', repoPublicRoutes);   // script-facing software repo (per-tenant access key auth)
+router.use('/agent-tools', agentToolsRoutes); // static smartctl binary for the disk-health collector (HMAC token)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
 

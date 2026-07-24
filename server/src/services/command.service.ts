@@ -179,7 +179,9 @@ class CommandService {
       let row: any;
       try {
         row = await db('command_queue').where({ id: ack.commandId }).first();
-        if (row) {
+        // Internal disk-health probes are not user-facing commands — don't push
+        // them onto the admin command feed (fleet-wide socket churn).
+        if (row && row.source_type !== 'disk_health_probe') {
           const io = getIO();
           const cmd = this.rowToCommand(row);
           io.to(`tenant:${tenantId}`).emit(SocketEvents.COMMAND_UPDATED, cmd);
@@ -258,6 +260,33 @@ class CommandService {
         } catch (updateErr) {
           logger.error(updateErr, 'Failed to update device_updates status from install_update(s) ack');
         }
+      }
+
+      // ── Native disk-health probe result (diskHealthCollector) ────────────
+      // Server-dispatched SMART probe — no script_execution / schedule row, so
+      // it bypasses the metric-script path above. Parse the JSON `disks`
+      // payload straight into the snapshot.
+      if (isTerminal && row && row.source_type === 'disk_health_probe') {
+        if (ack.status === 'success') {
+          try {
+            const probeResult = ack.result as any;
+            const rawOut = String(probeResult?.stdout ?? '').trim();
+            const jsonStr = rawOut.startsWith('{')
+              ? rawOut
+              : (rawOut.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean).pop() ?? '');
+            if (jsonStr.startsWith('{')) {
+              const obj = JSON.parse(jsonStr);
+              if (Array.isArray(obj?.disks) && obj.disks.length) {
+                const { diskHealthService } = await import('./diskHealth.service');
+                await diskHealthService.saveFromScript(deviceId, tenantId, obj.disks);
+              }
+            }
+          } catch (probeErr) {
+            logger.error(probeErr, 'Failed to process disk_health_probe result');
+          }
+        }
+        // Internal probe — never keep it in command history (fleet-wide churn).
+        try { await db('command_queue').where({ id: ack.commandId }).delete(); } catch { /* best-effort */ }
       }
 
       // Update linked script execution when the command is terminal

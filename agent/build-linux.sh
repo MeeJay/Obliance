@@ -60,5 +60,16 @@ GOOS=linux GOARCH=amd64 go build \
   -o dist/obliance-installer-wizard-linux-amd64 ./cmd/wizard-linux
 rm -f cmd/wizard-linux/obliance-agent
 
+# Static smartctl for the native disk-health collector (server ships it to
+# Linux agents lacking smartmontools). One-time artifact — build it with
+# agent/build-smartctl.sh (needs Docker). Non-fatal here: if the binaries are
+# absent the server simply degrades to "smartctl-if-present" on Linux.
+mkdir -p dist/tools
+if ls dist/tools/smartctl-linux-* >/dev/null 2>&1; then
+  echo "  [smartctl] present: $(ls dist/tools/smartctl-linux-* | tr '\n' ' ')"
+else
+  echo "  [smartctl] NOT built — run agent/build-smartctl.sh once (Linux self-provisioning disabled until then)"
+fi
+
 echo "Done. Binaries:"
 ls -lh dist/obliance-agent-linux-* dist/obliance-agent-freebsd-* dist/obliance-watchdog-linux-* dist/obliance-watchdog-freebsd-* dist/obliance-installer-wizard-linux-*
