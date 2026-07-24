@@ -129,6 +129,10 @@ export const deviceApi = {
     const res = await apiClient.get<ApiResponse<import('@obliance/shared').DeviceCustomMetric[]>>(`/devices/${id}/custom-metrics`);
     return res.data.data ?? [];
   },
+  async getDiskHealth(id: number): Promise<import('@obliance/shared').SmartDisk[]> {
+    const res = await apiClient.get<ApiResponse<import('@obliance/shared').SmartDisk[]>>(`/devices/${id}/disk-health`);
+    return res.data.data ?? [];
+  },
 
   // ── Privacy gate ─────────────────────────────────────────────────────
   async setPrivacyPassword(id: number, password: string): Promise<void> {

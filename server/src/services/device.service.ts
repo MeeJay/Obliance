@@ -33,6 +33,146 @@ let _cachedVersionAt = 0;
 let _historyDisabledUntil = 0;
 let _historyFailures = 0;
 
+// ── Per-device resolved-config cache (TTL 60s) ───────────────────────────────
+// resolveDeviceConfig re-derives agent config (push/scan intervals, display
+// config, notification types) from ~7-10 queries (device row, app_config x3,
+// group, settings cascade) on EVERY push. That config changes a handful of
+// times a month, so a 60s TTL cuts those queries to near-zero while keeping a
+// worst-case 60s propagation delay when an admin edits an interval — imperceptible.
+interface CachedDeviceConfig { value: any; at: number }
+const _deviceConfigCache = new Map<number, CachedDeviceConfig>();
+const DEVICE_CONFIG_TTL_MS = 60_000;
+/** Drop a device's cached agent-config (call after editing device/group/settings). */
+export function invalidateDeviceConfigCache(deviceId?: number): void {
+  if (deviceId != null) _deviceConfigCache.delete(deviceId);
+  else _deviceConfigCache.clear();
+}
+
+// ── Metric-history write batching ────────────────────────────────────────────
+// The naive path did 6-12 sequential UPSERTs per push (~1200-1800 q/s at 2000
+// devices — one per granularity × CPU/RAM + per disk volume). We now accumulate
+// samples in memory per (device, granularity, bucket) and flush every 30s as
+// ONE multi-row UPSERT per table, collapsing thousands of round-trips into ~6
+// batch statements per flush regardless of fleet size. Aggregation semantics
+// are identical to the old per-row UPSERT (sum/samples for the average,
+// GREATEST/LEAST for max/min, latest for disk used/total).
+// Trade-off: up to ~30s of buckets are lost if the process is killed mid-window
+// — acceptable for CPU/RAM/disk trend history.
+type CrTable = 'device_metric_5min' | 'device_metric_hourly' | 'device_metric_daily';
+type DkTable = 'device_disk_5min' | 'device_disk_hourly' | 'device_disk_daily';
+interface CrAccum { deviceId: number; tenantId: number; bucket: Date; cpuSum: number; ramSum: number; samples: number; cpuMax: number; cpuMin: number; ramMax: number; ramMin: number }
+interface DkAccum { deviceId: number; tenantId: number; mount: string; bucket: Date; pctSum: number; samples: number; pctMax: number; pctMin: number; usedGb: number; totalGb: number }
+const _crBuckets: Record<CrTable, Map<string, CrAccum>> = {
+  device_metric_5min: new Map(), device_metric_hourly: new Map(), device_metric_daily: new Map(),
+};
+const _dkBuckets: Record<DkTable, Map<string, DkAccum>> = {
+  device_disk_5min: new Map(), device_disk_hourly: new Map(), device_disk_daily: new Map(),
+};
+let _flusherStarted = false;
+
+function accumulateCr(table: CrTable, deviceId: number, tenantId: number, bucket: Date, cpu: number, ram: number): void {
+  const key = `${deviceId}|${bucket.getTime()}`;
+  const e = _crBuckets[table].get(key);
+  if (e) {
+    e.cpuSum += cpu; e.ramSum += ram; e.samples += 1;
+    if (cpu > e.cpuMax) e.cpuMax = cpu; if (cpu < e.cpuMin) e.cpuMin = cpu;
+    if (ram > e.ramMax) e.ramMax = ram; if (ram < e.ramMin) e.ramMin = ram;
+  } else {
+    _crBuckets[table].set(key, { deviceId, tenantId, bucket, cpuSum: cpu, ramSum: ram, samples: 1, cpuMax: cpu, cpuMin: cpu, ramMax: ram, ramMin: ram });
+  }
+}
+
+function accumulateDk(table: DkTable, deviceId: number, tenantId: number, mount: string, bucket: Date, pct: number, usedGb: number, totalGb: number): void {
+  const key = `${deviceId}|${mount}|${bucket.getTime()}`;
+  const e = _dkBuckets[table].get(key);
+  if (e) {
+    e.pctSum += pct; e.samples += 1;
+    if (pct > e.pctMax) e.pctMax = pct; if (pct < e.pctMin) e.pctMin = pct;
+    e.usedGb = usedGb; e.totalGb = totalGb; // disk used/total = latest sample
+  } else {
+    _dkBuckets[table].set(key, { deviceId, tenantId, mount, bucket, pctSum: pct, samples: 1, pctMax: pct, pctMin: pct, usedGb, totalGb });
+  }
+}
+
+/** Flush all accumulated buckets as one multi-row UPSERT per table. Each map key
+ *  is unique per (device, bucket[, mount]) so no row conflicts twice in a single
+ *  statement. Each table flushes under its OWN try/catch: a transient error on
+ *  one granularity (deadlock, statement timeout) loses at most that one table's
+ *  30s slice — never the other five — and the circuit breaker only trips after
+ *  whole flushes keep failing. Snapshot-then-clear before awaiting so new
+ *  samples land in a fresh window. */
+async function flushMetricHistoryBatch(): Promise<void> {
+  if (Date.now() < _historyDisabledUntil) return;
+  let anyFailure = false;
+
+  for (const table of ['device_metric_5min', 'device_metric_hourly', 'device_metric_daily'] as CrTable[]) {
+    const m = _crBuckets[table];
+    if (m.size === 0) continue;
+    const rows = [...m.values()]; m.clear();
+    try {
+      await db(table)
+        .insert(rows.map((a) => ({
+          device_id: a.deviceId, tenant_id: a.tenantId, bucket: a.bucket,
+          cpu_sum: a.cpuSum, ram_sum: a.ramSum, samples: a.samples,
+          cpu_max: a.cpuMax, cpu_min: a.cpuMin, ram_max: a.ramMax, ram_min: a.ramMin,
+        })))
+        .onConflict(['device_id', 'bucket'])
+        .merge({
+          cpu_sum: db.raw(`${table}.cpu_sum + EXCLUDED.cpu_sum`),
+          ram_sum: db.raw(`${table}.ram_sum + EXCLUDED.ram_sum`),
+          samples: db.raw(`${table}.samples + EXCLUDED.samples`),
+          cpu_max: db.raw(`GREATEST(${table}.cpu_max, EXCLUDED.cpu_max)`),
+          cpu_min: db.raw(`LEAST(${table}.cpu_min, EXCLUDED.cpu_min)`),
+          ram_max: db.raw(`GREATEST(${table}.ram_max, EXCLUDED.ram_max)`),
+          ram_min: db.raw(`LEAST(${table}.ram_min, EXCLUDED.ram_min)`),
+        });
+    } catch (err) { anyFailure = true; logger.error(err, `metric-history flush failed (${table})`); }
+  }
+
+  for (const table of ['device_disk_5min', 'device_disk_hourly', 'device_disk_daily'] as DkTable[]) {
+    const m = _dkBuckets[table];
+    if (m.size === 0) continue;
+    const rows = [...m.values()]; m.clear();
+    try {
+      await db(table)
+        .insert(rows.map((a) => ({
+          device_id: a.deviceId, tenant_id: a.tenantId, mount: a.mount, bucket: a.bucket,
+          pct_sum: a.pctSum, samples: a.samples, pct_max: a.pctMax, pct_min: a.pctMin,
+          used_gb_last: a.usedGb, total_gb_last: a.totalGb,
+        })))
+        .onConflict(['device_id', 'mount', 'bucket'])
+        .merge({
+          pct_sum: db.raw(`${table}.pct_sum + EXCLUDED.pct_sum`),
+          samples: db.raw(`${table}.samples + EXCLUDED.samples`),
+          pct_max: db.raw(`GREATEST(${table}.pct_max, EXCLUDED.pct_max)`),
+          pct_min: db.raw(`LEAST(${table}.pct_min, EXCLUDED.pct_min)`),
+          used_gb_last: db.raw('EXCLUDED.used_gb_last'),
+          total_gb_last: db.raw('EXCLUDED.total_gb_last'),
+        });
+    } catch (err) { anyFailure = true; logger.error(err, `metric-history flush failed (${table})`); }
+  }
+
+  // Circuit breaker: pause the whole subsystem only if flushes keep failing
+  // outright (e.g. a schema mismatch after a botched migration), not on a
+  // one-off transient error.
+  if (anyFailure) {
+    if (++_historyFailures >= 3) {
+      _historyDisabledUntil = Date.now() + 10 * 60 * 1000;
+      _historyFailures = 0;
+      logger.error('metric-history batch flush paused 10min after repeated failures (missing table / schema mismatch?)');
+    }
+  } else {
+    _historyFailures = 0;
+  }
+}
+
+function ensureMetricHistoryFlusher(): void {
+  if (_flusherStarted) return;
+  _flusherStarted = true;
+  const t = setInterval(() => { flushMetricHistoryBatch().catch(() => { /* logged inside */ }); }, 30_000);
+  if (typeof (t as any).unref === 'function') (t as any).unref();
+}
+
 function getAgentVersion(): string {
   const now = Date.now();
   if (_cachedVersion && now - _cachedVersionAt < 5 * 60 * 1000) {
@@ -1100,11 +1240,11 @@ class DeviceService {
       updated_at: now,
     });
 
-    // Fold this push into the pre-aggregated metric-history buckets (best-effort;
-    // history must never break a push). One atomic UPSERT per granularity.
+    // Fold this push into the pre-aggregated metric-history buckets. In-memory
+    // accumulation (synchronous, can't throw); a 30s flusher batches the writes.
     if (hasMetrics) {
-      this.recordMetricHistory(deviceId, tenantId, now, curCpu, curRam, histDisks)
-        .catch((err) => logger.error(err, 'recordMetricHistory failed'));
+      try { this.recordMetricHistory(deviceId, tenantId, now, curCpu, curRam, histDisks); }
+      catch (err) { logger.error(err, 'recordMetricHistory failed'); }
     }
     // ── Status resolution (single authority) ──────────────────────────────
     // Push handling used to FORCE status='online' first, then let the
@@ -1289,10 +1429,19 @@ class DeviceService {
 
     // Emit real-time metrics update
     if (this.io) {
-      this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_METRICS_PUSHED, {
-        deviceId,
-        metrics: push.metrics,
-      });
+      // The metrics blob (1-4 KB) broadcast to the whole tenant room on every
+      // push is the single biggest Socket.io cost. Skip it entirely when NO
+      // admin socket is in the room — the common case (nobody watching), where
+      // serialising + fanning it out is pure waste. Status changes (rare) below
+      // still fire unconditionally so state is fresh the moment an admin opens
+      // the UI.
+      const roomSize = this.io.sockets.adapter.rooms.get(`tenant:${tenantId}`)?.size ?? 0;
+      if (roomSize > 0) {
+        this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_METRICS_PUSHED, {
+          deviceId,
+          metrics: push.metrics,
+        });
+      }
       // Notify UI of any status change (offline→online, updating→online,
       // online→warning, warning→critical, critical→online, …). The
       // threshold-resolver above is the single source of truth — we just
@@ -1421,6 +1570,14 @@ class DeviceService {
   }
 
   private async resolveDeviceConfig(deviceId: number, tenantId: number) {
+    const cached = _deviceConfigCache.get(deviceId);
+    if (cached && Date.now() - cached.at < DEVICE_CONFIG_TTL_MS) return cached.value;
+    const value = await this._resolveDeviceConfigUncached(deviceId, tenantId);
+    _deviceConfigCache.set(deviceId, { value, at: Date.now() });
+    return value;
+  }
+
+  private async _resolveDeviceConfigUncached(deviceId: number, tenantId: number) {
     const device = await db('devices').where({ id: deviceId }).first();
     let pushIntervalSeconds = 60;
     let fastPollInterval = 5;
@@ -2158,77 +2315,28 @@ class DeviceService {
   // PER-VOLUME (a full system disk ≠ a calm data disk). Metric columns are NOT
   // indexed → the hot current bucket gets HOT updates without index bloat.
 
-  private async upsertCpuRamBucket(
-    table: 'device_metric_5min' | 'device_metric_hourly' | 'device_metric_daily',
-    deviceId: number, tenantId: number, bucket: Date, cpu: number, ram: number,
-  ): Promise<void> {
-    await db(table)
-      .insert({
-        device_id: deviceId, tenant_id: tenantId, bucket,
-        cpu_sum: cpu, ram_sum: ram, samples: 1, cpu_max: cpu, cpu_min: cpu, ram_max: ram, ram_min: ram,
-      })
-      .onConflict(['device_id', 'bucket'])
-      .merge({
-        cpu_sum: db.raw(`${table}.cpu_sum + EXCLUDED.cpu_sum`),
-        ram_sum: db.raw(`${table}.ram_sum + EXCLUDED.ram_sum`),
-        samples: db.raw(`${table}.samples + 1`),
-        cpu_max: db.raw(`GREATEST(${table}.cpu_max, EXCLUDED.cpu_max)`),
-        cpu_min: db.raw(`LEAST(${table}.cpu_min, EXCLUDED.cpu_min)`),
-        ram_max: db.raw(`GREATEST(${table}.ram_max, EXCLUDED.ram_max)`),
-        ram_min: db.raw(`LEAST(${table}.ram_min, EXCLUDED.ram_min)`),
-      });
-  }
-
-  private async upsertDiskBucket(
-    table: 'device_disk_5min' | 'device_disk_hourly' | 'device_disk_daily',
-    deviceId: number, tenantId: number, mount: string, bucket: Date,
-    pct: number, usedGb: number, totalGb: number,
-  ): Promise<void> {
-    await db(table)
-      .insert({
-        device_id: deviceId, tenant_id: tenantId, mount, bucket,
-        pct_sum: pct, samples: 1, pct_max: pct, pct_min: pct, used_gb_last: usedGb, total_gb_last: totalGb,
-      })
-      .onConflict(['device_id', 'mount', 'bucket'])
-      .merge({
-        pct_sum: db.raw(`${table}.pct_sum + EXCLUDED.pct_sum`),
-        samples: db.raw(`${table}.samples + 1`),
-        pct_max: db.raw(`GREATEST(${table}.pct_max, EXCLUDED.pct_max)`),
-        pct_min: db.raw(`LEAST(${table}.pct_min, EXCLUDED.pct_min)`),
-        used_gb_last: db.raw('EXCLUDED.used_gb_last'),
-        total_gb_last: db.raw('EXCLUDED.total_gb_last'),
-      });
-  }
-
-  /** Fold one push into the hourly + daily buckets (CPU/RAM + one row per disk
-   *  volume). Best-effort (caller swallows errors — history never breaks a push). */
-  async recordMetricHistory(
+  /** Fold one push into the 5min/hourly/daily buckets (CPU/RAM + one row per
+   *  disk volume). Synchronous + in-memory: accumulates into the batch maps and
+   *  the 30s flusher writes them out. Best-effort — history never breaks a push. */
+  recordMetricHistory(
     deviceId: number, tenantId: number, now: Date,
     cpu: number, ram: number,
     disks: Array<{ mount: string; pct: number; usedGb: number; totalGb: number }>,
-  ): Promise<void> {
-    // Circuit breaker: skip while paused after repeated failures (schema issue).
+  ): void {
+    // Circuit breaker: skip while paused after repeated flush failures.
     if (Date.now() < _historyDisabledUntil) return;
-    try {
-      const five = new Date(now); five.setUTCMinutes(Math.floor(five.getUTCMinutes() / 5) * 5, 0, 0);
-      const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
-      const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
-      await this.upsertCpuRamBucket('device_metric_5min', deviceId, tenantId, five, cpu, ram);
-      await this.upsertCpuRamBucket('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
-      await this.upsertCpuRamBucket('device_metric_daily', deviceId, tenantId, day, cpu, ram);
-      for (const d of disks) {
-        await this.upsertDiskBucket('device_disk_5min', deviceId, tenantId, d.mount, five, d.pct, d.usedGb, d.totalGb);
-        await this.upsertDiskBucket('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
-        await this.upsertDiskBucket('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
-      }
-      _historyFailures = 0; // success resets the breaker
-    } catch (err) {
-      if (++_historyFailures >= 3) {
-        _historyDisabledUntil = Date.now() + 10 * 60 * 1000; // pause 10 min
-        _historyFailures = 0;
-        logger.error(err, 'metric-history writes paused 10min after repeated failures (missing table / schema mismatch?)');
-      }
+    const five = new Date(now); five.setUTCMinutes(Math.floor(five.getUTCMinutes() / 5) * 5, 0, 0);
+    const hour = new Date(now); hour.setUTCMinutes(0, 0, 0);
+    const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
+    accumulateCr('device_metric_5min', deviceId, tenantId, five, cpu, ram);
+    accumulateCr('device_metric_hourly', deviceId, tenantId, hour, cpu, ram);
+    accumulateCr('device_metric_daily', deviceId, tenantId, day, cpu, ram);
+    for (const d of disks) {
+      accumulateDk('device_disk_5min', deviceId, tenantId, d.mount, five, d.pct, d.usedGb, d.totalGb);
+      accumulateDk('device_disk_hourly', deviceId, tenantId, d.mount, hour, d.pct, d.usedGb, d.totalGb);
+      accumulateDk('device_disk_daily', deviceId, tenantId, d.mount, day, d.pct, d.usedGb, d.totalGb);
     }
+    ensureMetricHistoryFlusher();
   }
 
   /** Retention: 5-min ≤3h (covers 1h window + margin), hourly ≤72h (24h), daily ≤40d (30d). */

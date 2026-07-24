@@ -14,6 +14,11 @@ interface DeviceStore {
   addDevice: (device: Device) => void;
   updateDevice: (id: number, data: Partial<Device>) => void;
   updateDeviceMetrics: (id: number, metrics: DeviceMetrics) => void;
+  /** Apply a metrics push in ONE Map clone (metrics + lastSeenAt together).
+   *  The socket handler used to call updateDeviceMetrics + updateDevice back to
+   *  back = two full 2000-entry Map clones per event; at 200 events/s that's the
+   *  client-side firehose. This merges them into a single clone. */
+  applyMetricsPush: (id: number, metrics: DeviceMetrics) => void;
   removeDevice: (id: number) => void;
 
   // Getters
@@ -81,6 +86,16 @@ export const useDeviceStore = create<DeviceStore>((set, get) => ({
       const devices = new Map(state.devices);
       const existing = devices.get(id);
       if (existing) devices.set(id, { ...existing, latestMetrics: metrics });
+      return { devices };
+    });
+  },
+
+  applyMetricsPush: (id, metrics) => {
+    set((state) => {
+      const existing = state.devices.get(id);
+      if (!existing) return state; // unknown device → no clone, no re-render
+      const devices = new Map(state.devices);
+      devices.set(id, { ...existing, latestMetrics: metrics, lastSeenAt: new Date().toISOString() });
       return { devices };
     });
   },

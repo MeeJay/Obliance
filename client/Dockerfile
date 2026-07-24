@@ -24,6 +24,10 @@ FROM nginx:alpine AS production
 RUN apk add --no-cache curl
 
 COPY --from=builder /app/client/dist/ /usr/share/nginx/html/
+# Main config (events/worker_connections — can't be set from conf.d) + the
+# server block. Together they lift the 1024-connection cap and add upstream
+# keepalive for the agent firehose.
+COPY client/nginx-main.conf /etc/nginx/nginx.conf
 COPY client/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

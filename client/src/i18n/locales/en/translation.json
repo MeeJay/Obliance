@@ -2302,5 +2302,21 @@
     "scenarioActive": "Active",
     "scenarioDisabled": "Disabled",
     "scenarioDraft": "Draft"
+  },
+  "diskHealth": {
+    "title": "Disk health (SMART)",
+    "type": "Type",
+    "temp": "Temperature",
+    "health": "Health",
+    "wear": "Wear",
+    "poh": "Power-on hours",
+    "reallocated": "Reallocated sectors",
+    "pending": "Pending sectors",
+    "status": {
+      "good": "Good",
+      "caution": "Watch",
+      "bad": "Critical",
+      "unknown": "Unknown"
+    }
   }
 }

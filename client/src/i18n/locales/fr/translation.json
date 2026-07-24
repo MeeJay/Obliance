@@ -2301,5 +2301,21 @@
     "scenarioActive": "Actif",
     "scenarioDisabled": "Désactivé",
     "scenarioDraft": "Brouillon"
+  },
+  "diskHealth": {
+    "title": "Santé disque (SMART)",
+    "type": "Type",
+    "temp": "Température",
+    "health": "Santé",
+    "wear": "Usure",
+    "poh": "Heures d'allumage",
+    "reallocated": "Secteurs réalloués",
+    "pending": "Secteurs en attente",
+    "status": {
+      "good": "Bon",
+      "caution": "À surveiller",
+      "bad": "Critique",
+      "unknown": "Inconnu"
+    }
   }
 }

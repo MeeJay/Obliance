@@ -8,6 +8,7 @@ export const SocketEvents = {
   DEVICE_UPDATED:         'DEVICE_UPDATED',         // device status or metadata changed
   DEVICE_METRICS_PUSHED:  'DEVICE_METRICS_PUSHED',  // agent pushed new metrics
   DEVICE_SERVICES_UPDATED: 'DEVICE_SERVICES_UPDATED', // agent pushed updated service list
+  DISK_HEALTH_UPDATED:    'DISK_HEALTH_UPDATED',      // SMART disk-health snapshot refreshed
   DEVICE_APPROVED:        'DEVICE_APPROVED',         // device was approved
   DEVICE_DELETED:         'DEVICE_DELETED',          // device was removed
   DEVICE_ONLINE:          'DEVICE_ONLINE',            // device came online

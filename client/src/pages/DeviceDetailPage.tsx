@@ -682,6 +682,66 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
  );
 }
 
+// ─── Disk health (SMART) ─────────────────────────────────────────────────────
+
+function DiskHealthBadge({ status }: { status: string }) {
+ const { t } = useTranslation();
+ const map: Record<string, { cls: string; label: string }> = {
+ good: { cls: 'text-green-400 bg-green-400/10 border-green-400/30', label: t('diskHealth.status.good') || 'Bon' },
+ caution: { cls: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', label: t('diskHealth.status.caution') || 'À surveiller' },
+ bad: { cls: 'text-red-400 bg-red-400/10 border-red-400/30', label: t('diskHealth.status.bad') || 'Critique' },
+ unknown: { cls: 'text-gray-400 bg-gray-400/10 border-gray-400/30', label: t('diskHealth.status.unknown') || 'Inconnu' },
+ };
+ const m = map[status] ?? map.unknown;
+ return <span className={clsx('text-[10px] px-1.5 py-0.5 rounded-full border font-medium shrink-0', m.cls)}>{m.label}</span>;
+}
+
+/** Per-disk SMART health, fed by a scheduled metric script (not the agent).
+ *  Renders nothing when there's no data (old agent / no script deployed / disks
+ *  that don't expose SMART) — so it's purely additive. */
+function DiskHealthPanel({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
+ const [disks, setDisks] = useState<import('@obliance/shared').SmartDisk[]>([]);
+ const load = useCallback(() => { deviceApi.getDiskHealth(deviceId).then(setDisks).catch(() => {}); }, [deviceId]);
+ useEffect(() => { load(); }, [load]);
+ useEffect(() => {
+ const socket = getSocket();
+ if (!socket) return;
+ const onUpd = (msg: { deviceId: number }) => { if (msg.deviceId === deviceId) load(); };
+ socket.on('DISK_HEALTH_UPDATED', onUpd);
+ return () => { socket.off('DISK_HEALTH_UPDATED', onUpd); };
+ }, [deviceId, load]);
+
+ if (disks.length === 0) return null;
+
+ return (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2">
+ <HardDrive className="w-4 h-4" />{t('diskHealth.title') || 'Santé disque (SMART)'}
+ </h4>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+ {disks.map((d) => (
+ <div key={d.id} className="p-3 rounded-lg bg-bg-tertiary/40">
+ <div className="flex items-center justify-between gap-2 mb-2">
+ <span className="text-sm font-medium text-text-primary truncate" title={d.serial}>{d.model || d.serial || '—'}</span>
+ <DiskHealthBadge status={d.status} />
+ </div>
+ <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-muted">
+ {d.diskType && <span>{t('diskHealth.type') || 'Type'}: <span className="text-text-primary">{d.diskType}</span></span>}
+ {d.temperatureC != null && <span>{t('diskHealth.temp') || 'Température'}: <span className="text-text-primary">{d.temperatureC}°C</span></span>}
+ {d.healthPercent != null && <span>{t('diskHealth.health') || 'Santé'}: <span className="text-text-primary">{d.healthPercent}%</span></span>}
+ {d.wearPercent != null && <span>{t('diskHealth.wear') || 'Usure'}: <span className="text-text-primary">{d.wearPercent}%</span></span>}
+ {d.powerOnHours != null && <span>{t('diskHealth.poh') || 'Heures d\'allumage'}: <span className="text-text-primary">{d.powerOnHours} h</span></span>}
+ {d.reallocatedSectors != null && d.reallocatedSectors > 0 && <span className="text-yellow-400">{t('diskHealth.reallocated') || 'Secteurs réalloués'}: {d.reallocatedSectors}</span>}
+ {d.pendingSectors != null && d.pendingSectors > 0 && <span className="text-red-400">{t('diskHealth.pending') || 'Secteurs en attente'}: {d.pendingSectors}</span>}
+ </div>
+ </div>
+ ))}
+ </div>
+ </div>
+ );
+}
+
 // ─── Inventory Tab ──────────────────────────────────────────────────────────────
 
 function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: Device['agentFlavor'] }) {
@@ -842,6 +902,8 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  </div>
  </div>
  )}
+ {/* Disk health (SMART) — additive, hidden when no data */}
+ <DiskHealthPanel deviceId={deviceId} />
  {/* GPU */}
  {(hardware.gpu ?? []).length > 0 && (
  <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">

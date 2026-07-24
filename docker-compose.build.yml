@@ -6,6 +6,39 @@ services:
       POSTGRES_DB: obliance
       POSTGRES_USER: obliance
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    # RMM ingestion tuning — see docker-compose.yml for rationale. Scale
+    # shared_buffers≈25% / effective_cache_size≈75% of host RAM. Keep
+    # max_connections above knexfile.ts pool.max + session pool + headroom.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=2GB"
+      - "-c"
+      - "effective_cache_size=6GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_compression=on"
+      - "-c"
+      - "autovacuum_vacuum_scale_factor=0.02"
+      - "-c"
+      - "autovacuum_analyze_scale_factor=0.01"
+      - "-c"
+      - "autovacuum_vacuum_cost_delay=2ms"
+      - "-c"
+      - "autovacuum_naptime=15s"
+      - "-c"
+      - "autovacuum_max_workers=4"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

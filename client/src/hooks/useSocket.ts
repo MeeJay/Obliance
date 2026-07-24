@@ -14,7 +14,7 @@ function notifyNative(type: 'device_alert' | 'device_ok' | 'device_critical') {
 
 export function useSocket() {
   const { user } = useAuthStore();
-  const { addDevice, updateDevice, updateDeviceMetrics, removeDevice, fetchSummary } = useDeviceStore();
+  const { addDevice, updateDevice, applyMetricsPush, removeDevice, fetchSummary } = useDeviceStore();
   const { addGroup, updateGroup, removeGroup, fetchTree } = useGroupStore();
 
   const isNativeApp = typeof window !== 'undefined' &&
@@ -53,13 +53,11 @@ export function useSocket() {
     });
 
     socket.on(SocketEvents.DEVICE_METRICS_PUSHED, (data: { deviceId: number; metrics: DeviceMetrics }) => {
-      updateDeviceMetrics(data.deviceId, data.metrics);
-      // The very fact that we received metrics means the agent just
-      // talked, so optimistically advance lastSeenAt — the device detail
-      // header's relative-time pill ("1m / 5m / …") otherwise drifts as
-      // the user sits on the page since DEVICE_UPDATED only carries
-      // status changes, not the timestamp.
-      updateDevice(data.deviceId, { lastSeenAt: new Date().toISOString() });
+      // Single Map clone for metrics + lastSeenAt (the very fact that we got
+      // metrics means the agent just talked, so we advance lastSeenAt so the
+      // detail header's relative-time pill doesn't drift). Previously this was
+      // two separate store writes = two full-store clones per event.
+      applyMetricsPush(data.deviceId, data.metrics);
     });
 
     socket.on(SocketEvents.DEVICE_ONLINE, (data: { deviceId: number; device?: Partial<Device> }) => {
@@ -165,5 +163,5 @@ export function useSocket() {
       socket.off(SocketEvents.GROUP_DELETED);
       socket.off(SocketEvents.GROUP_MOVED);
     };
-  }, [user, addDevice, updateDevice, updateDeviceMetrics, removeDevice, fetchSummary, addGroup, updateGroup, removeGroup, fetchTree, isNativeApp]);
+  }, [user, addDevice, updateDevice, applyMetricsPush, removeDevice, fetchSummary, addGroup, updateGroup, removeGroup, fetchTree, isNativeApp]);
 }

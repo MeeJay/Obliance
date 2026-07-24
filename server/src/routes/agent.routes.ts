@@ -210,28 +210,42 @@ router.post('/push', agentAuth, async (req, res, next) => {
       });
       device = await db('devices').where({ id: result.deviceId }).first();
     } else {
-      // ── Subsequent contact: keep device info fresh ───────────────────────────
-      await db('devices').where({ id: device.id }).update({
-        hostname: hostname || device.hostname,
-        os_type: toOsType(osInfo?.platform) || device.os_type,
-        os_name: deriveOsName(toOsType(osInfo?.platform), osInfo?.release, osInfo?.distro || osInfo?.platform) || device.os_name,
-        os_version: osInfo?.release || device.os_version,
-        os_arch: osInfo?.arch || device.os_arch,
-        agent_version: agentVersion || device.agent_version,
-        agent_flavor: inferredFlavor,
-        ip_public: ipPublic || device.ip_public,
-        ip_local: ipLocal || device.ip_local,
-        mac_address: macAddress || device.mac_address,
-        privacy_mode_enabled: typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled,
-        airgap_enabled: typeof airgapMode === 'boolean' ? airgapMode : device.airgap_enabled,
-        last_logged_in_user: lastLoggedInUser || device.last_logged_in_user,
-        os_distro: distroFamily || device.os_distro,
-        virtualization_host_type: vhost !== undefined ? vhost : device.virtualization_host_type,
-        backup_host_type: bhost !== undefined ? bhost : device.backup_host_type,
-        last_reboot_at: osInfo?.bootTime ? new Date(osInfo.bootTime * 1000) : device.last_reboot_at,
-        timezone: osInfo?.timezone || device.timezone,
-        updated_at: new Date(),
-      });
+      // ── Subsequent contact: keep device info fresh, but WRITE only what
+      // actually changed. Identity (hostname/os/ip/mac/…) is stable across the
+      // overwhelming majority of pushes, so at 2000 devices this turns a
+      // systematic ~18-column UPDATE per push into a no-op on the hot path,
+      // eliminating most of the devices-table row-version churn (the metrics
+      // UPDATE inside handlePush still runs every push — latest_metrics always
+      // changes). Values below reproduce the exact original expressions so the
+      // stored state is identical; we just skip no-op writes.
+      const patch: Record<string, unknown> = {};
+      const set = (col: string, val: unknown, cur: unknown) => { if (val !== cur) patch[col] = val; };
+      set('hostname', hostname || device.hostname, device.hostname);
+      set('os_type', toOsType(osInfo?.platform), device.os_type);
+      set('os_name', deriveOsName(toOsType(osInfo?.platform), osInfo?.release, osInfo?.distro || osInfo?.platform) || device.os_name, device.os_name);
+      set('os_version', osInfo?.release || device.os_version, device.os_version);
+      set('os_arch', osInfo?.arch || device.os_arch, device.os_arch);
+      set('agent_version', agentVersion || device.agent_version, device.agent_version);
+      set('agent_flavor', inferredFlavor, device.agent_flavor);
+      set('ip_public', ipPublic || device.ip_public, device.ip_public);
+      set('ip_local', ipLocal || device.ip_local, device.ip_local);
+      set('mac_address', macAddress || device.mac_address, device.mac_address);
+      set('privacy_mode_enabled', typeof privacyMode === 'boolean' ? privacyMode : device.privacy_mode_enabled, device.privacy_mode_enabled);
+      set('airgap_enabled', typeof airgapMode === 'boolean' ? airgapMode : device.airgap_enabled, device.airgap_enabled);
+      set('last_logged_in_user', lastLoggedInUser || device.last_logged_in_user, device.last_logged_in_user);
+      set('os_distro', distroFamily || device.os_distro, device.os_distro);
+      set('virtualization_host_type', vhost !== undefined ? vhost : device.virtualization_host_type, device.virtualization_host_type);
+      set('backup_host_type', bhost !== undefined ? bhost : device.backup_host_type, device.backup_host_type);
+      set('timezone', osInfo?.timezone || device.timezone, device.timezone);
+      if (osInfo?.bootTime) {
+        const nr = new Date(osInfo.bootTime * 1000);
+        const cur = device.last_reboot_at ? new Date(device.last_reboot_at).getTime() : null;
+        if (cur !== nr.getTime()) patch.last_reboot_at = nr;
+      }
+      if (Object.keys(patch).length > 0) {
+        patch.updated_at = new Date();
+        await db('devices').where({ id: device.id }).update(patch);
+      }
 
       // Track identity fingerprint to detect duplicate machine_uuid across
       // physical hosts (typical VM-cloning symptom). Non-blocking — even
@@ -248,7 +262,8 @@ router.post('/push', agentAuth, async (req, res, next) => {
         geolocationService.updateDeviceGeo(device.id, ipPublic).catch(() => {});
       }
 
-      device = await db('devices').where({ id: device.id }).first();
+      // No re-SELECT: the only device fields read below (approval_status,
+      // status, id, tenant_id) are never touched by an identity update.
     }
 
     // ── Access control ─────────────────────────────────────────────────────────
@@ -341,8 +356,18 @@ router.get('/commands', agentAuth, async (req, res, next) => {
         .update({ status: 'sent', sent_at: new Date(), updated_at: new Date() });
     }
 
+    // If the agent holds a live command-channel WebSocket, commands reach it
+    // instantly over that channel (and every push also carries pending
+    // commands), so the HTTP poll is pure redundancy — tell the agent to back
+    // off to 120s. The agent honours nextDelaySeconds (command_poller.go), and
+    // drops back to the fast delay automatically once the WS goes away and its
+    // next poll returns the short value. This alone removes ~200 req/s at 2000
+    // devices, with zero agent change. When commands are actually pending we
+    // keep the fast delay so a WS-less agent still picks them up quickly.
+    const { agentHub } = await import('../services/agentHub.service');
     const delayCfg = await db('app_config').where({ key: 'task_retrieve_delay_seconds' }).first();
-    const nextDelaySeconds = delayCfg?.value ? parseInt(delayCfg.value) : 10;
+    const fastDelay = delayCfg?.value ? parseInt(delayCfg.value) : 10;
+    const nextDelaySeconds = (pending.length === 0 && agentHub.isConnected(device.id)) ? 120 : fastDelay;
 
     res.json({
       commands: pending.map((c: any) => ({ id: c.id, type: c.type, payload: c.payload, priority: c.priority })),

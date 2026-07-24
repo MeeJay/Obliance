@@ -29,11 +29,13 @@ const config: Knex.Config = {
     // metric-history writes, trigger dispatch). max:10 was a hard throttle —
     // under a real fleet the pool stayed saturated and every request (UI
     // included) queued behind push traffic, which read as "the whole app is
-    // slow". 25 gives push ingestion headroom without starving Postgres.
+    // slow". 60 gives real headroom at 2000+ devices once the per-push query
+    // fan-out is cut (auth/config caching, metric-history batching).
     // NOTE: keep pool.max × server-replicas comfortably under the Postgres
-    // max_connections (default 100).
-    min: 2,
-    max: 25,
+    // max_connections — docker-compose sets it to 200; the session store keeps
+    // its own small pool, so 60 leaves ample margin.
+    min: 4,
+    max: 60,
   },
   // Fail fast instead of hanging a request forever when the pool is starved,
   // so a transient spike surfaces as a logged error rather than a silent stall

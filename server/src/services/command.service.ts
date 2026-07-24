@@ -323,6 +323,23 @@ class CommandService {
                         deviceId, scheduleId: schedule.id, tenantId, scheduleName: schedule.name,
                       });
                     }
+                    // Disk health (SMART): a metric script may ALSO emit a
+                    // structured `disks` array in its JSON output. If so, persist
+                    // the per-disk snapshot and evaluate health alerts. Purely
+                    // additive — plain metric scripts have no `disks` key.
+                    try {
+                      const raw = (result?.stdout ?? '').trim();
+                      const jsonStr = raw.startsWith('{')
+                        ? raw
+                        : (raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '');
+                      if (jsonStr.startsWith('{')) {
+                        const obj = JSON.parse(jsonStr);
+                        if (Array.isArray(obj?.disks) && obj.disks.length) {
+                          const { diskHealthService } = await import('./diskHealth.service');
+                          await diskHealthService.saveFromScript(deviceId, tenantId, obj.disks);
+                        }
+                      }
+                    } catch { /* not a SMART payload — ignore */ }
                   } else {
                     await customMetricService.markError({
                       deviceId, scheduleId: schedule.id, tenantId, scheduleName: schedule.name,

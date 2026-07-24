@@ -6,6 +6,46 @@ services:
       POSTGRES_DB: obliance
       POSTGRES_USER: obliance
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    # RMM ingestion tuning for a large fleet (2000+ devices ≈ 200 push/s).
+    # Stock Postgres (shared_buffers 128MB, max_connections 100, lazy autovacuum)
+    # collapses under the device-table write churn. Values below assume a host
+    # with ~8GB RAM — scale shared_buffers≈25% and effective_cache_size≈75% of
+    # host RAM. max_connections must stay above (server pool.max + session pool
+    # + headroom); keep it in sync with knexfile.ts pool.max.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=2GB"
+      - "-c"
+      - "effective_cache_size=6GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_compression=on"
+      # Aggressive autovacuum: the devices table takes ~hundreds of row versions/s
+      # from the push firehose. Stock autovacuum falls behind → bloat → every UI
+      # SELECT on devices slows down. (A per-table override on `devices` is set by
+      # migration 118 for even tighter thresholds.)
+      - "-c"
+      - "autovacuum_vacuum_scale_factor=0.02"
+      - "-c"
+      - "autovacuum_analyze_scale_factor=0.01"
+      - "-c"
+      - "autovacuum_vacuum_cost_delay=2ms"
+      - "-c"
+      - "autovacuum_naptime=15s"
+      - "-c"
+      - "autovacuum_max_workers=4"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # Expose on LAN so you can run migrations from your PC / pgAdmin.
@@ -37,10 +77,21 @@ services:
       # Persistent custom directory: scripts, SSH keys, etc.
       # SSH keys: chmod 700 custom/.ssh && chmod 600 custom/.ssh/id_*
       - ${CUSTOM_DIR:-./custom}:/custom
+    # 2000+ agents each hold a persistent WebSocket (1 fd) on the command
+    # channel; the stock container nofile soft limit (1024) starves Node.
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
 
   client:
     image: meejay/obliance-client:${OBLIANCE_VERSION:-latest}
     restart: unless-stopped
+    # nginx worker_rlimit_nofile (65536) needs the container ulimit to allow it.
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
     depends_on:
       server:
         condition: service_healthy

@@ -823,6 +823,16 @@ router.get('/:id/custom-metrics', requireDeviceRead(), async (req, res, next) =>
   } catch (err) { next(err); }
 });
 
+// GET /api/devices/:id/disk-health — SMART per-disk snapshot for this device
+router.get('/:id/disk-health', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const { diskHealthService } = await import('../services/diskHealth.service');
+    const disks = await diskHealthService.listForDevice(deviceId, req.tenantId!);
+    res.json({ data: disks });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/:id/custom-sections — list sections that apply to this device
 router.get('/:id/custom-sections', requireDeviceRead(), async (req, res, next) => {
   try {

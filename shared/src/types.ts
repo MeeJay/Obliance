@@ -801,6 +801,33 @@ export interface DeviceCustomMetric {
   status: 'ok' | 'warning' | 'critical' | 'error';
   updatedAt: string;
 }
+
+// ─── DISK HEALTH (SMART) ──────────────────────────────────────────────────────
+// Per-physical-disk SMART snapshot, collected out-of-band (a scheduled metric
+// script reports it; NOT the 10s metrics push). All numeric fields are optional
+// because SMART availability varies wildly by OS, controller (RAID/USB opaque)
+// and disk. Absence just means "unknown" — never an error state.
+
+export type DiskHealthStatus = 'good' | 'caution' | 'bad' | 'unknown';
+
+export interface SmartDisk {
+  id: number;
+  deviceId: number;
+  serial: string;
+  model: string | null;
+  /** SSD | HDD | NVMe | unknown */
+  diskType: string | null;
+  status: DiskHealthStatus;
+  temperatureC: number | null;
+  /** Overall computed health 0-100 (e.g. 100 - SSD wear). */
+  healthPercent: number | null;
+  /** SSD wear / NVMe percentage-used (0-100, higher = more worn). */
+  wearPercent: number | null;
+  powerOnHours: number | null;
+  reallocatedSectors: number | null;
+  pendingSectors: number | null;
+  updatedAt: string;
+}
 export type ScriptParameterType = 'string' | 'number' | 'boolean' | 'secret' | 'select' | 'multiselect';
 
 export interface ScriptCategory {
