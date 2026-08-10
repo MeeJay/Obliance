@@ -62,7 +62,8 @@
     "results": "results",
     "page": "Page",
     "confirmDelete": "Are you sure?",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "retry": "Retry"
   },
   "status": {
     "up": "UP",
@@ -1961,7 +1962,14 @@
   "device": {
     "notes": "Notes",
     "notesPlaceholder": "Add notes about this device...",
-    "location": "Location"
+    "location": "Location",
+    "inventory": {
+      "printers": "Printers",
+      "comPorts": "COM Ports",
+      "default": "Default",
+      "network": "Network",
+      "shared": "Shared"
+    }
   },
   "licenses": {
     "title": "Licenses",
@@ -2318,5 +2326,28 @@
       "bad": "Critical",
       "unknown": "Unknown"
     }
+  },
+  "rewind": {
+    "title": "Rewind — machine time travel",
+    "prevDay": "Previous day",
+    "nextDay": "Next day",
+    "backToNow": "Back to now",
+    "now": "Now",
+    "noData": "Collection has just started — Rewind data will appear over time (metrics continuously, processes ~5 min).",
+    "cpuRam": "CPU / RAM",
+    "resHourly": "hourly resolution",
+    "res5min": "5-min resolution",
+    "disk": "Disk (%)",
+    "noDayData": "No metrics for that day",
+    "processes": "Processes",
+    "total": "total",
+    "machineCpu": "Machine CPU",
+    "machineRam": "Machine RAM",
+    "noProcSnap": "No process snapshot at this instant (machine offline, or before collection started).",
+    "process": "Process",
+    "user": "User",
+    "services": "Services",
+    "noSvcSnap": "No service snapshot at this instant.",
+    "loadError": "Could not load Rewind (server error or access denied)."
   }
 }

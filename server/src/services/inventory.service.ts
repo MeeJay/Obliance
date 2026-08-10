@@ -18,6 +18,8 @@ class InventoryService {
       os: row.os || undefined,
       battery: row.battery || undefined,
       bitlocker: row.bitlocker || [],
+      printers: row.printers || [],
+      comPorts: row.com_ports || [],
       raw: row.raw || {},
       scannedAt: row.scanned_at,
     };
@@ -116,6 +118,8 @@ class InventoryService {
       os:                 os ? JSON.stringify(os) : null,
       battery:            battery ? JSON.stringify(battery) : null,
       bitlocker:          JSON.stringify(data.bitlocker ?? []),
+      printers:           JSON.stringify(data.printers ?? []),
+      com_ports:          JSON.stringify(data.comPorts ?? []),
       raw:                JSON.stringify(data.raw ?? {}),
       scanned_at:         new Date(),
     });

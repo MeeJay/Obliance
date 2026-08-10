@@ -1,5 +1,6 @@
 import apiClient from './client';
-import type { Device, FleetSummary, AgentApiKey, ServiceInfo, DeviceMetricsHistory } from '@obliance/shared';
+import type { Device, FleetSummary, AgentApiKey, ServiceInfo, DeviceMetricsHistory,
+  RewindRange, RewindSeries, RewindSnapshot } from '@obliance/shared';
 
 interface ApiResponse<T> { data?: T; error?: string; }
 
@@ -205,6 +206,23 @@ export const deviceApi = {
   /** Windowed CPU/RAM avg·peak·min + disk usage/delta over 24h/7d/30d. */
   async getMetricsHistory(id: number): Promise<DeviceMetricsHistory> {
     const res = await apiClient.get<ApiResponse<DeviceMetricsHistory>>(`/devices/${id}/metrics/history`);
+    return res.data.data!;
+  },
+  // ── Rewind (time-machine) ──────────────────────────────────────────────────
+  async getRewindRange(id: number): Promise<RewindRange> {
+    const res = await apiClient.get<ApiResponse<RewindRange>>(`/devices/${id}/rewind/range`);
+    return res.data.data!;
+  },
+  async getRewindSeries(id: number, from: Date, to: Date): Promise<RewindSeries> {
+    const res = await apiClient.get<ApiResponse<RewindSeries>>(`/devices/${id}/rewind/series`, {
+      params: { from: from.toISOString(), to: to.toISOString() },
+    });
+    return res.data.data!;
+  },
+  async getRewindSnapshotAt(id: number, ts: Date): Promise<RewindSnapshot> {
+    const res = await apiClient.get<ApiResponse<RewindSnapshot>>(`/devices/${id}/rewind/at`, {
+      params: { ts: ts.toISOString() },
+    });
     return res.data.data!;
   },
   /** Resolve which tenant a device lives in. Used when the user follows a

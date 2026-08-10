@@ -214,6 +214,11 @@ async function main() {
     .then(({ diskHealthCollector }) => diskHealthCollector.start())
     .catch((err) => logger.error(err, 'diskHealthCollector failed to start'));
 
+  // Rewind time-machine process-snapshot collector (server-driven, zero agent change)
+  import('./services/rewindCollector.service')
+    .then(({ rewindCollector }) => rewindCollector.start())
+    .catch((err) => logger.error(err, 'rewindCollector failed to start'));
+
   // Start device offline detection job (every 30s)
   setInterval(() => deviceService.checkOfflineDevices(), 30_000);
 
@@ -326,6 +331,9 @@ async function main() {
     scheduleService.stop();
     import('./services/diskHealthCollector.service')
       .then(({ diskHealthCollector }) => diskHealthCollector.stop())
+      .catch(() => {});
+    import('./services/rewindCollector.service')
+      .then(({ rewindCollector }) => rewindCollector.stop())
       .catch(() => {});
     remoteWss.close();
     server.close(() => {

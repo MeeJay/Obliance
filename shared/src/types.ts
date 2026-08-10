@@ -584,6 +584,84 @@ export interface DeviceMetricsHistory {
   disks: DiskVolumeHistory[];
 }
 
+// ─── REWIND (time-machine) ───────────────────────────────────────────────────
+
+/** Scrubber bounds. Metric range = graph extent; process/service range = where
+ *  point-in-time process/service snapshots exist (typically the last 7 days). */
+export interface RewindRange {
+  metricFrom: string | null;
+  metricTo: string | null;
+  processFrom: string | null;
+  processTo: string | null;
+  serviceFrom: string | null;
+  serviceTo: string | null;
+  now: string;
+}
+
+export interface RewindMetricPoint {
+  t: string;        // bucket timestamp
+  cpu: number;      // avg % over the bucket
+  cpuMax: number;   // peak % over the bucket
+  ram: number;
+  ramMax: number;
+}
+
+export interface RewindDiskPoint {
+  t: string;
+  pct: number;
+  pctMax: number;
+  usedGb: number;
+  totalGb: number;
+}
+
+export interface RewindDiskSeries {
+  mount: string;
+  points: RewindDiskPoint[];
+}
+
+export interface RewindSeries {
+  resolution: '5min' | 'hourly';
+  points: RewindMetricPoint[];
+  disks: RewindDiskSeries[];
+}
+
+export interface RewindProc {
+  pid: number;
+  name: string;
+  cpu: number;      // % at capture
+  memMb: number;    // RSS in MB
+  user: string | null;
+}
+
+export interface RewindProcessSnapshot {
+  capturedAt: string;
+  processCount: number;      // total processes on the machine at capture
+  cpuTotal: number | null;   // summed cpu% across all processes
+  memUsedMb: number | null;  // summed RSS across all processes
+  procs: RewindProc[];       // top-N by CPU/RAM
+}
+
+export interface RewindServiceEntry {
+  name?: string;
+  displayName?: string;
+  status?: string;
+  startType?: string;
+  user?: string;
+  [k: string]: unknown;
+}
+
+export interface RewindServiceSnapshot {
+  capturedAt: string;
+  serviceCount: number;
+  runningCount: number;
+  services: RewindServiceEntry[];
+}
+
+export interface RewindSnapshot {
+  process: RewindProcessSnapshot | null;
+  service: RewindServiceSnapshot | null;
+}
+
 // ─── AGENT API KEYS ──────────────────────────────────────────────────────────
 
 export interface AgentApiKey {
@@ -1420,6 +1498,22 @@ export interface OSDetailsInfo {
   officeKey?: string;
 }
 
+export interface PrinterInfo {
+  name: string;
+  driver?: string;
+  port?: string;
+  isDefault: boolean;
+  isNetwork: boolean;
+  isShared: boolean;
+  status?: string; // Idle, Printing, Error, Offline, Unknown
+}
+
+export interface ComPortInfo {
+  port: string;      // COM3, /dev/ttyUSB0, /dev/cu.usbserial-XXXX, ...
+  description?: string; // "USB Serial Port", "Prolific USB-to-Serial Comm Port", ...
+  deviceId?: string;    // PNP/hardware id when available, for de-duplication across scans
+}
+
 export interface BatteryHealth {
   present: boolean;
   designCapacity?: number;
@@ -1443,6 +1537,8 @@ export interface HardwareInventory {
   os?: OSDetailsInfo;
   battery?: BatteryHealth;
   bitlocker?: BitLockerVolume[];
+  printers?: PrinterInfo[];
+  comPorts?: ComPortInfo[];
   raw: Record<string, any>;
   scannedAt: string;
 }

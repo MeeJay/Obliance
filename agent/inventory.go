@@ -111,6 +111,22 @@ type OSDetails struct {
 	OfficeKey      string `json:"officeKey,omitempty"`      // Last 5 chars of product key
 }
 
+type PrinterInfo struct {
+	Name      string `json:"name"`
+	Driver    string `json:"driver,omitempty"`
+	Port      string `json:"port,omitempty"`
+	IsDefault bool   `json:"isDefault"`
+	IsNetwork bool   `json:"isNetwork"`
+	IsShared  bool   `json:"isShared"`
+	Status    string `json:"status,omitempty"`
+}
+
+type ComPortInfo struct {
+	Port        string `json:"port"`
+	Description string `json:"description,omitempty"`
+	DeviceID    string `json:"deviceId,omitempty"`
+}
+
 type BatteryInfo struct {
 	Present         bool    `json:"present"`
 	DesignCapacity  int     `json:"designCapacity,omitempty"`  // mWh
@@ -134,6 +150,8 @@ type InventoryData struct {
 	Battery     *BatteryInfo           `json:"battery,omitempty"`
 	Software    []SoftwareEntry        `json:"software,omitempty"`
 	BitLocker   []BitLockerVolume      `json:"bitlocker,omitempty"`
+	Printers    []PrinterInfo          `json:"printers,omitempty"`
+	ComPorts    []ComPortInfo          `json:"comPorts,omitempty"`
 	Raw         map[string]interface{} `json:"raw,omitempty"`
 	ScannedAt   time.Time              `json:"scannedAt"`
 }
@@ -223,6 +241,10 @@ $gpus  = Get-WmiObject Win32_VideoController
 $mb    = Get-WmiObject Win32_BaseBoard | Select-Object -First 1
 # BIOS
 $bios  = Get-WmiObject Win32_BIOS | Select-Object -First 1
+# Printers
+$printers = Get-WmiObject Win32_Printer
+# COM/LPT ports (Ports device class — catches real UART, USB-serial adapters, etc.)
+$ports = Get-WmiObject Win32_PnPEntity -Filter "PNPClass='Ports'"
 
 $result = @{
   cpu = @{
@@ -276,6 +298,25 @@ $result = @{
     version = $bios.SMBIOSBIOSVersion.Trim()
     date    = $bios.ReleaseDate
   }
+  printers = @($printers | ForEach-Object {
+    @{
+      name      = $_.Name
+      driver    = $_.DriverName
+      port      = $_.PortName
+      isDefault = [bool]$_.Default
+      isNetwork = [bool]$_.Network
+      isShared  = [bool]$_.Shared
+      status    = switch([int]$_.PrinterStatus){ 1{'Other'} 2{'Unknown'} 3{'Idle'} 4{'Printing'} 5{'Warmup'} 6{'Stopped Printing'} 7{'Offline'} default{'Unknown'} }
+    }
+  })
+  comPorts = @($ports | ForEach-Object {
+    $com = if ($_.Caption -match '\((COM\d+)\)') { $matches[1] } else { $null }
+    @{
+      port        = $com
+      description = $_.Caption
+      deviceId    = $_.PNPDeviceID
+    }
+  } | Where-Object { $_.port })
 }
 
 # OS details
@@ -464,6 +505,39 @@ $result | ConvertTo-Json -Depth 5 -Compress`
 		}
 	}
 
+	// Printers
+	if printerArr, ok := raw["printers"].([]interface{}); ok {
+		for _, p := range printerArr {
+			if pm, ok := p.(map[string]interface{}); ok {
+				isDefault, _ := pm["isDefault"].(bool)
+				isNetwork, _ := pm["isNetwork"].(bool)
+				isShared, _ := pm["isShared"].(bool)
+				inv.Printers = append(inv.Printers, PrinterInfo{
+					Name:      stringField(pm, "name"),
+					Driver:    stringField(pm, "driver"),
+					Port:      stringField(pm, "port"),
+					IsDefault: isDefault,
+					IsNetwork: isNetwork,
+					IsShared:  isShared,
+					Status:    stringField(pm, "status"),
+				})
+			}
+		}
+	}
+
+	// COM ports
+	if portArr, ok := raw["comPorts"].([]interface{}); ok {
+		for _, p := range portArr {
+			if pm, ok := p.(map[string]interface{}); ok {
+				inv.ComPorts = append(inv.ComPorts, ComPortInfo{
+					Port:        stringField(pm, "port"),
+					Description: stringField(pm, "description"),
+					DeviceID:    stringField(pm, "deviceId"),
+				})
+			}
+		}
+	}
+
 	// TPM
 	if tpm, ok := raw["tpm"].(map[string]interface{}); ok {
 		present := false
@@ -556,7 +630,93 @@ func scanLinuxInventory(inv *InventoryData) error {
 	// Battery
 	inv.Battery = collectLinuxBattery()
 
+	// Printers (CUPS)
+	inv.Printers = scanCupsPrinters()
+
+	// COM/serial ports
+	inv.ComPorts = scanLinuxComPorts()
+
 	return nil
+}
+
+// scanLinuxComPorts lists real serial devices under /dev. ttyUSB*/ttyACM*
+// nodes only exist when a device is actually plugged in, so they're always
+// real. ttyS* nodes are pre-created for every possible legacy UART regardless
+// of whether hardware backs them — we only keep the ones with a "device"
+// symlink under /sys/class/tty, which indicates real hardware.
+func scanLinuxComPorts() []ComPortInfo {
+	entries, err := os.ReadDir("/dev")
+	if err != nil {
+		return nil
+	}
+	var ports []ComPortInfo
+	for _, e := range entries {
+		name := e.Name()
+		isUSBSerial := strings.HasPrefix(name, "ttyUSB") || strings.HasPrefix(name, "ttyACM")
+		isLegacySerial := strings.HasPrefix(name, "ttyS")
+		if !isUSBSerial && !isLegacySerial {
+			continue
+		}
+		if isLegacySerial {
+			if _, err := os.Stat("/sys/class/tty/" + name + "/device"); err != nil {
+				continue // phantom port, no hardware behind it
+			}
+		}
+		devPath := "/dev/" + name
+		desc := ""
+		if out, err := newCmd("udevadm", "info", "-q", "property", "-n", devPath).Output(); err == nil {
+			for _, l := range strings.Split(string(out), "\n") {
+				if strings.HasPrefix(l, "ID_MODEL=") {
+					desc = strings.ReplaceAll(strings.TrimPrefix(l, "ID_MODEL="), "_", " ")
+					break
+				}
+			}
+		}
+		ports = append(ports, ComPortInfo{Port: devPath, Description: desc})
+	}
+	return ports
+}
+
+// scanCupsPrinters lists printers via `lpstat` (CUPS) — shared by Linux and
+// macOS, both of which use CUPS as their printing subsystem.
+func scanCupsPrinters() []PrinterInfo {
+	out, err := newCmd("lpstat", "-p").Output()
+	if err != nil {
+		return nil
+	}
+	defaultName := ""
+	if dout, err := newCmd("lpstat", "-d").Output(); err == nil {
+		if idx := strings.Index(string(dout), ": "); idx >= 0 {
+			defaultName = strings.TrimSpace(string(dout)[idx+2:])
+		}
+	}
+	var printers []PrinterInfo
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "printer ") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		name := fields[1]
+		status := "Unknown"
+		switch {
+		case strings.Contains(line, "is idle"):
+			status = "Idle"
+		case strings.Contains(line, "printing"):
+			status = "Printing"
+		case strings.Contains(line, "disabled"):
+			status = "Offline"
+		}
+		printers = append(printers, PrinterInfo{
+			Name:      name,
+			IsDefault: name != "" && name == defaultName,
+			Status:    status,
+		})
+	}
+	return printers
 }
 
 func parseLinuxCPUInfo(data string) CpuInfo {
@@ -926,6 +1086,20 @@ func scanDarwinInventory(inv *InventoryData) error {
 		inv.OS = od
 	}
 
+	// Printers (CUPS — same subsystem as Linux)
+	inv.Printers = scanCupsPrinters()
+
+	// COM/serial ports — list /dev/cu.* (callout devices; canonical for macOS,
+	// avoids double-listing the matching /dev/tty.* entry for the same device).
+	if entries, err := os.ReadDir("/dev"); err == nil {
+		for _, e := range entries {
+			name := e.Name()
+			if strings.HasPrefix(name, "cu.") && !strings.Contains(name, "Bluetooth-Incoming") {
+				inv.ComPorts = append(inv.ComPorts, ComPortInfo{Port: "/dev/" + name})
+			}
+		}
+	}
+
 	// Battery via system_profiler SPPowerDataType
 	if out, err := newCmd("system_profiler", "-json", "SPPowerDataType").Output(); err == nil {
 		var pw map[string][]map[string]interface{}
@@ -997,6 +1171,20 @@ func scanFreeBSDInventory(inv *InventoryData) error {
 
 	// Battery — nil (FreeBSD servers)
 	inv.Battery = nil
+
+	// Printers — best-effort via lpstat (CUPS is uncommon on FreeBSD servers,
+	// but harmless to check; scanCupsPrinters returns nil if unavailable).
+	inv.Printers = scanCupsPrinters()
+
+	// COM/serial ports — cuau*/uart callout devices and USB-serial ttyU*.
+	if entries, err := os.ReadDir("/dev"); err == nil {
+		for _, e := range entries {
+			name := e.Name()
+			if strings.HasPrefix(name, "cuau") || strings.HasPrefix(name, "cuaU") {
+				inv.ComPorts = append(inv.ComPorts, ComPortInfo{Port: "/dev/" + name})
+			}
+		}
+	}
 
 	return nil
 }

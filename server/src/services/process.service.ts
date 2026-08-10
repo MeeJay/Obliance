@@ -68,8 +68,12 @@ class ProcessService {
     }
   }
 
-  /** Called by agentHub when a `list_processes` ACK arrives. */
+  /** Called by agentHub when a `list_processes` ACK arrives. Only meaningful when
+   *  someone is actively watching this device's live process view — otherwise
+   *  it's collateral traffic (e.g. the rewind collector probing the whole fleet
+   *  every 5 min would otherwise flood the tenant room with full process lists). */
   broadcast(deviceId: number, tenantId: number, processes: any[]): void {
+    if (!this.subs.has(deviceId)) return; // no live viewer → nothing to push
     getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_PROCESSES_UPDATED, {
       deviceId,
       processes,

@@ -312,15 +312,28 @@ class AgentHubService {
   private async _handleAck(conn: AgentConn, msg: AgentAck): Promise<void> {
     if (msg.type !== 'ack') return;
 
-    // Ephemeral process list — broadcast directly, skip DB
-    if (msg.commandType === 'list_processes' && msg.success && msg.result) {
-      try {
-        const parsed = typeof msg.result === 'string' ? JSON.parse(msg.result) : msg.result;
-        const processes = parsed?.processes ?? parsed;
-        if (Array.isArray(processes)) {
-          processService.broadcast(conn.deviceId, conn.tenantId, processes);
-        }
-      } catch { /* ignore malformed process data */ }
+    // Ephemeral process list — never touches the command_queue path (rewind
+    // dispatches carry no DB row; live-poll dispatches have random ids). Handle
+    // BOTH success and failure here and always return, so a failed ack can't
+    // fall through and insert a phantom command_queue row / emit a spurious
+    // COMMAND_RESULT. onProcessAck persists for rewind dispatches and no-ops for
+    // live-viewer polls; calling it with [] on failure just releases the pending
+    // entry immediately (instead of leaking until the 90s TTL).
+    if (msg.commandType === 'list_processes') {
+      let processes: any[] = [];
+      if (msg.success && msg.result) {
+        try {
+          const parsed = typeof msg.result === 'string' ? JSON.parse(msg.result) : msg.result;
+          const arr = parsed?.processes ?? parsed;
+          if (Array.isArray(arr)) {
+            processes = arr;
+            processService.broadcast(conn.deviceId, conn.tenantId, processes);
+          }
+        } catch { /* ignore malformed process data */ }
+      }
+      import('./rewindCollector.service')
+        .then(({ rewindCollector }) => rewindCollector.onProcessAck(msg.id, conn.deviceId, conn.tenantId, processes))
+        .catch(() => { /* best-effort */ });
       return;
     }
 

@@ -9,6 +9,7 @@ import {
  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
  ArrowRightLeft, Pencil, Check, StickyNote, Database, TrendingUp, TrendingDown, Minus,
+ Printer, Cable, Rewind,
 } from 'lucide-react';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
@@ -43,6 +44,7 @@ import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { DeviceMetricsBar } from '@/components/devices/DeviceMetricsBar';
 import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
+import RewindTab from '@/components/devices/RewindTab';
 import { DeviceCvesSection } from '@/components/devices/DeviceCvesSection';
 import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds, DeviceMetricsHistory } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
@@ -55,10 +57,11 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 
-type Tab = 'overview' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'hyperv' | 'veeam' | 'settings' | `cs:${number}`;
+type Tab = 'overview' | 'rewind' | 'inventory' | 'scripts' | 'updates' | 'compliance' | 'remote' | 'files' | 'services' | 'processes' | 'commands' | 'hyperv' | 'veeam' | 'settings' | `cs:${number}`;
 
 const TABS: Array<{ id: Tab; label: string; icon: any }> = [
  { id: 'overview', label: 'Overview', icon: Monitor },
+ { id: 'rewind', label: 'Rewind', icon: Rewind },
  { id: 'inventory', label: 'Inventory', icon: HardDrive },
  { id: 'scripts', label: 'Scripts', icon: Terminal },
  { id: 'updates', label: 'Updates', icon: Package },
@@ -938,6 +941,45 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  {(iface.addresses ?? []).length > 0 && (
  <span className="text-text-muted text-xs">{(iface.addresses ?? []).map(a => anonymizeIp(a)).join(' · ')}</span>
  )}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ {/* Printers */}
+ {(hardware.printers ?? []).length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Printer className="w-4 h-4" />{t('device.inventory.printers') || 'Printers'}</h4>
+ <div className="space-y-2">
+ {(hardware.printers ?? []).map((printer, i) => (
+ <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+ <span className="text-text-primary font-medium">{printer.name}</span>
+ {printer.isDefault && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded border text-accent border-accent/30">{t('device.inventory.default') || 'Default'}</span>
+ )}
+ {printer.isNetwork && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border">{t('device.inventory.network') || 'Network'}</span>
+ )}
+ {printer.isShared && (
+ <span className="text-[10px] px-1.5 py-0.5 rounded border text-text-muted border-border">{t('device.inventory.shared') || 'Shared'}</span>
+ )}
+ {printer.status && <span className="text-text-muted text-xs">{printer.status}</span>}
+ {printer.port && <span className="text-text-muted text-xs">{printer.port}</span>}
+ {printer.driver && <span className="text-text-muted text-xs">{printer.driver}</span>}
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+ {/* COM / serial ports */}
+ {(hardware.comPorts ?? []).length > 0 && (
+ <div className="p-4 bg-bg-secondary rounded-xl md:col-span-2">
+ <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><Cable className="w-4 h-4" />{t('device.inventory.comPorts') || 'COM Ports'}</h4>
+ <div className="space-y-2">
+ {(hardware.comPorts ?? []).map((port, i) => (
+ <div key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
+ <span className="text-text-primary font-medium font-mono">{port.port}</span>
+ {port.description && <span className="text-text-muted text-xs">{port.description}</span>}
  </div>
  ))}
  </div>
@@ -6144,6 +6186,7 @@ export function DeviceDetailPage() {
  {/* Tab content */}
  <div>
  {activeTab === 'overview' && <OverviewTab device={device} onSaved={() => fetchDevice(deviceId)} />}
+ {activeTab === 'rewind' && <RewindTab deviceId={device.id} />}
  {activeTab === 'inventory' && <InventoryTab deviceId={device.id} agentFlavor={device.agentFlavor} />}
  {activeTab === 'scripts' && <ScriptsTab deviceId={device.id} />}
  {activeTab === 'updates' && <UpdatesTab deviceId={device.id} agentFlavor={device.agentFlavor} />}

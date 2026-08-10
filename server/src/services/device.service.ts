@@ -2339,11 +2339,20 @@ class DeviceService {
     ensureMetricHistoryFlusher();
   }
 
-  /** Retention: 5-min ≤3h (covers 1h window + margin), hourly ≤72h (24h), daily ≤40d (30d). */
+  /** Retention (env-tunable): 5-min + process/service snapshots ≤ REWIND_RETENTION_DAYS
+   *  (7d, Rewind fine detail), hourly ≤ METRIC_HOURLY_RETENTION_DAYS (30d), daily ≤40d.
+   *  Range-deletes on bucket/captured_at are supported by BRIN indexes (migration 122). */
   async pruneMetricHistory(): Promise<void> {
     try {
-      const fiveCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000);
-      const hourlyCutoff = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      // Retention tiers for the Rewind time-machine (env-tunable):
+      //   5-min buckets + process/service snapshots → REWIND_RETENTION_DAYS (7d):
+      //     fine detail exactly where full snapshot data exists.
+      //   hourly buckets → METRIC_HOURLY_RETENTION_DAYS (30d): month-long graphs.
+      //   daily buckets → 40d (unchanged).
+      const rewindDays = Math.max(1, parseInt(process.env.REWIND_RETENTION_DAYS || '7', 10));
+      const hourlyDays = Math.max(rewindDays, parseInt(process.env.METRIC_HOURLY_RETENTION_DAYS || '30', 10));
+      const fiveCutoff = new Date(Date.now() - rewindDays * 24 * 60 * 60 * 1000);
+      const hourlyCutoff = new Date(Date.now() - hourlyDays * 24 * 60 * 60 * 1000);
       const dailyCutoff = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
       const m5 = await db('device_metric_5min').where('bucket', '<', fiveCutoff).del();
       const mh = await db('device_metric_hourly').where('bucket', '<', hourlyCutoff).del();
@@ -2351,7 +2360,15 @@ class DeviceService {
       const d5 = await db('device_disk_5min').where('bucket', '<', fiveCutoff).del();
       const dh = await db('device_disk_hourly').where('bucket', '<', hourlyCutoff).del();
       const dd = await db('device_disk_daily').where('bucket', '<', dailyCutoff).del();
-      logger.info({ metric5min: m5, metricHourly: mh, metricDaily: md, disk5min: d5, diskHourly: dh, diskDaily: dd }, 'Metric-history prune complete');
+      // Rewind snapshots share the 5-min detail window.
+      let ph = 0, sh = 0;
+      try {
+        ph = await db('device_process_history').where('captured_at', '<', fiveCutoff).del();
+        sh = await db('device_service_history').where('captured_at', '<', fiveCutoff).del();
+      } catch (rewErr) {
+        logger.error(rewErr, 'Rewind-history prune failed');
+      }
+      logger.info({ metric5min: m5, metricHourly: mh, metricDaily: md, disk5min: d5, diskHourly: dh, diskDaily: dd, processHistory: ph, serviceHistory: sh }, 'Metric-history prune complete');
     } catch (err) {
       logger.error(err, 'Metric-history prune failed');
     }

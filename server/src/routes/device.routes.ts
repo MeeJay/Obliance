@@ -833,6 +833,45 @@ router.get('/:id/disk-health', requireDeviceRead(), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Rewind time-machine ─────────────────────────────────────────────────────
+// Accepts ISO strings or epoch-ms in from/to/ts query params.
+const parseRewindTs = (v: unknown): Date | null => {
+  if (v == null || v === '') return null;
+  const s = String(v);
+  const d = new Date(/^\d+$/.test(s) ? Number(s) : s);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// GET /api/devices/:id/rewind/range — scrubber bounds + where detail exists
+router.get('/:id/rewind/range', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const { rewindService } = await import('../services/rewind.service');
+    res.json({ data: await rewindService.getRange(deviceId, req.tenantId!) });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/rewind/series?from=&to= — CPU/RAM/Disk timeseries
+router.get('/:id/rewind/series', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const to = parseRewindTs(req.query.to) ?? new Date();
+    const from = parseRewindTs(req.query.from) ?? new Date(to.getTime() - 24 * 60 * 60 * 1000);
+    const { rewindService } = await import('../services/rewind.service');
+    res.json({ data: await rewindService.getSeries(deviceId, req.tenantId!, from, to) });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/rewind/at?ts= — processes + services nearest an instant
+router.get('/:id/rewind/at', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const at = parseRewindTs(req.query.ts) ?? new Date();
+    const { rewindService } = await import('../services/rewind.service');
+    res.json({ data: await rewindService.getSnapshotAt(deviceId, req.tenantId!, at) });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/:id/custom-sections — list sections that apply to this device
 router.get('/:id/custom-sections', requireDeviceRead(), async (req, res, next) => {
   try {

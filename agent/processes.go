@@ -3,9 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 // ProcessInfo describes a single OS process.
@@ -68,16 +73,112 @@ func killProcess(pid int) error {
 // collectProcesses returns the list of running processes.
 // Platform-specific implementations below.
 func collectProcesses() ([]ProcessInfo, error) {
-	switch runtime.GOOS {
-	case "windows":
+	if runtime.GOOS == "windows" {
 		return collectProcessesWindows()
-	case "darwin":
-		return collectProcessesDarwin()
-	case "freebsd":
-		return collectProcessesFreeBSD()
-	default:
-		return collectProcessesLinux()
 	}
+	// Linux / macOS / *BSD: read /proc (etc.) via gopsutil — no `ps` fork.
+	return collectProcessesGopsutil()
+}
+
+// processCollectMu serialises process collection so the live poll (5s while a
+// viewer watches) and the rewind snapshot never run their CPU-sampling window
+// concurrently on the same box.
+var processCollectMu sync.Mutex
+
+// collectProcessesGopsutil enumerates processes via gopsutil (reads /proc on
+// Linux, sysctl on *BSD/macOS) — no `ps` fork, no output-format parsing. CPU is
+// INSTANTANEOUS: each process's CPU counter is primed, we wait a short window,
+// then measure the delta (like top/htop) instead of ps's lifetime average
+// (which summed to absurd values like 8000%). gopsutil returns per-single-core
+// percent, which we then divide by core count + clamp (see below) so a value is
+// "% of the whole machine" and the set sums to <= 100%.
+func collectProcessesGopsutil() ([]ProcessInfo, error) {
+	processCollectMu.Lock()
+	defer processCollectMu.Unlock()
+
+	procs, err := process.Processes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Pass 1 — prime each process's CPU counter (first Percent(0) returns 0).
+	for _, p := range procs {
+		_, _ = p.Percent(0)
+	}
+	time.Sleep(400 * time.Millisecond)
+
+	ncpu := float64(runtime.NumCPU())
+	if ncpu < 1 {
+		ncpu = 1
+	}
+	userCache := map[int32]string{}
+
+	// Pass 2 — read the delta over the sampling window + the rest of the fields.
+	out := make([]ProcessInfo, 0, len(procs))
+	for _, p := range procs {
+		cpu, _ := p.Percent(0)
+		// gopsutil returns top/htop-style "percent of a single core" (a process
+		// spanning N cores reads N*100). Normalise to "% of the whole machine"
+		// and clamp — matching the Windows path — so the set sums to <= 100%
+		// (no more 8000%, and no impossible >100% per-process values).
+		cpu = cpu / ncpu
+		if cpu > 100 {
+			cpu = 100
+		} else if cpu < 0 {
+			cpu = 0
+		}
+
+		name, _ := p.Name()
+		if name == "" {
+			continue
+		}
+		var rss int64
+		if mi, mErr := p.MemoryInfo(); mErr == nil && mi != nil {
+			rss = int64(mi.RSS)
+		}
+		user, _ := p.Username()
+		if user == "" {
+			user = resolveUsername(p, userCache)
+		}
+		cmd, _ := p.Cmdline()
+		out = append(out, ProcessInfo{
+			PID:        int(p.Pid),
+			Name:       name,
+			CPUPercent: math.Round(cpu*10) / 10,
+			MemBytes:   rss,
+			User:       user,
+			Command:    cmd,
+		})
+	}
+	return out, nil
+}
+
+// resolveUsername resolves a process owner via NSS (getent) when gopsutil's
+// os/user lookup returns empty — which happens for domain users (SSSD/LDAP/AD)
+// on CGO-disabled Linux/FreeBSD builds, where pure-Go os/user only reads
+// /etc/passwd. Cached per collection so we fork getent at most once per distinct
+// domain UID (local/root users are already resolved by gopsutil without a fork).
+func resolveUsername(p *process.Process, cache map[int32]string) string {
+	if runtime.GOOS == "windows" {
+		return ""
+	}
+	uids, err := p.Uids()
+	if err != nil || len(uids) == 0 {
+		return ""
+	}
+	uid := uids[0]
+	if v, ok := cache[uid]; ok {
+		return v
+	}
+	name := ""
+	if out, e := newCmd("getent", "passwd", strconv.Itoa(int(uid))).Output(); e == nil {
+		// getent line: name:x:uid:gid:gecos:home:shell
+		if i := strings.IndexByte(string(out), ':'); i > 0 {
+			name = string(out)[:i]
+		}
+	}
+	cache[uid] = name
+	return name
 }
 
 func collectProcessesTasklist() ([]ProcessInfo, error) {
@@ -142,89 +243,4 @@ func parseCSVLine(line string) []string {
 	}
 	fields = append(fields, field.String())
 	return fields
-}
-
-// ── Linux ────────────────────────────────────────────────────────────────────
-
-func collectProcessesLinux() ([]ProcessInfo, error) {
-	// ps -eo pid,comm,%cpu,rss,user,args --no-headers
-	out, err := newCmd("ps", "-eo", "pid,comm,%cpu,rss,user,args", "--no-headers").Output()
-	if err != nil {
-		return nil, err
-	}
-	return parsePsOutput(string(out)), nil
-}
-
-// ── macOS ────────────────────────────────────────────────────────────────────
-
-func collectProcessesDarwin() ([]ProcessInfo, error) {
-	// macOS ps doesn't support --no-headers but supports -o without headers using =
-	out, err := newCmd("ps", "-A", "-o", "pid=,comm=,%cpu=,rss=,user=,args=").Output()
-	if err != nil {
-		// Fallback: standard ps
-		out, err = newCmd("ps", "-A", "-o", "pid,comm,%cpu,rss,user,args").Output()
-		if err != nil {
-			return nil, err
-		}
-		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-		if len(lines) > 0 {
-			// Skip header line
-			return parsePsOutput(strings.Join(lines[1:], "\n")), nil
-		}
-		return []ProcessInfo{}, nil
-	}
-	return parsePsOutput(string(out)), nil
-}
-
-// ── FreeBSD ─────────────────────────────────────────────────────────────
-
-func collectProcessesFreeBSD() ([]ProcessInfo, error) {
-	// FreeBSD ps: use separate -o flags and skip the header line.
-	// The "=" suffix to suppress headers is unreliable across FreeBSD versions.
-	out, err := newCmd("ps", "-ax", "-o", "pid", "-o", "comm", "-o", "%cpu", "-o", "rss", "-o", "user", "-o", "args").Output()
-	if err != nil {
-		return nil, err
-	}
-	// Skip the first line (header)
-	raw := strings.TrimSpace(string(out))
-	idx := strings.Index(raw, "\n")
-	if idx < 0 {
-		return nil, nil
-	}
-	return parsePsOutput(raw[idx+1:]), nil
-}
-
-// parsePsOutput parses `ps -eo pid,comm,%cpu,rss,user,args` output.
-func parsePsOutput(output string) []ProcessInfo {
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	processes := make([]ProcessInfo, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 5 {
-			continue
-		}
-		pid, _ := strconv.Atoi(fields[0])
-		if pid == 0 {
-			continue
-		}
-		cpu, _ := strconv.ParseFloat(fields[2], 64)
-		rssKB, _ := strconv.ParseInt(fields[3], 10, 64)
-		cmdLine := ""
-		if len(fields) >= 6 {
-			cmdLine = strings.Join(fields[5:], " ")
-		}
-		processes = append(processes, ProcessInfo{
-			PID:        pid,
-			Name:       fields[1],
-			CPUPercent: cpu,
-			MemBytes:   rssKB * 1024,
-			User:       fields[4],
-			Command:    cmdLine,
-		})
-	}
-	return processes
 }

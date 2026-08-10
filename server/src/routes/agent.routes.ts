@@ -556,6 +556,35 @@ router.post('/services', agentAuth, async (req, res, next) => {
       .where({ id: device.id })
       .update({ latest_services: JSON.stringify(services) });
 
+    // Rewind history: append a timestamped snapshot, deduped on a content hash
+    // so a stable machine writes ~nothing between changes (heartbeat 30 min).
+    // Best-effort — never fails the agent push.
+    try {
+      const { createHash } = await import('crypto');
+      const payload = JSON.stringify(services);
+      const hash = createHash('sha256').update(payload).digest('hex');
+      const last = await db('device_service_history')
+        .where({ device_id: device.id })
+        .orderBy('captured_at', 'desc')
+        .first('content_hash', 'captured_at'); // narrow: never detoast the services blob just to compare a hash
+      const changed = !last || last.content_hash !== hash;
+      const stale = last && (Date.now() - new Date(last.captured_at).getTime() > 30 * 60 * 1000);
+      if (changed || stale) {
+        const running = services.filter((s: any) => /run|active/i.test(String(s?.status ?? ''))).length;
+        await db('device_service_history').insert({
+          device_id: device.id,
+          tenant_id: tenantId,
+          captured_at: new Date(),
+          content_hash: hash,
+          service_count: services.length,
+          running_count: running,
+          services: payload,
+        });
+      }
+    } catch (histErr) {
+      logger.error(histErr, 'Failed to write service-history snapshot');
+    }
+
     // Emit real-time update to all clients in this tenant room
     getIO().to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_SERVICES_UPDATED, {
       deviceId: device.id,

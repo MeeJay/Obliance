@@ -62,7 +62,8 @@
     "results": "résultats",
     "page": "Page",
     "confirmDelete": "Êtes-vous sûr ?",
-    "deleted": "Supprimé"
+    "deleted": "Supprimé",
+    "retry": "Réessayer"
   },
   "status": {
     "up": "EN LIGNE",
@@ -1935,7 +1936,14 @@
   "device": {
     "notes": "Notes",
     "notesPlaceholder": "Ajouter des notes sur cet appareil...",
-    "location": "Localisation"
+    "location": "Localisation",
+    "inventory": {
+      "printers": "Imprimantes",
+      "comPorts": "Ports COM",
+      "default": "Par défaut",
+      "network": "Réseau",
+      "shared": "Partagée"
+    }
   },
   "licenses": {
     "title": "Licences",
@@ -2317,5 +2325,28 @@
       "bad": "Critique",
       "unknown": "Inconnu"
     }
+  },
+  "rewind": {
+    "title": "Rewind — machine à remonter le temps",
+    "prevDay": "Jour précédent",
+    "nextDay": "Jour suivant",
+    "backToNow": "Revenir à maintenant",
+    "now": "Maintenant",
+    "noData": "La collecte vient de démarrer — les données du Rewind apparaîtront au fil de l'eau (métriques en continu, process ~5 min).",
+    "cpuRam": "CPU / RAM",
+    "resHourly": "résolution horaire",
+    "res5min": "résolution 5 min",
+    "disk": "Disque (%)",
+    "noDayData": "Aucune métrique ce jour-là",
+    "processes": "Processus",
+    "total": "total",
+    "machineCpu": "CPU machine",
+    "machineRam": "RAM machine",
+    "noProcSnap": "Pas de snapshot process à cet instant (machine hors-ligne, ou avant le début de la collecte).",
+    "process": "Processus",
+    "user": "Utilisateur",
+    "services": "Services",
+    "noSvcSnap": "Pas de snapshot services à cet instant.",
+    "loadError": "Impossible de charger le Rewind (erreur serveur ou accès refusé)."
   }
 }
