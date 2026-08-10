@@ -70,10 +70,10 @@ type pushBody struct {
 	// Virtualization host type detected on this machine ("hyperv" today),
 	// or "" when the host runs no recognised hypervisor role. Cheap +
 	// cached, so safe to send on every push.
-	VirtualizationHost    string       `json:"virtualizationHost,omitempty"`
+	VirtualizationHost string `json:"virtualizationHost,omitempty"`
 	// Backup host type detected on this machine ("veeam" today), or "" when
 	// the host runs no recognised backup-server role. Cheap + cached.
-	BackupHost            string       `json:"backupHost,omitempty"`
+	BackupHost string `json:"backupHost,omitempty"`
 }
 
 // AgentCommand is a command delivered from the server in a push response.
@@ -88,14 +88,14 @@ type pushResponse struct {
 	Status        string `json:"status"`
 	LatestVersion string `json:"latestVersion,omitempty"` // piggybacked version info
 	Config        *struct {
-		CheckIntervalSeconds     int  `json:"checkIntervalSeconds"`
-		PushIntervalSeconds      int  `json:"pushIntervalSeconds"`
-		ScanIntervalSeconds      int  `json:"scanIntervalSeconds"`
-		TaskRetrieveDelaySeconds int  `json:"taskRetrieveDelaySeconds"`
+		CheckIntervalSeconds     int   `json:"checkIntervalSeconds"`
+		PushIntervalSeconds      int   `json:"pushIntervalSeconds"`
+		ScanIntervalSeconds      int   `json:"scanIntervalSeconds"`
+		TaskRetrieveDelaySeconds int   `json:"taskRetrieveDelaySeconds"`
 		RemediationEnabled       *bool `json:"remediationEnabled,omitempty"`
 	} `json:"config,omitempty"`
-	Commands    []AgentCommand `json:"commands,omitempty"`
-	NextPollIn  int            `json:"nextPollIn,omitempty"` // seconds
+	Commands   []AgentCommand `json:"commands,omitempty"`
+	NextPollIn int            `json:"nextPollIn,omitempty"` // seconds
 	// Legacy one-shot command field — kept for backward compatibility.
 	Command string `json:"command,omitempty"`
 }
@@ -155,25 +155,25 @@ func detectLinuxDistroFamily() string {
 
 	// Map known distro IDs to normalized families.
 	familyMap := map[string]string{
-		"ubuntu":               "debian",
-		"debian":               "debian",
-		"linuxmint":            "debian",
-		"pop":                  "debian",
-		"elementary":           "debian",
-		"raspbian":             "debian",
-		"centos":               "rhel",
-		"rhel":                 "rhel",
-		"rocky":                "rhel",
-		"alma":                 "rhel",
-		"oracle":               "rhel",
-		"fedora":               "fedora",
-		"arch":                 "arch",
-		"manjaro":              "arch",
-		"endeavouros":          "arch",
-		"opensuse":             "suse",
-		"suse":                 "suse",
-		"opensuse-leap":        "suse",
-		"opensuse-tumbleweed":  "suse",
+		"ubuntu":              "debian",
+		"debian":              "debian",
+		"linuxmint":           "debian",
+		"pop":                 "debian",
+		"elementary":          "debian",
+		"raspbian":            "debian",
+		"centos":              "rhel",
+		"rhel":                "rhel",
+		"rocky":               "rhel",
+		"alma":                "rhel",
+		"oracle":              "rhel",
+		"fedora":              "fedora",
+		"arch":                "arch",
+		"manjaro":             "arch",
+		"endeavouros":         "arch",
+		"opensuse":            "suse",
+		"suse":                "suse",
+		"opensuse-leap":       "suse",
+		"opensuse-tumbleweed": "suse",
 	}
 
 	if family, ok := familyMap[distroID]; ok {
@@ -182,9 +182,28 @@ func detectLinuxDistroFamily() string {
 	return distroID
 }
 
+// linuxPrettyName returns /etc/os-release PRETTY_NAME (e.g. "CentOS Stream 8",
+// "Debian GNU/Linux 13 (trixie)") — the precise edition users recognise, which
+// gopsutil host.Info() flattens to a short id ("centos") + a bare number. Empty
+// if unavailable (non-Linux, or /etc/os-release missing).
+func linuxPrettyName() string {
+	f, err := os.Open("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "PRETTY_NAME=") {
+			return strings.TrimSpace(strings.Trim(strings.TrimPrefix(line, "PRETTY_NAME="), `"'`))
+		}
+	}
+	return ""
+}
+
 // dispatcher is the package-level command dispatcher shared by mainLoop and push.
 var dispatcher *CommandDispatcher
-
 
 func push(cfg *Config) {
 	hostname, _ := os.Hostname()

@@ -103,20 +103,35 @@ export const rewindService = {
     return res;
   },
 
-  /** Processes + services nearest an instant (closest snapshot in either direction). */
+  /** Processes + services nearest an instant, WITHIN a tolerance. The closest
+   *  snapshot is returned only if it actually sits near the selected time; if the
+   *  nearest one is farther than the tolerance (selected instant is before the
+   *  collection started, or inside an offline gap), we return null so the UI says
+   *  "no snapshot" instead of presenting data from hours away as if it were the
+   *  value at that instant. Tolerances match the collection cadence: processes
+   *  ~2x the probe interval; services wider (they persist; 30-min heartbeat). */
   async getSnapshotAt(deviceId: number, tenantId: number, at: Date) {
-    const nearest = async (table: string, tsCol: string) => {
+    const nearest = async (table: string, tsCol: string, tolMs: number) => {
       const before = await scope(table, deviceId, tenantId).where(tsCol, '<=', at).orderBy(tsCol, 'desc').first();
       const after = await scope(table, deviceId, tenantId).where(tsCol, '>', at).orderBy(tsCol, 'asc').first();
-      if (!before) return after ?? null;
-      if (!after) return before;
-      const db1 = Math.abs(new Date(before[tsCol]).getTime() - at.getTime());
-      const da = Math.abs(new Date(after[tsCol]).getTime() - at.getTime());
-      return da < db1 ? after : before;
+      let pick: any = null;
+      if (!before) pick = after ?? null;
+      else if (!after) pick = before;
+      else {
+        const db1 = Math.abs(new Date(before[tsCol]).getTime() - at.getTime());
+        const da = Math.abs(new Date(after[tsCol]).getTime() - at.getTime());
+        pick = da < db1 ? after : before;
+      }
+      if (!pick) return null;
+      const dist = Math.abs(new Date(pick[tsCol]).getTime() - at.getTime());
+      return dist <= tolMs ? pick : null; // too far → treat as "no snapshot at this instant"
     };
 
-    const p = await nearest('device_process_history', 'captured_at');
-    const s = await nearest('device_service_history', 'captured_at');
+    const procIntervalMin = Math.max(1, parseInt(process.env.REWIND_PROC_INTERVAL_MINUTES || '5', 10));
+    const procTolMs = procIntervalMin * 60 * 1000 * 2;       // ~10 min at the default 5-min cadence
+    const svcTolMs = Math.max(procTolMs, 45 * 60 * 1000);    // services persist (30-min heartbeat + margin)
+    const p = await nearest('device_process_history', 'captured_at', procTolMs);
+    const s = await nearest('device_service_history', 'captured_at', svcTolMs);
 
     return {
       process: p ? {

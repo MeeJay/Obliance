@@ -68,7 +68,9 @@ class DiskHealthCollector {
       const staleBefore = new Date(Date.now() - INTERVAL_HOURS * 3600 * 1000);
       const devices = await db('devices')
         .select('id', 'tenant_id', 'os_type')
-        .where({ status: 'online', privacy_mode_enabled: false })
+        // "reachable" set, not literal 'online' — hot devices sit in warning/critical.
+        .whereIn('status', ['online', 'warning', 'critical', 'updating'])
+        .where('privacy_mode_enabled', false)
         .whereIn('os_type', ELIGIBLE_OS)
         .where(function () {
           this.whereNull('last_disk_probe_at').orWhere('last_disk_probe_at', '<', staleBefore);

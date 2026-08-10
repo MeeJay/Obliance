@@ -241,7 +241,7 @@ export default function RewindTab({ deviceId }: { deviceId: number }) {
       <div className="flex flex-wrap items-center gap-3 p-4 bg-bg-secondary rounded-xl">
         <div className="flex items-center gap-2 text-text-primary">
           <Rewind className="w-5 h-5 text-accent" />
-          <span className="font-semibold">{t('rewind.title') || 'Rewind — machine à remonter le temps'}</span>
+          <span className="font-semibold">{t('rewind.title') || 'Rewind · machine à remonter le temps'}</span>
         </div>
         <div className="flex-1" />
         <button onClick={() => shiftDay(-1)} className="p-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted" title={t('rewind.prevDay') || 'Jour précédent'}>
@@ -272,7 +272,7 @@ export default function RewindTab({ deviceId }: { deviceId: number }) {
       ) : !hasAnyData ? (
         <div className="p-10 bg-bg-secondary rounded-xl text-center text-text-muted">
           <Clock className="w-8 h-8 mx-auto mb-3 opacity-40" />
-          {t('rewind.noData') || "La collecte vient de démarrer — les données du Rewind apparaîtront au fil de l'eau (métriques en continu, process ~5 min)."}
+          {t('rewind.noData') || "La collecte vient de démarrer ; les données du Rewind apparaîtront au fil de l'eau (métriques en continu, process ~5 min)."}
         </div>
       ) : (
         <div className="flex gap-4">

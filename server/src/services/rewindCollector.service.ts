@@ -63,7 +63,12 @@ class RewindCollector {
       const staleBefore = new Date(Date.now() - INTERVAL_MINUTES * 60 * 1000);
       const devices = await db('devices')
         .select('id', 'tenant_id')
-        .where({ status: 'online', privacy_mode_enabled: false })
+        // "reachable" set, NOT literal 'online' — a WS-connected device running
+        // hot is stored as warning/critical (metric severity mapped into status),
+        // which is the normal state for Windows (standby RAM counts as used). The
+        // isConnected() gate below still ensures we only probe live agents.
+        .whereIn('status', ['online', 'warning', 'critical', 'updating'])
+        .where('privacy_mode_enabled', false)
         .where(function () {
           this.whereNull('last_process_snapshot_at').orWhere('last_process_snapshot_at', '<', staleBefore);
         })

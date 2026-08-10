@@ -2328,12 +2328,12 @@
     }
   },
   "rewind": {
-    "title": "Rewind — machine time travel",
+    "title": "Rewind · time machine",
     "prevDay": "Previous day",
     "nextDay": "Next day",
     "backToNow": "Back to now",
     "now": "Now",
-    "noData": "Collection has just started — Rewind data will appear over time (metrics continuously, processes ~5 min).",
+    "noData": "Collection has just started; Rewind data will appear over time (metrics continuously, processes ~5 min).",
     "cpuRam": "CPU / RAM",
     "resHourly": "hourly resolution",
     "res5min": "5-min resolution",

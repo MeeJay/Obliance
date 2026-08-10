@@ -266,15 +266,21 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "restart_service":
 		result, execErr = d.handleRestartService(cmd)
-		if execErr == nil { go d.collectAndPostServices() }
+		if execErr == nil {
+			go d.collectAndPostServices()
+		}
 
 	case "start_service":
 		result, execErr = d.handleStartService(cmd)
-		if execErr == nil { go d.collectAndPostServices() }
+		if execErr == nil {
+			go d.collectAndPostServices()
+		}
 
 	case "stop_service":
 		result, execErr = d.handleStopService(cmd)
-		if execErr == nil { go d.collectAndPostServices() }
+		if execErr == nil {
+			go d.collectAndPostServices()
+		}
 
 	case "list_directory":
 		result, execErr = d.handleListDirectory(cmd)
@@ -681,7 +687,7 @@ type ComplianceRule struct {
 	ID                    string      `json:"id"`
 	Name                  string      `json:"name"`
 	Category              string      `json:"category"`
-	CheckType             string      `json:"checkType"` // registry|file|command|service|event_log|process|policy
+	CheckType             string      `json:"checkType"`      // registry|file|command|service|event_log|process|policy
 	TargetPlatform        string      `json:"targetPlatform"` // windows|macos|linux|all
 	Target                string      `json:"target"`
 	Expected              interface{} `json:"expected"`
@@ -1726,9 +1732,37 @@ func listServicesSysV() (interface{}, error) {
 type ServiceInfo struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName,omitempty"`
-	Status      string `json:"status"` // running, stopped, unknown
+	Status      string `json:"status"`              // running, stopped, unknown
 	StartType   string `json:"startType,omitempty"` // auto, manual, disabled, unknown
-	RunAsUser  string `json:"runAsUser,omitempty"`  // account the service runs as
+	RunAsUser   string `json:"runAsUser,omitempty"` // account the service runs as
+}
+
+// listServicesSystemdText parses `systemctl list-units` plain-text output — the
+// fallback for systemd versions without --output=json (CentOS 7 / 8 Stream).
+// Columns: UNIT LOAD ACTIVE SUB DESCRIPTION.
+func listServicesSystemdText() []ServiceInfo {
+	out, err := newCmd("systemctl", "list-units", "--type=service",
+		"--all", "--no-legend", "--no-pager", "--plain").Output()
+	if err != nil {
+		return []ServiceInfo{}
+	}
+	services := make([]ServiceInfo, 0)
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 || !strings.HasSuffix(fields[0], ".service") {
+			continue
+		}
+		status := "stopped"
+		if fields[2] == "active" {
+			status = "running"
+		}
+		desc := ""
+		if len(fields) >= 5 {
+			desc = strings.Join(fields[4:], " ")
+		}
+		services = append(services, ServiceInfo{Name: fields[0], DisplayName: desc, Status: status})
+	}
+	return services
 }
 
 func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, error) {
@@ -1738,11 +1772,13 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		defer cancel60()
 		// Win32_Service via CIM: returns string State/StartMode + StartName (run-as account).
 		out, err := newCmdContext(ctx60, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-			`Get-CimInstance -ClassName Win32_Service | Select-Object Name,DisplayName,State,StartMode,StartName | ConvertTo-Json -Compress`).Output()
+			`[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-CimInstance -ClassName Win32_Service | Select-Object Name,DisplayName,State,StartMode,StartName | ConvertTo-Json -Compress`).Output()
 		if err != nil {
 			return nil, fmt.Errorf("list_services: powershell failed: %w", err)
 		}
-		trimmed := strings.TrimSpace(string(out))
+		// Force UTF-8 above so accented DisplayNames (e.g. "arrière-plan") survive
+		// instead of being mangled by the console's OEM codepage. Strip a leading BOM.
+		trimmed := strings.TrimPrefix(strings.TrimSpace(string(out)), "\ufeff")
 		if len(trimmed) == 0 {
 			return []ServiceInfo{}, nil
 		}
@@ -1786,26 +1822,31 @@ func (d *CommandDispatcher) handleListServices(_ AgentCommand) (interface{}, err
 		if !linuxHasSystemd() {
 			return listServicesSysV()
 		}
-		out, err := newCmd("systemctl", "list-units", "--type=service",
-			"--all", "--no-pager", "--output=json").Output()
-		if err != nil {
-			// Fallback for older systemd without JSON support — return empty list.
-			return map[string]interface{}{"services": []ServiceInfo{}, "count": 0}, nil
-		}
-		var units []map[string]interface{}
-		if err := json.Unmarshal(out, &units); err != nil {
-			return map[string]interface{}{"services": []ServiceInfo{}, "count": 0}, nil
-		}
-		services := make([]ServiceInfo, 0, len(units))
-		for _, u := range units {
-			name, _ := u["unit"].(string)
-			desc, _ := u["description"].(string)
-			active, _ := u["active"].(string)
-			status := "stopped"
-			if active == "active" {
-				status = "running"
+		// systemd >= 246 supports --output=json; older (CentOS 7 = systemd 219,
+		// CentOS 8 Stream = 239) do not — the flag errors, so instead of returning
+		// an empty list we fall back to parsing the plain text listing, which works
+		// on every systemd version.
+		services := make([]ServiceInfo, 0)
+		jsonOk := false
+		if out, err := newCmd("systemctl", "list-units", "--type=service",
+			"--all", "--no-pager", "--output=json").Output(); err == nil {
+			var units []map[string]interface{}
+			if json.Unmarshal(out, &units) == nil {
+				jsonOk = true
+				for _, u := range units {
+					name, _ := u["unit"].(string)
+					desc, _ := u["description"].(string)
+					active, _ := u["active"].(string)
+					status := "stopped"
+					if active == "active" {
+						status = "running"
+					}
+					services = append(services, ServiceInfo{Name: name, DisplayName: desc, Status: status})
+				}
 			}
-			services = append(services, ServiceInfo{Name: name, DisplayName: desc, Status: status})
+		}
+		if !jsonOk {
+			services = listServicesSystemdText()
 		}
 		// Bulk-fetch User= property for all units in one systemctl show call.
 		if len(services) > 0 {
@@ -1950,7 +1991,6 @@ func (d *CommandDispatcher) handleRestartService(cmd AgentCommand) (interface{},
 		return nil, fmt.Errorf("restart_service: unsupported platform %s", runtime.GOOS)
 	}
 }
-
 
 func (d *CommandDispatcher) handleStartService(cmd AgentCommand) (interface{}, error) {
 	name := payloadString(cmd.Payload, "name")
@@ -2300,7 +2340,6 @@ func (d *CommandDispatcher) collectAndPostServices() {
 	}
 }
 
-
 // postServices pushes the current service list to the server so it can be
 // stored as latest_services and broadcast to connected clients via socket.
 func postServices(services []ServiceInfo, cfg *Config) {
@@ -2330,7 +2369,6 @@ func postServices(services []ServiceInfo, cfg *Config) {
 	resp.Body.Close()
 }
 
-
 // payloadString is a helper to extract a string value from a command payload.
 func payloadString(payload map[string]interface{}, key string) string {
 	if payload == nil {
@@ -2353,4 +2391,3 @@ func payloadJSON(payload map[string]interface{}, key string) []byte {
 	}
 	return nil
 }
-

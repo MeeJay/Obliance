@@ -2327,12 +2327,12 @@
     }
   },
   "rewind": {
-    "title": "Rewind — machine à remonter le temps",
+    "title": "Rewind · machine à remonter le temps",
     "prevDay": "Jour précédent",
     "nextDay": "Jour suivant",
     "backToNow": "Revenir à maintenant",
     "now": "Maintenant",
-    "noData": "La collecte vient de démarrer — les données du Rewind apparaîtront au fil de l'eau (métriques en continu, process ~5 min).",
+    "noData": "La collecte vient de démarrer ; les données du Rewind apparaîtront au fil de l'eau (métriques en continu, process ~5 min).",
     "cpuRam": "CPU / RAM",
     "resHourly": "résolution horaire",
     "res5min": "résolution 5 min",

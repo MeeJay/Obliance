@@ -746,9 +746,18 @@ func getOSInfo() OSInfo {
 		}
 	}
 	tz, _ := time.Now().Zone()
+	// Prefer the precise os-release PRETTY_NAME on Linux ("CentOS Stream 8",
+	// "Debian GNU/Linux 13 (trixie)") over gopsutil's short id ("centos"); the
+	// server maps Distro → os_name (shown in the device header).
+	distro := info.Platform
+	if runtime.GOOS == "linux" {
+		if pn := linuxPrettyName(); pn != "" {
+			distro = pn
+		}
+	}
 	return OSInfo{
 		Platform: info.OS,
-		Distro:   info.Platform,
+		Distro:   distro,
 		Release:  info.PlatformVersion,
 		Arch:     runtime.GOARCH,
 		BootTime: int64(info.BootTime),
