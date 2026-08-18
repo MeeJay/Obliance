@@ -14,7 +14,7 @@ const router = Router();
 router.use(requireAnyTenantCapability('reports', 'supervision:read'));
 
 router.get('/', async (req, res, next) => {
-  try { res.json(await reportService.getReports(req.tenantId!)); } catch (err) { next(err); }
+  try { res.json({ data: await reportService.getReports(req.tenantId!) }); } catch (err) { next(err); }
 });
 
 router.post('/', async (req, res, next) => {
@@ -22,14 +22,14 @@ router.post('/', async (req, res, next) => {
     const report = await reportService.createReport(req.tenantId!, {
       ...req.body, createdBy: req.session.userId,
     });
-    res.status(201).json(report);
+    res.status(201).json({ data: report });
   } catch (err) { next(err); }
 });
 
 router.patch('/:id', async (req, res, next) => {
   try {
     const updated = await reportService.updateReport(parseInt(req.params.id), req.tenantId!, req.body);
-    res.json(updated);
+    res.json({ data: updated });
   } catch (err) { next(err); }
 });
 
@@ -43,18 +43,20 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/generate', async (req, res, next) => {
   try {
     const output = await reportService.generateReport(parseInt(req.params.id), req.tenantId!);
-    res.status(202).json(output);
+    res.status(202).json({ data: output });
   } catch (err) { next(err); }
 });
 
 router.get('/:id/outputs', async (req, res, next) => {
   try {
     const outputs = await reportService.getOutputs(parseInt(req.params.id), req.tenantId!);
-    res.json(outputs);
+    res.json({ data: outputs });
   } catch (err) { next(err); }
 });
 
-router.get('/:id/outputs/:outputId/download', async (req, res, next) => {
+// Client builds /reports/outputs/:outputId/download (no report id) — authorize
+// by outputId + tenant (the report id in the path was never used).
+router.get('/outputs/:outputId/download', async (req, res, next) => {
   try {
     const { db } = await import('../db');
     const output = await db('report_outputs').where({ id: parseInt(req.params.outputId), tenant_id: req.tenantId! }).first();
