@@ -2348,5 +2348,11 @@
     "services": "Services",
     "noSvcSnap": "Pas de snapshot services à cet instant.",
     "loadError": "Impossible de charger le Rewind (erreur serveur ou accès refusé)."
+  },
+  "reports": {
+    "group": "Groupe",
+    "device": "Appareil",
+    "selectDevice": "Choisir un appareil…",
+    "pickTarget": "Veuillez choisir un groupe ou un appareil"
   }
 }

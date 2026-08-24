@@ -2349,5 +2349,11 @@
     "services": "Services",
     "noSvcSnap": "No service snapshot at this instant.",
     "loadError": "Could not load Rewind (server error or access denied)."
+  },
+  "reports": {
+    "group": "Group",
+    "device": "Device",
+    "selectDevice": "Select a device…",
+    "pickTarget": "Please choose a group or device"
   }
 }

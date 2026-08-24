@@ -1,9 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, FileText, Download, RefreshCw, Edit, Trash2, Play, Clock, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp } from 'lucide-react';
 import { reportApi } from '@/api/report.api';
-import type { Report, ReportOutput, ReportType, ReportFormat, ReportSection } from '@obliance/shared';
+import type { Report, ReportOutput, ReportType, ReportFormat, ReportSection, Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
+import { GroupTreePicker } from '@/components/devices/GroupTreePicker';
+import { deviceApi } from '@/api/device.api';
 
 const REPORT_TYPE_LABELS: Record<ReportType, string> = {
  fleet: 'Fleet Overview',
@@ -117,6 +120,8 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const [generatingId, setGeneratingId] = useState<number | null>(null);
  const [expandedId, setExpandedId] = useState<number | null>(null);
  const [filterType, setFilterType] = useState<string>('');
+ const [devices, setDevices] = useState<Device[]>([]);
+ const { t } = useTranslation();
 
  const load = useCallback(async () => {
  setIsLoading(true);
@@ -131,6 +136,8 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  }, []);
 
  useEffect(() => { load(); }, [load]);
+ // Devices for the "Specific device" scope selector (approved only).
+ useEffect(() => { deviceApi.list({ approvalStatus: 'approved' }).then(setDevices).catch(() => setDevices([])); }, []);
 
  const loadOutputs = async (reportId: number) => {
  try {
@@ -176,6 +183,10 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
 
  const handleSave = async () => {
  if (!form.name.trim()) { toast.error('Report name is required'); return; }
+ if ((form.scopeType === 'group' || form.scopeType === 'device') && !form.scopeId) {
+ toast.error(t('reports.pickTarget') || (form.scopeType === 'group' ? 'Please choose a group' : 'Please choose a device'));
+ return;
+ }
  setIsSaving(true);
  try {
  const payload = {
@@ -356,6 +367,27 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  <option value="device">Specific device</option>
  </select>
  </div>
+ {form.scopeType === 'group' && (
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.group') || 'Group'}</label>
+ <GroupTreePicker value={form.scopeId} onChange={(id) => setForm({ ...form, scopeId: id })} />
+ </div>
+ )}
+ {form.scopeType === 'device' && (
+ <div className="space-y-1">
+ <label className="text-xs font-medium text-text-muted uppercase">{t('reports.device') || 'Device'}</label>
+ <select
+ value={form.scopeId ?? ''}
+ onChange={(e) => setForm({ ...form, scopeId: e.target.value ? parseInt(e.target.value, 10) : null })}
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ >
+ <option value="">{t('reports.selectDevice') || 'Select a device…'}</option>
+ {devices.map((d) => (
+ <option key={d.id} value={d.id}>{d.displayName || d.hostname}</option>
+ ))}
+ </select>
+ </div>
+ )}
  <div className="space-y-1 md:col-span-2">
  <label className="text-xs font-medium text-text-muted uppercase">When to run</label>
  <div className="flex gap-2">
