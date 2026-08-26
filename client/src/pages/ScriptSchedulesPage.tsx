@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User, ExternalLink } from 'lucide-react';
+import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User, ExternalLink, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { scriptApi } from '@/api/script.api';
 import { scenarioApi } from '@/api/scenario.api';
@@ -128,7 +128,8 @@ function fmtDuration(startedAt: string | null, finishedAt: string | null) {
  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-function HistoryBatchRow({ batch }: { batch: BatchData }) {
+function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: number }) {
+ const { t } = useTranslation();
  const [open, setOpen] = useState(false);
  const [expandedExecId, setExpandedExecId] = useState<string | null>(null);
  const { ok, fail, pending, total, items } = batch;
@@ -178,6 +179,16 @@ function HistoryBatchRow({ batch }: { batch: BatchData }) {
  {/* Expanded: per-device rows */}
  {open && (
  <div className="/30">
+ <div className="flex justify-end px-3 py-1.5">
+ <a
+ href={`/api/schedules/${scheduleId}/history/${encodeURIComponent(batch.batchId)}/export`}
+ onClick={(e) => e.stopPropagation()}
+ className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-text-muted hover:text-accent rounded hover:bg-accent/10 transition-colors"
+ title={t('schedules.exportHistory') || 'Export this run to CSV (full stdout/stderr)'}
+ >
+ <Download className="w-3.5 h-3.5" /> {t('schedules.exportCsv') || 'Export CSV'}
+ </a>
+ </div>
  {items.map((r) => {
  const isExpanded = expandedExecId === r.id;
  const dur = fmtDuration(r.startedAt, r.finishedAt);
@@ -926,7 +937,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <div className="space-y-1.5">
  {batches.map((batch) => (
- <HistoryBatchRow key={batch.batchId} batch={batch} />
+ <HistoryBatchRow key={batch.batchId} batch={batch} scheduleId={schedule.id} />
  ))}
  </div>
  );

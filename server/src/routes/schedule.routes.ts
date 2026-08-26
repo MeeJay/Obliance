@@ -365,6 +365,58 @@ router.get('/:id/history', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/schedules/:id/history/:batchId/export — one run's per-device results
+// as a clean CSV (status, device, exit code, duration, timestamps, FULL stdout
+// & stderr — untruncated, unlike the history list which caps at 4000 chars).
+router.get('/:id/history/:batchId/export', async (req, res, next) => {
+  try {
+    const scheduleId = parseInt(req.params.id);
+    const batchId = String(req.params.batchId);
+    const sched = await db('script_schedules').where({ id: scheduleId, tenant_id: req.tenantId! }).first();
+    if (!sched) return res.status(404).json({ error: 'Not found' });
+
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rows = await db('script_executions as se')
+      .leftJoin('devices as d', 'd.id', 'se.device_id')
+      .where({ 'se.schedule_id': scheduleId })
+      .where(function () {
+        if (uuidRe.test(batchId)) this.where('se.batch_id', batchId);
+        else this.where('se.id', parseInt(batchId, 10) || -1);
+      })
+      .select(
+        'se.status', 'se.exit_code', 'se.stdout', 'se.stderr', 'se.device_id',
+        'se.triggered_at', 'se.started_at', 'se.finished_at',
+        'd.hostname as device_hostname', 'd.display_name as device_display_name', 'd.os_type as device_os_type',
+      )
+      .orderBy([{ column: 'd.display_name' }, { column: 'd.hostname' }]);
+
+    const durMs = (s: any, f: any) => (s && f ? Math.max(0, new Date(f).getTime() - new Date(s).getTime()) : '');
+    const iso = (v: any) => (v ? new Date(v).toISOString() : '');
+    // Always double-quote + escape internal quotes → Excel-safe with commas/newlines.
+    const cell = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const headers = ['Status', 'Device', 'OS', 'Exit code', 'Duration (ms)', 'Triggered at', 'Started at', 'Finished at', 'stdout', 'stderr'];
+    const lines = [headers.map(cell).join(',')];
+    for (const r of rows) {
+      lines.push([
+        r.status,
+        r.device_display_name || r.device_hostname || `#${r.device_id}`,
+        r.device_os_type ?? '',
+        r.exit_code ?? '',
+        durMs(r.started_at, r.finished_at),
+        iso(r.triggered_at), iso(r.started_at), iso(r.finished_at),
+        r.stdout ?? '', r.stderr ?? '',
+      ].map(cell).join(','));
+    }
+    const csv = '\ufeff' + lines.join('\r\n') + '\r\n'; // BOM → Excel detects UTF-8
+
+    const safeName = String(sched.name || 'schedule').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 60);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}-history-${stamp}.csv"`);
+    res.send(csv);
+  } catch (err) { next(err); }
+});
+
 // GET /api/schedules/for-device/:deviceId — all schedules that apply to a device
 router.get('/for-device/:deviceId', async (req, res, next) => {
   try {

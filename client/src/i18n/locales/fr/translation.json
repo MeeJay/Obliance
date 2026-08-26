@@ -1629,7 +1629,9 @@
       "label": "Passer à travers le mode privacy",
       "hint": "Désactivée (par défaut), les appareils en mode privacy sont silencieusement ignorés. Activée, la planification s'exécute aussi sur ces appareils — outrepasse le choix explicite de l'utilisateur. L'activation peut exiger une validation administrateur selon la matrice de restrictions du tenant.",
       "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
-    }
+    },
+    "exportCsv": "Exporter CSV",
+    "exportHistory": "Exporter cette exécution en CSV (stdout/stderr complet)"
   },
   "veeam": {
     "title": "Tâches de sauvegarde Veeam",

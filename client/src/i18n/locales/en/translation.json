@@ -1655,7 +1655,9 @@
       "label": "Bypass privacy mode",
       "hint": "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings.",
       "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
-    }
+    },
+    "exportCsv": "Export CSV",
+    "exportHistory": "Export this run to CSV (full stdout/stderr)"
   },
   "veeam": {
     "title": "Veeam backup jobs",
