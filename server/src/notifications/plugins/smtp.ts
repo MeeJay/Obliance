@@ -31,9 +31,9 @@ export const smtpPlugin: NotificationPlugin = {
   name: 'Email (SMTP)',
   description: 'Send email notifications via a global SMTP server',
   configFields: [
-    { key: 'smtpServerId', label: 'SMTP Server', type: 'select', required: true },
+    { key: 'smtpServerId', label: 'SMTP Server', type: 'smtp_server_select', required: true },
     { key: 'fromOverride', label: 'From Address Override', type: 'text', required: false, placeholder: 'Leave blank to use server default' },
-    { key: 'to', label: 'To Address(es)', type: 'text', required: true, placeholder: 'admin@example.com' },
+    { key: 'to', label: 'To Address(es)', type: 'email_list', required: true, placeholder: 'admin@example.com' },
   ],
 
   // config here is the RESOLVED config (host/port/etc injected by resolveChannelConfig)

@@ -2012,7 +2012,7 @@ export interface UpdateMaintenanceWindowRequest extends Partial<CreateMaintenanc
 
 // ─── NOTIFICATION PLUGINS ─────────────────────────────────────────────────────
 
-export type NotificationConfigFieldType = 'text' | 'password' | 'number' | 'boolean' | 'select' | 'textarea' | 'url';
+export type NotificationConfigFieldType = 'text' | 'password' | 'number' | 'boolean' | 'select' | 'textarea' | 'url' | 'smtp_server_select' | 'email_list';
 
 export interface NotificationConfigField {
   key: string;

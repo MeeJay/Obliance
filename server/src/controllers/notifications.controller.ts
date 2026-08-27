@@ -212,6 +212,7 @@ export const notificationsController = {
         data.channelId,
         data.scope,
         data.scopeId,
+        req.tenantId!,
         data.overrideMode,
       );
       res.status(201).json({ success: true, data: binding });

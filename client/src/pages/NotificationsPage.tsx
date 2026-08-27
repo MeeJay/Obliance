@@ -160,6 +160,67 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
  );
 }
 
+// ── Email chips input (Outlook-style tokens) ────────────────────────────────
+// Value is a comma-joined string (kept compatible with the smtp plugin, which
+// passes `to` straight to nodemailer). Typing a comma / semicolon / space /
+// Enter — or pasting a list — locks each address into a removable chip.
+function EmailChips({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [draft, setDraft] = useState('');
+  const chips = value.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  const setChips = (next: string[]) => onChange(Array.from(new Set(next)).join(', '));
+
+  const commitDraft = () => {
+    const v = draft.trim();
+    if (v) setChips([...chips, v]);
+    setDraft('');
+  };
+  const onDraftChange = (raw: string) => {
+    if (/[,;\s]/.test(raw)) {
+      // A separator (typed or pasted) closes every complete token; the trailing
+      // incomplete fragment stays editable in the draft.
+      const parts = raw.split(/[,;\s]+/);
+      const last = parts.pop() ?? '';
+      const complete = parts.map((s) => s.trim()).filter(Boolean);
+      if (complete.length) setChips([...chips, ...complete]);
+      setDraft(last);
+    } else {
+      setDraft(raw);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-bg-tertiary px-2 py-1.5 focus-within:ring-2 focus-within:ring-accent">
+      {chips.map((c) => (
+        <span key={c} className="inline-flex items-center gap-1 rounded bg-accent/15 px-2 py-0.5 text-xs text-accent">
+          {c}
+          <button
+            type="button"
+            onClick={() => setChips(chips.filter((x) => x !== c))}
+            className="text-accent/70 hover:text-status-down"
+            aria-label={`Remove ${c}`}
+          >
+            <X size={11} />
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => onDraftChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',' || e.key === ';') { e.preventDefault(); commitDraft(); }
+          else if (e.key === 'Backspace' && !draft && chips.length) { e.preventDefault(); setChips(chips.slice(0, -1)); }
+        }}
+        onBlur={commitDraft}
+        placeholder={chips.length ? '' : placeholder}
+        className="min-w-[140px] flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+      />
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
@@ -373,7 +434,7 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  );
  }
- if ((field.type as string) === 'smtp_server_select') {
+ if (field.type === 'smtp_server_select') {
  return (
  <div key={field.key} className="space-y-1">
  <label className="block text-sm font-medium text-text-secondary">
@@ -393,6 +454,20 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  {smtpServers.length === 0 && (
  <p className="text-xs text-amber-400">{t('notifications.noSmtp')}</p>
  )}
+ </div>
+ );
+ }
+ if (field.type === 'email_list') {
+ return (
+ <div key={field.key} className="space-y-1">
+ <label className="block text-sm font-medium text-text-secondary">
+ {field.label}{field.required && <span className="text-status-down ml-1">*</span>}
+ </label>
+ <EmailChips
+ value={String(formConfig[field.key] ?? '')}
+ onChange={(v) => setFormConfig({ ...formConfig, [field.key]: v })}
+ placeholder={field.placeholder}
+ />
  </div>
  );
  }

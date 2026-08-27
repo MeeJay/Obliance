@@ -222,16 +222,33 @@ export const notificationService = {
     return rows.map(rowToBinding);
   },
 
-  async addBinding(channelId: number, scope: string, scopeId: number | null, overrideMode: OverrideMode = 'merge'): Promise<NotificationBinding> {
+  async addBinding(channelId: number, scope: string, scopeId: number | null, tenantId: number, overrideMode: OverrideMode = 'merge'): Promise<NotificationBinding> {
+    // Upsert in code, NOT via .onConflict(): the table has no unique constraint
+    // on (channel_id, scope, scope_id), and even with one Postgres treats a NULL
+    // scope_id (global scope) as distinct so ON CONFLICT can't dedupe globals.
+    // Also set the NOT NULL tenant_id — its omission was the "Activer" 400.
+    const existing = await db<BindingRow>('notification_bindings')
+      .where({ channel_id: channelId, scope })
+      .modify((qb) => {
+        if (scopeId === null) qb.whereNull('scope_id');
+        else qb.where('scope_id', scopeId);
+      })
+      .first();
+    if (existing) {
+      const [row] = await db<BindingRow>('notification_bindings')
+        .where({ id: existing.id })
+        .update({ override_mode: overrideMode })
+        .returning('*');
+      return rowToBinding(row);
+    }
     const [row] = await db<BindingRow>('notification_bindings')
       .insert({
+        tenant_id: tenantId,
         channel_id: channelId,
         scope,
         scope_id: scopeId,
         override_mode: overrideMode,
       })
-      .onConflict(['channel_id', 'scope', 'scope_id'])
-      .merge({ override_mode: overrideMode })
       .returning('*');
     return rowToBinding(row);
   },
