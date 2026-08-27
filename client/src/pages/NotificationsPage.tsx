@@ -522,7 +522,10 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  <div className="divide-y divide-border">
  {channels.map((ch) => {
  const plugin = plugins.find((p) => p.type === ch.type);
- const isShared = (ch as any).isShared === true;
+ // Server flags received (shared-from-another-tenant) channels read-only: config
+ // is redacted and edit/delete are forbidden — but they can still be tested and
+ // targeted (bound) on this tenant.
+ const isShared = (ch as any).readOnly === true;
  const isExpanded = expandedTenants.has(ch.id);
 
  return (
@@ -583,9 +586,7 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  </button>
  )}
 
- {/* Test / Edit / Delete — hidden for shared channels */}
- {!isShared && (
- <>
+ {/* Test — allowed even on shared channels (targeted use / verify delivery) */}
  <button
  onClick={() => handleTest(ch.id)}
  disabled={testing === ch.id}
@@ -596,6 +597,9 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  ? <Loader2 size={14} className="animate-spin" />
  : <TestTube2 size={14} />}
  </button>
+ {/* Edit / Delete — owner only; shared channels are read-only */}
+ {!isShared && (
+ <>
  <button
  onClick={() => openEdit(ch)}
  className="shrink-0 p-1.5 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"

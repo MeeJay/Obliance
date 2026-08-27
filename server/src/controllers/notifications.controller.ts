@@ -33,9 +33,15 @@ import type {
 async function assertChannelVisible(channelId: number, req: Request): Promise<void> {
   const channel = await notificationService.getChannelById(channelId);
   if (!channel) throw new AppError(404, 'Channel not found');
-  if (!isMasterTenant(req.tenantId) && channel.tenantId !== req.tenantId) {
-    throw new AppError(404, 'Channel not found');
-  }
+  if (isMasterTenant(req.tenantId)) return;      // master sees all
+  if (channel.tenantId === req.tenantId) return; // owner
+  // Recipient of a shared channel: may view + test + bind (targeted use on its
+  // own tenant), but NOT edit/delete/reshare — those keep the stricter
+  // assertChannelOwnedByCaller guard. Without this, testing/binding a shared
+  // channel from the recipient tenant 404'd.
+  const sharedTenantIds = await notificationService.getChannelTenants(channelId);
+  if (req.tenantId != null && sharedTenantIds.includes(req.tenantId)) return;
+  throw new AppError(404, 'Channel not found');
 }
 
 async function assertChannelOwnedByCaller(channelId: number, req: Request): Promise<void> {
@@ -201,13 +207,11 @@ export const notificationsController = {
   async addBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as AddBindingInput;
-      // STRICT ownership — a child tenant cannot bind a master-shared
-      // channel to its own scope (the master controls where its
-      // FreeMobile / generic webhook is allowed to fire). Master can
-      // only bind master-owned channels (it owns them), which means a
-      // child-tenant scope receiving a master-owned binding is the
-      // result of a master admin explicitly attaching it.
-      await assertChannelOwnedByCaller(data.channelId, req);
+      // Bindings are "targeted use", NOT modification: the recipient of a
+      // shared channel may attach it to its OWN tenant's scopes (the binding
+      // row carries tenant_id = req.tenantId). Editing the channel config /
+      // SMTP / sharing stays owner-only (assertChannelOwnedByCaller).
+      await assertChannelVisible(data.channelId, req);
       const binding = await notificationService.addBinding(
         data.channelId,
         data.scope,
@@ -225,7 +229,9 @@ export const notificationsController = {
   async removeBinding(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = req.body as RemoveBindingInput;
-      await assertChannelOwnedByCaller(data.channelId, req);
+      // Same as addBinding: a recipient may detach the shared channel from its
+      // own scopes (targeted use), just not edit/delete the channel itself.
+      await assertChannelVisible(data.channelId, req);
       const removed = await notificationService.removeBinding(data.channelId, data.scope, data.scopeId);
       res.json({ success: true, message: removed ? 'Binding removed' : 'Binding not found' });
     } catch (err) {
