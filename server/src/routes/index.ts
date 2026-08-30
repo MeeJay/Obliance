@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
+import { delegatedAuth } from '../middleware/delegatedAuth';
 
 // Route imports
 import authRoutes from './auth.routes';
@@ -80,6 +81,16 @@ router.use('/live-alerts', requireAuth, liveAlertsRoutes);
 
 // ── Authenticated + tenant scoped ────────────────────────────────────────────
 const tenantRouter = Router();
+
+// Cross-app delegated reads. A short-lived Obligate-signed token naming a USER
+// stands in for the session on a small allowlist of device read routes, and
+// resolves to the local Obliance user, so requireAuth / requireTenant and every
+// RBAC guard below run against that user unchanged. Registered before
+// requireAuth because it is an alternative credential, not an extra check;
+// requests without the header fall straight through to the session path.
+// See middleware/delegatedAuth.ts.
+tenantRouter.use('/devices', delegatedAuth);
+
 tenantRouter.use(requireAuth, requireTenant);
 
 tenantRouter.use('/devices',     deviceRoutes);

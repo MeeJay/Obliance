@@ -872,6 +872,50 @@ router.get('/:id/rewind/at', requireDeviceRead(), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Change events (Blame Ribbon source) ─────────────────────────────────────
+// Read-through union over the tables Obliance already writes: what changed on
+// this device in a window. Same guard as the Rewind routes above — a weaker one
+// here would be a permission bypass, since this exposes per-device history.
+//
+// The service also filters per CALLER (a non-admin does not see another user's
+// audit rows), so the session identity is passed through rather than assumed.
+router.get('/:id/change-events', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const { changeEventService, changeEventsQuerySchema } = await import('../services/changeEvent.service');
+    const parsed = changeEventsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid query' });
+    }
+    res.json({
+      data: await changeEventService.getTimeline(deviceId, req.tenantId!, {
+        ...parsed.data,
+        callerUserId: req.session.userId!,
+        callerIsAdmin: req.session.role === 'admin',
+      }),
+    });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/change-events/summary?from=&to= — counts per kind
+router.get('/:id/change-events/summary', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const { changeEventService, changeEventsSummaryQuerySchema } = await import('../services/changeEvent.service');
+    const parsed = changeEventsSummaryQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid query' });
+    }
+    res.json({
+      data: await changeEventService.getSummary(deviceId, req.tenantId!, {
+        ...parsed.data,
+        callerUserId: req.session.userId!,
+        callerIsAdmin: req.session.role === 'admin',
+      }),
+    });
+  } catch (err) { next(err); }
+});
+
 // GET /api/devices/:id/custom-sections — list sections that apply to this device
 router.get('/:id/custom-sections', requireDeviceRead(), async (req, res, next) => {
   try {

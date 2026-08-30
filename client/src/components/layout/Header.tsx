@@ -17,11 +17,11 @@ const isNativeApp = typeof window !== 'undefined' &&
 
 // ── App switcher data ───────────────────────────────────────────────────────
 //
-// Per docs/obli-design-system.md §1 + §4.1 — five fixed pills, current app
+// Per docs/obli-design-system.md §1 + §4.1 — seven fixed pills, current app
 // glowing with its own brand colour. The order is fixed across the suite so
 // muscle memory carries between apps.
 
-type AppType = 'obliview' | 'obliguard' | 'oblimap' | 'obliance' | 'obliplan' | 'oblihub';
+type AppType = 'obliview' | 'obliguard' | 'oblimap' | 'obliance' | 'obliplan' | 'oblidesk' | 'oblihub';
 
 interface AppEntry {
  type: AppType;
@@ -36,6 +36,7 @@ const APP_ORDER: AppEntry[] = [
  { type: 'oblimap', label: 'Oblimap', color: '#1edd8a' },
  { type: 'obliance', label: 'Obliance', color: '#e03a3a' },
  { type: 'obliplan', label: 'Obliplan', color: '#7c6cff' },
+ { type: 'oblidesk', label: 'Oblidesk', color: '#22b8f5' },
  { type: 'oblihub', label: 'Oblihub', color: '#2d4ec9' },
 ];
 
