@@ -255,6 +255,14 @@ async function main() {
   remoteService.cleanupStaleSessions();                                    // run once at startup
   setInterval(() => remoteService.cleanupStaleSessions(), 2 * 60 * 1000); // then every 2 min
 
+  // Self-healing: reports left stuck in 'generating' by a mid-generation
+  // restart never resolve on their own (generation is fire-and-forget). Mark
+  // orphaned rows (>15 min) as errored — once at startup so pre-existing
+  // zombies clear on deploy, then every 15 min for runtime crashes.
+  const { reportService } = require('./services/report.service');
+  reportService.sweepStaleGenerating().catch(() => {});                       // run once at startup
+  setInterval(() => reportService.sweepStaleGenerating().catch(() => {}), 15 * 60 * 1000);
+
   // Sync built-in preset rules to existing policies (auto-update on deploy)
   const { complianceService } = require('./services/compliance.service');
   complianceService.syncPresetsToExistingPolicies()

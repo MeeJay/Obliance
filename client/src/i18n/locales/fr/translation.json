@@ -2355,6 +2355,8 @@
     "group": "Groupe",
     "device": "Appareil",
     "selectDevice": "Choisir un appareil…",
-    "pickTarget": "Veuillez choisir un groupe ou un appareil"
+    "pickTarget": "Veuillez choisir un groupe ou un appareil",
+    "cancel": "Annuler",
+    "cancelled": "Génération annulée"
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, FileText, Download, RefreshCw, Edit, Trash2, Play, Clock, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, FileText, Download, RefreshCw, Edit, Trash2, Play, Clock, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import { reportApi } from '@/api/report.api';
 import type { Report, ReportOutput, ReportType, ReportFormat, ReportSection, Device } from '@obliance/shared';
 import toast from 'react-hot-toast';
@@ -275,6 +275,16 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  const handleDownload = (outputId: number) => {
  const url = reportApi.getDownloadUrl(outputId);
  window.open(url, '_blank');
+ };
+
+ const handleCancel = async (reportId: number, outputId: number) => {
+ try {
+ await reportApi.cancelOutput(outputId);
+ await loadOutputs(reportId);
+ toast.success(t('reports.cancelled') || 'Generation cancelled');
+ } catch {
+ toast.error(t('common.error') || 'Something went wrong');
+ }
  };
 
  const toggleSection = (section: ReportSection) => {
@@ -636,7 +646,7 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  {formatBytes(output.fileSizeBytes)}
  {output.rowCount !== null && <span className="ml-1">· {output.rowCount} rows</span>}
  </span>
- <div className="flex justify-end gap-2">
+ <div className="flex justify-end gap-2 items-center">
  {output.status === 'ready' && output.filePath && (
  <button
  onClick={() => handleDownload(output.id)}
@@ -644,6 +654,16 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  >
  <Download className="w-3 h-3" />
  Download
+ </button>
+ )}
+ {output.status === 'generating' && (
+ <button
+ onClick={() => handleCancel(report.id, output.id)}
+ title={t('reports.cancel') || 'Cancel generation'}
+ className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors"
+ >
+ <Ban className="w-3 h-3" />
+ {t('reports.cancel') || 'Cancel'}
  </button>
  )}
  {output.status === 'error' && output.errorMessage && (

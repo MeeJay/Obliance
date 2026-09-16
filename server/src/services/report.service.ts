@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import type { Report, ReportOutput, ReportSection } from '@obliance/shared';
 import { config } from '../config';
+import { logger } from '../utils/logger';
 
 class ReportService {
   // Persist under the mounted CUSTOM_DIR volume (/custom), NOT process.cwd()
@@ -18,6 +19,22 @@ class ReportService {
       scheduleCron: row.schedule_cron, timezone: row.timezone,
       isEnabled: row.is_enabled, lastGeneratedAt: row.last_generated_at,
       createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at,
+    };
+  }
+
+  rowToOutput(row: any): ReportOutput {
+    return {
+      id: row.id,
+      reportId: row.report_id,
+      tenantId: row.tenant_id,
+      status: row.status,
+      filePath: row.file_path ?? null,
+      fileSizeBytes: row.file_size_bytes != null ? Number(row.file_size_bytes) : null,
+      rowCount: row.row_count ?? null,
+      errorMessage: row.error_message ?? null,
+      expiresAt: row.expires_at ?? null,
+      generatedAt: row.generated_at ?? null,
+      createdAt: row.created_at,
     };
   }
 
@@ -68,7 +85,7 @@ class ReportService {
     // Generate async
     this.generateAsync(report, output.id).catch(() => {});
 
-    return output;
+    return this.rowToOutput(output);
   }
 
   private async generateAsync(report: any, outputId: number) {
@@ -193,7 +210,38 @@ class ReportService {
       .where({ report_id: reportId, tenant_id: tenantId })
       .orderBy('created_at', 'desc')
       .limit(20);
-    return rows;
+    return rows.map((r) => this.rowToOutput(r));
+  }
+
+  // Manually cancel an output stuck in 'generating'. The generation runs
+  // fire-and-forget (generateAsync().catch()), so if the server process
+  // dies mid-generation the row never resolves. `report_status` has no
+  // 'cancelled' value — we mark it 'error' with a clear message so the
+  // existing error rendering (badge + message) shows why it stopped.
+  // Only 'generating' rows can be cancelled: a finished 'ready' output
+  // must be deleted via deleteReport, not silently flipped to error.
+  async cancelOutput(outputId: number, tenantId: number): Promise<ReportOutput | null> {
+    const [row] = await db('report_outputs')
+      .where({ id: outputId, tenant_id: tenantId, status: 'generating' })
+      .update({ status: 'error', error_message: 'Cancelled by user' })
+      .returning('*');
+    return row ? this.rowToOutput(row) : null;
+  }
+
+  // Startup + periodic sweep: any output left in 'generating' for longer
+  // than the cutoff is orphaned (the process that would have completed it
+  // is gone — a restart/redeploy killed the in-flight generateAsync).
+  // Without this a stuck row polls "generating" forever and survives every
+  // rebuild. Real generations finish in seconds, so a 15-min floor never
+  // races a legitimate in-flight job.
+  async sweepStaleGenerating(maxAgeMinutes = 15): Promise<number> {
+    const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+    const n = await db('report_outputs')
+      .where('status', 'generating')
+      .where('created_at', '<', cutoff)
+      .update({ status: 'error', error_message: 'Generation interrupted (server restart or timeout)' });
+    if (n > 0) logger.info(`[reports] Swept ${n} stale 'generating' report output(s)`);
+    return n;
   }
 
   async deleteReport(id: number, tenantId: number) {

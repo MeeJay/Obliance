@@ -31,6 +31,10 @@ export const reportApi = {
     const res = await apiClient.get<ApiResponse<ReportOutput[]>>(`/reports/${id}/outputs`);
     return res.data.data ?? [];
   },
+  async cancelOutput(outputId: number): Promise<ReportOutput> {
+    const res = await apiClient.post<ApiResponse<ReportOutput>>(`/reports/outputs/${outputId}/cancel`);
+    return res.data.data!;
+  },
   getDownloadUrl(outputId: number): string {
     return `/api/reports/outputs/${outputId}/download`;
   },

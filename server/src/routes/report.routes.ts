@@ -66,4 +66,15 @@ router.get('/outputs/:outputId/download', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Cancel an output stuck in 'generating' (e.g. left orphaned by a restart).
+// Scoped by outputId + tenant; only 'generating' rows flip (returns 404 if
+// already resolved or foreign).
+router.post('/outputs/:outputId/cancel', async (req, res, next) => {
+  try {
+    const output = await reportService.cancelOutput(parseInt(req.params.outputId), req.tenantId!);
+    if (!output) return res.status(404).json({ error: 'No generating output to cancel' });
+    res.json({ data: output });
+  } catch (err) { next(err); }
+});
+
 export default router;
