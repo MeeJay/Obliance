@@ -144,6 +144,125 @@ class ReportService {
     }
   }
 
+  // jsonb columns come back from pg already parsed to objects/arrays; be
+  // defensive for the odd text column by attempting a parse.
+  private jval(v: any): any {
+    if (v == null) return null;
+    if (typeof v === 'string') { try { return JSON.parse(v); } catch { return null; } }
+    return v;
+  }
+
+  // First real IPv4 addresses of a NIC list — drop IPv6, loopback and
+  // link-local (169.254.x) so the report shows the machine's usable IP.
+  private primaryIps(nics: any): string {
+    if (!Array.isArray(nics)) return '';
+    const ips: string[] = [];
+    for (const n of nics) {
+      for (const a of n?.addresses || []) {
+        if (typeof a !== 'string' || a.includes(':')) continue;   // skip IPv6
+        if (a.startsWith('169.254') || a.startsWith('127.')) continue; // link-local/loopback
+        if (!ips.includes(a)) ips.push(a);
+      }
+    }
+    return ips.join(', ');
+  }
+
+  // Sum disk capacities (bytes) → whole GB. disks[] entries carry `size`.
+  private sumDiskGb(disks: any): number | null {
+    if (!Array.isArray(disks) || disks.length === 0) return null;
+    let bytes = 0;
+    for (const d of disks) bytes += Number(d?.size ?? d?.sizeBytes ?? d?.capacity ?? 0) || 0;
+    return bytes > 0 ? Math.round(bytes / 1073741824) : null;
+  }
+
+  // RAM total (GB): prefer live metrics (memory.totalMb, precise) then the
+  // static inventory (memory.total bytes).
+  private ramGb(mem: any, mt: any): number | null {
+    const liveMb = mt?.memory?.totalMb;
+    if (liveMb) return Math.round(Number(liveMb) / 1024);
+    if (mem?.total) return Math.round(Number(mem.total) / 1073741824);
+    return null;
+  }
+
+  // Disk capacity (GB): sum of live volume totals (reliable; static physical
+  // `disks` is empty on most VMs) then fall back to static disk sizes.
+  private diskGb(staticDisks: any, mt: any): number | null {
+    const live = Array.isArray(mt?.disks) ? mt.disks : [];
+    if (live.length) {
+      const gb = live.reduce((s: number, dk: any) => s + (Number(dk.totalGb) || 0), 0);
+      if (gb > 0) return Math.round(gb);
+    }
+    return this.sumDiskGb(staticDisks);
+  }
+
+  // Standardised OS label — "Windows Server 2022 Standard (21H2)" rather than
+  // the raw jsonb. Falls back to the device row's os_version/os_type.
+  private osLabel(os: any, d: any): string {
+    const edition = String(os?.edition || '').replace(/^Microsoft\s+/i, '').trim();
+    const ver = os?.displayVersion || '';
+    if (edition) return ver ? `${edition} (${ver})` : edition;
+    if (d?.os_version) return String(d.os_version);
+    return d?.os_type ? String(d.os_type) : '';
+  }
+
+  // MAC(s) of the NIC(s) carrying a usable IPv4 (skip purely virtual/link-local).
+  private primaryMacs(nics: any): string {
+    if (!Array.isArray(nics)) return '';
+    const macs: string[] = [];
+    for (const n of nics) {
+      const hasV4 = (n?.addresses || []).some((a: any) =>
+        typeof a === 'string' && !a.includes(':') && !a.startsWith('169.254') && !a.startsWith('127.'));
+      if (hasV4 && n?.mac && !macs.includes(n.mac)) macs.push(n.mac);
+    }
+    return macs.join(', ');
+  }
+
+  // Full parsed hardware for one server — feeds the "detailed" per-server cards.
+  private buildHwDetail(d: any, r: any, mt: any, nameMap: Map<number, string>) {
+    const cpu = this.jval(r?.cpu) || {};
+    const mem = this.jval(r?.memory) || {};
+    const os = this.jval(r?.os) || {};
+    const nics = this.jval(r?.network_interfaces) || [];
+    const gpu = this.jval(r?.gpu) || [];
+    const mobo = this.jval(r?.motherboard) || {};
+    const bios = this.jval(r?.bios) || {};
+    const staticDisks = this.jval(r?.disks) || [];
+    const live = Array.isArray(mt?.disks) ? mt.disks : [];
+    return {
+      device: nameMap.get(d.id) || `#${d.id}`,
+      status: d.status,
+      os: this.osLabel(os, d),
+      osBuild: os?.buildNumber ? String(os.buildNumber) : '',
+      cpu: cpu.model || '',
+      cores: cpu.cores ?? null,
+      threads: cpu.threads ?? null,
+      speed: cpu.speed ?? null,
+      ramGb: this.ramGb(mem, mt),
+      ramSlots: Array.isArray(mem?.slots)
+        ? mem.slots.filter((s: any) => Number(s?.size) > 0)
+            .map((s: any) => ({ bank: s.bank || '', sizeGb: Math.round(Number(s.size) / 1073741824), type: s.type || '' }))
+        : [],
+      volumes: live.map((dk: any) => ({
+        mount: dk.mount || '', totalGb: Math.round(Number(dk.totalGb) || 0),
+        usedGb: Math.round(Number(dk.usedGb) || 0), pct: Math.round(Number(dk.percent) || 0),
+      })).filter((v: any) => v.totalGb > 0),
+      physicalDisks: Array.isArray(staticDisks)
+        ? staticDisks.map((dk: any) => ({ model: dk.model || dk.device || '', sizeGb: Math.round(Number(dk.size || 0) / 1073741824), type: dk.type || '' }))
+            .filter((x: any) => x.sizeGb > 0)
+        : [],
+      nics: Array.isArray(nics)
+        ? nics.map((n: any) => ({
+            name: n.name || '', mac: n.mac || '',
+            ips: (n.addresses || []).filter((a: any) => typeof a === 'string' && !a.includes(':') && !a.startsWith('169.254') && !a.startsWith('127.')),
+          })).filter((n: any) => n.name || n.ips.length)
+        : [],
+      gpu: Array.isArray(gpu) ? gpu.map((g: any) => String(g.name || '')).filter(Boolean) : [],
+      motherboard: `${mobo.manufacturer || ''} ${mobo.model || ''}`.trim(),
+      bios: `${bios.vendor || ''} ${bios.version || ''}`.trim(),
+      scannedAt: r?.scanned_at || null,
+    };
+  }
+
   // Render a single cell value as text (CSV fallback / legacy). DB rows carry
   // JSON columns (objects/arrays) and Dates — stringify them so we never
   // emit "[object Object]".
@@ -261,24 +380,76 @@ class ReportService {
     }
 
     const devices = await db('devices').where({ tenant_id: report.tenant_id }).whereIn('id', deviceIds);
+    const deviceName = new Map<number, string>(devices.map((d: any) => [d.id, d.display_name || d.hostname || `#${d.id}`]));
     sections.devices = devices.map((d: any) => ({
       id: d.id, hostname: d.hostname, displayName: d.display_name,
       status: d.status, osType: d.os_type, osVersion: d.os_version,
       lastSeen: d.last_seen_at,
     }));
 
-    if (sections_list.includes('hardware')) {
-      const hw = await db('device_inventory_hardware')
+    const wantHw = sections_list.includes('hardware');
+    const wantNet = sections_list.includes('network');
+    const wantDetail = sections_list.includes('inventory_detail');
+    if (wantHw || wantNet || wantDetail) {
+      // device_inventory_hardware keeps ONE ROW PER SCAN (not upserted) → a
+      // long-lived device accumulates thousands of near-identical rows. We want
+      // the CURRENT state, so keep only the LATEST scan per device. Disk/RAM
+      // capacity is read from live metrics (the static `disks` array is often
+      // empty on VMs); everything is parsed into clean columns — never raw JSON
+      // nor the Windows product key.
+      const hwRows = await db('device_inventory_hardware')
         .whereIn('device_id', deviceIds)
         .orderBy('scanned_at', 'desc');
-      sections.hardware = hw;
+      const latest = new Map<number, any>();
+      for (const r of hwRows) if (!latest.has(r.device_id)) latest.set(r.device_id, r);
+      const metricsById = new Map<number, any>(devices.map((d: any) => [d.id, this.jval(d.latest_metrics) || {}]));
+
+      // Flat inventory table — one row per server, columns chosen by which of
+      // hardware / network was requested (aggregated into a SINGLE table).
+      if (wantHw || wantNet) {
+        sections.hardware = devices.map((d: any) => {
+          const r = latest.get(d.id);
+          const cpu = this.jval(r?.cpu) || {};
+          const mem = this.jval(r?.memory) || {};
+          const os = this.jval(r?.os) || {};
+          const nics = this.jval(r?.network_interfaces) || [];
+          const mt = metricsById.get(d.id) || {};
+          const row: any = { device: deviceName.get(d.id) || `#${d.id}` };
+          if (wantHw) {
+            row.cpu = cpu.model || '';
+            row.cores = cpu.cores ?? null;
+            row.threads = cpu.threads ?? null;
+            row.ram_gb = this.ramGb(mem, mt);
+            row.disk_gb = this.diskGb(this.jval(r?.disks), mt);
+            row.os = this.osLabel(os, d);
+          }
+          if (wantNet) {
+            row.ipv4 = this.primaryIps(nics);
+            row.mac = this.primaryMacs(nics);
+            row.nics = Array.isArray(nics) ? nics.length : 0;
+          }
+          row.scanned_at = r?.scanned_at ?? null;
+          return row;
+        });
+      }
+
+      // Detailed per-server breakdown (only when the box is checked) — full
+      // parsed hardware for the cards the renderer draws below the table.
+      if (wantDetail) {
+        sections.hardwareDetail = devices.map((d: any) =>
+          this.buildHwDetail(d, latest.get(d.id), metricsById.get(d.id) || {}, deviceName));
+      }
     }
 
     if (sections_list.includes('software')) {
       const sw = await db('device_inventory_software')
         .whereIn('device_id', deviceIds)
         .orderBy('name');
-      sections.software = sw;
+      sections.software = sw.map((s: any) => ({
+        device: deviceName.get(s.device_id) || `#${s.device_id}`,
+        name: s.name, version: s.version, publisher: s.publisher,
+        install_date: s.install_date, source: s.source,
+      }));
     }
 
     if (sections_list.includes('updates')) {
@@ -286,7 +457,13 @@ class ReportService {
         .where({ tenant_id: report.tenant_id })
         .whereIn('device_id', deviceIds)
         .whereIn('status', ['available', 'approved', 'failed']);
-      sections.updates = updates;
+      sections.updates = updates.map((u: any) => ({
+        device: deviceName.get(u.device_id) || `#${u.device_id}`,
+        title: u.title, severity: u.severity, status: u.status,
+        category: u.category, requires_reboot: u.requires_reboot,
+        // keep raw fields the renderer's metrics read (device_id/severity/requires_reboot)
+        device_id: u.device_id,
+      }));
     }
 
     if (sections_list.includes('compliance')) {
@@ -294,7 +471,24 @@ class ReportService {
         .where({ tenant_id: report.tenant_id })
         .whereIn('device_id', deviceIds)
         .orderBy('checked_at', 'desc');
-      sections.compliance = compliance;
+      // compliance_results is INSERT-per-scan (full history), like hardware —
+      // keep only the LATEST row per (device, policy) or the table/exports fill
+      // with duplicate historical scans and the count is wrong.
+      const seenCp = new Set<string>();
+      const latestCp = compliance.filter((c: any) => {
+        const k = `${c.device_id}:${c.policy_id}`;
+        if (seenCp.has(k)) return false;
+        seenCp.add(k);
+        return true;
+      });
+      // Attach hostname for the detail table but KEEP device_id/policy_id/
+      // compliance_score/results — the renderer's metrics read those.
+      sections.compliance = latestCp.map((c: any) => ({
+        device: deviceName.get(c.device_id) || `#${c.device_id}`,
+        compliance_score: c.compliance_score,
+        checked_at: c.checked_at,
+        device_id: c.device_id, policy_id: c.policy_id, results: c.results,
+      }));
     }
 
     if (sections_list.includes('scripts_history')) {
@@ -303,10 +497,28 @@ class ReportService {
         .whereIn('device_id', deviceIds)
         .orderBy('triggered_at', 'desc')
         .limit(500);
-      sections.scriptHistory = execs;
+      // NEVER export script_snapshot (full source), parameter_values (may hold
+      // secrets), stdout or stderr — a report is a shareable artifact. Only the
+      // script NAME + outcome.
+      sections.scriptHistory = execs.map((e: any) => ({
+        device: deviceName.get(e.device_id) || `#${e.device_id}`,
+        script: (this.jval(e.script_snapshot) || {}).name || '',
+        status: e.status,
+        exit_code: e.exit_code,
+        triggered_at: e.triggered_at,
+      }));
     }
 
     return sections;
+  }
+
+  // RFC-4180 field: always quote and double any internal quote. cellValue()
+  // first turns objects/arrays/Dates into a flat string, so a nested cell (e.g.
+  // compliance.results, hardwareDetail arrays) becomes ONE quoted field — its
+  // internal commas no longer split the row. (JSON.stringify alone left array/
+  // object cells unquoted at the CSV level, corrupting column alignment.)
+  private csvField(v: any): string {
+    return `"${this.cellValue(v).replace(/"/g, '""')}"`;
   }
 
   private toCSV(data: Record<string, any>): string {
@@ -315,9 +527,9 @@ class ReportService {
       if (!Array.isArray(rows) || !rows.length) continue;
       lines.push(`## ${section}`);
       const headers = Object.keys(rows[0]);
-      lines.push(headers.join(','));
+      lines.push(headers.map((h) => this.csvField(h)).join(','));
       for (const row of rows) {
-        lines.push(headers.map(h => JSON.stringify(row[h] ?? '')).join(','));
+        lines.push(headers.map((h) => this.csvField(row[h])).join(','));
       }
       lines.push('');
     }

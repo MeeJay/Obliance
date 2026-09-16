@@ -1774,7 +1774,7 @@ export interface LiveAlert {
 export type ReportType = 'fleet' | 'compliance' | 'scripts' | 'updates' | 'software' | 'custom';
 export type ReportFormat = 'json' | 'csv' | 'pdf' | 'excel' | 'html';
 export type ReportStatus = 'generating' | 'ready' | 'error';
-export type ReportSection = 'hardware' | 'software' | 'updates' | 'compliance' | 'scripts_history' | 'network';
+export type ReportSection = 'hardware' | 'software' | 'updates' | 'compliance' | 'scripts_history' | 'network' | 'inventory_detail';
 
 export interface Report {
   id: number;

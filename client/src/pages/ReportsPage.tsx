@@ -32,11 +32,12 @@ const REPORT_SECTION_LABELS: Record<ReportSection, string> = {
  compliance: 'Compliance',
  scripts_history: 'Script History',
  network: 'Network',
+ inventory_detail: 'Detailed per-server',
 };
 
 const REPORT_TYPES: ReportType[] = ['fleet', 'compliance', 'scripts', 'updates', 'software', 'custom'];
 const REPORT_FORMATS: ReportFormat[] = ['pdf', 'csv', 'excel', 'html', 'json'];
-const REPORT_SECTIONS: ReportSection[] = ['hardware', 'software', 'updates', 'compliance', 'scripts_history', 'network'];
+const REPORT_SECTIONS: ReportSection[] = ['hardware', 'network', 'inventory_detail', 'software', 'updates', 'compliance', 'scripts_history'];
 
 // Cron presets — same set as the script-schedule UI so admins don't have to
 // learn a different vocabulary depending on which scheduler they're using.
