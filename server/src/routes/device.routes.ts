@@ -9,6 +9,7 @@ import { permissionService } from '../services/permission.service';
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 import { getIO } from '../socket';
+import { launchChromium } from '../utils/chromium';
 import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import { scenarioService } from '../services/scenario.service';
 import { logger } from '../utils/logger';
@@ -254,8 +255,7 @@ tr:nth-child(even) td { background: #f9fafb; }
 <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
 </body></html>`;
 
-    const { chromium } = await import('playwright-chromium');
-    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    const browser = await launchChromium();
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'domcontentloaded' });

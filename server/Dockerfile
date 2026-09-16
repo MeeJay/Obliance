@@ -2,6 +2,11 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
 
+# playwright-chromium's postinstall would download a glibc Chromium that can't
+# run on Alpine (musl) — skip it everywhere. At runtime we use the system
+# Chromium (apk add chromium) via executablePath (see utils/chromium.ts).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 COPY package.json ./
 COPY shared/ ./shared/
 RUN cd shared && npm install && npm run build
@@ -22,7 +27,17 @@ RUN cd server && npm run build
 FROM node:24-alpine AS production
 WORKDIR /app
 
-RUN apk add --no-cache openssh-client
+# openssh-client: SSH build hosts / tunnels.
+# chromium + font/lib deps: server-side PDF rendering (reports, device & Hyper-V
+# exports) via playwright-chromium pointed at this system binary. Playwright's
+# own bundled Chromium is glibc-only and won't run on Alpine.
+RUN apk add --no-cache openssh-client \
+    chromium nss freetype harfbuzz ca-certificates ttf-freefont
+
+# Skip the bundled-browser download (see builder stage) and tell our launcher
+# where the apk-installed Chromium lives.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    CHROMIUM_PATH=/usr/bin/chromium-browser
 
 COPY --from=builder /app/shared/package.json ./shared/
 COPY --from=builder /app/shared/dist/ ./shared/dist/

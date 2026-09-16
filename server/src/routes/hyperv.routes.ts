@@ -5,6 +5,7 @@ import { permissionService } from '../services/permission.service';
 import { hyperVService } from '../services/hyperV.service';
 import { commandService } from '../services/command.service';
 import { applyRestriction } from '../services/restriction.service';
+import { launchChromium } from '../utils/chromium';
 import type { VmAction } from '@obliance/shared';
 import { vmMatchesSearch } from '@obliance/shared';
 
@@ -364,8 +365,7 @@ tr:nth-child(even) td { background: #f9fafb; }
 <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
 </body></html>`;
 
-    const { chromium } = await import('playwright-chromium');
-    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    const browser = await launchChromium();
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'domcontentloaded' });

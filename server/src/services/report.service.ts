@@ -5,6 +5,7 @@ import type { Report, ReportOutput, ReportSection } from '@obliance/shared';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { renderReportHtml } from './reportRenderer';
+import { launchChromium } from '../utils/chromium';
 
 class ReportService {
   // Persist under the mounted CUSTOM_DIR volume (/custom), NOT process.cwd()
@@ -172,13 +173,12 @@ class ReportService {
       : s;
   }
 
-  // Render the rich report document to a real PDF via the bundled Chromium
-  // (playwright-chromium — same launch args as the device/hyperv PDF
-  // exports). Returns the PDF bytes; browser is always closed.
+  // Render the rich report document to a real PDF via the system Chromium
+  // (launchChromium resolves the executable + container-safe flags — same as
+  // the device/hyperv PDF exports). Returns the PDF bytes; browser always closed.
   private async toPdf(data: Record<string, any>, report: any, tenantName: string): Promise<Buffer> {
     const html = renderReportHtml(data, report, { tenantName });
-    const { chromium } = await import('playwright-chromium');
-    const browser = await chromium.launch({ args: ['--no-sandbox'] });
+    const browser = await launchChromium();
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'domcontentloaded' });
