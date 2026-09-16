@@ -2,9 +2,13 @@ import { db } from '../db';
 import path from 'path';
 import fs from 'fs/promises';
 import type { Report, ReportOutput, ReportSection } from '@obliance/shared';
+import { config } from '../config';
 
 class ReportService {
-  private outputDir = path.join(process.cwd(), 'custom', 'reports');
+  // Persist under the mounted CUSTOM_DIR volume (/custom), NOT process.cwd()
+  // — otherwise generated reports live in the container's ephemeral layer and
+  // downloads 404 after any restart/upgrade.
+  private outputDir = path.join(config.customDir, 'reports');
 
   rowToReport(row: any): Report {
     return {

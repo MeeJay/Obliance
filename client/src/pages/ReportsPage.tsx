@@ -148,6 +148,18 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  }
  };
 
+ // No socket for report completion — poll a report's outputs while one is still
+ // "generating" so the status flips to Ready/Error on its own (self-terminating).
+ useEffect(() => {
+ const generatingIds = Object.entries(outputsByReport)
+ .filter(([, outs]) => outs.some((o) => o.status === 'generating'))
+ .map(([id]) => Number(id));
+ if (generatingIds.length === 0) return;
+ const timer = setTimeout(() => { generatingIds.forEach((rid) => loadOutputs(rid)); }, 2500);
+ return () => clearTimeout(timer);
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [outputsByReport]);
+
  const handleToggleExpand = async (reportId: number) => {
  if (expandedId === reportId) {
  setExpandedId(null);
@@ -296,6 +308,23 @@ export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
  </button>
  </div>
  </div>}
+
+ {/* Embedded mode hides the full header above — expose create + refresh here so
+ you can always add another report, not just from the empty state. */}
+ {embedded && !showForm && (
+ <div className="flex items-center justify-end gap-2">
+ <button onClick={load} title="Refresh" className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+ </button>
+ <button
+ onClick={handleOpenCreate}
+ className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
+ >
+ <Plus className="w-4 h-4" />
+ New Report
+ </button>
+ </div>
+ )}
 
  {/* Report form */}
  {showForm && (
