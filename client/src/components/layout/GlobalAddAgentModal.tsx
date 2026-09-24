@@ -1,27 +1,56 @@
-import { useState, useEffect } from 'react';
-import { Key, Copy, Check, ChevronDown, Monitor, Terminal, Apple } from 'lucide-react';
+import { useState, useEffect, type MouseEvent } from 'react';
+import { Key, Copy, Check, ChevronDown, Monitor, Terminal, Apple, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import type { AgentApiKey } from '@obliance/shared';
 import { deviceApi } from '@/api/device.api';
 import { Button } from '@/components/common/Button';
+import { Modal } from '@/components/common/Modal';
+import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/common/Tip';
 import { useUiStore } from '@/store/uiStore';
+import { copyText } from '@/utils/clipboard';
+import { downloadUrl } from '@/utils/download';
 import { useTranslation } from 'react-i18next';
 
+/** 40 px touch target on coarse pointers (desktop size unchanged). */
+const TOUCH_BTN = 'coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center';
+
 function CopyButton({ text }: { text: string }) {
+ const { t } = useTranslation();
  const [copied, setCopied] = useState(false);
  const handleCopy = async () => {
- await navigator.clipboard.writeText(text);
+ // Clipboard API → execCommand → native bridge (plain-http origins and
+ // the Android WebView included). Copying is the point of this modal:
+ // a failure must be visible.
+ const ok = await copyText(text);
+ if (!ok) {
+ toast.error(t('addAgent.copyFailed', 'Could not copy — select the command and copy it manually'));
+ return;
+ }
  setCopied(true);
  setTimeout(() => setCopied(false), 2000);
  };
  return (
- <button
+ // Same look as before (p-1, muted → primary + hover bg); ≥ 40 px on touch.
+ <IconButton
+ label={t('common.copy', 'Copy')}
  onClick={handleCopy}
- className="shrink-0 p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
- title="Copy"
- >
- {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
- </button>
+ size="sm"
+ className="shrink-0"
+ icon={copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+ />
  );
+}
+
+/** Wizard download links (authenticated same-origin routes): Android shell →
+ *  native DownloadManager with the session cookie; browser → the same
+ *  `<a download>` click as before. The href stays on the anchor for
+ *  accessibility and "save link as". */
+function onWizardClick(e: MouseEvent<HTMLAnchorElement>, filename: string, failMsg: string) {
+ e.preventDefault();
+ void downloadUrl(e.currentTarget.getAttribute('href') ?? '', filename).then((ok) => {
+ if (!ok) toast.error(failMsg);
+ });
 }
 
 type OsTab = 'windows' | 'linux' | 'macos' | 'freebsd';
@@ -73,16 +102,39 @@ export function GlobalAddAgentModal() {
  { id: 'freebsd', label: 'FreeBSD', icon: <Terminal size={14} /> },
  ];
 
+ const downloadFailed = t('addAgent.downloadFailed', 'Download failed');
+
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={closeAddAgentModal}>
- <div className="w-full max-w-xl rounded-xl bg-bg-primary shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+ // Shared Modal: portal (z-[200], above the FloatingDock), focus trap,
+ // body scroll lock, Escape / Android back / backdrop close. Its own
+ // header is not used (showCloseButton={false}, no title) so the historic
+ // desktop look is kept: bg-primary card, max-w-xl, max-h 90dvh, px-6
+ // header that scrolls with the content, full-width Close button.
+ // Phone (< sm): the Modal is a full-screen sheet with safe areas; the
+ // header below sticks to the top of the scrolling body.
+ <Modal
+ open
+ onClose={closeAddAgentModal}
+ ariaLabel={t('addAgent.title')}
+ showCloseButton={false}
+ className="bg-bg-primary sm:max-w-xl sm:max-h-[90dvh] sm:supports-[not(height:100dvh)]:max-h-[90vh]"
+ bodyClassName="p-0"
+ >
  {/* Header */}
- <div className="flex items-center justify-between px-6 py-4 ">
+ <div className="flex items-center justify-between px-6 py-4 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:bg-bg-primary max-sm:px-4 max-sm:py-2">
  <h2 className="text-base font-semibold text-text-primary">{t('addAgent.title')}</h2>
- <button onClick={closeAddAgentModal} className="text-text-muted hover:text-text-primary text-xl leading-none">&times;</button>
+ <button
+ type="button"
+ onClick={closeAddAgentModal}
+ aria-label={t('common.close', 'Close')}
+ className={`text-text-muted hover:text-text-primary text-xl leading-none ${TOUCH_BTN}`}
+ >
+ <span aria-hidden="true" className="coarse:hidden">&times;</span>
+ <X size={20} aria-hidden="true" className="hidden coarse:block" />
+ </button>
  </div>
 
- <div className="p-6 space-y-5">
+ <div className="p-6 space-y-5 max-sm:p-4">
  {keys.length === 0 ? (
  <div className="text-center py-8">
  <Key size={28} className="mx-auto mb-2 text-text-muted" />
@@ -96,11 +148,12 @@ export function GlobalAddAgentModal() {
  <div className="relative">
  <button
  onClick={() => setDropdownOpen(!dropdownOpen)}
+ aria-expanded={dropdownOpen}
  className="w-full flex items-center gap-2 px-3 py-2.5 bg-bg-secondary rounded-lg text-sm text-left hover:border-accent/50 transition-colors"
  >
  <Key size={14} className="text-accent shrink-0" />
  {selectedKey ? (
- <div className="flex-1 min-w-0 flex items-center gap-2">
+ <div className="flex-1 min-w-0 flex items-center gap-2 max-sm:flex-wrap max-sm:gap-x-2 max-sm:gap-y-0.5">
  <span className="font-medium text-text-primary">{selectedKey.name}</span>
  <code className="text-xs text-text-muted font-mono">{selectedKey.key.slice(0, 8)}...{selectedKey.key.slice(-4)}</code>
  {selectedKey.defaultGroupName && (
@@ -118,7 +171,7 @@ export function GlobalAddAgentModal() {
  <button
  key={k.id}
  onClick={() => { setSelectedKeyId(k.id); setDropdownOpen(false); }}
- className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors ${
+ className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors coarse:min-h-12 max-sm:flex-wrap ${
  selectedKeyId === k.id ? 'bg-accent/10 text-accent' : 'text-text-primary hover:bg-bg-tertiary'
  }`}
  >
@@ -139,12 +192,14 @@ export function GlobalAddAgentModal() {
  {selectedKey && (
  <div className="space-y-3">
  {/* OS tabs */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
+ <div className="grid grid-cols-2 gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent sm:flex sm:items-center" role="tablist">
  {osTabs.map(tab => (
  <button
  key={tab.id}
  onClick={() => setOsTab(tab.id)}
- className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+ role="tab"
+ aria-selected={osTab === tab.id}
+ className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors coarse:min-h-10 ${
  osTab === tab.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary'
  }`}
  >
@@ -158,24 +213,25 @@ export function GlobalAddAgentModal() {
  <div className="rounded-lg bg-bg-secondary overflow-hidden">
  {osTab === 'windows' && (
  <div className="p-4 space-y-2">
- <div className="flex items-center justify-between gap-2">
+ <div className="flex items-center justify-between gap-2 max-sm:flex-col-reverse max-sm:items-stretch">
  <p className="text-xs font-medium text-text-muted">
- {legacyWindows === 'legacy' ? 'Run in PowerShell (admin) — Server 2008 R2 / 2012'
- : legacyWindows === 'oldtls' ? 'Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)'
- : legacyWindows === 'x86' ? (t('addAgent.windowsX86Hint') || 'Run in PowerShell (admin) — 32-bit Windows (Win7/Win10 x86). Full modern agent, all features.')
- : legacyWindows === 'manual' ? (t('addAgent.manualHint') || 'Download the wizard EXE, copy it to the target box (USB / RDP clipboard / share), double-click. MSI is embedded — no internet required on the target.')
+ {legacyWindows === 'legacy' ? t('addAgent.windowsLegacyHint', 'Run in PowerShell (admin) — Server 2008 R2 / 2012')
+ : legacyWindows === 'oldtls' ? t('addAgent.windowsOldTlsHint', 'Run in PowerShell (admin) — Server 2012 / 2016 (TLS fix)')
+ : legacyWindows === 'x86' ? t('addAgent.windowsX86Hint', 'Run in PowerShell (admin) — 32-bit Windows (Win7/Win10 x86). Full modern agent, all features.')
+ : legacyWindows === 'manual' ? t('addAgent.manualHint', 'Download the wizard EXE, copy it to the target box (USB / RDP clipboard / share), double-click. MSI is embedded — no internet required on the target.')
  : t('addAgent.windowsHint')}
  </p>
  <select
  value={legacyWindows}
  onChange={e => setLegacyWindows(e.target.value as any)}
- className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted"
+ aria-label={t('addAgent.windowsVariant', 'Windows version')}
+ className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted coarse:min-h-10 coarse:px-2"
  >
  <option value="modern">Windows 10+ (64-bit)</option>
  <option value="x86">Windows 7/10 (32-bit)</option>
  <option value="oldtls">Server 2012/2016</option>
  <option value="legacy">Server 2008 R2</option>
- <option value="manual">Manual / offline (wizard)</option>
+ <option value="manual">{t('addAgent.manualOption', 'Manual / offline (wizard)')}</option>
  </select>
  </div>
  {legacyWindows === 'manual' ? (
@@ -183,32 +239,35 @@ export function GlobalAddAgentModal() {
  // with this tenant's selected API key + the current server URL.
  // The wizard reads the tail blob at startup so the two text fields
  // land already filled in.
- <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3">
+ <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3 max-sm:flex-col max-sm:items-stretch">
  <div className="flex-1 text-xs text-text-secondary">
  <div className="font-medium text-text-primary mb-0.5">
- {t('addAgent.manualWizardTitle') || 'Obliance Install Wizard'}
+ {t('addAgent.manualWizardTitle', 'Obliance Install Wizard')}
  </div>
  <div className="text-text-muted leading-relaxed">
- {t('addAgent.manualWizardDescription') ||
- 'EXE with MSI embedded. Pre-filled with the selected API key. Run on the target — fields are editable for last-minute corrections.'}
+ {t('addAgent.manualWizardDescription',
+ 'EXE with MSI embedded. Pre-filled with the selected API key. Run on the target — fields are editable for last-minute corrections.')}
  </div>
  </div>
  {selectedKey ? (
  <a
  href={`/api/agent/installer/wizard.exe?keyId=${selectedKey.id}`}
  download="obliance-installer-wizard.exe"
- className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors"
+ onClick={(e) => onWizardClick(e, 'obliance-installer-wizard.exe', downloadFailed)}
+ className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors coarse:min-h-10"
  >
- {t('addAgent.manualDownload') || 'Download wizard'}
+ {t('addAgent.manualDownload', 'Download wizard')}
  </a>
  ) : (
+ <Tip content={t('addAgent.pickKeyFirst', 'Pick an API key first')} className="shrink-0">
  <button
+ type="button"
  disabled
- title={t('addAgent.pickKeyFirst') || 'Pick an API key first'}
  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-bg-secondary text-text-muted cursor-not-allowed"
  >
- {t('addAgent.manualDownload') || 'Download wizard'}
+ {t('addAgent.manualDownload', 'Download wizard')}
  </button>
+ </Tip>
  )}
  </div>
  ) : (
@@ -221,48 +280,52 @@ export function GlobalAddAgentModal() {
  )}
  {osTab === 'linux' && (
  <div className="p-4 space-y-2">
- <div className="flex items-center justify-between gap-2">
+ <div className="flex items-center justify-between gap-2 max-sm:flex-col-reverse max-sm:items-stretch">
  <p className="text-xs font-medium text-text-muted">
  {linuxMode === 'manual'
- ? (t('addAgent.linuxManualHint') || 'Download the wizard binary, copy it to the target box (scp / SFTP / USB), chmod +x and run as root. Agent is embedded — works on boxes with broken CA stores or no outbound HTTP.')
+ ? t('addAgent.linuxManualHint', 'Download the wizard binary, copy it to the target box (scp / SFTP / USB), chmod +x and run as root. Agent is embedded — works on boxes with broken CA stores or no outbound HTTP.')
  : t('addAgent.linuxHint')}
  </p>
  <select
  value={linuxMode}
  onChange={e => setLinuxMode(e.target.value as any)}
- className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted"
+ aria-label={t('addAgent.linuxVariant', 'Install method')}
+ className="text-[11px] bg-bg-tertiary rounded px-1.5 py-1 text-text-muted coarse:min-h-10 coarse:px-2"
  >
  <option value="modern">curl | bash</option>
- <option value="manual">Manual / offline (wizard)</option>
+ <option value="manual">{t('addAgent.manualOption', 'Manual / offline (wizard)')}</option>
  </select>
  </div>
  {linuxMode === 'manual' ? (
- <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3">
+ <div className="flex items-center justify-between gap-2 rounded-md bg-bg-tertiary p-3 max-sm:flex-col max-sm:items-stretch">
  <div className="flex-1 text-xs text-text-secondary">
  <div className="font-medium text-text-primary mb-0.5">
- {t('addAgent.linuxManualTitle') || 'Obliance Install Wizard (Linux)'}
+ {t('addAgent.linuxManualTitle', 'Obliance Install Wizard (Linux)')}
  </div>
  <div className="text-text-muted leading-relaxed">
- {t('addAgent.linuxManualDescription') ||
- 'Static Linux binary with agent embedded. Pre-filled with the selected API key. Run as root — sets up systemd or SysV init automatically, skips TLS verification for boxes with outdated CA bundles.'}
+ {t('addAgent.linuxManualDescription',
+ 'Static Linux binary with agent embedded. Pre-filled with the selected API key. Run as root — sets up systemd or SysV init automatically, skips TLS verification for boxes with outdated CA bundles.')}
  </div>
  </div>
  {selectedKey ? (
  <a
  href={`/api/agent/installer/wizard-linux-amd64?keyId=${selectedKey.id}`}
  download="obliance-installer-wizard-linux-amd64"
- className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors"
+ onClick={(e) => onWizardClick(e, 'obliance-installer-wizard-linux-amd64', downloadFailed)}
+ className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent/80 transition-colors coarse:min-h-10"
  >
- {t('addAgent.manualDownload') || 'Download wizard'}
+ {t('addAgent.manualDownload', 'Download wizard')}
  </a>
  ) : (
+ <Tip content={t('addAgent.pickKeyFirst', 'Pick an API key first')} className="shrink-0">
  <button
+ type="button"
  disabled
- title={t('addAgent.pickKeyFirst') || 'Pick an API key first'}
  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-bg-secondary text-text-muted cursor-not-allowed"
  >
- {t('addAgent.manualDownload') || 'Download wizard'}
+ {t('addAgent.manualDownload', 'Download wizard')}
  </button>
+ </Tip>
  )}
  </div>
  ) : (
@@ -298,10 +361,11 @@ export function GlobalAddAgentModal() {
  )}
  </div>
 
- <div className="px-6 pb-6">
+ {/* Phone: the Close button sticks to the bottom of the scrolling sheet
+     so it stays reachable (desktop: in flow, as before). */}
+ <div className="px-6 pb-6 max-sm:sticky max-sm:bottom-0 max-sm:bg-bg-primary max-sm:px-4 max-sm:py-3">
  <Button variant="secondary" onClick={closeAddAgentModal} className="w-full">{t('common.close')}</Button>
  </div>
- </div>
- </div>
+ </Modal>
  );
 }

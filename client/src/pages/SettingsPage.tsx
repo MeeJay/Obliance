@@ -16,12 +16,24 @@ import type { SmtpServer, AppConfigData, ObligateConfig, MetricThresholds } from
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';
+import { PageContainer } from '@/components/common/PageContainer';
+import { TableScroll } from '@/components/common/TableScroll';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { MEDIA, useMediaQuery } from '@/hooks/useMediaQuery';
+import { saveJson } from '@/utils/download';
+import { openExternal } from '@/utils/openExternal';
+
+// Invisible ≥40px hit area around small hand-rolled switches / icon toggles
+// (touch only — desktop geometry unchanged). The element must be positioned.
+const TOUCH_HIT = "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']";
 
 function AboutRow({ label, value }: { label: string; value: string }) {
  return (
  <div className="flex items-center justify-between gap-4">
- <span className="text-xs text-text-muted">{label}</span>
- <span className="font-mono text-xs text-text-primary">{value}</span>
+ <span className="text-xs text-text-muted shrink-0">{label}</span>
+ <span className="font-mono text-xs text-text-primary min-w-0 text-right break-all">{value}</span>
  </div>
  );
 }
@@ -50,6 +62,8 @@ const emptySmtpForm = (): SmtpForm => ({
 
 export function SettingsPage() {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const isWide = useMediaQuery(MEDIA.lg);
  const { isAdmin } = useAuthStore();
  const admin = isAdmin();
 
@@ -147,7 +161,7 @@ export function SettingsPage() {
  }
 
  async function handleDelete(server: SmtpServer) {
- if (!confirm(`Delete SMTP server "${server.name}"?`)) return;
+ if (!(await confirm({ message: t('settings.smtp.confirmDelete', { defaultValue: 'Delete SMTP server "{{name}}"?', name: server.name }), danger: true }))) return;
  try {
  await smtpServerApi.delete(server.id);
  setServers((prev) => prev.filter((s) => s.id !== server.id));
@@ -213,7 +227,7 @@ export function SettingsPage() {
  }
 
  return (
- <div className="p-6 min-w-0 space-y-8">
+ <PageContainer className="space-y-8">
  <div>
  <h1 className="text-2xl font-semibold text-text-primary mb-2">{t('settings.title')}</h1>
  <p className="text-sm text-text-muted">
@@ -307,7 +321,7 @@ export function SettingsPage() {
 
  {/* ── SMTP Servers ── */}
  <div>
- <div className="flex items-center justify-between mb-4">
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
  <h2 className="text-lg font-semibold text-text-primary">{t('settings.smtp.title')}</h2>
  <Button size="sm" onClick={openCreate}>
  <Plus size={14} className="mr-1" /> {t('settings.smtp.addServer')}
@@ -319,8 +333,10 @@ export function SettingsPage() {
  {t('settings.smtp.noServers')}
  </div>
  ) : (
- <div className="rounded-lg bg-bg-secondary overflow-hidden">
- <table className="w-full text-sm">
+ // Horizontal scroll instead of clipping the Actions column on
+ // narrow screens (name column pinned while scrolling below lg).
+ <TableScroll className="rounded-lg bg-bg-secondary" stickyFirstCol={!isWide}>
+ <table className="w-full text-sm min-w-[560px]">
  <thead>
  <tr className=" text-left">
  <th className="px-4 py-2.5 font-medium text-text-secondary">{t('settings.smtp.colName')}</th>
@@ -333,42 +349,38 @@ export function SettingsPage() {
  {servers.map((server) => (
  <tr key={server.id} className=" last:border-0 hover:bg-bg-hover transition-colors">
  <td className="px-4 py-3 text-text-primary font-medium">{server.name}</td>
- <td className="px-4 py-3 text-text-secondary">
+ <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
  {server.host}:{server.port}
  {server.secure && <span className="ml-1.5 text-xs bg-green-500/10 text-green-400 rounded px-1">{t('settings.smtp.tlsBadge')}</span>}
  </td>
  <td className="px-4 py-3 text-text-muted">{server.fromAddress}</td>
  <td className="px-4 py-3">
  <div className="flex items-center justify-end gap-1.5">
- <button
+ <IconButton
+ label={t('settings.smtp.testConnection')}
+ icon={<Wifi size={14} />}
  onClick={() => handleTest(server)}
  disabled={testingId === server.id}
- className="p-1.5 rounded text-text-muted hover:text-blue-400 hover:bg-blue-400/10 transition-colors disabled:opacity-50"
- title={t('settings.smtp.testConnection')}
- >
- <Wifi size={14} />
- </button>
- <button
+ className="hover:text-blue-400 hover:bg-blue-400/10 disabled:opacity-50"
+ />
+ <IconButton
+ label={t('common.edit')}
+ icon={<Pencil size={14} />}
  onClick={() => openEdit(server)}
- className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
- title={t('common.edit')}
- >
- <Pencil size={14} />
- </button>
- <button
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 size={14} />}
+ variant="danger"
  onClick={() => handleDelete(server)}
- className="p-1.5 rounded text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
- title={t('common.delete')}
- >
- <Trash2 size={14} />
- </button>
+ />
  </div>
  </td>
  </tr>
  ))}
  </tbody>
  </table>
- </div>
+ </TableScroll>
  )}
  </div>
 
@@ -389,8 +401,10 @@ export function SettingsPage() {
  aria-checked={(appConfig?.allow_2fa ?? false) as boolean | "true" | "false" | "mixed"}
  disabled={configSaving || !appConfig}
  onClick={() => setConfigKey('allow_2fa', !appConfig?.allow_2fa)}
+ aria-label={t('settings.security.allow2fa')}
  className={cn(
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+ TOUCH_HIT,
  appConfig?.allow_2fa ? 'bg-primary' : 'bg-bg-tertiary',
  )}
  >
@@ -415,8 +429,10 @@ export function SettingsPage() {
  aria-checked={(appConfig?.force_2fa ?? false) as boolean | "true" | "false" | "mixed"}
  disabled={configSaving || !appConfig || !appConfig.allow_2fa}
  onClick={() => setConfigKey('force_2fa', !appConfig?.force_2fa)}
+ aria-label={t('settings.security.force2fa')}
  className={cn(
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:opacity-50',
+ TOUCH_HIT,
  appConfig?.force_2fa ? 'bg-primary' : 'bg-bg-tertiary',
  )}
  >
@@ -430,7 +446,7 @@ export function SettingsPage() {
  <p className="text-sm font-medium text-text-primary">{t('settings.security.otpSmtp')}</p>
  <p className="text-xs text-text-muted mt-0.5">{t('settings.security.otpSmtpDesc')}</p>
  <select
- className="mt-2 w-full max-w-xs rounded-md bg-bg-primary px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+ className="mt-2 w-full max-w-xs rounded-md bg-bg-primary px-3 py-1.5 coarse:py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
  value={appConfig?.otp_smtp_server_id ?? ''}
  disabled={configSaving || !appConfig || !appConfig.allow_2fa}
  onChange={(e) => setConfigKey('otp_smtp_server_id', e.target.value ? parseInt(e.target.value, 10) : null)}
@@ -463,17 +479,40 @@ export function SettingsPage() {
  <div className="flex items-center gap-2 mb-1">
  <label className="text-sm font-medium text-text-secondary">Obligate URL</label>
  {obligateCfg?.url && (
- <a href={obligateCfg.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">Open ↗</a>
+ <a
+ href={obligateCfg.url}
+ target="_blank"
+ rel="noopener noreferrer"
+ onClick={(e) => { e.preventDefault(); void openExternal(obligateCfg.url!); }}
+ className="text-xs text-accent hover:underline coarse:py-2"
+ >
+ {t('settings.obligate.open', 'Open ↗')}
+ </a>
  )}
  </div>
+ <div className="flex gap-2">
  <input
  type="url"
+ inputMode="url"
+ enterKeyHint="done"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  placeholder="https://obligate.example.com"
  value={obligateUrl}
  onChange={(e) => setObligateUrl(e.target.value)}
  onBlur={() => void saveObligateConfig()}
- className="w-full rounded-lg bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+ onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+ className="w-full min-w-0 flex-1 rounded-lg bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
  />
+ {/* Touch: closing the Android keyboard does not blur the field,
+     so offer an explicit Save while the value is unsaved. */}
+ {obligateUrl.trim().replace(/\/$/, '') !== (obligateCfg?.url ?? '').replace(/\/$/, '') && (
+ <Button type="button" size="sm" className="hidden coarse:inline-flex shrink-0" onMouseDown={(e) => e.preventDefault()} onClick={() => void saveObligateConfig()}>
+ {t('common.save')}
+ </Button>
+ )}
+ </div>
  </div>
 
  <div>
@@ -491,16 +530,29 @@ export function SettingsPage() {
  value={obligateApiKey}
  onChange={(e) => setObligateApiKey(e.target.value)}
  onBlur={() => { if (obligateApiKey.trim()) void saveObligateConfig(); }}
+ onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+ enterKeyHint="done"
+ autoCapitalize="off"
+ autoCorrect="off"
+ autoComplete="off"
+ spellCheck={false}
  className="w-full rounded-lg bg-bg-primary px-3 py-2 pr-8 text-sm font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
  />
  <button
  type="button"
  onClick={() => setShowObligateKey((v) => !v)}
- className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+ aria-label={t('settings.toggleSecretVisibility', 'Show / hide')}
+ aria-pressed={showObligateKey}
+ className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary ${TOUCH_HIT}`}
  >
  {showObligateKey ? <EyeOff size={14} /> : <Eye size={14} />}
  </button>
  </div>
+ {obligateApiKey.trim() && (
+ <Button type="button" size="sm" className="hidden coarse:inline-flex shrink-0" onMouseDown={(e) => e.preventDefault()} onClick={() => void saveObligateConfig()}>
+ {t('common.save')}
+ </Button>
+ )}
  </div>
  <p className="mt-1.5 text-xs text-text-muted">
  Generate this key in{' '}
@@ -524,7 +576,8 @@ export function SettingsPage() {
  aria-checked={appConfig?.obligate_enabled === 'true'}
  disabled={configSaving || !appConfig}
  onClick={() => setConfigKey('obligate_enabled', appConfig?.obligate_enabled === 'true' ? false : true)}
- className={cn('relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none', appConfig?.obligate_enabled === 'true' ? 'bg-primary' : 'bg-bg-hover')}
+ aria-label={t('settings.obligate.enableSso', 'Enable SSO')}
+ className={cn('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none', TOUCH_HIT, appConfig?.obligate_enabled === 'true' ? 'bg-primary' : 'bg-bg-hover')}
  >
  <span className={cn('inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform', appConfig?.obligate_enabled === 'true' ? 'translate-x-6' : 'translate-x-1')} />
  </button>
@@ -536,15 +589,25 @@ export function SettingsPage() {
  </>
  )}
 
- {smtpMode && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
- <div className="bg-bg-secondary rounded-xl shadow-2xl border border-transparent w-full max-w-md">
- <div className="px-5 py-4 ">
- <h3 className="text-base font-semibold text-text-primary">
- {smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}
- </h3>
- </div>
- <form onSubmit={handleSmtpSubmit} className="p-5 space-y-3">
+ {/* Shared Modal: scrollable body + sticky footer so Save stays
+     reachable with the soft keyboard open; full-screen on phones. */}
+ <Modal
+ open={!!smtpMode}
+ onClose={closeSmtpModal}
+ size="sm"
+ closeOnBackdrop={false}
+ title={smtpMode === 'create' ? t('settings.smtp.addTitle') : t('settings.smtp.editTitle')}
+ bodyClassName="p-5"
+ footer={
+ <>
+ <Button type="button" variant="ghost" onClick={closeSmtpModal}>{t('common.cancel')}</Button>
+ <Button type="submit" form="smtp-server-form" disabled={smtpSaving}>
+ {smtpSaving ? t('common.saving') : smtpMode === 'create' ? t('common.create') : t('common.save')}
+ </Button>
+ </>
+ }
+ >
+ <form id="smtp-server-form" onSubmit={handleSmtpSubmit} className="space-y-3">
  <Input
  label={t('settings.smtp.nameLabel')}
  value={smtpForm.name}
@@ -559,6 +622,9 @@ export function SettingsPage() {
  value={smtpForm.host}
  onChange={(e) => setSmtpForm((f) => ({ ...f, host: e.target.value }))}
  placeholder={t('settings.smtp.hostPlaceholder')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  required
  />
  </div>
@@ -576,7 +642,7 @@ export function SettingsPage() {
  type="checkbox"
  checked={smtpForm.secure}
  onChange={(e) => setSmtpForm((f) => ({ ...f, secure: e.target.checked }))}
- className="rounded border-transparent"
+ className="rounded border-transparent coarse:h-5 coarse:w-5"
  />
  {t('settings.smtp.tlsLabel')}
  </label>
@@ -584,6 +650,9 @@ export function SettingsPage() {
  label={t('settings.smtp.usernameLabel')}
  value={smtpForm.username}
  onChange={(e) => setSmtpForm((f) => ({ ...f, username: e.target.value }))}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  required
  />
  <div className="relative">
@@ -597,7 +666,9 @@ export function SettingsPage() {
  <button
  type="button"
  onClick={() => setShowPassword((v) => !v)}
- className="absolute right-2.5 bottom-2 text-text-muted hover:text-text-primary"
+ aria-label={t('settings.toggleSecretVisibility', 'Show / hide')}
+ aria-pressed={showPassword}
+ className={`absolute right-2.5 bottom-2 text-text-muted hover:text-text-primary ${TOUCH_HIT}`}
  >
  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
  </button>
@@ -608,18 +679,13 @@ export function SettingsPage() {
  value={smtpForm.fromAddress}
  onChange={(e) => setSmtpForm((f) => ({ ...f, fromAddress: e.target.value }))}
  placeholder={t('settings.smtp.fromPlaceholder')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  required
  />
- <div className="flex justify-end gap-2 pt-2">
- <Button type="button" variant="ghost" onClick={closeSmtpModal}>{t('common.cancel')}</Button>
- <Button type="submit" disabled={smtpSaving}>
- {smtpSaving ? t('common.saving') : smtpMode === 'create' ? t('common.create') : t('common.save')}
- </Button>
- </div>
  </form>
- </div>
- </div>
- )}
+ </Modal>
 
  {/* ── File explorer editable extensions ── */}
  {admin && <EditableExtensionsSection />}
@@ -634,7 +700,7 @@ export function SettingsPage() {
  <PackageOpen size={18} className="text-accent" />
  <h2 className="text-lg font-semibold text-text-primary">{t('importExport.title')}</h2>
  </div>
- <div className="rounded-lg bg-bg-secondary p-5">
+ <div className="rounded-lg bg-bg-secondary p-3 sm:p-5">
  <ImportExportPage embedded />
  </div>
  </div>
@@ -642,13 +708,14 @@ export function SettingsPage() {
 
  {/* ── Scenarios bulk export / import ── */}
  {admin && <ScenariosBulkSection />}
- </div>
+ </PageContainer>
  );
 }
 
 // ─── Editable Extensions Section ────────────────────────────────────────────
 
 function EditableExtensionsSection() {
+ const { t } = useTranslation();
  const [extensions, setExtensions] = useState<string[]>([]);
  const [defaults, setDefaults] = useState<string[]>([]);
  const [input, setInput] = useState('');
@@ -715,17 +782,21 @@ function EditableExtensionsSection() {
  <p className="text-sm text-text-muted">Loading...</p>
  ) : (
  <>
- <div className="flex flex-wrap gap-1.5 p-2 bg-bg-tertiary rounded-lg min-h-[44px]">
+ <div className="flex flex-wrap gap-1.5 coarse:gap-2.5 p-2 bg-bg-tertiary rounded-lg min-h-[44px]">
  {extensions.length === 0 && (
  <span className="text-xs text-text-muted italic">No extensions configured</span>
  )}
  {extensions.map((ext) => (
  <span
  key={ext}
- className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-bg-secondary border border-transparent text-text-primary"
+ className="inline-flex items-center gap-1 coarse:gap-2 px-2 py-0.5 coarse:py-1.5 rounded-full text-[11px] font-mono bg-bg-secondary border border-transparent text-text-primary"
  >
  .{ext}
- <button onClick={() => remove(ext)} className="hover:text-red-400">
+ <button
+ onClick={() => remove(ext)}
+ aria-label={t('settings.extensions.remove', { defaultValue: 'Remove .{{ext}}', ext })}
+ className={`relative hover:text-red-400 ${TOUCH_HIT}`}
+ >
  <X className="w-3 h-3" />
  </button>
  </span>
@@ -739,7 +810,11 @@ function EditableExtensionsSection() {
  onChange={(e) => setInput(e.target.value)}
  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
  placeholder="Add extension(s)... e.g. conf, properties, xyz"
- className="flex-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="done"
+ className="min-w-0 flex-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
  />
  <button
  onClick={add}
@@ -749,10 +824,10 @@ function EditableExtensionsSection() {
  </button>
  </div>
 
- <div className="flex items-center justify-between pt-2 /50">
+ <div className="flex flex-wrap items-center justify-between gap-2 pt-2 /50">
  <button
  onClick={resetToDefaults}
- className="text-xs text-text-muted hover:text-text-primary transition-colors"
+ className="text-xs text-text-muted hover:text-text-primary transition-colors coarse:py-2"
  >
  Reset to defaults ({defaults.length} extensions)
  </button>
@@ -777,6 +852,7 @@ function EditableExtensionsSection() {
 // stay on /automations (Download icon next to each row); this is the
 // "give me a tarball of every automation" flow + the bulk re-import.
 function ScenariosBulkSection() {
+ const { t } = useTranslation();
  const [exporting, setExporting] = useState(false);
  const [importBusy, setImportBusy] = useState(false);
  const [importResult, setImportResult] = useState<null | {
@@ -792,13 +868,12 @@ function ScenariosBulkSection() {
  const data = await scenarioApi.exportAll({ includeScripts });
  const ts = new Date().toISOString().slice(0, 10);
  const suffix = includeScripts ? '-with-scripts' : '';
- const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = `obliance-scenarios-${ts}${suffix}.json`;
- a.click();
- URL.revokeObjectURL(url);
+ // Shared helper: native Downloads in the Android shell, anchor download otherwise.
+ const ok = await saveJson(data, `obliance-scenarios-${ts}${suffix}.json`);
+ if (!ok) {
+ toast.error(t('common.error'));
+ return;
+ }
  toast.success(`Exported ${data.count} scenario${data.count > 1 ? 's' : ''}`);
  } catch (err: any) {
  toast.error(err?.response?.data?.error || 'Failed to export scenarios');
@@ -852,7 +927,7 @@ function ScenariosBulkSection() {
  <button
  onClick={() => handleExport(false)}
  disabled={exporting}
- className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+ className="inline-flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
  >
  <Download size={14} />
  Export all (lean)
@@ -860,12 +935,12 @@ function ScenariosBulkSection() {
  <button
  onClick={() => handleExport(true)}
  disabled={exporting}
- className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
+ className="inline-flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-xs rounded bg-bg-tertiary hover:border-accent/40 disabled:opacity-50"
  >
  <Download size={14} />
  Export all (with scripts)
  </button>
- <span className="w-px h-4 bg-border mx-1" />
+ <span className="w-px h-4 bg-border mx-1 max-sm:hidden" />
  <input
  ref={fileRef}
  type="file"
@@ -876,7 +951,7 @@ function ScenariosBulkSection() {
  <button
  onClick={handlePickImport}
  disabled={importBusy}
- className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-50"
+ className="inline-flex items-center gap-2 px-3 py-1.5 coarse:py-2.5 text-xs rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 disabled:opacity-50"
  >
  <Upload size={14} />
  {importBusy ? 'Importing…' : 'Import bulk JSON'}
@@ -891,7 +966,7 @@ function ScenariosBulkSection() {
  <div key={i} className={`text-[11px] flex items-center gap-2 ${r.ok ? 'text-text-secondary' : 'text-red-400'}`}>
  <span>{r.ok ? '✓' : '✗'}</span>
  <span className="font-medium">{r.name}</span>
- {r.error && <span className="text-text-muted truncate">— {r.error}</span>}
+ {r.error && <span className="text-text-muted min-w-0 break-words lg:truncate">— {r.error}</span>}
  </div>
  ))}
  </div>

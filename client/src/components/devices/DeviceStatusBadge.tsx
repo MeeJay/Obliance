@@ -1,6 +1,8 @@
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import type { ApprovalStatus, DeviceStatus, ScheduleAlert } from '@obliance/shared';
+import { Tip } from '@/components/common/Tip';
+import { useCanHover } from '@/hooks/useMediaQuery';
 
 const STATUS_CONFIG: Record<DeviceStatus, { i18nKey: string; color: string; dot: string }> = {
   online:            { i18nKey: 'deviceStatus.online',           color: 'text-green-400 bg-green-400/10 border-green-400/30',     dot: 'bg-green-400' },
@@ -46,19 +48,7 @@ export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size 
         {showDot && <span className={clsx('rounded-full', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2', cfg.dot)} />}
         {t(cfg.i18nKey)}
       </span>
-      {scheduleAlert && (
-        <span
-          className={clsx(
-            'inline-flex items-center gap-1 font-medium border rounded-full',
-            size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5',
-            'text-orange-400 bg-orange-400/10 border-orange-400/30',
-          )}
-          title={`${scheduleAlert.scheduleName}: exit ${scheduleAlert.exitCode}${scheduleAlert.stderr ? '\n' + scheduleAlert.stderr.slice(0, 200) : ''}`}
-        >
-          <span className={clsx('rounded-full bg-orange-400 animate-pulse', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2')} />
-          {t('deviceStatus.scheduleError')}
-        </span>
-      )}
+      {scheduleAlert && <ScheduleAlertPill alert={scheduleAlert} size={size} />}
       {showUpdateAvailable && (
         <span
           className={clsx(
@@ -71,6 +61,38 @@ export function DeviceStatusBadge({ status, approvalStatus, scheduleAlert, size 
           {t('deviceStatus.updateAvailable') || 'Update available'}
         </span>
       )}
+    </span>
+  );
+}
+
+/**
+ * "Schedule error" pill. The failing schedule, its exit code and the first
+ * stderr lines used to live only in `title=` (unreachable on touch); they now
+ * sit in a <Tip> (hover on desktop, tap on touch — docs/obli-mobile.md §5.2).
+ * On touch the tap is kept from bubbling so a tap on the pill inside a
+ * clickable device row reveals the details instead of navigating.
+ */
+function ScheduleAlertPill({ alert, size }: { alert: ScheduleAlert; size: 'sm' | 'md' }) {
+  const { t } = useTranslation();
+  const canHover = useCanHover();
+  const details = `${alert.scheduleName}: exit ${alert.exitCode}${alert.stderr ? '\n' + alert.stderr.slice(0, 200) : ''}`;
+  return (
+    <span
+      className="inline-flex"
+      onClick={canHover ? undefined : (e) => e.stopPropagation()}
+    >
+      <Tip content={details} contentClassName="max-w-xs font-mono">
+        <span
+          className={clsx(
+            'inline-flex items-center gap-1 font-medium border rounded-full',
+            size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5',
+            'text-orange-400 bg-orange-400/10 border-orange-400/30',
+          )}
+        >
+          <span className={clsx('rounded-full bg-orange-400 animate-pulse', size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2')} />
+          {t('deviceStatus.scheduleError')}
+        </span>
+      </Tip>
     </span>
   );
 }

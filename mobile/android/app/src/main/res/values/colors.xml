@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared Obli surfaces (obli-design-system §2). The per-app accents
+         (obli_accent, obli_accent2) come from the app table in app/build.gradle.kts. -->
+    <color name="obli_bg">#FF0F1220</color>
+    <color name="ic_launcher_background">#FF0F1220</color>
+</resources>

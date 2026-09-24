@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Building2, Plus, Pencil, Trash2, Users, X, Check } from 'lucide-react';
 import type { Tenant } from '@obliance/shared';
 import { Button } from '@/components/common/Button';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { PageContainer } from '@/components/common/PageContainer';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 interface TenantMember {
  id: number;
@@ -54,8 +58,9 @@ function TenantForm({
  }
  };
 
+ // Phones: fields stacked full width, error on its own line.
  return (
- <div className="flex items-end gap-2">
+ <div className="flex flex-col sm:flex-row sm:items-end gap-2">
  <div className="flex-1">
  <label className="block text-xs text-text-muted mb-1">{t('tenant.name')}</label>
  <input
@@ -66,23 +71,28 @@ function TenantForm({
  placeholder={t('tenant.namePlaceholder')}
  />
  </div>
- <div className="w-40">
+ <div className="w-full sm:w-40">
  <label className="block text-xs text-text-muted mb-1">{t('tenant.slug')}</label>
  <input
  type="text"
  value={slug}
  onChange={(e) => setSlug(e.target.value)}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  className="w-full rounded-lg bg-bg-primary px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
  placeholder="my-org"
  />
  </div>
  {error && <p className="text-xs text-red-400">{error}</p>}
- <Button size="sm" onClick={handleSubmit} disabled={saving}>
+ <div className="flex gap-2 max-sm:justify-end">
+ <Button size="sm" onClick={handleSubmit} disabled={saving} aria-label={t('common.save')} title={t('common.save')} className="coarse:min-h-10 coarse:min-w-10">
  <Check size={14} />
  </Button>
- <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>
+ <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving} aria-label={t('common.cancel')} title={t('common.cancel')} className="coarse:min-h-10 coarse:min-w-10">
  <X size={14} />
  </Button>
+ </div>
  </div>
  );
 }
@@ -90,6 +100,7 @@ function TenantForm({
 // ── Members panel ───────────────────────────────────────────────────────────
 function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => void }) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
  const [members, setMembers] = useState<TenantMember[]>([]);
  const [allUsers, setAllUsers] = useState<{ id: number; username: string }[]>([]);
  const [loading, setLoading] = useState(true);
@@ -137,7 +148,7 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  };
 
  const removeMember = async (userId: number) => {
- if (!confirm(t('common.confirmDelete'))) return;
+ if (!(await confirm({ message: t('common.confirmDelete'), danger: true, confirmLabel: t('tenant.removeMember') }))) return;
  await fetch(`/api/tenants/${tenantId}/members/${userId}`, {
  method: 'DELETE',
  credentials: 'include',
@@ -148,19 +159,35 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  const nonMembers = allUsers.filter((u) => !members.find((m) => m.id === u.id));
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
- <div className="w-full max-w-lg rounded-2xl bg-bg-secondary shadow-2xl">
- <div className="flex items-center justify-between px-5 py-4 ">
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <Users size={15} />
- {t('tenant.members')}
- </h3>
- <button onClick={onClose} className="text-text-muted hover:text-text-primary">
- <X size={16} />
- </button>
- </div>
-
- <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
+ <Modal
+ open
+ onClose={onClose}
+ size="md"
+ closeOnBackdrop={false}
+ icon={<Users size={15} className="text-text-primary" />}
+ title={t('tenant.members')}
+ className="sm:rounded-2xl"
+ overlayClassName="backdrop-blur-none"
+ bodyClassName="px-5 py-4 space-y-3 sm:max-h-80"
+ footerClassName="flex-nowrap justify-start px-5"
+ footer={nonMembers.length > 0 ? (
+ <>
+ <select
+ value={addingId}
+ onChange={(e) => setAddingId(e.target.value ? Number(e.target.value) : '')}
+ className="min-w-0 flex-1 rounded-lg bg-bg-primary px-3 py-1.5 coarse:py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+ >
+ <option value="">{t('tenant.selectUser')}</option>
+ {nonMembers.map((u) => (
+ <option key={u.id} value={u.id}>{u.username}</option>
+ ))}
+ </select>
+ <Button size="sm" onClick={addMember} disabled={!addingId} className="shrink-0 coarse:min-h-10">
+ {t('tenant.addMember')}
+ </Button>
+ </>
+ ) : undefined}
+ >
  {loading ? (
  <p className="text-sm text-text-muted text-center py-4">{t('common.loading')}</p>
  ) : members.length === 0 ? (
@@ -168,7 +195,7 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  ) : (
  members.map((m) => (
  <div key={m.id} className="flex items-center justify-between gap-2">
- <div className="min-w-0">
+ <div className="min-w-0 break-words">
  <span className="text-sm text-text-primary font-medium">{m.username}</span>
  {m.display_name && (
  <span className="ml-1 text-xs text-text-muted">({m.display_name})</span>
@@ -177,7 +204,7 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  <div className="flex items-center gap-2 shrink-0">
  <button
  onClick={() => toggleRole(m.id, m.tenantRole)}
- className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+ className={`text-xs px-2 py-0.5 coarse:px-3 coarse:py-1.5 rounded-full border transition-colors ${
  m.tenantRole === 'admin'
  ? 'border-accent text-accent hover:bg-accent/10'
  : 'border-transparent text-text-muted hover:border-text-muted'
@@ -186,44 +213,26 @@ function MembersPanel({ tenantId, onClose }: { tenantId: number; onClose: () => 
  >
  {m.tenantRole}
  </button>
- <button
+ <IconButton
+ label={t('tenant.removeMember')}
+ icon={<X size={13} />}
+ size="xs"
+ variant="plain"
  onClick={() => removeMember(m.id)}
- className="text-text-muted hover:text-red-400 transition-colors"
- title={t('tenant.removeMember')}
- >
- <X size={13} />
- </button>
+ className="hover:text-red-400"
+ />
  </div>
  </div>
  ))
  )}
- </div>
-
- {nonMembers.length > 0 && (
- <div className="px-5 py-3 flex items-center gap-2">
- <select
- value={addingId}
- onChange={(e) => setAddingId(e.target.value ? Number(e.target.value) : '')}
- className="flex-1 rounded-lg bg-bg-primary px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
- >
- <option value="">{t('tenant.selectUser')}</option>
- {nonMembers.map((u) => (
- <option key={u.id} value={u.id}>{u.username}</option>
- ))}
- </select>
- <Button size="sm" onClick={addMember} disabled={!addingId}>
- {t('tenant.addMember')}
- </Button>
- </div>
- )}
- </div>
- </div>
+ </Modal>
  );
 }
 
 // ── Main page ───────────────────────────────────────────────────────────────
 export function AdminTenantsPage() {
  const { t } = useTranslation();
+ const confirm = useConfirm();
  const [tenants, setTenants] = useState<TenantWithMemberCount[]>([]);
  const [loading, setLoading] = useState(true);
  const [creating, setCreating] = useState(false);
@@ -274,14 +283,14 @@ export function AdminTenantsPage() {
  };
 
  const handleDelete = async (id: number) => {
- if (!confirm(t('tenant.confirmDelete'))) return;
+ if (!(await confirm({ message: t('tenant.confirmDelete'), danger: true }))) return;
  await fetch(`/api/tenants/${id}`, { method: 'DELETE', credentials: 'include' });
  fetchTenants();
  };
 
  return (
- <div className="p-6">
- <div className="flex items-center justify-between mb-6">
+ <PageContainer>
+ <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
  <div>
  <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
  <Building2 size={20} className="text-accent" />
@@ -321,11 +330,11 @@ export function AdminTenantsPage() {
  onCancel={() => setEditingId(null)}
  />
  ) : (
- <div className="flex items-center justify-between gap-3">
+ <div className="flex flex-wrap items-center justify-between gap-3">
  <div className="min-w-0">
  <div className="flex items-center gap-2">
  <Building2 size={14} className="text-accent shrink-0" />
- <span className="text-sm font-semibold text-text-primary">{tenant.name}</span>
+ <span className="text-sm font-semibold text-text-primary break-words min-w-0">{tenant.name}</span>
  {tenant.id === 1 && (
  <span className="text-[10px] bg-accent/15 text-accent rounded px-1.5 py-0.5">
  {t('tenant.default')}
@@ -335,7 +344,7 @@ export function AdminTenantsPage() {
  <p className="text-xs text-text-muted mt-0.5">
  /{tenant.slug} · {t('tenant.createdAt')} {new Date(tenant.createdAt).toLocaleDateString()}
  </p>
- <label className="flex items-center gap-2 mt-2 cursor-pointer">
+ <label className="flex items-center gap-2 mt-2 coarse:py-1 cursor-pointer">
  <input
  type="checkbox"
  checked={!!tenant.twoStepApproval}
@@ -349,7 +358,7 @@ export function AdminTenantsPage() {
  });
  fetchTenants();
  }}
- className="accent-accent"
+ className="accent-accent shrink-0 coarse:h-5 coarse:w-5"
  />
  <span className="text-[11px] text-text-secondary">
  {t('tenant.twoStepApproval', 'Require 2nd-admin approval for destructive actions')}
@@ -360,26 +369,24 @@ export function AdminTenantsPage() {
  <button
  onClick={() => setMembersForId(tenant.id)}
  title={t('tenant.manageMembers')}
- className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary px-2 py-1 rounded-md hover:bg-bg-hover transition-colors"
+ className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary px-2 py-1 coarse:min-h-10 rounded-md hover:bg-bg-hover transition-colors"
  >
  <Users size={13} />
  {t('tenant.members')}
  </button>
- <button
+ <IconButton
+ label={t('common.edit')}
+ icon={<Pencil size={13} />}
  onClick={() => setEditingId(tenant.id)}
- title={t('common.edit')}
- className="p-1.5 text-text-muted hover:text-text-primary rounded-md hover:bg-bg-hover transition-colors"
- >
- <Pencil size={13} />
- </button>
+ className="rounded-md"
+ />
  {tenant.id !== 1 && (
- <button
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 size={13} />}
  onClick={() => handleDelete(tenant.id)}
- title={t('common.delete')}
- className="p-1.5 text-text-muted hover:text-red-400 rounded-md hover:bg-bg-hover transition-colors"
- >
- <Trash2 size={13} />
- </button>
+ className="rounded-md hover:text-red-400"
+ />
  )}
  </div>
  </div>
@@ -392,6 +399,6 @@ export function AdminTenantsPage() {
  {membersForId !== null && (
  <MembersPanel tenantId={membersForId} onClose={() => setMembersForId(null)} />
  )}
- </div>
+ </PageContainer>
  );
 }

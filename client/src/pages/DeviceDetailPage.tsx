@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { cloneElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -9,8 +9,20 @@ import {
  AlertTriangle, CheckCircle2, XCircle, MinusCircle, Settings, ToggleLeft, ToggleRight, Trash2, Download, TerminalSquare, FolderOpen, MessageCircle,
  ArrowLeftRight, CalendarClock, Maximize2, StopCircle, Wrench, EyeOff, Eye, Moon, Lock, Unlock,
  ArrowRightLeft, Pencil, Check, StickyNote, Database, TrendingUp, TrendingDown, Minus,
- Printer, Cable, Rewind,
+ Printer, Cable, Rewind, Copy, ExternalLink,
 } from 'lucide-react';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { TableScroll } from '@/components/common/TableScroll';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
+import { Tip } from '@/components/common/Tip';
+import { PageContainer } from '@/components/common/PageContainer';
+import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { useCanHover } from '@/hooks/useMediaQuery';
+import { saveText } from '@/utils/download';
+import { openExternal } from '@/utils/openExternal';
+import { copyText } from '@/utils/clipboard';
 import { PrivacyUnlockModal } from '@/components/devices/PrivacyUnlockModal';
 import { TransferTenantModal } from '@/components/devices/TransferTenantModal';
 import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPasswordManageModal';
@@ -138,6 +150,48 @@ function LastSeenPill({ lastSeenAt }: { lastSeenAt: string | null }) {
  {text}
  </span>
  );
+}
+
+// ─── Copy-to-clipboard icon button ──────────────────────────────────────────
+//
+// Small helper for identifiers (UUID, keys, IPs) that are truncated on narrow
+// screens: a tap copies the full value (toast on success / failure).
+
+function CopyValueButton({ value, className }: { value: string; className?: string }) {
+ const { t } = useTranslation();
+ return (
+ <IconButton
+ label={t('common.copy', 'Copy')}
+ icon={<Copy className="w-3.5 h-3.5" />}
+ size="xs"
+ className={clsx('shrink-0', className)}
+ onClick={async (e) => {
+ e.stopPropagation();
+ const ok = await copyText(value);
+ if (ok) toast.success(t('common.copied', 'Copied!'));
+ else toast.error(t('common.error', 'Error'));
+ }}
+ />
+ );
+}
+
+// ─── Disabled-reason tooltip ────────────────────────────────────────────────
+//
+// Mouse devices keep the native title= tooltip (desktop unchanged); on touch
+// the disabled control is wrapped in a <Tip> so a tap explains WHY it is
+// greyed out (agent offline, legacy agent, privacy mode…).
+
+function DisabledTip({ reason, children, className }: {
+ reason?: string | null | false;
+ children: React.ReactElement<{ title?: string }>;
+ className?: string;
+}) {
+ const canHover = useCanHover();
+ if (!reason) return children;
+ // Mouse: keep the control's own title when it has one (desktop tooltip
+ // text unchanged), otherwise surface the reason as the native tooltip.
+ if (canHover) return children.props.title ? children : cloneElement(children, { title: reason });
+ return <Tip content={reason} className={className}>{children}</Tip>;
 }
 
 // ─── Duplicate agent ID banner ──────────────────────────────────────────────
@@ -278,6 +332,7 @@ function NoteBanner({
  onCancel: () => void;
  onDelete: () => void;
 }) {
+ const { t } = useTranslation();
  const hasNote = !!description && description.trim().length > 0;
  if (!editing && !hasNote) return null;
 
@@ -294,32 +349,35 @@ function NoteBanner({
  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSave();
  }}
  rows={2}
- placeholder="Add a note about this device..."
- className="flex-1 px-2 py-1 text-xs bg-bg-primary rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+ placeholder={t('deviceDetail.note.placeholder', 'Add a note about this device...')}
+ className="flex-1 min-w-0 px-2 py-1 text-xs bg-bg-primary rounded text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
  />
  <div className="flex flex-col gap-1 flex-shrink-0">
- <button
+ <IconButton
  onClick={onSave}
- className="p-1 rounded text-green-400 hover:bg-bg-secondary"
- title="Save (Ctrl+Enter)"
- >
- <Check className="w-3.5 h-3.5" />
- </button>
- <button
+ size="sm"
+ variant="plain"
+ className="text-green-400 hover:text-green-400 hover:bg-bg-secondary"
+ label={t('deviceDetail.note.save', 'Save (Ctrl+Enter)')}
+ icon={<Check className="w-3.5 h-3.5" />}
+ />
+ <IconButton
  onClick={onCancel}
- className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
- title="Cancel (Esc)"
- >
- <X className="w-3.5 h-3.5" />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:bg-bg-secondary"
+ label={t('deviceDetail.note.cancel', 'Cancel (Esc)')}
+ icon={<X className="w-3.5 h-3.5" />}
+ />
  {description && (
- <button
+ <IconButton
  onClick={onDelete}
- className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-bg-secondary"
- title="Delete note"
- >
- <Trash2 className="w-3.5 h-3.5" />
- </button>
+ size="sm"
+ variant="plain"
+ className="text-rose-400 hover:text-rose-300 hover:bg-bg-secondary"
+ label={t('deviceDetail.note.delete', 'Delete note')}
+ icon={<Trash2 className="w-3.5 h-3.5" />}
+ />
  )}
  </div>
  </div>
@@ -330,7 +388,7 @@ function NoteBanner({
  <button
  onClick={onStart}
  className="mt-2 w-full flex items-start gap-2 px-2 py-1.5 rounded-md bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 hover:bg-rose-500/15 transition-colors text-left"
- title="Edit note"
+ title={t('deviceDetail.note.edit', 'Edit note')}
  >
  <StickyNote className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
  <span className="flex-1 whitespace-pre-wrap break-words">{description}</span>
@@ -531,7 +589,17 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
  ].map(([k, v]) => (
  <div key={k} className="flex justify-between gap-2 text-sm">
  <dt className="text-text-muted shrink-0">{k}</dt>
- <dd className={clsx('text-text-primary font-medium truncate', k === 'Agent UUID' && 'font-mono text-xs')} title={k === 'Agent UUID' ? (v as string) : undefined}>{v}</dd>
+ {k === 'Agent UUID' && device.uuid ? (
+ // Full UUID wraps below lg (no hover tooltip on touch) and gets a
+ // tap-to-copy button on touch devices; desktop keeps the truncated
+ // cell + title tooltip.
+ <dd className="min-w-0 flex items-center gap-1 text-text-primary font-medium">
+ <span className="truncate font-mono text-xs max-lg:whitespace-normal max-lg:break-all max-lg:text-right" title={v as string}>{v}</span>
+ <CopyValueButton value={device.uuid} className="hidden coarse:inline-flex" />
+ </dd>
+ ) : (
+ <dd className="text-text-primary font-medium truncate">{v}</dd>
+ )}
  </div>
  ))}
  </dl>
@@ -546,9 +614,9 @@ function OverviewTab({ device }: { device: Device; onSaved: () => void }) {
  ['Timezone', device.timezone ?? '—'],
  ['Location', device.geoCity ? `${device.geoCity}, ${device.geoRegion ?? ''} ${device.geoCountry ?? ''}`.trim() : '—'],
  ].map(([k, v]) => (
- <div key={k} className="flex justify-between text-sm">
- <dt className="text-text-muted">{k}</dt>
- <dd className="text-text-primary font-mono text-xs">{v}</dd>
+ <div key={k} className="flex justify-between text-sm max-lg:gap-2">
+ <dt className="text-text-muted max-lg:shrink-0">{k}</dt>
+ <dd className="text-text-primary font-mono text-xs max-lg:min-w-0 max-lg:break-all max-lg:text-right">{v}</dd>
  </div>
  ))}
  </dl>
@@ -766,6 +834,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  const [licenses, setLicenses] = useState<DeviceLicense[]>([]);
  const [showLicenseForm, setShowLicenseForm] = useState(false);
  const [licenseForm, setLicenseForm] = useState({ softwareName: '', licenseKey: '', licenseType: 'per_device' as string, vendor: '', expiryDate: '', notes: '' });
+ const confirm = useConfirm();
 
  const loadLicenses = useCallback(() => {
  licenseApi.listForDevice(deviceId).then(setLicenses).catch(() => {});
@@ -825,7 +894,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
 
  return (
  <div className="space-y-4">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <div className="flex gap-2">
  <button
  onClick={() => setActiveSection('hardware')}
@@ -840,15 +909,16 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  Software ({softwareTotal})
  </button>
  </div>
+ <DisabledTip reason={isCommandSupported({ agentFlavor }, 'scan_inventory') ? null : unsupportedTooltip(t)}>
  <button
  onClick={handleScan}
  disabled={!isCommandSupported({ agentFlavor }, 'scan_inventory')}
- title={isCommandSupported({ agentFlavor }, 'scan_inventory') ? undefined : unsupportedTooltip(t)}
  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Scan className="w-3.5 h-3.5" />
  Scan now
  </button>
+ </DisabledTip>
  </div>
 
  {activeSection === 'hardware' && hardware && (
@@ -867,7 +937,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  ].filter((x): x is [string, string] => Array.isArray(x) && !!x[1]).map(([k, v]) => (
  <div key={k as string} className="flex justify-between text-sm">
  <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
- <dd className="text-text-primary font-medium text-right truncate select-all">{v as string}</dd>
+ <dd className="text-text-primary font-medium text-right truncate select-all max-lg:min-w-0 max-lg:whitespace-normal max-lg:break-all">{v as string}</dd>
  </div>
  ))}
  </dl>
@@ -895,7 +965,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <h4 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2"><HardDrive className="w-4 h-4" />Disks</h4>
  <div className="space-y-2">
  {(hardware.disks ?? []).map((disk, i) => (
- <div key={i} className="flex items-center gap-3 text-sm">
+ <div key={i} className="flex items-center gap-3 text-sm max-lg:flex-wrap max-lg:gap-y-0.5">
  <span className="text-text-primary">{disk.model ?? disk.device}</span>
  <span className="text-text-muted text-xs">{disk.type}</span>
  <span className="text-text-muted text-xs">{((disk.size ?? 0) / 1024 / 1024 / 1024).toFixed(0)} GB</span>
@@ -1002,7 +1072,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  ].filter(([, v]) => v).map(([k, v]) => (
  <div key={k as string} className="flex justify-between text-sm">
  <dt className="text-text-muted shrink-0 mr-2">{k as string}</dt>
- <dd className="text-text-primary font-medium text-right truncate">{v as string}</dd>
+ <dd className="text-text-primary font-medium text-right truncate max-lg:min-w-0 max-lg:whitespace-normal max-lg:break-words">{v as string}</dd>
  </div>
  ))}
  </dl>
@@ -1127,7 +1197,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted animate-spin" />
  )}
  </div>
- <div className={clsx('bg-bg-secondary rounded-xl overflow-hidden transition-opacity', softwareLoading && 'opacity-60')}>
+ <TableScroll className={clsx('bg-bg-secondary rounded-xl transition-opacity', softwareLoading && 'opacity-60')}>
  <table className="w-full">
  <thead>
  <tr className="">
@@ -1139,14 +1209,24 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <tbody className="divide-y divide-border">
  {software.map((sw) => (
  <tr key={sw.id} className="hover:bg-bg-tertiary transition-colors">
- <td className="px-4 py-2 text-sm text-text-primary">{sw.name}</td>
+ <td className="px-4 py-2 text-sm text-text-primary">
+ {sw.name}
+ {/* Columns hidden below md / lg are repeated as a muted second line. */}
+ {(sw.version || sw.publisher) && (
+ <p className="lg:hidden text-xs text-text-muted break-words">
+ {sw.version && <span className="md:hidden">{sw.version}</span>}
+ {sw.version && sw.publisher && <span className="md:hidden"> · </span>}
+ {sw.publisher}
+ </p>
+ )}
+ </td>
  <td className="px-4 py-2 text-sm text-text-muted hidden md:table-cell">{sw.version ?? '—'}</td>
  <td className="px-4 py-2 text-sm text-text-muted hidden lg:table-cell">{sw.publisher ?? '—'}</td>
  </tr>
  ))}
  </tbody>
  </table>
- </div>
+ </TableScroll>
  </div>
  )}
 
@@ -1158,7 +1238,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <div className="p-4 bg-bg-secondary rounded-xl">
  <div className="flex items-center justify-between mb-3">
  <h4 className="text-sm font-semibold text-text-muted">Licenses</h4>
- <button onClick={() => setShowLicenseForm(!showLicenseForm)} className="text-xs text-accent hover:underline">
+ <button onClick={() => setShowLicenseForm(!showLicenseForm)} className="text-xs text-accent hover:underline coarse:min-h-10 coarse:px-2">
  + Add License
  </button>
  </div>
@@ -1168,9 +1248,10 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  onChange={e => setLicenseForm(f => ({ ...f, softwareName: e.target.value }))}
  className="w-full px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
  <input type="text" placeholder="License key" value={licenseForm.licenseKey}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  onChange={e => setLicenseForm(f => ({ ...f, licenseKey: e.target.value }))}
  className="w-full px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
- <div className="grid grid-cols-2 gap-2">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
  <select value={licenseForm.licenseType}
  onChange={e => setLicenseForm(f => ({ ...f, licenseType: e.target.value }))}
  className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent">
@@ -1184,7 +1265,7 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  onChange={e => setLicenseForm(f => ({ ...f, vendor: e.target.value }))}
  className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
  </div>
- <div className="grid grid-cols-2 gap-2">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
  <input type="date" placeholder="Expiry date" value={licenseForm.expiryDate}
  onChange={e => setLicenseForm(f => ({ ...f, expiryDate: e.target.value }))}
  className="px-3 py-1.5 text-sm bg-bg-primary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
@@ -1214,7 +1295,8 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  </div>
  )}
  {licenses.length > 0 ? (
- <table className="w-full text-sm">
+ <TableScroll className="rounded-none">
+ <table className="w-full text-sm max-sm:min-w-[440px]">
  <thead><tr className="text-xs text-text-muted ">
  <th className="text-left py-1">Software</th>
  <th className="text-left py-1">Key</th>
@@ -1228,12 +1310,22 @@ function InventoryTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor
  <td className="py-1.5 font-mono text-text-muted">{lic.licenseKey ? '••••' + lic.licenseKey.slice(-4) : '—'}</td>
  <td className="py-1.5 text-text-muted">{lic.licenseType ?? '—'}</td>
  <td className="py-1.5 text-text-muted">{lic.expiryDate ? new Date(lic.expiryDate).toLocaleDateString() : '—'}</td>
- <td><button onClick={async () => {
+ <td><IconButton
+ label={t('deviceDetail.license.delete', 'Delete license')}
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ className="text-red-400 hover:text-red-300"
+ icon={<Trash2 className="w-3.5 h-3.5" />}
+ onClick={async () => {
+ if (!(await confirm({ message: t('deviceDetail.license.deleteConfirm', { defaultValue: 'Delete the license "{{name}}"?', name: lic.softwareName }), danger: true }))) return;
  try { await licenseApi.remove(lic.id); loadLicenses(); } catch { toast.error('Failed to delete license'); }
- }} className="text-red-400 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button></td>
+ }}
+ /></td>
  </tr>
  ))}</tbody>
  </table>
+ </TableScroll>
  ) : (
  <p className="text-xs text-text-muted">No licenses recorded</p>
  )}
@@ -1279,6 +1371,7 @@ function ScriptsTab({ deviceId }: { deviceId: number }) {
 }
 
 function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
  const [executions, setExecutions] = useState<ScriptExecution[]>([]);
  const [isLoading, setIsLoading] = useState(true);
  const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1304,9 +1397,7 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
  <div className="space-y-2">
  <div className="flex items-center justify-between">
  <p className="text-sm text-text-muted">{executions.length} executions</p>
- <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ <IconButton onClick={load} label={t('common.refresh', 'Refresh')} className="hover:bg-bg-secondary rounded-lg" icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />} />
  </div>
 
  {executions.length === 0 ? (
@@ -1321,38 +1412,51 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
  ? Math.round((new Date(ex.finishedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
  : null;
  const isExpanded = expandedId === ex.id;
+ const isRunning = ex.status === 'running' || ex.status === 'sent';
  return (
  <div key={ex.id} className="bg-bg-secondary rounded-lg overflow-hidden">
+ {/* Stop is a real sibling button (not nested in the row toggle) so a
+ near-miss on touch never expands the row instead of stopping. */}
+ <div className="flex items-center hover:bg-bg-hover transition-colors">
  <button
  onClick={() => setExpandedId(isExpanded ? null : ex.id)}
- className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover transition-colors"
+ className={clsx('flex-1 min-w-0 flex items-center gap-3 pl-4 py-2.5 text-left', isRunning ? 'pr-0' : 'pr-4')}
  >
  {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
- <span className="text-sm text-text-primary flex-1 truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
+ <span className="flex-1 min-w-0">
+ <span className="block text-sm text-text-primary truncate">{ex.scriptSnapshot?.name ?? 'Script'}</span>
+ <span className="md:hidden block text-xs text-text-muted truncate">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
+ </span>
  <span className={clsx('text-xs font-medium', STATUS_COLORS[ex.status] ?? 'text-text-muted')}>{ex.status}</span>
  <span className="text-xs text-text-muted">{ex.triggeredBy}</span>
  <span className="text-xs text-text-muted hidden md:inline">{ex.startedAt ? new Date(ex.startedAt).toLocaleString() : '—'}</span>
  {duration !== null && <span className="text-xs text-text-muted">{duration}s</span>}
- {(ex.status === 'running' || ex.status === 'sent') && (
- <span onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(ex.id).then(() => { toast.success('Script stopped'); load(); }).catch(() => toast.error('Failed to stop')); }}
- className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer" title="Stop">
- <StopCircle className="w-4 h-4" />
- </span>
- )}
  </button>
+ {isRunning && (
+ <IconButton
+ onClick={() => { scriptApi.stopExecution(ex.id).then(() => { toast.success('Script stopped'); load(); }).catch(() => toast.error('Failed to stop')); }}
+ size="sm"
+ variant="plain"
+ className="ml-3 mr-4 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+ label={t('deviceDetail.scripts.stop', 'Stop')}
+ icon={<StopCircle className="w-4 h-4" />}
+ />
+ )}
+ </div>
  {isExpanded && (
  <div className=" p-3 space-y-2 bg-bg-tertiary/50">
  {ex.stdout && (
  <div>
  <div className="flex items-center justify-between mb-1">
  <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
- <button
+ <IconButton
  onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stdout`, content: ex.stdout!, type: 'stdout' })}
- className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
- title="Fullscreen"
- >
- <Maximize2 className="w-3 h-3" />
- </button>
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ label={t('deviceDetail.scripts.fullscreen', 'Fullscreen')}
+ icon={<Maximize2 className="w-3 h-3" />}
+ />
  </div>
  <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stdout}</pre>
  </div>
@@ -1361,13 +1465,14 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
  <div>
  <div className="flex items-center justify-between mb-1">
  <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
- <button
+ <IconButton
  onClick={() => setFullscreenOutput({ title: `${ex.scriptSnapshot?.name ?? 'Script'} — stderr`, content: ex.stderr!, type: 'stderr' })}
- className="p-0.5 text-text-muted hover:text-text-primary transition-colors"
- title="Fullscreen"
- >
- <Maximize2 className="w-3 h-3" />
- </button>
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ label={t('deviceDetail.scripts.fullscreen', 'Fullscreen')}
+ icon={<Maximize2 className="w-3 h-3" />}
+ />
  </div>
  <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{ex.stderr}</pre>
  </div>
@@ -1384,25 +1489,23 @@ function DeviceScriptHistory({ deviceId }: { deviceId: number }) {
  </div>
 
  {/* Fullscreen output modal */}
+ <Modal
+ open={!!fullscreenOutput}
+ onClose={() => setFullscreenOutput(null)}
+ title={fullscreenOutput?.title}
+ size="full"
+ className="bg-bg-primary"
+ bodyClassName="p-0"
+ >
  {fullscreenOutput && (
- <>
- <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
- <div className="fixed inset-4 z-50 bg-bg-primary rounded-xl flex flex-col overflow-hidden shadow-2xl">
- <div className="flex items-center justify-between px-4 py-3 shrink-0">
- <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
- <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
- <X className="w-4 h-4" />
- </button>
- </div>
  <pre className={clsx(
- 'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+ 'p-4 text-sm font-mono overflow-x-auto whitespace-pre-wrap break-words',
  fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
  )}>
  {fullscreenOutput.content}
  </pre>
- </div>
- </>
  )}
+ </Modal>
  </>
  );
 }
@@ -1456,6 +1559,7 @@ function DeviceScriptRun({ deviceId }: { deviceId: number }) {
 }
 
 function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
  const [scripts, setScripts] = useState<Script[]>([]);
  const [schedules, setSchedules] = useState<ScriptSchedule[]>([]);
  const [isLoading, setIsLoading] = useState(true);
@@ -1518,22 +1622,20 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
 
  return (
  <div className="space-y-4">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <p className="text-sm text-text-muted">{schedules.length} schedule(s) apply to this device</p>
  <div className="flex gap-2">
- <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors">
+ <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors coarse:min-h-10">
  <Plus className="w-3.5 h-3.5" /> New
  </button>
- <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className="w-3.5 h-3.5" />
- </button>
+ <IconButton onClick={load} label={t('common.refresh', 'Refresh')} className="hover:bg-bg-secondary rounded-lg" icon={<RefreshCw className="w-3.5 h-3.5" />} />
  </div>
  </div>
 
  {/* Inline create form */}
  {showForm && (
  <div className="bg-bg-secondary rounded-xl p-4 space-y-3">
- <div className="grid grid-cols-2 gap-3">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
  <div className="space-y-1">
  <label className="text-xs font-medium text-text-muted uppercase">Name</label>
  <input value={formName} onChange={(e) => setFormName(e.target.value)}
@@ -1554,6 +1656,7 @@ function DeviceScriptSchedule({ deviceId }: { deviceId: number }) {
  </div>
  {formMode === 'cron' ? (
  <input value={formCron} onChange={(e) => setFormCron(e.target.value)}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono" placeholder="0 2 * * *" />
  ) : (
  <input type="datetime-local" value={formOnceAt} min={new Date().toISOString().slice(0, 16)} onChange={(e) => setFormOnceAt(e.target.value)}
@@ -1605,6 +1708,9 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  const [approvingId, setApprovingId] = useState<number | null>(null);
  const [isApprovingAll, setIsApprovingAll] = useState(false);
  const [isDeploying, setIsDeploying] = useState(false);
+ // Touch/narrow layouts: tapping an update title expands it (full title +
+ // KB id) — desktop keeps the single truncated line + title tooltip.
+ const [expandedUpdateId, setExpandedUpdateId] = useState<number | null>(null);
 
  const load = async () => {
  setIsLoading(true);
@@ -1787,15 +1893,16 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  Retry all ({failed.length})
  </button>
  )}
+ <DisabledTip reason={isCommandSupported({ agentFlavor }, 'scan_updates') ? null : unsupportedTooltip(t)}>
  <button
  onClick={handleScan}
  disabled={!isCommandSupported({ agentFlavor }, 'scan_updates')}
- title={isCommandSupported({ agentFlavor }, 'scan_updates') ? undefined : unsupportedTooltip(t)}
  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 transition-colors text-text-muted hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Scan className="w-3.5 h-3.5" />
  {t('updates.actions.scan')}
  </button>
+ </DisabledTip>
  </div>
  </div>
 
@@ -1814,7 +1921,19 @@ function UpdatesTab({ deviceId, agentFlavor }: { deviceId: number; agentFlavor: 
  {update.severity}
  </span>
  <div className="flex-1 min-w-0">
- <p className="text-sm text-text-primary font-medium truncate">{update.title ?? update.updateUid}</p>
+ <p
+ className={clsx(
+ 'text-sm text-text-primary font-medium truncate max-lg:whitespace-normal max-lg:break-words max-lg:cursor-pointer',
+ expandedUpdateId !== update.id && 'max-lg:line-clamp-2',
+ )}
+ title={update.title ?? update.updateUid}
+ onClick={() => setExpandedUpdateId((cur) => (cur === update.id ? null : update.id))}
+ >
+ {update.title ?? update.updateUid}
+ </p>
+ {expandedUpdateId === update.id && update.title && update.updateUid && (
+ <p className="lg:hidden text-xs text-text-muted font-mono break-all">{update.updateUid}</p>
+ )}
  <p className="text-xs text-text-muted">{update.source} · <span className={clsx(
  update.status === 'approved' ? 'text-green-400' :
  update.status === 'installing' || update.status === 'pending_install' ? 'text-yellow-400' :
@@ -1884,6 +2003,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 function ComplianceTab({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
  const [results, setResults] = useState<ComplianceResult[]>([]);
  const [policies, setPolicies] = useState<CompliancePolicy[]>([]);
  const [presets, setPresets] = useState<import('@obliance/shared').CompliancePreset[]>([]);
@@ -2000,7 +2120,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  return policy?.rules.find(r => r.id === ruleId);
  };
 
- const handleExport = (e: React.MouseEvent, result: ComplianceResult) => {
+ const handleExport = async (e: React.MouseEvent, result: ComplianceResult) => {
  e.stopPropagation();
  const policyName = result.policy?.name ?? `Policy #${result.policyId}`;
  const checkedAt = new Date(result.checkedAt).toLocaleString();
@@ -2023,15 +2143,13 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  }
 
  const csv = lines.join('\r\n');
- const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = `compliance-${policyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- URL.revokeObjectURL(url);
+ // saveText → native saveFile bridge in the Android shell, <a download> in browsers.
+ const ok = await saveText(
+ '\uFEFF' + csv,
+ `compliance-${policyName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`,
+ 'text/csv;charset=utf-8',
+ );
+ if (!ok) toast.error(t('common.error', 'Error'));
  };
 
  // ── Software Compliance ─────────────────────────────────────────────────────
@@ -2115,7 +2233,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  return (
  <div className="space-y-4">
  {/* Header row */}
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <p className="text-xs text-text-muted">{results.length} policy result{results.length !== 1 ? 's' : ''}</p>
  <div className="flex gap-2">
  <button
@@ -2151,18 +2269,19 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 
  return (
  <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden">
- {/* Policy header */}
+ {/* Policy header — below sm the actions / counts / score move to
+ a second, wrapping row so the policy name keeps its width. */}
  <div
  onClick={() => toggleExpand(result.id)}
- className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+ className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer max-sm:flex-wrap max-sm:gap-y-2"
  >
- <div className="flex items-center gap-3">
+ <div className="flex items-center gap-3 min-w-0">
  {isExpanded
  ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
  : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
  }
- <div>
- <p className="text-sm font-medium text-text-primary">
+ <div className="min-w-0">
+ <p className="text-sm font-medium text-text-primary break-words">
  {result.policy?.name ?? `Policy #${result.policyId}`}
  </p>
  <p className="text-xs text-text-muted mt-0.5">
@@ -2171,11 +2290,11 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  </p>
  </div>
  </div>
- <div className="flex items-center gap-4 shrink-0">
+ <div className="flex items-center gap-4 shrink-0 max-sm:w-full max-sm:flex-wrap max-sm:justify-end max-sm:gap-x-3 max-sm:gap-y-2">
  {failCount > 0 && (
  <button
  onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
- className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-9"
  title="Remediate all failing rules"
  >
  <Wrench className="w-3 h-3" />
@@ -2184,8 +2303,8 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  )}
  <button
  onClick={(e) => handleExport(e, result)}
- title="Exporter le rapport CSV"
- className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors"
+ title={t('deviceDetail.compliance.exportCsv', 'Export the CSV report')}
+ className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg hover:bg-bg-primary text-text-muted hover:text-text-primary transition-colors coarse:min-h-9"
  >
  <Download className="w-3 h-3" />
  Export
@@ -2271,16 +2390,16 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  </span>
  )}
  </div>
- <div className="flex gap-4 mt-1 text-xs text-text-muted font-mono">
+ <div className="flex flex-wrap gap-x-4 mt-1 text-xs text-text-muted font-mono">
  {rr.actualValue !== null && rr.actualValue !== undefined && (
- <span>actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
+ <span className="max-lg:min-w-0 max-lg:break-all">actual: <span className="text-text-secondary">{String(rr.actualValue)}</span></span>
  )}
  {ruleInfo?.expected !== undefined && ruleInfo.expected !== null && (
- <span>expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
+ <span className="max-lg:min-w-0 max-lg:break-all">expected: <span className="text-text-secondary">{String(ruleInfo.expected)}</span></span>
  )}
  </div>
  </div>
- <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+ <div className="flex items-center gap-1.5 shrink-0 mt-0.5 coarse:mt-0 coarse:gap-0.5">
  <span className={clsx(
  'text-xs font-medium capitalize',
  ignored ? 'text-text-muted' :
@@ -2292,31 +2411,34 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  {ignored ? 'ignored' : rr.status}
  </span>
  {rr.status === 'fail' && !ignored && hasRemediation && (
- <button
+ <IconButton
  onClick={(e) => { e.stopPropagation(); handleRemediate(result.policyId, [rr.ruleId]); }}
  disabled={isRemediating}
- className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
- title="Remediate"
- >
- <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
- </button>
+ size="sm"
+ variant="primary"
+ className="disabled:opacity-50"
+ label={t('deviceDetail.compliance.remediate', 'Remediate')}
+ icon={<Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />}
+ />
  )}
  {!ignored ? (
- <button
+ <IconButton
  onClick={(e) => { e.stopPropagation(); handleIgnore(result.policyId, [rr.ruleId]); }}
- className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
- title="Ignore this rule"
- >
- <EyeOff className="w-3.5 h-3.5" />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:text-yellow-400 hover:bg-yellow-400/10"
+ label={t('deviceDetail.compliance.ignoreRule', 'Ignore this rule')}
+ icon={<EyeOff className="w-3.5 h-3.5" />}
+ />
  ) : (
- <button
+ <IconButton
  onClick={(e) => { e.stopPropagation(); handleUnignore(result.policyId, [rr.ruleId]); }}
- className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
- title="Unignore this rule"
- >
- <Eye className="w-3.5 h-3.5" />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:text-green-400 hover:bg-green-400/10"
+ label={t('deviceDetail.compliance.unignoreRule', 'Unignore this rule')}
+ icon={<Eye className="w-3.5 h-3.5" />}
+ />
  )}
  </div>
  </div>
@@ -2333,7 +2455,7 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
 
  {/* ── Software Compliance Section ── */}
  <div className=" pt-4 mt-6">
- <div className="flex items-center justify-between mb-3">
+ <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
  <p className="text-xs text-text-muted font-semibold uppercase tracking-wider">Software Compliance</p>
  <div className="flex gap-2">
  <button
@@ -2373,16 +2495,16 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden mb-2">
  <div
  onClick={() => toggleSwExpand(result.id)}
- className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+ className="w-full flex items-center justify-between p-4 hover:bg-bg-tertiary/50 transition-colors cursor-pointer max-sm:flex-wrap max-sm:gap-y-2"
  >
- <div className="flex items-center gap-3">
+ <div className="flex items-center gap-3 min-w-0">
  {isExpanded
  ? <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
  : <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
  }
- <div>
- <div className="flex items-center gap-2">
- <p className="text-sm font-medium text-text-primary">
+ <div className="min-w-0">
+ <div className="flex items-center gap-2 max-sm:flex-wrap">
+ <p className="text-sm font-medium text-text-primary break-words">
  {result.list?.name ?? `List #${result.listId}`}
  </p>
  {result.list && (
@@ -2401,11 +2523,11 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  </p>
  </div>
  </div>
- <div className="flex items-center gap-4 shrink-0">
+ <div className="flex items-center gap-4 shrink-0 max-sm:w-full max-sm:flex-wrap max-sm:justify-end max-sm:gap-x-3 max-sm:gap-y-2">
  {nonCompliantCount > 0 && (
  <button
  onClick={(e) => { e.stopPropagation(); handleSwRemediateAll(result); }}
- className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-9"
  title="Remediate all non-compliant entries"
  >
  <Wrench className="w-3 h-3" />
@@ -2463,9 +2585,9 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  {swEntryStatusIcon(er.status)}
  </div>
  <div className="flex-1 min-w-0">
- <span className="text-sm text-text-primary">{er.entryName}</span>
+ <span className="text-sm text-text-primary break-words">{er.entryName}</span>
  {er.matchedSoftware && (
- <p className="text-xs text-text-muted mt-0.5">
+ <p className="text-xs text-text-muted mt-0.5 max-lg:break-words">
  matched: <span className="font-mono">{er.matchedSoftware}</span>
  {er.matchedVersion && <span className="ml-1">v{er.matchedVersion}</span>}
  </p>
@@ -2491,14 +2613,15 @@ function ComplianceTab({ deviceId }: { deviceId: number }) {
  {er.status.replace('_', ' ')}
  </span>
  {er.status === 'non_compliant' && (
- <button
+ <IconButton
  onClick={(e) => { e.stopPropagation(); handleSwRemediate(result.listId, [er.entryId]); }}
  disabled={isRemediating}
- className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
- title="Remediate"
- >
- <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
- </button>
+ size="sm"
+ variant="primary"
+ className="disabled:opacity-50"
+ label={t('deviceDetail.compliance.remediate', 'Remediate')}
+ icon={<Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />}
+ />
  )}
  </div>
  </div>
@@ -2605,17 +2728,29 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  });
  const [saving, setSaving] = useState(false);
  const [showTransferModal, setShowTransferModal] = useState(false);
+ const { t } = useTranslation();
+ const confirm = useConfirm();
  const formRef = useRef(form);
  formRef.current = form;
  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ // True while a persisted text field was edited but not yet saved (text
+ // inputs save on blur). On Android, closing the keyboard with Back or
+ // leaving the tab with the system Back gesture may never blur the field,
+ // so pending edits are flushed on unmount (see effect below).
+ const dirtyRef = useRef(false);
+ const DRAFT_ONLY_KEYS: ReadonlyArray<string> = ['tagInput', 'cfKey', 'cfValue', 'sensorKey', 'sensorValue'];
 
- const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+ const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+ if (!DRAFT_ONLY_KEYS.includes(key as string)) dirtyRef.current = true;
  setForm(prev => ({ ...prev, [key]: value }));
+ };
 
  // Auto-save: called on blur (text inputs) or immediately (toggles/selects)
  const autoSave = useCallback(() => {
  if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
  saveTimeoutRef.current = setTimeout(async () => {
+ saveTimeoutRef.current = null;
+ dirtyRef.current = false;
  const f = formRef.current;
  setSaving(true);
  try {
@@ -2654,6 +2789,17 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  }
  }, 300);
  }, [device, onSaved]);
+
+ // Flush unsaved text edits (or a pending debounced save) when the tab
+ // unmounts — the scheduled callback reads formRef, so running it now
+ // saves the latest values.
+ const autoSaveRef = useRef(autoSave);
+ autoSaveRef.current = autoSave;
+ useEffect(() => () => {
+ if (!dirtyRef.current && !saveTimeoutRef.current) return;
+ if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+ autoSaveRef.current();
+ }, []);
 
  // Resolved cascade up to (but not including) the device override —
  // i.e. what the device WOULD inherit if its own override were
@@ -2715,6 +2861,10 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  };
 
 
+
+ const privacyPwdBlockedReason = device.privacyModeEnabled
+ ? t('deviceDetail.reason.disablePrivacyFirst', 'Disable privacy mode on the device first')
+ : !isAgentReachable(device.status) ? t('deviceDetail.reason.agentOnline', 'Agent must be online') : null;
 
  const inputCls = 'w-full px-3 py-2 text-sm bg-bg-primary rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent';
  const cardCls = 'p-5 bg-bg-secondary rounded-xl space-y-4';
@@ -2804,10 +2954,18 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <div className={cardCls}>
  <h3 className={headCls}>Tags</h3>
  <div className="flex flex-wrap gap-1.5 min-h-[28px]">
- {form.tags.map(t => (
- <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent border border-accent/30">
- {t}
- <button onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+ {form.tags.map(tag => (
+ <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent/15 text-accent border border-accent/30">
+ {tag}
+ <IconButton
+ onClick={() => removeTag(tag)}
+ variant="plain"
+ touchTarget="overlay"
+ className="p-0 rounded-none text-current hover:text-red-400"
+ label={t('deviceDetail.settings.removeTag', { defaultValue: 'Remove tag {{tag}}', tag })}
+ showTooltip={false}
+ icon={<X className="w-3 h-3" />}
+ />
  </span>
  ))}
  {form.tags.length === 0 && <span className="text-xs text-text-muted italic">No tags</span>}
@@ -2816,7 +2974,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <input type="text" value={form.tagInput} onChange={e => set('tagInput', e.target.value)}
  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
  placeholder="Add tag…" className={`${inputCls} flex-1`} />
- <button onClick={addTag}
+ <button onClick={addTag} aria-label={t('common.add', 'Add')}
  className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
  <Plus className="w-4 h-4" />
  </button>
@@ -2833,18 +2991,27 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <span className="font-mono text-accent shrink-0">{k}</span>
  <span className="text-text-muted">·</span>
  <span className="text-text-secondary flex-1 truncate">{v}</span>
- <button onClick={() => removeCf(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+ <IconButton
+ onClick={() => removeCf(k)}
+ variant="plain"
+ touchTarget="overlay"
+ className="shrink-0 p-0 rounded-none hover:text-red-400"
+ label={t('common.delete', 'Delete')}
+ showTooltip={false}
+ icon={<X className="w-3.5 h-3.5" />}
+ />
  </div>
  ))}
  </div>
  )}
  <div className="flex gap-2">
  <input type="text" value={form.cfKey} onChange={e => set('cfKey', e.target.value)}
- placeholder="Key" className={`${inputCls} flex-1`} />
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ placeholder="Key" className={`${inputCls} flex-1 min-w-0`} />
  <input type="text" value={form.cfValue} onChange={e => set('cfValue', e.target.value)}
  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCf())}
- placeholder="Value" className={`${inputCls} flex-1`} />
- <button onClick={addCf}
+ placeholder="Value" className={`${inputCls} flex-1 min-w-0`} />
+ <button onClick={addCf} aria-label={t('common.add', 'Add')}
  className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
  <Plus className="w-4 h-4" />
  </button>
@@ -2903,7 +3070,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 
  <div className="space-y-3">
  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide pt-1">Section visibility</p>
- <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
  <ToggleRow label="Hide CPU" value={form.hideCpu} onChange={v => setAndSave('hideCpu', v)} />
  <ToggleRow label="Hide Memory" value={form.hideMemory} onChange={v => setAndSave('hideMemory', v)} />
  <ToggleRow label="Hide Disk" value={form.hideDisk} onChange={v => setAndSave('hideDisk', v)} />
@@ -2950,18 +3117,27 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <span className="font-mono text-text-muted shrink-0 truncate max-w-[40%]">{k}</span>
  <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
  <span className="text-text-primary flex-1 truncate">{v}</span>
- <button onClick={() => removeSensor(k)} className="shrink-0 text-text-muted hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+ <IconButton
+ onClick={() => removeSensor(k)}
+ variant="plain"
+ touchTarget="overlay"
+ className="shrink-0 p-0 rounded-none hover:text-red-400"
+ label={t('common.delete', 'Delete')}
+ showTooltip={false}
+ icon={<X className="w-3.5 h-3.5" />}
+ />
  </div>
  ))}
  </div>
  )}
  <div className="flex gap-2">
  <input type="text" value={form.sensorKey} onChange={e => set('sensorKey', e.target.value)}
- placeholder="Raw sensor name" className={`${inputCls} flex-1`} />
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ placeholder="Raw sensor name" className={`${inputCls} flex-1 min-w-0`} />
  <input type="text" value={form.sensorValue} onChange={e => set('sensorValue', e.target.value)}
  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSensor())}
- placeholder="Display name" className={`${inputCls} flex-1`} />
- <button onClick={addSensor}
+ placeholder="Display name" className={`${inputCls} flex-1 min-w-0`} />
+ <button onClick={addSensor} aria-label={t('common.add', 'Add')}
  className="px-3 py-2 text-sm rounded-lg bg-bg-primary border border-transparent text-text-muted hover:text-accent hover:border-accent/50 transition-colors">
  <Plus className="w-4 h-4" />
  </button>
@@ -3020,9 +3196,10 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 
  <div className="flex items-center gap-2 flex-wrap">
  {!device.privacyModeEnabled ? (
+ <DisabledTip reason={!isAgentReachable(device.status) && t('deviceDetail.reason.agentOnline', 'Agent must be online')}>
  <button
  onClick={async () => {
- if (!confirm('Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here).')) return;
+ if (!(await confirm(t('deviceDetail.privacy.enableConfirm', 'Enable privacy mode on this device? Remote-access features will be blocked until it is turned off (locally via the tray icon or remotely from here).')))) return;
  try {
  await deviceApi.enablePrivacyMode(device.id);
  toast.success('Privacy mode enable command sent');
@@ -3030,12 +3207,12 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  } catch { toast.error('Failed to send enable command'); }
  }}
  disabled={!isAgentReachable(device.status)}
- title={!isAgentReachable(device.status) ? 'Agent must be online' : undefined}
  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-400/40 text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  <Shield className="w-3.5 h-3.5" />
  Enable privacy mode
  </button>
+ </DisabledTip>
  ) : (
  <p className="text-xs text-text-muted">
  Privacy mode is currently active. Use the Disable button in the top header bar (or the tray icon on the machine) to turn it off.
@@ -3074,36 +3251,39 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 
  <div className="flex items-center gap-2 flex-wrap">
  {!device.privacyPasswordSet && (
+ <DisabledTip reason={privacyPwdBlockedReason}>
  <button
  onClick={() => onManagePrivacyPassword?.('set')}
  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
- title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  <Lock className="w-3.5 h-3.5" />
  Set password
  </button>
+ </DisabledTip>
  )}
  {device.privacyPasswordSet && (
  <>
+ <DisabledTip reason={privacyPwdBlockedReason}>
  <button
  onClick={() => onManagePrivacyPassword?.('change')}
  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
- title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-accent/40 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  <Lock className="w-3.5 h-3.5" />
  Change password
  </button>
+ </DisabledTip>
+ <DisabledTip reason={privacyPwdBlockedReason}>
  <button
  onClick={() => onManagePrivacyPassword?.('remove')}
  disabled={device.privacyModeEnabled || !isAgentReachable(device.status)}
- title={device.privacyModeEnabled ? 'Disable privacy mode on the device first' : !isAgentReachable(device.status) ? 'Agent must be online' : undefined}
  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  <Trash2 className="w-3.5 h-3.5" />
  Remove password
  </button>
+ </DisabledTip>
  </>
  )}
  </div>
@@ -3116,7 +3296,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
 
  {/* Transfer to another tenant */}
- <div className="flex items-center justify-between gap-4">
+ <div className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
  <div>
  <p className="text-sm text-text-primary">Transfer to another tenant</p>
  <p className="text-xs text-text-muted mt-0.5">
@@ -3137,7 +3317,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <div className="h-px bg-border" />
 
  {/* Delete */}
- <div className="flex items-center justify-between gap-4">
+ <div className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
  <div>
  <p className="text-sm text-text-primary">Delete device</p>
  <p className="text-xs text-text-muted mt-0.5">
@@ -3148,7 +3328,10 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <button
  onClick={async () => {
  const name = anonymize(device.displayName || device.hostname);
- if (!confirm(`Delete "${name}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.`)) return;
+ if (!(await confirm({
+ message: t('deviceDetail.settings.deleteConfirm', { defaultValue: 'Delete "{{name}}" from Obliance?\n\nThe agent is NOT uninstalled — it will re-register on the next push.', name }),
+ danger: true,
+ }))) return;
  try {
  await deviceApi.delete(device.id);
  toast.success(`Device "${name}" deleted`);
@@ -3167,7 +3350,7 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <div className="h-px bg-border" />
 
  {/* Uninstall */}
- <div className="flex items-center justify-between gap-4">
+ <div className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start max-sm:gap-2">
  <div>
  <p className="text-sm text-text-primary">Uninstall agent</p>
  {device.status === 'pending_uninstall' ? (
@@ -3203,7 +3386,11 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  <button
  onClick={async () => {
  const name = anonymize(device.displayName || device.hostname);
- if (!confirm(`Uninstall agent on "${name}"?\n\nThe agent will be removed immediately.\nIf it doesn't confirm within 10 min, the device will reappear.`)) return;
+ if (!(await confirm({
+ message: t('deviceDetail.settings.uninstallConfirm', { defaultValue: 'Uninstall agent on "{{name}}"?\n\nThe agent will be removed immediately.\nIf it doesn\'t confirm within 10 min, the device will reappear.', name }),
+ danger: true,
+ confirmLabel: t('deviceDetail.settings.uninstall', 'Uninstall'),
+ }))) return;
  try {
  await deviceApi.initiateUninstall(device.id);
  toast.success('Uninstall command sent — device hidden from all lists');
@@ -3538,27 +3725,23 @@ function RemoteTab({ device }: { device: Device }) {
  />
  )}
  {/* WTS Session picker — shown on RDS when multiple sessions are available */}
- {orSessionPickerOpen && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
- <div className="flex items-center justify-between p-4 ">
- <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <MonitorPlay className="w-4 h-4 text-accent" />
- Choose Session
- </h2>
- <button
- onClick={() => setOrSessionPickerOpen(false)}
- className="text-text-muted hover:text-text-primary transition-colors"
+ <Modal
+ open={orSessionPickerOpen}
+ onClose={() => setOrSessionPickerOpen(false)}
+ title={t('deviceDetail.remote.chooseSession', 'Choose Session')}
+ icon={<MonitorPlay className="w-4 h-4 text-accent" />}
+ size="sm"
+ phoneLayout="sheet"
+ closeOnBackdrop={false}
+ className="sm:max-w-sm"
+ bodyClassName="p-3"
  >
- <X className="w-4 h-4" />
- </button>
- </div>
- <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ <div className="space-y-1 sm:max-h-72 sm:overflow-y-auto">
  {orSessions.map((s) => (
  <button
  key={s.id}
  onClick={() => handleStartObliReachSession(s.id)}
- className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3 coarse:min-h-12"
  >
  <div className={clsx(
  'w-2 h-2 rounded-full flex-shrink-0',
@@ -3576,28 +3759,22 @@ function RemoteTab({ device }: { device: Device }) {
  </button>
  ))}
  </div>
- </div>
- </div>
- )}
- {shellSessionPickerOpen && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
- <div className="flex items-center justify-between p-4 ">
- <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <TerminalSquare className="w-4 h-4 text-accent" />
- {pendingShellProtocol.current === 'powershell' ? 'PowerShell' : 'CMD'} — Choose Context
- </h2>
- <button
- onClick={() => setShellSessionPickerOpen(false)}
- className="text-text-muted hover:text-text-primary transition-colors"
+ </Modal>
+ <Modal
+ open={shellSessionPickerOpen}
+ onClose={() => setShellSessionPickerOpen(false)}
+ title={<>{pendingShellProtocol.current === 'powershell' ? 'PowerShell' : 'CMD'} — {t('deviceDetail.remote.chooseContext', 'Choose Context')}</>}
+ icon={<TerminalSquare className="w-4 h-4 text-accent" />}
+ size="sm"
+ phoneLayout="sheet"
+ closeOnBackdrop={false}
+ className="sm:max-w-sm"
+ bodyClassName="p-3"
  >
- <X className="w-4 h-4" />
- </button>
- </div>
- <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ <div className="space-y-1 sm:max-h-72 sm:overflow-y-auto">
  <button
  onClick={() => startShellSession(pendingShellProtocol.current)}
- className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3 coarse:min-h-12"
  >
  <div className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-400" />
  <div className="min-w-0 flex-1">
@@ -3609,7 +3786,7 @@ function RemoteTab({ device }: { device: Device }) {
  <button
  key={s.id}
  onClick={() => startShellSession(pendingShellProtocol.current, s.id)}
- className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3 coarse:min-h-12"
  >
  <div className={clsx(
  'w-2 h-2 rounded-full flex-shrink-0',
@@ -3633,9 +3810,7 @@ function RemoteTab({ device }: { device: Device }) {
  </div>
  )}
  </div>
- </div>
- </div>
- )}
+ </Modal>
  {/* Shell sessions now render in the global GlobalShellPanel. */}
  <div className="space-y-4">
  {/* Start session buttons */}
@@ -3661,6 +3836,10 @@ function RemoteTab({ device }: { device: Device }) {
  Reach
  </button>
  ) : (
+ <DisabledTip reason={
+ (!isOnline || isStarting || orInstalled === null || !isCommandSupported(device, 'install_oblireach'))
+ && (!isCommandSupported(device, 'install_oblireach') ? unsupportedTooltip(t) : (orInstalled === null ? 'Checking Oblireach status…' : 'Oblireach agent not installed — click to deploy'))
+ }>
  <button
  onClick={orInstalled === false ? () => handleInstallOblireach() : undefined}
  disabled={!isOnline || isStarting || orInstalled === null || !isCommandSupported(device, 'install_oblireach')}
@@ -3673,6 +3852,7 @@ function RemoteTab({ device }: { device: Device }) {
  {orInstalled === null ? '…' : '(install)'}
  </span>
  </button>
+ </DisabledTip>
  )}
  {/* Update available badge */}
  {orUpdateAvailable && (
@@ -3721,8 +3901,8 @@ function RemoteTab({ device }: { device: Device }) {
  ) : (
  <div className="divide-y divide-border">
  {sessions.map((session) => (
- <div key={session.id} className="px-4 py-3 flex items-center gap-4">
- <div className="flex-1">
+ <div key={session.id} className="px-4 py-3 flex items-center gap-4 max-sm:gap-2">
+ <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
  <p className="text-sm text-text-primary">{session.protocol.toUpperCase()}</p>
  <span className={clsx(
@@ -3749,7 +3929,7 @@ function RemoteTab({ device }: { device: Device }) {
  <div className="flex items-center gap-2">
  <button
  onClick={() => { setOrSession(session); setOrModalOpen(true); }}
- className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors"
+ className="px-3 py-1 text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 transition-colors coarse:min-h-10"
  >
  View
  </button>
@@ -3777,7 +3957,7 @@ function RemoteTab({ device }: { device: Device }) {
  });
  }
  }}
- className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors"
+ className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-500/20 transition-colors coarse:min-h-10"
  >
  Open
  </button>
@@ -3785,7 +3965,7 @@ function RemoteTab({ device }: { device: Device }) {
  onClick={() => handleEndSession(session)}
  disabled={endingSession.has(session.id)}
  title="End session"
- className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {endingSession.has(session.id) ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
  End
@@ -3797,7 +3977,7 @@ function RemoteTab({ device }: { device: Device }) {
  onClick={() => handleEndSession(session)}
  disabled={endingSession.has(session.id)}
  title="Cancel session"
- className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1 text-xs px-2.5 py-1 text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors coarse:min-h-10"
  >
  {endingSession.has(session.id)
  ? <RefreshCw className="w-3 h-3 animate-spin" />
@@ -3869,6 +4049,8 @@ const CMD_STATUS_CONFIG: Record<string, { color: string; bg: string; label: stri
 // or trigger the 2FA modal transparently via the axios interceptor).
 function HyperVTab({ deviceId }: { deviceId: number }) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const prompt = usePrompt();
  const [vms, setVms] = useState<import('@obliance/shared').VirtualMachine[]>([]);
  const [loading, setLoading] = useState(true);
  const [busyVmId, setBusyVmId] = useState<string | null>(null);
@@ -3945,10 +4127,17 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
  };
 
  const handleAction = async (vm: import('@obliance/shared').VirtualMachine, action: import('@obliance/shared').VmAction) => {
- if (action === 'delete' && !confirm(t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? This is irreversible.`)) return;
+ if (action === 'delete' && !(await confirm({
+ message: t('hyperv.confirmDelete', { name: vm.name, defaultValue: 'Delete VM "{{name}}"? This is irreversible.' }),
+ danger: true,
+ }))) return;
  let params: Record<string, unknown> | undefined;
  if (action === 'checkpoint_create') {
- const name = prompt(t('hyperv.checkpointNamePrompt') || 'Checkpoint name (optional):') ?? '';
+ // Same semantics as the former window.prompt: Cancel = unnamed checkpoint.
+ const name = (await prompt({
+ message: t('hyperv.checkpointNamePrompt', 'Checkpoint name (optional):'),
+ plain: false,
+ })) ?? '';
  params = name ? { checkpointName: name } : undefined;
  }
  setBusyVmId(vm.vmId);
@@ -3973,11 +4162,11 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
 
  return (
  <div className="space-y-3">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h3 className="text-sm font-semibold text-text-primary">
  {t('hyperv.title') || 'Hyper-V virtual machines'} <span className="text-text-muted font-normal">({vms.length})</span>
  </h3>
- <div className="flex items-center gap-2">
+ <div className="flex flex-wrap items-center gap-2">
  <button
  onClick={handleInstallConsole}
  disabled={installingConsole}
@@ -4037,6 +4226,7 @@ function HyperVTab({ deviceId }: { deviceId: number }) {
 // or trigger the 2FA modal transparently via the axios interceptor).
 function VeeamTab({ deviceId }: { deviceId: number }) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
  const [jobs, setJobs] = useState<import('@obliance/shared').BackupJob[]>([]);
  const [loading, setLoading] = useState(true);
  const [busyJobId, setBusyJobId] = useState<string | null>(null);
@@ -4065,7 +4255,11 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
  }, [deviceId]);
 
  const handleAction = async (job: import('@obliance/shared').BackupJob, action: import('@obliance/shared').BackupJobAction) => {
- if (action === 'stop' && !confirm(t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`)) return;
+ if (action === 'stop' && !(await confirm({
+ message: t('veeam.confirmStop', { name: job.name, defaultValue: 'Stop the running job "{{name}}"? The backup will be incomplete.' }),
+ danger: true,
+ confirmLabel: t('deviceDetail.veeam.stopJob', 'Stop job'),
+ }))) return;
  setBusyJobId(job.jobId);
  try {
  const out = await veeamApi.action(deviceId, job.jobId, action);
@@ -4099,7 +4293,7 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
 
  return (
  <div className="space-y-3">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h3 className="text-sm font-semibold text-text-primary">
  {t('veeam.title') || 'Veeam backup jobs'} <span className="text-text-muted font-normal">({jobs.length})</span>
  </h3>
@@ -4124,7 +4318,11 @@ function VeeamTab({ deviceId }: { deviceId: number }) {
 type CmdFilter = 'all' | 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'remediation';
 
 function CommandsTab({ deviceId }: { deviceId: number }) {
+ const { t } = useTranslation();
  const socket = getSocket();
+ // Below lg a tap on a task row un-truncates its payload / error (desktop
+ // keeps the single-line cells + title tooltip).
+ const [expandedCmdId, setExpandedCmdId] = useState<string | null>(null);
  const [commands, setCommands] = useState<Command[]>([]);
  const [totalCount, setTotalCount] = useState(0);
  const [isLoading, setIsLoading] = useState(true);
@@ -4267,7 +4465,7 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  <p>{filter === 'all' ? 'No tasks issued yet' : 'No tasks with this status'}</p>
  </div>
  ) : (
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <TableScroll className="bg-bg-secondary rounded-xl">
  <table className="w-full">
  <thead>
  <tr className="">
@@ -4287,25 +4485,36 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  const canCancel = cmd.status === 'pending';
  const durationMs = cmd.durationMs;
  const payloadKeys = Object.keys(cmd.payload ?? {});
+ const expanded = expandedCmdId === cmd.id;
+ const expandCls = expanded ? 'max-lg:whitespace-normal max-lg:break-all' : '';
 
  return (
  <tr key={cmd.id} className="hover:bg-bg-tertiary transition-colors">
  {/* Task label + details */}
- <td className="px-4 py-3 max-w-0">
+ <td
+ className="px-4 py-3 max-w-0 max-lg:cursor-pointer"
+ onClick={() => setExpandedCmdId(expanded ? null : cmd.id)}
+ >
  <div className="text-sm text-text-primary font-medium truncate">
  {COMMAND_LABELS[cmd.type] ?? cmd.type}
  </div>
+ {/* Columns hidden below md / lg, repeated as a secondary line. */}
+ <div className={clsx('lg:hidden text-[11px] text-text-muted mt-0.5 truncate', expandCls)}>
+ <span className="md:hidden">{cmd.createdByName || '—'} · <span className="capitalize">{cmd.priority}</span> · </span>
+ {new Date(cmd.createdAt).toLocaleString()}
+ {durationMs != null && ` · ${durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`}`}
+ </div>
  {cmd.type === 'remediate_rule' && cmd.payload?.ruleName ? (
- <div className="text-xs text-text-muted mt-0.5 truncate">
+ <div className={clsx('text-xs text-text-muted mt-0.5 truncate', expandCls)}>
  {cmd.payload.ruleName} <span className="font-mono text-text-muted/60">({cmd.payload.ruleId})</span>
  </div>
  ) : payloadKeys.length > 0 && (
- <div className="text-xs text-text-muted mt-0.5 font-mono truncate">
+ <div className={clsx('text-xs text-text-muted mt-0.5 font-mono truncate', expandCls)}>
  {payloadKeys.filter(k => !['sessionToken', 'script'].includes(k)).map(k => `${k}=${String(cmd.payload[k]).slice(0, 80)}`).join(' ')}
  </div>
  )}
  {cmd.result?.error && (
- <div className="text-xs text-red-400 mt-0.5 truncate" title={cmd.result.error}>
+ <div className={clsx('text-xs text-red-400 mt-0.5 truncate', expandCls)} title={cmd.result.error}>
  {cmd.result.error}
  </div>
  )}
@@ -4352,16 +4561,16 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  {/* Cancel action */}
  <td className="px-4 py-3 text-right">
  {canCancel && (
- <button
+ <IconButton
  onClick={() => handleCancel(cmd.id)}
  disabled={cancelling.has(cmd.id)}
- title="Cancel task"
- className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
- >
- {cancelling.has(cmd.id)
+ label={t('deviceDetail.tasks.cancel', 'Cancel task')}
+ variant="danger"
+ className="rounded-lg disabled:opacity-50"
+ icon={cancelling.has(cmd.id)
  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
  : <X className="w-3.5 h-3.5" />}
- </button>
+ />
  )}
  </td>
  </tr>
@@ -4369,12 +4578,12 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  })}
  </tbody>
  </table>
- </div>
+ </TableScroll>
  )}
 
  {/* Pagination */}
  {totalCount > 0 && (
- <div className="flex items-center justify-between gap-4 text-xs text-text-muted">
+ <div className="flex flex-wrap items-center justify-between gap-4 max-sm:gap-2 text-xs text-text-muted">
  <div className="flex items-center gap-2">
  <span>Show</span>
  <select
@@ -4394,7 +4603,8 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={() => setPage(p => Math.max(1, p - 1))}
  disabled={page <= 1}
- className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ aria-label={t('deviceDetail.pagination.previous', 'Previous page')}
+ className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors coarse:min-h-10 coarse:min-w-10"
  >
  ←
  </button>
@@ -4402,7 +4612,8 @@ function CommandsTab({ deviceId }: { deviceId: number }) {
  <button
  onClick={() => setPage(p => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
  disabled={page >= Math.ceil(totalCount / pageSize)}
- className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors"
+ aria-label={t('deviceDetail.pagination.next', 'Next page')}
+ className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-30 transition-colors coarse:min-h-10 coarse:min-w-10"
  >
  →
  </button>
@@ -4527,8 +4738,8 @@ function ServicesTab({ device }: { device: Device }) {
 
  return (
  <div className="bg-bg-secondary rounded-xl overflow-hidden">
- {/* Header */}
- <div className="px-4 py-3 flex items-center justify-between gap-3">
+ {/* Header — wraps below sm: the filter + refresh go to their own row */}
+ <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 max-sm:gap-2">
  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
  <Server className="w-4 h-4 text-text-muted" />
  Services
@@ -4538,25 +4749,27 @@ function ServicesTab({ device }: { device: Device }) {
  </span>
  )}
  </h3>
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 max-sm:w-full">
  {services.length > 0 && (
  <input
  type="text"
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  placeholder="Filter services…"
- className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-40"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-40 max-sm:w-auto max-sm:flex-1 max-sm:min-w-0"
  />
  )}
+ <DisabledTip reason={!isCommandSupported(device, 'list_services') && unsupportedTooltip(t)}>
  <button
  onClick={handleListServices}
  disabled={isLoadingServices || !isCommandSupported(device, 'list_services')}
- title={isCommandSupported(device, 'list_services') ? undefined : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary rounded-lg text-text-muted hover:text-text-primary hover:border-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
  >
  {isLoadingServices ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
  {isLoadingServices ? 'Loading…' : services.length > 0 ? 'Refresh' : 'Load Services'}
  </button>
+ </DisabledTip>
  </div>
  </div>
 
@@ -4573,7 +4786,7 @@ function ServicesTab({ device }: { device: Device }) {
  Fetching services…
  </div>
  ) : (
- <div className="overflow-auto max-h-[65vh]">
+ <div className="overflow-auto overscroll-x-contain max-h-[65vh] max-md:max-h-none">
  <table className="w-full text-sm">
  <thead className="sticky top-0 bg-bg-secondary z-10 ">
  <tr>
@@ -4600,8 +4813,20 @@ function ServicesTab({ device }: { device: Device }) {
  isRunning ? 'bg-green-400' : isStopped ? 'bg-gray-500' : 'bg-yellow-400',
  )} />
  </td>
- {/* Name */}
- <td className="px-4 py-2 font-mono text-xs text-text-primary whitespace-nowrap">{svc.name}</td>
+ {/* Name (+ the columns hidden below md / lg / xl as secondary lines) */}
+ <td className="px-4 py-2 font-mono text-xs text-text-primary whitespace-nowrap max-md:whitespace-normal max-md:break-all">
+ {svc.name}
+ {svc.displayName && (
+ <span className="md:hidden block font-sans text-[11px] text-text-muted break-words">{svc.displayName}</span>
+ )}
+ {(svc.startType || svc.runAsUser) && (
+ <span className="xl:hidden block font-sans text-[11px] text-text-muted whitespace-normal break-all">
+ {svc.startType && <span className="lg:hidden">{svc.startType}</span>}
+ {svc.startType && svc.runAsUser && <span className="lg:hidden"> · </span>}
+ {svc.runAsUser && <span className="font-mono">{svc.runAsUser}</span>}
+ </span>
+ )}
+ </td>
  {/* Description */}
  <td className="px-4 py-2 text-xs text-text-muted hidden md:table-cell max-w-xs truncate">{svc.displayName || '—'}</td>
  {/* Status badge */}
@@ -4619,9 +4844,43 @@ function ServicesTab({ device }: { device: Device }) {
  <td className="px-4 py-2 text-xs text-text-muted hidden lg:table-cell">{svc.startType || '—'}</td>
  {/* Run As */}
  <td className="px-4 py-2 text-xs text-text-muted hidden xl:table-cell font-mono">{svc.runAsUser || '—'}</td>
- {/* Action buttons */}
- <td className="px-4 py-2">
- <div className="flex items-center justify-end gap-1">
+ {/* Action buttons — inline from md, one "⋯" menu below */}
+ <td className="px-4 py-2 max-md:px-2">
+ <div className="md:hidden flex justify-end">
+ <ActionMenu
+ label={t('deviceDetail.services.actionsFor', { defaultValue: 'Actions for {{name}}', name: svc.name })}
+ sheetTitle={svc.displayName || svc.name}
+ triggerClassName={pending ? 'animate-pulse' : undefined}
+ items={[
+ {
+ key: 'start',
+ icon: <Play className="w-4 h-4" />,
+ label: t('deviceDetail.services.start', 'Start'),
+ description: !isCommandSupported(device, 'start_service') ? unsupportedTooltip(t) : undefined,
+ disabled: !isStopped || !!pending || !isCommandSupported(device, 'start_service'),
+ onClick: () => handleServiceAction(svc.name, 'start_service'),
+ },
+ {
+ key: 'stop',
+ icon: <Square className="w-4 h-4" />,
+ label: t('deviceDetail.services.stop', 'Stop'),
+ description: !isCommandSupported(device, 'stop_service') ? unsupportedTooltip(t) : undefined,
+ disabled: !isRunning || !!pending || !isCommandSupported(device, 'stop_service'),
+ danger: true,
+ onClick: () => handleServiceAction(svc.name, 'stop_service'),
+ },
+ {
+ key: 'restart',
+ icon: <RotateCcw className="w-4 h-4" />,
+ label: t('deviceDetail.services.restart', 'Restart'),
+ description: !isCommandSupported(device, 'restart_service') ? unsupportedTooltip(t) : undefined,
+ disabled: !!pending || !isCommandSupported(device, 'restart_service'),
+ onClick: () => handleServiceAction(svc.name, 'restart_service'),
+ },
+ ]}
+ />
+ </div>
+ <div className="hidden md:flex items-center justify-end gap-1">
  {/* Start — only when stopped */}
  <button
  onClick={() => handleServiceAction(svc.name, 'start_service')}
@@ -4692,6 +4951,11 @@ function ProcessesTab({ device }: { device: Device }) {
  const [killingPids, setKillingPids] = useState<Set<number>>(new Set());
  const [connected, setConnected] = useState(false);
  const { isAdmin } = useAuthStore();
+ const confirm = useConfirm();
+ // Touch devices: a row tap opens a detail sheet (full command line, user,
+ // Kill) — the command line otherwise only lives in the row's title=.
+ const canHover = useCanHover();
+ const [detailPid, setDetailPid] = useState<number | null>(null);
 
  // Subscribe to process stream on mount, unsubscribe on unmount
  useEffect(() => {
@@ -4735,7 +4999,11 @@ function ProcessesTab({ device }: { device: Device }) {
  }, [device.id]);
 
  const handleKill = async (pid: number, name: string) => {
- if (!confirm(`Kill process "${name}" (PID ${pid})?`)) return;
+ if (!(await confirm({
+ message: t('deviceDetail.processes.killConfirm', { defaultValue: 'Kill process "{{name}}" (PID {{pid}})?', name, pid }),
+ danger: true,
+ confirmLabel: t('deviceDetail.processes.kill', 'Kill'),
+ }))) return;
  setKillingPids((prev) => new Set(prev).add(pid));
  try {
  await commandApi.enqueue(device.id, 'kill_process', { pid, name }, 'high');
@@ -4784,7 +5052,7 @@ function ProcessesTab({ device }: { device: Device }) {
  const totalMem = processes.reduce((s, p) => s + p.memBytes, 0);
 
  const SortIcon = ({ field }: { field: SortField }) => {
- if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-30" />;
+ if (sortField !== field) return <ChevronDown className="w-3 h-3 opacity-30 can-hover:opacity-0 can-hover:group-hover:opacity-30" />;
  return sortDir === 'asc'
  ? <ChevronRight className="w-3 h-3 rotate-[-90deg]" />
  : <ChevronDown className="w-3 h-3" />;
@@ -4792,9 +5060,9 @@ function ProcessesTab({ device }: { device: Device }) {
 
  return (
  <div className="bg-bg-secondary rounded-xl overflow-hidden">
- {/* Header */}
- <div className="px-4 py-3 flex items-center justify-between gap-3">
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+ {/* Header — wraps below sm (totals and filter get their own rows) */}
+ <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 max-sm:gap-2">
+ <h3 className="text-sm font-semibold text-text-primary flex flex-wrap items-center gap-2">
  <Activity className="w-4 h-4 text-text-muted" />
  Processes
  {processes.length > 0 && (
@@ -4808,9 +5076,9 @@ function ProcessesTab({ device }: { device: Device }) {
  </span>
  )}
  </h3>
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 max-sm:w-full">
  {connected && (
- <span className="flex items-center gap-1.5 text-xs text-green-400">
+ <span className="flex items-center gap-1.5 text-xs text-green-400 shrink-0">
  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
  Live
  </span>
@@ -4821,7 +5089,8 @@ function ProcessesTab({ device }: { device: Device }) {
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  placeholder="Filter processes…"
- className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-48"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="px-2 py-1 text-xs bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 w-48 max-sm:w-auto max-sm:flex-1 max-sm:min-w-0"
  />
  )}
  </div>
@@ -4842,7 +5111,7 @@ function ProcessesTab({ device }: { device: Device }) {
  )}
  </div>
  ) : (
- <div className="overflow-auto max-h-[70vh]">
+ <div className="overflow-auto overscroll-x-contain max-h-[70vh] max-md:max-h-none">
  <table className="w-full text-sm">
  <thead className="sticky top-0 bg-bg-secondary z-10 ">
  <tr>
@@ -4887,9 +5156,18 @@ function ProcessesTab({ device }: { device: Device }) {
  {sorted.map((proc) => {
  const killing = killingPids.has(proc.pid);
  return (
- <tr key={proc.pid} className="hover:bg-bg-tertiary/60 transition-colors group" title={proc.command || proc.name}>
+ <tr
+ key={proc.pid}
+ className="hover:bg-bg-tertiary/60 transition-colors group coarse:cursor-pointer"
+ title={canHover ? (proc.command || proc.name) : undefined}
+ onClick={canHover ? undefined : () => setDetailPid(proc.pid)}
+ >
  <td className="px-4 py-1.5 font-mono text-xs text-text-muted">{proc.pid}</td>
- <td className="px-4 py-1.5 text-xs text-text-primary font-medium whitespace-nowrap max-w-xs truncate">{proc.name}</td>
+ <td className="px-4 py-1.5 text-xs text-text-primary font-medium whitespace-nowrap max-w-xs truncate">
+ {proc.name}
+ {/* User column is hidden below lg — repeat it under the name. */}
+ {proc.user && <span className="lg:hidden block text-[11px] font-normal font-mono text-text-muted truncate">{proc.user}</span>}
+ </td>
  <td className="px-4 py-1.5 text-xs text-right font-mono">
  <span className={clsx(
  proc.cpuPercent > 80 ? 'text-red-400' :
@@ -4904,10 +5182,10 @@ function ProcessesTab({ device }: { device: Device }) {
  {isAdmin() && (
  <td className="px-4 py-1.5 text-right">
  <button
- onClick={() => handleKill(proc.pid, proc.name)}
+ onClick={(e) => { e.stopPropagation(); handleKill(proc.pid, proc.name); }}
  disabled={killing || !isCommandSupported(device, 'kill_process')}
  title={isCommandSupported(device, 'kill_process') ? `Kill ${proc.name} (PID ${proc.pid})` : unsupportedTooltip(t)}
- className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors opacity-0 group-hover:opacity-100"
+ className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg border text-red-400/70 border-transparent hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors can-hover:opacity-0 can-hover:group-hover:opacity-100 coarse:min-h-9"
  >
  {killing ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
  Kill
@@ -4924,6 +5202,56 @@ function ProcessesTab({ device }: { device: Device }) {
  )}
  </div>
  )}
+
+ {/* Touch-only process detail sheet */}
+ {(() => {
+ const proc = detailPid != null ? processes.find((p) => p.pid === detailPid) : undefined;
+ const killable = isAdmin() && isCommandSupported(device, 'kill_process');
+ return (
+ <Modal
+ open={!!proc}
+ onClose={() => setDetailPid(null)}
+ title={proc?.name}
+ icon={<Activity className="w-4 h-4 text-text-muted" />}
+ size="sm"
+ phoneLayout="sheet"
+ footer={proc && isAdmin() ? (
+ <DisabledTip reason={!isCommandSupported(device, 'kill_process') && unsupportedTooltip(t)}>
+ <button
+ onClick={() => { const p = proc; setDetailPid(null); handleKill(p.pid, p.name); }}
+ disabled={killingPids.has(proc.pid) || !killable}
+ className="inline-flex items-center justify-center gap-1.5 min-h-10 px-4 text-sm rounded-lg border border-red-400/30 text-red-400 bg-red-400/10 hover:bg-red-400/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ >
+ {killingPids.has(proc.pid) ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+ {t('deviceDetail.processes.kill', 'Kill')}
+ </button>
+ </DisabledTip>
+ ) : undefined}
+ >
+ {proc && (
+ <dl className="space-y-2 text-sm">
+ {([
+ ['PID', String(proc.pid)],
+ [t('deviceDetail.processes.user', 'User'), proc.user || '—'],
+ ['CPU', `${proc.cpuPercent.toFixed(1)} %`],
+ [t('deviceDetail.processes.memory', 'Memory'), formatMem(proc.memBytes)],
+ ] as Array<[string, string]>).map(([k, v]) => (
+ <div key={k} className="flex justify-between gap-3">
+ <dt className="text-text-muted shrink-0">{k}</dt>
+ <dd className="text-text-primary font-mono text-xs text-right min-w-0 break-all">{v}</dd>
+ </div>
+ ))}
+ {proc.command && (
+ <div>
+ <dt className="text-text-muted mb-1">{t('deviceDetail.processes.commandLine', 'Command line')}</dt>
+ <dd className="text-text-primary font-mono text-xs break-all bg-bg-tertiary rounded-lg p-2 select-all">{proc.command}</dd>
+ </div>
+ )}
+ </dl>
+ )}
+ </Modal>
+ );
+ })()}
  </div>
  );
 }
@@ -4936,6 +5264,7 @@ export function DeviceDetailPage() {
  const navigate = useNavigate();
  const { t } = useTranslation();
  const { isAdmin, permissions } = useAuthStore();
+ const confirm = useConfirm();
  // Approve / Refuse buttons unlock for admins OR users with the
  // `agent_config:approval` team capability. Server-side gate is in
  // device.routes.ts on the matching POST endpoints.
@@ -5130,7 +5459,7 @@ export function DeviceDetailPage() {
  // resolves the target version + arch-aware MSI; the agent applies it (no
  // self-update anymore). Goes through the standard command restriction flow.
  const handleUpdateAgent = async () => {
- if (!confirm((t('devices.action.updateAgentConfirm', { count: 1 }) as string) || 'Update the agent on 1 device(s)?')) return;
+ if (!(await confirm(t('devices.action.updateAgentConfirm', { count: 1, defaultValue: 'Update the agent on {{count}} device(s)?' })))) return;
  setHeaderPending((p) => new Set(p).add('update_agent'));
  try {
  await commandApi.enqueue(deviceId, 'update_agent', {}, 'high');
@@ -5248,16 +5577,23 @@ export function DeviceDetailPage() {
  }
  };
 
+ // pointerdown (capture) — closes on touch as soon as the finger lands,
+ // including when the user starts scrolling.
+ useClickOutside(remoteDropdownRef, () => setRemoteDropdownOpen(false), remoteDropdownOpen);
+
+ // Keep the active tab scrolled into view in the (horizontally scrolling)
+ // tab bar — e.g. after the privacy unlock modal switches tab on a phone.
+ // Horizontal only: never scrolls the page itself.
+ const tabsBarRef = useRef<HTMLDivElement>(null);
  useEffect(() => {
- if (!remoteDropdownOpen) return;
- const handleClickOutside = (e: MouseEvent) => {
- if (remoteDropdownRef.current && !remoteDropdownRef.current.contains(e.target as Node)) {
- setRemoteDropdownOpen(false);
- }
- };
- document.addEventListener('mousedown', handleClickOutside);
- return () => document.removeEventListener('mousedown', handleClickOutside);
- }, [remoteDropdownOpen]);
+ const bar = tabsBarRef.current;
+ const el = bar?.querySelector<HTMLElement>('[data-active-tab="true"]');
+ if (!bar || !el) return;
+ const b = bar.getBoundingClientRect();
+ const r = el.getBoundingClientRect();
+ if (r.left < b.left) bar.scrollLeft -= b.left - r.left + 8;
+ else if (r.right > b.right) bar.scrollLeft += r.right - b.right + 8;
+ }, [activeTab]);
 
 
  const [isApprovingDevice, setIsApprovingDevice] = useState(false);
@@ -5277,7 +5613,7 @@ export function DeviceDetailPage() {
  };
 
  const handleRefuseDevice = async () => {
- if (!confirm('Refuse this device?')) return;
+ if (!(await confirm({ message: t('deviceDetail.header.refuseConfirm', 'Refuse this device?'), danger: true, confirmLabel: t('deviceDetail.header.refuse', 'Refuse') }))) return;
  setIsRefusingDevice(true);
  try {
  await deviceApi.refuse(deviceId);
@@ -5455,8 +5791,133 @@ export function DeviceDetailPage() {
  );
  }
 
+ // ── Header actions (shared by the inline buttons and the phone "⋯" sheet) ──
+ const unsup = (c: Parameters<typeof isCommandSupported>[1]) => (isCommandSupported(device, c) ? null : unsupportedTooltip(t));
+ const scanAllSupported = isCommandSupported(device, 'scan_inventory') && isCommandSupported(device, 'scan_updates') && isCommandSupported(device, 'check_compliance');
+ const scanAllDisabled = isScanningAll || !isAgentReachable(device.status) || !scanAllSupported;
+ const scanAllReason = !scanAllSupported ? unsupportedTooltip(t) : !isAgentReachable(device.status) ? t('deviceDetail.reason.agentOnline', 'Agent must be online') : null;
+ const showUpdateAgent = device.updateAvailable && device.status !== 'updating' && device.status !== 'update_error';
+
+ const handleAirgapToggle = async () => {
+ if (device.airgapEnabled) {
+ setHeaderPending((p) => new Set(p).add('airgap'));
+ try {
+ await deviceApi.disableAirgap(device.id);
+ toast.success(t('airgap.disabled'));
+ } catch { toast.error(t('airgap.disableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+ } else {
+ if (!(await confirm({
+ message: t('airgap.confirmEnable', 'This will isolate this device from all network traffic except Obliance server communication. Continue?'),
+ danger: true,
+ confirmLabel: t('airgap.enable', 'Enable Airgap'),
+ }))) return;
+ setHeaderPending((p) => new Set(p).add('airgap'));
+ try {
+ await deviceApi.enableAirgap(device.id);
+ toast.success(t('airgap.enabled'));
+ } catch { toast.error(t('airgap.enableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
+ }
+ };
+
+ const handleDisablePrivacy = async () => {
+ // If a password gate is set, prompt the user via the modal.
+ if (device.privacyPasswordSet) {
+ setDisablePrivacyPrompt(true);
+ return;
+ }
+ setHeaderPending((p) => new Set(p).add('privacy'));
+ try {
+ await deviceApi.disablePrivacyMode(device.id);
+ toast.success(t('privacy.disableSent'));
+ } catch { toast.error(t('privacy.disableFailed')); }
+ finally { setHeaderPending((p) => { const n = new Set(p); n.delete('privacy'); return n; }); }
+ };
+
+ // Below md the secondary header actions collapse into one "⋯" bottom
+ // sheet (Chat + Remote stay as buttons). md+ renders them inline.
+ const phoneHeaderItems: ActionMenuItem[] = [
+ {
+ key: 'scanAll',
+ icon: <ScanLine className="w-4 h-4" />,
+ label: t('deviceDetail.header.scanAll', 'Scan All'),
+ description: scanAllReason ?? undefined,
+ disabled: scanAllDisabled,
+ onClick: handleScanAll,
+ },
+ {
+ key: 'airgap',
+ icon: <WifiOff className="w-4 h-4" />,
+ label: device.airgapEnabled ? t('airgap.disable', 'Disable Airgap') : t('airgap.enable', 'Enable Airgap'),
+ disabled: headerPending.has('airgap'),
+ hidden: !isAdmin(),
+ onClick: handleAirgapToggle,
+ },
+ {
+ key: 'privacy',
+ icon: <ShieldOff className="w-4 h-4" />,
+ label: t('privacy.disable', 'Disable Privacy'),
+ disabled: headerPending.has('privacy'),
+ hidden: !(device.privacyModeEnabled && isAdmin()),
+ onClick: handleDisablePrivacy,
+ },
+ {
+ key: 'updateAgent',
+ icon: <Download className="w-4 h-4" />,
+ label: t('devices.action.updateAgent', 'Update agent'),
+ description: unsup('update_agent') ?? undefined,
+ disabled: headerPending.has('update_agent') || !isCommandSupported(device, 'update_agent'),
+ hidden: !showUpdateAgent,
+ onClick: handleUpdateAgent,
+ },
+ {
+ key: 'restartAgent',
+ icon: <RotateCcw className="w-4 h-4" />,
+ label: t('deviceDetail.header.restartAgent', 'Restart Agent'),
+ description: unsup('restart_agent') ?? undefined,
+ disabled: headerPending.has('restart_agent') || !isCommandSupported(device, 'restart_agent'),
+ separator: true,
+ onClick: () => handleHeaderAction('restart_agent'),
+ },
+ {
+ key: 'sleep',
+ icon: <Moon className="w-4 h-4" />,
+ label: t('deviceDetail.header.sleep', 'Suspend device (sleep)'),
+ description: unsup('sleep') ?? undefined,
+ disabled: headerPending.has('sleep') || !isCommandSupported(device, 'sleep'),
+ onClick: () => handleHeaderAction('sleep'),
+ },
+ {
+ key: 'reboot',
+ icon: <RotateCcw className="w-4 h-4" />,
+ label: t('deviceDetail.header.reboot', 'Reboot device'),
+ description: unsup('reboot') ?? undefined,
+ disabled: headerPending.has('reboot') || !isCommandSupported(device, 'reboot'),
+ onClick: () => handleHeaderAction('reboot'),
+ },
+ {
+ key: 'shutdown',
+ icon: <Power className="w-4 h-4" />,
+ label: t('deviceDetail.header.shutdown', 'Shutdown device'),
+ description: unsup('shutdown') ?? undefined,
+ disabled: headerPending.has('shutdown') || !isCommandSupported(device, 'shutdown'),
+ danger: true,
+ onClick: () => handleHeaderAction('shutdown'),
+ },
+ ...crossAppLinks.map((link, i): ActionMenuItem => ({
+ key: `app-${link.appType}`,
+ icon: <ExternalLink className="w-4 h-4" />,
+ label: t('deviceDetail.header.openIn', { defaultValue: 'Open in {{app}}', app: link.name }),
+ separator: i === 0,
+ onClick: () => { void openExternal(link.url); },
+ })),
+ ];
+
+ const deviceTitle = anonymize(device.displayName || device.hostname);
+
  return (
- <div className="p-6 space-y-6">
+ <PageContainer className="space-y-6">
  {/* Remote session launched from header */}
  {headerRemoteOpen && headerRemoteProtocol === 'oblireach' && (
  <ObliReachViewer
@@ -5482,20 +5943,31 @@ export function DeviceDetailPage() {
  {/* SSH/CMD/PowerShell sessions now live in the global panel rendered
  at the AppLayout level — nothing to render here anymore. */}
  {/* Chat session picker (RDS) */}
- {chatSessionPickerOpen && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
- <div className="px-5 py-4 ">
- <h3 className="text-sm font-semibold text-text-primary">Select session to chat with</h3>
- <p className="text-xs text-text-muted mt-1">Choose which user session to open the chat in.</p>
- </div>
- <div className="p-3 space-y-1 max-h-60 overflow-y-auto">
+ <Modal
+ open={chatSessionPickerOpen}
+ onClose={() => setChatSessionPickerOpen(false)}
+ title={t('deviceDetail.chat.pickSessionTitle', 'Select session to chat with')}
+ size="sm"
+ phoneLayout="sheet"
+ closeOnBackdrop={false}
+ showCloseButton={false}
+ className="sm:max-w-sm"
+ bodyClassName="p-3 pt-0"
+ footer={
+ <button onClick={() => setChatSessionPickerOpen(false)}
+ className="px-4 py-1.5 text-xs bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary coarse:min-h-10">
+ {t('common.cancel', 'Cancel')}
+ </button>
+ }
+ >
+ <p className="text-xs text-text-muted px-1 pb-2">{t('deviceDetail.chat.pickSessionHint', 'Choose which user session to open the chat in.')}</p>
+ <div className="space-y-1 sm:max-h-60 sm:overflow-y-auto">
  {headerOrSessions.map((s) => (
  <button key={s.id} onClick={() => {
  setChatSessionPickerOpen(false);
  useChatStore.getState().openChat(device.uuid, device.displayName || device.hostname, s.id);
  }}
- className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left">
+ className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors text-left coarse:min-h-12">
  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
  {s.id}
  </div>
@@ -5506,37 +5978,25 @@ export function DeviceDetailPage() {
  </button>
  ))}
  </div>
- <div className="px-5 py-3 flex justify-end">
- <button onClick={() => setChatSessionPickerOpen(false)}
- className="px-4 py-1.5 text-xs bg-bg-tertiary text-text-muted rounded-lg hover:text-text-primary">
- Cancel
- </button>
- </div>
- </div>
- </div>
- )}
+ </Modal>
  {/* WTS Session picker — header remote button (RDS with multiple sessions) */}
- {headerOrSessionPickerOpen && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4">
- <div className="flex items-center justify-between p-4 ">
- <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <MonitorPlay className="w-4 h-4 text-accent" />
- Choose Session
- </h2>
- <button
- onClick={() => setHeaderOrSessionPickerOpen(false)}
- className="text-text-muted hover:text-text-primary transition-colors"
+ <Modal
+ open={headerOrSessionPickerOpen}
+ onClose={() => setHeaderOrSessionPickerOpen(false)}
+ title={t('deviceDetail.remote.chooseSession', 'Choose Session')}
+ icon={<MonitorPlay className="w-4 h-4 text-accent" />}
+ size="sm"
+ phoneLayout="sheet"
+ closeOnBackdrop={false}
+ className="sm:max-w-sm"
+ bodyClassName="p-3"
  >
- <X className="w-4 h-4" />
- </button>
- </div>
- <div className="p-3 space-y-1 max-h-72 overflow-y-auto">
+ <div className="space-y-1 sm:max-h-72 sm:overflow-y-auto">
  {headerOrSessions.map((s) => (
  <button
  key={s.id}
  onClick={() => handleHeaderStartObliReachSession(s.id)}
- className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3"
+ className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-bg-tertiary transition-colors flex items-center gap-3 coarse:min-h-12"
  >
  <div className={clsx(
  'w-2 h-2 rounded-full flex-shrink-0',
@@ -5554,9 +6014,7 @@ export function DeviceDetailPage() {
  </button>
  ))}
  </div>
- </div>
- </div>
- )}
+ </Modal>
 
  {/* Airgap banner */}
  {device.airgapEnabled && (
@@ -5578,15 +6036,16 @@ export function DeviceDetailPage() {
  <div className="flex-1 min-w-0">
  <p className="text-sm font-semibold">{t('deviceDetail.updateBanner') || 'Agent update available'}</p>
  </div>
+ <DisabledTip reason={unsup('update_agent')}>
  <button
  onClick={handleUpdateAgent}
  disabled={headerPending.has('update_agent') || !isCommandSupported(device, 'update_agent')}
- title={!isCommandSupported(device, 'update_agent') ? unsupportedTooltip(t) : undefined}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 coarse:min-h-10"
  >
  {headerPending.has('update_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
  {t('devices.action.updateAgent') || 'Update agent'}
  </button>
+ </DisabledTip>
  </div>
  )}
 
@@ -5597,25 +6056,27 @@ export function DeviceDetailPage() {
  <DuplicateAgentIdBanner device={device} onAcknowledged={async () => { await fetchDevice(deviceId); }} />
  )}
 
- {/* Header */}
- <div className="flex items-start gap-4">
- <button
+ {/* Header — below lg the action cluster drops to its own row (it used to
+ be shrink-0 next to the name and squeezed it to nothing on tablets). */}
+ <div className="flex items-start gap-4 max-lg:flex-wrap max-lg:gap-3">
+ <IconButton
  onClick={() => {
  // Prefer history back so the previous page (with its filters) is restored.
  // Fall back to /devices if there is no history entry.
  if (window.history.length > 1) navigate(-1);
  else navigate('/devices');
  }}
- className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors mt-0.5"
- title="Back"
- >
- <ArrowLeft className="w-4 h-4" />
- </button>
+ size="lg"
+ variant="plain"
+ className="rounded-lg hover:bg-bg-secondary mt-0.5"
+ label={t('common.back', 'Back')}
+ icon={<ArrowLeft className="w-4 h-4" />}
+ />
  <div className="flex-1 min-w-0">
- <div className="flex items-center gap-3 flex-wrap">
+ <div className="flex items-center gap-3 flex-wrap max-sm:gap-2">
  <OsIcon osType={device.osType} className="w-5 h-5 text-text-muted shrink-0" />
  {editingName ? (
- <div className="flex items-center gap-1">
+ <div className="flex items-center gap-1 max-sm:w-full max-sm:min-w-0">
  <input
  autoFocus
  value={nameDraft}
@@ -5624,35 +6085,39 @@ export function DeviceDetailPage() {
  if (e.key === 'Enter') saveRename();
  if (e.key === 'Escape') setEditingName(false);
  }}
- className="text-2xl font-bold bg-bg-tertiary border border-accent rounded px-2 py-0.5 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="text-2xl font-bold bg-bg-tertiary border border-accent rounded px-2 py-0.5 text-text-primary focus:outline-none focus:ring-1 focus:ring-accent max-sm:min-w-0 max-sm:flex-1 max-sm:w-full max-sm:text-xl"
  />
- <button
+ <IconButton
  onClick={saveRename}
- className="p-1 rounded text-green-400 hover:bg-bg-secondary"
- title="Save"
- >
- <Check className="w-4 h-4" />
- </button>
- <button
+ size="sm"
+ variant="plain"
+ className="text-green-400 hover:text-green-400 hover:bg-bg-secondary"
+ label={t('common.save', 'Save')}
+ icon={<Check className="w-4 h-4" />}
+ />
+ <IconButton
  onClick={() => setEditingName(false)}
- className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
- title="Cancel"
- >
- <X className="w-4 h-4" />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:bg-bg-secondary"
+ label={t('common.cancel', 'Cancel')}
+ icon={<X className="w-4 h-4" />}
+ />
  </div>
  ) : (
  <div className="flex items-center gap-1 min-w-0">
- <h1 className="text-2xl font-bold text-text-primary truncate">
- {anonymize(device.displayName || device.hostname)}
+ <h1 className="text-2xl font-bold text-text-primary truncate max-sm:text-xl">
+ {deviceTitle}
  </h1>
- <button
+ <IconButton
  onClick={startRename}
- className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary transition-colors"
- title="Rename"
- >
- <Pencil className="w-3.5 h-3.5" />
- </button>
+ size="sm"
+ variant="plain"
+ className="hover:bg-bg-secondary"
+ label={t('deviceDetail.header.rename', 'Rename')}
+ icon={<Pencil className="w-3.5 h-3.5" />}
+ />
  </div>
  )}
  <DeviceStatusBadge status={device.status} scheduleAlert={device.scheduleAlert} />
@@ -5693,12 +6158,13 @@ export function DeviceDetailPage() {
  </span>
  )}
  {device.agentFlavor === 'legacy' && (
+ <DisabledTip reason={t('deviceDetail.header.legacyHint', 'Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update')}>
  <span
- title="Legacy Go 1.20 agent — no remote shell / ObliReach / software compliance / auto-update"
  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 uppercase tracking-wider"
  >
  Legacy
  </span>
+ </DisabledTip>
  )}
  </div>
  <p className="group text-sm text-text-muted mt-1">
@@ -5715,13 +6181,13 @@ export function DeviceDetailPage() {
  })()}
  </span>
  )}
- {/* Hover-only "add note" affordance — invisible until the
- info line is hovered, exactly where Obliview puts it. */}
+ {/* "add note" affordance — revealed on hover with a mouse
+ (where Obliview puts it), always visible on touch. */}
  {!device.description && !editingNote && (
  <button
  onClick={startNote}
- className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-rose-400 hover:text-rose-300"
- title="Add a note"
+ className="ml-2 can-hover:opacity-0 can-hover:group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-rose-400 hover:text-rose-300 coarse:min-h-8"
+ title={t('deviceDetail.note.add', 'Add a note')}
  >
  <Plus className="w-3 h-3" />
  <span className="text-xs">add note</span>
@@ -5742,7 +6208,7 @@ export function DeviceDetailPage() {
  onDelete={deleteNote}
  />
  </div>
- <div className="flex items-center gap-2 shrink-0 flex-wrap">
+ <div className="flex items-center gap-2 shrink-0 flex-wrap max-lg:w-full max-lg:shrink max-lg:min-w-0">
  {device.approvalStatus === 'pending' ? (
  /* ── Pending device: only show approve / refuse ── */
  canManageApproval && (
@@ -5767,16 +6233,17 @@ export function DeviceDetailPage() {
  )
  ) : (
  /* ── Approved/suspended device: show all actions ── */
- <div className="flex flex-col items-end gap-2">
- {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) ── */}
+ <div className="flex flex-col items-end gap-2 max-lg:items-start max-lg:min-w-0 max-lg:flex-1">
+ {/* ── Cross-app links (Obliview, Obliguard, Oblimap…) — in the "⋯" sheet below md ── */}
  {crossAppLinks.length > 0 && (
- <div className="flex items-center gap-1.5">
+ <div className="flex items-center gap-1.5 flex-wrap max-md:hidden">
  {crossAppLinks.map(link => (
  <a
  key={link.appType}
  href={link.url}
  target="_blank"
  rel="noopener noreferrer"
+ onClick={(e) => { e.preventDefault(); void openExternal(link.url); }}
  title={`Open in ${link.name}`}
  className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-colors"
  style={{ color: link.color ?? '#58a6ff', borderColor: `${link.color ?? '#58a6ff'}40`, backgroundColor: `${link.color ?? '#58a6ff'}0d` }}
@@ -5787,44 +6254,29 @@ export function DeviceDetailPage() {
  ))}
  </div>
  )}
- {/* ── Action bar ── */}
- <div className="flex items-center gap-2">
+ {/* ── Action bar ── (wraps on tablet; secondary actions move to "⋯" below md) */}
+ <div className="flex items-center gap-2 flex-wrap">
  {/* ── Scan All ── */}
+ <DisabledTip reason={scanAllDisabled && !isScanningAll && scanAllReason} className="max-md:hidden">
  <button
  onClick={handleScanAll}
- disabled={isScanningAll || !isAgentReachable(device.status) || !(isCommandSupported(device, 'scan_inventory') && isCommandSupported(device, 'scan_updates') && isCommandSupported(device, 'check_compliance'))}
- title={(isCommandSupported(device, 'scan_inventory') && isCommandSupported(device, 'scan_updates') && isCommandSupported(device, 'check_compliance')) ? 'Scan All — triggers inventory, updates and compliance scans' : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ disabled={scanAllDisabled}
+ title={scanAllSupported ? 'Scan All — triggers inventory, updates and compliance scans' : unsupportedTooltip(t)}
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-bg-secondary text-text-muted hover:text-accent hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {isScanningAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />}
  Scan All
  </button>
+ </DisabledTip>
 
  {/* ── Airgap (admin only) ── */}
  {isAdmin() && (
  <button
- onClick={async () => {
- if (device.airgapEnabled) {
- setHeaderPending((p) => new Set(p).add('airgap'));
- try {
- await deviceApi.disableAirgap(device.id);
- toast.success(t('airgap.disabled'));
- } catch { toast.error(t('airgap.disableFailed')); }
- finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
- } else {
- if (!confirm(t('airgap.enableConfirm'))) return;
- setHeaderPending((p) => new Set(p).add('airgap'));
- try {
- await deviceApi.enableAirgap(device.id);
- toast.success(t('airgap.enabled'));
- } catch { toast.error(t('airgap.enableFailed')); }
- finally { setHeaderPending((p) => { const n = new Set(p); n.delete('airgap'); return n; }); }
- }
- }}
+ onClick={handleAirgapToggle}
  disabled={headerPending.has('airgap')}
  title={device.airgapEnabled ? t('airgap.disable') : t('airgap.enable')}
  className={clsx(
- "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+ "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed max-md:hidden",
  device.airgapEnabled
  ? "border-blue-400/50 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
  : "border-transparent bg-bg-secondary text-text-muted hover:text-blue-400 hover:border-blue-400/50"
@@ -5836,8 +6288,16 @@ export function DeviceDetailPage() {
  )}
 
  {/* ── Quick actions ── */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary px-1 py-1">
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary px-1 py-1 flex-wrap">
  {/* Chat — always next to Remote */}
+ <DisabledTip reason={
+ (!isAgentReachable(device.status) || headerOrInstalled === false || device.privacyModeEnabled) && (
+ headerOrInstalled === false
+ ? 'ObliReach is not deployed on this device — chat is unavailable'
+ : device.privacyModeEnabled
+ ? 'Chat is unavailable while privacy mode is active (ObliReach service is stopped)'
+ : t('deviceDetail.reason.agentOnline', 'Agent must be online'))
+ }>
  <button
  onClick={async () => {
  // If a chat for THIS device is already open, toggle visibility
@@ -5892,6 +6352,7 @@ export function DeviceDetailPage() {
  Chat
  {headerOrInstalled === false && <Lock className="w-3 h-3 text-orange-400" />}
  </button>
+ </DisabledTip>
  {/* Remote */}
  {(() => {
  const opts: Array<'oblireach' | 'ssh' | 'cmd' | 'powershell'> =
@@ -5901,6 +6362,9 @@ export function DeviceDetailPage() {
  const label = (p: string) => p === 'powershell' ? 'PS' : p === 'oblireach' ? 'Reach' : p.toUpperCase();
  // Privacy gate state for the 'remote' feature
  const remoteHardBlocked = device.privacyModeEnabled && !device.privacyPasswordSet;
+ const remoteDisabledReason = remoteHardBlocked
+ ? t('deviceDetail.reason.privacyBlocked', 'Blocked by privacy mode (no privacy password set on this device)')
+ : !isAgentReachable(device.status) ? t('deviceDetail.reason.agentOnline', 'Agent must be online') : null;
  const remoteUnlocked = isFeatureUnlocked('remote');
  const remoteSoftGated = device.privacyModeEnabled && device.privacyPasswordSet && !remoteUnlocked;
  const guardedClick = (action: () => void) => {
@@ -5913,6 +6377,7 @@ export function DeviceDetailPage() {
  return (
  <div className="relative" ref={remoteDropdownRef}>
  {opts.length === 1 ? (
+ <DisabledTip reason={remoteDisabledReason}>
  <button
  onClick={() => guardedClick(() => handleHeaderRemote(opts[0]))}
  disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
@@ -5924,7 +6389,9 @@ export function DeviceDetailPage() {
  {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
  {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
  </button>
+ </DisabledTip>
  ) : (
+ <DisabledTip reason={remoteDisabledReason}>
  <button
  onClick={() => guardedClick(() => setRemoteDropdownOpen((o) => !o))}
  disabled={isStartingRemote || headerRemoteOpen || !isAgentReachable(device.status) || remoteHardBlocked}
@@ -5937,9 +6404,10 @@ export function DeviceDetailPage() {
  {remoteSoftGated && <Lock className="w-3 h-3 text-orange-400" />}
  {remoteUnlocked && device.privacyModeEnabled && <Unlock className="w-3 h-3 text-green-400" />}
  </button>
+ </DisabledTip>
  )}
  {remoteDropdownOpen && (
- <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-lg overflow-hidden min-w-[130px]">
+ <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-lg overflow-hidden min-w-[130px] max-md:left-0 max-md:right-auto max-md:min-w-[160px]">
  {opts.map((proto) => {
  const isOr = proto === 'oblireach';
  const orNotInstalled = isOr && headerOrInstalled === false;
@@ -5947,7 +6415,7 @@ export function DeviceDetailPage() {
  <button
  key={proto}
  onClick={() => handleHeaderRemote(proto)}
- className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left"
+ className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary transition-colors text-left coarse:min-h-11 coarse:text-sm"
  >
  <MonitorPlay className={`w-3.5 h-3.5 ${orNotInstalled ? 'text-orange-400' : 'text-green-400'}`} />
  <span>{proto === 'powershell' ? 'PowerShell' : proto === 'oblireach' ? 'Oblireach' : proto.toUpperCase()}</span>
@@ -5964,24 +6432,12 @@ export function DeviceDetailPage() {
  })()}
  {device.privacyModeEnabled && isAdmin() && (
  <>
- <div className="w-px h-5 bg-border" />
+ <div className="w-px h-5 bg-border max-md:hidden" />
  <button
- onClick={async () => {
- // If a password gate is set, prompt the user via the modal.
- if (device.privacyPasswordSet) {
- setDisablePrivacyPrompt(true);
- return;
- }
- setHeaderPending((p) => new Set(p).add('privacy'));
- try {
- await deviceApi.disablePrivacyMode(device.id);
- toast.success(t('privacy.disableSent'));
- } catch { toast.error(t('privacy.disableFailed')); }
- finally { setHeaderPending((p) => { const n = new Set(p); n.delete('privacy'); return n; }); }
- }}
+ onClick={handleDisablePrivacy}
  disabled={headerPending.has('privacy')}
  title={t('privacy.disableTitle')}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('privacy') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
  {t('privacy.disable')}
@@ -5989,60 +6445,82 @@ export function DeviceDetailPage() {
  </button>
  </>
  )}
- <div className="w-px h-5 bg-border" />
- {device.updateAvailable && device.status !== 'updating' && device.status !== 'update_error' && (
+ <div className="w-px h-5 bg-border max-md:hidden" />
+ {showUpdateAgent && (
+ <DisabledTip reason={unsup('update_agent')} className="max-md:hidden">
  <button
  onClick={handleUpdateAgent}
  disabled={headerPending.has('update_agent') || !isCommandSupported(device, 'update_agent')}
  title={!isCommandSupported(device, 'update_agent') ? unsupportedTooltip(t) : (t('devices.action.updateAgent') || 'Update agent')}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('update_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
  {t('devices.action.updateAgent') || 'Update agent'}
  </button>
+ </DisabledTip>
  )}
+ <DisabledTip reason={unsup('restart_agent')} className="max-md:hidden">
  <button
  onClick={() => handleHeaderAction('restart_agent')}
  disabled={headerPending.has('restart_agent') || !isCommandSupported(device, 'restart_agent')}
  title={isCommandSupported(device, 'restart_agent') ? 'Restart Agent' : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('restart_agent') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
  Agent
  </button>
+ </DisabledTip>
+ <DisabledTip reason={unsup('sleep')} className="max-md:hidden">
  <button
  onClick={() => handleHeaderAction('sleep')}
  disabled={headerPending.has('sleep') || !isCommandSupported(device, 'sleep')}
  title={isCommandSupported(device, 'sleep') ? 'Suspend device (sleep)' : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-blue-400 hover:bg-blue-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('sleep') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Moon className="w-3.5 h-3.5" />}
  Sleep
  </button>
+ </DisabledTip>
+ <DisabledTip reason={unsup('reboot')} className="max-md:hidden">
  <button
  onClick={() => handleHeaderAction('reboot')}
  disabled={headerPending.has('reboot') || !isCommandSupported(device, 'reboot')}
  title={isCommandSupported(device, 'reboot') ? 'Reboot device' : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('reboot') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
  Reboot
  </button>
+ </DisabledTip>
+ <DisabledTip reason={unsup('shutdown')} className="max-md:hidden">
  <button
  onClick={() => handleHeaderAction('shutdown')}
  disabled={headerPending.has('shutdown') || !isCommandSupported(device, 'shutdown')}
  title={isCommandSupported(device, 'shutdown') ? 'Shutdown device' : unsupportedTooltip(t)}
- className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors max-md:hidden"
  >
  {headerPending.has('shutdown') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5" />}
  Off
  </button>
+ </DisabledTip>
+ {/* Phone: every secondary action in one bottom sheet */}
+ <ActionMenu
+ items={phoneHeaderItems}
+ label={t('deviceDetail.header.moreActions', 'More device actions')}
+ sheetTitle={deviceTitle}
+ triggerClassName="md:hidden"
+ />
  </div>
  </div>
  </div>
  )}
 
- <button
+ <IconButton
+ size="lg"
+ variant="plain"
+ className="rounded-lg hover:bg-bg-secondary"
+ label={t('deviceDetail.header.refresh', 'Refresh device + force agent metrics push')}
+ icon={<RefreshCw className="w-4 h-4" />}
  onClick={async () => {
  // Two-part refresh: re-fetch the device row from the
  // server (hostname/group/tags/etc. that change rarely)
@@ -6055,17 +6533,13 @@ export function DeviceDetailPage() {
  deviceApi.requestLiveMetrics(deviceId, 'push_now').catch(() => null),
  ]);
  }}
- className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
- title="Refresh device + force agent metrics push"
- >
- <RefreshCw className="w-4 h-4" />
- </button>
+ />
  </div>
  </div>
 
  {/* ── Pending uninstall banner ── */}
  {device.status === 'pending_uninstall' && (
- <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-orange-500/40 bg-orange-500/10">
+ <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-orange-500/40 bg-orange-500/10 max-sm:flex-wrap max-sm:gap-2">
  <div className="flex items-center gap-3">
  <Power className="w-4 h-4 text-orange-400 shrink-0 animate-pulse" />
  <div>
@@ -6097,8 +6571,8 @@ export function DeviceDetailPage() {
  </div>
  )}
 
- {/* Tabs */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent overflow-x-auto">
+ {/* Tabs — scroll horizontally when they don't fit (active tab kept in view) */}
+ <div ref={tabsBarRef} className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent overflow-x-auto overscroll-x-contain max-md:scrollbar-none">
  {(() => {
  // Inject custom section tabs between Remote and Explorer.
  const customTabs = customSections.map((cs) => ({
@@ -6155,13 +6629,14 @@ export function DeviceDetailPage() {
  setActiveTab(tab.id as Tab);
  };
  return (
+ <DisabledTip key={tab.id} reason={hardBlocked && t('deviceDetail.reason.tabPrivacyBlocked', 'Blocked by privacy mode — no privacy password is set on this device')} className="shrink-0">
  <button
- key={tab.id}
  onClick={handleClick}
  disabled={hardBlocked}
+ data-active-tab={activeTab === tab.id ? 'true' : undefined}
  title={hardBlocked ? t('privacy.badge') : softGated ? 'Click to unlock with password' : undefined}
  className={clsx(
- 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors',
+ 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors shrink-0 max-sm:px-3',
  hardBlocked
  ? 'text-text-muted/40 cursor-not-allowed'
  : activeTab === tab.id
@@ -6179,6 +6654,7 @@ export function DeviceDetailPage() {
  </span>
  )}
  </button>
+ </DisabledTip>
  );
  })}
  </div>
@@ -6254,6 +6730,6 @@ export function DeviceDetailPage() {
  }}
  />
  )}
- </div>
+ </PageContainer>
  );
 }

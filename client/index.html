@@ -2,7 +2,12 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Mobile (docs/obli-mobile.md §4): viewport-fit=cover exposes the
+         safe-area insets (--safe-* in index.css); resizes-content makes the
+         soft keyboard shrink the layout viewport so dvh-sized sheets stay
+         above it. Pinch zoom is intentionally kept (no maximum-scale). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0f1220" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- Obli Design v1 typography — sans: Inter (body, UI chrome),
          display: Rajdhani (page titles + hero KPI values, opt-in via

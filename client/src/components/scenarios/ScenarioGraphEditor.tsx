@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
  ReactFlow,
  ReactFlowProvider,
@@ -20,9 +21,18 @@ import {
  type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Plus, Trash2, X, AlertCircle, Play, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Terminal as TerminalIcon, Copy, Files, FlaskConical, ClipboardPaste, Crosshair, History, ToggleLeft, ToggleRight, Link2, SlidersHorizontal, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
+import { Modal } from '@/components/common/Modal';
+import { Drawer } from '@/components/common/Drawer';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
+import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { getLayoutMode, matchesMedia, MEDIA, useIsCoarsePointer, useLayoutMode } from '@/hooks/useMediaQuery';
+import { useNativeBack } from '@/hooks/useNativeBack';
+import { useClickOutside } from '@/hooks/useClickOutside';
 import { scenarioApi } from '@/api/scenario.api';
 import { scriptApi } from '@/api/script.api';
 import { deviceApi } from '@/api/device.api';
@@ -122,6 +132,47 @@ interface EdgeData extends Record<string, unknown> {
  condition: ScenarioEdgeCondition;
 }
 
+/** One node / pane action, rendered by the desktop right-click menu
+ * (ContextMenuItem), the touch ActionMenu and the touch action row.
+ * `hint` is the long description (shown on the right of the desktop
+ * menu row, as the description line in the touch menus); `shortcut`
+ * is a keyboard hint only shown in the desktop menu. */
+interface GraphAction {
+ key: string;
+ icon: ReactNode;
+ label: string;
+ /** Short label for the touch action-row chips (defaults to label). */
+ shortLabel?: string;
+ hint?: string;
+ shortcut?: string;
+ onClick: () => void;
+ disabled?: boolean;
+ danger?: boolean;
+ /** Separator ABOVE this action. */
+ separator?: boolean;
+ hidden?: boolean;
+}
+
+const toActionMenuItems = (actions: GraphAction[]): ActionMenuItem[] =>
+ actions.map((a) => ({
+ key: a.key,
+ icon: a.icon,
+ label: a.label,
+ description: a.hint,
+ onClick: a.onClick,
+ disabled: a.disabled,
+ danger: a.danger,
+ separator: a.separator,
+ hidden: a.hidden,
+ }));
+
+// Text fields whose content is prose (subject / body / messages) keep the
+// mobile keyboard's autocorrect; every other text field of the registry
+// holds identifiers (timezone, mount paths, command types, tags, match
+// fields) and gets autocapitalize / autocorrect / spellcheck turned off.
+const PROSE_FIELD_KEYS = new Set(['subject', 'body', 'message']);
+const PLAIN_INPUT_PROPS = { autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false, autoComplete: 'off' } as const;
+
 // ── Custom node component — single renderer parameterised by registry ───────
 function CustomNode({ data, selected }: NodeProps) {
  const d = data as NodeData;
@@ -149,6 +200,11 @@ function CustomNode({ data, selected }: NodeProps) {
  width: 12, height: 12, background: 'rgb(var(--c-accent))',
  border: '2px solid rgb(var(--c-bg-primary))',
  };
+ // Touch: 20px port + an invisible 36px hit area (::after) so a finger
+ // can grab it or tap it (tap source port → tap target port connects,
+ // xyflow's connectOnClick). The `!` beats the inline 12px size; mouse
+ // pointers keep the 12px port untouched.
+ const handleTouchCls = "coarse:!w-5 coarse:!h-5 coarse:after:absolute coarse:after:-inset-2 coarse:after:content-['']";
 
  return (
  <div className={clsx(
@@ -160,16 +216,18 @@ function CustomNode({ data, selected }: NodeProps) {
  !hasStatus && selected && 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary',
  )}>
  {!isTrigger && (
- <Handle type="target" position={Position.Left} style={handleStyle} />
+ <Handle type="target" position={Position.Left} style={handleStyle} className={handleTouchCls} />
  )}
  <div className="flex items-center gap-1.5 mb-0.5">
  <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted flex-1">
  {meta?.label ?? d.scenarioType}
  </div>
  {d.warning && (
- <span title={d.warning} className="shrink-0">
- <AlertCircle className="w-3 h-3 text-amber-400" />
- </span>
+ // Tip instead of title= so the reason is readable on touch
+ // (tap toggles the bubble) — the sidebar / sheet also shows it.
+ <Tip content={d.warning} className="shrink-0">
+ <AlertCircle className="w-3 h-3 text-amber-400" aria-label={d.warning} />
+ </Tip>
  )}
  {d.runStatus === 'running' && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
  {d.runStatus === 'success' && <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />}
@@ -182,7 +240,7 @@ function CustomNode({ data, selected }: NodeProps) {
  // No `id` on the handle — single source port per node, defaults
  // are sufficient. Setting an explicit id requires every edge
  // to carry a sourceHandle that matches, which we don't generate.
- <Handle type="source" position={Position.Right} style={handleStyle} />
+ <Handle type="source" position={Position.Right} style={handleStyle} className={handleTouchCls} />
  )}
  </div>
  );
@@ -191,18 +249,21 @@ function CustomNode({ data, selected }: NodeProps) {
 const NODE_TYPES_RF: NodeTypes = { custom: CustomNode };
 
 // ── Palette item — clickable to "drop" a new node on the canvas ─────────────
-function PaletteItem({ meta, onAdd }: { meta: NodeTypeMeta; onAdd: () => void }) {
+// `wrapHint` (touch sheet): the hint wraps on two lines instead of being
+// truncated with the full text only reachable through the title tooltip.
+function PaletteItem({ meta, onAdd, wrapHint = false }: { meta: NodeTypeMeta; onAdd: () => void; wrapHint?: boolean }) {
  return (
  <button
  onClick={onAdd}
  className={clsx(
  'w-full text-left px-3 py-2 rounded-md border-2 border-dashed bg-bg-tertiary hover:bg-bg-hover transition-colors mb-1.5',
+ wrapHint && 'coarse:py-2.5',
  meta.accent,
  )}
- title={meta.hint}
+ title={wrapHint ? undefined : meta.hint}
  >
  <div className="text-[12px] font-semibold text-text-primary">{meta.label}</div>
- <div className="text-[10px] font-mono text-text-muted truncate">{meta.hint}</div>
+ <div className={clsx('text-[10px] font-mono text-text-muted', wrapHint ? 'line-clamp-2' : 'truncate')}>{meta.hint}</div>
  </button>
  );
 }
@@ -245,6 +306,7 @@ function EdgeConditionEditor({ value, onChange }: { value: ScenarioEdgeCondition
  value={((value as any).values ?? []).join(',')}
  onChange={(e) => onChange({ kind: 'exit_code_in', values: e.target.value.split(',').map((x) => parseInt(x.trim(), 10)).filter((x) => !Number.isNaN(x)) })}
  placeholder="e.g. 1,2,3"
+ {...PLAIN_INPUT_PROPS}
  className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-text-primary" />
  )}
  </div>
@@ -254,6 +316,20 @@ function EdgeConditionEditor({ value, onChange }: { value: ScenarioEdgeCondition
 // ── Main editor ──────────────────────────────────────────────────────────────
 function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { scenarioId: number; onClose?: () => void; onStatusChanged?: (next: 'draft' | 'active' | 'disabled') => void }) {
  const rf = useReactFlow();
+ const { t } = useTranslation();
+ const confirm = useConfirm();
+ // Layout (docs/obli-mobile.md §4): 'desktop' (≥ 1024px) keeps the
+ // historic canvas + w-72 sidebar untouched. Below lg (`compact`) the
+ // sidebar becomes a sheet (bottom on phone, right on tablet), the
+ // toolbar collapses into an overflow menu, the output panel docks
+ // under the canvas and a selection bar exposes the node actions.
+ // `touchUi` also covers large touch tablets in the desktop layout:
+ // they get the visible node-action row instead of right-click only.
+ const layout = useLayoutMode();
+ const compact = layout !== 'desktop';
+ const isPhone = layout === 'phone';
+ const coarse = useIsCoarsePointer();
+ const touchUi = compact || coarse;
  // Ref to the canvas wrapper so addNode can convert "screen centre"
  // to flow coordinates via rf.screenToFlowPosition. Without an actual
  // bounding rect to anchor to, viewport math returns 0/0 and every
@@ -261,8 +337,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
  const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
  const [edges, setEdges] = useState<Edge<EdgeData>[]>([]);
- const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
- const [selectedEdge, setSelectedEdge] = useState<Edge<EdgeData> | null>(null);
+ // Selection is kept as ids and resolved against the live nodes/edges
+ // arrays, so the sidebar always edits the CURRENT node (a stored node
+ // snapshot went stale after drags / saves). onSelectionChange keeps
+ // it in sync with React Flow's own selection (drag-to-select, taps
+ // with finger jitter that never fire onNodeClick, …).
+ const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+ const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+ const selectedNode: Node<NodeData> | null = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null;
+ const selectedEdge: Edge<EdgeData> | null = selectedEdgeId ? (edges.find((e) => e.id === selectedEdgeId) ?? null) : null;
  const [scripts, setScripts] = useState<Script[]>([]);
  const [scriptCategories, setScriptCategories] = useState<ScriptCategory[]>([]);
  const [devices, setDevices] = useState<Device[]>([]);
@@ -319,7 +402,15 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  /** Right-click context menu state. */
  const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
  const [paneMenu, setPaneMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
- const [showOutputPanel, setShowOutputPanel] = useState(true);
+ // Open by default on desktop (unchanged); below lg it starts closed so
+ // the phone / tablet canvas is not half-covered on open.
+ const [showOutputPanel, setShowOutputPanel] = useState(() => getLayoutMode() === 'desktop');
+ /** Touch layouts: which sheet is open — the palette or the config of
+ * the current selection. */
+ const [sheet, setSheet] = useState<null | 'palette' | 'config'>(null);
+ /** Tap-to-connect mode: source node id; the next tapped node becomes
+ * the target. Works with every pointer, entered from the touch UI. */
+ const [connectFrom, setConnectFrom] = useState<string | null>(null);
  /** Most recent node id with output — drives which node the output panel
  * shows by default. When the user explicitly selects a node, the panel
  * prefers the selection. */
@@ -857,12 +948,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  e.preventDefault();
  setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
  setEdges((eds) => eds.filter((edg) => edg.source !== selectedNode.id && edg.target !== selectedNode.id));
- setSelectedNode(null);
+ setSelectedNodeId(null);
  setDirty(true);
  } else if (selectedEdge) {
  e.preventDefault();
  setEdges((eds) => eds.filter((edg) => edg.id !== selectedEdge.id));
- setSelectedEdge(null);
+ setSelectedEdgeId(null);
  setDirty(true);
  }
  }
@@ -973,27 +1064,243 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  if (selectedNode) {
  setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
  setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
- setSelectedNode(null);
+ setSelectedNodeId(null);
  setDirty(true);
  } else if (selectedEdge) {
  setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
- setSelectedEdge(null);
+ setSelectedEdgeId(null);
  setDirty(true);
  }
  };
 
  const updateNodeData = (nodeId: string, patch: Partial<NodeData>) => {
  setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...patch } } : n));
- setSelectedNode((cur: Node<NodeData> | null) => cur && cur.id === nodeId ? { ...cur, data: { ...cur.data, ...patch } } : cur);
  setDirty(true);
  };
 
  const updateEdgeData = (edgeId: string, condition: ScenarioEdgeCondition) => {
  const style = { stroke: edgeStrokeColor(condition), strokeWidth: 1.6 };
  setEdges((eds) => eds.map((e) => e.id === edgeId ? { ...e, data: { condition }, label: edgeConditionLabel(condition), style } : e));
- setSelectedEdge((cur: Edge<EdgeData> | null) => cur && cur.id === edgeId ? { ...cur, data: { condition }, label: edgeConditionLabel(condition), style } : cur);
  setDirty(true);
  };
+
+ // ── Selection helpers ──────────────────────────────────────────
+ // React Flow is controlled here, so a programmatic selection also
+ // flips the `selected` flags (ring on the canvas, and the next
+ // onSelectionChange agrees with us).
+ const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: { nodes: Node[]; edges: Edge[] }) => {
+ if (selNodes.length > 0) {
+ setSelectedNodeId(selNodes[selNodes.length - 1].id);
+ setSelectedEdgeId(null);
+ } else if (selEdges.length > 0) {
+ setSelectedEdgeId(selEdges[selEdges.length - 1].id);
+ setSelectedNodeId(null);
+ } else {
+ setSelectedNodeId(null);
+ setSelectedEdgeId(null);
+ }
+ }, []);
+ const selectNode = (id: string | null) => {
+ setNodes((nds) => nds.map((n) => {
+ const sel = n.id === id;
+ return !!n.selected === sel ? n : { ...n, selected: sel };
+ }));
+ setEdges((eds) => eds.map((e) => (e.selected ? { ...e, selected: false } : e)));
+ setSelectedNodeId(id);
+ setSelectedEdgeId(null);
+ };
+ const selectEdge = (id: string) => {
+ setEdges((eds) => eds.map((e) => {
+ const sel = e.id === id;
+ return !!e.selected === sel ? e : { ...e, selected: sel };
+ }));
+ setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)));
+ setSelectedEdgeId(id);
+ setSelectedNodeId(null);
+ };
+
+ // ── Node / pane actions shared by the right-click menu, the touch
+ // long-press menu, the selection bar and the sheet action row ──────
+ const newClientId = () => `cn-${Math.random().toString(36).slice(2)}`;
+ /** Flow coordinates of the visible canvas centre (fallback 240,120). */
+ const viewportCenter = (): { x: number; y: number } => {
+ try {
+ const wrap = canvasWrapRef.current;
+ if (wrap) {
+ const r = wrap.getBoundingClientRect();
+ return rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+ }
+ } catch { /* RF not ready */ }
+ return { x: 240, y: 120 };
+ };
+ const addNodeAt = (data: NodeData, position: { x: number; y: number }, select = false): string => {
+ const id = newClientId();
+ setNodes((nds) => [
+ ...(select ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds),
+ { id, type: 'custom', position, data, ...(select ? { selected: true } : {}) },
+ ]);
+ if (select) {
+ setEdges((eds) => eds.map((e) => (e.selected ? { ...e, selected: false } : e)));
+ setSelectedNodeId(id);
+ setSelectedEdgeId(null);
+ }
+ setDirty(true);
+ return id;
+ };
+ const deleteNodeById = (id: string) => {
+ setNodes((nds) => nds.filter((n) => n.id !== id));
+ setEdges((eds) => eds.filter((edg) => edg.source !== id && edg.target !== id));
+ if (selectedNodeId === id) setSelectedNodeId(null);
+ if (connectFrom === id) setConnectFrom(null);
+ setDirty(true);
+ };
+ const deleteEdgeById = (id: string) => {
+ setEdges((eds) => eds.filter((edg) => edg.id !== id));
+ if (selectedEdgeId === id) setSelectedEdgeId(null);
+ setDirty(true);
+ };
+ const duplicateNode = (target: Node<NodeData>, select = false) => {
+ addNodeAt(
+ { scenarioType: target.data.scenarioType, label: `${target.data.label} (copy)`, config: { ...(target.data.config ?? {}) } },
+ { x: target.position.x + 40, y: target.position.y + 40 },
+ select,
+ );
+ };
+ const copyNode = (target: Node<NodeData>) => {
+ setClipboardNode({
+ scenarioType: target.data.scenarioType,
+ label: target.data.label,
+ config: { ...(target.data.config ?? {}) },
+ });
+ toast.success(t('scenarioGraph.nodeCopied', 'Node copied'));
+ };
+ /** Paste from the editor clipboard — next to the selection when there
+ * is one, else at the visible canvas centre (same rule as Ctrl+V). */
+ const pasteNode = (at?: { x: number; y: number }) => {
+ if (!clipboardNode) return;
+ const position = at
+ ?? (selectedNode ? { x: selectedNode.position.x + 40, y: selectedNode.position.y + 40 } : viewportCenter());
+ addNodeAt({ ...clipboardNode, config: { ...clipboardNode.config } }, position, touchUi && !at);
+ };
+ const fitView = () => { try { rf.fitView({ padding: 0.2, duration: 200 }); } catch { /* RF not ready */ } };
+ const openRunPicker = (mode: { kind: 'graph' } | { kind: 'from'; nodeClientId: string } | { kind: 'single'; nodeClientId: string }) => {
+ setRunMode(mode);
+ setShowRunPicker(true);
+ };
+ const showOutputFor = (target: Node<NodeData>) => {
+ const dbId = parseDbNodeId(target.id);
+ if (Number.isFinite(dbId)) setLastActiveNodeId(dbId);
+ setShowOutputPanel(true);
+ };
+ const cancelRunsOnNode = async () => {
+ // Simplest UX: cancel every active run we know about. The server
+ // only flips runs that are actually running, so we don't
+ // accidentally hit already-finished ones.
+ const ids = [...activeRunIds];
+ if (ids.length === 0) {
+ toast.error('No active run to cancel');
+ return;
+ }
+ let n = 0;
+ for (const id of ids) {
+ try { await scenarioApi.cancelRun(id); n++; } catch { /* keep going */ }
+ }
+ toast.success(`Cancelled ${n} run${n > 1 ? 's' : ''}`);
+ await openHistoryPanel(true);
+ };
+ const canBeSource = (n: Node<NodeData>) => NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType]?.category !== 'terminator';
+ const canBeTarget = (n: Node<NodeData>) => !isTriggerType(n.data.scenarioType);
+ /** Non-gesture edge creation (tap-to-connect mode, "Connect to…" select). */
+ const connectNodes = (sourceId: string, targetId: string): boolean => {
+ const source = nodes.find((n) => n.id === sourceId);
+ const target = nodes.find((n) => n.id === targetId);
+ if (!source || !target || sourceId === targetId) return false;
+ if (!canBeSource(source)) return false;
+ if (!canBeTarget(target)) {
+ toast.error(t('scenarioGraph.connectTriggerTarget', 'A trigger cannot be the target of a connection'));
+ return false;
+ }
+ if (edges.some((e) => e.source === sourceId && e.target === targetId)) {
+ toast(t('scenarioGraph.connectExists', 'These nodes are already connected'));
+ return false;
+ }
+ onConnect({ source: sourceId, target: targetId, sourceHandle: null, targetHandle: null } as Connection);
+ toast.success(t('scenarioGraph.connected', 'Nodes connected'));
+ return true;
+ };
+
+ /** Every action available on a node, in the right-click menu order. */
+ const nodeActions = (target: Node<NodeData>): GraphAction[] => [
+ {
+ key: 'connect',
+ icon: <Link2 className="w-3.5 h-3.5" />,
+ label: t('scenarioGraph.connectTo', 'Connect to…'),
+ shortLabel: t('scenarioGraph.connect', 'Connect'),
+ hint: t('scenarioGraph.connectHint', 'Then tap the node to connect to'),
+ onClick: () => { setSheet(null); setConnectFrom(target.id); },
+ // Touch-only entry: the desktop menu stays as it was (mouse users drag the ports).
+ hidden: !touchUi || !canBeSource(target),
+ },
+ {
+ key: 'run-from',
+ icon: <Play className="w-3.5 h-3.5" />,
+ label: dirty ? t('scenarioGraph.saveRunFromNode', 'Save & run from this node…') : t('scenarioGraph.runFromNode', 'Run from this node…'),
+ shortLabel: t('scenarioGraph.runFromHere', 'Run from here'),
+ hint: t('scenarioGraph.runFromNodeHint', 'Bypass triggers — execute this node and continue the graph'),
+ onClick: () => { setSheet(null); openRunPicker({ kind: 'from', nodeClientId: target.id }); },
+ },
+ {
+ key: 'run-single',
+ icon: <FlaskConical className="w-3.5 h-3.5" />,
+ label: dirty ? t('scenarioGraph.saveRunOnlyNode', 'Save & run only this node…') : t('scenarioGraph.runOnlyNode', 'Run only this node…'),
+ shortLabel: t('scenarioGraph.runOnly', 'Run only this'),
+ hint: t('scenarioGraph.runOnlyNodeHint', 'One-shot — engine stops after this node finishes'),
+ disabled: isTriggerType(target.data.scenarioType),
+ onClick: () => { setSheet(null); openRunPicker({ kind: 'single', nodeClientId: target.id }); },
+ },
+ {
+ key: 'cancel-runs',
+ icon: <XCircle className="w-3.5 h-3.5 text-red-400" />,
+ label: t('scenarioGraph.cancelRunsOnNode', 'Cancel runs on this node'),
+ shortLabel: t('scenarioGraph.cancelRuns', 'Cancel runs'),
+ hint: t('scenarioGraph.cancelRunsOnNodeHint', 'Mark all in-flight runs as cancelled'),
+ danger: true,
+ hidden: target.data.runStatus !== 'running',
+ onClick: () => { void cancelRunsOnNode(); },
+ },
+ {
+ key: 'duplicate',
+ icon: <Files className="w-3.5 h-3.5" />,
+ label: t('scenarioGraph.duplicate', 'Duplicate'),
+ shortcut: 'Ctrl+D',
+ separator: true,
+ onClick: () => duplicateNode(target, touchUi),
+ },
+ {
+ key: 'copy',
+ icon: <Copy className="w-3.5 h-3.5" />,
+ label: t('common.copy', 'Copy'),
+ shortcut: 'Ctrl+C',
+ onClick: () => copyNode(target),
+ },
+ {
+ key: 'output',
+ icon: <TerminalIcon className="w-3.5 h-3.5" />,
+ label: t('scenarioGraph.showOutput', 'Show output'),
+ shortLabel: t('scenarioGraph.output', 'Output'),
+ hint: t('scenarioGraph.showOutputHint', 'Open the output panel for this node'),
+ onClick: () => { setSheet(null); showOutputFor(target); },
+ },
+ {
+ key: 'delete',
+ icon: <Trash2 className="w-3.5 h-3.5 text-red-400" />,
+ label: t('common.delete', 'Delete'),
+ shortcut: 'Del',
+ danger: true,
+ separator: true,
+ onClick: () => deleteNodeById(target.id),
+ },
+ ];
 
  // Validation before save: at least one trigger node. Multiple
  // triggers are intentionally supported in v2 — a scenario can mix a
@@ -1020,6 +1327,16 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  const err = validate();
  if (err) { toast.error(err); return null; }
  setSaving(true);
+ // The save re-keys every node (cn-* / old db-* → new db-*). Snapshot
+ // the selected node so the selection (sidebar / sheet) follows it to
+ // its new id instead of silently pointing at a node that no longer
+ // exists.
+ const selSnap = selectedNode ? {
+ type: String(selectedNode.data.scenarioType),
+ label: selectedNode.data.label ?? '',
+ px: Math.round(selectedNode.position.x),
+ py: Math.round(selectedNode.position.y),
+ } : null;
  try {
  await scenarioApi.saveGraph(scenarioId, {
  nodes: nodes.map((n) => ({
@@ -1043,12 +1360,23 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  // live run viewer can map SCENARIO_NODE_UPDATED events (which
  // carry DB ids) back to the React Flow nodes on screen.
  const fresh = await scenarioApi.getGraph(scenarioId);
+ const reselect = selSnap
+ ? fresh.nodes.find((n) =>
+ n.type === selSnap.type &&
+ (n.label ?? '') === selSnap.label &&
+ n.positionX === selSnap.px &&
+ n.positionY === selSnap.py)
+ : undefined;
  setNodes(fresh.nodes.map((n) => ({
  id: `db-${n.id}`,
  type: 'custom',
  position: { x: n.positionX, y: n.positionY },
  data: { scenarioType: n.type, label: n.label ?? '', config: n.config ?? {} },
+ ...(reselect && reselect.id === n.id ? { selected: true } : {}),
  })));
+ setSelectedNodeId(reselect ? `db-${reselect.id}` : null);
+ setSelectedEdgeId(null);
+ setConnectFrom(null);
  setEdges(fresh.edges.map((e) => ({
  id: `de-${e.id}`,
  source: `db-${e.sourceNodeId}`,
@@ -1079,18 +1407,333 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  return byCategory;
  }, []);
 
+ /** Status toggle — shared by the desktop toolbar button and the touch
+ * overflow menu. Draft scenarios go straight to active. */
+ const toggleScenarioStatus = async () => {
+ if (statusToggling || scenarioStatus === null) return;
+ const next = scenarioStatus === 'active' ? 'disabled' : 'active';
+ setStatusToggling(true);
+ try {
+ await scenarioApi.update(scenarioId, { status: next } as any);
+ setScenarioStatus(next);
+ onStatusChanged?.(next);
+ toast.success(next === 'active' ? 'Scenario activated' : 'Scenario disabled');
+ } catch (err: any) {
+ toast.error(err?.response?.data?.error || 'Failed to update status');
+ } finally {
+ setStatusToggling(false);
+ }
+ };
+
+ // ── Close guard — Android back and the touch toolbar's X ────────
+ // (the desktop X keeps its historic one-click close). An unsaved
+ // graph asks before being discarded: the back gesture is easy to
+ // trigger by accident.
+ const requestClose = async () => {
+ if (!onClose) return;
+ if (dirty) {
+ const ok = await confirm({
+ title: t('scenarioGraph.discardTitle', 'Discard unsaved changes?'),
+ message: t('scenarioGraph.discardMessage', 'The graph has unsaved changes. Close the editor and lose them?'),
+ danger: true,
+ confirmLabel: t('scenarioGraph.discard', 'Discard'),
+ });
+ if (!ok) return;
+ }
+ onClose();
+ };
+ // Registration order = priority order (latest wins): the editor
+ // itself first, then the transient states opened on top of it.
+ useNativeBack(() => { void requestClose(); }, !!onClose);
+ useNativeBack(() => setShowHistoryPanel(false), compact && showHistoryPanel);
+ useNativeBack(() => setConnectFrom(null), connectFrom !== null, { escape: true });
+
+ // The config sheet has nothing to show once the selection is gone.
+ const hasSelection = !!selectedNode || !!selectedEdge;
+ useEffect(() => {
+ if (sheet === 'config' && !hasSelection) setSheet(null);
+ }, [sheet, hasSelection]);
+ // Leaving the touch layout (rotation / window resize) closes the sheet.
+ useEffect(() => {
+ if (!compact) setSheet(null);
+ }, [compact]);
+
+ // ── Long-press (touch / pen) = right-click ──────────────────────
+ // Android only sometimes dispatches `contextmenu` on a long-press and
+ // iOS never does, so the node / pane menus get their own timer. A
+ // move beyond 8px, a second finger, a node drag or lifting the finger
+ // cancels it. The click that follows the long-press is swallowed so
+ // it does not immediately close the menu it opened.
+ const longPressRef = useRef<{ timer: number; x: number; y: number; pointerId: number } | null>(null);
+ const touchPointersRef = useRef<Set<number>>(new Set());
+ const suppressClickUntilRef = useRef(0);
+ const cancelLongPress = () => {
+ if (longPressRef.current) {
+ window.clearTimeout(longPressRef.current.timer);
+ longPressRef.current = null;
+ }
+ };
+ useEffect(() => () => {
+ if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+ }, []);
+ const openNodeMenuAt = (nodeId: string, x: number, y: number) => {
+ selectNode(nodeId);
+ setPaneMenu(null);
+ setNodeMenu({ x, y, nodeId });
+ };
+ const openPaneMenuAt = (x: number, y: number) => {
+ let flowX = 0; let flowY = 0;
+ try {
+ const p = rf.screenToFlowPosition({ x, y });
+ flowX = p.x; flowY = p.y;
+ } catch { /* RF not ready */ }
+ setNodeMenu(null);
+ setPaneMenu({ x, y, flowX, flowY });
+ };
+ const onCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+ if (e.pointerType === 'mouse') return;
+ // The first finger down is the primary pointer: drop ids whose
+ // pointerup never reached us (element removed mid-gesture).
+ if (e.isPrimary) touchPointersRef.current.clear();
+ touchPointersRef.current.add(e.pointerId);
+ cancelLongPress();
+ if (touchPointersRef.current.size > 1) return; // pinch / two-finger pan
+ const target = e.target as Element | null;
+ if (!target || typeof target.closest !== 'function') return;
+ if (target.closest('.react-flow__handle, .react-flow__panel, .react-flow__controls, .react-flow__edge, button, input, select, textarea, a')) return;
+ const nodeEl = target.closest('.react-flow__node');
+ const nodeId = nodeEl?.getAttribute('data-id') ?? null;
+ if (!nodeId && !target.closest('.react-flow__pane, .react-flow__renderer, .react-flow__viewport, .react-flow__background')) return;
+ const x = e.clientX;
+ const y = e.clientY;
+ const timer = window.setTimeout(() => {
+ longPressRef.current = null;
+ suppressClickUntilRef.current = Date.now() + 700;
+ try { navigator.vibrate?.(12); } catch { /* not allowed */ }
+ if (nodeId) openNodeMenuAt(nodeId, x, y);
+ else openPaneMenuAt(x, y);
+ }, 500);
+ longPressRef.current = { timer, x, y, pointerId: e.pointerId };
+ };
+ const onCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+ const lp = longPressRef.current;
+ if (!lp || e.pointerId !== lp.pointerId) return;
+ if (Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) cancelLongPress();
+ };
+ const onCanvasPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+ touchPointersRef.current.delete(e.pointerId);
+ if (longPressRef.current?.pointerId === e.pointerId) cancelLongPress();
+ };
+
  if (loading) {
  return <div className="flex items-center justify-center h-full text-text-muted">Loading graph…</div>;
  }
 
+ // ── Derived view data ──────────────────────────────────────────
+ const metaOf = (n: Node<NodeData>) => NODE_TYPE_BY_KEY[n.data.scenarioType as ScenarioNodeType];
+ const nodeTitle = (n: Node<NodeData>) => n.data.label || metaOf(n)?.label || String(n.data.scenarioType);
+ const selectedMeta = selectedNode ? metaOf(selectedNode) : undefined;
+ const selectedWarning = selectedNode ? validationWarnings.get(selectedNode.id) : undefined;
+ const warningList = nodes
+ .filter((n) => validationWarnings.has(n.id))
+ .map((n) => ({ id: n.id, title: nodeTitle(n), message: validationWarnings.get(n.id)! }));
+ /** Select a node and bring it into view (warnings list). */
+ const focusNode = (id: string) => {
+ selectNode(id);
+ try { rf.fitView({ nodes: [{ id }], padding: 0.6, duration: 250, maxZoom: 1.25 }); } catch { /* RF not ready */ }
+ };
+ const addFromPalette = (m: NodeTypeMeta) => {
+ if (!compact) { addNode(m); return; }
+ // Touch sheet: drop next to the selected node (the usual "append a
+ // step" gesture) or at the visible canvas centre, and select it so
+ // the selection bar offers Configure / Connect right away.
+ const position = selectedNode
+ ? { x: selectedNode.position.x + 240, y: selectedNode.position.y + Math.random() * 40 - 20 }
+ : viewportCenter();
+ addNodeAt({ scenarioType: m.type, label: m.label, config: { ...m.defaultConfig } }, position, true);
+ setSheet(null);
+ };
+ const runLabel = dirty ? 'Save & run' : 'Run on device(s)';
+
+ const outputPanel = showOutputPanel ? (
+ <NodeOutputPanel
+ docked={compact}
+ nodes={nodes}
+ devices={devices}
+ history={nodeRunHistory}
+ runMeta={runMetaByRunId}
+ focusNodeClientId={selectedNode?.id ?? (lastActiveNodeId != null ? `db-${lastActiveNodeId}` : null)}
+ onSelectNode={(clientId) => {
+ if (nodes.some((nn) => nn.id === clientId)) selectNode(clientId);
+ }}
+ onClose={() => setShowOutputPanel(false)}
+ />
+ ) : null;
+
+ const renderPalette = (inSheet: boolean) => (
+ <div className="p-3">
+ {!inSheet && <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-2">Add node</div>}
+ {touchUi && (
+ // Touch: the canvas-level actions that otherwise only live in
+ // the right-click pane menu / keyboard shortcuts.
+ <div className="flex flex-wrap gap-1.5 mb-3">
+ {clipboardNode && (
+ <button type="button" onClick={() => { pasteNode(); setSheet(null); }} className={chipBtnCls}>
+ <ClipboardPaste className="w-3.5 h-3.5" /> {t('scenarioGraph.paste', 'Paste node')}
+ </button>
+ )}
+ <button type="button" onClick={() => { fitView(); setSheet(null); }} className={chipBtnCls}>
+ <Crosshair className="w-3.5 h-3.5" /> {t('scenarioGraph.fitView', 'Fit view')}
+ </button>
+ </div>
+ )}
+ {(['trigger', 'action', 'logic', 'terminator'] as const).map((cat) => (
+ <div key={cat} className="mb-3">
+ <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-text-muted/60 mb-1.5 flex items-center gap-1">
+ <Plus className="w-2.5 h-2.5" /> {cat}
+ </div>
+ {palette[cat].map((m) => <PaletteItem key={m.type} meta={m} wrapHint={touchUi} onAdd={() => addFromPalette(m)} />)}
+ </div>
+ ))}
+ <div className="mt-4 px-2 py-2 rounded-md bg-bg-tertiary text-[11px] text-text-muted flex gap-2">
+ <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+ {touchUi ? (
+ <span>{t('scenarioGraph.tipTouch', 'Tip: select a node, tap “Connect”, then tap the target node (or tap a right port, then a left port). Long-press a node or the canvas for more actions.')}</span>
+ ) : (
+ <span>Tip: drag from a node's right port to another node's left port to connect them.</span>
+ )}
+ </div>
+ </div>
+ );
+
+ const renderSelectionPanel = () => {
+ if (selectedNode) {
+ const src = selectedNode;
+ const outgoing = edges
+ .filter((e) => e.source === src.id)
+ .map((e) => {
+ const tgt = nodes.find((n) => n.id === e.target);
+ return {
+ id: e.id,
+ targetTitle: tgt ? nodeTitle(tgt) : e.target,
+ condition: edgeConditionLabel(e.data?.condition as ScenarioEdgeCondition | undefined),
+ };
+ });
+ const connectTargets = canBeSource(src)
+ ? nodes
+ .filter((n) => n.id !== src.id && canBeTarget(n) && !edges.some((e) => e.source === src.id && e.target === n.id))
+ .map((n) => ({ id: n.id, title: nodeTitle(n) }))
+ : [];
  return (
- <div className="flex bg-bg-primary" style={{ height: '100%', width: '100%' }}>
+ <>
+ {touchUi && (
+ <NodeTouchPanel
+ warning={selectedWarning}
+ actions={nodeActions(src).filter((a) => !a.hidden)}
+ canConnect={canBeSource(src)}
+ outgoing={outgoing}
+ connectTargets={connectTargets}
+ onConnectTo={(targetId) => { connectNodes(src.id, targetId); }}
+ onEditEdge={(edgeId) => selectEdge(edgeId)}
+ onDeleteEdge={(edgeId) => deleteEdgeById(edgeId)}
+ />
+ )}
+ <NodeConfigForm
+ node={src}
+ scripts={scripts}
+ categories={scriptCategories}
+ devices={devices}
+ onChange={(patch) => updateNodeData(src.id, patch)}
+ onOpenScriptEditor={(req) => setScriptEditorReq({ ...req, nodeId: src.id })}
+ />
+ </>
+ );
+ }
+ if (selectedEdge) {
+ const from = nodes.find((n) => n.id === selectedEdge.source);
+ const to = nodes.find((n) => n.id === selectedEdge.target);
+ return (
+ <div className="p-4 space-y-3">
+ <div className="text-xs font-mono uppercase tracking-wider text-text-muted">Edge condition</div>
+ {touchUi && from && to && (
+ <div className="flex items-center gap-1.5 text-[12px] text-text-secondary min-w-0">
+ <span className="truncate">{nodeTitle(from)}</span>
+ <ArrowRight className="w-3.5 h-3.5 shrink-0 text-text-muted" />
+ <span className="truncate">{nodeTitle(to)}</span>
+ </div>
+ )}
+ <EdgeConditionEditor
+ value={(selectedEdge.data?.condition as ScenarioEdgeCondition) ?? { kind: 'always' }}
+ onChange={(v) => updateEdgeData(selectedEdge.id, v)}
+ />
+ {touchUi && (
+ <button type="button" onClick={() => deleteEdgeById(selectedEdge.id)} className={clsx(chipBtnCls, 'text-red-400 bg-red-400/10 hover:bg-red-400/20')}>
+ <Trash2 className="w-3.5 h-3.5" /> {t('scenarioGraph.deleteEdge', 'Delete connection')}
+ </button>
+ )}
+ </div>
+ );
+ }
+ return null;
+ };
+
+ // Touch overflow menu of the compact toolbar.
+ const toolbarMenuItems: ActionMenuItem[] = [
+ {
+ key: 'history',
+ icon: <History className="w-4 h-4" />,
+ label: t('scenarioGraph.recentRuns', 'Recent runs (24h)'),
+ description: activeRunIds.size > 0 ? t('scenarioGraph.runsInProgress', '{{count}} in progress', { count: activeRunIds.size }) : undefined,
+ onClick: () => { void openHistoryPanel(!showHistoryPanel); },
+ },
+ {
+ key: 'output',
+ icon: <TerminalIcon className="w-4 h-4" />,
+ label: showOutputPanel ? t('scenarioGraph.hideOutput', 'Hide output') : t('scenarioGraph.showOutputPanel', 'Show output'),
+ onClick: () => setShowOutputPanel((v) => !v),
+ },
+ {
+ key: 'status',
+ icon: scenarioStatus === 'active' ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />,
+ label: scenarioStatus === 'active' ? t('scenarioGraph.disableScenario', 'Disable scenario') : t('scenarioGraph.activateScenario', 'Activate scenario'),
+ description: scenarioStatus === 'active' ? 'Active' : scenarioStatus === 'disabled' ? 'Disabled' : 'Draft',
+ onClick: () => { void toggleScenarioStatus(); },
+ disabled: statusToggling,
+ hidden: scenarioStatus === null,
+ },
+ {
+ key: 'paste',
+ icon: <ClipboardPaste className="w-4 h-4" />,
+ label: t('scenarioGraph.paste', 'Paste node'),
+ onClick: () => pasteNode(),
+ hidden: !clipboardNode,
+ separator: true,
+ },
+ {
+ key: 'fit',
+ icon: <Crosshair className="w-4 h-4" />,
+ label: t('scenarioGraph.fitView', 'Fit view'),
+ onClick: fitView,
+ separator: !clipboardNode,
+ },
+ ];
+
+ return (
+ <div className={clsx('flex bg-bg-primary', compact && 'flex-col')} style={{ height: '100%', width: '100%' }}>
  {/* ── Canvas — explicit dimensions are required by React Flow.
  Without them the canvas falls back to 0px and pan / zoom /
  drag handlers don't bind correctly (they rely on a real
  bounding rect). h-full doesn't always cascade through flex
  containers when the parent itself is `position: fixed`. */}
- <div ref={canvasWrapRef} className="flex-1 relative min-w-0" style={{ height: '100%' }}>
+ <div
+ ref={canvasWrapRef}
+ className={clsx('flex-1 relative min-w-0', compact && 'min-h-0', 'coarse:touch-none-canvas')}
+ style={compact ? undefined : { height: '100%' }}
+ onPointerDownCapture={onCanvasPointerDown}
+ onPointerMoveCapture={onCanvasPointerMove}
+ onPointerUpCapture={onCanvasPointerEnd}
+ onPointerCancelCapture={onCanvasPointerEnd}
+ >
  <ReactFlow
  // Re-key on scenarioId so opening a different scenario
  // forces a fresh mount with a re-measured wrapper rect —
@@ -1107,31 +1750,50 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  onNodesChange={onNodesChange}
  onEdgesChange={onEdgesChange}
  onConnect={onConnect}
- onNodeClick={(_e: React.MouseEvent, n: Node) => { setSelectedNode(n as Node<NodeData>); setSelectedEdge(null); }}
- onEdgeClick={(_e: React.MouseEvent, e: Edge) => { setSelectedEdge(e as Edge<EdgeData>); setSelectedNode(null); }}
- onPaneClick={() => { setSelectedNode(null); setSelectedEdge(null); setNodeMenu(null); setPaneMenu(null); }}
+ onSelectionChange={onSelectionChange}
+ // Touch: a few px of finger jitter must stay a tap (select /
+ // click) instead of turning into a drag or a pan, and a port
+ // dropped near (not exactly on) a handle still connects.
+ // Mouse pointers keep React Flow's defaults (undefined).
+ nodeDragThreshold={coarse ? 6 : undefined}
+ nodeClickDistance={coarse ? 6 : undefined}
+ paneClickDistance={coarse ? 6 : undefined}
+ connectionRadius={coarse ? 40 : undefined}
+ onNodeDragStart={() => cancelLongPress()}
+ onNodeClick={(_e: React.MouseEvent, n: Node) => {
+ if (Date.now() < suppressClickUntilRef.current) return;
+ if (connectFrom) {
+ // Tap-to-connect: the tapped node is the target.
+ if (n.id !== connectFrom && connectNodes(connectFrom, n.id)) setConnectFrom(null);
+ return;
+ }
+ setSelectedNodeId(n.id);
+ setSelectedEdgeId(null);
+ }}
+ onEdgeClick={(_e: React.MouseEvent, e: Edge) => {
+ if (connectFrom) setConnectFrom(null);
+ setSelectedEdgeId(e.id);
+ setSelectedNodeId(null);
+ }}
+ onPaneClick={() => {
+ // The click that ends a long-press must not close the menu it opened.
+ if (Date.now() < suppressClickUntilRef.current) return;
+ if (connectFrom) { setConnectFrom(null); return; }
+ setSelectedNodeId(null); setSelectedEdgeId(null); setNodeMenu(null); setPaneMenu(null);
+ }}
  // Right-click handlers — open the context menu at the cursor
  // and select the targeted node. RF doesn't preventDefault for
  // us, so we have to suppress the browser's native menu here.
  onNodeContextMenu={(e: React.MouseEvent, n: Node) => {
  e.preventDefault();
- setSelectedNode(n as Node<NodeData>);
- setSelectedEdge(null);
- setPaneMenu(null);
- setNodeMenu({ x: e.clientX, y: e.clientY, nodeId: n.id });
+ openNodeMenuAt(n.id, e.clientX, e.clientY);
  }}
  onPaneContextMenu={(e: React.MouseEvent | MouseEvent) => {
  const ev = e as React.MouseEvent;
  ev.preventDefault();
- setNodeMenu(null);
  // Translate the click point into flow coordinates so "Add
  // node here" drops the node exactly under the cursor.
- let flowX = 0; let flowY = 0;
- try {
- const p = rf.screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
- flowX = p.x; flowY = p.y;
- } catch { /* RF not ready */ }
- setPaneMenu({ x: ev.clientX, y: ev.clientY, flowX, flowY });
+ openPaneMenuAt(ev.clientX, ev.clientY);
  }}
  nodeTypes={NODE_TYPES_RF}
  // Dark colour mode — without this the Controls panel ships
@@ -1146,7 +1808,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  proOptions={{ hideAttribution: true }}
  >
  <Background gap={20} size={1} color="rgba(255,255,255,0.06)" />
- <Controls />
+ {/* Touch: no "interactive" lock toggle (one stray tap silently
+ disables drag + connect) and 40px buttons. */}
+ <Controls
+ showInteractive={!touchUi}
+ className="coarse:[&_button]:!h-10 coarse:[&_button]:!w-10"
+ />
  {/* MiniMap retiré : il causait une boucle de rendu avec des
  `<rect>` x/y NaN tant que les nodes n'avaient pas leur
  dimension mesurée par le ResizeObserver de RF, et il
@@ -1158,6 +1825,8 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  and pointer-events propagation. The previous absolute-
  positioned overlay used to occlude the trigger node at
  (0,0) and capture clicks meant for the canvas. */}
+ {!compact ? (
+ <>
  <Panel position="top-left" className="!m-3">
  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-secondary/90 backdrop-blur border border-transparent">
  {dirty && <span className="text-[11px] text-amber-400 font-mono">unsaved</span>}
@@ -1166,8 +1835,10 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  <span className="text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
  </div>
  </Panel>
- <Panel position="top-right" className="!m-3">
- <div className="flex items-center gap-2">
+ {/* Wraps instead of sliding under the status panel on the
+ narrowest desktop canvases (1024px − sidebar). */}
+ <Panel position="top-right" className="!m-3" style={{ maxWidth: 'calc(100% - 16rem)' }}>
+ <div className="flex flex-wrap justify-end items-center gap-2">
  {(selectedNode || selectedEdge) && (
  <button onClick={deleteSelected}
  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors text-[12px] font-medium">
@@ -1191,12 +1862,12 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-transparent text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium">
  <History className="w-3.5 h-3.5" /> History
  </button>
- <button onClick={() => { setRunMode({ kind: 'graph' }); setShowRunPicker(true); }}
+ <button onClick={() => openRunPicker({ kind: 'graph' })}
  title={dirty
  ? 'Auto-saves the graph, then opens the device picker (works even when the scenario is disabled — runs are test-only)'
  : 'Pick one or more devices and run this scenario from its triggers (works even when the scenario is disabled — runs are test-only)'}
  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-secondary/90 border border-transparent text-text-primary hover:bg-bg-hover transition-colors text-[12px] font-medium">
- <Play className="w-3.5 h-3.5" /> {dirty ? 'Save & run' : 'Run on device(s)'}
+ <Play className="w-3.5 h-3.5" /> {runLabel}
  </button>
  {/* Status toggle — flips between active and disabled
  without leaving the editor. Greyed out while loading
@@ -1206,21 +1877,7 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  page just to enable). */}
  {scenarioStatus !== null && (
  <button
- onClick={async () => {
- if (statusToggling) return;
- const next = scenarioStatus === 'active' ? 'disabled' : 'active';
- setStatusToggling(true);
- try {
- await scenarioApi.update(scenarioId, { status: next } as any);
- setScenarioStatus(next);
- onStatusChanged?.(next);
- toast.success(next === 'active' ? 'Scenario activated' : 'Scenario disabled');
- } catch (err: any) {
- toast.error(err?.response?.data?.error || 'Failed to update status');
- } finally {
- setStatusToggling(false);
- }
- }}
+ onClick={() => { void toggleScenarioStatus(); }}
  disabled={statusToggling}
  title={scenarioStatus === 'active' ? 'Disable this scenario (triggers stop firing)' : 'Activate this scenario'}
  className={clsx(
@@ -1241,14 +1898,189 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save graph'}
  </button>
  {onClose && (
- <button onClick={onClose} className="p-1.5 rounded-lg bg-bg-secondary/90 border border-transparent hover:bg-bg-hover transition-colors">
- <X className="w-4 h-4 text-text-muted" />
- </button>
+ <IconButton
+ label={t('common.close', 'Close')}
+ onClick={onClose}
+ size="md"
+ variant="plain"
+ showTooltip={false}
+ className="rounded-lg bg-bg-secondary/90 border border-transparent hover:bg-bg-hover"
+ icon={<X className="w-4 h-4 text-text-muted" />}
+ />
  )}
  </div>
  </Panel>
+ </>
+ ) : (
+ <>
+ {/* Touch / narrow toolbar — primary actions stay one tap
+ away, everything else goes into the "⋯" menu. */}
+ <Panel position="top-right" className="!m-2">
+ <div className="flex items-center gap-1.5">
+ <BarButton
+ label={t('scenarioGraph.addNode', 'Add node')}
+ icon={<Plus className="w-4 h-4" />}
+ onClick={() => setSheet('palette')}
+ className="bg-bg-secondary/90 text-text-primary hover:bg-bg-hover"
+ />
+ <BarButton
+ label={dirty ? 'Save & run' : t('scenarioGraph.run', 'Run')}
+ icon={<Play className="w-4 h-4" />}
+ onClick={() => openRunPicker({ kind: 'graph' })}
+ className="bg-bg-secondary/90 text-text-primary hover:bg-bg-hover"
+ />
+ <BarButton
+ label={saving ? 'Saving…' : t('common.save', 'Save')}
+ icon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+ onClick={() => { void handleSave(); }}
+ disabled={saving || !dirty}
+ className="bg-accent text-white hover:bg-accent/80"
+ />
+ <ActionMenu
+ items={toolbarMenuItems}
+ triggerSize="md"
+ triggerClassName="rounded-lg bg-bg-secondary/90 text-text-primary"
+ />
+ {onClose && (
+ <IconButton
+ label={t('common.close', 'Close')}
+ icon={<X className="w-4 h-4" />}
+ onClick={() => { void requestClose(); }}
+ className="rounded-lg bg-bg-secondary/90"
+ />
+ )}
+ </div>
+ </Panel>
+ {/* Status + live chips — bottom-right so they never collide
+ with the toolbar on a 360px canvas. */}
+ <Panel position="bottom-right" className="!m-2">
+ <div className="flex flex-col items-end gap-1">
+ {activeRunIds.size > 0 && (
+ <button
+ type="button"
+ onClick={() => { void openHistoryPanel(true); }}
+ className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-400/10 border border-blue-400/30 text-blue-400 text-[11px] font-mono coarse:min-h-9">
+ <Loader2 className="w-3 h-3 animate-spin" /> {activeRunIds.size} run{activeRunIds.size > 1 ? 's' : ''}
+ </button>
+ )}
+ {warningList.length > 0 && (
+ <ActionMenu
+ items={warningList.map((w) => ({
+ key: w.id,
+ icon: <AlertCircle className="w-4 h-4 text-amber-400" />,
+ label: w.title,
+ description: w.message,
+ onClick: () => focusNode(w.id),
+ }))}
+ sheetTitle={t('scenarioGraph.warnings', 'Graph warnings')}
+ label={t('scenarioGraph.warnings', 'Graph warnings')}
+ placement="top"
+ menuClassName="w-72"
+ trigger={(p) => (
+ <button
+ {...p}
+ type="button"
+ className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-400/10 border border-amber-400/30 text-amber-400 text-[11px] font-mono coarse:min-h-9"
+ >
+ <AlertCircle className="w-3 h-3" /> {t('scenarioGraph.warningCount', '{{count}} warning(s)', { count: warningList.length })}
+ </button>
+ )}
+ />
+ )}
+ <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-bg-secondary/90 backdrop-blur">
+ {dirty
+ ? <span className="text-[11px] text-amber-400 font-mono">unsaved</span>
+ : <span className="text-[11px] text-text-muted font-mono">saved</span>}
+ <span className="hidden sm:inline text-text-muted/40">·</span>
+ <span className="hidden sm:inline text-[11px] text-text-muted font-mono">{nodes.length} nodes · {edges.length} edges</span>
+ </div>
+ </div>
+ </Panel>
+ </>
+ )}
  </ReactFlow>
  </div>
+
+ {/* Touch layouts: the output panel docks under the canvas (full
+ width, resizable) instead of floating over it and its Controls. */}
+ {compact && outputPanel}
+
+ {/* ── Touch selection bar — node / edge actions + connect mode ── */}
+ {compact && (connectFrom || selectedNode || selectedEdge) && (
+ <div className="shrink-0 flex items-center gap-1.5 px-2 pt-1.5 pb-[calc(0.375rem+var(--safe-bottom))] bg-bg-secondary border-t border-border">
+ {connectFrom ? (
+ <>
+ <Link2 className="w-4 h-4 text-accent shrink-0 ml-1" />
+ <span className="flex-1 min-w-0 text-[12px] text-text-primary">
+ {t('scenarioGraph.connectPrompt', 'Tap the node to connect to')}
+ {(() => {
+ const src = nodes.find((n) => n.id === connectFrom);
+ return src ? <span className="block truncate text-[11px] text-text-muted">{t('scenarioGraph.connectFrom', 'From: {{name}}', { name: nodeTitle(src) })}</span> : null;
+ })()}
+ </span>
+ <button type="button" onClick={() => setConnectFrom(null)} className={clsx(barBtnCls, 'bg-bg-tertiary text-text-primary hover:bg-bg-hover')}>
+ {t('common.cancel', 'Cancel')}
+ </button>
+ </>
+ ) : selectedNode ? (
+ <>
+ <div className="flex-1 min-w-0 pl-1">
+ <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted truncate">{selectedMeta?.label ?? String(selectedNode.data.scenarioType)}</div>
+ <div className="flex items-center gap-1 min-w-0">
+ {selectedWarning && <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-label={selectedWarning} />}
+ <span className="text-[13px] font-semibold text-text-primary truncate">{nodeTitle(selectedNode)}</span>
+ </div>
+ </div>
+ <BarButton
+ label={t('scenarioGraph.configure', 'Configure')}
+ icon={<SlidersHorizontal className="w-4 h-4" />}
+ onClick={() => setSheet('config')}
+ className="bg-accent/10 text-accent hover:bg-accent/20"
+ />
+ {canBeSource(selectedNode) && (
+ <BarButton
+ label={t('scenarioGraph.connect', 'Connect')}
+ icon={<Link2 className="w-4 h-4" />}
+ onClick={() => setConnectFrom(selectedNode.id)}
+ className="bg-bg-tertiary text-text-primary hover:bg-bg-hover"
+ />
+ )}
+ <IconButton
+ label={t('common.delete', 'Delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
+ onClick={() => deleteNodeById(selectedNode.id)}
+ />
+ <ActionMenu
+ items={toActionMenuItems(nodeActions(selectedNode))}
+ sheetTitle={nodeTitle(selectedNode)}
+ placement="top"
+ />
+ </>
+ ) : selectedEdge ? (
+ <>
+ <div className="flex-1 min-w-0 pl-1">
+ <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted">{t('scenarioGraph.connection', 'Connection')}</div>
+ <div className="text-[13px] font-semibold text-text-primary truncate">
+ {edgeConditionLabel(selectedEdge.data?.condition as ScenarioEdgeCondition | undefined)}
+ </div>
+ </div>
+ <BarButton
+ label={t('scenarioGraph.editCondition', 'Edit condition')}
+ icon={<SlidersHorizontal className="w-4 h-4" />}
+ onClick={() => setSheet('config')}
+ className="bg-accent/10 text-accent hover:bg-accent/20"
+ />
+ <IconButton
+ label={t('scenarioGraph.deleteEdge', 'Delete connection')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
+ onClick={() => deleteEdgeById(selectedEdge.id)}
+ />
+ </>
+ ) : null}
+ </div>
+ )}
 
  {/* ── Run picker modal — pick devices, fire the v2 engine ─────── */}
  {showRunPicker && (
@@ -1290,105 +2122,58 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  />
  )}
 
- {/* ── Node right-click menu ───────────────────────────────────── */}
+ {/* ── Node right-click / long-press menu ─────────────────────── */}
  {nodeMenu && (() => {
  const target = nodes.find((n) => n.id === nodeMenu.nodeId);
  if (!target) return null;
  const close = () => setNodeMenu(null);
+ const actions = nodeActions(target).filter((a) => !a.hidden);
  return (
- <ContextMenu x={nodeMenu.x} y={nodeMenu.y} onClose={close}>
- <ContextMenuItem icon={<Play className="w-3.5 h-3.5" />}
- label={dirty ? 'Save & run from this node…' : 'Run from this node…'}
- hint="Bypass triggers — execute this node and continue the graph"
- onClick={() => { setRunMode({ kind: 'from', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
- <ContextMenuItem icon={<FlaskConical className="w-3.5 h-3.5" />}
- label={dirty ? 'Save & run only this node…' : 'Run only this node…'}
- hint="One-shot — engine stops after this node finishes"
- disabled={isTriggerType(target.data.scenarioType)}
- onClick={() => { setRunMode({ kind: 'single', nodeClientId: target.id }); setShowRunPicker(true); close(); }} />
- {target.data.runStatus === 'running' && (
- // Cancel every active run that's currently parked on
- // this node. Walks the runs list, filters the ones
- // whose current_node_id maps back to this node, and
- // calls cancelRun on each.
- <ContextMenuItem icon={<XCircle className="w-3.5 h-3.5 text-red-400" />}
- label="Cancel runs on this node" hint="Mark all in-flight runs as cancelled"
- danger
- onClick={async () => {
- close();
- // Simplest UX: cancel every active run we know
- // about. The server only flips runs that are
- // actually running, so we don't accidentally hit
- // already-finished ones.
- const ids = [...activeRunIds];
- if (ids.length === 0) {
- toast.error('No active run to cancel');
- return;
- }
- let n = 0;
- for (const id of ids) {
- try { await scenarioApi.cancelRun(id); n++; } catch {}
- }
- toast.success(`Cancelled ${n} run${n > 1 ? 's' : ''}`);
- await openHistoryPanel(true);
- }} />
- )}
- <ContextMenuDivider />
- <ContextMenuItem icon={<Files className="w-3.5 h-3.5" />} label="Duplicate" hint="Ctrl+D"
- onClick={() => {
- const snap = { scenarioType: target.data.scenarioType, label: `${target.data.label} (copy)`, config: { ...(target.data.config ?? {}) } };
- const id = `cn-${Math.random().toString(36).slice(2)}`;
- setNodes((nds) => [...nds, {
- id, type: 'custom',
- position: { x: target.position.x + 40, y: target.position.y + 40 },
- data: snap,
- }]);
- setDirty(true); close();
- }} />
- <ContextMenuItem icon={<Copy className="w-3.5 h-3.5" />} label="Copy" hint="Ctrl+C"
- onClick={() => {
- setClipboardNode({
- scenarioType: target.data.scenarioType,
- label: target.data.label,
- config: { ...(target.data.config ?? {}) },
- });
- toast.success('Node copied'); close();
- }} />
- <ContextMenuItem icon={<TerminalIcon className="w-3.5 h-3.5" />} label="Show output"
- hint="Open the output panel for this node"
- onClick={() => {
- const dbId = parseDbNodeId(target.id);
- if (Number.isFinite(dbId)) setLastActiveNodeId(dbId);
- setShowOutputPanel(true); close();
- }} />
- <ContextMenuDivider />
- <ContextMenuItem icon={<Trash2 className="w-3.5 h-3.5 text-red-400" />} label="Delete" hint="Del" danger
- onClick={() => {
- setNodes((nds) => nds.filter((n) => n.id !== target.id));
- setEdges((eds) => eds.filter((edg) => edg.source !== target.id && edg.target !== target.id));
- if (selectedNode?.id === target.id) setSelectedNode(null);
- setDirty(true); close();
- }} />
+ <ContextMenu x={nodeMenu.x} y={nodeMenu.y} onClose={close} asSheet={isPhone} title={nodeTitle(target)}>
+ {actions.map((a, i) => (
+ <div key={a.key}>
+ {a.separator && i > 0 && <ContextMenuDivider />}
+ <ContextMenuItem
+ icon={a.icon}
+ label={a.label}
+ hint={isPhone ? a.hint : (a.hint ?? a.shortcut)}
+ danger={a.danger}
+ disabled={a.disabled}
+ onClick={() => { close(); a.onClick(); }}
+ />
+ </div>
+ ))}
  </ContextMenu>
  );
  })()}
 
- {/* ── Empty-pane right-click menu ─────────────────────────────── */}
+ {/* ── Empty-pane right-click / long-press menu ────────────────── */}
  {paneMenu && (() => {
  const close = () => setPaneMenu(null);
  const dropAt = paneMenu;
  const dropNode = (meta: NodeTypeMeta) => {
- const id = `cn-${Math.random().toString(36).slice(2)}`;
- setNodes((nds) => [...nds, {
- id, type: 'custom',
- position: { x: dropAt.flowX, y: dropAt.flowY },
- data: { scenarioType: meta.type, label: meta.label, config: { ...meta.defaultConfig } },
- }]);
- setDirty(true); close();
+ addNodeAt(
+ { scenarioType: meta.type, label: meta.label, config: { ...meta.defaultConfig } },
+ { x: dropAt.flowX, y: dropAt.flowY },
+ touchUi,
+ );
+ close();
  };
+ const canvasItems = (
+ <>
+ {clipboardNode && (
+ <ContextMenuItem icon={<ClipboardPaste className="w-3.5 h-3.5" />} label={t('scenarioGraph.pasteHere', 'Paste node here')} hint={isPhone ? undefined : 'Ctrl+V'}
+ onClick={() => { pasteNode({ x: dropAt.flowX, y: dropAt.flowY }); close(); }} />
+ )}
+ <ContextMenuItem icon={<Crosshair className="w-3.5 h-3.5" />} label={t('scenarioGraph.fitView', 'Fit view')}
+ onClick={() => { fitView(); close(); }} />
+ </>
+ );
  return (
- <ContextMenu x={paneMenu.x} y={paneMenu.y} onClose={close}>
- <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-text-muted">Add a node here</div>
+ <ContextMenu x={paneMenu.x} y={paneMenu.y} onClose={close} asSheet={isPhone} title={t('scenarioGraph.addNodeHere', 'Add a node here')}>
+ {/* Phone sheet: canvas actions first — the palette is long. */}
+ {isPhone && <>{canvasItems}<ContextMenuDivider /></>}
+ {!isPhone && <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-text-muted">{t('scenarioGraph.addNodeHere', 'Add a node here')}</div>}
  {(['trigger', 'action', 'logic', 'terminator'] as const).map((cat) => (
  <div key={cat}>
  <div className="px-3 py-0.5 text-[9px] font-mono uppercase tracking-[0.18em] text-text-muted/60">{cat}</div>
@@ -1398,37 +2183,36 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  ))}
  </div>
  ))}
- <ContextMenuDivider />
- {clipboardNode && (
- <ContextMenuItem icon={<ClipboardPaste className="w-3.5 h-3.5" />} label="Paste node here" hint="Ctrl+V"
- onClick={() => {
- const id = `cn-${Math.random().toString(36).slice(2)}`;
- setNodes((nds) => [...nds, {
- id, type: 'custom',
- position: { x: dropAt.flowX, y: dropAt.flowY },
- data: clipboardNode,
- }]);
- setDirty(true); close();
- }} />
- )}
- <ContextMenuItem icon={<Crosshair className="w-3.5 h-3.5" />} label="Fit view"
- onClick={() => { try { rf.fitView({ padding: 0.2, duration: 200 }); } catch {} close(); }} />
+ {!isPhone && <><ContextMenuDivider />{canvasItems}</>}
  </ContextMenu>
  );
  })()}
 
  {/* ── Recent runs drawer ─────────────────────────────────────── */}
  {showHistoryPanel && (
- <div className="absolute top-3 right-[300px] z-30 w-[340px] max-h-[60vh] flex flex-col bg-bg-secondary/95 backdrop-blur rounded-xl shadow-xl overflow-hidden">
+ <div className={clsx(
+ 'absolute z-30 flex flex-col bg-bg-secondary/95 backdrop-blur rounded-xl shadow-xl overflow-hidden',
+ compact
+ // Below the touch toolbar; full width on phone.
+ ? 'top-14 left-2 right-2 sm:left-auto sm:w-[340px] max-h-[70vh] max-h-[70dvh]'
+ : 'top-3 right-[300px] w-[340px] max-h-[60vh]',
+ )}>
  <div className="px-3 py-2 flex items-center gap-2">
  <History className="w-3.5 h-3.5 text-accent" />
  <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Recent runs (24h)</span>
  <div className="flex-1" />
- <button onClick={() => setShowHistoryPanel(false)} className="text-text-muted hover:text-text-primary">
- <X className="w-4 h-4" />
- </button>
+ <IconButton
+ label={t('common.close', 'Close')}
+ icon={<X className="w-4 h-4" />}
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ showTooltip={false}
+ className="p-0"
+ onClick={() => setShowHistoryPanel(false)}
+ />
  </div>
- <div className="flex-1 overflow-y-auto">
+ <div className="flex-1 overflow-y-auto overscroll-contain">
  {historyLoading ? (
  <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
@@ -1461,12 +2245,14 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  )}
  </div>
  {isRunning && (
- <button
+ <IconButton
+ label={t('scenarioGraph.cancelRun', 'Cancel this run')}
+ icon={<XCircle className="w-3.5 h-3.5" />}
+ size="sm"
+ variant="danger"
+ className="shrink-0"
  onClick={() => cancelRun(r.id)}
- title="Cancel this run"
- className="shrink-0 p-1 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
- <XCircle className="w-3.5 h-3.5" />
- </button>
+ />
  )}
  </div>
  );
@@ -1482,58 +2268,158 @@ function ScenarioGraphEditorInner({ scenarioId, onClose, onStatusChanged }: { sc
  stdout/stderr captured but we still want the panel visible
  with a "Waiting on agent…" placeholder so the user knows
  where to look once the script finishes. */}
- {showOutputPanel && (
- <NodeOutputPanel
- nodes={nodes}
- devices={devices}
- history={nodeRunHistory}
- runMeta={runMetaByRunId}
- focusNodeClientId={selectedNode?.id ?? (lastActiveNodeId != null ? `db-${lastActiveNodeId}` : null)}
- onSelectNode={(clientId) => {
- const n = nodes.find((nn) => nn.id === clientId);
- if (n) setSelectedNode(n);
- }}
- onClose={() => setShowOutputPanel(false)}
- />
+ {!compact && outputPanel}
+
+ {/* ── Sidebar (desktop) ───────────────────────────────────────── */}
+ {!compact && (
+ <div className="w-72 shrink-0 bg-bg-secondary overflow-y-auto">
+ {connectFrom && (
+ // Tap-to-connect prompt for large touch tablets (the
+ // narrow layouts show it in the selection bar).
+ <div className="m-3 mb-0 flex items-center gap-2 px-2.5 py-2 rounded-md bg-accent/10 border border-accent/30 text-[12px] text-text-primary">
+ <Link2 className="w-3.5 h-3.5 text-accent shrink-0" />
+ <span className="flex-1 min-w-0">{t('scenarioGraph.connectPrompt', 'Tap the node to connect to')}</span>
+ <button type="button" onClick={() => setConnectFrom(null)} className={chipBtnCls}>
+ {t('common.cancel', 'Cancel')}
+ </button>
+ </div>
+ )}
+ {selectedNode || selectedEdge ? renderSelectionPanel() : renderPalette(false)}
+ </div>
  )}
 
- {/* ── Sidebar ─────────────────────────────────────────────────── */}
- <div className="w-72 shrink-0 bg-bg-secondary overflow-y-auto">
- {selectedNode ? (
- <NodeConfigForm
- node={selectedNode}
- scripts={scripts}
- categories={scriptCategories}
- devices={devices}
- onChange={(patch) => updateNodeData(selectedNode.id, patch)}
- onOpenScriptEditor={(req) => setScriptEditorReq({ ...req, nodeId: selectedNode.id })}
- />
- ) : selectedEdge ? (
- <div className="p-4 space-y-3">
- <div className="text-xs font-mono uppercase tracking-wider text-text-muted">Edge condition</div>
- <EdgeConditionEditor
- value={(selectedEdge.data?.condition as ScenarioEdgeCondition) ?? { kind: 'always' }}
- onChange={(v) => updateEdgeData(selectedEdge.id, v)}
- />
+ {/* ── Sheet (touch / narrow): palette or selection config ─────── */}
+ {compact && (
+ <Drawer
+ open={sheet === 'palette' || (sheet === 'config' && hasSelection)}
+ onClose={() => setSheet(null)}
+ side={isPhone ? 'bottom' : 'right'}
+ size={isPhone ? 'lg' : 'md'}
+ title={sheet === 'palette'
+ ? t('scenarioGraph.addNode', 'Add node')
+ : selectedNode
+ ? nodeTitle(selectedNode)
+ : t('scenarioGraph.connection', 'Connection')}
+ icon={sheet === 'palette'
+ ? <Plus className="w-4 h-4 text-accent" />
+ : <SlidersHorizontal className="w-4 h-4 text-accent" />}
+ bodyClassName="p-0"
+ >
+ {sheet === 'palette' ? renderPalette(true) : renderSelectionPanel()}
+ </Drawer>
+ )}
  </div>
- ) : (
- <div className="p-3">
- <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-2">Add node</div>
- {(['trigger', 'action', 'logic', 'terminator'] as const).map((cat) => (
- <div key={cat} className="mb-3">
- <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-text-muted/60 mb-1.5 flex items-center gap-1">
- <Plus className="w-2.5 h-2.5" /> {cat}
+ );
+}
+
+// ── Touch helpers ───────────────────────────────────────────────────────────
+const barBtnCls = 'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors shrink-0 coarse:min-h-10 coarse:min-w-10 disabled:opacity-50 disabled:cursor-not-allowed';
+const chipBtnCls = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-tertiary text-[12px] text-text-primary hover:bg-bg-hover transition-colors coarse:min-h-10 disabled:opacity-40 disabled:cursor-not-allowed';
+
+/** Toolbar / selection-bar button: icon only on phones (label kept as
+ * aria-label), icon + label from `sm`. */
+function BarButton({
+ label, icon, onClick, disabled, className,
+}: {
+ label: string;
+ icon: ReactNode;
+ onClick: () => void;
+ disabled?: boolean;
+ className?: string;
+}) {
+ return (
+ <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={clsx(barBtnCls, className)}>
+ {icon}
+ <span className="hidden sm:inline">{label}</span>
+ </button>
+ );
+}
+
+/** Touch-only block at the top of the node config (sheet on phone /
+ * tablet, sidebar on large touch tablets): validation warning, every
+ * node action as a visible button (they otherwise only exist in the
+ * right-click menu / keyboard shortcuts) and gesture-free wiring. */
+function NodeTouchPanel({
+ warning, actions, canConnect, outgoing, connectTargets, onConnectTo, onEditEdge, onDeleteEdge,
+}: {
+ warning?: string;
+ actions: GraphAction[];
+ canConnect: boolean;
+ outgoing: Array<{ id: string; targetTitle: string; condition: string }>;
+ connectTargets: Array<{ id: string; title: string }>;
+ onConnectTo: (targetId: string) => void;
+ onEditEdge: (edgeId: string) => void;
+ onDeleteEdge: (edgeId: string) => void;
+}) {
+ const { t } = useTranslation();
+ const selectId = useId();
+ return (
+ <div className="px-4 pt-4 space-y-3">
+ {warning && (
+ <div className="flex items-start gap-2 px-2.5 py-2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[12px] text-amber-400">
+ <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+ <span>{warning}</span>
  </div>
- {palette[cat].map((m) => <PaletteItem key={m.type} meta={m} onAdd={() => addNode(m)} />)}
+ )}
+ <div className="flex flex-wrap gap-1.5">
+ {actions.map((a) => (
+ <button
+ key={a.key}
+ type="button"
+ onClick={a.onClick}
+ disabled={a.disabled}
+ className={clsx(chipBtnCls, a.danger && 'text-red-400 bg-red-400/10 hover:bg-red-400/20')}
+ >
+ {a.icon}
+ {a.shortLabel ?? a.label}
+ </button>
+ ))}
+ </div>
+ {(canConnect || outgoing.length > 0) && (
+ <div className="space-y-1.5">
+ <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted">
+ {t('scenarioGraph.outgoing', 'Outgoing connections')}
+ </div>
+ {outgoing.length === 0 && (
+ <div className="text-[11px] text-text-muted italic">{t('scenarioGraph.noOutgoing', 'No outgoing connection yet.')}</div>
+ )}
+ {outgoing.map((o) => (
+ <div key={o.id} className="flex items-center gap-1.5 rounded-md bg-bg-tertiary pl-2.5 pr-1 py-1 min-w-0">
+ <ArrowRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <span className="flex-1 min-w-0 truncate text-[12px] text-text-primary">{o.targetTitle}</span>
+ <span className="shrink-0 text-[10px] font-mono text-text-muted">{o.condition}</span>
+ <IconButton
+ label={t('scenarioGraph.editCondition', 'Edit condition')}
+ icon={<SlidersHorizontal className="w-3.5 h-3.5" />}
+ size="sm"
+ onClick={() => onEditEdge(o.id)}
+ />
+ <IconButton
+ label={t('scenarioGraph.deleteEdge', 'Delete connection')}
+ icon={<Trash2 className="w-3.5 h-3.5" />}
+ size="sm"
+ variant="danger"
+ onClick={() => onDeleteEdge(o.id)}
+ />
  </div>
  ))}
- <div className="mt-4 px-2 py-2 rounded-md bg-bg-tertiary text-[11px] text-text-muted flex gap-2">
- <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
- <span>Tip: drag from a node's right port to another node's left port to connect them.</span>
- </div>
+ {canConnect && connectTargets.length > 0 && (
+ <div>
+ <label htmlFor={selectId} className="sr-only">{t('scenarioGraph.addConnectionTo', 'Add a connection to…')}</label>
+ <select
+ id={selectId}
+ value=""
+ onChange={(e) => { if (e.target.value) onConnectTo(e.target.value); }}
+ className="w-full px-2 py-1.5 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent coarse:min-h-10"
+ >
+ <option value="">{t('scenarioGraph.addConnectionTo', 'Add a connection to…')}</option>
+ {connectTargets.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+ </select>
  </div>
  )}
  </div>
+ )}
+ <div className="h-px bg-border" />
  </div>
  );
 }
@@ -1556,6 +2442,7 @@ function NodeConfigForm({
 }) {
  const meta = NODE_TYPE_BY_KEY[node.data.scenarioType as ScenarioNodeType];
  const cfg = (node.data.config ?? {}) as Record<string, unknown>;
+ const fieldIdBase = useId();
 
  const setField = (key: string, value: unknown) => {
  onChange({ config: { ...cfg, [key]: value } });
@@ -1582,12 +2469,23 @@ function NodeConfigForm({
  // the current config — keeps the panel uncluttered (e.g. the
  // disk mount filter only shows when metric=disk).
  .filter((f: NodeFieldDef) => !f.showWhen || f.showWhen(cfg))
- .map((f: NodeFieldDef) => (
- <label key={f.key} className="block">
- <span className="text-xs text-text-muted mb-1 block">{f.label}{f.required && <span className="text-red-400 ml-1">*</span>}</span>
+ .map((f: NodeFieldDef) => {
+ // Composite widgets (script picker + inspector, channel
+ // bindings, device picker) must NOT sit in a <label>: a tap
+ // / click on any text inside a label is forwarded to its
+ // first button — toggling the first channel, resetting the
+ // device target mode, reopening the picker. They get a div
+ // group labelled by the caption instead.
+ const composite = f.kind === 'script' || f.kind === 'channels' || f.kind === 'targetDevices';
+ const Wrapper: React.ElementType = composite ? 'div' : 'label';
+ const captionId = `${fieldIdBase}-${f.key}`;
+ return (
+ <Wrapper key={f.key} className="block" {...(composite ? { role: 'group', 'aria-labelledby': captionId } : {})}>
+ <span id={composite ? captionId : undefined} className="text-xs text-text-muted mb-1 block">{f.label}{f.required && <span className="text-red-400 ml-1">*</span>}</span>
  {f.kind === 'text' && (
  <input type="text" value={(cfg[f.key] as string) ?? ''} placeholder={f.placeholder}
  onChange={(e) => setField(f.key, e.target.value)}
+ {...(PROSE_FIELD_KEYS.has(f.key) ? {} : PLAIN_INPUT_PROPS)}
  className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent" />
  )}
  {f.kind === 'number' && (
@@ -1626,10 +2524,11 @@ function NodeConfigForm({
  <>
  <input type="text" value={(cfg[f.key] as string) ?? ''} placeholder={f.placeholder}
  onChange={(e) => setField(f.key, e.target.value)}
+ {...PLAIN_INPUT_PROPS}
  className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent font-mono" />
  {/* Same preset list as ScriptSchedulesPage so admins use one
  vocabulary across the whole product. */}
- <div className="flex flex-wrap gap-1 mt-1">
+ <div className="flex flex-wrap gap-1 coarse:gap-1.5 mt-1">
  {[
  { label: 'Every hour', value: '0 * * * *' },
  { label: '02:00 daily', value: '0 2 * * *' },
@@ -1640,7 +2539,7 @@ function NodeConfigForm({
  <button
  key={p.value} type="button"
  onClick={() => setField(f.key, p.value)}
- className="text-[10px] px-1.5 py-0.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+ className="text-[10px] px-1.5 py-0.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors coarse:text-xs coarse:px-2.5 coarse:py-1.5"
  >
  {p.label}
  </button>
@@ -1665,7 +2564,7 @@ function NodeConfigForm({
  <button
  type="button"
  onClick={() => onOpenScriptEditor?.({ mode: 'create', fieldKey: f.key })}
- className="text-[11px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20"
+ className="text-[11px] px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 coarse:text-xs coarse:px-2.5 coarse:py-2"
  >
  + New script
  </button>
@@ -1676,7 +2575,7 @@ function NodeConfigForm({
  <button
  type="button"
  onClick={() => onOpenScriptEditor?.({ mode: 'edit', script: sel, fieldKey: f.key })}
- className="text-[11px] px-2 py-0.5 rounded bg-bg-tertiary text-text-muted border border-transparent hover:text-text-primary"
+ className="text-[11px] px-2 py-0.5 rounded bg-bg-tertiary text-text-muted border border-transparent hover:text-text-primary coarse:text-xs coarse:px-2.5 coarse:py-2"
  >
  Edit selected
  </button>
@@ -1717,8 +2616,9 @@ function NodeConfigForm({
  {f.hint && (
  <span className="block mt-1 text-[10px] text-text-muted italic leading-snug">{f.hint}</span>
  )}
- </label>
- ))}
+ </Wrapper>
+ );
+ })}
  </div>
  );
 }
@@ -1779,8 +2679,8 @@ function ScriptInspector({ script }: { script: Script | undefined }) {
  {(preview ?? []).join('\n')}
  </pre>
  {more && (
- <button onClick={() => setContentExpanded((e) => !e)}
- className="mt-1 text-[10px] text-accent hover:underline">
+ <button type="button" onClick={() => setContentExpanded((e) => !e)}
+ className="mt-1 text-[10px] text-accent hover:underline coarse:text-xs coarse:py-2">
  {contentExpanded ? 'Show less' : `Show all ${script.content.split('\n').length} lines`}
  </button>
  )}
@@ -1804,6 +2704,7 @@ function TargetDevicePicker({
  devices: Device[];
  onChange: (mode: 'target' | 'devices', ids: number[]) => void;
 }) {
+ const { t } = useTranslation();
  const [search, setSearch] = useState('');
  const selected = useMemo(() => new Set(deviceIds.filter(Number.isFinite)), [deviceIds]);
  const filtered = useMemo(() => {
@@ -1831,7 +2732,7 @@ function TargetDevicePicker({
  type="button"
  onClick={() => onChange('target', [])}
  className={clsx(
- 'flex-1 px-2 py-1 text-[11px] transition-colors',
+ 'flex-1 px-2 py-1 text-[11px] transition-colors coarse:min-h-9 coarse:text-xs',
  mode === 'target'
  ? 'bg-accent/20 text-accent font-medium'
  : 'text-text-muted hover:text-text-primary',
@@ -1843,7 +2744,7 @@ function TargetDevicePicker({
  type="button"
  onClick={() => onChange('devices', deviceIds)}
  className={clsx(
- 'flex-1 px-2 py-1 text-[11px] transition-colors',
+ 'flex-1 px-2 py-1 text-[11px] transition-colors coarse:min-h-9 coarse:text-xs',
  mode === 'devices'
  ? 'bg-accent/20 text-accent font-medium'
  : 'text-text-muted hover:text-text-primary',
@@ -1859,6 +2760,7 @@ function TargetDevicePicker({
  value={search}
  onChange={(e) => setSearch(e.target.value)}
  placeholder="Search hostname / display name / OS…"
+ {...PLAIN_INPUT_PROPS}
  className="w-full px-2 py-1 text-xs bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  {selected.size > 0 && (
@@ -1870,7 +2772,7 @@ function TargetDevicePicker({
  <span
  key={id}
  className={clsx(
- 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border',
+ 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border coarse:text-xs coarse:py-0',
  d ? 'bg-accent/10 text-accent border-accent/30'
  : 'bg-red-400/10 text-red-400 border-red-400/30',
  )}
@@ -1879,9 +2781,10 @@ function TargetDevicePicker({
  <button
  type="button"
  onClick={() => toggleDevice(id)}
- className="hover:text-red-400"
+ aria-label={t('scenarioGraph.removeDevice', 'Remove {{name}}', { name: label })}
+ className="hover:text-red-400 coarse:p-1.5 coarse:-mr-1"
  >
- <X className="w-2.5 h-2.5" />
+ <X className="w-2.5 h-2.5 coarse:w-3.5 coarse:h-3.5" />
  </button>
  </span>
  );
@@ -1902,7 +2805,7 @@ function TargetDevicePicker({
  type="button"
  onClick={() => toggleDevice(d.id)}
  className={clsx(
- 'w-full flex items-center gap-2 px-2 py-1 text-[11px] text-left transition-colors',
+ 'w-full flex items-center gap-2 px-2 py-1 text-[11px] text-left transition-colors coarse:min-h-10 coarse:text-sm',
  checked
  ? 'bg-accent/10 text-text-primary'
  : 'text-text-secondary hover:bg-bg-tertiary',
@@ -1910,7 +2813,7 @@ function TargetDevicePicker({
  >
  <span
  className={clsx(
- 'inline-flex w-3 h-3 rounded items-center justify-center text-[8px] font-bold',
+ 'inline-flex w-3 h-3 rounded items-center justify-center text-[8px] font-bold shrink-0 coarse:w-4 coarse:h-4 coarse:text-[10px]',
  checked ? 'bg-accent text-bg-primary' : 'border border-text-muted',
  )}
  >
@@ -1957,16 +2860,16 @@ function ScriptPicker({
  // Close on outside click; opening focuses the search input.
  const wrapRef = useRef<HTMLDivElement | null>(null);
  const inputRef = useRef<HTMLInputElement | null>(null);
+ // pointerdown (mouse + touch + pen) instead of the old document
+ // 'mousedown', which touch only fires through compatibility events.
+ useClickOutside(wrapRef, () => setOpen(false), open);
  useEffect(() => {
  if (!open) return;
- const onDoc = (e: MouseEvent) => {
- // `Node` from @xyflow/react shadows the global DOM Node here, so
- // we cast to globalThis.Node for the contains() check.
- if (!wrapRef.current?.contains(e.target as globalThis.Node)) setOpen(false);
- };
- document.addEventListener('mousedown', onDoc);
- setTimeout(() => inputRef.current?.focus(), 0);
- return () => document.removeEventListener('mousedown', onDoc);
+ // Touch: don't pop the soft keyboard over the list on open — the
+ // user taps the search box if they want it.
+ if (matchesMedia(MEDIA.coarse)) return;
+ const timer = setTimeout(() => inputRef.current?.focus(), 0);
+ return () => clearTimeout(timer);
  }, [open]);
 
  const selected = scripts.find((s) => s.id === value);
@@ -1999,7 +2902,7 @@ function ScriptPicker({
  return (
  <div ref={wrapRef} className="relative">
  <button type="button" onClick={() => setOpen((o) => !o)}
- className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-left text-text-primary focus:outline-none focus:border-accent flex items-center gap-2">
+ className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-left text-text-primary focus:outline-none focus:border-accent flex items-center gap-2 coarse:min-h-10">
  {selected ? (
  <span className="flex-1 truncate">
  {selected.name}
@@ -2013,16 +2916,17 @@ function ScriptPicker({
  <ChevronDown className={clsx('w-3.5 h-3.5 text-text-muted transition-transform', open && 'rotate-180')} />
  </button>
  {open && (
- <div className="absolute z-30 left-0 right-0 mt-1 bg-bg-secondary rounded-lg shadow-xl max-h-[360px] flex flex-col overflow-hidden">
+ <div className="absolute z-30 left-0 right-0 mt-1 bg-bg-secondary rounded-lg shadow-xl max-h-[360px] max-h-[min(360px,60dvh)] flex flex-col overflow-hidden">
  <div className="p-2 ">
  <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
  placeholder="Search scripts…"
+ {...PLAIN_INPUT_PROPS}
  className="w-full px-2 py-1 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent" />
  </div>
- <div className="overflow-y-auto flex-1">
+ <div className="overflow-y-auto overscroll-contain flex-1">
  {value != null && (
  <button type="button" onClick={() => { onChange(null); setOpen(false); }}
- className="w-full text-left px-3 py-1.5 text-[11px] text-text-muted hover:bg-bg-hover /40">
+ className="w-full text-left px-3 py-1.5 text-[11px] text-text-muted hover:bg-bg-hover /40 coarse:min-h-10 coarse:text-xs">
  Clear selection
  </button>
  )}
@@ -2048,7 +2952,7 @@ function ScriptPicker({
  key={s.id} type="button"
  onClick={() => { onChange(s.id); setOpen(false); }}
  className={clsx(
- 'w-full text-left px-2 py-1 text-[12px] hover:bg-bg-hover transition-colors flex items-center gap-2',
+ 'w-full text-left px-2 py-1 text-[12px] hover:bg-bg-hover transition-colors flex items-center gap-2 coarse:min-h-10 coarse:text-sm',
  value === s.id && 'bg-accent/10',
  )}
  style={{ paddingLeft: `${10 + depth * 14}px` }}>
@@ -2145,31 +3049,47 @@ function RunPickerModal({
  : mode.kind === 'from' ? 'Skips the trigger walk and starts from the selected node, then continues the graph normally.'
  : 'Executes the selected node once on each device, then ends the run with success.';
 
+ // Shared Modal (docs/obli-mobile.md §5.5): full-screen sheet on phones
+ // (the old fixed 480px card overflowed a 360px screen), centred 480px
+ // card from `sm` up, Escape / Android back close it.
  return (
- <div className="fixed inset-0 z-[80] flex items-center justify-center bg-bg-primary/70 backdrop-blur-sm" onClick={onCancel}>
- <div className="w-[480px] max-h-[80vh] flex flex-col bg-bg-secondary rounded-xl shadow-xl overflow-hidden"
- onClick={(e) => e.stopPropagation()}>
- <div className="px-4 py-3 flex items-center justify-between">
- <div>
- <div className="text-sm font-semibold text-text-primary">{title}</div>
- <div className="text-[11px] text-text-muted mt-0.5">{subtitle}</div>
- </div>
- <button onClick={onCancel} className="text-text-muted hover:text-text-primary">
- <X className="w-4 h-4" />
+ <Modal
+ open
+ onClose={onCancel}
+ title={<>{title}<span className="block mt-0.5 text-[11px] font-normal text-text-muted whitespace-normal">{subtitle}</span></>}
+ className="sm:max-w-[480px] sm:max-h-[80vh] shadow-xl"
+ overlayClassName="bg-bg-primary/70"
+ bodyClassName="p-0 flex flex-col overflow-hidden"
+ footerClassName="justify-between"
+ footer={<>
+ <span className="text-[11px] text-text-muted">{selected.size} selected</span>
+ <div className="flex items-center gap-2">
+ <button onClick={onCancel}
+ className="px-3 py-1.5 text-[12px] bg-bg-tertiary text-text-muted hover:text-text-primary rounded transition-colors coarse:min-h-10">
+ Cancel
+ </button>
+ <button
+ onClick={() => onPick([...selected])}
+ disabled={selected.size === 0}
+ className="px-3 py-1.5 text-[12px] bg-accent text-white rounded hover:bg-accent/80 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 coarse:min-h-10">
+ <Play className="w-3.5 h-3.5" /> Run on {selected.size} device{selected.size > 1 ? 's' : ''}
  </button>
  </div>
- <div className="px-4 py-2 flex items-center gap-2">
+ </>}
+ >
+ <div className="px-4 py-2 flex items-center gap-2 shrink-0">
  <input
  value={query} onChange={(e) => setQuery(e.target.value)}
  placeholder="Filter by hostname, IP, OS, UUID…"
- className="flex-1 px-2 py-1 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent"
+ {...PLAIN_INPUT_PROPS}
+ className="flex-1 min-w-0 px-2 py-1 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  <button type="button" onClick={toggleAll}
- className="text-[11px] px-2 py-1 rounded bg-bg-tertiary border border-transparent text-text-muted hover:text-text-primary">
+ className="text-[11px] px-2 py-1 rounded bg-bg-tertiary border border-transparent text-text-muted hover:text-text-primary coarse:min-h-10 coarse:px-3">
  {selected.size === filtered.length && filtered.length > 0 ? 'Clear' : 'All'}
  </button>
  </div>
- <div className="flex-1 overflow-y-auto">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
  {filtered.length === 0 ? (
  <div className="px-4 py-3 text-sm text-text-muted">No matching device</div>
  ) : (
@@ -2187,7 +3107,7 @@ function RunPickerModal({
  </span>
  <div className="flex-1" />
  <button type="button" onClick={selectAllTargeted}
- className="text-[10px] px-2 py-0.5 rounded bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors">
+ className="text-[10px] px-2 py-0.5 rounded bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-colors coarse:text-xs coarse:py-1.5">
  Select all targeted
  </button>
  </div>
@@ -2249,56 +3169,67 @@ function RunPickerModal({
  <div className="px-4 py-2 text-[11px] text-text-muted">Long list — narrow your search if needed.</div>
  )}
  </div>
- <div className="px-4 py-3 flex items-center justify-between">
- <span className="text-[11px] text-text-muted">{selected.size} selected</span>
- <div className="flex items-center gap-2">
- <button onClick={onCancel}
- className="px-3 py-1.5 text-[12px] bg-bg-tertiary text-text-muted hover:text-text-primary rounded transition-colors">
- Cancel
- </button>
- <button
- onClick={() => onPick([...selected])}
- disabled={selected.size === 0}
- className="px-3 py-1.5 text-[12px] bg-accent text-white rounded hover:bg-accent/80 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5">
- <Play className="w-3.5 h-3.5" /> Run on {selected.size} device{selected.size > 1 ? 's' : ''}
- </button>
- </div>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
 
 // ── Right-click context menu primitives ─────────────────────────────────────
-function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClose: () => void; children: React.ReactNode }) {
- // Close on outside click + escape. Position is clamped on render below
- // so the menu stays inside the viewport even when right-clicking near
- // the edge.
- useEffect(() => {
- const onDoc = (e: MouseEvent) => {
- const root = document.getElementById('scenario-ctx-menu');
- if (root && !root.contains(e.target as globalThis.Node)) onClose();
- };
- const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
- setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
- document.addEventListener('keydown', onKey);
- return () => {
- document.removeEventListener('mousedown', onDoc);
- document.removeEventListener('keydown', onKey);
- };
- }, [onClose]);
- // Clamp so the menu is fully visible (rough; real browsers reflow if
- // we're off by a few pixels — the bottom/right anchor below is enough).
- const left = Math.min(x, window.innerWidth - 240);
- const top = Math.min(y, window.innerHeight - 360);
+function ContextMenu({
+ x, y, onClose, children, asSheet = false, title,
+}: {
+ x: number;
+ y: number;
+ onClose: () => void;
+ children: React.ReactNode;
+ /** Phone: bottom sheet with 48px rows instead of a cursor popover. */
+ asSheet?: boolean;
+ /** Sheet heading (phone only). */
+ title?: ReactNode;
+}) {
+ const ref = useRef<HTMLDivElement | null>(null);
+ // Initial guess = the historic clamp; refined with the measured size
+ // before paint so tall menus (the pane palette is ~800px) stay fully
+ // reachable: the menu itself scrolls when taller than the viewport.
+ const [pos, setPos] = useState(() => ({
+ left: Math.min(x, window.innerWidth - 240),
+ top: Math.min(y, window.innerHeight - 360),
+ }));
+ useLayoutEffect(() => {
+ if (asSheet) return;
+ const el = ref.current;
+ if (!el) return;
+ const m = 8;
+ const w = el.offsetWidth;
+ const h = el.offsetHeight;
+ setPos({
+ left: Math.max(m, Math.min(x, window.innerWidth - w - m)),
+ top: Math.max(m, Math.min(y, window.innerHeight - h - m)),
+ });
+ }, [x, y, asSheet]);
+ // Outside tap / click (pointerdown: mouse, touch and pen), Escape and
+ // Android back close the popover; the sheet (Drawer) handles its own.
+ useClickOutside(ref, () => onClose(), !asSheet);
+ useNativeBack(() => onClose(), !asSheet, { escape: true });
+
+ if (asSheet) {
  return (
- <div id="scenario-ctx-menu"
- style={{ position: 'fixed', left, top, zIndex: 90 }}
- className="min-w-[220px] bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
+ <Drawer open onClose={onClose} side="bottom" size="lg" title={title} bodyClassName="px-2 pb-3 pt-1">
+ <CtxMenuSheetContext.Provider value>
+ <div role="menu">{children}</div>
+ </CtxMenuSheetContext.Provider>
+ </Drawer>
+ );
+ }
+ return (
+ <div id="scenario-ctx-menu" ref={ref} role="menu"
+ style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 90 }}
+ className="min-w-[220px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain bg-bg-secondary rounded-lg shadow-xl">
  <div className="py-1">{children}</div>
  </div>
  );
 }
+/** true inside the phone bottom-sheet variant of ContextMenu. */
+const CtxMenuSheetContext = createContext(false);
 function ContextMenuItem({
  icon, label, hint, onClick, disabled, danger,
 }: {
@@ -2309,11 +3240,30 @@ function ContextMenuItem({
  disabled?: boolean;
  danger?: boolean;
 }) {
+ const inSheet = useContext(CtxMenuSheetContext);
+ if (inSheet) {
+ // Sheet row: 48px, the hint under the label instead of squeezing it.
  return (
  <button
- type="button" onClick={disabled ? undefined : onClick} disabled={disabled}
+ type="button" role="menuitem" onClick={disabled ? undefined : onClick} disabled={disabled}
  className={clsx(
- 'w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 transition-colors',
+ 'w-full min-h-12 text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 transition-colors',
+ disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-bg-hover',
+ danger && !disabled && 'hover:bg-red-400/10',
+ )}>
+ {icon && <span className="shrink-0 flex items-center">{icon}</span>}
+ <span className="flex-1 min-w-0">
+ <span className={clsx('block truncate', danger ? 'text-red-400' : 'text-text-primary')}>{label}</span>
+ {hint && <span className="block truncate text-xs text-text-muted">{hint}</span>}
+ </span>
+ </button>
+ );
+ }
+ return (
+ <button
+ type="button" role="menuitem" onClick={disabled ? undefined : onClick} disabled={disabled}
+ className={clsx(
+ 'w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 transition-colors coarse:min-h-11',
  disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-bg-hover',
  danger && !disabled && 'hover:bg-red-400/10',
  )}>
@@ -2344,7 +3294,7 @@ function ContextMenuDivider() {
 // each re-open returns to the default size; persistence is intentionally
 // not added (keeps the UI predictable across scenario switches).
 function NodeOutputPanel({
- nodes, devices, history, runMeta, focusNodeClientId, onSelectNode, onClose,
+ nodes, devices, history, runMeta, focusNodeClientId, onSelectNode, onClose, docked = false,
 }: {
  nodes: Node<NodeData>[];
  devices: Device[];
@@ -2353,7 +3303,11 @@ function NodeOutputPanel({
  focusNodeClientId: string | null;
  onSelectNode: (clientId: string) => void;
  onClose: () => void;
+ /** Touch / narrow layouts: full-width panel docked UNDER the canvas
+ * (a flex item) instead of a card floating over it. */
+ docked?: boolean;
 }) {
+ const { t } = useTranslation();
  const deviceLabel = (id: number) => {
  const d = devices.find((x) => x.id === id);
  if (!d) return `device #${id}`;
@@ -2361,31 +3315,41 @@ function NodeOutputPanel({
  };
 
  // ── Resize state ────────────────────────────────────────────────
- // Default to ~38% of the viewport height; min 200px, max 80vh. The
- // pointer-move listener is attached only while the user holds down
- // the resize handle so we don't waste cycles when the panel is idle.
- const [panelHeight, setPanelHeight] = useState<number>(() => Math.round(window.innerHeight * 0.38));
- const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
- const onResizeStart = (e: React.MouseEvent) => {
+ // Floating: default ~38% of the viewport height; min 200px, max 80vh.
+ // Docked: ~35%, min 120px, max 70% (the canvas above must stay usable).
+ // Pointer Events + pointer capture so the grip works with a mouse, a
+ // finger or a pen alike (the old mousemove listeners ignored touch).
+ const minHeight = docked ? 120 : 200;
+ const maxRatio = docked ? 0.7 : 0.8;
+ const clampHeight = (h: number) => Math.max(minHeight, Math.min(window.innerHeight * maxRatio, h));
+ const [panelHeight, setPanelHeight] = useState<number>(() => Math.round(window.innerHeight * (docked ? 0.35 : 0.38)));
+ const dragStateRef = useRef<{ startY: number; startHeight: number; pointerId: number } | null>(null);
+ const onResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+ if (e.pointerType === 'mouse' && e.button !== 0) return;
  e.preventDefault();
- dragStateRef.current = { startY: e.clientY, startHeight: panelHeight };
- const onMove = (mv: MouseEvent) => {
- if (!dragStateRef.current) return;
+ dragStateRef.current = { startY: e.clientY, startHeight: panelHeight, pointerId: e.pointerId };
+ try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* capture unsupported */ }
+ };
+ const onResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+ const drag = dragStateRef.current;
+ if (!drag || drag.pointerId !== e.pointerId) return;
  // Drag UP makes the panel taller, DOWN makes it shorter — the
- // panel is anchored to the bottom of the viewport, so the new
- // height is start - delta.
- const delta = mv.clientY - dragStateRef.current.startY;
- const next = Math.max(200, Math.min(window.innerHeight * 0.8, dragStateRef.current.startHeight - delta));
- setPanelHeight(next);
+ // panel is anchored to the bottom, so the new height is start - delta.
+ setPanelHeight(clampHeight(drag.startHeight - (e.clientY - drag.startY)));
  };
- const onUp = () => {
+ const onResizePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+ if (dragStateRef.current?.pointerId !== e.pointerId) return;
  dragStateRef.current = null;
- document.removeEventListener('mousemove', onMove);
- document.removeEventListener('mouseup', onUp);
+ try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
  };
- document.addEventListener('mousemove', onMove);
- document.addEventListener('mouseup', onUp);
- };
+ // Docked: re-clamp when the viewport shrinks (soft keyboard opening
+ // for the agent filter, rotation) so the panel never buries the canvas.
+ useEffect(() => {
+ if (!docked) return;
+ const onResize = () => setPanelHeight((h) => Math.max(minHeight, Math.min(window.innerHeight * maxRatio, h)));
+ window.addEventListener('resize', onResize);
+ return () => window.removeEventListener('resize', onResize);
+ }, [docked, minHeight, maxRatio]);
 
  // ── Active node + filter ───────────────────────────────────────
  const focusDbId = focusNodeClientId ? Number(/^db-(\d+)$/.exec(focusNodeClientId)?.[1] ?? NaN) : NaN;
@@ -2524,14 +3488,26 @@ function NodeOutputPanel({
 
  return (
  <div
- className="absolute left-3 right-[300px] bottom-3 z-20 flex flex-col bg-bg-secondary/95 backdrop-blur rounded-xl shadow-xl overflow-hidden"
+ className={clsx(
+ 'flex flex-col overflow-hidden',
+ docked
+ ? 'relative shrink-0 w-full bg-bg-secondary border-t border-border'
+ : 'absolute left-3 right-[300px] bottom-3 z-20 bg-bg-secondary/95 backdrop-blur rounded-xl shadow-xl',
+ )}
  style={{ height: panelHeight }}>
- {/* Drag handle on top — visible 6px strip with a centred grip. */}
+ {/* Drag handle on top — visible 6px strip with a centred grip
+ (taller on touch so a finger can grab it). */}
  <div
- onMouseDown={onResizeStart}
+ onPointerDown={onResizePointerDown}
+ onPointerMove={onResizePointerMove}
+ onPointerUp={onResizePointerEnd}
+ onPointerCancel={onResizePointerEnd}
  title="Drag to resize"
- className="h-1.5 bg-border/40 hover:bg-accent/40 cursor-ns-resize transition-colors flex items-center justify-center">
- <div className="w-10 h-0.5 bg-text-muted/50 rounded-full" />
+ role="separator"
+ aria-orientation="horizontal"
+ aria-label={t('scenarioGraph.resizeOutput', 'Resize the output panel')}
+ className="h-1.5 coarse:h-5 shrink-0 touch-none bg-border/40 hover:bg-accent/40 cursor-ns-resize transition-colors flex items-center justify-center">
+ <div className="w-10 h-0.5 coarse:w-12 coarse:h-1 bg-text-muted/50 rounded-full" />
  </div>
  <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
  <TerminalIcon className="w-3.5 h-3.5 text-accent" />
@@ -2548,7 +3524,7 @@ function NodeOutputPanel({
  onSelectNode(`db-${n}`);
  }
  }}
- className="text-[11px] bg-bg-primary rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent">
+ className="text-[11px] bg-bg-primary rounded px-1.5 py-0.5 text-text-primary focus:outline-none focus:border-accent min-w-0 max-w-full coarse:py-1.5">
  <option value="__all__">— All nodes —</option>
  {candidateIds.map((dbId) => (
  <option key={dbId} value={dbId}>{nodeLabelById(dbId)}</option>
@@ -2563,13 +3539,24 @@ function NodeOutputPanel({
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  placeholder="Filter agents…"
- className="text-[11px] px-2 py-0.5 bg-bg-primary rounded text-text-primary placeholder-text-muted/60 focus:outline-none focus:border-accent w-[150px]"
+ {...PLAIN_INPUT_PROPS}
+ className={clsx(
+ 'text-[11px] px-2 py-0.5 bg-bg-primary rounded text-text-primary placeholder-text-muted/60 focus:outline-none focus:border-accent',
+ docked ? 'flex-1 min-w-[7rem] max-w-[16rem] coarse:py-1.5' : 'w-[150px]',
+ )}
  />
- <button onClick={onClose} className="text-text-muted hover:text-text-primary">
- <X className="w-4 h-4" />
- </button>
+ <IconButton
+ label={t('common.close', 'Close')}
+ icon={<X className="w-4 h-4" />}
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ showTooltip={false}
+ className="p-0"
+ onClick={onClose}
+ />
  </div>
- <div className="flex-1 overflow-y-auto">
+ <div className="flex-1 overflow-y-auto overscroll-contain">
  {filteredEntries.length === 0 ? (
  <div className="px-3 py-3 text-[12px] text-text-muted flex items-center gap-2">
  {filterIsActive ? (
@@ -2638,7 +3625,7 @@ function NodeOutputPanel({
  <div key={groupKey} className="/40 last:border-b-0">
  <button
  onClick={() => toggleGroup(groupKey)}
- className="w-full text-left px-3 py-1.5 bg-bg-tertiary/40 /40 flex items-center gap-2 text-[11px] hover:bg-bg-tertiary/70 transition-colors">
+ className="w-full text-left px-3 py-1.5 bg-bg-tertiary/40 /40 flex items-center gap-2 text-[11px] hover:bg-bg-tertiary/70 transition-colors coarse:min-h-10 max-lg:flex-wrap">
  {isCollapsed
  ? <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />
  : <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />}
@@ -2714,7 +3701,7 @@ function NodeOutputRow({
  return (
  <div className="/30 last:border-b-0">
  <button onClick={onToggle}
- className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors">
+ className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-bg-hover transition-colors coarse:min-h-10">
  {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
  <DeviceStatusDot status={entry.status} />
  {nodeLabel && (
@@ -2838,6 +3825,27 @@ function InlineScriptEditor({
  const [purpose, setPurpose] = useState<string>(initialScript?.purpose ?? 'execute');
  const [categoryId, setCategoryId] = useState<number | null>(initialScript?.categoryId ?? null);
  const [saving, setSaving] = useState(false);
+ const { t } = useTranslation();
+ const confirm = useConfirm();
+ // Android back / Escape-less close path: unsaved typing (the script
+ // content can be long) is not thrown away without asking. The ×
+ // button keeps its historic immediate cancel.
+ const isDirty = name !== (initialScript?.name ?? '')
+ || description !== (initialScript?.description ?? '')
+ || content !== (initialScript?.content ?? '');
+ const requestCancel = async () => {
+ if (saving) return;
+ if (isDirty) {
+ const ok = await confirm({
+ title: t('scenarioGraph.discardScriptTitle', 'Discard this script?'),
+ message: t('scenarioGraph.discardScriptMessage', 'Your changes to this script have not been saved.'),
+ danger: true,
+ confirmLabel: t('scenarioGraph.discard', 'Discard'),
+ });
+ if (!ok) return;
+ }
+ onCancel();
+ };
 
  const handleSave = async () => {
  if (!name.trim() || !content.trim()) {
@@ -2865,19 +3873,44 @@ function InlineScriptEditor({
  }
  };
 
+ // Shared Modal: full-screen on phones, scrolling body + sticky
+ // Save / Cancel footer (the old 90vh card let the keyboard cover them).
+ // Backdrop and Escape stay inert as before; Android back asks first.
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
- <div className="px-5 py-4 flex items-center justify-between">
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <TerminalIcon className="w-4 h-4 text-accent" />
- {mode === 'create' ? 'New script' : `Edit "${initialScript?.name}"`}
- </h3>
- <button onClick={onCancel} disabled={saving} className="p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ <Modal
+ open
+ onClose={() => { void requestCancel(); }}
+ closeOnBackdrop={false}
+ closeOnEscape={false}
+ showCloseButton={false}
+ size="xl"
+ icon={<TerminalIcon className="w-4 h-4 text-accent" />}
+ title={mode === 'create' ? 'New script' : `Edit "${initialScript?.name}"`}
+ headerExtra={
+ <IconButton
+ label={t('common.close', 'Close')}
+ icon={<X className="w-4 h-4" />}
+ size="sm"
+ variant="plain"
+ showTooltip={false}
+ onClick={onCancel}
+ disabled={saving}
+ />
+ }
+ className="sm:max-h-[90vh]"
+ bodyClassName="px-5 py-4 space-y-3"
+ footerClassName="px-5 py-3"
+ footer={<>
+ <button onClick={onCancel} disabled={saving}
+ className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50 coarse:min-h-10">
+ Cancel
  </button>
- </div>
- <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+ <button onClick={handleSave} disabled={saving}
+ className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50 coarse:min-h-10">
+ {saving ? 'Saving…' : (mode === 'create' ? 'Create script' : 'Save changes')}
+ </button>
+ </>}
+ >
  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
  <div>
  <label className="text-[10px] uppercase text-text-muted">Name *</label>
@@ -2954,21 +3987,10 @@ function InlineScriptEditor({
  <div>
  <label className="text-[10px] uppercase text-text-muted">Content *</label>
  <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={14}
+ {...PLAIN_INPUT_PROPS}
  className="w-full mt-1 px-3 py-2 text-xs bg-bg-tertiary rounded font-mono focus:outline-none focus:border-accent resize-none" />
  </div>
- </div>
- <div className="flex items-center justify-end gap-2 px-5 py-3 ">
- <button onClick={onCancel} disabled={saving}
- className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary disabled:opacity-50">
- Cancel
- </button>
- <button onClick={handleSave} disabled={saving}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/80 disabled:opacity-50">
- {saving ? 'Saving…' : (mode === 'create' ? 'Create script' : 'Save changes')}
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
 

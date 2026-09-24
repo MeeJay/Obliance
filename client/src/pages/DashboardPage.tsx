@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   RefreshCw, ArrowRight, Package, Clock, FolderOpen, Plus, ScreenShare,
@@ -26,6 +26,11 @@ import { BackupJobTable } from '@/components/veeam/BackupJobTable';
 import type { VirtualMachine, VmAction, BackupJob, BackupJobAction, DeviceStatus } from '@obliance/shared';
 import { mergeById } from '@/utils/mergeById';
 import toast from 'react-hot-toast';
+import { PageContainer } from '@/components/common/PageContainer';
+import { SegmentedTabs } from '@/components/common/SegmentedTabs';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
+import { useMediaQuery, MEDIA } from '@/hooks/useMediaQuery';
 
 // ── Sparkline (filled area + line) ───────────────────────────────────────────
 
@@ -210,6 +215,24 @@ interface ActivityPoint { label: string; online: number; offline: number; total:
 
 function ActivityChart({ data }: { data: ActivityPoint[] }) {
   const { t } = useTranslation();
+  // Desktop keeps the historic 800×240 viewBox stretched to the card width.
+  // Below lg the viewBox follows the measured width with a fixed 200px
+  // height, so the axis labels stay at a real 10px instead of shrinking
+  // to ~4px on a phone (preserveAspectRatio="none" scaled them).
+  const isDesktop = useMediaQuery(MEDIA.lg);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState(0);
+  useEffect(() => {
+    if (isDesktop) return;
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setMeasured(Math.round(el.getBoundingClientRect().width));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isDesktop, data.length]);
   if (data.length < 2) {
     return (
       <div className="h-[240px] flex items-center justify-center text-text-muted text-sm">
@@ -220,7 +243,9 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
   const maxOnline = Math.max(...data.map(d => d.online), 1);
   const maxOffline = Math.max(...data.map(d => d.offline), 1);
   const yMax = Math.max(maxOnline, maxOffline);
-  const w = 800; const h = 240;
+  const narrow = !isDesktop && measured > 0;
+  const w = narrow ? Math.max(measured, 240) : 800;
+  const h = narrow ? 200 : 240;
   const pad = { l: 36, r: 12, t: 16, b: 28 };
   const cw = w - pad.l - pad.r;
   const ch = h - pad.t - pad.b;
@@ -232,7 +257,8 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
   const ticks = [0, 0.5, 1].map(t => yMax * t);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full block" preserveAspectRatio="none">
+    <div ref={wrapRef} className="w-full">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full block" preserveAspectRatio="none" style={narrow ? { height: h } : undefined}>
       <defs>
         <linearGradient id="ag-online" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stopColor="#1edd8a" stopOpacity="0.30" />
@@ -256,6 +282,7 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
         </text>
       ))}
     </svg>
+    </div>
   );
 }
 
@@ -442,11 +469,14 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
   };
 
   return (
-    <div className={`rounded-lg px-4 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_4px_18px_-8px_rgba(0,0,0,0.45)] ${depth > 0 ? 'bg-bg-tertiary' : 'bg-bg-secondary'}`}>
-      <div className="flex items-center gap-3 min-w-0">
+    <div className={`rounded-lg px-4 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_4px_18px_-8px_rgba(0,0,0,0.45)] ${depth > 0 ? 'bg-bg-tertiary' : 'bg-bg-secondary'} max-sm:px-3`}>
+      {/* Phone: name + online/total on the first line, the indicator
+          cluster wraps to a second line and the progress bar is dropped
+          (the ~270px of indicators squeezed the name to nothing). */}
+      <div className="flex items-center gap-3 min-w-0 max-sm:flex-wrap max-sm:gap-y-2">
         <Link
           to={group.groupId ? `/group/${group.groupId}` : '/devices'}
-          className="flex items-center gap-2 min-w-0 group hover:opacity-90"
+          className="flex items-center gap-2 min-w-0 group hover:opacity-90 max-sm:flex-1 coarse:min-h-10"
         >
           <FolderOpen size={depth > 0 ? 14 : 16} className="text-accent shrink-0" />
           <span className="text-[14px] font-semibold text-text-primary truncate min-w-0">
@@ -467,11 +497,11 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
           </span>
         </Link>
 
-        <div className="flex-1 min-w-0 max-w-[300px] h-1.5 bg-white/[0.04] rounded overflow-hidden mx-2">
+        <div className="flex-1 min-w-0 max-w-[300px] h-1.5 bg-white/[0.04] rounded overflow-hidden mx-2 max-sm:hidden">
           <div className={`h-full ${barColor}`} style={{ width: `${upPct}%` }} />
         </div>
 
-        <div className="flex items-center gap-3 ml-auto shrink-0">
+        <div className="flex items-center gap-3 ml-auto shrink-0 max-sm:ml-0 max-sm:w-full max-sm:flex-wrap">
           {/* Hors ligne */}
           {group.offline > 0 && (
             <Link
@@ -502,28 +532,32 @@ function GroupCard({ group, children, depth = 0 }: { group: GroupStats; children
               <AlertCircle size={13} /> {group.critical}
             </Link>
           )}
-          <div
-            className={`flex items-center gap-1 font-mono text-[12px] ${complianceColor}`}
-            title={
+          {/* Unlabelled icons: their meaning is in a <Tip> (hover on
+              desktop, tap on touch) instead of a title= only. */}
+          <Tip
+            content={
               group.complianceScore == null
                 ? t('dashboard.tooltipNoCompliance', 'Aucune policy de conformité appliquée')
                 : t('dashboard.tooltipCompliance', 'Conformité : {{pct}}% sur {{count}} policy(ies)', { pct: Math.round(group.complianceScore), count: group.policyCount })
             }
           >
-            <ShieldCheck size={13} />
-            {group.complianceScore != null ? `${Math.round(group.complianceScore)}%` : '—'}
-          </div>
-          <div
-            className={`flex items-center gap-1 font-mono text-[12px] ${updatesColor}`}
-            title={
+            <div className={`flex items-center gap-1 font-mono text-[12px] ${complianceColor}`}>
+              <ShieldCheck size={13} />
+              {group.complianceScore != null ? `${Math.round(group.complianceScore)}%` : '—'}
+            </div>
+          </Tip>
+          <Tip
+            content={
               group.pendingUpdates === 0
                 ? t('dashboard.tooltipNoUpdates', 'Aucune MAJ en attente')
                 : t('dashboard.tooltipUpdates', '{{count}} appareil(s) avec MAJ en attente', { count: group.pendingUpdates })
             }
           >
-            <Box size={13} />
-            {group.pendingUpdates}
-          </div>
+            <div className={`flex items-center gap-1 font-mono text-[12px] ${updatesColor}`}>
+              <Box size={13} />
+              {group.pendingUpdates}
+            </div>
+          </Tip>
         </div>
       </div>
       {children && (
@@ -594,6 +628,10 @@ function OsConnectivityCard({ data }: {
 
 export function DashboardPage() {
   const { t } = useTranslation();
+  // Shared dialogs instead of window.confirm / window.prompt (no-ops in the
+  // Android WebView — docs/obli-mobile.md §5.6).
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const { fetchDevices, summary, fetchSummary, devices } = useDeviceStore();
 
   // Real-time host status (online/offline/...) by host device id, fed from the
@@ -682,10 +720,15 @@ export function DashboardPage() {
       return out;
     }, [loadHyperVms, t]);
   const handleHvAction = async (vm: VirtualMachine, action: VmAction) => {
-    if (action === 'delete' && !confirm(t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? Irreversible.`)) return;
+    if (action === 'delete' && !(await confirm({
+      message: t('hyperv.confirmDelete', { name: vm.name }) || `Delete VM "${vm.name}"? Irreversible.`,
+      danger: true,
+    }))) return;
     let params: Record<string, unknown> | undefined;
     if (action === 'checkpoint_create') {
-      const name = prompt(t('hyperv.checkpointNamePrompt') || 'Checkpoint name (optional):') ?? '';
+      const name = await prompt({ message: t('hyperv.checkpointNamePrompt') || 'Checkpoint name (optional):' });
+      // Cancel aborts (the old window.prompt went on with an unnamed checkpoint).
+      if (name === null) return;
       params = name ? { checkpointName: name } : undefined;
     }
     setHvBusyVmId(vm.vmId);
@@ -750,7 +793,11 @@ export function DashboardPage() {
       .finally(() => setTimeout(() => { loadVeeamJobs(); setVeeamRefreshing(false); }, 1200));
   }, [veeamHostIdsKey, loadVeeamJobs]);
   const handleVeeamAction = async (job: BackupJob, action: BackupJobAction) => {
-    if (action === 'stop' && !confirm(t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`)) return;
+    if (action === 'stop' && !(await confirm({
+      message: t('veeam.confirmStop', { name: job.name }) || `Stop the running job "${job.name}"? The backup will be incomplete.`,
+      danger: true,
+      confirmLabel: t('common.confirm', 'Confirm'),
+    }))) return;
     setVeeamBusyJobId(job.jobId);
     try {
       const out = await veeamApi.action(job.hostDeviceId, job.jobId, action);
@@ -913,21 +960,21 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6">
+    <PageContainer className="flex flex-col gap-5">
 
-      {/* Page header */}
-      <div className="flex items-baseline gap-4">
+      {/* Page header — wraps on narrow screens (actions go to a second line). */}
+      <div className="flex items-baseline gap-4 max-sm:flex-wrap max-sm:gap-y-2">
         <h1 className="font-display text-2xl font-semibold tracking-wide text-text-primary">
           {t('dashboard.title', 'Tableau de bord')}
         </h1>
         <span className="text-xs font-mono tracking-wider text-text-muted">
           {total} {t('dashboard.devicesManaged', 'appareils gérés')}
         </span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 max-sm:flex-wrap">
           {isAdmin && (
             <button
               onClick={openAddAgentModal}
-              className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-bg-hover hover:bg-bg-active text-[13px] font-medium text-text-primary transition-colors"
+              className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-bg-hover hover:bg-bg-active text-[13px] font-medium text-text-primary transition-colors whitespace-nowrap coarse:h-10"
             >
               <Plus size={14} />
               {t('nav.addAgent')}
@@ -935,7 +982,7 @@ export function DashboardPage() {
           )}
           <Link
             to="/devices"
-            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-accent/12 hover:bg-accent/20 text-[13px] font-medium text-accent transition-colors"
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-accent/12 hover:bg-accent/20 text-[13px] font-medium text-accent transition-colors whitespace-nowrap coarse:h-10"
           >
             {t('dashboard.allDevices', 'Voir tous les appareils')}
             <ArrowRight size={14} />
@@ -947,25 +994,16 @@ export function DashboardPage() {
           Backups tabs only show when the tenant has at least one VM / backup
           job reported by a host. */}
       {(hyperVms.length > 0 || veeamJobs.length > 0) && (
-        <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
-          {([
+        <SegmentedTabs
+          value={dashTab}
+          onChange={setDashTab}
+          ariaLabel={t('dashboard.title', 'Tableau de bord')}
+          tabs={[
             { id: 'overview' as const, label: t('dashboard.tabOverview', 'Vue d’ensemble'), icon: <LayoutDashboard size={16} /> },
-            ...(hyperVms.length > 0 ? [{ id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})`, icon: <Server size={16} /> }] : []),
-            ...(veeamJobs.length > 0 ? [{ id: 'veeam' as const, label: `${t('veeam.tabLabel') || 'Backups'} (${veeamJobs.length})`, icon: <Database size={16} /> }] : []),
-          ]).map((tb) => (
-            <button
-              key={tb.id}
-              onClick={() => setDashTab(tb.id)}
-              className={clsx(
-                'flex items-center gap-2 flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors justify-center',
-                dashTab === tb.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              {tb.icon}
-              {tb.label}
-            </button>
-          ))}
-        </div>
+            { id: 'hyperv' as const, label: `Hyper-V (${hyperVms.length})`, icon: <Server size={16} />, hidden: hyperVms.length === 0 },
+            { id: 'veeam' as const, label: `${t('veeam.tabLabel') || 'Backups'} (${veeamJobs.length})`, icon: <Database size={16} />, hidden: veeamJobs.length === 0 },
+          ]}
+        />
       )}
 
       {dashTab === 'hyperv' ? (
@@ -1102,8 +1140,8 @@ export function DashboardPage() {
       {/* Two-col row: Activity chart (2/3) + OS donut (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
         <div className="lg:col-span-2 rounded-xl bg-bg-secondary p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03),_0_6px_24px_-8px_rgba(0,0,0,0.45)]">
-          <div className="flex items-center gap-3 mb-3">
-            <div>
+          <div className="flex items-center gap-3 mb-3 max-sm:flex-wrap max-sm:gap-y-2">
+            <div className="min-w-0">
               <div className="text-[15px] font-semibold text-text-primary">
                 {t('dashboard.fleetActivity', 'Activité du parc')}
               </div>
@@ -1127,15 +1165,13 @@ export function DashboardPage() {
                 const have = r === '24h' ? hourlySeries.length : series.length;
                 const enabled = have >= need;
                 const isActive = activityRange === r;
-                return (
+                const btn = (
                   <button
                     key={r}
                     onClick={() => enabled && setActivityRange(r)}
                     disabled={!enabled}
-                    title={enabled
-                      ? r
-                      : t('dashboard.notEnoughForRange', 'Historique insuffisant ({{have}}/{{need}})', { have, need })}
-                    className={`px-2.5 py-1 text-[11px] font-mono rounded transition-colors ${
+                    title={enabled ? r : undefined}
+                    className={`px-2.5 py-1 text-[11px] font-mono rounded transition-colors coarse:min-h-9 coarse:px-3 ${
                       isActive
                         ? 'bg-bg-active text-text-primary'
                         : enabled
@@ -1143,6 +1179,13 @@ export function DashboardPage() {
                           : 'text-text-muted/40 cursor-not-allowed'
                     }`}
                   >{r}</button>
+                );
+                // A disabled range explains why in a <Tip> (hover, or tap on
+                // touch) — the reason used to be a title= only.
+                return enabled ? btn : (
+                  <Tip key={r} content={t('dashboard.notEnoughForRange', 'Historique insuffisant ({{have}}/{{need}})', { have, need })}>
+                    {btn}
+                  </Tip>
                 );
               })}
             </div>
@@ -1284,7 +1327,7 @@ export function DashboardPage() {
       </>
       )}
 
-    </div>
+    </PageContainer>
   );
 }
 
@@ -1329,7 +1372,14 @@ function renderGroupNode(
   depth: number,
 ): React.ReactNode {
   return (
-    <div key={node.groupId} style={{ paddingLeft: depth > 0 ? `${Math.min(depth, 4) * 18}px` : undefined }}>
+    <div
+      key={node.groupId}
+      className="pl-[var(--gi-sm)] sm:pl-[var(--gi)]"
+      style={{
+        ['--gi' as string]: `${Math.min(depth, 4) * 18}px`,
+        ['--gi-sm' as string]: `${Math.min(depth, 4) * 8}px`,
+      } as React.CSSProperties}
+    >
       <GroupCard group={node} depth={depth} />
       {node.children.length > 0 && (
         <div className="flex flex-col gap-2.5 mt-2.5">

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- app_name comes from resValue (the app table): brand names are not translated. -->
+    <issue id="MissingTranslation">
+        <ignore regexp="&quot;app_name&quot;" />
+        <ignore regexp="&quot;shortcut_target_package&quot;" />
+    </issue>
+</lint>

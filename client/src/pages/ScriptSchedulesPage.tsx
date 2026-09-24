@@ -1,13 +1,21 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, User, ExternalLink, Download } from 'lucide-react';
+import { Plus, Calendar, Clock, Play, Edit, Trash2, RefreshCw, ToggleLeft, ToggleRight, Terminal, ChevronDown, ChevronUp, ChevronRight, User, ExternalLink, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { scriptApi } from '@/api/script.api';
 import { scenarioApi } from '@/api/scenario.api';
-import { groupsApi } from '@/api/groups.api';
 import { useGroupStore } from '@/store/groupStore';
-import type { Script, ScriptSchedule, ScheduleTargetType, DeviceGroupTreeNode, Scenario, AutomationNotificationBinding } from '@obliance/shared';
+import type { Script, ScriptSchedule, ScheduleTargetType, Scenario, AutomationNotificationBinding } from '@obliance/shared';
 import { NotificationChannelBindings } from '@/components/automation/NotificationChannelBindings';
+import { GroupTreeMultiSelect } from '@/components/automation/GroupTreeMultiSelect';
+import { StickyFormActions, useRevealOnOpen } from '@/components/automation/FormActions';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { downloadUrl } from '@/utils/download';
+import { useCanHover } from '@/hooks/useMediaQuery';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { DeviceMultiSelect } from '@/components/common/DeviceMultiSelect';
 import { TargetTenantsPicker } from '@/components/common/TargetTenantsPicker';
@@ -91,6 +99,11 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
  );
 }
 
+/** Hint shown under a ToggleSwitch label on touch devices only (mouse users get the title= tooltip). */
+function TouchHint({ text }: { text: string }) {
+ return <span className="block can-hover:hidden">{text}</span>;
+}
+
 function formatDate(val: string | null) {
  if (!val) return '—';
  return new Date(val).toLocaleString();
@@ -141,7 +154,8 @@ function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: 
  {/* Summary row */}
  <button
  onClick={() => setOpen((v) => !v)}
- className="w-full flex items-center gap-2 text-xs px-2 py-1.5 text-left hover:bg-bg-tertiary/50 cursor-pointer"
+ aria-expanded={open}
+ className="w-full flex items-center gap-2 max-sm:flex-wrap max-sm:gap-y-1 text-xs px-2 py-1.5 coarse:py-2.5 text-left hover:bg-bg-tertiary/50 cursor-pointer"
  >
  {open
  ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
@@ -180,14 +194,22 @@ function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: 
  {open && (
  <div className="/30">
  <div className="flex justify-end px-3 py-1.5">
- <a
- href={`/api/schedules/${scheduleId}/history/${encodeURIComponent(batch.batchId)}/export`}
- onClick={(e) => e.stopPropagation()}
- className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-text-muted hover:text-accent rounded hover:bg-accent/10 transition-colors"
- title={t('schedules.exportHistory') || 'Export this run to CSV (full stdout/stderr)'}
+ {/* Authenticated server route (Content-Disposition:
+ attachment) — downloadUrl() goes through the Android
+ DownloadManager with the session cookie in the app,
+ and an <a download> in a browser. */}
+ <button
+ type="button"
+ onClick={async (e) => {
+ e.stopPropagation();
+ const ok = await downloadUrl(`/api/schedules/${scheduleId}/history/${encodeURIComponent(batch.batchId)}/export`);
+ if (!ok) toast.error(t('importExport.failedExport', 'Export failed'));
+ }}
+ className="flex items-center gap-1.5 px-2 py-1 coarse:min-h-10 coarse:px-3 text-[11px] font-medium text-text-muted hover:text-accent rounded hover:bg-accent/10 transition-colors"
+ title={t('schedules.exportHistory', 'Export this run to CSV (full stdout/stderr)')}
  >
- <Download className="w-3.5 h-3.5" /> {t('schedules.exportCsv') || 'Export CSV'}
- </a>
+ <Download className="w-3.5 h-3.5" /> {t('schedules.exportCsv', 'Export CSV')}
+ </button>
  </div>
  {items.map((r) => {
  const isExpanded = expandedExecId === r.id;
@@ -196,7 +218,7 @@ function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: 
  <div key={r.id} className="/20 last:border-b-0">
  {/* Device row */}
  <div
- className="flex items-center gap-2 text-xs px-3 py-1.5 hover:bg-bg-tertiary/30 cursor-pointer"
+ className="flex items-center gap-2 text-xs px-3 py-1.5 coarse:py-0.5 hover:bg-bg-tertiary/30 cursor-pointer"
  onClick={() => setExpandedExecId(isExpanded ? null : r.id)}
  >
  {isExpanded
@@ -210,8 +232,9 @@ function HistoryBatchRow({ batch, scheduleId }: { batch: BatchData; scheduleId: 
  <Link
  to={`/devices/${r.deviceId}`}
  onClick={(e) => e.stopPropagation()}
- className="shrink-0 text-text-muted hover:text-accent transition-colors p-0.5 rounded hover:bg-accent/10"
- title="Open device"
+ className="shrink-0 inline-flex items-center justify-center text-text-muted hover:text-accent transition-colors p-0.5 coarse:min-h-10 coarse:min-w-10 rounded hover:bg-accent/10"
+ title={t('schedules.openDevice', 'Open device')}
+ aria-label={t('schedules.openDevice', 'Open device')}
  >
  <ExternalLink className="w-3.5 h-3.5" />
  </Link>
@@ -271,6 +294,22 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  const [expandedId, setExpandedId] = useState<number | null>(null);
  const [historyByScheduleId, setHistoryByScheduleId] = useState<Record<number, Awaited<ReturnType<typeof scriptApi.getScheduleHistory>>>>({});
  const [loadingHistoryId, setLoadingHistoryId] = useState<number | null>(null);
+ const confirm = useConfirm();
+ const canHover = useCanHover();
+ // The inline form opens above the list: bring it into view on phone /
+ // tablet so tapping Edit on a lower row visibly does something.
+ const formRef = useRef<HTMLDivElement>(null);
+ useRevealOnOpen(formRef, showForm ? (editingSchedule?.id ?? 'new') : null);
+ const readOnlyReason = t('automations.readOnlyMaster', 'Managed by the Default tenant — read-only');
+ // Toggle explanations: title= tooltip with a mouse, inline caption on touch.
+ const toggleHints = {
+ enabled: t('schedules.enabledHint', 'When off, the cron loop ignores this schedule entirely — no ticks, no history.'),
+ skipIfInFlight: t('schedules.skipIfRunningHint', "On each tick, skip devices whose previous execution hasn't finished yet. Prevents overlapping runs on slow hosts."),
+ catchup: t('schedules.catchupHint', 'If the server was down during a scheduled tick, run it once the server is back (bounded by Max catchup runs).'),
+ assertPass: t('schedules.assertPassTooltip', 'When the script exits non-zero, mark the device with a "Schedule Error" status and fire a notification. Leave off for pure-metric scripts where a non-zero exit is expected behaviour.'),
+ notifyOnce: t('schedules.notifyOnceTooltip', 'Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts.'),
+ bypassPrivacy: t('schedules.privacyBypass.hint', "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings."),
+ };
 
  const loadScheduleHistory = useCallback(async (scheduleId: number) => {
  setLoadingHistoryId(scheduleId);
@@ -414,7 +453,10 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (schedule: ScriptSchedule) => {
- if (!confirm(`Delete schedule "${schedule.name}"?`)) return;
+ if (!(await confirm({
+ message: t('schedules.deleteConfirmNamed', { name: schedule.name, defaultValue: 'Delete schedule "{{name}}"?' }),
+ danger: true,
+ }))) return;
  try {
  await scriptApi.deleteSchedule(schedule.id);
  toast.success('Schedule deleted');
@@ -436,17 +478,27 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
 
 
 
+ const refreshButton = (
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ onClick={() => load(true)}
+ size="lg"
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
+ );
+
+ const closeForm = () => { setShowForm(false); setEditingSchedule(null); };
+
  return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
- {!embedded && <div className="flex items-center justify-between">
- <div>
+ <PageContainer embedded={embedded} className="space-y-6">
+ {!embedded && <div className="flex flex-wrap items-center justify-between gap-3">
+ <div className="min-w-0">
  <h1 className="text-2xl font-bold text-text-primary">Script Schedules</h1>
  <p className="text-sm text-text-muted mt-0.5">Automate script execution on a schedule</p>
  </div>
  <div className="flex gap-2">
- <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ {refreshButton}
  <button
  onClick={handleOpenCreate}
  className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
@@ -460,9 +512,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Embedded header with actions */}
  {embedded && (
  <div className="flex items-center justify-end gap-2">
- <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ {refreshButton}
  <button
  onClick={handleOpenCreate}
  className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
@@ -475,12 +525,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Form panel */}
  {showForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-5">
+ <div ref={formRef} className="bg-bg-secondary rounded-xl p-3 sm:p-4 lg:p-6 space-y-5 scroll-mt-3">
  <div className="flex items-center justify-between">
  <h2 className="text-lg font-semibold text-text-primary">{editingSchedule ? 'Edit Schedule' : 'New Schedule'}</h2>
- <div className="flex gap-2">
+ {/* Below md the Save / Cancel pair lives in the sticky bar at the bottom of the form. */}
+ <div className="hidden md:flex gap-2">
  <button
- onClick={() => { setShowForm(false); setEditingSchedule(null); }}
+ onClick={closeForm}
  className="px-4 py-2 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
  >
  Cancel
@@ -588,13 +639,17 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  onChange={(e) => setForm({ ...form, cronExpression: e.target.value })}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
  placeholder="0 2 * * *"
+ autoCapitalize="off"
+ autoCorrect="off"
+ autoComplete="off"
+ spellCheck={false}
  />
- <div className="flex flex-wrap gap-1 mt-1">
+ <div className="flex flex-wrap gap-1 coarse:gap-1.5 mt-1">
  {COMMON_CRONS.map((c) => (
  <button
  key={c.value}
  onClick={() => setForm({ ...form, cronExpression: c.value })}
- className="text-xs px-2 py-0.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+ className="text-xs px-2 py-0.5 coarse:px-2.5 coarse:py-1.5 bg-bg-tertiary rounded hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
  >
  {c.label}
  </button>
@@ -649,7 +704,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  </div>
 
- <div className="flex items-center gap-2 pt-2 ">
+ <div className="flex items-center gap-2 pt-2 max-sm:flex-wrap">
  <span className="text-sm text-text-muted whitespace-nowrap">Timeout override:</span>
  <input
  type="number"
@@ -663,7 +718,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  }}
  className="w-28 px-2 py-1 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
- <span className="text-xs text-text-muted">seconds — empty = use script default, 0 = no timeout</span>
+ <span className="text-xs text-text-muted max-sm:basis-full">seconds — empty = use script default, 0 = no timeout</span>
  </div>
 
  {/*
@@ -674,25 +729,31 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  attached via `title` on the switch — the old inline <p> pushed
  other items to a new line and misaligned the row.
  */}
- <div className="flex flex-wrap gap-x-6 gap-y-3 pt-2 items-center">
+ {/* Touch devices never see title= tooltips: there the same hint
+ is rendered under each label (hidden on mouse devices, so
+ the desktop row is unchanged). Stacked below sm. */}
+ <div className="flex flex-wrap gap-x-6 gap-y-3 pt-2 items-center max-sm:flex-col max-sm:items-stretch">
  <ToggleSwitch
  checked={form.enabled}
  onChange={(v) => setForm({ ...form, enabled: v })}
  label="Enabled"
- title="When off, the cron loop ignores this schedule entirely — no ticks, no history."
+ title={toggleHints.enabled}
+ description={<TouchHint text={toggleHints.enabled} />}
  />
  <ToggleSwitch
  checked={form.skipIfInFlight}
  onChange={(v) => setForm({ ...form, skipIfInFlight: v })}
  label="Skip if still running"
- title="On each tick, skip devices whose previous execution hasn't finished yet. Prevents overlapping runs on slow hosts."
+ title={toggleHints.skipIfInFlight}
+ description={<TouchHint text={toggleHints.skipIfInFlight} />}
  />
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 max-sm:flex-wrap">
  <ToggleSwitch
  checked={form.catchupEnabled}
  onChange={(v) => setForm({ ...form, catchupEnabled: v })}
  label="Enable catchup"
- title="If the server was down during a scheduled tick, run it once the server is back (bounded by Max catchup runs)."
+ title={toggleHints.catchup}
+ description={<TouchHint text={toggleHints.catchup} />}
  />
  {form.catchupEnabled && (
  <>
@@ -713,30 +774,32 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  checked={form.assertPass}
  onChange={(v) => setForm({ ...form, assertPass: v })}
  label="Assert pass"
- title={'When the script exits non-zero, mark the device with a "Schedule Error" status and fire a notification. Leave off for pure-metric scripts where a non-zero exit is expected behaviour.'}
+ title={toggleHints.assertPass}
+ description={<TouchHint text={toggleHints.assertPass} />}
  />
  <ToggleSwitch
  checked={form.notifyOnce}
  onChange={(v) => setForm({ ...form, notifyOnce: v })}
  label="Notify once"
- title="Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts."
+ title={toggleHints.notifyOnce}
+ description={<TouchHint text={toggleHints.notifyOnce} />}
  />
  <ToggleSwitch
  checked={form.bypassPrivacyMode}
  onChange={(v) => setForm({ ...form, bypassPrivacyMode: v })}
- label={t('schedules.privacyBypass.label') || 'Bypass privacy mode'}
- title={t('schedules.privacyBypass.hint') ||
-  "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings."}
+ label={t('schedules.privacyBypass.label', 'Bypass privacy mode')}
+ title={toggleHints.bypassPrivacy}
+ description={<TouchHint text={toggleHints.bypassPrivacy} />}
  />
  </div>
 
  {form.assertPass && (
- <div className="flex items-center gap-2 pt-1">
+ <div className="flex items-center gap-2 pt-1 max-sm:flex-col max-sm:items-stretch max-sm:gap-1">
  <span className="text-sm text-text-muted whitespace-nowrap">On failure, trigger scenario:</span>
  <select
  value={form.onFailureScenarioId ?? ''}
  onChange={(e) => setForm({ ...form, onFailureScenarioId: e.target.value ? parseInt(e.target.value, 10) : null })}
- className="px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ className="px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent max-sm:w-full max-sm:min-w-0"
  >
  <option value="">None</option>
  {scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -750,6 +813,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  onChange={(next) => setForm({ ...form, notificationChannels: next })}
  />
  </div>
+
+ <StickyFormActions
+ onCancel={closeForm}
+ onSave={handleSave}
+ saving={isSaving}
+ className="-mx-3 -mb-3 sm:-mx-4 sm:-mb-4"
+ />
  </div>
  )}
 
@@ -797,7 +867,8 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  loadScheduleHistory(schedule.id);
  }
  }}
- className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary/30 transition-colors"
+ aria-expanded={expanded}
+ className="flex items-center gap-2 md:gap-4 px-3 md:px-4 py-3 cursor-pointer hover:bg-bg-tertiary/30 transition-colors"
  >
  <span className="text-text-muted shrink-0">
  {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -807,8 +878,13 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  <span className="text-sm font-medium text-text-primary">{schedule.name}</span>
  <StatusBadge enabled={schedule.enabled} />
  {isReadOnlyForCaller(schedule) && (
+ // Tap on the badge explains why Edit / Delete are disabled.
+ <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+ <Tip content={readOnlyReason} disabled={canHover}>
  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
  🔒 Master
+ </span>
+ </Tip>
  </span>
  )}
  <TenantBadge tenantId={schedule.tenantId} />
@@ -856,29 +932,76 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Action buttons — stopPropagation so clicking them
  doesn't also toggle the expand/collapse on the row. */}
  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
- <button
- onClick={(e) => { e.stopPropagation(); handleToggle(schedule); }}
- className="text-text-muted hover:text-accent transition-colors"
- title={schedule.enabled ? 'Pause schedule' : 'Activate schedule'}
- >
- {schedule.enabled ? <ToggleRight className="w-5 h-5 text-green-400" /> : <ToggleLeft className="w-5 h-5" />}
- </button>
- <button
- onClick={(e) => { e.stopPropagation(); handleOpenEdit(schedule); }}
- disabled={isReadOnlyForCaller(schedule)}
- title={isReadOnlyForCaller(schedule) ? 'Géré par le tenant Default — lecture seule' : undefined}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
- >
- <Edit className="w-4 h-4" />
- </button>
- <button
- onClick={(e) => { e.stopPropagation(); handleDelete(schedule); }}
- disabled={isReadOnlyForCaller(schedule)}
- title={isReadOnlyForCaller(schedule) ? 'Géré par le tenant Default — lecture seule' : undefined}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ {(() => {
+ const readOnly = isReadOnlyForCaller(schedule);
+ const toggleLabel = schedule.enabled
+ ? t('schedules.pauseSchedule', 'Pause schedule')
+ : t('schedules.activateSchedule', 'Activate schedule');
+ return (
+ <>
+ {/* md+: inline icons (historic desktop look, 40 px targets on touch). */}
+ <IconButton
+ label={toggleLabel}
+ onClick={() => handleToggle(schedule)}
+ variant="plain"
+ className="hidden md:inline-flex p-0 hover:text-accent"
+ icon={schedule.enabled ? <ToggleRight className="w-5 h-5 text-green-400" /> : <ToggleLeft className="w-5 h-5" />}
+ />
+ <IconButton
+ label={t('common.edit', 'Edit')}
+ onClick={() => handleOpenEdit(schedule)}
+ disabled={readOnly}
+ title={readOnly ? readOnlyReason : undefined}
+ showTooltip={false}
+ className="hidden md:inline-flex hover:bg-bg-tertiary"
+ icon={<Edit className="w-4 h-4" />}
+ />
+ <IconButton
+ label={t('common.delete', 'Delete')}
+ onClick={() => handleDelete(schedule)}
+ disabled={readOnly}
+ title={readOnly ? readOnlyReason : undefined}
+ showTooltip={false}
+ variant="danger"
+ className="hidden md:inline-flex"
+ icon={<Trash2 className="w-4 h-4" />}
+ />
+ {/* Phone: every action in one labelled menu. */}
+ <span className="md:hidden">
+ <ActionMenu
+ label={t('ui.moreActions', 'More actions')}
+ sheetTitle={schedule.name}
+ items={[
+ {
+ key: 'toggle',
+ icon: schedule.enabled ? <ToggleRight className="w-4 h-4 text-green-400" /> : <ToggleLeft className="w-4 h-4" />,
+ label: toggleLabel,
+ onClick: () => handleToggle(schedule),
+ },
+ {
+ key: 'edit',
+ icon: <Edit className="w-4 h-4" />,
+ label: t('common.edit', 'Edit'),
+ description: readOnly ? readOnlyReason : undefined,
+ disabled: readOnly,
+ onClick: () => handleOpenEdit(schedule),
+ },
+ {
+ key: 'delete',
+ icon: <Trash2 className="w-4 h-4" />,
+ label: t('common.delete', 'Delete'),
+ description: readOnly ? readOnlyReason : undefined,
+ disabled: readOnly,
+ danger: true,
+ separator: true,
+ onClick: () => handleDelete(schedule),
+ },
+ ]}
+ />
+ </span>
+ </>
+ );
+ })()}
  </div>
  </div>
  {expanded && (
@@ -920,7 +1043,7 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  onClick={() => loadScheduleHistory(schedule.id)}
  disabled={loadingHistoryId === schedule.id}
- className="text-[10px] px-2 py-0.5 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors"
+ className="text-[10px] px-2 py-0.5 coarse:px-3 coarse:py-2 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors"
  >
  {loadingHistoryId === schedule.id ? 'Loading...' : 'Refresh'}
  </button>
@@ -950,131 +1073,6 @@ export function ScriptSchedulesPage({ embedded }: { embedded?: boolean } = {}) {
  })}
  </div>
  )}
- </div>
- );
-}
-
-// ── Inline Group Tree Multi-Select ──
-
-function GroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
- const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
- const [expanded, setExpanded] = useState<Set<number>>(new Set());
-
- useEffect(() => {
- groupsApi.tree().then((t) => {
- setTree(t);
- // Auto-expand all on first load
- const all = new Set<number>();
- const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
- walk(t);
- setExpanded(all);
- }).catch(() => {});
- }, []);
-
- // Collect all descendant IDs of a node
- const getDescendantIds = (node: DeviceGroupTreeNode): number[] => {
- const ids: number[] = [];
- for (const c of node.children) { ids.push(c.id, ...getDescendantIds(c)); }
- return ids;
- };
-
- const selected = new Set(selectedIds);
-
- // Check state for a node: 'all' | 'some' | 'none'
- const getCheckState = (node: DeviceGroupTreeNode): 'all' | 'some' | 'none' => {
- const descendants = getDescendantIds(node);
- const selfSelected = selected.has(node.id);
- if (descendants.length === 0) return selfSelected ? 'all' : 'none';
- const allIds = [node.id, ...descendants];
- const selectedCount = allIds.filter((id) => selected.has(id)).length;
- if (selectedCount === allIds.length) return 'all';
- if (selectedCount > 0) return 'some';
- return 'none';
- };
-
- const toggleNode = (node: DeviceGroupTreeNode) => {
- const descendants = getDescendantIds(node);
- const allIds = [node.id, ...descendants];
- const state = getCheckState(node);
-
- let next: Set<number>;
- if (state === 'all') {
- // Deselect all
- next = new Set(selectedIds.filter((id) => !allIds.includes(id)));
- } else {
- // Select all
- next = new Set([...selectedIds, ...allIds]);
- }
- onChange(Array.from(next));
- };
-
- const toggleExpand = (id: number) => {
- setExpanded((prev) => {
- const next = new Set(prev);
- next.has(id) ? next.delete(id) : next.add(id);
- return next;
- });
- };
-
- const renderNode = (node: DeviceGroupTreeNode, depth: number) => {
- const hasChildren = node.children.length > 0;
- const isExpanded = expanded.has(node.id);
- const state = getCheckState(node);
- const count = node.total ?? node.deviceCount ?? 0;
-
- return (
- <div key={node.id}>
- <div
- className={clsx(
- 'flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover',
- state === 'all' && 'bg-accent/5',
- )}
- style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}
- >
- <button
- onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}
- >
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
- </button>
-
- <button
- onClick={() => toggleNode(node)}
- className={clsx(
- 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
- state === 'all' ? 'bg-accent border-accent text-white' :
- state === 'some' ? 'bg-accent/30 border-accent text-white' :
- 'border-transparent hover:border-accent/50',
- )}
- >
- {state === 'all' && <Check className="w-3 h-3" />}
- {state === 'some' && <Minus className="w-3 h-3" />}
- </button>
-
- <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', state !== 'none' ? 'text-accent' : 'text-text-muted')} />
- <span
- className={clsx(
- 'flex-1 text-sm truncate cursor-pointer',
- state !== 'none' ? 'text-text-primary font-medium' : 'text-text-primary',
- )}
- onClick={() => toggleNode(node)}
- >
- {node.name}
- </span>
- <span className="text-text-muted text-[10px] shrink-0">{count}</span>
- </div>
- {hasChildren && isExpanded && node.children.map((c) => renderNode(c, depth + 1))}
- </div>
- );
- };
-
- if (tree.length === 0) {
- return <p className="text-sm text-text-muted py-2">No groups available</p>;
- }
-
- return (
- <div className="rounded-lg bg-bg-tertiary max-h-60 overflow-y-auto py-1">
- {tree.map((n) => renderNode(n, 0))}
- </div>
+ </PageContainer>
  );
 }

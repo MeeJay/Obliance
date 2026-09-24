@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single-colour brand mark (tinted by the UI). Overridden per flavor. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:pathData="M24,6a18,18 0 1,1 0,36a18,18 0 1,1 0,-36z"
+        android:strokeWidth="7"
+        android:strokeColor="#FFFFFFFF" />
+</vector>

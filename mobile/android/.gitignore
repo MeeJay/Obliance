@@ -1,0 +1,21 @@
+# Machine-specific: SDK path and signing secrets. NEVER commit.
+local.properties
+
+# Gradle / Kotlin state and build outputs
+.gradle/
+.kotlin/
+build/
+**/build/
+
+# Signing material must never live in the repository
+*.jks
+*.keystore
+keystore.properties
+.secrets/
+
+# IDE / tooling
+captures/
+.idea/
+*.iml
+.externalNativeBuild/
+.cxx/

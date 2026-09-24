@@ -19,7 +19,17 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'esnext',
+    // Syntax target (no polyfills) = Vite's "modules" baseline: the oldest
+    // engines Vite supports without @vitejs/plugin-legacy. 'esnext' shipped
+    // whatever syntax src/ and deps contain untransformed, so an old or
+    // non-updatable Android System WebView (Android app, docs/obli-mobile.md)
+    // could fail to PARSE the single bundle: white screen, no way to recover.
+    // Lower buys nothing: the Tailwind layout already needs flex `gap` (Chrome 84).
+    // 'esnext' was set for @novnc/novnc (top-level await), no longer imported.
+    // If a top-level await ever comes back, the build fails loudly: then add
+    // `esbuild: { supported: { 'top-level-await': true } }` (Chrome 89+)
+    // instead of going back to 'esnext'.
+    target: ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'],
   },
   server: {
     port: 5173,

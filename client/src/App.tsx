@@ -30,6 +30,7 @@ import { SecurityPage } from '@/pages/SecurityPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { DownloadPage } from '@/pages/DownloadPage';
 import { TwoFactorGate } from '@/components/common/TwoFactorGate';
+import { ConfirmProvider } from '@/components/common/ConfirmDialog';
 import '@/i18n';
 
 export default function App() {
@@ -109,7 +110,16 @@ export default function App() {
 
  <Toaster
  position="top-right"
- containerStyle={nativeTop ? { top: nativeTop + 8 } : undefined}
+ // Safe-area offsets (status bar / notch / gesture bar in the Android
+ // shell, landscape cut-outs). The insets are 0 on desktop, so these
+ // resolve to react-hot-toast's own 16 px defaults (or the ObliTools
+ // tab-bar offset) — same position as before.
+ containerStyle={{
+ top: `calc(${nativeTop ? nativeTop + 8 : 16}px + var(--safe-top))`,
+ right: 'calc(16px + var(--safe-right))',
+ bottom: 'calc(16px + var(--safe-bottom))',
+ left: 'calc(16px + var(--safe-left))',
+ }}
  toastOptions={{
  className: '!bg-bg-secondary !text-text-primary !border !border-transparent',
  duration: 4000,
@@ -119,6 +129,9 @@ export default function App() {
  {/* Singleton modal that pops whenever the server replies
  401 twoFactorRequired — no need to wire anything at call sites. */}
  <TwoFactorGate />
+ {/* Host for useConfirm() / usePrompt() / confirmDialog() / promptDialog()
+ (docs/obli-mobile.md §8) — replaces window.confirm / window.prompt. */}
+ <ConfirmProvider />
  </BrowserRouter>
  );
 }

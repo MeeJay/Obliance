@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, X, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ShieldCheck, Loader2 } from 'lucide-react';
+import { Modal } from './Modal';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 
 // Modal shown when a server response says `twoFactorRequired: true` on a
 // sensitive action. The caller provides:
@@ -10,6 +13,14 @@ import { ShieldCheck, X, Loader2 } from 'lucide-react';
 // The modal focuses the input, validates 6 digits, disables submit while
 // pending, and renders server errors inline so the user can retry without
 // losing context.
+//
+// Built on the shared Modal (portal, focus trap, scroll lock, Escape and
+// Android back = cancel). Same look as before on desktop (z-[300] above the
+// other dialogs, bg-black/70, max-w-sm card). The body scrolls and the
+// Verify / Cancel bar stays pinned under it, so the button remains reachable
+// with the numeric keyboard up (phone landscape, split-screen tablet). On a
+// touch screen a stray backdrop tap (e.g. to dismiss the keyboard) does NOT
+// cancel the pending request.
 
 export function TwoFactorPromptModal({
  actionLabel,
@@ -25,6 +36,8 @@ export function TwoFactorPromptModal({
  onClose: () => void;
  onSubmit: (code: string, opts: { trustIp: boolean }) => Promise<void>;
 }) {
+ const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
  const [code, setCode] = useState('');
  const [trustIp, setTrustIp] = useState(false); // explicit opt-in
  const [busy, setBusy] = useState(false);
@@ -36,7 +49,7 @@ export function TwoFactorPromptModal({
  const submit = async () => {
  setError(null);
  if (!/^\d{6}$/.test(code)) {
- setError('Enter a 6-digit TOTP code from your authenticator app.');
+ setError(t('twoFactorPrompt.invalidFormat', 'Enter a 6-digit TOTP code from your authenticator app.'));
  return;
  }
  setBusy(true);
@@ -44,7 +57,7 @@ export function TwoFactorPromptModal({
  await onSubmit(code, { trustIp });
  onClose();
  } catch (err: any) {
- setError(err?.response?.data?.error || err?.message || 'Verification failed');
+ setError(err?.response?.data?.error || err?.message || t('twoFactorPrompt.failed', 'Verification failed'));
  setCode('');
  requestAnimationFrame(() => inputRef.current?.focus());
  } finally {
@@ -53,22 +66,42 @@ export function TwoFactorPromptModal({
  };
 
  return (
- <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
- <div
- className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-sm mx-4"
- onClick={(e) => e.stopPropagation()}
+ <Modal
+ open
+ onClose={onClose}
+ title={t('twoFactorPrompt.title', 'Sensitive action')}
+ icon={<ShieldCheck className="w-4 h-4 text-accent" />}
+ size="sm"
+ phoneLayout="center"
+ closeOnBackdrop={!coarse}
+ overlayClassName="z-[300] bg-black/70"
+ className="max-w-sm sm:max-w-sm"
+ bodyClassName="py-4 space-y-3"
+ footer={
+ <>
+ <button
+ type="button"
+ onClick={onClose}
+ disabled={busy}
+ className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary disabled:opacity-50 coarse:min-h-10 coarse:px-4"
  >
- <div className="px-4 py-3 flex items-center gap-2">
- <ShieldCheck className="w-4 h-4 text-accent" />
- <span className="text-sm font-semibold text-text-primary">Sensitive action</span>
- <button onClick={onClose} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ {t('common.cancel', 'Cancel')}
  </button>
- </div>
- <div className="px-4 py-4 space-y-3">
+ <button
+ type="button"
+ onClick={submit}
+ disabled={busy || code.length !== 6}
+ className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5 coarse:min-h-10 coarse:px-4"
+ >
+ {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+ {t('twoFactorPrompt.verify', 'Verify & execute')}
+ </button>
+ </>
+ }
+ >
  <p className="text-xs text-text-muted">
- <strong className="text-text-primary">{actionLabel}</strong> is marked sensitive by your tenant admin.
- Enter your current 6-digit TOTP code to confirm.
+ <strong className="text-text-primary">{actionLabel}</strong>{' '}
+ {t('twoFactorPrompt.description', 'is marked sensitive by your tenant admin. Enter your current 6-digit TOTP code to confirm.')}
  </p>
  <input
  ref={inputRef}
@@ -77,6 +110,8 @@ export function TwoFactorPromptModal({
  maxLength={6}
  pattern="\d{6}"
  autoComplete="one-time-code"
+ enterKeyHint="go"
+ aria-label={t('twoFactorPrompt.codeLabel', 'TOTP code')}
  value={code}
  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
  onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
@@ -86,7 +121,7 @@ export function TwoFactorPromptModal({
  {/* Explicit opt-in: skip the prompt for 24h for THIS user + THIS
  IP only. If the cookie is stolen from a different IP the
  trust does not follow — a step-up is still required. */}
- <label className="flex items-start gap-2 cursor-pointer select-none">
+ <label className="flex items-start gap-2 cursor-pointer select-none coarse:py-1">
  <input
  type="checkbox"
  checked={trustIp}
@@ -94,35 +129,16 @@ export function TwoFactorPromptModal({
  className="mt-0.5 accent-accent"
  />
  <span className="text-[11px] text-text-muted">
- Trust this IP for 24h
+ {t('twoFactorPrompt.trustIp', 'Trust this IP for 24h')}
  {currentIp && (
  <span className="block font-mono text-[10px] text-text-primary/80 mt-0.5">{currentIp}</span>
  )}
  <span className="block text-[10px] text-text-muted/70 mt-0.5">
- Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile.
+ {t('twoFactorPrompt.trustIpHint', 'Skips the TOTP prompt for sensitive actions from this IP only. Revocable any time from your profile.')}
  </span>
  </span>
  </label>
  {error && <p className="text-xs text-red-400">{error}</p>}
- </div>
- <div className="px-4 py-3 flex justify-end gap-2">
- <button
- onClick={onClose}
- disabled={busy}
- className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary disabled:opacity-50"
- >
- Cancel
- </button>
- <button
- onClick={submit}
- disabled={busy || code.length !== 6}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5"
- >
- {busy && <Loader2 className="w-3 h-3 animate-spin" />}
- Verify & execute
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }

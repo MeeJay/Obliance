@@ -18,7 +18,6 @@ import {
  ChevronDown,
  Eye,
  Building2,
- X,
 } from 'lucide-react';
 import type {
  User,
@@ -40,6 +39,15 @@ import { useTenantStore } from '@/store/tenantStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { ToggleSwitch as SharedToggleSwitch } from '@/components/common/ToggleSwitch';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
+import { MasterDetail } from '@/components/common/MasterDetail';
+import { Drawer } from '@/components/common/Drawer';
+import { Modal } from '@/components/common/Modal';
+import { SegmentedTabs, type SegmentedTab } from '@/components/common/SegmentedTabs';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { MEDIA, useIsCoarsePointer, useMediaQuery } from '@/hooks/useMediaQuery';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 // `NotificationsPage` is now rendered from /policies (see PoliciesPage).
@@ -57,8 +65,14 @@ type UserFormMode = 'create' | 'edit' | 'password' | null;
 type TeamFormMode = 'create' | 'edit' | null;
 type TenantDraft = Record<number, { isMember: boolean; role: 'admin' | 'member' }>;
 
+// Row actions: inline icons from md (hover-revealed with a mouse, always
+// visible on touch), everything in a "⋯" menu below md.
+const ROW_ACTION_CLS = 'hidden md:inline-flex shrink-0 can-hover:opacity-0 can-hover:group-hover:opacity-100';
+
 export function AdminUsersPage() {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const isWide = useMediaQuery(MEDIA.lg);
  const { user: currentUser } = useAuthStore();
  const isPlatformAdmin = currentUser?.role === 'admin';
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
@@ -246,7 +260,7 @@ export function AdminUsersPage() {
  };
 
  const handleDeleteUser = async (user: User) => {
- if (!confirm(t('users.confirmDelete', { username: user.username }))) return;
+ if (!(await confirm({ message: t('users.confirmDelete', { username: user.username }), danger: true }))) return;
  try {
  await usersApi.delete(user.id);
  toast.success(t('users.deleted'));
@@ -257,7 +271,7 @@ export function AdminUsersPage() {
  };
 
  const handleResetMfa = async (user: User) => {
- if (!confirm(t('users.confirmResetMfa', { username: user.username }))) return;
+ if (!(await confirm({ message: t('users.confirmResetMfa', { username: user.username }), danger: true, confirmLabel: t('users.resetMfa') }))) return;
  try {
  await usersApi.resetMfa(user.id);
  toast.success(t('users.mfaReset', { username: user.username }));
@@ -334,7 +348,7 @@ export function AdminUsersPage() {
  };
 
  const handleDeleteTeam = async (team: UserTeam) => {
- if (!confirm(t('users.teams.confirmDelete', { name: team.name }))) return;
+ if (!(await confirm({ message: t('users.teams.confirmDelete', { name: team.name }), danger: true }))) return;
  try {
  await teamsApi.delete(team.id);
  toast.success(t('users.teams.deleted'));
@@ -479,6 +493,50 @@ export function AdminUsersPage() {
  };
 
  const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+ const teamDetailOpen = !!selectedTeam && tab === 'teams';
+
+ // The inline create/edit forms render above the list: on narrow screens
+ // (one pane, long list) bring them into view after a row action.
+ const revealForm = () => {
+ if (isWide) return;
+ requestAnimationFrame(() => {
+ document.getElementById('admin-users-form')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+ });
+ };
+
+ const startEditUser = (user: User) => {
+ setEditingUser(user); setFormUsername(user.username); setFormDisplayName(user.displayName || ''); setFormRole(user.role); setUserFormMode('edit');
+ revealForm();
+ };
+ const startPasswordUser = (user: User) => {
+ setEditingUser(user); setFormPassword(''); setUserFormMode('password');
+ revealForm();
+ };
+ const startEditTeam = (team: UserTeam) => {
+ setEditingTeam(team); setFormTeamName(team.name); setFormTeamDesc(team.description || ''); setFormCanCreate(team.canCreate); setTeamFormMode('edit');
+ revealForm();
+ };
+
+ const userMenuItems = (user: User): ActionMenuItem[] => {
+ const hasMfa = !!(user.totpEnabled || user.emailOtpEnabled);
+ const isLocal = user.foreignSource !== 'obligate';
+ const canManage = user.id !== currentUser?.id && isLocal;
+ return [
+ { key: 'edit', icon: <Pencil size={16} />, label: t('common.edit'), onClick: () => startEditUser(user), hidden: !isLocal },
+ { key: 'password', icon: <Key size={16} />, label: t('users.actions.password', 'Change password'), onClick: () => startPasswordUser(user), hidden: !canManage },
+ { key: 'tenants', icon: <Building2 size={16} />, label: t('users.actions.tenants', 'Manage tenant access'), onClick: () => openTenantPanel(user), hidden: !isLocal },
+ { key: 'active', icon: user.isActive ? <UserX size={16} /> : <UserIcon size={16} />, label: user.isActive ? t('common.disable') : t('common.enable'), onClick: () => handleToggleActive(user), hidden: !canManage },
+ { key: 'mfa', icon: <ShieldOff size={16} />, label: t('users.resetMfa'), onClick: () => handleResetMfa(user), hidden: !hasMfa, danger: true, separator: true },
+ { key: 'delete', icon: <Trash2 size={16} />, label: t('common.delete'), onClick: () => handleDeleteUser(user), hidden: !canManage, danger: true, separator: !hasMfa },
+ ];
+ };
+
+ const mainTabs: SegmentedTab<Tab>[] = [
+ { id: 'users', label: t('users.tabUsers'), icon: <UserIcon size={14} /> },
+ { id: 'teams', label: t('users.tabTeams'), icon: <Users size={14} /> },
+ { id: 'permissionSets', label: t('users.tabPermissionSets', 'Permissions'), icon: <Shield size={14} /> },
+ { id: 'restrictions', label: t('users.tabRestrictions', 'Restrictions'), icon: <ShieldAlert size={14} /> },
+ ];
 
  // Build sets for quick lookup
  const assignedGroupIds = new Set(teamPermissions.filter((p) => p.scope === 'group').map((p) => p.scopeId));
@@ -529,56 +587,20 @@ export function AdminUsersPage() {
 
  return (
  <>
- <div className="flex gap-6 p-6 h-full min-w-0 w-full">
- {/* Left panel — full-width friendly */}
- <div className="flex-1 min-w-0">
+ {/* Users/Teams list (master) + team detail. Side by side from lg
+     (unchanged desktop layout: gap-6, 1:2 ratio, sticky detail);
+     one pane at a time below lg, with a back button. */}
+ <MasterDetail
+ className="w-full h-full p-3 sm:p-4 lg:p-6 lg:gap-6 lg:items-stretch"
+ masterClassName="lg:flex-1"
+ detailClassName={teamDetailOpen ? 'lg:flex-[2]' : 'lg:flex-[2] lg:hidden'}
+ hasDetail={teamDetailOpen}
+ onBack={() => setSelectedTeamId(null)}
+ detailTitle={selectedTeam?.name}
+ master={
+ <>
  {/* Tab switcher */}
- <div className="flex items-center gap-1 mb-4 rounded-lg bg-bg-secondary p-1 border border-transparent">
- <button
- onClick={() => setTab('users')}
- className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
- tab === 'users'
- ? 'bg-accent text-white'
- : 'text-text-muted hover:text-text-primary'
- }`}
- >
- <UserIcon size={14} className="inline mr-1.5" />
- {t('users.tabUsers')}
- </button>
- <button
- onClick={() => setTab('teams')}
- className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
- tab === 'teams'
- ? 'bg-accent text-white'
- : 'text-text-muted hover:text-text-primary'
- }`}
- >
- <Users size={14} className="inline mr-1.5" />
- {t('users.tabTeams')}
- </button>
- <button
- onClick={() => setTab('permissionSets')}
- className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
- tab === 'permissionSets'
- ? 'bg-accent text-white'
- : 'text-text-muted hover:text-text-primary'
- }`}
- >
- <Shield size={14} className="inline mr-1.5" />
- {t('users.tabPermissionSets', 'Permissions')}
- </button>
- <button
- onClick={() => setTab('restrictions')}
- className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
- tab === 'restrictions'
- ? 'bg-accent text-white'
- : 'text-text-muted hover:text-text-primary'
- }`}
- >
- <ShieldAlert size={14} className="inline mr-1.5" />
- {t('users.tabRestrictions', 'Restrictions')}
- </button>
- </div>
+ <SegmentedTabs tabs={mainTabs} value={tab} onChange={setTab} className="mb-4" tabClassName="gap-1.5" />
 
  {tab === 'restrictions' && <RestrictionsTab />}
 
@@ -599,7 +621,7 @@ export function AdminUsersPage() {
 
  {/* User form */}
  {(userFormMode === 'create' || userFormMode === 'edit') && (
- <div className="mb-4 rounded-lg bg-bg-secondary p-4">
+ <div id="admin-users-form" className="mb-4 rounded-lg bg-bg-secondary p-4 scroll-mt-4">
  <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
  {userFormMode === 'create' ? t('users.newUser') : t('users.editUser', { username: editingUser?.username })}
  </h3>
@@ -626,7 +648,7 @@ export function AdminUsersPage() {
  )}
 
  {userFormMode === 'password' && editingUser && (
- <div className="mb-4 rounded-lg bg-bg-secondary p-4">
+ <div id="admin-users-form" className="mb-4 rounded-lg bg-bg-secondary p-4 scroll-mt-4">
  <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
  {t('users.changePasswordTitle', { username: editingUser.username })}
  </h3>
@@ -669,47 +691,74 @@ export function AdminUsersPage() {
  </div>
  </div>
  {(user.totpEnabled || user.emailOtpEnabled) && (
- <button
+ <IconButton
+ label={t('users.resetMfa')}
+ icon={<ShieldOff size={13} />}
+ size="sm"
+ variant="plain"
  onClick={() => handleResetMfa(user)}
- className="shrink-0 p-1 text-status-down hover:text-status-down/80 opacity-0 group-hover:opacity-100"
- title={t('users.resetMfa')}
- >
- <ShieldOff size={13} />
- </button>
+ className={`${ROW_ACTION_CLS} text-status-down hover:text-status-down/80`}
+ />
  )}
  {user.id !== currentUser?.id && user.foreignSource !== 'obligate' && (
  <>
- <button onClick={() => { setEditingUser(user); setFormPassword(''); setUserFormMode('password'); }}
- className="shrink-0 p-1 text-text-muted hover:text-accent opacity-0 group-hover:opacity-100" title="Password">
- <Key size={13} />
- </button>
- <button onClick={() => handleToggleActive(user)}
- className="shrink-0 p-1 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100" title={user.isActive ? t('common.disable') : t('common.enable')}>
- {user.isActive ? <UserX size={13} /> : <UserIcon size={13} />}
- </button>
+ <IconButton
+ label={t('users.actions.password', 'Change password')}
+ icon={<Key size={13} />}
+ size="sm"
+ variant="plain"
+ onClick={() => startPasswordUser(user)}
+ className={`${ROW_ACTION_CLS} hover:text-accent`}
+ />
+ <IconButton
+ label={user.isActive ? t('common.disable') : t('common.enable')}
+ icon={user.isActive ? <UserX size={13} /> : <UserIcon size={13} />}
+ size="sm"
+ variant="plain"
+ onClick={() => handleToggleActive(user)}
+ className={ROW_ACTION_CLS}
+ />
  </>
  )}
  {user.foreignSource !== 'obligate' && (
- <button onClick={() => { setEditingUser(user); setFormUsername(user.username); setFormDisplayName(user.displayName || ''); setFormRole(user.role); setUserFormMode('edit'); }}
- className="shrink-0 p-1 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100" title={t('common.edit')}>
- <Pencil size={13} />
- </button>
+ <IconButton
+ label={t('common.edit')}
+ icon={<Pencil size={13} />}
+ size="sm"
+ variant="plain"
+ onClick={() => startEditUser(user)}
+ className={ROW_ACTION_CLS}
+ />
  )}
  {/* Tenant assignment button — hidden for SSO users (managed from Obligate) */}
  {user.foreignSource !== 'obligate' && (
- <button
+ <IconButton
+ label={t('users.actions.tenants', 'Manage tenant access')}
+ icon={<Building2 size={13} />}
+ size="sm"
+ variant="plain"
  onClick={() => openTenantPanel(user)}
- className="shrink-0 p-1 text-text-muted hover:text-accent opacity-0 group-hover:opacity-100"
- title="Manage tenant access"
- >
- <Building2 size={13} />
- </button>
+ className={`${ROW_ACTION_CLS} hover:text-accent`}
+ />
  )}
  {user.id !== currentUser?.id && user.foreignSource !== 'obligate' && (
- <button onClick={() => handleDeleteUser(user)}
- className="shrink-0 p-1 text-text-muted hover:text-status-down opacity-0 group-hover:opacity-100" title={t('common.delete')}>
- <Trash2 size={13} />
- </button>
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 size={13} />}
+ size="sm"
+ variant="plain"
+ onClick={() => handleDeleteUser(user)}
+ className={`${ROW_ACTION_CLS} hover:text-status-down`}
+ />
+ )}
+ {/* Phone: every action in one menu. */}
+ {userMenuItems(user).some((i) => !i.hidden) && (
+ <ActionMenu
+ items={userMenuItems(user)}
+ sheetTitle={user.username.startsWith('og_') ? user.username.slice(3) : user.username}
+ triggerSize="sm"
+ triggerClassName="md:hidden shrink-0"
+ />
  )}
  </div>
  ))}
@@ -747,19 +796,19 @@ export function AdminUsersPage() {
  <div className="flex items-center gap-1 mb-3 overflow-x-auto pb-1">
  <button
  onClick={() => setTeamTenantFilter('all')}
- className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+ className={`shrink-0 px-3 py-1 coarse:py-2 rounded-full text-xs font-medium transition-colors ${
  teamTenantFilter === 'all'
  ? 'bg-accent text-white'
  : 'bg-bg-secondary border border-transparent text-text-muted hover:text-text-primary'
  }`}
  >
- All
+ {t('common.all')}
  </button>
  {teamTenants.map((tenant) => (
  <button
  key={tenant.id}
  onClick={() => setTeamTenantFilter(tenant.id)}
- className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+ className={`shrink-0 px-3 py-1 coarse:py-2 rounded-full text-xs font-medium transition-colors ${
  teamTenantFilter === tenant.id
  ? 'bg-accent text-white'
  : 'bg-bg-secondary border border-transparent text-text-muted hover:text-text-primary'
@@ -774,7 +823,7 @@ export function AdminUsersPage() {
 
  {/* Team form */}
  {(teamFormMode === 'create' || teamFormMode === 'edit') && (
- <div className="mb-4 rounded-lg bg-bg-secondary p-4">
+ <div id="admin-users-form" className="mb-4 rounded-lg bg-bg-secondary p-4 scroll-mt-4">
  <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
  {teamFormMode === 'create' ? t('users.teams.newTeam') : t('users.teams.editTeam', { name: editingTeam?.name })}
  </h3>
@@ -854,16 +903,35 @@ export function AdminUsersPage() {
  <p className="text-xs text-text-muted truncate">{team.description}</p>
  )}
  </div>
- <button
- onClick={(e) => { e.stopPropagation(); setEditingTeam(team); setFormTeamName(team.name); setFormTeamDesc(team.description || ''); setFormCanCreate(team.canCreate); setTeamFormMode('edit'); }}
- className="shrink-0 p-1 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100">
- <Pencil size={13} />
- </button>
- <button
+ <IconButton
+ label={t('common.edit')}
+ icon={<Pencil size={13} />}
+ size="sm"
+ variant="plain"
+ showTooltip={false}
+ onClick={(e) => { e.stopPropagation(); startEditTeam(team); }}
+ className={ROW_ACTION_CLS}
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 size={13} />}
+ size="sm"
+ variant="plain"
+ showTooltip={false}
  onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team); }}
- className="shrink-0 p-1 text-text-muted hover:text-status-down opacity-0 group-hover:opacity-100">
- <Trash2 size={13} />
- </button>
+ className={`${ROW_ACTION_CLS} hover:text-status-down`}
+ />
+ {/* Phone: actions in a menu — clicks (portal included) must not select the row. */}
+ <span className="md:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
+ <ActionMenu
+ sheetTitle={team.name}
+ triggerSize="sm"
+ items={[
+ { key: 'edit', icon: <Pencil size={16} />, label: t('common.edit'), onClick: () => startEditTeam(team) },
+ { key: 'delete', icon: <Trash2 size={16} />, label: t('common.delete'), onClick: () => handleDeleteTeam(team), danger: true, separator: true },
+ ]}
+ />
+ </span>
  <ChevronRight size={14} className="shrink-0 text-text-muted" />
  </div>
  ))
@@ -871,13 +939,12 @@ export function AdminUsersPage() {
  </div>
  </>
  )}
- </div>
-
- {/* Right panel — Team details */}
- {selectedTeam && tab === 'teams' && (
- <div className="flex-[2] min-w-0">
- <div className="sticky top-6">
- <h2 className="text-lg font-semibold text-text-primary mb-1">{selectedTeam.name}</h2>
+ </>
+ }
+ detail={selectedTeam && tab === 'teams' ? (
+ <div className="lg:sticky lg:top-6">
+ {/* Below lg the name is in MasterDetail's back bar. */}
+ <h2 className="hidden lg:block text-lg font-semibold text-text-primary mb-1">{selectedTeam.name}</h2>
  {selectedTeam.description && (
  <p className="text-sm text-text-muted mb-4">{selectedTeam.description}</p>
  )}
@@ -904,26 +971,34 @@ export function AdminUsersPage() {
 
  {/* Members panel */}
  {rightTab === 'members' && (
- <div className="rounded-lg bg-bg-secondary divide-y divide-border max-h-[60vh] overflow-y-auto">
+ <div className="rounded-lg bg-bg-secondary divide-y divide-border lg:max-h-[60vh] lg:max-h-[60dvh] lg:overflow-y-auto">
  {users.filter((u) => u.role !== 'admin').length === 0 ? (
  <p className="p-4 text-sm text-text-muted text-center">{t('users.teams.noUsers')}</p>
  ) : (
  users.filter((u) => u.role !== 'admin').map((user) => {
  const isMember = teamMembers.includes(user.id);
  return (
- <label key={user.id} className="flex items-center gap-3 px-3 py-2 hover:bg-bg-hover cursor-pointer">
+ // The whole row toggles membership (was: only the 16px box).
  <div
- className={`flex h-4 w-4 items-center justify-center rounded border shrink-0 ${
+ key={user.id}
+ role="checkbox"
+ aria-checked={isMember}
+ tabIndex={0}
+ onClick={() => toggleMember(user.id)}
+ onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleMember(user.id); } }}
+ className="flex items-center gap-3 px-3 py-2 coarse:min-h-11 hover:bg-bg-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+ >
+ <div
+ className={`flex h-4 w-4 coarse:h-5 coarse:w-5 items-center justify-center rounded border shrink-0 ${
  isMember ? 'border-accent bg-accent' : 'border-transparent bg-bg-tertiary'
  }`}
- onClick={(e) => { e.preventDefault(); toggleMember(user.id); }}
  >
  {isMember && <Check size={12} className="text-white" />}
  </div>
- <span className="text-sm text-text-primary">{user.username}</span>
+ <span className="text-sm text-text-primary min-w-0 break-all">{user.username}</span>
  {user.displayName && <span className="text-xs text-text-muted">({user.displayName})</span>}
  {!user.isActive && <span className="text-[10px] text-status-down">{t('users.disabled')}</span>}
- </label>
+ </div>
  );
  })
  )}
@@ -932,7 +1007,7 @@ export function AdminUsersPage() {
 
  {/* Permissions panel — Hierarchical tree */}
  {rightTab === 'permissions' && (
- <div className="rounded-lg bg-bg-secondary max-h-[70vh] overflow-y-auto">
+ <div className="rounded-lg bg-bg-secondary lg:max-h-[70vh] lg:max-h-[70dvh] lg:overflow-y-auto">
  {tree.length === 0 && ungroupedDevices.length === 0 ? (
  <p className="p-4 text-sm text-text-muted text-center">{t('users.teams.noResources')}</p>
  ) : (
@@ -989,42 +1064,38 @@ export function AdminUsersPage() {
  </div>
  )}
  </div>
- </div>
- )}
- </div>
+ ) : null}
+ />
 
  {/* ── Tenant Assignment Panel ── */}
- {tenantPanelUser && (
+ {/* Shared Drawer: full width on phones (max-w-full), Escape / Android
+     back close it; w-96 + bg-primary + lighter backdrop = previous look. */}
+ <Drawer
+ open={!!tenantPanelUser}
+ onClose={closeTenantPanel}
+ side="right"
+ className="w-96 max-w-full bg-bg-primary shadow-xl"
+ overlayClassName="bg-black/40 backdrop-blur-none"
+ bodyClassName="p-4 space-y-2"
+ icon={<Building2 size={16} className="text-accent shrink-0" />}
+ title={
+ <span className="block">
+ <span className="block truncate">{t('users.tenantPanel.title', 'Tenants')}</span>
+ <span className="block truncate text-xs font-normal text-text-muted">{tenantPanelUser?.username}</span>
+ </span>
+ }
+ footer={tenantPanelUser?.role !== 'admin' ? (
  <>
- {/* Backdrop */}
- <div
- className="fixed inset-0 bg-black/40 z-40"
- onClick={closeTenantPanel}
- />
- {/* Slide-in panel */}
- <div className="fixed right-0 top-0 bottom-0 w-96 bg-bg-primary shadow-xl z-50 flex flex-col">
- {/* Header */}
- <div className="flex items-center justify-between px-4 py-3 shrink-0">
- <div className="flex items-center gap-2">
- <Building2 size={16} className="text-accent" />
- <div>
- <h3 className="text-sm font-semibold text-text-primary">Tenants</h3>
- <p className="text-xs text-text-muted">{tenantPanelUser.username}</p>
- </div>
- </div>
- <button
- onClick={closeTenantPanel}
- className="p-1 text-text-muted hover:text-text-primary rounded"
+ <Button size="sm" variant="secondary" onClick={closeTenantPanel}>{t('common.cancel')}</Button>
+ <Button size="sm" loading={tenantSaving} onClick={saveTenantAssignments}>{t('common.save')}</Button>
+ </>
+ ) : (
+ <Button size="sm" variant="secondary" onClick={closeTenantPanel}>{t('common.close')}</Button>
+ )}
  >
- <X size={16} />
- </button>
- </div>
-
- {/* Body */}
- <div className="flex-1 overflow-y-auto p-4 space-y-2">
- {tenantPanelLoading ? (
+ {tenantPanelUser && (tenantPanelLoading ? (
  <div className="flex items-center justify-center py-8">
- <div className="text-sm text-text-muted">Loading…</div>
+ <div className="text-sm text-text-muted">{t('common.loading')}</div>
  </div>
  ) : tenantPanelUser.role === 'admin' ? (
  /* Platform admin notice */
@@ -1032,12 +1103,12 @@ export function AdminUsersPage() {
  <div className="flex items-start gap-2">
  <Shield size={14} className="text-accent mt-0.5 shrink-0" />
  <p className="text-xs text-text-secondary">
- Platform admins automatically access all tenants. No per-tenant assignment is needed.
+ {t('users.tenantPanel.adminNotice', 'Platform admins automatically access all tenants. No per-tenant assignment is needed.')}
  </p>
  </div>
  </div>
  ) : tenantAssignments.length === 0 ? (
- <p className="text-sm text-text-muted text-center py-8">No tenants available</p>
+ <p className="text-sm text-text-muted text-center py-8">{t('users.tenantPanel.none', 'No tenants available')}</p>
  ) : (
  tenantAssignments.map((assignment) => {
  const draft = tenantDraft[assignment.tenantId] ?? { isMember: assignment.isMember, role: assignment.role };
@@ -1053,16 +1124,17 @@ export function AdminUsersPage() {
  <Building2 size={14} className={draft.isMember ? 'text-accent shrink-0' : 'text-text-muted shrink-0'} />
  <span className="text-sm font-medium text-text-primary truncate">{assignment.tenantName}</span>
  </div>
- {/* Toggle switch */}
+ {/* Toggle switch (invisible 40px+ hit area on touch) */}
  <button
  onClick={() => toggleTenantMember(assignment.tenantId)}
- className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors ${
+ className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-[''] ${
  draft.isMember
  ? 'border-accent bg-accent'
  : 'border-transparent bg-bg-tertiary'
  }`}
  role="switch"
  aria-checked={draft.isMember}
+ aria-label={assignment.tenantName}
  >
  <span
  className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform mt-px ${
@@ -1073,51 +1145,37 @@ export function AdminUsersPage() {
  </div>
  {/* Role buttons — only when assigned */}
  {draft.isMember && (
- <div className="flex items-center gap-1 mt-2">
- <span className="text-[10px] text-text-muted mr-1">Role:</span>
+ <div className="flex items-center gap-1 coarse:gap-2 mt-2">
+ <span className="text-[10px] text-text-muted mr-1">{t('users.tenantPanel.role', 'Role:')}</span>
  <button
  onClick={() => setTenantRole(assignment.tenantId, 'member')}
- className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+ aria-pressed={draft.role === 'member'}
+ className={`px-2 py-0.5 coarse:px-3 coarse:py-2 rounded text-[11px] font-medium transition-colors ${
  draft.role === 'member'
  ? 'bg-bg-tertiary text-text-primary border border-transparent'
  : 'text-text-muted hover:bg-bg-hover'
  }`}
  >
- Member
+ {t('users.tenantPanel.member', 'Member')}
  </button>
  <button
  onClick={() => setTenantRole(assignment.tenantId, 'admin')}
- className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+ aria-pressed={draft.role === 'admin'}
+ className={`px-2 py-0.5 coarse:px-3 coarse:py-2 rounded text-[11px] font-medium transition-colors ${
  draft.role === 'admin'
  ? 'bg-accent/10 text-accent border border-accent/20'
  : 'text-text-muted hover:bg-bg-hover'
  }`}
  >
- <Shield size={10} className="inline mr-0.5" />Admin
+ <Shield size={10} className="inline mr-0.5" />{t('users.roleAdmin')}
  </button>
  </div>
  )}
  </div>
  );
  })
- )}
- </div>
-
- {/* Footer */}
- {tenantPanelUser.role !== 'admin' && (
- <div className="flex items-center justify-end gap-2 px-4 py-3 shrink-0">
- <Button size="sm" variant="secondary" onClick={closeTenantPanel}>{t('common.cancel')}</Button>
- <Button size="sm" loading={tenantSaving} onClick={saveTenantAssignments}>{t('common.save')}</Button>
- </div>
- )}
- {tenantPanelUser.role === 'admin' && (
- <div className="flex items-center justify-end gap-2 px-4 py-3 shrink-0">
- <Button size="sm" variant="secondary" onClick={closeTenantPanel}>{t('common.close')}</Button>
- </div>
- )}
- </div>
- </>
- )}
+ ))}
+ </Drawer>
  </>
  );
 }
@@ -1172,32 +1230,104 @@ const CAPABILITY_CATEGORIES: Array<{
  * visual padding from the track edge and rounding amplified the drift.
  */
 function ToggleSwitch({ on, onChange, title }: { on: boolean; onChange: () => void; title?: string }) {
+ // Bigger switch on touch screens (16×32 is too small to hit reliably).
+ const coarse = useIsCoarsePointer();
  return (
  <SharedToggleSwitch
  checked={on}
  onChange={() => onChange()}
- size="sm"
+ size={coarse ? 'md' : 'sm'}
  title={title}
  />
  );
 }
 
 function CapabilityIcons({ perm, onToggle }: { perm: TeamPermission; onToggle: (cap: Capability) => void }) {
+ const { t } = useTranslation();
  if (perm.level === 'ro') return null; // RO only gets monitor, no toggles
  const caps = perm.capabilities ?? [];
  return (
- <span className="flex items-center gap-3 shrink-0">
+ <span className="flex items-center gap-3 shrink-0 max-md:flex-wrap max-md:shrink max-md:min-w-0 max-md:gap-y-2">
  {CAPABILITY_CATEGORIES.map((cat) => (
  <span key={cat.name} className="flex items-center gap-1.5">
  {cat.capabilities.map(({ key, label, description }) => (
- <span key={key} className="flex items-center gap-1" title={`${label} — ${description}`}>
+ <span key={key} className="flex items-center gap-1">
  <ToggleSwitch on={caps.includes(key)} onChange={() => onToggle(key)} />
- <span className="text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
+ {/* Description: hover tooltip with a mouse, tap popover on touch. */}
+ <Tip content={`${t(`users.capabilities.${key}.label`, label)} — ${t(`users.capabilities.${key}.description`, description)}`}>
+ <span className="text-[10px] uppercase tracking-wider text-text-muted">{t(`users.capabilities.${key}.label`, label)}</span>
+ </Tip>
  </span>
  ))}
  </span>
  ))}
  </span>
+ );
+}
+
+/**
+ * Right-hand controls of a permission-tree row (group / device / ungrouped).
+ * Assigned rows: RO/RW level + capability toggles + remove — on phones they
+ * move to their own wrapping line under the name (`contents` keeps the
+ * desktop single-row layout untouched). Unassigned rows: RO / RW add buttons.
+ */
+function PermControls({
+ perm,
+ isCovered,
+ onAdd,
+ removePermission,
+ togglePermissionLevel,
+ toggleCapability,
+}: {
+ perm: TeamPermission | undefined;
+ isCovered: boolean;
+ onAdd: (level: PermissionLevel) => void;
+ removePermission: (permId: number) => Promise<void>;
+ togglePermissionLevel: (perm: TeamPermission) => Promise<void>;
+ toggleCapability: (perm: TeamPermission, cap: Capability) => Promise<void>;
+}) {
+ const { t } = useTranslation();
+ if (perm) {
+ return (
+ <div className="contents max-md:flex max-md:basis-full max-md:flex-wrap max-md:items-center max-md:gap-2 max-md:pl-5">
+ <button
+ onClick={() => togglePermissionLevel(perm)}
+ className={`px-2 py-0.5 coarse:px-3 coarse:py-1.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
+ perm.level === 'rw'
+ ? 'bg-accent/10 text-accent hover:bg-accent/20'
+ : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover'
+ }`}
+ title={t('users.teams.toggleLevelHint', 'Click to toggle RO/RW')}
+ >
+ {perm.level === 'rw' ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</> : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
+ </button>
+ <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
+ <IconButton
+ label={t('users.teams.removePermission', 'Remove permission')}
+ icon={<Trash2 size={11} />}
+ size="xs"
+ variant="plain"
+ showTooltip={false}
+ onClick={() => removePermission(perm.id)}
+ className="shrink-0 hover:text-status-down"
+ />
+ </div>
+ );
+ }
+ if (isCovered) {
+ return <span className="text-[10px] text-text-muted italic shrink-0">{t('users.teams.inherited')}</span>;
+ }
+ return (
+ <>
+ <button onClick={() => onAdd('ro')}
+ className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title={t('users.teams.readOnly', 'Read Only')}>
+ {t('users.teams.roLabel')}
+ </button>
+ <button onClick={() => onAdd('rw')}
+ className="px-1.5 py-0.5 coarse:px-3 coarse:py-1.5 coarse:ml-1.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title={t('users.teams.readWrite', 'Read/Write')}>
+ {t('users.teams.rwLabel')}
+ </button>
+ </>
  );
 }
 
@@ -1216,6 +1346,8 @@ function PermTreeNode({
  toggleCapability,
 }: PermTreeNodeProps) {
  const { t } = useTranslation();
+ // Narrower indentation per level on phones (deep trees ate the name).
+ const md = useMediaQuery(MEDIA.md);
  const [expanded, setExpanded] = useState(true);
  const perm = getGroupPerm(node.id);
  const isCovered = coveredGroupIds.has(node.id);
@@ -1225,57 +1357,38 @@ function PermTreeNode({
  <div>
  {/* Group row */}
  <div
- className={`flex items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
+ className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
  perm ? 'bg-accent/5' : isCovered ? 'bg-accent/[0.02]' : ''
  }`}
- style={{ paddingLeft: `${depth * 20 + 8}px` }}
+ style={{ paddingLeft: `${depth * (md ? 20 : 12) + 8}px` }}
  >
  {/* Expand toggle */}
- <button
+ <IconButton
+ label={expanded ? t('users.teams.collapse', 'Collapse') : t('users.teams.expand', 'Expand')}
+ icon={expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+ size="xs"
+ variant="plain"
+ touchTarget="overlay"
+ showTooltip={false}
+ aria-expanded={expanded}
  onClick={() => setExpanded(!expanded)}
- className={`shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors ${!hasChildren ? 'invisible' : ''}`}
- >
- {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
- </button>
+ className={`shrink-0 ${!hasChildren ? 'invisible' : ''}`}
+ />
 
  <FolderOpen size={13} className={`shrink-0 ${perm ? 'text-accent' : isCovered ? 'text-accent/40' : 'text-text-muted'}`} />
- <span className={`flex-1 text-sm truncate ${perm ? 'text-text-primary font-medium' : isCovered ? 'text-text-muted' : 'text-text-primary'}`}>
+ <span className={`flex-1 min-w-0 text-sm truncate ${perm ? 'text-text-primary font-medium' : isCovered ? 'text-text-muted' : 'text-text-primary'}`}>
  {node.name}
  </span>
 
  {/* Permission controls */}
- {perm ? (
- <>
- <button
- onClick={() => togglePermissionLevel(perm)}
- className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
- perm.level === 'rw'
- ? 'bg-accent/10 text-accent hover:bg-accent/20'
- : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover'
- }`}
- title="Click to toggle RO/RW"
- >
- {perm.level === 'rw' ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</> : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
- </button>
- <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
- <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
- <Trash2 size={11} />
- </button>
- </>
- ) : isCovered ? (
- <span className="text-[10px] text-text-muted italic shrink-0">{t('users.teams.inherited')}</span>
- ) : (
- <>
- <button onClick={() => addPermission('group', node.id, 'ro')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title="Read Only">
- {t('users.teams.roLabel')}
- </button>
- <button onClick={() => addPermission('group', node.id, 'rw')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title="Read/Write">
- {t('users.teams.rwLabel')}
- </button>
- </>
- )}
+ <PermControls
+ perm={perm}
+ isCovered={isCovered}
+ onAdd={(level) => addPermission('group', node.id, level)}
+ removePermission={removePermission}
+ togglePermissionLevel={togglePermissionLevel}
+ toggleCapability={toggleCapability}
+ />
  </div>
 
  {/* Children (groups + monitors) */}
@@ -1354,44 +1467,20 @@ function PermUngroupedRow({
 }: PermUngroupedRowProps) {
  const { t } = useTranslation();
  return (
- <div className={`flex items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${perm ? 'bg-accent/5' : ''}`} style={{ paddingLeft: '8px' }}>
+ <div className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${perm ? 'bg-accent/5' : ''}`} style={{ paddingLeft: '8px' }}>
  <span className="shrink-0 w-4" />
  <FolderX size={13} className={`shrink-0 ${perm ? 'text-accent' : 'text-text-muted'}`} />
- <span className={`flex-1 text-sm truncate ${perm ? 'text-text-primary font-medium' : 'text-text-primary'}`}>
- {t('users.teams.ungroupedLabel') || 'Ungrouped (orphan devices)'}
+ <span className={`flex-1 min-w-0 text-sm truncate ${perm ? 'text-text-primary font-medium' : 'text-text-primary'}`}>
+ {t('users.teams.ungroupedLabel', 'Ungrouped (orphan devices)')}
  </span>
- {perm ? (
- <>
- <button
- onClick={() => togglePermissionLevel(perm)}
- className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
- perm.level === 'rw'
- ? 'bg-accent/10 text-accent hover:bg-accent/20'
- : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover'
- }`}
- title="Click to toggle RO/RW"
- >
- {perm.level === 'rw'
- ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</>
- : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
- </button>
- <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
- <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
- <Trash2 size={11} />
- </button>
- </>
- ) : (
- <>
- <button onClick={() => addPermission('ungrouped', 0, 'ro')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title="Read Only">
- {t('users.teams.roLabel')}
- </button>
- <button onClick={() => addPermission('ungrouped', 0, 'rw')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title="Read/Write">
- {t('users.teams.rwLabel')}
- </button>
- </>
- )}
+ <PermControls
+ perm={perm}
+ isCovered={false}
+ onAdd={(level) => addPermission('ungrouped', 0, level)}
+ removePermission={removePermission}
+ togglePermissionLevel={togglePermissionLevel}
+ toggleCapability={toggleCapability}
+ />
  </div>
  );
 }
@@ -1406,51 +1495,27 @@ function PermDeviceRow({
  togglePermissionLevel,
  toggleCapability,
 }: PermDeviceRowProps) {
- const { t } = useTranslation();
+ const md = useMediaQuery(MEDIA.md);
  return (
  <div
- className={`flex items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
+ className={`flex flex-wrap md:flex-nowrap items-center gap-1.5 px-2 py-1.5 hover:bg-bg-hover transition-colors ${
  perm ? 'bg-accent/5' : ''
  }`}
- style={{ paddingLeft: `${depth * 20 + 28}px` }}
+ style={{ paddingLeft: `${depth * (md ? 20 : 12) + 28}px` }}
  >
  <Monitor size={13} className={`shrink-0 ${perm ? 'text-accent' : isCovered ? 'text-accent/40' : 'text-text-muted'}`} />
- <span className={`flex-1 text-sm truncate ${perm ? 'text-text-primary font-medium' : isCovered ? 'text-text-muted' : 'text-text-primary'}`}>
+ <span className={`flex-1 min-w-0 text-sm truncate ${perm ? 'text-text-primary font-medium' : isCovered ? 'text-text-muted' : 'text-text-primary'}`}>
  {device.displayName ?? device.hostname}
  </span>
 
- {perm ? (
- <>
- <button
- onClick={() => togglePermissionLevel(perm)}
- className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
- perm.level === 'rw'
- ? 'bg-accent/10 text-accent hover:bg-accent/20'
- : 'bg-bg-tertiary text-text-muted hover:bg-bg-hover'
- }`}
- title="Click to toggle RO/RW"
- >
- {perm.level === 'rw' ? <><Pencil size={10} className="inline mr-0.5" />{t('users.teams.rwLabel')}</> : <><Eye size={10} className="inline mr-0.5" />{t('users.teams.roLabel')}</>}
- </button>
- <CapabilityIcons perm={perm} onToggle={(cap) => toggleCapability(perm, cap)} />
- <button onClick={() => removePermission(perm.id)} className="p-0.5 text-text-muted hover:text-status-down shrink-0">
- <Trash2 size={11} />
- </button>
- </>
- ) : isCovered ? (
- <span className="text-[10px] text-text-muted italic shrink-0">{t('users.teams.inherited')}</span>
- ) : (
- <>
- <button onClick={() => addPermission('device', device.id, 'ro')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-bg-tertiary text-text-muted hover:bg-bg-hover shrink-0" title="Read Only">
- {t('users.teams.roLabel')}
- </button>
- <button onClick={() => addPermission('device', device.id, 'rw')}
- className="px-1.5 py-0.5 text-[10px] rounded bg-accent/10 text-accent hover:bg-accent/20 shrink-0" title="Read/Write">
- {t('users.teams.rwLabel')}
- </button>
- </>
- )}
+ <PermControls
+ perm={perm}
+ isCovered={isCovered}
+ onAdd={(level) => addPermission('device', device.id, level)}
+ removePermission={removePermission}
+ togglePermissionLevel={togglePermissionLevel}
+ toggleCapability={toggleCapability}
+ />
  </div>
  );
 }
@@ -1461,6 +1526,7 @@ function PermDeviceRow({
 // to specific devices or groups. Default is "all devices" (opt-in).
 
 function RestrictionsTab() {
+ const { t } = useTranslation();
  const [actions, setActions] = useState<RestrictableAction[]>([]);
  const [map, setMap] = useState<RestrictionMap>({});
  const [loading, setLoading] = useState(true);
@@ -1576,9 +1642,10 @@ function RestrictionsTab() {
  const entry = (map ?? {})[a.key];
  const level: 'none' | RestrictionLevel = entry ? entry.level : 'none';
  return (
- <div key={a.key} className="flex items-center gap-3 px-3 py-2">
- <div className="flex-1 min-w-0">
- <p className="text-sm text-text-primary truncate">{a.label}</p>
+ <div key={a.key} className="flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-2 px-3 py-2">
+ {/* Phones: label on its own full-width line (no truncation), controls below. */}
+ <div className="flex-1 min-w-0 max-md:basis-full">
+ <p className="text-sm text-text-primary md:truncate">{a.label}</p>
  <p className="text-[10px] text-text-muted font-mono">{a.key}</p>
  </div>
 
@@ -1599,7 +1666,7 @@ function RestrictionsTab() {
  <button
  key={lv}
  onClick={() => setLevel(a.key, lv)}
- className={`px-2.5 py-1 text-[11px] font-medium rounded border transition-colors capitalize ${
+ className={`px-2.5 py-1 coarse:py-2 text-[11px] font-medium rounded border transition-colors capitalize ${
  active
  ? (lv === 'restricted' ? 'bg-red-400/10 border-red-400 text-red-400'
  : lv === 'sensitive' ? 'bg-orange-400/10 border-orange-400 text-orange-400'
@@ -1616,12 +1683,12 @@ function RestrictionsTab() {
  <button
  disabled={!entry}
  onClick={() => setScopeFor(a.key)}
- className={`shrink-0 px-2 py-1 text-[10px] rounded border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+ className={`shrink-0 px-2 py-1 coarse:py-2 text-[10px] rounded border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
  entry && entry.scope.mode !== 'all'
  ? 'border-accent text-accent bg-accent/10'
  : 'border-transparent text-text-muted hover:border-accent/40'
  }`}
- title="Configure which devices / groups this restriction applies to"
+ title={t('users.restrictions.scopeHint', 'Configure which devices / groups this restriction applies to')}
  >
  Scope: {entry?.scope.mode === 'include' ? 'Include'
  : entry?.scope.mode === 'exclude' ? 'Exclude'
@@ -1639,14 +1706,14 @@ function RestrictionsTab() {
  <button
  onClick={load}
  disabled={!dirty || saving}
- className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary disabled:opacity-30"
+ className="px-3 py-1.5 coarse:py-2.5 text-xs rounded text-text-muted hover:text-text-primary disabled:opacity-30"
  >
  Reset
  </button>
  <button
  onClick={save}
  disabled={!dirty || saving}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50"
+ className="px-3 py-1.5 coarse:py-2.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50"
  >
  {saving ? 'Saving…' : 'Save'}
  </button>
@@ -1678,6 +1745,11 @@ function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
  onClose: () => void;
  onSave: (scope: { mode: ScopeMode; deviceIds?: number[]; groupIds?: number[] }) => void;
 }) {
+ const { t } = useTranslation();
+ // Touch devices get a search box + a capped chip list instead of
+ // thousands of tiny chips (heavy DOM for a mobile WebView).
+ const coarse = useIsCoarsePointer();
+ const [deviceQuery, setDeviceQuery] = useState('');
  const [mode, setMode] = useState<ScopeMode>(entry?.scope.mode ?? 'all');
  const [deviceIds, setDeviceIds] = useState<number[]>(entry?.scope.deviceIds ?? []);
  const [groupIds, setGroupIds] = useState<number[]>(entry?.scope.groupIds ?? []);
@@ -1703,30 +1775,49 @@ function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
  };
  walk(groupTree, 0);
 
+ const DEVICE_CAP = 200;
+ const shownDevices = (() => {
+ if (!coarse) return devices;
+ const q = deviceQuery.trim().toLowerCase();
+ const list = q
+ ? devices.filter((d) => (d.displayName || d.hostname || '').toLowerCase().includes(q))
+ : [...devices.filter((d) => deviceIds.includes(d.id)), ...devices.filter((d) => !deviceIds.includes(d.id))];
+ return list.slice(0, DEVICE_CAP);
+ })();
+
  return (
- <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
- <div
- className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col"
- onClick={(e) => e.stopPropagation()}
- >
- <div className="px-4 py-3 flex items-center gap-2">
- <Shield className="w-4 h-4 text-accent" />
- <span className="text-sm font-semibold text-text-primary">Scope — {actionKey}</span>
- <button onClick={onClose} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ <Modal
+ open
+ onClose={onClose}
+ size="lg"
+ icon={<Shield className="w-4 h-4 text-accent" />}
+ title={t('users.restrictions.scopeTitle', { defaultValue: 'Scope — {{key}}', key: actionKey })}
+ bodyClassName="px-4 py-3 space-y-3"
+ footer={
+ <>
+ <button onClick={onClose} className="px-3 py-1.5 coarse:py-2.5 text-xs rounded text-text-muted hover:text-text-primary">
+ {t('common.cancel')}
  </button>
- </div>
- <div className="px-4 py-3 space-y-3 overflow-y-auto">
- <div className="flex items-center gap-2">
+ <button
+ onClick={() => onSave({ mode, deviceIds: mode === 'all' ? undefined : deviceIds, groupIds: mode === 'all' ? undefined : groupIds })}
+ className="px-3 py-1.5 coarse:py-2.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
+ >
+ {t('users.restrictions.applyScope', 'Apply scope')}
+ </button>
+ </>
+ }
+ >
+ <div className="flex flex-wrap items-center gap-2">
  {(['all', 'include', 'exclude'] as const).map((m) => (
  <button
  key={m}
  onClick={() => setMode(m)}
- className={`px-3 py-1.5 text-xs rounded border ${
+ aria-pressed={mode === m}
+ className={`px-3 py-1.5 coarse:py-2.5 text-xs rounded border ${
  mode === m ? 'bg-accent text-white border-accent' : 'border-transparent text-text-muted hover:text-text-primary'
  }`}
  >
- {m === 'all' ? 'All devices (default)' : m === 'include' ? 'Only these' : 'All except these'}
+ {m === 'all' ? t('users.restrictions.scopeAll', 'All devices (default)') : m === 'include' ? t('users.restrictions.scopeInclude', 'Only these') : t('users.restrictions.scopeExclude', 'All except these')}
  </button>
  ))}
  </div>
@@ -1740,7 +1831,8 @@ function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
  <button
  key={g.id}
  onClick={() => setGroupIds((a) => toggle(a, g.id))}
- className={`px-2 py-0.5 text-[11px] rounded border ${
+ aria-pressed={groupIds.includes(g.id)}
+ className={`px-2 py-0.5 coarse:px-3 coarse:py-2 text-[11px] rounded border ${
  groupIds.includes(g.id)
  ? 'bg-accent/20 border-accent text-accent'
  : 'border-transparent text-text-muted hover:text-text-primary'
@@ -1754,13 +1846,26 @@ function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
  </div>
  <div>
  <p className="text-[10px] uppercase text-text-muted font-medium mb-1">Devices</p>
- <div className="flex flex-wrap gap-1 max-h-48 overflow-y-auto rounded p-1.5 bg-bg-tertiary/30">
+ {coarse && devices.length > 0 && (
+ <input
+ type="search"
+ value={deviceQuery}
+ onChange={(e) => setDeviceQuery(e.target.value)}
+ placeholder={t('users.restrictions.searchDevices', 'Search devices…')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ className="mb-1.5 w-full rounded-md bg-bg-tertiary px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+ />
+ )}
+ <div className="flex flex-wrap gap-1 coarse:gap-1.5 max-h-48 overflow-y-auto overscroll-contain rounded p-1.5 bg-bg-tertiary/30">
  {devices.length === 0 && <span className="text-xs text-text-muted italic">No devices</span>}
- {devices.map((d) => (
+ {shownDevices.map((d) => (
  <button
  key={d.id}
  onClick={() => setDeviceIds((a) => toggle(a, d.id))}
- className={`px-1.5 py-0.5 text-[11px] rounded border ${
+ aria-pressed={deviceIds.includes(d.id)}
+ className={`px-1.5 py-0.5 coarse:px-2.5 coarse:py-2 text-[11px] rounded border ${
  deviceIds.includes(d.id)
  ? 'bg-accent/20 border-accent text-accent'
  : 'border-transparent text-text-muted hover:text-text-primary'
@@ -1770,22 +1875,14 @@ function RestrictionScopeModal({ actionKey, entry, onClose, onSave }: {
  </button>
  ))}
  </div>
+ {coarse && shownDevices.length < (deviceQuery.trim() ? devices.filter((d) => (d.displayName || d.hostname || '').toLowerCase().includes(deviceQuery.trim().toLowerCase())).length : devices.length) && (
+ <p className="mt-1 text-[11px] text-text-muted">
+ {t('users.restrictions.devicesTruncated', { defaultValue: 'Showing the first {{count}} devices — refine the search to find others.', count: DEVICE_CAP })}
+ </p>
+ )}
  </div>
  </>
  )}
- </div>
- <div className="px-4 py-3 flex justify-end gap-2">
- <button onClick={onClose} className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary">
- Cancel
- </button>
- <button
- onClick={() => onSave({ mode, deviceIds: mode === 'all' ? undefined : deviceIds, groupIds: mode === 'all' ? undefined : groupIds })}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
- >
- Apply scope
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }

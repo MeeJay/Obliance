@@ -17,7 +17,7 @@ export function LoginPage() {
 
  const [username, setUsername] = useState('');
  const [password, setPassword] = useState('');
- const [error, setError] = useState(searchParams.get('error') === 'sso_failed' ? 'SSO authentication failed. Please try local login.' : '');
+ const [error, setError] = useState(searchParams.get('error') === 'sso_failed' ? t('login.ssoFailed', 'SSO authentication failed. Please try local login.') : '');
  const [serverVersion, setServerVersion] = useState<string | null>(null);
 
  // If we arrived here with ?error=sso_failed, don't auto-redirect to Obligate again
@@ -145,7 +145,7 @@ export function LoginPage() {
  // While checking or redirecting, show a minimal loading screen — never flash the local login form
  if (ssoState === 'checking' || ssoState === 'redirecting') {
  return (
- <div className="flex min-h-screen items-center justify-center bg-bg-primary">
+ <div className="flex min-h-dvh supports-[not(height:100dvh)]:min-h-screen items-center justify-center bg-bg-primary">
  <div className="text-center">
  <Logo className="mx-auto h-24 w-24 mb-3 animate-pulse" />
  <p className="text-sm text-text-secondary">
@@ -156,8 +156,14 @@ export function LoginPage() {
  );
  }
 
+ // Phone / tablet / touch (soft keyboard): min-h in dvh so the page grows
+ // and scrolls instead of clipping when the keyboard shrinks the viewport;
+ // the version footer joins the column flow (a `fixed bottom` footer would
+ // ride up over the form above the keyboard). Safe-area padding keeps the
+ // form clear of the status / gesture bars in the Android shell (= p-4 on
+ // desktop, where the insets are 0).
  return (
- <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
+ <div className="flex min-h-dvh supports-[not(height:100dvh)]:min-h-screen items-center justify-center bg-bg-primary p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] max-lg:flex-col coarse:flex-col">
  <div className="w-full max-w-sm space-y-8 relative">
  <div className="text-center">
  <Logo className="mx-auto h-24 w-24 mb-3" />
@@ -179,6 +185,10 @@ export function LoginPage() {
  onChange={(e) => setUsername(e.target.value)}
  placeholder={t('login.usernamePlaceholder')}
  autoComplete="username"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="next"
  autoFocus
  required
  />
@@ -189,6 +199,7 @@ export function LoginPage() {
  onChange={(e) => setPassword(e.target.value)}
  placeholder={t('login.passwordPlaceholder')}
  autoComplete="current-password"
+ enterKeyHint="go"
  required
  />
  {error && (
@@ -200,7 +211,7 @@ export function LoginPage() {
  {t('login.signIn')}
  </Button>
  <div className="text-center">
- <Link to="/forgot-password" className="text-xs text-text-muted hover:text-text-primary transition-colors">
+ <Link to="/forgot-password" className="text-xs text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:items-center coarse:px-2">
  {t('login.forgotPassword')}
  </Link>
  </div>
@@ -217,14 +228,14 @@ export function LoginPage() {
  <button
  type="button"
  onClick={() => setMfaTab('totp')}
- className={`flex-1 py-1.5 transition-colors ${mfaTab === 'totp' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-bg-hover'}`}
+ className={`flex-1 py-1.5 transition-colors coarse:min-h-10 ${mfaTab === 'totp' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-bg-hover'}`}
  >
  {t('login.twoFactor.tabTotp')}
  </button>
  <button
  type="button"
  onClick={() => setMfaTab('email')}
- className={`flex-1 py-1.5 transition-colors ${mfaTab === 'email' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-bg-hover'}`}
+ className={`flex-1 py-1.5 transition-colors coarse:min-h-10 ${mfaTab === 'email' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-bg-hover'}`}
  >
  {t('login.twoFactor.tabEmail')}
  </button>
@@ -239,6 +250,8 @@ export function LoginPage() {
  label={mfaTab === 'totp' ? t('login.twoFactor.totpLabel') : t('login.twoFactor.emailLabel')}
  type="text"
  inputMode="numeric"
+ autoComplete="one-time-code"
+ enterKeyHint="go"
  value={mfaCode}
  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
  placeholder={t('login.twoFactor.codePlaceholder')}
@@ -255,11 +268,11 @@ export function LoginPage() {
  <div className="flex flex-col gap-2">
  <Button type="submit" className="w-full" loading={mfaLoading}>{t('login.twoFactor.verify')}</Button>
  {mfaTab === 'email' && (
- <button type="button" onClick={handleResendEmail} className="text-xs text-text-muted hover:text-text-primary text-center">
+ <button type="button" onClick={handleResendEmail} className="text-xs text-text-muted hover:text-text-primary text-center coarse:min-h-10">
  {t('login.twoFactor.resend')}
  </button>
  )}
- <button type="button" onClick={() => { setStep('credentials'); setError(''); }} className="text-xs text-text-muted hover:text-text-primary text-center">
+ <button type="button" onClick={() => { setStep('credentials'); setError(''); }} className="text-xs text-text-muted hover:text-text-primary text-center coarse:min-h-10">
  {t('login.twoFactor.backToLogin')}
  </button>
  </div>
@@ -267,7 +280,7 @@ export function LoginPage() {
  )}
  </div>
 
- <p className="fixed bottom-3 left-0 right-0 text-center text-xs text-text-secondary/50 select-none">
+ <p className="fixed bottom-3 left-0 right-0 text-center text-xs text-text-secondary/50 select-none max-lg:static max-lg:mt-8 coarse:static coarse:mt-8">
  {t('login.clientVersion', { version: __APP_VERSION__ })}
  {serverVersion && ` · ${t('login.serverVersion', { version: serverVersion })}`}
  </p>

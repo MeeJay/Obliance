@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
  Plus, ShieldCheck, ShieldAlert, ShieldX, RefreshCw, Edit, Trash2,
  ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle, Activity,
  BookOpen, GripVertical, X, Sparkles, ArrowRight, Monitor,
- Wrench, EyeOff, Eye, ChevronRight, Check, Minus, FolderOpen,
+ Wrench, EyeOff, Eye, ChevronRight, Check, Minus, FolderOpen, Search,
 } from 'lucide-react';
 import { complianceApi } from '@/api/compliance.api';
 import { groupsApi } from '@/api/groups.api';
@@ -17,6 +17,7 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import { TenantFilterChips } from '@/components/common/TenantFilterChips';
 import { useTenantFilter } from '@/hooks/useTenantFilter';
 import { MASTER_TENANT_ID } from '@obliance/shared';
+import type { Device } from '@obliance/shared';
 import type {
  CompliancePolicy, CompliancePreset, ComplianceResult,
  ComplianceFramework, ComplianceRule, ComplianceCheckType,
@@ -25,6 +26,15 @@ import type {
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { SegmentedTabs } from '@/components/common/SegmentedTabs';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { Tip, InfoTip } from '@/components/common/Tip';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { deviceMatchesSearch } from '@/utils/deviceSearch';
 
 type Tab = 'results' | 'policies';
 
@@ -65,6 +75,112 @@ function statusColor(s: string) {
  return 'text-text-muted';
 }
 
+// ── Device filter ──────────────────────────────────────────────────────────────
+/**
+ * "Filter results by device" control, shared with SoftwareCompliancePage.
+ * Fine pointer: the historical native <select> (desktop unchanged). Touch:
+ * a native <select> over the whole fleet (2000+ devices) is an unsearchable
+ * wall on Android, so the control opens a searchable list instead.
+ */
+const DEVICE_FILTER_LIMIT = 200;
+export function DeviceFilterSelect({
+ devices, value, onChange, allLabel,
+}: {
+ devices: Device[];
+ value: number | '';
+ onChange: (value: number | '') => void;
+ allLabel: string;
+}) {
+ const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
+ const [open, setOpen] = useState(false);
+ const [query, setQuery] = useState('');
+ const name = (d: Device) => d.displayName || d.hostname;
+ const selected = value === '' ? null : devices.find(d => d.id === value) ?? null;
+ const filtered = useMemo(
+ () => (open ? devices.filter(d => deviceMatchesSearch(d, query)) : []),
+ [devices, query, open],
+ );
+
+ if (!coarse) {
+ return (
+ <div className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary rounded-lg min-w-0 max-w-full">
+ <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <select
+ value={value}
+ onChange={(e) => onChange(e.target.value === '' ? '' : parseInt(e.target.value))}
+ className="text-sm bg-transparent text-text-primary focus:outline-none min-w-[120px] max-w-full"
+ >
+ <option value="">{allLabel}</option>
+ {devices.map(d => (
+ <option key={d.id} value={d.id}>
+ {name(d)}
+ </option>
+ ))}
+ </select>
+ </div>
+ );
+ }
+
+ const pick = (v: number | '') => { onChange(v); setOpen(false); };
+ const rowCls = (active: boolean) => clsx(
+ 'w-full min-h-11 px-4 py-2 flex items-center gap-2 text-left text-sm transition-colors',
+ active ? 'bg-accent/10 text-accent font-medium' : 'text-text-primary hover:bg-bg-tertiary',
+ );
+ return (
+ <>
+ <button
+ type="button"
+ onClick={() => { setQuery(''); setOpen(true); }}
+ aria-haspopup="dialog"
+ className="flex items-center gap-1.5 px-3 py-1.5 min-h-10 bg-bg-secondary rounded-lg min-w-0 max-w-full text-sm text-text-primary"
+ >
+ <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <span className="truncate">{selected ? name(selected) : allLabel}</span>
+ <ChevronDown className="w-3.5 h-3.5 shrink-0 text-text-muted" />
+ </button>
+ <Modal
+ open={open}
+ onClose={() => setOpen(false)}
+ title={t('compliance.filterByDevice', 'Filter by device')}
+ icon={<Monitor className="w-4 h-4 text-accent" />}
+ bodyClassName="p-0"
+ >
+ <div className="sticky top-0 z-10 bg-bg-secondary px-4 pb-2 pt-1">
+ <div className="flex items-center gap-2 px-3 py-2 bg-bg-tertiary rounded-lg">
+ <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
+ <input
+ type="search"
+ value={query}
+ onChange={(e) => setQuery(e.target.value)}
+ placeholder={t('devices.searchPlaceholder', 'Hostname, IP, user, UUID, OS, tag…')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="flex-1 min-w-0 bg-transparent text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none"
+ />
+ </div>
+ </div>
+ <div className="pb-2">
+ <button type="button" onClick={() => pick('')} className={rowCls(value === '')}>{allLabel}</button>
+ {filtered.slice(0, DEVICE_FILTER_LIMIT).map(d => (
+ <button key={d.id} type="button" onClick={() => pick(d.id)} className={rowCls(value === d.id)}>
+ <span className="flex-1 min-w-0 truncate">{name(d)}</span>
+ {d.ipLocal && <span className="shrink-0 text-xs font-mono text-text-muted">{d.ipLocal}</span>}
+ </button>
+ ))}
+ {filtered.length === 0 && (
+ <p className="px-4 py-3 text-sm text-text-muted">{t('common.noResults')}</p>
+ )}
+ {filtered.length > DEVICE_FILTER_LIMIT && (
+ <p className="px-4 py-3 text-xs text-text-muted">
+ {t('compliance.refineSearch', { count: filtered.length - DEVICE_FILTER_LIMIT, defaultValue: '{{count}} more — refine the search' })}
+ </p>
+ )}
+ </div>
+ </Modal>
+ </>
+ );
+}
+
 // ── Rule editor ────────────────────────────────────────────────────────────────
 type RuleFormData = Omit<ComplianceRule, 'autoRemediateScriptId'> & { autoRemediateScriptId: null };
 
@@ -98,7 +214,8 @@ function RuleEditorRow({
  return (
  <div className="rounded-lg p-3 space-y-2 bg-bg-tertiary/40 relative">
  <div className="flex items-start gap-2">
- <GripVertical className="w-4 h-4 text-text-muted mt-2 shrink-0 cursor-grab" />
+ {/* Decorative only (no reordering) — hidden on touch where it reads as a drag handle. */}
+ <GripVertical className="w-4 h-4 text-text-muted mt-2 shrink-0 cursor-grab coarse:hidden" />
  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
  {/* Name */}
  <div className="lg:col-span-2 space-y-0.5">
@@ -108,7 +225,7 @@ function RuleEditorRow({
  <input
  value={rule.name}
  onChange={e => set({ name: e.target.value })}
- placeholder="Rule name"
+ placeholder={t('compliance.ruleBuilder.ruleName')}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -120,7 +237,7 @@ function RuleEditorRow({
  <input
  value={rule.category ?? ''}
  onChange={e => set({ category: e.target.value })}
- placeholder="e.g. Firewall"
+ placeholder={t('compliance.ruleBuilder.categoryPlaceholder', 'e.g. Firewall')}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -208,6 +325,7 @@ function RuleEditorRow({
  rule.checkType === 'event_log' ? 'Security|4625|24' :
  'Target'
  }
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -220,7 +338,8 @@ function RuleEditorRow({
  <input
  value={String(rule.expected ?? '')}
  onChange={e => set({ expected: e.target.value })}
- placeholder="Expected value"
+ placeholder={t('compliance.ruleBuilder.expectedPlaceholder', 'Expected value')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -240,29 +359,31 @@ function RuleEditorRow({
  {/* Remediation Script */}
  <div className="lg:col-span-4 space-y-0.5">
  <label className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
- Remediation Script
- <span className="ml-1 normal-case font-normal text-text-muted/60">— script to fix this rule when it fails</span>
+ {t('compliance.ruleBuilder.remediationScript', 'Remediation Script')}
+ <span className="ml-1 normal-case font-normal text-text-muted/60">— {t('compliance.ruleBuilder.remediationScriptHint', 'script to fix this rule when it fails')}</span>
  </label>
  <textarea
  value={rule.remediationScript ?? ''}
  onChange={e => set({ remediationScript: e.target.value || undefined })}
- placeholder="PowerShell or Bash script to remediate..."
+ placeholder={t('compliance.ruleBuilder.remediationScriptPlaceholder', 'PowerShell or Bash script to remediate...')}
  rows={2}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent resize-y"
  />
  </div>
  </div>
- <button
+ <IconButton
+ label={t('compliance.ruleBuilder.deleteRule')}
+ icon={<X className="w-4 h-4" />}
+ size="sm"
+ variant="danger"
  onClick={onDelete}
- className="p-1 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors shrink-0"
- title={t('compliance.ruleBuilder.deleteRule')}
- >
- <X className="w-4 h-4" />
- </button>
+ className="shrink-0"
+ />
  </div>
 
  {/* Severity badge preview */}
- <div className="flex items-center gap-2 pl-6">
+ <div className="flex flex-wrap items-center gap-2 pl-6 coarse:pl-0">
  <span className={clsx('text-[10px] font-semibold uppercase', SEVERITY_COLOR[rule.severity])}>
  ● {rule.severity}
  </span>
@@ -298,6 +419,8 @@ const defaultPolicyForm: PolicyFormData = {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const coarse = useIsCoarsePointer();
  const { isAdmin } = useAuthStore();
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  /** A policy is read-only when it's owned by another tenant AND we
@@ -324,6 +447,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  const [showPresets, setShowPresets] = useState(false);
  const [ignoredRules, setIgnoredRules] = useState<Record<number, Record<number, string[]>>>({});
  const [remediatingRules, setRemediatingRules] = useState<Set<string>>(new Set());
+ const presetsMenuRef = useRef<HTMLDivElement>(null);
+ useClickOutside(presetsMenuRef, () => setShowPresets(false), showPresets);
 
  // Silent reloads (e.g. socket-driven refresh on a check_compliance ack)
  // skip the spinner so the active tab doesn't flash empty and re-render
@@ -434,7 +559,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleSave = async () => {
- if (!form.name.trim()) { toast.error('Policy name is required'); return; }
+ if (!form.name.trim()) { toast.error(t('compliance.nameRequired', 'Policy name is required')); return; }
  setIsSaving(true);
  try {
  const payload = {
@@ -468,7 +593,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (id: number) => {
- if (!confirm(t('compliance.confirmDelete'))) return;
+ if (!(await confirm({ message: t('compliance.confirmDelete'), danger: true }))) return;
  try {
  await complianceApi.deletePolicy(id);
  toast.success(t('compliance.policyDeleted'));
@@ -488,13 +613,20 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleRemediate = async (deviceId: number, policyId: number, ruleIds: string[]) => {
+ // Remediation runs a script on the device right away. The icon buttons
+ // are small and close to "Ignore" — on touch, ask first (desktop unchanged).
+ if (coarse && !(await confirm({
+ title: t('compliance.remediateConfirmTitle', 'Run remediation?'),
+ message: t('compliance.remediateConfirm', { count: ruleIds.length, defaultValue: 'Run the remediation script for {{count}} rule(s) on this device now?' }),
+ confirmLabel: t('softwareCompliance.actions.remediate'),
+ }))) return;
  const key = ruleIds.map(id => `${deviceId}:${policyId}:${id}`);
  setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.add(k)); return s; });
  try {
  await complianceApi.remediate(deviceId, policyId, ruleIds);
- toast.success(`Remediation sent for ${ruleIds.length} rule(s)`);
+ toast.success(t('compliance.remediationSent', { count: ruleIds.length, defaultValue: 'Remediation sent for {{count}} rule(s)' }));
  } catch {
- toast.error('Failed to send remediation');
+ toast.error(t('compliance.remediationFailed', 'Failed to send remediation'));
  } finally {
  setRemediatingRules(prev => { const s = new Set(prev); key.forEach(k => s.delete(k)); return s; });
  }
@@ -505,7 +637,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  .filter(rr => rr.status === 'fail' && !isRuleIgnored(result.deviceId, result.policyId, rr.ruleId))
  .map(rr => rr.ruleId)
  .filter(id => getRemediationScript(result.policyId, id));
- if (failingRuleIds.length === 0) { toast.error('No remediable rules'); return; }
+ if (failingRuleIds.length === 0) { toast.error(t('compliance.noRemediableRules', 'No remediable rules')); return; }
  await handleRemediate(result.deviceId, result.policyId, failingRuleIds);
  };
 
@@ -518,9 +650,9 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  copy[deviceId][policyId] = [...(copy[deviceId][policyId] ?? []), ...ruleIds];
  return copy;
  });
- toast.success(`${ruleIds.length} rule(s) ignored`);
+ toast.success(t('compliance.rulesIgnored', { count: ruleIds.length, defaultValue: '{{count}} rule(s) ignored' }));
  } catch {
- toast.error('Failed to ignore rules');
+ toast.error(t('compliance.ignoreFailed', 'Failed to ignore rules'));
  }
  };
 
@@ -534,9 +666,9 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  }
  return copy;
  });
- toast.success(`${ruleIds.length} rule(s) unignored`);
+ toast.success(t('compliance.rulesUnignored', { count: ruleIds.length, defaultValue: '{{count}} rule(s) unignored' }));
  } catch {
- toast.error('Failed to unignore rules');
+ toast.error(t('compliance.unignoreFailed', 'Failed to unignore rules'));
  }
  };
 
@@ -583,39 +715,50 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  const warningCount = results.filter(r => r.complianceScore >= 50 && r.complianceScore < 80).length;
  const failingCount = results.filter(r => r.complianceScore < 50).length;
 
- return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
- {/* Header */}
- {!embedded && <div className="flex items-center justify-between">
- <div>
- <h1 className="text-2xl font-bold text-text-primary">{t('compliance.title')}</h1>
- <p className="text-sm text-text-muted mt-0.5">{t('compliance.description')}</p>
- </div>
+ // Sync presets + refresh. They lived only in the (non-embedded) header,
+ // but the page is only ever mounted embedded (PoliciesPage) — so in
+ // embedded mode they are rendered in the tabs/filter toolbar instead.
+ const headerActions = (
  <div className="flex items-center gap-2">
  {isAdmin() && (
+ <>
  <button
  onClick={async () => {
  try {
  const n = await complianceApi.syncPresets();
  if (n > 0) {
- toast.success(`${n} policy(ies) synced with latest presets`);
+ toast.success(t('compliance.syncPresetsDone', { count: n, defaultValue: '{{count}} policy(ies) synced with latest presets' }));
  await load();
  } else {
- toast.success('All policies already up to date');
+ toast.success(t('compliance.syncPresetsUpToDate', 'All policies already up to date'));
  }
- } catch { toast.error('Sync failed'); }
+ } catch { toast.error(t('compliance.syncPresetsFailed', 'Sync failed')); }
  }}
- className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-text-muted hover:text-accent hover:border-accent/50 transition-colors"
- title="Sync existing policies with latest built-in preset rules"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-text-muted hover:text-accent hover:border-accent/50 transition-colors coarse:min-h-10"
+ title={t('compliance.syncPresetsHint', 'Sync existing policies with latest built-in preset rules')}
  >
  <Sparkles className="w-3.5 h-3.5" />
- Sync presets
+ {t('compliance.syncPresets', 'Sync presets')}
  </button>
+ {/* The explanation is a hover title — give touch users a tap target for it. */}
+ {coarse && <InfoTip content={t('compliance.syncPresetsHint', 'Sync existing policies with latest built-in preset rules')} />}
+ </>
  )}
- <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <button onClick={() => load()} aria-label={t('common.refresh')} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors coarse:min-h-10 coarse:min-w-10">
  <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
  </button>
  </div>
+ );
+
+ return (
+ <PageContainer embedded={embedded} className="space-y-6">
+ {/* Header */}
+ {!embedded && <div className="flex flex-wrap items-center justify-between gap-2">
+ <div>
+ <h1 className="text-2xl font-bold text-text-primary">{t('compliance.title')}</h1>
+ <p className="text-sm text-text-muted mt-0.5">{t('compliance.description')}</p>
+ </div>
+ {headerActions}
  </div>}
 
  {/* Summary cards */}
@@ -658,38 +801,24 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Tabs + filter */}
  <div className="flex items-center justify-between gap-4 flex-wrap">
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
- {(['results', 'policies'] as Tab[]).map((tab) => (
- <button
- key={tab}
- onClick={() => setActiveTab(tab)}
- className={clsx(
- 'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
- activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
- )}
- >
- {tab === 'results' ? t('compliance.tabResults') : t('compliance.tabPolicies')}
- </button>
- ))}
- </div>
- <div className="flex items-center gap-2 flex-wrap">
+ <SegmentedTabs<Tab>
+ tabs={[
+ { id: 'results', label: t('compliance.tabResults') },
+ { id: 'policies', label: t('compliance.tabPolicies') },
+ ]}
+ value={activeTab}
+ onChange={setActiveTab}
+ className="max-w-full"
+ />
+ <div className="flex items-center gap-2 flex-wrap min-w-0 max-w-full">
  {/* Device filter — results tab only */}
  {activeTab === 'results' && (
- <div className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary rounded-lg">
- <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
- <select
+ <DeviceFilterSelect
+ devices={devices}
  value={filterDeviceId}
- onChange={(e) => setFilterDeviceId(e.target.value === '' ? '' : parseInt(e.target.value))}
- className="text-sm bg-transparent text-text-primary focus:outline-none min-w-[120px]"
- >
- <option value="">{t('compliance.allDevices')}</option>
- {devices.map(d => (
- <option key={d.id} value={d.id}>
- {d.displayName || d.hostname}
- </option>
- ))}
- </select>
- </div>
+ onChange={setFilterDeviceId}
+ allLabel={t('compliance.allDevices')}
+ />
  )}
  <select
  value={filterFramework}
@@ -699,6 +828,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  <option value="">{t('compliance.allFrameworks')}</option>
  {FRAMEWORKS.map(f => <option key={f} value={f}>{FRAMEWORK_LABELS[f]}</option>)}
  </select>
+ {embedded && headerActions}
  </div>
  </div>
 
@@ -726,7 +856,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden">
  <div
- className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors"
+ className="flex items-center gap-3 sm:gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors"
  onClick={() => setExpandedResultId(expanded ? null : result.id)}
  >
  <div className={clsx('p-2 rounded-lg', result.complianceScore >= 80 ? 'bg-green-400/10' : result.complianceScore >= 50 ? 'bg-yellow-400/10' : 'bg-red-400/10')}>
@@ -736,7 +866,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  <div className="flex items-center gap-2 flex-wrap">
  <div className="flex items-center gap-1.5">
  <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
- <span className="text-sm font-medium text-text-primary">
+ <span className="text-sm font-medium text-text-primary break-all">
  {result.deviceName ?? t('compliance.deviceId', { id: result.deviceId })}
  </span>
  </div>
@@ -746,8 +876,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  </span>
  )}
  </div>
- <div className="flex items-center gap-3 mt-1">
- <div className="flex-1 max-w-48 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+ <div className="flex-1 max-w-48 min-w-[3rem] h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
  <div
  className={clsx('h-full rounded-full transition-all', scoreBg(result.complianceScore))}
  style={{ width: `${result.complianceScore}%` }}
@@ -759,6 +889,10 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  <span className="text-xs text-text-muted">
  {passCount}✓{failCount > 0 ? ` ${failCount}✗` : ''}{warnCount > 0 ? ` ${warnCount}⚠` : ''}{total > 0 ? ` / ${total}` : ''}
  </span>
+ {/* The date column is hidden below sm — keep it on the stats line there. */}
+ <span className="text-xs text-text-muted sm:hidden">
+ {new Date(result.checkedAt).toLocaleDateString()}
+ </span>
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">
@@ -768,20 +902,20 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  {failCount > 0 && (
  <button
  onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
- className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
- title="Remediate all failing rules"
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
+ title={t('compliance.remediateAllFailing', 'Remediate all failing rules')}
  >
  <Wrench className="w-3 h-3" />
- Fix All
+ {t('softwareCompliance.actions.fixAll')}
  </button>
  )}
- <button
+ <IconButton
+ label={t('compliance.rerun')}
+ icon={<RefreshCw className="w-3.5 h-3.5" />}
+ variant="accent"
  onClick={(e) => { e.stopPropagation(); handleTriggerCheck(result.deviceId, result.policyId); }}
- className="p-1.5 text-text-muted hover:text-accent hover:bg-bg-tertiary rounded transition-colors"
- title={t('compliance.rerun')}
- >
- <RefreshCw className="w-3.5 h-3.5" />
- </button>
+ className="hover:bg-bg-tertiary"
+ />
  {expanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
  </div>
  </div>
@@ -801,7 +935,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
  >
  <Wrench className="w-3.5 h-3.5" />
- Remediate all ({remediableFailCount})
+ {t('compliance.remediateAll', 'Remediate all')} ({remediableFailCount})
  </button>
  </div>
  )}
@@ -811,7 +945,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  const hasRemediation = !!getRemediationScript(result.policyId, ruleResult.ruleId);
  const isRemediating = remediatingRules.has(`${result.deviceId}:${result.policyId}:${ruleResult.ruleId}`);
  return (
- <div key={ruleResult.ruleId} className={clsx('flex items-start gap-3 px-4 py-2.5', ignored && 'opacity-50')}>
+ <div key={ruleResult.ruleId} className={clsx('flex items-start gap-3 px-4 py-2.5 max-sm:flex-wrap', ignored && 'opacity-50')}>
  <div className="shrink-0 mt-0.5">
  {ignored ? <EyeOff className="w-4 h-4 text-text-muted" /> :
  ruleResult.status === 'pass' ? <CheckCircle className="w-4 h-4 text-green-400" /> :
@@ -823,14 +957,15 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  <p className="text-xs font-medium text-text-primary">
  {ruleResult.ruleName ?? policyRuleNames.get(`${result.policyId}:${ruleResult.ruleId}`) ?? ruleResult.ruleId}
  </p>
- <p className="text-[10px] text-text-muted/60 font-mono">{ruleResult.ruleId}</p>
+ <p className="text-[10px] text-text-muted/60 font-mono break-all">{ruleResult.ruleId}</p>
  {ruleResult.actualValue !== undefined && ruleResult.actualValue !== null && (
  <p className="text-xs text-text-muted mt-0.5">
- {t('compliance.actualValue')}: <span className="font-mono">{String(ruleResult.actualValue)}</span>
+ {t('compliance.actualValue')}: <span className="font-mono break-all">{String(ruleResult.actualValue)}</span>
  </p>
  )}
  </div>
- <div className="flex items-center gap-1.5 shrink-0">
+ {/* Below sm the action cluster takes its own line under the rule name. */}
+ <div className="flex items-center gap-1.5 shrink-0 max-sm:basis-full max-sm:justify-end">
  {ignored && (
  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20">
  ignored
@@ -846,31 +981,44 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  </span>
  {/* Action buttons for failing rules */}
  {ruleResult.status === 'fail' && !ignored && hasRemediation && (
- <button
+ <IconButton
+ label={t('softwareCompliance.actions.remediate')}
  onClick={(e) => { e.stopPropagation(); handleRemediate(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
  disabled={isRemediating}
- className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
- title="Remediate"
- >
+ size="sm"
+ variant="primary"
+ className="gap-1 disabled:opacity-50 coarse:px-2.5"
+ icon={<>
  <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
- </button>
+ {/* Touch: visible label (the meaning was only in a hover tooltip). */}
+ <span className="hidden coarse:inline text-xs">{t('softwareCompliance.actions.remediate')}</span>
+ </>}
+ />
  )}
  {!ignored ? (
- <button
+ <IconButton
+ label={t('compliance.ignoreRule', 'Ignore this rule')}
  onClick={(e) => { e.stopPropagation(); handleIgnore(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
- className="p-1 text-text-muted hover:text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
- title="Ignore this rule"
- >
+ size="sm"
+ variant="plain"
+ className="gap-1 hover:text-yellow-400 hover:bg-yellow-400/10 coarse:px-2.5"
+ icon={<>
  <EyeOff className="w-3.5 h-3.5" />
- </button>
+ <span className="hidden coarse:inline text-xs">{t('compliance.ignore', 'Ignore')}</span>
+ </>}
+ />
  ) : (
- <button
+ <IconButton
+ label={t('compliance.unignoreRule', 'Unignore this rule')}
  onClick={(e) => { e.stopPropagation(); handleUnignore(result.deviceId, result.policyId, [ruleResult.ruleId]); }}
- className="p-1 text-text-muted hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
- title="Unignore this rule"
- >
+ size="sm"
+ variant="plain"
+ className="gap-1 hover:text-green-400 hover:bg-green-400/10 coarse:px-2.5"
+ icon={<>
  <Eye className="w-3.5 h-3.5" />
- </button>
+ <span className="hidden coarse:inline text-xs">{t('compliance.unignore', 'Unignore')}</span>
+ </>}
+ />
  )}
  </div>
  </div>
@@ -891,14 +1039,14 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  <div className="space-y-4">
  {/* Policy form */}
  {showForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-4">
+ <div className="bg-bg-secondary rounded-xl p-4 sm:p-6 space-y-4">
  {/* Master-only fan-out picker. Hidden on child tenants —
  child admins can only create local policies. */}
  <TargetTenantsPicker
  value={form.targetTenantIds}
  onChange={(next) => setForm({ ...form, targetTenantIds: next })}
  />
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h2 className="text-lg font-semibold text-text-primary">
  {editingPolicy ? t('compliance.editPolicy') : t('compliance.newPolicyTitle')}
  </h2>
@@ -1005,8 +1153,8 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  </div>
  <div className="space-y-1">
- <label className="text-xs font-medium text-text-muted uppercase">Platform</label>
- <div className="flex gap-1">
+ <label className="text-xs font-medium text-text-muted uppercase">{t('compliance.ruleBuilder.targetPlatform')}</label>
+ <div className="flex flex-wrap gap-1">
  {(['all', 'windows', 'linux', 'macos'] as const).map((p) => (
  <button
  key={p}
@@ -1017,7 +1165,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  form.targetPlatform === p ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50',
  )}
  >
- {p === 'all' ? 'All' : p === 'macos' ? 'macOS' : p.charAt(0).toUpperCase() + p.slice(1)}
+ {p === 'all' ? t('common.all') : p === 'macos' ? 'macOS' : p.charAt(0).toUpperCase() + p.slice(1)}
  </button>
  ))}
  </div>
@@ -1032,7 +1180,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  {form.targetType === 'group' && (
  <div className="space-y-1 md:col-span-2">
- <label className="text-xs font-medium text-text-muted uppercase">Groups</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('softwareCompliance.groups')}</label>
  <PolicyGroupTreeMultiSelect
  selectedIds={form.targetIds}
  onChange={(ids) => setForm({ ...form, targetIds: ids })}
@@ -1043,23 +1191,24 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Rule builder */}
  <div className=" pt-4 space-y-3">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h3 className="text-sm font-semibold text-text-primary">
  {t('compliance.ruleBuilder.title')} <span className="text-text-muted font-normal">({form.rules.length})</span>
  </h3>
  <div className="flex gap-2">
  {/* Presets quick button (compact, for editing) */}
  {editingPolicy && (
- <div className="relative">
+ <div className="relative" ref={presetsMenuRef}>
  <button
  onClick={() => setShowPresets(!showPresets)}
+ aria-expanded={showPresets}
  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-transparent text-text-muted hover:text-text-primary hover:border-accent/50 rounded-lg transition-colors"
  >
  <BookOpen className="w-3.5 h-3.5" />
  {t('compliance.presets')}
  </button>
  {showPresets && (
- <div className="absolute right-0 top-full mt-1 z-10 w-80 bg-bg-secondary rounded-xl shadow-xl overflow-hidden">
+ <div className="absolute right-0 top-full mt-1 z-10 w-80 max-w-[calc(100vw-2rem)] max-h-[60vh] max-h-[60dvh] overflow-y-auto overscroll-contain bg-bg-secondary rounded-xl shadow-xl">
  <div className="p-2 ">
  <p className="text-xs font-semibold text-text-muted uppercase px-2 py-1">
  {t('compliance.presets')}
@@ -1214,7 +1363,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  )}
  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-muted">
  <span>{t('compliance.target')}: <span className="text-text-primary">
- {policy.targetType === 'all' ? t('compliance.allDevices') : `${policy.targetIds?.length ?? 0} group(s)`}
+ {policy.targetType === 'all' ? t('compliance.allDevices') : t('compliance.groupCount', { count: policy.targetIds?.length ?? 0, defaultValue: '{{count}} group(s)' })}
  </span></span>
  {policy.targetPlatform && policy.targetPlatform !== 'all' && (
  <span className="text-xs px-1.5 py-0.5 rounded bg-bg-tertiary border border-transparent capitalize">
@@ -1227,7 +1376,7 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Severity breakdown */}
  {policy.rules.length > 0 && (
- <div className="flex gap-3 mt-1.5">
+ <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
  {(['critical', 'high', 'moderate', 'low', 'optional'] as CheckSeverity[]).map(s => {
  const n = policy.rules.filter(r => r.severity === s).length;
  return n > 0 ? (
@@ -1241,26 +1390,29 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  <div className="flex gap-1 shrink-0 items-center">
  {isReadOnlyForCaller(policy) && (
- <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30 mr-1">
+ // The read-only reason was only in the disabled buttons' title — tap the badge on touch.
+ <Tip content={t('masterTenant.readOnlyTooltip')} className="mr-1">
+ <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
  🔒 Master
  </span>
+ </Tip>
  )}
- <button
+ <IconButton
+ label={t('common.edit')}
+ icon={<Edit className="w-4 h-4" />}
  onClick={() => handleOpenEdit(policy)}
  disabled={isReadOnlyForCaller(policy)}
- title={isReadOnlyForCaller(policy) ? 'Géré par le tenant Default — lecture seule' : t('common.edit')}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
- >
- <Edit className="w-4 h-4" />
- </button>
- <button
+ title={isReadOnlyForCaller(policy) ? t('masterTenant.readOnlyTooltip') : t('common.edit')}
+ className="hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
  onClick={() => handleDelete(policy.id)}
  disabled={isReadOnlyForCaller(policy)}
- title={isReadOnlyForCaller(policy) ? 'Géré par le tenant Default — lecture seule' : t('common.delete')}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ title={isReadOnlyForCaller(policy) ? t('masterTenant.readOnlyTooltip') : t('common.delete')}
+ />
  </div>
  </div>
  </div>
@@ -1269,22 +1421,23 @@ export function CompliancePage({ embedded }: { embedded?: boolean } = {}) {
  )}
  </div>
  )}
- </div>
+ </PageContainer>
  );
 }
 
 // ── GroupTreeMultiSelect for compliance policies ─────────────────────────────
 
 function PolicyGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+ const { t } = useTranslation();
  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
  useEffect(() => {
- groupsApi.tree().then((t) => {
- setTree(t);
+ groupsApi.tree().then((tr) => {
+ setTree(tr);
  const all = new Set<number>();
  const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
- walk(t);
+ walk(tr);
  setExpanded(all);
  }).catch(() => {});
  }, []);
@@ -1347,15 +1500,17 @@ function PolicyGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: nu
  <button
  type="button"
  onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}
+ aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}
  >
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+ <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
  <button
  type="button"
  onClick={() => toggleNode(node)}
+ aria-label={node.name} aria-pressed={state === 'all'}
  className={clsx(
- 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+ 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors coarse:w-5 coarse:h-5',
  state === 'all' ? 'bg-accent border-accent text-white' :
  state === 'some' ? 'bg-accent/30 border-accent text-white' :
  'border-transparent hover:border-accent/50',
@@ -1382,7 +1537,7 @@ function PolicyGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: nu
  };
 
  if (tree.length === 0) {
- return <p className="text-sm text-text-muted py-2">No groups available</p>;
+ return <p className="text-sm text-text-muted py-2">{t('updates.policy.noGroups', 'No groups available')}</p>;
  }
 
  return (

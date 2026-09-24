@@ -1,4 +1,6 @@
 import { clsx } from 'clsx';
+import { InfoTip } from './Tip';
+import { useCanHover } from '@/hooks/useMediaQuery';
 
 interface Props {
  checked: boolean;
@@ -17,6 +19,10 @@ interface Props {
  * Positioning is done with inline styles rather than Tailwind utility
  * classes to avoid ambiguous absolute-anchoring bugs where the knob ends
  * up at the wrong edge of the track.
+ *
+ * Touch (docs/obli-mobile.md §5): an invisible hit area grows the track to
+ * ≥ 40 px tall without moving the layout, and `title` (a hover-only
+ * tooltip) is also offered as a tap-to-open (i) next to the label.
  */
 export function ToggleSwitch({
  checked, onChange, disabled = false, size = 'md', label, description, title,
@@ -27,6 +33,12 @@ export function ToggleSwitch({
  ? { trackW: 32, trackH: 16, knob: 12, pad: 2 }
  : { trackW: 40, trackH: 20, knob: 16, pad: 2 };
  const translateX = checked ? G.trackW - G.knob - G.pad : G.pad;
+ const canHover = useCanHover();
+ // Mouse: the native title tooltip (unchanged). Touch: title never shows,
+ // so the same text is reachable through an (i) popover.
+ const hint = title && !canHover
+ ? <InfoTip content={title} className="ml-1 align-middle" />
+ : null;
 
  const toggle = (
  <button
@@ -39,6 +51,8 @@ export function ToggleSwitch({
  style={{ width: G.trackW, height: G.trackH }}
  className={clsx(
  'relative rounded-full transition-colors shrink-0 border',
+ // Invisible touch hit area (≥ 40 px tall), layout unchanged.
+ "coarse:after:absolute coarse:after:-inset-x-2 coarse:after:-inset-y-3 coarse:after:content-['']",
  checked ? 'bg-accent border-accent' : 'bg-bg-tertiary border-transparent',
  disabled && 'opacity-50 cursor-not-allowed',
  )}
@@ -56,14 +70,17 @@ export function ToggleSwitch({
  </button>
  );
 
- if (!label && !description) return toggle;
+ if (!label && !description) {
+ if (!hint) return toggle;
+ return <span className="inline-flex items-center gap-1">{toggle}{hint}</span>;
+ }
 
  return (
  <label className={clsx('flex items-start gap-2.5', disabled ? 'cursor-not-allowed' : 'cursor-pointer')}>
  {toggle}
  <span className="flex flex-col min-w-0">
- {label && <span className="text-sm text-text-primary">{label}</span>}
- {description && <span className="text-xs text-text-muted">{description}</span>}
+ {label && <span className="text-sm text-text-primary">{label}{hint}</span>}
+ {description && <span className="text-xs text-text-muted">{description}{!label && hint}</span>}
  </span>
  </label>
  );

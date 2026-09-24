@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Verified update APKs (DownloadManager -> getExternalFilesDir(Download)). -->
+    <external-files-path
+        name="updates"
+        path="Download/" />
+    <!-- Files saved by the bridge in the public Downloads folder, API 26-28 only
+         (API 29+ uses MediaStore URIs). -->
+    <external-path
+        name="downloads"
+        path="Download/" />
+</paths>

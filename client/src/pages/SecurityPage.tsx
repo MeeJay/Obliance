@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AuditLogPage } from './AuditLogPage';
 import { ApprovalsPage } from './ApprovalsPage';
 import { approvalApi } from '@/api/approval.api';
+import { PageContainer } from '@/components/common/PageContainer';
 import { getSocket } from '@/socket/socketClient';
 
 type Tab = 'audit' | 'approvals';
@@ -60,7 +61,7 @@ export function SecurityPage() {
  }, []);
 
  return (
- <div className="p-6">
+ <PageContainer>
  <div className="flex items-center gap-3 mb-4">
  <Shield className="w-6 h-6 text-accent" />
  <div>
@@ -69,7 +70,7 @@ export function SecurityPage() {
  </div>
  </div>
 
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent mb-4 inline-flex">
+ <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent mb-4 inline-flex max-w-full overflow-x-auto scrollbar-none">
  <TabBtn active={tab === 'audit'} onClick={() => setTab('audit')}>
  <FileText className="w-4 h-4" />
  {t('security.tabAudit', 'Audit log')}
@@ -87,7 +88,7 @@ export function SecurityPage() {
 
  {tab === 'audit' && <AuditLogPage embedded />}
  {tab === 'approvals' && <ApprovalsPage embedded />}
- </div>
+ </PageContainer>
  );
 }
 
@@ -96,7 +97,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
  <button
  onClick={onClick}
  className={clsx(
- 'flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+ 'flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
  active ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
  )}
  >

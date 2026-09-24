@@ -24,7 +24,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
  ref={ref}
  id={inputId}
  className={cn(
- 'w-full rounded-md bg-bg-tertiary px-3 py-2 text-sm text-text-primary',
+ // coarse: ≥ 40 px tall (index.css already bumps the font to 16 px on touch phones).
+ 'w-full rounded-md bg-bg-tertiary px-3 py-2 text-sm text-text-primary coarse:min-h-10',
  'placeholder:text-text-muted',
  'focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent',
  'disabled:opacity-50 disabled:cursor-not-allowed',

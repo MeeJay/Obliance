@@ -33,3 +33,14 @@ start.ps1
 # binaries live in agent/dist/.
 agent/cmd/wizard/obliance-agent.msi
 agent/cmd/wizard-linux/obliance-agent
+
+# Obli mobile (Android). The signed APK is a build output: the drop zone
+# mobile/release/ only commits README.md + manifest.json (placeholder).
+# Gradle state and signing material must never be committed.
+mobile/release/*.apk
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/android/**/build/
+*.jks
+*.keystore
+.secrets/

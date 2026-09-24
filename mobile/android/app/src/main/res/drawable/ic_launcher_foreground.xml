@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generic Obli placeholder: an "O" ring in the app accent. Apps with their own
+     logo override this file in src/<flavor>/res/drawable. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,33a21,21 0 1,1 0,42a21,21 0 1,1 0,-42z"
+        android:strokeWidth="9"
+        android:strokeColor="@color/obli_accent" />
+    <path
+        android:fillColor="@color/obli_accent2"
+        android:pathData="M71,31a5,5 0 1,1 0,10a5,5 0 1,1 0,-10z" />
+</vector>

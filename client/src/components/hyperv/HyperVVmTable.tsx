@@ -13,6 +13,12 @@ import { vmMatchesSearch } from '@obliance/shared';
 import { hypervApi } from '@/api/hyperv.api';
 import { DeviceStatusBadge } from '@/components/devices/DeviceStatusBadge';
 import { HyperVConsolePreview, HyperVConsoleModal } from './HyperVConsole';
+import { saveBlob } from '@/utils/download';
+import { TableScroll } from '@/components/common/TableScroll';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { Tip } from '@/components/common/Tip';
+import { useCanHover, matchesMedia, MEDIA } from '@/hooks/useMediaQuery';
 
 interface Props {
   vms: VirtualMachine[];
@@ -55,18 +61,27 @@ const OPTIONAL_COLUMNS: ReadonlyArray<{ key: ColKey; labelKey: string; fallback:
 ];
 
 const DEFAULT_COLS: ColKey[] = ['cpu', 'mem', 'guestOs', 'uptime', 'mac', 'ip'];
+// Below lg (tablet portrait / phone) the wide text columns start hidden when
+// the user never picked columns — they stay reachable through the Columns
+// menu, and the table scrolls horizontally. Not persisted (a forced layout
+// state never overwrites the desktop preference).
+const NARROW_DEFAULT_COLS: ColKey[] = ['cpu', 'mem', 'uptime'];
 const COLS_STORAGE_KEY = 'obliance.hyperv.vmColumns';
+
+function defaultCols(): ColKey[] {
+  return matchesMedia(MEDIA.lg) ? DEFAULT_COLS : NARROW_DEFAULT_COLS;
+}
 
 function loadCols(): Set<ColKey> {
   try {
     const raw = localStorage.getItem(COLS_STORAGE_KEY);
-    if (!raw) return new Set(DEFAULT_COLS);
+    if (!raw) return new Set(defaultCols());
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set(DEFAULT_COLS);
+    if (!Array.isArray(parsed)) return new Set(defaultCols());
     const valid = parsed.filter((k): k is ColKey => OPTIONAL_COLUMNS.some((c) => c.key === k));
     return new Set(valid);
   } catch {
-    return new Set(DEFAULT_COLS);
+    return new Set(defaultCols());
   }
 }
 
@@ -98,22 +113,29 @@ function fmtUptime(sec: number | null): string {
  *  comma-joined so multi-NIC VMs stay readable; capped with a "+n" so a VM with
  *  a dozen IPv6 addresses can't blow up the row height. */
 function AddrList({ values }: { values: string[] | undefined }) {
+  const canHover = useCanHover();
   const list = values ?? [];
   if (list.length === 0) return <span className="text-sm text-text-muted">—</span>;
   const shown = list.slice(0, 2);
   const rest = list.length - shown.length;
   return (
-    <span className="flex flex-col gap-0.5" title={list.join('\n')}>
+    <span className="flex flex-col gap-0.5" title={canHover ? list.join('\n') : undefined}>
       {shown.map((v) => (
         <span key={v} className="text-[11px] font-mono text-text-muted leading-tight">{v}</span>
       ))}
-      {rest > 0 && <span className="text-[10px] text-text-muted/60 leading-tight">+{rest}</span>}
+      {rest > 0 && (canHover
+        ? <span className="text-[10px] text-text-muted/60 leading-tight">+{rest}</span>
+        // Touch: tap "+n" to see every address (the title tooltip is mouse-only).
+        : <Tip content={list.join('\n')} align="start" contentClassName="font-mono">
+            <span className="text-[10px] text-text-muted/60 leading-tight underline decoration-dotted">+{rest}</span>
+          </Tip>)}
     </span>
   );
 }
 
 export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceId, hostStatusById, onRefresh, refreshing, onAction, onEdit, onCheckpoints, onInteractiveConsole }: Props) {
   const { t } = useTranslation();
+  const canHover = useCanHover();
   const [menuVmId, setMenuVmId] = useState<string | null>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -129,12 +151,9 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
         tags: tagFilters.size ? [...tagFilters] : undefined,
         search: search.trim() || undefined,
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      // saveBlob → native saveFile bridge in the Android shell, <a download>
+      // with a deferred revoke in browsers.
+      if (!(await saveBlob(blob, filename))) toast.error(t('common.error'));
     } catch {
       toast.error(t('common.error'));
     } finally {
@@ -293,17 +312,18 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('hyperv.searchPlaceholder') || 'Search VM, host, IP or MAC…'}
+                autoCapitalize="off" autoCorrect="off" spellCheck={false}
                 className="w-full pl-9 pr-8 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
               />
               {search && (
-                <button type="button" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary">
+                <button type="button" onClick={() => setSearch('')} aria-label={t('common.clear') || 'Clear'} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary coarse:after:absolute coarse:after:-inset-2 coarse:after:content-['']">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
           ) : <span />}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
           {onRefresh && (
             <button
               type="button"
@@ -336,7 +356,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                         key={c.key}
                         type="button"
                         onClick={() => toggleCol(c.key)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-text-primary hover:bg-bg-tertiary transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-text-primary hover:bg-bg-tertiary transition-colors coarse:min-h-11 coarse:text-sm"
                       >
                         <span className={clsx(
                           'w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0',
@@ -367,9 +387,9 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden py-1">
-                  <button type="button" onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">CSV</button>
-                  <button type="button" onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">Excel (XLSX)</button>
-                  <button type="button" onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">PDF</button>
+                  <button type="button" onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:min-h-11">CSV</button>
+                  <button type="button" onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:min-h-11">Excel (XLSX)</button>
+                  <button type="button" onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:min-h-11">PDF</button>
                 </div>
               </>
             )}
@@ -389,8 +409,11 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
           <p className="text-sm">{t('hyperv.noMatch') || 'No VM matches your search.'}</p>
         </div>
       ) : (
-      <div className="bg-bg-secondary rounded-xl overflow-visible">
-      <table className="w-full">
+      {/* Below lg the table scrolls horizontally (row actions then live in a
+          portal ActionMenu, so nothing gets clipped); lg+ keeps the original
+          overflow-visible container + inline dropdown. */}
+      <TableScroll className="bg-bg-secondary rounded-xl lg:overflow-visible" innerClassName="lg:overflow-visible">
+      <table className="w-full max-lg:min-w-[560px]">
         <thead>
           <tr>
             <SortHead k="name" label={t('hyperv.col.name') || 'Name'} />
@@ -438,21 +461,31 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                     <tr className="hover:bg-bg-tertiary/40 transition-colors">
                       <td className="px-4 py-2.5 text-sm text-text-primary font-medium">
                         <span className={clsx('inline-flex items-center gap-1.5', showHost && 'pl-5')}>
-                          <button
+                          <IconButton
                             onClick={() => setExpandedVmId(expandedVmId === vm.vmId ? null : vm.vmId)}
-                            title={t('hyperv.consolePreview') || 'Console preview'}
-                            className="text-text-muted hover:text-text-primary"
-                          >
-                            {expandedVmId === vm.vmId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                          </button>
+                            label={t('hyperv.consolePreview') || 'Console preview'}
+                            variant="plain"
+                            touchTarget="overlay"
+                            aria-expanded={expandedVmId === vm.vmId}
+                            className="p-0 rounded-none"
+                            icon={expandedVmId === vm.vmId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                          />
                           {vm.name}
                         </span>
                         {vm.checkpointCount ? <span className="ml-2 text-[10px] text-text-muted">({vm.checkpointCount} cp)</span> : null}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={clsx('inline-block px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[vm.state])} title={vm.statusText ?? undefined}>
-                          {stateLabel(vm.state)}
-                        </span>
+                        {!canHover && vm.statusText ? (
+                          <Tip content={vm.statusText} align="start">
+                            <span className={clsx('inline-block px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[vm.state])}>
+                              {stateLabel(vm.state)}
+                            </span>
+                          </Tip>
+                        ) : (
+                          <span className={clsx('inline-block px-2 py-0.5 text-[11px] rounded-full border', STATE_BADGE[vm.state])} title={vm.statusText ?? undefined}>
+                            {stateLabel(vm.state)}
+                          </span>
+                        )}
                       </td>
                       {showCol('cpu') && <td className="px-4 py-2.5 text-sm text-text-muted">{running && vm.cpuUsagePercent != null ? `${vm.cpuUsagePercent}%` : '—'}</td>}
                       {showCol('mem') && (
@@ -461,26 +494,38 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                           {vm.dynamicMemory && vm.memoryDemandBytes ? <span className="text-[10px] ml-1" title="Demand">({fmtMem(vm.memoryDemandBytes)})</span> : null}
                         </td>
                       )}
-                      {showCol('guestOs') && <td className="px-4 py-2.5 text-sm text-text-muted truncate max-w-[180px]" title={vm.guestOs ?? ''}>{vm.guestOs || '—'}</td>}
+                      {showCol('guestOs') && <td className="px-4 py-2.5 text-sm text-text-muted truncate max-w-[180px] coarse:whitespace-normal coarse:break-words" title={vm.guestOs ?? ''}>{vm.guestOs || '—'}</td>}
                       {showCol('uptime') && <td className="px-4 py-2.5 text-sm text-text-muted">{fmtUptime(vm.uptimeSeconds)}</td>}
                       {showCol('mac') && <td className="px-4 py-2.5"><AddrList values={vm.macAddresses} /></td>}
                       {showCol('ip') && <td className="px-4 py-2.5"><AddrList values={vm.ipAddresses} /></td>}
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           {off || vm.state === 'saved' || paused ? (
-                            <button disabled={busy} onClick={() => onAction(vm, paused ? 'resume' : 'start')} title={paused ? (t('hyperv.action.resume') || 'Resume') : (t('hyperv.action.start') || 'Start')} className="p-1.5 rounded text-green-400 hover:bg-green-400/10 disabled:opacity-40 transition-colors">
-                              {paused ? <PlayCircle className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                            </button>
+                            <IconButton disabled={busy} onClick={() => onAction(vm, paused ? 'resume' : 'start')} label={paused ? (t('hyperv.action.resume') || 'Resume') : (t('hyperv.action.start') || 'Start')} variant="plain" className="text-green-400 hover:text-green-400 hover:bg-green-400/10 disabled:opacity-40" icon={paused ? <PlayCircle className="w-4 h-4" /> : <Play className="w-4 h-4" />} />
                           ) : (
-                            <button disabled={busy} onClick={() => onAction(vm, 'shutdown')} title={t('hyperv.action.shutdown') || 'Shut down (graceful)'} className="p-1.5 rounded text-orange-400 hover:bg-orange-400/10 disabled:opacity-40 transition-colors">
-                              <Power className="w-4 h-4" />
-                            </button>
+                            <IconButton disabled={busy} onClick={() => onAction(vm, 'shutdown')} label={t('hyperv.action.shutdown') || 'Shut down (graceful)'} variant="plain" className="text-orange-400 hover:text-orange-400 hover:bg-orange-400/10 disabled:opacity-40" icon={<Power className="w-4 h-4" />} />
                           )}
-                          <button disabled={busy || !running} onClick={() => onAction(vm, 'restart')} title={t('hyperv.action.restart') || 'Restart'} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-30 transition-colors">
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                          <div className="relative">
-                            <button disabled={busy} onClick={() => setMenuVmId(menuVmId === vm.vmId ? null : vm.vmId)} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-40 transition-colors">
+                          <IconButton disabled={busy || !running} onClick={() => onAction(vm, 'restart')} label={t('hyperv.action.restart') || 'Restart'} variant="plain" className="hover:bg-bg-secondary disabled:opacity-30" icon={<RotateCcw className="w-4 h-4" />} />
+                          {/* Below lg: portal-positioned menu (bottom sheet on phones). */}
+                          <ActionMenu
+                            disabled={busy}
+                            triggerVariant="plain"
+                            triggerClassName="lg:hidden hover:bg-bg-secondary"
+                            label={t('hyperv.col.actions') || 'Actions'}
+                            sheetTitle={vm.name}
+                            items={[
+                              { key: 'liveconsole', icon: <MonitorPlay className="w-4 h-4" />, label: t('hyperv.interactiveConsole') || 'Interactive console', hidden: !(!!onInteractiveConsole && (running || paused)), onClick: () => onInteractiveConsole?.(vm) },
+                              { key: 'console', icon: <Monitor className="w-4 h-4" />, label: t('hyperv.openConsole') || 'Console preview…', onClick: () => setConsoleVm(vm) },
+                              { key: 'stop', icon: <Square className="w-4 h-4" />, label: t('hyperv.action.stop') || 'Power off (hard)', hidden: off, onClick: () => onAction(vm, 'stop') },
+                              { key: 'save', icon: <Save className="w-4 h-4" />, label: t('hyperv.action.save') || 'Save state', hidden: !running, onClick: () => onAction(vm, 'save') },
+                              { key: 'pause', icon: <Pause className="w-4 h-4" />, label: t('hyperv.action.pause') || 'Pause', hidden: !running, onClick: () => onAction(vm, 'pause') },
+                              { key: 'checkpoints', icon: <Camera className="w-4 h-4" />, label: t('hyperv.manageCheckpoints') || 'Checkpoints…', hidden: !onCheckpoints, onClick: () => onCheckpoints?.(vm) },
+                              { key: 'edit', icon: <Cpu className="w-4 h-4" />, label: t('hyperv.editSettings') || 'Edit settings…', hidden: !onEdit, onClick: () => onEdit?.(vm) },
+                              { key: 'delete', icon: <Trash2 className="w-4 h-4" />, label: t('hyperv.action.delete') || 'Delete VM', danger: true, separator: true, onClick: () => onAction(vm, 'delete') },
+                            ]}
+                          />
+                          <div className="relative max-lg:hidden">
+                            <button disabled={busy} onClick={() => setMenuVmId(menuVmId === vm.vmId ? null : vm.vmId)} aria-label={t('hyperv.col.actions') || 'Actions'} className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary disabled:opacity-40 transition-colors">
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {menuVmId === vm.vmId && (
@@ -523,6 +568,13 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
                       <tr key={`preview:${vm.vmId}`}>
                         <td colSpan={colCount} className="px-4 pb-4 pt-1 bg-bg-tertiary/20">
                           <HyperVConsolePreview hostDeviceId={vm.hostDeviceId} vmId={vm.vmId} onOpenFull={() => setConsoleVm(vm)} />
+                          {/* Every address (the row caps the list at 2 + "+n"). */}
+                          {((vm.ipAddresses?.length ?? 0) > 2 || (vm.macAddresses?.length ?? 0) > 2 || !showCol('ip') || !showCol('mac')) && (
+                            <div className="lg:hidden mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-text-muted break-all">
+                              {(vm.ipAddresses?.length ?? 0) > 0 && <div><span className="font-sans uppercase text-[10px]">{t('hyperv.col.ip') || 'IP'}</span><br />{vm.ipAddresses!.join(', ')}</div>}
+                              {(vm.macAddresses?.length ?? 0) > 0 && <div><span className="font-sans uppercase text-[10px]">{t('hyperv.col.mac') || 'MAC'}</span><br />{vm.macAddresses!.join(', ')}</div>}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
@@ -534,7 +586,7 @@ export function HyperVVmTable({ vms, busyVmId, showHost, searchable, hostDeviceI
           })}
         </tbody>
       </table>
-      </div>
+      </TableScroll>
       )}
 
       {consoleVm && (

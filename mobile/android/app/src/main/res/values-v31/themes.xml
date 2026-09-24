@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ObliShell" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/obli_accent</item>
+        <item name="colorPrimaryDark">@color/obli_bg</item>
+        <item name="colorAccent">@color/obli_accent</item>
+        <item name="android:windowBackground">@color/obli_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/obli_bg</item>
+    </style>
+</resources>

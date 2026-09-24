@@ -63,7 +63,7 @@ export function ResetPasswordPage() {
  };
 
  return (
- <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
+ <div className="flex min-h-dvh supports-[not(height:100dvh)]:min-h-screen items-center justify-center bg-bg-primary p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))]">
  <div className="w-full max-w-sm space-y-8">
  <div className="text-center">
  <Logo className="mx-auto h-24 w-24 mb-3" />
@@ -85,10 +85,10 @@ export function ResetPasswordPage() {
  <h2 className="text-lg font-semibold text-text-primary">{t('resetPassword.title')}</h2>
  <p className="mt-1 text-sm text-status-down">{t('resetPassword.invalidToken')}</p>
  </div>
- <Link to="/forgot-password" className="block text-sm text-primary hover:underline">
+ <Link to="/forgot-password" className="block text-sm text-primary hover:underline coarse:py-2.5">
  {t('forgotPassword.submit')}
  </Link>
- <Link to="/login" className="block text-sm text-text-muted hover:text-text-primary">
+ <Link to="/login" className="block text-sm text-text-muted hover:text-text-primary coarse:py-2.5">
  {t('resetPassword.backToLogin')}
  </Link>
  </div>
@@ -103,7 +103,7 @@ export function ResetPasswordPage() {
  <h2 className="text-lg font-semibold text-text-primary">{t('resetPassword.successTitle')}</h2>
  <p className="mt-1 text-sm text-text-muted">{t('resetPassword.successMessage')}</p>
  </div>
- <Link to="/login" className="block text-sm text-primary hover:underline">
+ <Link to="/login" className="block text-sm text-primary hover:underline coarse:py-2.5">
  {t('resetPassword.backToLogin')}
  </Link>
  </div>
@@ -119,6 +119,7 @@ export function ResetPasswordPage() {
  value={newPassword}
  onChange={(e) => setNewPassword(e.target.value)}
  placeholder={t('resetPassword.newPasswordPlaceholder')}
+ autoComplete="new-password"
  autoFocus
  required
  />
@@ -128,6 +129,8 @@ export function ResetPasswordPage() {
  value={confirmPassword}
  onChange={(e) => setConfirmPassword(e.target.value)}
  placeholder={t('resetPassword.confirmPasswordPlaceholder')}
+ autoComplete="new-password"
+ enterKeyHint="go"
  required
  />
  {error && (
@@ -139,7 +142,7 @@ export function ResetPasswordPage() {
  {submitting ? t('resetPassword.submitting') : t('resetPassword.submit')}
  </Button>
  </form>
- <Link to="/login" className="block text-center text-sm text-text-muted hover:text-text-primary">
+ <Link to="/login" className="block text-center text-sm text-text-muted hover:text-text-primary coarse:py-2.5">
  {t('resetPassword.backToLogin')}
  </Link>
  </>

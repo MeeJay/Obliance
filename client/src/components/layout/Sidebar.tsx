@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
   useDroppable,
   useDraggable,
   type DragEndEvent,
@@ -30,13 +27,17 @@ import {
   ShieldCheck,
   Plus,
   Key,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { anonymize } from '@/utils/anonymize';
 import { deviceMatchesSearch } from '@/utils/deviceSearch';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/store/authStore';
-import { useUiStore } from '@/store/uiStore';
+import { useUiStore, useEffectiveSidebar } from '@/store/uiStore';
+import { useDndSensors } from '@/hooks/useDndSensors';
+import { IconButton } from '@/components/common/IconButton';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { useTenantStore } from '@/store/tenantStore';
 import { deviceApi } from '@/api/device.api';
 import { groupsApi } from '@/api/groups.api';
@@ -64,6 +65,47 @@ function usePersisted<T>(key: string, initial: T): [T, (v: T | ((prev: T) => T))
     });
   }, [key]);
   return [value, set];
+}
+
+// ── Cross-mount cache ────────────────────────────────────────────────────────
+// Below 1024 px the Sidebar lives in the off-canvas Drawer (AppLayout), which
+// unmounts it when closed — and the drawer closes on every navigation. Without
+// this cache every hamburger tap would start from an empty tree and download
+// the whole fleet again (pageSize 10000: several MB on mobile data). The last
+// device list / group tree / approvals count are kept here, keyed by user +
+// tenant, so a remount renders at once and only refetches once the data is
+// REFRESH_MS old. The desktop column stays mounted: first load and tenant
+// switches behave as before (empty tree → fetch → refresh every 30 s).
+
+/** Full refresh cadence (socket deltas keep the list live in between). */
+const REFRESH_MS = 30_000;
+
+interface SidebarData {
+  /** User + tenant the rows belong to; null = nothing loaded yet. */
+  key: string | null;
+  devices: Device[];
+  groupTree: DeviceGroupTreeNode[];
+}
+
+const EMPTY_SIDEBAR_DATA: SidebarData = { key: null, devices: [], groupTree: [] };
+
+let sidebarCache: (SidebarData & { key: string; fetchedAt: number }) | null = null;
+let pendingApprovalsCache: { key: string; count: number } | null = null;
+/** Drawer only: search text + tree scroll position survive a close / re-open. */
+let drawerUiCache: { key: string; search: string; scrollTop: number } | null = null;
+
+function sidebarCacheKey(userId: number | null | undefined, tenantId: number | null | undefined): string {
+  return `${userId ?? '-'}:${tenantId ?? '-'}`;
+}
+
+/** Key for the user + tenant active right now (read outside render). */
+function currentSidebarCacheKey(): string {
+  return sidebarCacheKey(useAuthStore.getState().user?.id, useTenantStore.getState().currentTenantId);
+}
+
+function rememberDrawerUi(key: string, patch: Partial<{ search: string; scrollTop: number }>) {
+  const base = drawerUiCache?.key === key ? drawerUiCache : { key, search: '', scrollTop: 0 };
+  drawerUiCache = { ...base, ...patch };
 }
 
 // ── Device status dot ────────────────────────────────────────────────────────
@@ -135,10 +177,17 @@ function DraggableDeviceItem({
 }) {
   const location = useLocation();
   const isActive = location.pathname === `/devices/${device.id}`;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: `device-${device.id}`,
     data: { type: 'device', device },
   });
+  // The wrapper is also the keyboard activator: dnd-kit's KeyboardSensor only
+  // starts a drag when Space / Enter is pressed ON it, so Enter on the inner
+  // Link still navigates.
+  const setRefs = useCallback((el: HTMLElement | null) => {
+    setNodeRef(el);
+    setActivatorNodeRef(el);
+  }, [setNodeRef, setActivatorNodeRef]);
 
   const displayName = anonymize(device.displayName ?? device.hostname);
 
@@ -152,16 +201,17 @@ function DraggableDeviceItem({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       {...attributes}
       {...listeners}
+      className="touch-manipulation"
       style={{ opacity: isDragging ? 0.4 : 1 }}
     >
       <Link
         to={`/devices/${device.id}`}
         style={{ paddingLeft }}
         className={cn(
-          'flex items-center gap-2 rounded-md py-1.5 pr-2 transition-colors',
+          'flex items-center gap-2 rounded-md py-1.5 pr-2 transition-colors coarse:py-2.5',
           isActive
             ? 'bg-bg-active text-text-primary'
             : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -216,6 +266,7 @@ function GroupRow({
   depth?: number;
   hideDeviceRows?: boolean;
 }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const [collapsed, setCollapsed] = usePersisted<boolean>(`sidebar-group-collapsed-${group.id}`, false);
 
@@ -254,10 +305,14 @@ function GroupRow({
         )}
         style={{ paddingLeft }}
       >
-        {/* Collapse toggle */}
+        {/* Collapse toggle — invisible 40 px hit area on touch screens */}
         <button
           onClick={() => setCollapsed(v => !v)}
-          className="p-1 rounded hover:bg-bg-hover transition-colors shrink-0"
+          aria-label={collapsed
+            ? (t('nav.expandGroup', { name: group.name }) || `Expand ${group.name}`)
+            : (t('nav.collapseGroup', { name: group.name }) || `Collapse ${group.name}`)}
+          aria-expanded={!collapsed}
+          className="relative p-1 rounded hover:bg-bg-hover transition-colors shrink-0 coarse:after:absolute coarse:after:left-1/2 coarse:after:top-1/2 coarse:after:h-10 coarse:after:w-10 coarse:after:-translate-x-1/2 coarse:after:-translate-y-1/2 coarse:after:content-['']"
         >
           {collapsed ? (
             <ChevronRight size={12} className="text-text-muted" />
@@ -269,14 +324,15 @@ function GroupRow({
         {/* Group link */}
         <Link
           to={`/group/${group.id}`}
-          className="flex items-center gap-2 flex-1 py-1.5 min-w-0"
+          className="flex items-center gap-2 flex-1 py-1.5 min-w-0 coarse:py-2.5"
         >
           <Server size={14} className="shrink-0 text-text-muted" />
           <span className="truncate flex-1 text-[13px] font-medium">{anonymize(group.name)}</span>
           {groupDevices.length > 0 && (
             <span
               className="flex items-center gap-1.5 shrink-0 text-[11px] font-mono font-medium"
-              title={`${onlineCount} online · ${warningCount} warning · ${criticalCount} critical · ${offlineCount} offline · ${groupDevices.length} total`}
+              title={t('nav.groupCounts', { online: onlineCount, warning: warningCount, critical: criticalCount, offline: offlineCount, total: groupDevices.length })
+                || `${onlineCount} online · ${warningCount} warning · ${criticalCount} critical · ${offlineCount} offline · ${groupDevices.length} total`}
             >
               {onlineCount   > 0 && <span className="text-green-400">{onlineCount}</span>}
               {warningCount  > 0 && <span className="text-amber-400">{warningCount}</span>}
@@ -331,7 +387,7 @@ function NavLink({ item }: { item: NavItem }) {
     <Link
       to={item.path}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] transition-colors',
+        'flex items-center gap-3 rounded-md px-3 py-2 text-[14px] transition-colors coarse:py-2.5',
         isActive
           ? 'bg-bg-active text-text-primary'
           : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -350,8 +406,20 @@ function NavLink({ item }: { item: NavItem }) {
 
 // ── Main Sidebar ──────────────────────────────────────────────────────────────
 
-export function Sidebar() {
+interface SidebarProps {
+  /**
+   * 'drawer' = rendered inside the phone / tablet off-canvas Drawer
+   * (AppLayout, < 1024 px): always expanded, stacked layout, a close button
+   * instead of the collapse / float toggles. Default: the desktop column.
+   */
+  variant?: 'default' | 'drawer';
+  /** Drawer variant: close the drawer (before opening a modal, etc.). */
+  onRequestClose?: () => void;
+}
+
+export function Sidebar({ variant = 'default', onRequestClose }: SidebarProps = {}) {
   const { t } = useTranslation();
+  const inDrawer = variant === 'drawer';
   const location = useLocation();
   const { user, isAdmin, permissions } = useAuthStore();
   // Tenant capabilities — Capability enum from @obliance/shared.
@@ -369,7 +437,19 @@ export function Sidebar() {
     tenantCaps.has('agent_config:discovery') ||
     tenantCaps.has('agent_config:keys') ||
     hasApprovalCap;
-  const { sidebarFloating, toggleSidebarFloating, sidebarCollapsed, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
+  const { toggleSidebarFloating, toggleSidebarCollapsed, openAddAgentModal } = useUiStore();
+  // Effective (device-aware) mode — see useEffectiveSidebar(). The drawer is
+  // always the full, expanded sidebar.
+  const effective = useEffectiveSidebar();
+  const sidebarCollapsed = !inDrawer && effective.collapsed;
+  const sidebarFloating = !inDrawer && effective.floating;
+  const canFloat = !inDrawer && effective.canFloat;
+  // Opening the Add-agent modal from the drawer: close the drawer first
+  // (it sits above the modal).
+  const handleAddAgent = () => {
+    onRequestClose?.();
+    openAddAgentModal();
+  };
 
   const admin = isAdmin();
   // "Add agent" button visibility — admin OR has `agent_config:approval`.
@@ -378,7 +458,9 @@ export function Sidebar() {
   const canAddAgent = admin || hasApprovalCap;
 
   // ── Layout preferences ─────────────────────────────────────────────────────
-  const [sidebarLayout, setSidebarLayout] = usePersisted<'stacked' | 'side-by-side'>('sidebar-layout', 'stacked');
+  const [storedSidebarLayout, setSidebarLayout] = usePersisted<'stacked' | 'side-by-side'>('sidebar-layout', 'stacked');
+  // A 320 px drawer has no room for two columns: forced stacked, never persisted.
+  const sidebarLayout = inDrawer ? 'stacked' : storedSidebarLayout;
   const [showDevices, setShowDevices] = usePersisted<boolean>('sidebar-show-devices', true);
   const [splitPercent, setSplitPercent] = usePersisted<number>('sidebar-split-percent', 50);
   const [adminMenuOpen, setAdminMenuOpen] = usePersisted<boolean>('sidebar:admin-open', true);
@@ -395,14 +477,44 @@ export function Sidebar() {
   const splitContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Device & group state ────────────────────────────────────────────────────
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [groupTree, setGroupTree] = useState<DeviceGroupTreeNode[]>([]);
-  const [search, setSearch] = useState('');
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-
+  // Seeded from the cross-mount cache (see top of file) when it holds this
+  // user + tenant, so a re-opened drawer shows the tree immediately.
   const currentTenantId = useTenantStore(s => s.currentTenantId);
+  const cacheKey = sidebarCacheKey(user?.id, currentTenantId);
+  const [data, setData] = useState<SidebarData>(() => (
+    sidebarCache?.key === cacheKey
+      ? { key: cacheKey, devices: sidebarCache.devices, groupTree: sidebarCache.groupTree }
+      : EMPTY_SIDEBAR_DATA
+  ));
+  const { devices, groupTree } = data;
+  const setDevices = useCallback((update: (prev: Device[]) => Device[]) => {
+    setData(d => ({ ...d, devices: update(d.devices) }));
+  }, []);
+  const setGroupTree = useCallback((tree: DeviceGroupTreeNode[]) => {
+    setData(d => ({ ...d, groupTree: tree }));
+  }, []);
+  const [search, setSearchState] = useState(() => (
+    inDrawer && drawerUiCache?.key === cacheKey ? drawerUiCache.search : ''
+  ));
+  const setSearch = (value: string) => {
+    setSearchState(value);
+    if (inDrawer) rememberDrawerUi(cacheKey, { search: value });
+  };
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(() => (
+    pendingApprovalsCache?.key === cacheKey ? pendingApprovalsCache.count : 0
+  ));
+
+  // Socket deltas / drag & drop edits flow back into the cache. `data.key`
+  // always describes `data`, so another tenant's rows can never land in it.
+  useEffect(() => {
+    if (data.key !== null && sidebarCache?.key === data.key) {
+      sidebarCache.devices = data.devices;
+      sidebarCache.groupTree = data.groupTree;
+    }
+  }, [data]);
 
   const loadDeviceData = useCallback(async () => {
+    const key = currentSidebarCacheKey();
     try {
       // Fetch ALL approved devices with a large page size. Default is 100
       // which silently truncated sidebar contents on fleets > 100 devices.
@@ -410,20 +522,67 @@ export function Sidebar() {
         deviceApi.listPaginated({ approvalStatus: 'approved', page: 1, pageSize: 10000 }),
         groupsApi.tree(),
       ]);
-      setDevices(paged.items);
-      setGroupTree(tree);
+      // Tenant switched (or another user signed in) while in flight: the
+      // answer belongs to the previous context — drop it.
+      if (key !== currentSidebarCacheKey()) return;
+      sidebarCache = { key, devices: paged.items, groupTree: tree, fetchedAt: Date.now() };
+      setData({ key, devices: paged.items, groupTree: tree });
     } catch {
       // fail silently — sidebar will just show empty
     }
   }, []);
 
   useEffect(() => {
-    setDevices([]);
-    setGroupTree([]);
-    loadDeviceData();
-    const id = setInterval(loadDeviceData, 30_000);
-    return () => clearInterval(id);
-  }, [loadDeviceData, currentTenantId]);
+    const cached = sidebarCache?.key === cacheKey ? sidebarCache : null;
+    // Never keep another tenant's tree on screen: show the cached rows of
+    // this user + tenant, or nothing until the fetch lands.
+    setData(prev => (
+      prev.key === cacheKey ? prev
+        : cached ? { key: cacheKey, devices: cached.devices, groupTree: cached.groupTree }
+        : EMPTY_SIDEBAR_DATA
+    ));
+    // Background tabs / a backgrounded mobile app skip the 30 s full refresh
+    // (socket deltas keep the list live) and catch up once visible again.
+    const refresh = () => {
+      if (document.visibilityState !== 'hidden') loadDeviceData();
+    };
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let firstTick: ReturnType<typeof setTimeout> | undefined;
+    const age = cached ? Date.now() - cached.fetchedAt : Infinity;
+    if (age >= 0 && age < REFRESH_MS) {
+      // Remount on recent cached rows (drawer re-opened): they are already
+      // on screen — resume the 30 s cadence from the last fetch instead of
+      // downloading the whole fleet again right now.
+      firstTick = setTimeout(() => {
+        refresh();
+        interval = setInterval(refresh, REFRESH_MS);
+      }, REFRESH_MS - age);
+    } else {
+      loadDeviceData();
+      interval = setInterval(refresh, REFRESH_MS);
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadDeviceData();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(firstTick);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [loadDeviceData, cacheKey]);
+
+  // Drawer: put the tree back where the user left it (the drawer unmounts
+  // the Sidebar on close — e.g. after tapping a device).
+  const treeScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!inDrawer) return;
+    const el = treeScrollRef.current;
+    if (el && drawerUiCache?.key === cacheKey) el.scrollTop = drawerUiCache.scrollTop;
+  }, [inDrawer, cacheKey]);
+  const handleTreeScroll = inDrawer
+    ? (e: React.UIEvent<HTMLDivElement>) => rememberDrawerUi(cacheKey, { scrollTop: e.currentTarget.scrollTop })
+    : undefined;
 
   // ── Pending approvals badge (admin only) ────────────────────────────────
   useEffect(() => {
@@ -431,8 +590,10 @@ export function Sidebar() {
     let cancelled = false;
     const load = async () => {
       try {
+        const key = currentSidebarCacheKey();
         const { approvalApi } = await import('@/api/approval.api');
         const rows = await approvalApi.list(false);
+        if (key === currentSidebarCacheKey()) pendingApprovalsCache = { key, count: rows.length };
         if (!cancelled) setPendingApprovalsCount(rows.length);
       } catch { /* ignore */ }
     };
@@ -504,7 +665,10 @@ export function Sidebar() {
     };
 
     const onGroupChanged = () => {
-      groupsApi.tree().then(setGroupTree).catch(() => {});
+      const key = currentSidebarCacheKey();
+      groupsApi.tree()
+        .then(tree => { if (key === currentSidebarCacheKey()) setGroupTree(tree); })
+        .catch(() => {});
     };
 
     socket.on(SocketEvents.DEVICE_UPDATED, onDeviceUpdated);
@@ -528,12 +692,25 @@ export function Sidebar() {
       socket.off(SocketEvents.GROUP_DELETED, onGroupChanged);
       socket.off(SocketEvents.GROUP_MOVED, onGroupChanged);
     };
-  }, [loadDeviceData]);
+  }, [loadDeviceData, setDevices, setGroupTree]);
 
   // ── Drag & drop device group reassignment ──────────────────────────────────
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  );
+  // Mouse: drag after 8 px (as before). Touch: long-press 250 ms so a swipe
+  // still scrolls the drawer. Keyboard: Space / Enter on the row wrapper.
+  const sensors = useDndSensors({ mouseDistance: 8 });
+
+  const findGroupName = useCallback((groupId: number | null): string => {
+    if (groupId === null) return t('nav.ungrouped') || 'Ungrouped';
+    const walk = (nodes: DeviceGroupTreeNode[]): string | null => {
+      for (const n of nodes) {
+        if (n.id === groupId) return n.name;
+        const hit = walk(n.children);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    return walk(groupTree) ?? `#${groupId}`;
+  }, [groupTree, t]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -549,16 +726,32 @@ export function Sidebar() {
 
     if (device.groupId === targetGroupId) return;
 
+    // A group change fires the `group_join` scenario trigger (scripts may run
+    // on the machine): on touch, where a long-press + slide can drop by
+    // accident, ask first.
+    const byTouch = typeof TouchEvent !== 'undefined' && event.activatorEvent instanceof TouchEvent;
+    if (byTouch) {
+      const deviceName = anonymize(device.displayName ?? device.hostname);
+      const groupName = anonymize(findGroupName(targetGroupId));
+      const ok = await confirmDialog({
+        title: t('nav.moveDeviceTitle') || 'Move device',
+        message: t('nav.moveDeviceConfirm', { device: deviceName, group: groupName })
+          || `Move ${deviceName} to ${groupName}?`,
+        confirmLabel: t('nav.moveDeviceAction') || 'Move',
+      });
+      if (!ok) return;
+    }
+
     try {
       await deviceApi.update(device.id, { groupId: targetGroupId });
       setDevices(prev => prev.map(d =>
         d.id === device.id ? { ...d, groupId: targetGroupId } : d,
       ));
-      toast.success('Device moved');
+      toast.success(t('nav.deviceMoved') || 'Device moved');
     } catch {
-      toast.error('Failed to move device');
+      toast.error(t('nav.deviceMoveFailed') || 'Failed to move device');
     }
-  }, []);
+  }, [findGroupName, setDevices, t]);
 
   // ── Split column resize ────────────────────────────────────────────────────
   const handleSplitMouseDown = useCallback((e: React.MouseEvent) => {
@@ -695,8 +888,11 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => toggleTenantCollapsed(bucket.id)}
-          className="w-full px-2 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent hover:bg-accent/5 rounded"
-          title={collapsed ? `Expand ${bucket.name}` : `Collapse ${bucket.name}`}
+          className="w-full px-2 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent hover:bg-accent/5 rounded coarse:py-2.5"
+          title={collapsed
+            ? (t('nav.expandGroup', { name: bucket.name }) || `Expand ${bucket.name}`)
+            : (t('nav.collapseGroup', { name: bucket.name }) || `Collapse ${bucket.name}`)}
+          aria-expanded={!collapsed}
         >
           {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
           <Building2 size={11} />
@@ -716,7 +912,7 @@ export function Sidebar() {
             {!hideDeviceRows && filteredBucketUngrouped.length > 0 && (
               <DroppableGroupHeader groupId={null}>
                 <div className="px-2 py-0.5 pl-4 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
-                  Ungrouped
+                  {t('nav.ungrouped') || 'Ungrouped'}
                 </div>
                 {filteredBucketUngrouped.map(device => (
                   <DraggableDeviceItem key={device.id} device={device} />
@@ -756,7 +952,7 @@ export function Sidebar() {
             {!hideDeviceRows && filteredUngrouped.length > 0 && (
               <DroppableGroupHeader groupId={null}>
                 <div className="px-2 py-0.5 text-[10px] font-medium text-text-muted uppercase tracking-wider mt-1">
-                  Ungrouped
+                  {t('nav.ungrouped') || 'Ungrouped'}
                 </div>
                 {filteredUngrouped.map(device => (
                   <DraggableDeviceItem key={device.id} device={device} />
@@ -785,7 +981,8 @@ export function Sidebar() {
           <button
             onClick={toggleSidebarCollapsed}
             title={t('nav.expandSidebar', 'Expand sidebar')}
-            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            aria-label={t('nav.expandSidebar', 'Expand sidebar')}
+            className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
           >
             <ChevronsRight size={16} />
           </button>
@@ -794,8 +991,9 @@ export function Sidebar() {
         {canAddAgent && (
           <div className="px-2 pt-1">
             <button
-              onClick={openAddAgentModal}
+              onClick={handleAddAgent}
               title={t('nav.addAgent')}
+              aria-label={t('nav.addAgent')}
               className="flex h-10 w-full items-center justify-center rounded-md bg-accent/12 text-accent transition-colors hover:bg-accent/20"
             >
               <Plus size={16} />
@@ -812,6 +1010,7 @@ export function Sidebar() {
                 key={item.path}
                 to={item.path}
                 title={item.label}
+                aria-label={item.label}
                 className={cn(
                   'relative flex h-10 w-full items-center justify-center rounded-md transition-colors',
                   isActive
@@ -865,33 +1064,48 @@ export function Sidebar() {
       {/* Sidebar head — collapse + float/pin toggles only. The logo and
           tenant selector live in the topbar (Header.tsx) so they remain
           visible when the sidebar is collapsed or floating. */}
-      <div className="flex h-9 shrink-0 items-center justify-end px-3 pt-2">
-        <div className="flex items-center gap-1">
-          {/* Collapse and Float are mutually exclusive: in collapsed mode
-              we already hide the Float button, so do the symmetric thing
-              and hide Collapse while floating. */}
-          {!sidebarFloating && (
-            <button
-              onClick={toggleSidebarCollapsed}
-              title={t('nav.collapseSidebar', 'Collapse sidebar')}
-              className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-            >
-              <ChevronsLeft size={15} />
-            </button>
-          )}
-          <button
-            onClick={toggleSidebarFloating}
-            title={sidebarFloating ? t('nav.pinSidebar', 'Pin sidebar') : t('nav.floatSidebar', 'Float sidebar (auto-hide)')}
-            className={cn(
-              'p-1.5 rounded transition-colors',
-              sidebarFloating
-                ? 'text-accent hover:text-accent hover:bg-accent/10'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
+      <div className="flex h-9 shrink-0 items-center justify-end px-3 pt-2 coarse:h-auto">
+        {inDrawer ? (
+          <IconButton
+            label={t('nav.closeMenu') || 'Close menu'}
+            icon={<X className="h-4 w-4" />}
+            size="md"
+            onClick={onRequestClose}
+          />
+        ) : (
+          <div className="flex items-center gap-1">
+            {/* Collapse and Float are mutually exclusive: in collapsed mode
+                we already hide the Float button, so do the symmetric thing
+                and hide Collapse while floating. */}
+            {!sidebarFloating && (
+              <button
+                onClick={toggleSidebarCollapsed}
+                title={t('nav.collapseSidebar', 'Collapse sidebar')}
+                aria-label={t('nav.collapseSidebar', 'Collapse sidebar')}
+                className="rounded p-1.5 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
+              >
+                <ChevronsLeft size={15} />
+              </button>
             )}
-          >
-            {sidebarFloating ? <PinOff size={15} /> : <Pin size={15} />}
-          </button>
-        </div>
+            {/* Floating (auto-hide on mouse leave) needs a hovering pointer:
+                not offered on touch screens (the effective mode is pinned). */}
+            {canFloat && (
+              <button
+                onClick={toggleSidebarFloating}
+                title={sidebarFloating ? t('nav.pinSidebar', 'Pin sidebar') : t('nav.floatSidebar', 'Float sidebar (auto-hide)')}
+                aria-label={sidebarFloating ? t('nav.pinSidebar', 'Pin sidebar') : t('nav.floatSidebar', 'Float sidebar (auto-hide)')}
+                className={cn(
+                  'p-1.5 rounded transition-colors',
+                  sidebarFloating
+                    ? 'text-accent hover:text-accent hover:bg-accent/10'
+                    : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
+                )}
+              >
+                {sidebarFloating ? <PinOff size={15} /> : <Pin size={15} />}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Add agent button — accent pill, matches mockup §4.2. Visible to
@@ -901,8 +1115,8 @@ export function Sidebar() {
       {canAddAgent && (
         <div className="px-3 pt-2">
           <button
-            onClick={openAddAgentModal}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent/12 hover:bg-accent/20 px-3 py-2 text-[13px] font-medium text-accent transition-colors"
+            onClick={handleAddAgent}
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent/12 hover:bg-accent/20 px-3 py-2 text-[13px] font-medium text-accent transition-colors coarse:py-2.5"
           >
             <Plus size={15} />
             {t('nav.addAgent')}
@@ -915,8 +1129,12 @@ export function Sidebar() {
         <input
           type="text"
           placeholder={t('common.search')}
+          aria-label={t('common.search')}
           value={search}
           onChange={e => setSearch(e.target.value)}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           className="w-full rounded-md bg-bg-tertiary px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
@@ -926,8 +1144,9 @@ export function Sidebar() {
         <div className="flex items-center justify-between px-3 pb-1.5 gap-2">
           <button
             onClick={() => setShowDevices(v => !v)}
+            aria-pressed={showDevices}
             className={cn(
-              'text-xs px-2 py-0.5 rounded-full border transition-colors',
+              'text-xs px-2 py-0.5 rounded-full border transition-colors coarse:py-1.5 coarse:px-3',
               showDevices
                 ? 'bg-accent/20 border-accent text-accent'
                 : 'border-border text-text-muted hover:text-text-secondary',
@@ -935,13 +1154,17 @@ export function Sidebar() {
           >
             {t('nav.devices')}
           </button>
-          <button
-            onClick={() => setSidebarLayout('side-by-side')}
-            title="Switch to side-by-side"
-            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0"
-          >
-            <ArrowLeftRight size={13} />
-          </button>
+          {/* Side-by-side needs the width of the desktop column. */}
+          {!inDrawer && (
+            <button
+              onClick={() => setSidebarLayout('side-by-side')}
+              title={t('nav.switchSideBySide') || 'Switch to side-by-side'}
+              aria-label={t('nav.switchSideBySide') || 'Switch to side-by-side'}
+              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors shrink-0 coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
+            >
+              <ArrowLeftRight size={13} />
+            </button>
+          )}
         </div>
       )}
 
@@ -971,8 +1194,9 @@ export function Sidebar() {
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t('nav.devices')}</span>
               <button
                 onClick={() => setSidebarLayout('stacked')}
-                title="Switch to stacked"
-                className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                title={t('nav.switchStacked') || 'Switch to stacked'}
+                aria-label={t('nav.switchStacked') || 'Switch to stacked'}
+                className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
               >
                 <ArrowLeftRight size={12} />
               </button>
@@ -991,7 +1215,8 @@ export function Sidebar() {
               visible all the time. State persisted via usePersisted. */}
           <button
             onClick={() => setNavMenuOpen(v => !v)}
-            className="flex w-full items-center gap-2 px-1 py-1.5 text-text-muted hover:text-text-secondary transition-colors shrink-0"
+            className="flex w-full items-center gap-2 px-1 py-1.5 text-text-muted hover:text-text-secondary transition-colors shrink-0 coarse:py-2.5"
+            aria-expanded={navMenuOpen}
             title={navMenuOpen ? t('nav.collapseNav', 'Collapse navigation') : t('nav.expandNav', 'Expand navigation')}
           >
             <ChevronDown size={12} className={cn('transition-transform duration-200', !navMenuOpen && '-rotate-90')} />
@@ -1007,7 +1232,7 @@ export function Sidebar() {
           {/* Group tree — always rendered. When `showDevices` is off we
               still render the group tree (without the devices inside)
               so the user can navigate to group pages. */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div ref={treeScrollRef} onScroll={handleTreeScroll} className="flex-1 overflow-y-auto min-h-0">
             {renderDeviceTree(false, !showDevices)}
           </div>
         </div>
@@ -1020,7 +1245,8 @@ export function Sidebar() {
         <>
           <button
             onClick={() => setAdminMenuOpen(v => !v)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-text-muted hover:text-text-secondary transition-colors"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-text-muted hover:text-text-secondary transition-colors coarse:py-2.5"
+            aria-expanded={adminMenuOpen}
             title={adminMenuOpen ? t('nav.collapseAdmin', 'Collapse administration') : t('nav.expandAdmin', 'Expand administration')}
           >
             <div className="flex-1 h-px bg-border" />
@@ -1042,7 +1268,7 @@ export function Sidebar() {
         <Link
           to="/profile"
           className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors coarse:py-2.5',
             location.pathname === '/profile'
               ? 'bg-bg-active text-text-primary'
               : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -1065,7 +1291,7 @@ export function Sidebar() {
 
         <button
           onClick={() => { useAuthStore.getState().logout(); }}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary coarse:py-2.5"
         >
           <LogOut size={18} />
           {t('nav.signOut')}

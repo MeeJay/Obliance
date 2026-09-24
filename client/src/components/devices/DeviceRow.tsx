@@ -1,4 +1,4 @@
-import { memo, type MouseEvent } from 'react';
+import { memo, type MouseEvent, type ReactNode } from 'react';
 import { Eye, FolderOpen, User, RotateCcw, ShieldOff, MapPin, WifiOff, Wifi, Network, Calendar, ShieldCheck, History, Building2, Copy } from 'lucide-react';
 import type { Device } from '@obliance/shared';
 import { DeviceStatusBadge } from './DeviceStatusBadge';
@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/authStore';
 import { anonymize, anonymizeIp } from '@/utils/anonymize';
 import { shortenOsName } from '@/utils/osLabel';
+import { Tip } from '@/components/common/Tip';
+import { useCanHover } from '@/hooks/useMediaQuery';
 
 interface DeviceRowProps {
   device: Device;
@@ -53,11 +55,13 @@ function MiniBar({ label, value }: { label: string; value: number | undefined })
   const hasValue = value != null;
   return (
     <div className="flex items-center gap-1">
-      <span className="text-[10px] text-text-muted/60 w-6 text-right">{label}</span>
-      <span className="text-[10px] text-text-muted w-6 text-right tabular-nums">
+      <span className="text-[10px] text-text-muted/60 w-6 text-right max-md:w-auto">{label}</span>
+      <span className="text-[10px] text-text-muted w-6 text-right tabular-nums max-md:w-auto">
         {hasValue ? `${Math.round(pct)}%` : '\u2014'}
       </span>
-      <div className="w-12 h-1.5 rounded-full bg-bg-tertiary overflow-hidden" title={`${label}: ${hasValue ? Math.round(pct) + '%' : 'N/A'}`}>
+      {/* Phone: label + value only (the 48px bar would not fit next to
+          the two others on one line). */}
+      <div className="w-12 h-1.5 rounded-full bg-bg-tertiary overflow-hidden max-md:hidden" title={`${label}: ${hasValue ? Math.round(pct) + '%' : 'N/A'}`}>
         {hasValue && (
           <div
             className={clsx('h-full rounded-full transition-all', metricColor(pct))}
@@ -158,7 +162,11 @@ export const DeviceRow = memo(function DeviceRow({
   return (
     <div
       className={clsx(
-        'h-[72px] px-4 py-2 hover:bg-bg-tertiary cursor-pointer transition-colors flex flex-col justify-center',
+        // md+ (desktop / tablet): the historic fixed 72px two-line row.
+        // Phone: the row grows with its content — line 1 wraps into a
+        // "name" line and a "status + metrics" line, and the line-2 fields
+        // wrap (docs/obli-mobile.md §4).
+        'min-h-[72px] md:h-[72px] px-4 py-2 hover:bg-bg-tertiary cursor-pointer transition-colors flex flex-col justify-center max-md:px-3',
         isSelected && 'bg-accent/10',
         selectionMode && isSelected && 'bg-accent/15',
       )}
@@ -167,12 +175,18 @@ export const DeviceRow = memo(function DeviceRow({
       onAuxClick={handleAuxClick}
     >
       {/* Line 1 */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 max-md:flex-wrap max-md:gap-x-2 max-md:gap-y-0.5">
         {showCheckbox && (
           <button
             onClick={handleCheckbox}
+            aria-label={t('devices.row.select', 'Select')}
+            aria-pressed={isSelected}
             className={clsx(
               'w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors',
+              // Touch: invisible 40×40 hit area around the 16px box (no
+              // layout change) + a visible unchecked border, since there
+              // is no hover to reveal it (docs §5.4).
+              "relative coarse:after:absolute coarse:after:-inset-3 coarse:after:content-['']",
               // Dark-theme checkbox when in selection mode (user-requested visual)
               selectionMode
                 ? (isSelected
@@ -180,7 +194,7 @@ export const DeviceRow = memo(function DeviceRow({
                     : 'bg-bg-primary/80 border-text-muted/40 hover:border-accent/50')
                 : (isSelected
                     ? 'bg-accent border-accent text-white'
-                    : 'border-transparent hover:border-accent/50'),
+                    : 'border-transparent hover:border-accent/50 coarse:border-text-muted/40'),
             )}
           >
             {isSelected && (
@@ -193,48 +207,60 @@ export const DeviceRow = memo(function DeviceRow({
 
         <OsIcon osType={device.osType} className="w-4 h-4 text-text-muted flex-shrink-0" />
 
-        <span className="text-sm font-semibold text-text-primary truncate max-w-[200px]" title={anonymize(displayLabel)}>
+        <span className="text-sm font-semibold text-text-primary truncate max-w-[200px] max-md:max-w-none max-md:flex-1 max-md:min-w-0" title={anonymize(displayLabel)}>
           {anonymize(displayLabel)}
         </span>
 
         {visibleTags.map((tag) => (
           <span
             key={tag}
-            className="text-[10px] px-1.5 rounded-full bg-accent/10 text-accent flex-shrink-0"
+            className="text-[10px] px-1.5 rounded-full bg-accent/10 text-accent flex-shrink-0 max-md:hidden"
           >
             {tag}
           </span>
         ))}
         {overflowCount > 0 && (
-          <span className="text-[10px] px-1.5 rounded-full bg-accent/10 text-accent flex-shrink-0">
+          <span className="text-[10px] px-1.5 rounded-full bg-accent/10 text-accent flex-shrink-0 max-md:hidden">
             +{overflowCount}
           </span>
         )}
 
+        {/* State indicators: their meaning used to live only in title=
+            (unreachable on touch) — <Tip> = hover on desktop, tap on touch. */}
         {device.rebootPending && (
-          <span title="Reboot pending"><RotateCcw className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" /></span>
+          <RowTip content={t('devices.row.rebootPending', 'Reboot pending')}>
+            <RotateCcw className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+          </RowTip>
         )}
         {device.privacyModeEnabled && (
-          <span title="Privacy mode"><ShieldOff className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" /></span>
+          <RowTip content={t('devices.row.privacyMode', 'Privacy mode')}>
+            <ShieldOff className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+          </RowTip>
         )}
         {device.airgapEnabled && (
-          <span title="Airgap"><WifiOff className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /></span>
+          <RowTip content={t('devices.row.airgap', 'Airgap')}>
+            <WifiOff className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+          </RowTip>
         )}
         {device.duplicateAgentIdSuspected && (
-          <span title={t('duplicateAgentId.rowBadgeTitle') || 'Duplicate agent ID suspected — multiple machines may share this UUID'}>
+          <RowTip content={t('duplicateAgentId.rowBadgeTitle', 'Duplicate agent ID suspected — multiple machines may share this UUID')}>
             <Copy className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-          </span>
+          </RowTip>
         )}
         {device.agentFlavor === 'legacy' && (
-          <span
-            title="Legacy Go 1.20 agent — no remote shell, ObliReach, software compliance, or auto-update"
-            className="text-[9px] px-1 rounded border border-amber-400/40 bg-amber-400/10 text-amber-400 font-semibold uppercase tracking-wider flex-shrink-0"
-          >
-            Legacy
-          </span>
+          <RowTip content={t('devices.row.legacyHint', 'Legacy Go 1.20 agent — no remote shell, ObliReach, software compliance, or auto-update')}>
+            <span
+              className="text-[9px] px-1 rounded border border-amber-400/40 bg-amber-400/10 text-amber-400 font-semibold uppercase tracking-wider flex-shrink-0"
+            >
+              Legacy
+            </span>
+          </RowTip>
         )}
 
-        <div className="flex-1" />
+        {/* Spacer on md+; on phone it becomes a line break (full-width,
+            zero-height item) between the name line and the status /
+            metrics line. */}
+        <div className="flex-1 max-md:order-2 max-md:flex-none max-md:w-full max-md:h-0" />
 
         {/* Metrics row — CPU / RAM / Disk + custom metrics. This block
             used to be gated on `mode === 'monitoring'` (the original
@@ -244,12 +270,12 @@ export const DeviceRow = memo(function DeviceRow({
             which the user explicitly drives via script schedules —
             silently disappeared from every list view. */}
         {(
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0 max-md:order-4 max-md:flex-shrink max-md:min-w-0 max-md:flex-wrap max-md:gap-x-2.5 max-md:gap-y-0.5">
             <MiniBar label="CPU" value={cpuPct} />
             <MiniBar label="RAM" value={ramPct} />
             <MiniBar label="Disk" value={diskPct} />
             {device.customMetrics && device.customMetrics.length > 0 && (
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0 max-md:flex-shrink max-md:min-w-0 max-md:flex-wrap">
                 {device.customMetrics.slice(0, 3).map((m) => {
                   const color =
                     m.status === 'critical' ? 'border-red-400/40 text-red-400' :
@@ -260,8 +286,11 @@ export const DeviceRow = memo(function DeviceRow({
                     <span
                       key={m.scheduleId}
                       title={`${m.name}: ${m.value}${m.unit ? ' ' + m.unit : ''}`}
-                      className={clsx('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border bg-bg-tertiary/60 text-[10px] font-mono', color)}
+                      className={clsx('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border bg-bg-tertiary/60 text-[10px] font-mono max-md:min-w-0', color)}
                     >
+                      {/* Phone: the metric name is shown in the chip (the
+                          title tooltip does not exist on touch). */}
+                      <span className="md:hidden truncate max-w-[96px] opacity-80 font-sans">{m.name}</span>
                       <span className="font-semibold">{m.value}</span>
                       {m.unit && <span className="opacity-70">{m.unit}</span>}
                     </span>
@@ -277,15 +306,20 @@ export const DeviceRow = memo(function DeviceRow({
           </div>
         )}
 
-        <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} scheduleAlert={device.scheduleAlert} size="sm" updateAvailable={device.updateAvailable} />
+        <span className="flex max-md:order-3">
+          <DeviceStatusBadge status={device.status} approvalStatus={device.approvalStatus} scheduleAlert={device.scheduleAlert} size="sm" updateAvailable={device.updateAvailable} />
+        </span>
 
-        <span className={clsx('text-xs flex-shrink-0 tabular-nums w-8 text-right', lastSeen.color)}>
+        <span className={clsx('text-xs flex-shrink-0 tabular-nums w-8 text-right max-md:order-1 max-md:w-auto', lastSeen.color)}>
           {lastSeen.text}
         </span>
 
+        {/* Eye: redundant with the row tap, dropped on phone to give the
+            name room; on a tablet it keeps its size with a 40px hit area. */}
         <button
           onClick={handleEye}
-          className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors flex-shrink-0"
+          aria-label={t('chat.viewDevice')}
+          className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors flex-shrink-0 max-md:hidden relative coarse:after:absolute coarse:after:-inset-2 coarse:after:content-['']"
           title={t('chat.viewDevice')}
         >
           <Eye className="w-4 h-4" />
@@ -296,7 +330,7 @@ export const DeviceRow = memo(function DeviceRow({
           (Lot D.1). A small helper builds the array of nodes and inserts
           a middot between each, so empty/disabled entries don't leave a
           stray separator behind. */}
-      <Line2Fields className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset)}
+      <Line2Fields className={clsx('flex items-center gap-1.5 text-xs text-text-muted mt-0.5', line2Offset, 'max-md:flex-wrap max-md:gap-y-0.5 max-md:pl-0 max-md:mt-1')}
         nodes={[
           // Tenant chip — only meaningful when the row originates from
           // the master/god view (otherwise tenantName is null and the
@@ -345,7 +379,7 @@ export const DeviceRow = memo(function DeviceRow({
             <span key="group" className="inline-flex items-center gap-1">
               <FolderOpen className="w-3 h-3" />
               {device.groupId && device.groupName ? (
-                <button onClick={handleGroupClick} className="hover:text-accent transition-colors">
+                <button onClick={handleGroupClick} className="hover:text-accent transition-colors coarse:pointer-events-none">
                   {anonymize(device.groupName)}
                 </button>
               ) : (
@@ -413,12 +447,29 @@ function Line2Fields({ nodes, className }: { nodes: Array<React.ReactNode | fals
   return (
     <div className={className}>
       {visible.map((node, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5">
+        <span key={i} className="inline-flex items-center gap-1.5 max-md:min-w-0 max-md:max-w-full">
           {i > 0 && <span className="text-text-muted/50">&middot;</span>}
           {node}
         </span>
       ))}
     </div>
+  );
+}
+
+/** Small state icon with its explanation in a <Tip> (hover on desktop, tap
+ *  on touch — docs/obli-mobile.md §5.2). On touch the tap is kept from
+ *  reaching the row (which would navigate) and gets a larger hit area. */
+function RowTip({ content, children }: { content: string; children: ReactNode }) {
+  const canHover = useCanHover();
+  return (
+    <span
+      className="inline-flex flex-shrink-0"
+      onClick={canHover ? undefined : (e) => e.stopPropagation()}
+    >
+      <Tip content={content} className="relative coarse:after:absolute coarse:after:-inset-2 coarse:after:content-['']">
+        {children}
+      </Tip>
+    </span>
   );
 }
 

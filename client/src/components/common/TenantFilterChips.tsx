@@ -54,7 +54,7 @@ export function TenantFilterChips({ value, onChange, availableTenantIds, classNa
  <div className={clsx('flex items-center gap-1.5 flex-wrap', className)}>
  <span className="text-[10px] uppercase tracking-wider text-text-muted mr-1">
  <Building2 size={10} className="inline mr-1" />
- {t('tenantFilter.label') || 'Tenant'}
+ {t('tenantFilter.label', 'Tenant')}
  </span>
  {visible.map((tenant) => {
  const on = value.has(tenant.id);
@@ -64,14 +64,14 @@ export function TenantFilterChips({ value, onChange, availableTenantIds, classNa
  type="button"
  onClick={() => toggle(tenant.id)}
  className={clsx(
- 'px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+ 'px-2.5 py-1 text-xs font-medium rounded-full border transition-colors coarse:min-h-10 coarse:px-3',
  on
  ? 'bg-accent/10 border-accent text-accent'
  : 'border-transparent text-text-muted hover:border-accent/30',
  )}
  >
  <Building2 size={10} className="inline mr-1" />
- {tenant.id === MASTER_TENANT_ID ? `${tenant.name} (master)` : tenant.name}
+ {tenant.id === MASTER_TENANT_ID ? t('tenantFilter.masterName', '{{name}} (master)', { name: tenant.name }) : tenant.name}
  </button>
  );
  })}
@@ -79,9 +79,9 @@ export function TenantFilterChips({ value, onChange, availableTenantIds, classNa
  <button
  type="button"
  onClick={() => onChange(new Set())}
- className="text-[10px] text-accent hover:underline ml-1"
+ className="text-[10px] text-accent hover:underline ml-1 coarse:min-h-10 coarse:px-2 coarse:text-xs"
  >
- {t('tenantFilter.clear') || 'Effacer'}
+ {t('tenantFilter.clear', 'Clear')}
  </button>
  )}
  </div>

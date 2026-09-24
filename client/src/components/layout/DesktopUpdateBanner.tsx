@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '@/api/client';
 
 // ── Types injected by the Go overlay ─────────────────────────────────────────
@@ -30,7 +31,11 @@ function isOutdated(candidate: string, latest: string): boolean {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// Only ever rendered inside the ObliTools DESKTOP shell
+// (`__obliance_is_native_app`); the Android shell never sets that flag
+// (docs/obli-mobile.md §2), so this banner has no mobile layout to handle.
 export function DesktopUpdateBanner() {
+  const { t } = useTranslation();
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -73,30 +78,33 @@ export function DesktopUpdateBanner() {
     <div className="flex items-center gap-3 bg-accent/10 border-b border-accent/30 px-4 py-2 text-sm shrink-0">
       <Download size={15} className="text-accent shrink-0" />
       <span className="text-text-primary flex-1">
-        Desktop app{' '}
+        {t('desktopUpdate.appName', 'Desktop app')}{' '}
         <span className="font-semibold text-accent">v{latestVersion}</span>
-        {' '}is available
+        {' '}{t('desktopUpdate.isAvailable', 'is available')}
         {currentVersion
-          ? <> (you have <span className="font-mono">{currentVersion}</span>)</>
-          : <> — please update to get the latest features</>
+          ? <> ({t('desktopUpdate.youHave', 'you have')} <span className="font-mono">{currentVersion}</span>)</>
+          : <> — {t('desktopUpdate.pleaseUpdate', 'please update to get the latest features')}</>
         }.
       </span>
       <Link
         to="/download"
         className="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white hover:bg-accent/80 transition-colors"
       >
-        Download update
+        {t('desktopUpdate.download', 'Download update')}
       </Link>
       <button
+        type="button"
         onClick={handleSkip}
-        title="Skip this version"
+        title={t('desktopUpdate.skipTitle', 'Skip this version')}
         className="shrink-0 text-text-secondary hover:text-text-primary transition-colors text-xs underline underline-offset-2"
       >
-        Skip
+        {t('desktopUpdate.skip', 'Skip')}
       </button>
       <button
+        type="button"
         onClick={() => setDismissed(true)}
-        title="Dismiss"
+        title={t('desktopUpdate.dismiss', 'Dismiss')}
+        aria-label={t('desktopUpdate.dismiss', 'Dismiss')}
         className="shrink-0 text-text-secondary hover:text-text-primary transition-colors"
       >
         <X size={14} />

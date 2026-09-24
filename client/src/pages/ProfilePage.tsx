@@ -14,9 +14,19 @@ import { anonymize } from '@/utils/anonymize';
 import { SUPPORTED_LANGUAGES, setLanguage } from '@/i18n';
 import toast from 'react-hot-toast';
 import { SshKeysSection } from '@/components/profile/SshKeysSection';
+import { TotpMobileActions } from '@/components/profile/TotpMobileActions';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { openExternal } from '@/utils/openExternal';
+
+// Invisible ≥40px hit area around small hand-rolled switches (touch only).
+const TOUCH_HIT = "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']";
 
 export function ProfilePage() {
  const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
  const { user: sessionUser, requires2faSetup } = useAuthStore();
  const [obligateUrl, setObligateUrl] = useState<string | null>(null);
 
@@ -163,9 +173,30 @@ export function ProfilePage() {
  };
 
  const handleRemoveReply = async (idx: number) => {
+ const removed = quickReplies[idx];
+ const before = quickReplies;
  const updated = quickReplies.filter((_, i) => i !== idx);
  setQuickReplies(updated);
  try { await profileApi.update({ preferences: { quickReplies: updated } }); } catch {}
+ // Touch: removal is one tap away from an accidental tap — offer an undo.
+ if (coarse && removed !== undefined) {
+ toast((tt) => (
+ <span className="flex items-center gap-3">
+ <span>{t('profile.quickReplies.removed', 'Quick reply removed')}</span>
+ <button
+ type="button"
+ className="rounded px-3 py-2 text-sm font-medium text-accent hover:bg-accent/10"
+ onClick={async () => {
+ toast.dismiss(tt.id);
+ setQuickReplies(before);
+ try { await profileApi.update({ preferences: { quickReplies: before } }); } catch {}
+ }}
+ >
+ {t('profile.quickReplies.undo', 'Undo')}
+ </button>
+ </span>
+ ), { duration: 6000 });
+ }
  };
 
  const handleCodecChange = async (codec: string) => {
@@ -188,8 +219,8 @@ export function ProfilePage() {
 
  if (sessionUser?.foreignSource === 'obligate' && obligateUrl) {
  return (
- <div className="p-6 max-w-2xl mx-auto">
- <div className="bg-bg-secondary rounded-lg p-6 text-center">
+ <div className="p-3 sm:p-4 lg:p-6 max-w-2xl mx-auto">
+ <div className="bg-bg-secondary rounded-lg p-4 sm:p-6 text-center">
  <h2 className="text-lg font-medium text-text-primary mb-2">Profile managed by Obligate</h2>
  <p className="text-sm text-text-secondary mb-4">
  Your profile, password, and preferences are managed centrally through Obligate SSO.
@@ -198,7 +229,8 @@ export function ProfilePage() {
  href={`${obligateUrl}/account`}
  target="_blank"
  rel="noopener noreferrer"
- className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md font-medium text-sm transition-colors"
+ onClick={(e) => { e.preventDefault(); void openExternal(`${obligateUrl}/account`); }}
+ className="inline-flex items-center gap-2 px-4 py-2 coarse:py-3 bg-accent hover:bg-accent-hover text-white rounded-md font-medium text-sm transition-colors"
  >
  Open Obligate Profile
  </a>
@@ -209,13 +241,13 @@ export function ProfilePage() {
  }
 
  return (
- <div className="p-6 min-w-0">
+ <PageContainer>
  <h1 className="text-2xl font-semibold text-text-primary mb-6">{t('profile.title')}</h1>
 
  {/* Avatar section */}
  <div className="mb-8 rounded-lg bg-bg-secondary p-5">
- <div className="flex items-center gap-6">
- <div className="relative group">
+ <div className="flex items-center gap-4 sm:gap-6">
+ <div className="relative group shrink-0">
  {avatar ? (
  <img src={avatar} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-transparent" />
  ) : (
@@ -223,9 +255,12 @@ export function ProfilePage() {
  <User size={32} className="text-accent" />
  </div>
  )}
- <label className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+ {/* Hover overlay: mouse only. Touch gets the visible "Change photo" button below. */}
+ <label htmlFor="profile-avatar-input" className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 hidden can-hover:flex items-center justify-center cursor-pointer transition-opacity">
  <Camera size={20} className="text-white" />
+ </label>
  <input
+ id="profile-avatar-input"
  type="file"
  accept="image/*"
  className="hidden"
@@ -248,16 +283,21 @@ export function ProfilePage() {
  e.target.value = '';
  }}
  />
- </label>
  {avatarUploading && (
  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
  </div>
  )}
  </div>
- <div className="space-y-1">
+ <div className="space-y-1 min-w-0">
  <p className="text-sm font-medium text-text-primary">{t('profile.avatar.title')}</p>
  <p className="text-xs text-text-muted">{t('profile.avatar.hint')}</p>
+ <label
+ htmlFor="profile-avatar-input"
+ className="can-hover:hidden inline-flex items-center gap-1.5 rounded-md bg-bg-tertiary px-3 py-2 text-xs font-medium text-text-primary cursor-pointer"
+ >
+ <Camera size={14} /> {t('profile.avatar.change', 'Change photo')}
+ </label>
  {avatar && (
  <button
  onClick={async () => {
@@ -267,7 +307,7 @@ export function ProfilePage() {
  toast.success(t('profile.avatar.removed'));
  } catch { toast.error(t('common.error')); }
  }}
- className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 mt-1"
+ className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 mt-1 coarse:py-2"
  >
  <Trash2 size={12} /> {t('profile.avatar.remove')}
  </button>
@@ -404,8 +444,8 @@ export function ProfilePage() {
  </div>
 
  {/* Enabled toggle */}
- <div className="flex items-center justify-between">
- <div>
+ <div className="flex items-center justify-between gap-4">
+ <div className="min-w-0">
  <p className="text-sm font-medium text-text-primary">{t('profile.alerts.enableLabel')}</p>
  <p className="text-xs text-text-muted mt-0.5">
  {t('profile.alerts.enableDesc')}
@@ -414,7 +454,8 @@ export function ProfilePage() {
  <button
  type="button"
  onClick={() => handleAlertToggle(!alertEnabled)}
- className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+ aria-label={t('profile.alerts.enableLabel')}
+ className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${TOUCH_HIT} ${
  alertEnabled ? 'bg-accent' : 'bg-bg-tertiary'
  }`}
  aria-pressed={alertEnabled}
@@ -438,7 +479,7 @@ export function ProfilePage() {
  value="bottom-right"
  checked={alertPosition === 'bottom-right'}
  onChange={() => handleAlertPosition('bottom-right')}
- className="accent-accent mt-0.5"
+ className="accent-accent mt-0.5 shrink-0 coarse:h-5 coarse:w-5"
  />
  <div>
  <span className="text-sm text-text-primary">{t('profile.alerts.bottomRight')}</span>
@@ -454,7 +495,7 @@ export function ProfilePage() {
  value="top-center"
  checked={alertPosition === 'top-center'}
  onChange={() => handleAlertPosition('top-center')}
- className="accent-accent mt-0.5"
+ className="accent-accent mt-0.5 shrink-0 coarse:h-5 coarse:w-5"
  />
  <div>
  <span className="text-sm text-text-primary">{t('profile.alerts.topCenter')}</span>
@@ -511,10 +552,17 @@ export function ProfilePage() {
  )}
  {quickReplies.map((reply, i) => (
  <div key={i} className="flex items-center gap-2 bg-bg-tertiary rounded-lg px-3 py-2">
- <span className="flex-1 text-sm text-text-primary truncate">{reply}</span>
- <button onClick={() => handleRemoveReply(i)} className="text-text-muted hover:text-red-400 transition-colors shrink-0">
- <X size={14} />
- </button>
+ {/* Below lg the full text wraps (no hover tooltip to read a truncated reply). */}
+ <span className="flex-1 min-w-0 text-sm text-text-primary lg:truncate max-lg:break-words">{reply}</span>
+ <IconButton
+ label={t('common.delete')}
+ icon={<X size={14} />}
+ size="xs"
+ variant="plain"
+ showTooltip={false}
+ onClick={() => handleRemoveReply(i)}
+ className="p-0 shrink-0 hover:text-red-400"
+ />
  </div>
  ))}
  {quickReplies.length < 50 && (
@@ -525,7 +573,8 @@ export function ProfilePage() {
  onKeyDown={e => e.key === 'Enter' && handleAddReply()}
  placeholder="Type a quick reply..."
  maxLength={500}
- className="flex-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary"
+ enterKeyHint="done"
+ className="min-w-0 flex-1 px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary"
  />
  <Button onClick={handleAddReply} disabled={!newReply.trim()} size="sm">Add</Button>
  </div>
@@ -591,12 +640,15 @@ export function ProfilePage() {
  <p className="text-xs text-text-muted">{t('profile.security.totpScanDesc')}</p>
  <img src={totpSetupData.qrDataUrl} alt="TOTP QR Code" className="w-40 h-40 rounded-lg" />
  <p className="text-xs text-text-muted font-mono break-all">{t('profile.security.totpSecret', { secret: totpSetupData.secret })}</p>
- <div className="flex items-end gap-2">
- <div className="flex-1">
+ {/* Touch only: a phone cannot scan its own screen. */}
+ <TotpMobileActions secret={totpSetupData.secret} account={sessionUser?.username} />
+ <div className="flex flex-wrap items-end gap-2">
+ <div className="flex-1 min-w-[8rem]">
  <Input
  label={t('profile.security.verificationCode')}
  type="text"
  inputMode="numeric"
+ autoComplete="one-time-code"
  value={totpCode}
  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
  placeholder="000000"
@@ -627,14 +679,14 @@ export function ProfilePage() {
 
  {/* Email OTP */}
  <div className="p-5 space-y-3">
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
+ <div className="flex flex-wrap items-center justify-between gap-2">
+ <div className="flex flex-wrap items-center gap-2 min-w-0">
  <Mail size={16} className="text-text-muted" />
  <p className="text-sm font-medium text-text-primary">{t('profile.security.emailOtp')}</p>
  {tfaStatus?.emailOtpEnabled && (
  <>
  <CheckCircle2 size={14} className="text-green-400" />
- <span className="text-xs text-text-muted">{tfaStatus.email}</span>
+ <span className="text-xs text-text-muted min-w-0 break-all">{tfaStatus.email}</span>
  </>
  )}
  </div>
@@ -691,12 +743,13 @@ export function ProfilePage() {
  {!tfaStatus?.emailOtpEnabled && emailSetupStep === 'sent' && (
  <div className="space-y-3">
  <p className="text-xs text-text-muted">{t('profile.security.enterCode', { email: emailInput })}</p>
- <div className="flex items-end gap-2">
- <div className="flex-1">
+ <div className="flex flex-wrap items-end gap-2">
+ <div className="flex-1 min-w-[8rem]">
  <Input
  label={t('profile.security.verificationCode')}
  type="text"
  inputMode="numeric"
+ autoComplete="one-time-code"
  value={emailCode}
  onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
  placeholder="000000"
@@ -733,7 +786,7 @@ export function ProfilePage() {
 
  <TrustedIpsSection />
  <SshKeysSection />
- </div>
+ </PageContainer>
  );
 }
 
@@ -744,6 +797,8 @@ export function ProfilePage() {
 // "Trust this IP" box in the TOTP modal.
 
 function TrustedIpsSection() {
+ const { t } = useTranslation();
+ const confirm = useConfirm();
  const [items, setItems] = useState<{ ip: string; trustedUntil: string; createdAt: string }[]>([]);
  const [loading, setLoading] = useState(true);
 
@@ -755,12 +810,20 @@ function TrustedIpsSection() {
  useEffect(() => { load(); }, []);
 
  const revokeOne = async (ip: string) => {
- if (!confirm(`Revoke trust for ${ip}? The next sensitive action from this IP will prompt for TOTP again.`)) return;
+ if (!(await confirm({
+ message: t('profile.trustedIps.confirmRevoke', { defaultValue: 'Revoke trust for {{ip}}? The next sensitive action from this IP will prompt for TOTP again.', ip }),
+ danger: true,
+ confirmLabel: t('profile.trustedIps.revoke', 'Revoke'),
+ }))) return;
  await profileApi.revokeTrustedIp(ip);
  await load();
  };
  const revokeAll = async () => {
- if (!confirm('Revoke trust for ALL IPs? Every sensitive action will prompt for TOTP again until you re-opt-in.')) return;
+ if (!(await confirm({
+ message: t('profile.trustedIps.confirmRevokeAll', 'Revoke trust for ALL IPs? Every sensitive action will prompt for TOTP again until you re-opt-in.'),
+ danger: true,
+ confirmLabel: t('profile.trustedIps.revokeAll', 'Revoke all'),
+ }))) return;
  await profileApi.revokeAllTrustedIps();
  await load();
  };
@@ -774,9 +837,9 @@ function TrustedIpsSection() {
  };
 
  return (
- <div className="mt-8 bg-bg-secondary rounded-xl p-6">
- <div className="flex items-center justify-between mb-3">
- <div>
+ <div className="mt-8 bg-bg-secondary rounded-xl p-4 sm:p-6">
+ <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+ <div className="min-w-0">
  <h2 className="text-lg font-semibold text-text-primary">Trusted IPs (2FA)</h2>
  <p className="text-xs text-text-muted mt-0.5">
  IPs where you ticked "Trust this IP for 24h" on a sensitive-action TOTP prompt. Sensitive actions from these IPs skip the prompt until expiry.
@@ -785,7 +848,7 @@ function TrustedIpsSection() {
  {items.length > 0 && (
  <button
  onClick={revokeAll}
- className="text-xs px-2.5 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10"
+ className="text-xs px-2.5 py-1 coarse:px-3 coarse:py-2 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10"
  >
  Revoke all
  </button>
@@ -798,12 +861,12 @@ function TrustedIpsSection() {
  ) : (
  <div className="space-y-1">
  {items.map((it) => (
- <div key={it.ip} className="flex items-center gap-3 px-3 py-2 rounded/50 bg-bg-tertiary/30 text-xs">
- <span className="font-mono text-text-primary truncate flex-1">{it.ip}</span>
+ <div key={it.ip} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded/50 bg-bg-tertiary/30 text-xs">
+ <span className="font-mono text-text-primary truncate flex-1 min-w-0">{it.ip}</span>
  <span className="text-text-muted">expires in {fmt(it.trustedUntil)}</span>
  <button
  onClick={() => revokeOne(it.ip)}
- className="text-red-400 hover:text-red-300 hover:bg-red-400/10 px-2 py-0.5 rounded"
+ className="text-red-400 hover:text-red-300 hover:bg-red-400/10 px-2 py-0.5 coarse:px-3 coarse:py-2 rounded"
  >
  Revoke
  </button>

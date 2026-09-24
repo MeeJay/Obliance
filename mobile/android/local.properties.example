@@ -1,0 +1,18 @@
+# Copy to `local.properties` (git-ignored) and adjust to your machine.
+#
+# Android SDK. Forward slashes; the drive colon is escaped (lint PropertyEscape).
+sdk.dir=D\:/LifeTrack/.android-sdk
+
+# Optional: default server per app (pre-fills the setup screen).
+# Empty or absent = the setup screen starts empty.
+#obli.obliance.server.url=https://obliance.example.com
+#obli.obliview.server.url=https://obliview.example.com
+
+# Optional release signing. All four or none. The keystore lives OUTSIDE the
+# repository (e.g. D:/Obliance/.secrets or a password manager export).
+# Also accepted as -P flags or environment variables
+# (OBLI_KEYSTORE_FILE, OBLI_KEYSTORE_PASSWORD, OBLI_KEY_ALIAS, OBLI_KEY_PASSWORD).
+#obli.keystore.file=D:/secure/obli-release.jks
+#obli.keystore.password=...
+#obli.key.alias=obli
+#obli.key.password=...

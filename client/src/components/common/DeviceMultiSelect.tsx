@@ -59,27 +59,31 @@ export function DeviceMultiSelect({ selectedIds, onChange, maxDevices = 5000 }: 
  type="text"
  value={query}
  onChange={(e) => setQuery(e.target.value)}
- placeholder={t('devices.searchPlaceholder', 'Hostname, IP, user, UUID, OS, tag…')}
- className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none"
+ placeholder={t('deviceMultiSelect.searchPlaceholder', 'Hostname, IP, user, UUID, OS, tag…')}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="search"
+ className="flex-1 min-w-0 bg-transparent text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none coarse:min-h-10"
  />
  <span className="text-[11px] font-mono text-text-muted shrink-0">
  {selected.size} / {filtered.length}
  </span>
  </div>
- <div className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
- <button onClick={selectAllFiltered} className="text-accent hover:underline">
- {t('common.selectAll', 'Tout sélectionner')}{query && ` (${filtered.length})`}
+ <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] coarse:py-0 coarse:text-xs">
+ <button type="button" onClick={selectAllFiltered} className="text-accent hover:underline coarse:min-h-10">
+ {t('common.selectAll', 'Select all')}{query && ` (${filtered.length})`}
  </button>
  <span className="text-text-muted/50">·</span>
- <button onClick={clearSelection} className="text-text-muted hover:text-text-primary">
- {t('common.clear', 'Tout déselectionner')}
+ <button type="button" onClick={clearSelection} className="text-text-muted hover:text-text-primary coarse:min-h-10">
+ {t('deviceMultiSelect.clearSelection', 'Clear selection')}
  </button>
  </div>
  <div className="max-h-[280px] overflow-y-auto">
  {loading ? (
- <div className="px-3 py-3 text-sm text-text-muted">{t('common.loading', 'Chargement...')}</div>
+ <div className="px-3 py-3 text-sm text-text-muted">{t('common.loading', 'Loading…')}</div>
  ) : filtered.length === 0 ? (
- <div className="px-3 py-3 text-sm text-text-muted">{t('devices.noMatch', 'Aucun appareil ne correspond')}</div>
+ <div className="px-3 py-3 text-sm text-text-muted">{t('deviceMultiSelect.noMatch', 'No device matches your search')}</div>
  ) : (
  filtered.map(d => {
  const isSelected = selected.has(d.id);
@@ -87,9 +91,11 @@ export function DeviceMultiSelect({ selectedIds, onChange, maxDevices = 5000 }: 
  return (
  <button
  key={d.id}
+ type="button"
  onClick={() => toggle(d.id)}
+ aria-pressed={isSelected}
  className={clsx(
- 'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-bg-hover',
+ 'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-bg-hover coarse:min-h-11',
  isSelected && 'bg-accent/5',
  )}
  >

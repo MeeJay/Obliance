@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app_name comes from the app table in app/build.gradle.kts (resValue). -->
+
+    <!-- Generic actions -->
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+    <string name="unknown">unknown</string>
+    <string name="error_generic">Something went wrong.</string>
+
+    <!-- Setup -->
+    <string name="setup_subtitle">Connect to your server</string>
+    <string name="setup_title">Server address</string>
+    <string name="setup_url_label">Server URL</string>
+    <string name="setup_url_placeholder" translatable="false">https://obli.example.com</string>
+    <string name="setup_https_title">HTTPS only</string>
+    <string name="setup_https_body">The session cookie of Obli servers is marked Secure: over plain HTTP you could never sign in, and your credentials would travel unencrypted. Enter the public HTTPS address registered with your SSO.</string>
+    <string name="setup_connect">Connect</string>
+    <string name="setup_checking">Checking…</string>
+    <string name="setup_error_empty">Enter the address of your server.</string>
+    <string name="setup_error_https">Only https:// addresses are accepted.</string>
+    <string name="setup_error_malformed">This address is not valid.</string>
+    <string name="setup_error_credentials">The address must not contain a user name or password.</string>
+    <string name="setup_error_unreachable">The server cannot be reached. Check the address and your connection.</string>
+    <string name="setup_error_timeout">The server did not answer in time.</string>
+    <string name="setup_error_tls">The server certificate is not trusted (TLS error).</string>
+    <string name="setup_error_http">The server answered with HTTP %1$d. Is this an Obli server?</string>
+    <string name="setup_error_not_obli">The server answered, but not like an Obli server (JSON expected from /api/auth/sso-config).</string>
+    <string name="server_replace_title">Replace the server?</string>
+    <string name="server_replace_body">You are about to leave %1$s for %2$s. You will be signed out and the local web data (cookies, storage) will be erased.</string>
+    <string name="server_replace_confirm">Replace</string>
+
+    <!-- Load errors -->
+    <string name="error_subtitle">Connection problem</string>
+    <string name="error_title">The page could not be loaded</string>
+    <string name="error_body">%1$s could not be reached. Check your connection, then retry.</string>
+    <string name="error_ssl_title">Secure connection failed</string>
+    <string name="error_ssl_body">The certificate presented by %1$s is not trusted. The connection was stopped to protect your data.</string>
+    <string name="error_sso_title">The sign-in server is unreachable</string>
+    <string name="error_sso_body">The single sign-on server may only be reachable from your internal network. You can use the local sign-in form of your server instead.</string>
+    <string name="error_sso_local_login">Use local sign-in</string>
+    <string name="error_no_browser">No browser is available to open this link.</string>
+    <string name="error_no_app_for_link">No app can open this link.</string>
+    <string name="error_no_file_picker">No file picker is available.</string>
+
+    <!-- WebView -->
+    <string name="webview_subtitle">System component out of date</string>
+    <string name="webview_title">Update Android System WebView</string>
+    <string name="webview_body_old">This app displays your server through Android System WebView, and the installed version (%1$s) is too old. Some pages may not work until it is updated.</string>
+    <string name="webview_body_features">The installed Android System WebView (%1$s) lacks features this app relies on (file saving, native links). Update it to use the app fully.</string>
+    <string name="webview_update">Update</string>
+    <string name="webview_continue">Continue anyway</string>
+
+    <!-- JavaScript dialogs -->
+    <string name="js_dialog_title">%1$s says</string>
+    <string name="js_leave_title">Leave this page?</string>
+    <string name="js_leave">Leave</string>
+    <string name="js_stay">Stay</string>
+
+    <!-- Lock -->
+    <string name="lock_title">%1$s is locked</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_prompt_title">Unlock</string>
+    <string name="lock_prompt_subtitle">Confirm your identity to open %1$s</string>
+    <string name="lock_disabled_no_credential">The app lock was turned off: this device no longer has a screen lock or biometrics.</string>
+
+    <!-- Downloads -->
+    <string name="download_started">Download started</string>
+    <string name="download_failed">The download could not start.</string>
+    <string name="download_permission_denied">Storage permission denied: the file was not saved.</string>
+    <string name="download_complete">Download complete</string>
+    <string name="open_with">Open with</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_body">Version %1$s is available.</string>
+    <string name="update_required">This version is no longer supported by your server.</string>
+    <string name="update_release_notes">What\'s new</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading the update…</string>
+    <string name="update_failed_start">The update download could not start.</string>
+    <string name="update_download_title" translatable="false">%1$s %2$s</string>
+    <string name="update_ready_title">Update ready</string>
+    <string name="update_ready_text">Version %1$s has been verified. Tap to install.</string>
+    <string name="update_failed_title">Update not installed</string>
+    <string name="update_failed_download">The download failed.</string>
+    <string name="update_failed_integrity">The downloaded file failed the integrity check (checksum or signature) and was deleted.</string>
+    <string name="update_allow_install_sources">Allow this app to install updates, then come back.</string>
+    <string name="update_install_failed">The installer could not be opened.</string>
+    <string name="update_up_to_date">You are up to date (%1$s).</string>
+    <string name="update_not_applicable">Version %1$s exists but cannot be installed on this build.</string>
+    <string name="update_check_failed">The update check failed.</string>
+
+    <!-- Notifications -->
+    <string name="channel_alerts">Alerts</string>
+    <string name="channel_alerts_desc">Notifications sent by the web app.</string>
+    <string name="channel_critical">Critical alerts</string>
+    <string name="channel_critical_desc">Critical alerts received in the background.</string>
+    <string name="channel_warning">Warnings</string>
+    <string name="channel_warning_desc">Warning alerts received in the background.</string>
+    <string name="channel_info">Information</string>
+    <string name="channel_info_desc">Informational alerts received in the background.</string>
+    <string name="channel_downloads">Downloads</string>
+    <string name="channel_downloads_desc">Files saved to the Downloads folder.</string>
+    <string name="channel_updates">App updates</string>
+    <string name="channel_updates_desc">New versions of the app.</string>
+    <string name="channel_session">Session</string>
+    <string name="channel_session_desc">Session expiry.</string>
+    <string name="alert_untitled">New alert</string>
+    <plurals name="alert_overflow">
+        <item quantity="one">%1$d more new alert</item>
+        <item quantity="other">%1$d more new alerts</item>
+    </plurals>
+    <string name="signin_again_title">Sign in again</string>
+    <string name="signin_again_text">Your session has expired. Open the app to sign in; background alerts are paused until then.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_server">Server</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_server_none">Not configured</string>
+    <string name="settings_server_configure">Configure</string>
+    <string name="settings_server_change">Change server</string>
+    <string name="settings_change_server_title">Change the server?</string>
+    <string name="settings_change_server_body">You will be signed out and the local web data (cookies, storage) will be erased. You will then enter the new address.</string>
+    <string name="settings_no_server">Configure a server first.</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_alerts">Background alerts</string>
+    <string name="settings_alerts_summary">Checks for new alerts about every 15 minutes while the app is closed.</string>
+    <string name="settings_alerts_enabled">Background alerts are on. Only alerts that arrive from now on will be notified.</string>
+    <string name="settings_alerts_denied">Notifications are not allowed for this app.</string>
+    <string name="settings_alerts_blocked">Notifications are blocked in the system settings.</string>
+    <string name="settings_open_notification_settings">Open notification settings</string>
+    <string name="settings_section_security">Security</string>
+    <string name="settings_lock">App lock</string>
+    <string name="settings_lock_summary">Ask for biometrics or the device PIN at launch and after 5 minutes in the background.</string>
+    <string name="settings_lock_unavailable">Set up a screen lock or biometrics on this device first.</string>
+    <string name="settings_lock_confirm">Turn on the app lock</string>
+    <string name="settings_screenshots">Block screenshots</string>
+    <string name="settings_screenshots_summary">Hides the app content from screenshots, screen recording and the recent apps screen.</string>
+    <string name="settings_section_maintenance">Maintenance</string>
+    <string name="settings_check_updates">Check for updates</string>
+    <string name="settings_check_updates_summary">Ask your server whether a newer version of the app is available.</string>
+    <string name="settings_clear_cache">Clear cache</string>
+    <string name="settings_clear_cache_summary">Deletes cached web files. You stay signed in.</string>
+    <string name="settings_cache_cleared">Cache cleared.</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_about_app">App version</string>
+    <string name="settings_about_webview">WebView</string>
+    <string name="settings_about_sso">Sign-in server (SSO)</string>
+
+    <!-- Launcher shortcut -->
+    <string name="shortcut_settings_short">Settings</string>
+    <string name="shortcut_settings_long">App settings</string>
+</resources>

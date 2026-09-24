@@ -12,12 +12,16 @@ import { updateApi } from '@/api/update.api';
 import { useAuthStore } from '@/store/authStore';
 import type { PatchComplianceReport } from '@obliance/shared';
 import { clsx } from 'clsx';
+import { SegmentedTabs, type SegmentedTab } from '@/components/common/SegmentedTabs';
+import { TableScroll } from '@/components/common/TableScroll';
+import { PageContainer } from '@/components/common/PageContainer';
 
 type Tab = 'updates' | 'compliance' | 'software' | 'cves' | 'patchReport' | 'thresholds' | 'notifications';
 
 // ─── Patch Report Tab ────────────────────────────────────────────────────────
 
 function PatchReportTab() {
+ const { t } = useTranslation();
  const [report, setReport] = useState<PatchComplianceReport | null>(null);
  const [isLoading, setIsLoading] = useState(true);
 
@@ -30,20 +34,20 @@ function PatchReportTab() {
  <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
  </div>
  );
- if (!report) return <div className="text-center text-text-muted py-12">No data available</div>;
+ if (!report) return <div className="text-center text-text-muted py-12">{t('patchReport.noData', 'No data available')}</div>;
 
  return (
  <div className="space-y-6">
  {/* Big number */}
- <div className="flex items-center gap-6">
+ <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
  <div className="text-center">
  <div className={clsx('text-4xl font-bold tabular-nums', report.fullyPatchedPercent >= 80 ? 'text-green-400' : report.fullyPatchedPercent >= 50 ? 'text-yellow-400' : 'text-red-400')}>
  {report.fullyPatchedPercent.toFixed(0)}%
  </div>
- <div className="text-xs text-text-muted mt-1">Fleet Patch Compliance</div>
+ <div className="text-xs text-text-muted mt-1">{t('patchReport.fleetCompliance', 'Fleet Patch Compliance')}</div>
  </div>
  <div className="text-sm text-text-muted">
- {report.fullyPatchedDevices} / {report.totalDevices} devices fully patched
+ {t('patchReport.fullyPatched', { patched: report.fullyPatchedDevices, total: report.totalDevices, defaultValue: '{{patched}} / {{total}} devices fully patched' })}
  </div>
  </div>
 
@@ -58,24 +62,24 @@ function PatchReportTab() {
  <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
  <div className={clsx('h-full rounded-full', s.percent >= 80 ? 'bg-green-400' : s.percent >= 50 ? 'bg-yellow-400' : 'bg-red-400')} style={{ width: `${s.percent}%` }} />
  </div>
- <div className="text-[10px] text-text-muted mt-1">{s.patched}/{s.total} devices</div>
+ <div className="text-[10px] text-text-muted mt-1">{t('patchReport.patchedOfTotal', { patched: s.patched, total: s.total, defaultValue: '{{patched}}/{{total}} devices' })}</div>
  </div>
  ))}
  </div>
 
  {/* Per-group table */}
  {report.byGroup.length > 0 && (
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
- <table className="w-full text-sm">
+ <TableScroll className="bg-bg-secondary rounded-xl">
+ <table className="w-full text-sm min-w-[420px]">
  <thead><tr className=" bg-bg-tertiary/50">
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Group</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Devices</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Patched</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Compliance</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colGroup', 'Group')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colDevices', 'Devices')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colPatched', 'Patched')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colCompliance', 'Compliance')}</th>
  </tr></thead>
  <tbody>{report.byGroup.map(g => (
  <tr key={g.groupId ?? 'ungrouped'} className="">
- <td className="px-4 py-2 text-text-primary">{g.groupName ?? 'Ungrouped'}</td>
+ <td className="px-4 py-2 text-text-primary">{g.groupName ?? t('patchReport.ungrouped', 'Ungrouped')}</td>
  <td className="px-4 py-2 text-text-muted">{g.total}</td>
  <td className="px-4 py-2 text-text-muted">{g.patched}</td>
  <td className="px-4 py-2">
@@ -89,22 +93,22 @@ function PatchReportTab() {
  </tr>
  ))}</tbody>
  </table>
- </div>
+ </TableScroll>
  )}
 
  {/* Per-update table (top 50) */}
  {report.byUpdate.length > 0 && (
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
- <table className="w-full text-sm">
+ <TableScroll className="bg-bg-secondary rounded-xl">
+ <table className="w-full text-sm min-w-[560px]">
  <thead><tr className=" bg-bg-tertiary/50">
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Update</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Severity</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Devices</th>
- <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">Patched</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colUpdate', 'Update')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colSeverity', 'Severity')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colDevices', 'Devices')}</th>
+ <th className="text-left px-4 py-2 text-xs text-text-muted uppercase">{t('patchReport.colPatched', 'Patched')}</th>
  </tr></thead>
  <tbody>{report.byUpdate.map(u => (
  <tr key={u.updateUid} className="">
- <td className="px-4 py-2 text-text-primary truncate max-w-[300px]">{u.title}</td>
+ <td className="px-4 py-2 text-text-primary truncate max-w-[300px] max-lg:whitespace-normal max-lg:[overflow-wrap:anywhere] coarse:whitespace-normal coarse:[overflow-wrap:anywhere]">{u.title}</td>
  <td className="px-4 py-2"><span className={clsx('text-xs capitalize', u.severity === 'critical' ? 'text-red-400' : u.severity === 'important' ? 'text-orange-400' : 'text-text-muted')}>{u.severity}</span></td>
  <td className="px-4 py-2 text-text-muted">{u.totalDevices}</td>
  <td className="px-4 py-2">
@@ -115,7 +119,7 @@ function PatchReportTab() {
  </tr>
  ))}</tbody>
  </table>
- </div>
+ </TableScroll>
  )}
  </div>
  );
@@ -144,34 +148,20 @@ export function PoliciesPage() {
  // explicitly granted the cap from the PermissionSets matrix.
  const canSeeCves = isAdmin() || (permissions?.tenantCapabilities ?? []).includes('cve:read');
 
- const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+ const tabs: SegmentedTab<Tab>[] = [
  { id: 'updates', label: t('policies.tabUpdates'), icon: <Package size={16} /> },
  { id: 'compliance', label: t('policies.tabCompliance'), icon: <ShieldCheck size={16} /> },
  { id: 'software', label: t('policies.tabSoftware'), icon: <ListChecks size={16} /> },
  ...(canSeeCves ? [{ id: 'cves' as Tab, label: t('policies.tabCves', 'CVE'), icon: <Bug size={16} /> }] : []),
- { id: 'patchReport', label: 'Patch Report', icon: <BarChart3 size={16} /> },
+ { id: 'patchReport', label: t('patchReport.tabLabel', 'Patch Report'), icon: <BarChart3 size={16} /> },
  ...(isAdmin() ? [{ id: 'notifications' as Tab, label: t('policies.tabNotifications', 'Notifications'), icon: <Bell size={16} /> }] : []),
  ...(isAdmin() ? [{ id: 'thresholds' as Tab, label: t('policies.tabThresholds', 'Seuils'), icon: <Activity size={16} /> }] : []),
  ];
 
  return (
- <div className="p-6 space-y-6">
+ <PageContainer className="space-y-6">
  <h1 className="text-2xl font-bold text-text-primary">{t('policies.title')}</h1>
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
- {tabs.map((t2) => (
- <button
- key={t2.id}
- onClick={() => setTab(t2.id)}
- className={clsx(
- 'flex items-center gap-2 flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors justify-center',
- tab === t2.id ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
- )}
- >
- {t2.icon}
- {t2.label}
- </button>
- ))}
- </div>
+ <SegmentedTabs tabs={tabs} value={tab} onChange={setTab} ariaLabel={t('policies.title')} />
  {tab === 'updates' && <UpdatesPage embedded />}
  {tab === 'compliance' && <CompliancePage embedded />}
  {tab === 'software' && <SoftwareCompliancePage embedded />}
@@ -179,6 +169,6 @@ export function PoliciesPage() {
  {tab === 'patchReport' && <PatchReportTab />}
  {tab === 'notifications' && isAdmin() && <NotificationsPage embedded />}
  {tab === 'thresholds' && isAdmin() && <TenantThresholdsTab />}
- </div>
+ </PageContainer>
  );
 }

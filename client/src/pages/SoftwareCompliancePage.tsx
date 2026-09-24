@@ -23,6 +23,16 @@ import { PACKAGE_MANAGER_PLATFORM } from '@obliance/shared';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { SegmentedTabs } from '@/components/common/SegmentedTabs';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { copyText } from '@/utils/clipboard';
+import { DeviceFilterSelect } from './CompliancePage';
 
 type Tab = 'results' | 'lists' | 'history' | 'repository';
 
@@ -191,8 +201,10 @@ function EntryEditorCard({
  return (
  <div className="rounded-lg bg-bg-tertiary/40 overflow-hidden">
  {/* Card header */}
+ {/* Below sm the row wraps: index + chevron + name on the first line,
+ badges and the move / delete buttons on the second. */}
  <div
- className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-bg-tertiary transition-colors"
+ className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-bg-tertiary transition-colors max-sm:flex-wrap"
  onClick={() => setExpanded(!expanded)}
  >
  <span className="text-xs text-text-muted shrink-0 w-5 text-center">{index + 1}</span>
@@ -204,8 +216,8 @@ function EntryEditorCard({
  value={entry.name}
  onChange={e => { e.stopPropagation(); set({ name: e.target.value }); }}
  onClick={e => e.stopPropagation()}
- placeholder="e.g. Google Chrome"
- className="flex-1 px-2 py-1 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent min-w-0"
+ placeholder={t('softwareCompliance.entryNamePlaceholder', 'e.g. Google Chrome')}
+ className="flex-1 px-2 py-1 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent min-w-0 max-sm:min-w-[60%]"
  />
  <PlatformBadges sources={entry.sources} />
  {entry.fromInventory && (
@@ -213,30 +225,30 @@ function EntryEditorCard({
  {t('softwareCompliance.fromInventoryBadge')}
  </span>
  )}
- <div className="flex items-center gap-0.5 shrink-0">
- <button
+ <div className="flex items-center gap-0.5 shrink-0 max-sm:ml-auto coarse:gap-1">
+ <IconButton
+ label={t('softwareCompliance.moveUp')}
+ icon={<ArrowUp className="w-3.5 h-3.5" />}
+ size="sm"
  onClick={e => { e.stopPropagation(); onMoveUp(); }}
  disabled={index === 0}
- className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors disabled:opacity-30"
- title={t('softwareCompliance.moveUp')}
- >
- <ArrowUp className="w-3.5 h-3.5" />
- </button>
- <button
+ className="hover:bg-bg-secondary disabled:opacity-30"
+ />
+ <IconButton
+ label={t('softwareCompliance.moveDown')}
+ icon={<ArrowDown className="w-3.5 h-3.5" />}
+ size="sm"
  onClick={e => { e.stopPropagation(); onMoveDown(); }}
  disabled={index === total - 1}
- className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors disabled:opacity-30"
- title={t('softwareCompliance.moveDown')}
- >
- <ArrowDown className="w-3.5 h-3.5" />
- </button>
- <button
+ className="hover:bg-bg-secondary disabled:opacity-30"
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<X className="w-4 h-4" />}
+ size="sm"
+ variant="danger"
  onClick={e => { e.stopPropagation(); onDelete(); }}
- className="p-1 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- title={t('common.delete')}
- >
- <X className="w-4 h-4" />
- </button>
+ />
  </div>
  </div>
 
@@ -267,7 +279,7 @@ function EntryEditorCard({
  <input
  value={entry.publisher}
  onChange={e => set({ publisher: e.target.value })}
- placeholder="Optional"
+ placeholder={t('softwareCompliance.optionalPlaceholder', 'Optional')}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -280,7 +292,8 @@ function EntryEditorCard({
  <input
  value={entry.minVersion}
  onChange={e => set({ minVersion: e.target.value })}
- placeholder="e.g. 100.0"
+ placeholder={t('softwareCompliance.minVersionPlaceholder', 'e.g. 100.0')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -291,7 +304,8 @@ function EntryEditorCard({
  <input
  value={entry.maxVersion}
  onChange={e => set({ maxVersion: e.target.value })}
- placeholder="e.g. 120.0"
+ placeholder={t('softwareCompliance.maxVersionPlaceholder', 'e.g. 120.0')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-sm bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -305,7 +319,7 @@ function EntryEditorCard({
  <button
  type="button"
  onClick={() => set({ sources: [...entry.sources, makeEmptySource()] })}
- className="text-[10px] text-accent hover:text-accent-hover transition-colors flex items-center gap-0.5"
+ className="text-[10px] text-accent hover:text-accent-hover transition-colors flex items-center gap-0.5 coarse:min-h-10 coarse:px-2 coarse:text-xs"
  >
  <Plus className="w-3 h-3" /> {t('softwareCompliance.addSource')}
  </button>
@@ -342,7 +356,8 @@ function EntryEditorCard({
  <input
  value={src.packageId}
  onChange={e => updateSrc({ packageId: e.target.value })}
- placeholder="Package ID"
+ placeholder={t('softwareCompliance.entry.installId', 'Package ID')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="px-2 py-1 text-xs bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  )}
@@ -351,7 +366,8 @@ function EntryEditorCard({
  <input
  value={src.msiUrl}
  onChange={e => updateSrc({ msiUrl: e.target.value })}
- placeholder="URL, UNC path, or select from repo"
+ placeholder={t('softwareCompliance.msiUrlPlaceholder', 'URL, UNC path, or select from repo')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="px-2 py-1 text-xs bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent"
  />
  )}
@@ -362,9 +378,14 @@ function EntryEditorCard({
  </span>
  )}
  </div>
- <button onClick={removeSrc} className="p-0.5 text-text-muted hover:text-red-400 transition-colors shrink-0 mt-0.5">
- <X className="w-3.5 h-3.5" />
- </button>
+ <IconButton
+ label={t('softwareCompliance.removeEntry')}
+ icon={<X className="w-3.5 h-3.5" />}
+ size="xs"
+ variant="plain"
+ onClick={removeSrc}
+ className="hover:text-red-400 shrink-0 mt-0.5"
+ />
  </div>
  );
  })}
@@ -376,8 +397,9 @@ function EntryEditorCard({
  const next = entry.sources.map(s => s.packageManager === 'custom' ? { ...s, installScript: e.target.value } : s);
  set({ sources: next });
  }}
- placeholder="PowerShell or Bash script..."
+ placeholder={t('softwareCompliance.scriptPlaceholder', 'PowerShell or Bash script...')}
  rows={2}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
  className="w-full px-2 py-1.5 text-xs bg-bg-secondary rounded font-mono text-text-primary focus:outline-none focus:border-accent resize-y"
  />
  )}
@@ -402,6 +424,7 @@ function KnownAppsModal({
  platform: string;
 }) {
  const { t } = useTranslation();
+ const coarse = useIsCoarsePointer();
  const [apps, setApps] = useState<KnownSoftwareApp[]>([]);
  const [search, setSearch] = useState('');
  const [loading, setLoading] = useState(false);
@@ -415,9 +438,11 @@ function KnownAppsModal({
  softwareComplianceApi.getKnownApps(osType).then(setApps).catch(() => setApps([])).finally(() => setLoading(false));
  }, [open, platform]);
 
+ // Autofocus only with a mouse — on touch it pops the keyboard over half of
+ // a list that is mostly browsed, not searched.
  useEffect(() => {
- if (open) setTimeout(() => searchRef.current?.focus(), 100);
- }, [open]);
+ if (open && !coarse) setTimeout(() => searchRef.current?.focus(), 100);
+ }, [open, coarse]);
 
  if (!open) return null;
 
@@ -460,19 +485,15 @@ function KnownAppsModal({
  );
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
- <div
- className="bg-bg-primary rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
- onClick={e => e.stopPropagation()}
+ <Modal
+ open={open}
+ onClose={onClose}
+ title={t('softwareCompliance.fromInventory')}
+ size="md"
+ className="bg-bg-primary sm:max-h-[80vh] sm:max-h-[80dvh]"
+ bodyClassName="p-0"
  >
- <div className="flex items-center justify-between p-4 shrink-0">
- <h3 className="text-sm font-semibold text-text-primary">{t('softwareCompliance.fromInventory')}</h3>
- <button onClick={onClose} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
- <X className="w-4 h-4" />
- </button>
- </div>
-
- <div className="px-4 py-3 shrink-0">
+ <div className="sticky top-0 z-10 bg-bg-primary px-4 py-3">
  <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary rounded-lg">
  <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
  <input
@@ -480,12 +501,13 @@ function KnownAppsModal({
  value={search}
  onChange={e => setSearch(e.target.value)}
  placeholder={t('softwareCompliance.searchApps')}
- className="flex-1 text-sm bg-transparent text-text-primary focus:outline-none"
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="flex-1 min-w-0 text-sm bg-transparent text-text-primary focus:outline-none"
  />
  </div>
  </div>
 
- <div className="flex-1 overflow-y-auto p-2 min-h-0">
+ <div className="p-2">
  {loading ? (
  <div className="flex items-center justify-center py-12">
  <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
@@ -511,8 +533,7 @@ function KnownAppsModal({
  </div>
  )}
  </div>
- </div>
- </div>
+ </Modal>
  );
 }
 
@@ -538,15 +559,16 @@ const defaultListForm: ListFormData = {
 // ── GroupTreeMultiSelect (reused from CompliancePage pattern) ────────────────
 
 function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+ const { t } = useTranslation();
  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
  useEffect(() => {
- groupsApi.tree().then((t) => {
- setTree(t);
+ groupsApi.tree().then((tr) => {
+ setTree(tr);
  const all = new Set<number>();
  const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
- walk(t);
+ walk(tr);
  setExpanded(all);
  }).catch(() => {});
  }, []);
@@ -609,15 +631,17 @@ function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: numb
  <button
  type="button"
  onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}
+ aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}
  >
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+ <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
  <button
  type="button"
  onClick={() => toggleNode(node)}
+ aria-label={node.name} aria-pressed={state === 'all'}
  className={clsx(
- 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+ 'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors coarse:w-5 coarse:h-5',
  state === 'all' ? 'bg-accent border-accent text-white' :
  state === 'some' ? 'bg-accent/30 border-accent text-white' :
  'border-transparent hover:border-accent/50',
@@ -646,7 +670,7 @@ function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: numb
  return (
  <div className="max-h-48 overflow-y-auto rounded-lg bg-bg-tertiary p-1">
  {tree.length === 0 ? (
- <p className="text-xs text-text-muted p-2">No groups</p>
+ <p className="text-xs text-text-muted p-2">{t('updates.scope.none', 'No groups')}</p>
  ) : tree.map((n) => renderNode(n, 0))}
  </div>
  );
@@ -656,6 +680,8 @@ function ListGroupTreeMultiSelect({ selectedIds, onChange }: { selectedIds: numb
 
 export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const coarse = useIsCoarsePointer();
  const { isAdmin: _isAdmin } = useAuthStore();
  const deviceMap = useDeviceStore(s => s.devices);
  const devices = Array.from(deviceMap.values());
@@ -803,7 +829,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  };
 
  const handleDelete = async (id: number) => {
- if (!confirm(t('softwareCompliance.confirmDelete'))) return;
+ if (!(await confirm({ message: t('softwareCompliance.confirmDelete'), danger: true }))) return;
  try {
  await softwareComplianceApi.deleteList(id);
  toast.success(t('softwareCompliance.listDeleted'));
@@ -826,6 +852,13 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  // ── Remediation ────────────────────────────────────────────────────────────
 
  const handleRemediate = async (deviceId: number, listId: number, entryIds: number[]) => {
+ // Remediation installs / uninstalls software right away; the icon buttons
+ // are small — on touch, ask first (desktop unchanged).
+ if (coarse && !(await confirm({
+ title: t('compliance.remediateConfirmTitle', 'Run remediation?'),
+ message: t('softwareCompliance.remediateConfirm', { count: entryIds.length, defaultValue: 'Run the remediation for {{count}} entry(ies) on this device now?' }),
+ confirmLabel: t('softwareCompliance.remediate'),
+ }))) return;
  const keys = entryIds.map(id => `${deviceId}:${listId}:${id}`);
  setRemediatingEntries(prev => { const s = new Set(prev); keys.forEach(k => s.add(k)); return s; });
  try {
@@ -846,6 +879,21 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  await handleRemediate(result.deviceId, result.listId, failingEntryIds);
  };
 
+ const handleScanList = async (list: SoftwareComplianceList) => {
+ try {
+ const r = await softwareComplianceApi.scanList(list.id);
+ if (r.enqueued === 0) {
+ toast(t('softwareCompliance.scanNoTargets', 'No online target devices'));
+ } else {
+ toast.success(t('softwareCompliance.scanEnqueued', { count: r.enqueued, defaultValue: `Scan enqueued on ${r.enqueued} device${r.enqueued > 1 ? 's' : ''}` }));
+ }
+ // Refresh results after a delay to give agents time to report.
+ setTimeout(load, 8000);
+ } catch {
+ toast.error(t('softwareCompliance.scanFailed', 'Scan failed'));
+ }
+ };
+
  const handleTriggerCheck = async (deviceId: number, listId?: number) => {
  try {
  await softwareComplianceApi.triggerCheck(deviceId, listId);
@@ -861,15 +909,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  const [showKnownApps, setShowKnownApps] = useState(false);
  const addMenuRef = useRef<HTMLDivElement>(null);
 
- // Close dropdown on outside click
- useEffect(() => {
- if (!showAddMenu) return;
- const handler = (e: MouseEvent) => {
- if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setShowAddMenu(false);
- };
- document.addEventListener('mousedown', handler);
- return () => document.removeEventListener('mousedown', handler);
- }, [showAddMenu]);
+ // Close dropdown on outside click / tap
+ useClickOutside(addMenuRef, () => setShowAddMenu(false), showAddMenu);
 
  const addEntry = () => setForm(f => ({ ...f, entries: [...f.entries, makeEmptyEntry()] }));
  const addEntryFromApp = (app: KnownSoftwareApp) => {
@@ -898,17 +939,21 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  const warningCount = results.filter(r => r.complianceScore >= 50 && r.complianceScore < 80).length;
  const failingCount = results.filter(r => r.complianceScore < 50).length;
 
+ const refreshButton = (
+ <button onClick={load} aria-label={t('common.refresh')} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors coarse:min-h-10 coarse:min-w-10">
+ <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+ </button>
+ );
+
  return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+ <PageContainer embedded={embedded} className="space-y-6">
  {/* Header */}
  {!embedded && <div className="flex items-center justify-between">
  <div>
  <h1 className="text-2xl font-bold text-text-primary">{t('softwareCompliance.title')}</h1>
  <p className="text-sm text-text-muted mt-0.5">{t('softwareCompliance.description')}</p>
  </div>
- <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ {refreshButton}
  </div>}
 
  {/* Summary cards */}
@@ -951,41 +996,29 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
 
  {/* Tabs + filter */}
  <div className="flex items-center justify-between gap-4 flex-wrap">
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
- {(['results', 'lists', 'history', 'repository'] as Tab[]).map((tab) => (
- <button
- key={tab}
- onClick={() => setActiveTab(tab)}
- className={clsx(
- 'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
- activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
- )}
- >
- {tab === 'results' ? t('softwareCompliance.tabResults', 'Results')
- : tab === 'lists' ? t('softwareCompliance.tabLists', 'Lists')
- : tab === 'history' ? t('softwareCompliance.tabHistory', 'History')
- : t('softwareCompliance.tabRepository', 'Repository')}
- </button>
- ))}
- </div>
- <div className="flex items-center gap-2 flex-wrap">
+ <SegmentedTabs<Tab>
+ tabs={[
+ { id: 'results', label: t('softwareCompliance.tabResults', 'Results') },
+ { id: 'lists', label: t('softwareCompliance.tabLists', 'Lists') },
+ { id: 'history', label: t('softwareCompliance.tabHistory', 'History') },
+ { id: 'repository', label: t('softwareCompliance.tabRepository', 'Repository') },
+ ]}
+ value={activeTab}
+ onChange={setActiveTab}
+ className="max-w-full"
+ />
+ <div className="flex items-center gap-2 flex-wrap min-w-0 max-w-full">
  {activeTab === 'results' && (
- <div className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary rounded-lg">
- <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
- <select
+ <DeviceFilterSelect
+ devices={devices}
  value={filterDeviceId}
- onChange={(e) => setFilterDeviceId(e.target.value === '' ? '' : parseInt(e.target.value))}
- className="text-sm bg-transparent text-text-primary focus:outline-none min-w-[120px]"
- >
- <option value="">{t('softwareCompliance.allDevices')}</option>
- {devices.map(d => (
- <option key={d.id} value={d.id}>
- {d.displayName || d.hostname}
- </option>
- ))}
- </select>
- </div>
+ onChange={setFilterDeviceId}
+ allLabel={t('softwareCompliance.allDevices')}
+ />
  )}
+ {/* The page is only ever mounted embedded, where the header (and its
+ refresh button) is hidden. */}
+ {embedded && refreshButton}
  </div>
  </div>
 
@@ -1012,7 +1045,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  return (
  <div key={result.id} className="bg-bg-secondary rounded-xl overflow-hidden">
  <div
- className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors"
+ className="flex items-center gap-3 sm:gap-4 px-4 py-3 cursor-pointer hover:bg-bg-tertiary transition-colors"
  onClick={() => setExpandedResultId(expanded ? null : result.id)}
  >
  <div className={clsx('p-2 rounded-lg', result.complianceScore >= 80 ? 'bg-green-400/10' : result.complianceScore >= 50 ? 'bg-yellow-400/10' : 'bg-red-400/10')}>
@@ -1022,7 +1055,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  <div className="flex items-center gap-2 flex-wrap">
  <div className="flex items-center gap-1.5">
  <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
- <span className="text-sm font-medium text-text-primary">
+ <span className="text-sm font-medium text-text-primary break-all">
  {result.deviceName ?? t('softwareCompliance.deviceId', { id: result.deviceId })}
  </span>
  </div>
@@ -1042,8 +1075,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  </>
  )}
  </div>
- <div className="flex items-center gap-3 mt-1">
- <div className="flex-1 max-w-48 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+ <div className="flex-1 max-w-48 min-w-[3rem] h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
  <div
  className={clsx('h-full rounded-full transition-all', scoreBg(result.complianceScore))}
  style={{ width: `${result.complianceScore}%` }}
@@ -1053,7 +1086,11 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  {result.complianceScore.toFixed(0)}%
  </span>
  <span className="text-xs text-text-muted">
- {compliantCount}/{total} compliant
+ {t('softwareCompliance.compliantCount', { count: compliantCount, total, defaultValue: '{{count}}/{{total}} compliant' })}
+ </span>
+ {/* The date column is hidden below sm — keep it on the stats line there. */}
+ <span className="text-xs text-text-muted sm:hidden">
+ {new Date(result.checkedAt).toLocaleDateString()}
  </span>
  </div>
  </div>
@@ -1064,20 +1101,20 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  {nonCompliantCount > 0 && (
  <button
  onClick={(e) => { e.stopPropagation(); handleRemediateAll(result); }}
- className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
  title={t('softwareCompliance.fixAll')}
  >
  <Wrench className="w-3 h-3" />
  {t('softwareCompliance.fixAll')}
  </button>
  )}
- <button
+ <IconButton
+ label={t('softwareCompliance.rerun')}
+ icon={<RefreshCw className="w-3.5 h-3.5" />}
+ variant="accent"
  onClick={(e) => { e.stopPropagation(); handleTriggerCheck(result.deviceId, result.listId); }}
- className="p-1.5 text-text-muted hover:text-accent hover:bg-bg-tertiary rounded transition-colors"
- title={t('softwareCompliance.rerun')}
- >
- <RefreshCw className="w-3.5 h-3.5" />
- </button>
+ className="hover:bg-bg-tertiary"
+ />
  {expanded ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
  </div>
  </div>
@@ -1101,7 +1138,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  {result.results.map((er) => {
  const isRemediating = remediatingEntries.has(`${result.deviceId}:${result.listId}:${er.entryId}`);
  return (
- <div key={er.entryId} className="flex items-start gap-3 px-4 py-2.5">
+ <div key={er.entryId} className="flex items-start gap-3 px-4 py-2.5 max-sm:flex-wrap">
  <div className="shrink-0 mt-0.5">
  {entryStatusIcon(er.status)}
  </div>
@@ -1111,7 +1148,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  </p>
  {er.matchedSoftware && (
  <p className="text-xs text-text-muted mt-0.5">
- {t('softwareCompliance.matched')}: <span className="font-mono">{er.matchedSoftware}</span>
+ {t('softwareCompliance.matched')}: <span className="font-mono break-all">{er.matchedSoftware}</span>
  {er.matchedVersion && <span className="ml-1">v{er.matchedVersion}</span>}
  </p>
  )}
@@ -1119,7 +1156,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  <p className="text-xs text-text-muted/60 mt-0.5">{er.detail}</p>
  )}
  </div>
- <div className="flex items-center gap-1.5 shrink-0">
+ {/* Below sm the status / action cluster takes its own line. */}
+ <div className="flex items-center gap-1.5 shrink-0 max-sm:basis-full max-sm:justify-end">
  {er.remediationTriggered && (
  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
  {t('softwareCompliance.remediatedBadge')}
@@ -1129,14 +1167,19 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  {er.status.replace('_', ' ')}
  </span>
  {er.status === 'non_compliant' && (
- <button
+ <IconButton
+ label={t('softwareCompliance.remediate')}
  onClick={(e) => { e.stopPropagation(); handleRemediate(result.deviceId, result.listId, [er.entryId]); }}
  disabled={isRemediating}
- className="p-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
- title={t('softwareCompliance.remediate')}
- >
+ size="sm"
+ variant="primary"
+ className="gap-1 disabled:opacity-50 coarse:px-2.5"
+ icon={<>
  <Wrench className={clsx('w-3.5 h-3.5', isRemediating && 'animate-spin')} />
- </button>
+ {/* Touch: visible label (the meaning was only in a hover tooltip). */}
+ <span className="hidden coarse:inline text-xs">{t('softwareCompliance.remediate')}</span>
+ </>}
+ />
  )}
  </div>
  </div>
@@ -1162,8 +1205,8 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  <div className="space-y-4">
  {/* List form */}
  {showForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-4">
- <div className="flex items-center justify-between">
+ <div className="bg-bg-secondary rounded-xl p-4 sm:p-6 space-y-4">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h2 className="text-lg font-semibold text-text-primary">
  {editingList ? t('softwareCompliance.editList') : t('softwareCompliance.newList')}
  </h2>
@@ -1235,7 +1278,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  </div>
  <div className="space-y-1">
  <label className="text-xs font-medium text-text-muted uppercase">{t('softwareCompliance.platform')}</label>
- <div className="flex gap-1">
+ <div className="flex flex-wrap gap-1">
  {PLATFORMS.map((p) => (
  <button
  key={p}
@@ -1246,7 +1289,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  form.targetPlatform === p ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/50',
  )}
  >
- {p === 'all' ? 'All' : p === 'macos' ? 'macOS' : p === 'freebsd' ? 'FreeBSD' : p.charAt(0).toUpperCase() + p.slice(1)}
+ {p === 'all' ? t('common.all') : p === 'macos' ? 'macOS' : p === 'freebsd' ? 'FreeBSD' : p.charAt(0).toUpperCase() + p.slice(1)}
  </button>
  ))}
  </div>
@@ -1273,13 +1316,14 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
 
  {/* Entries builder — card-based */}
  <div className=" pt-4 space-y-3">
- <div className="flex items-center justify-between">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h3 className="text-sm font-semibold text-text-primary">
  {t('softwareCompliance.entries')} <span className="text-text-muted font-normal">({form.entries.length})</span>
  </h3>
  <div className="relative" ref={addMenuRef}>
  <button
  onClick={() => setShowAddMenu(!showAddMenu)}
+ aria-expanded={showAddMenu}
  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
  >
  <Plus className="w-3.5 h-3.5" />
@@ -1338,7 +1382,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  platform={form.targetPlatform}
  />
 
- <div className="flex gap-4 pt-2 ">
+ <div className="flex flex-wrap gap-4 pt-2 ">
  <label className="flex items-center gap-2 cursor-pointer">
  <input
  type="checkbox"
@@ -1417,58 +1461,53 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
  )}
  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-muted">
  <span>{t('softwareCompliance.target')}: <span className="text-text-primary">
- {list.targetType === 'all' ? t('softwareCompliance.allDevices') : `${list.targetIds?.length ?? 0} group(s)`}
+ {list.targetType === 'all' ? t('softwareCompliance.allDevices') : t('compliance.groupCount', { count: list.targetIds?.length ?? 0, defaultValue: '{{count}} group(s)' })}
  </span></span>
  <span>{t('softwareCompliance.entries')}: <span className="text-text-primary">{list.entries?.length ?? 0}</span></span>
  <span>{t('softwareCompliance.created')}: <span className="text-text-primary">{new Date(list.createdAt).toLocaleDateString()}</span></span>
  </div>
  </div>
  <div className="flex gap-1 shrink-0">
- <button
- onClick={async () => {
- try {
- const r = await softwareComplianceApi.scanList(list.id);
- if (r.enqueued === 0) {
- toast(t('softwareCompliance.scanNoTargets', 'No online target devices'));
- } else {
- toast.success(t('softwareCompliance.scanEnqueued', { count: r.enqueued, defaultValue: `Scan enqueued on ${r.enqueued} device${r.enqueued > 1 ? 's' : ''}` }));
- }
- // Refresh results after a delay to give agents time to report.
- setTimeout(load, 8000);
- } catch {
- toast.error(t('softwareCompliance.scanFailed', 'Scan failed'));
- }
- }}
+ {/* md+: the icon buttons. Phone: the same actions, labelled, in a "⋯" menu. */}
+ <IconButton
+ label={t('softwareCompliance.scanNow', 'Scan now on all targets')}
+ icon={<RefreshCw className="w-4 h-4" />}
+ variant="accent"
+ onClick={() => handleScanList(list)}
  disabled={!list.enabled}
- className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-muted"
- title={t('softwareCompliance.scanNow', 'Scan now on all targets')}
- >
- <RefreshCw className="w-4 h-4" />
- </button>
- <button
- onClick={() => handleToggleEnabled(list)}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- title={list.enabled ? t('softwareCompliance.disable') : t('softwareCompliance.enable')}
- >
- {list.enabled
+ className="max-md:hidden disabled:hover:text-text-muted"
+ />
+ <IconButton
+ label={list.enabled ? t('softwareCompliance.disable') : t('softwareCompliance.enable')}
+ icon={list.enabled
  ? <ToggleRight className="w-5 h-5 text-accent" />
- : <ToggleLeft className="w-5 h-5 text-text-muted" />
- }
- </button>
- <button
+ : <ToggleLeft className="w-5 h-5 text-text-muted" />}
+ onClick={() => handleToggleEnabled(list)}
+ className="max-md:hidden hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.edit')}
+ icon={<Edit className="w-4 h-4" />}
  onClick={() => handleOpenEdit(list)}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- title={t('common.edit')}
- >
- <Edit className="w-4 h-4" />
- </button>
- <button
+ className="max-md:hidden hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
  onClick={() => handleDelete(list.id)}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- title={t('common.delete')}
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ className="max-md:hidden"
+ />
+ <ActionMenu
+ triggerClassName="md:hidden"
+ sheetTitle={list.name}
+ items={[
+ { key: 'scan', icon: <RefreshCw className="w-4 h-4" />, label: t('softwareCompliance.scanNow', 'Scan now on all targets'), onClick: () => handleScanList(list), disabled: !list.enabled },
+ { key: 'toggle', icon: list.enabled ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />, label: list.enabled ? t('softwareCompliance.disable') : t('softwareCompliance.enable'), onClick: () => handleToggleEnabled(list) },
+ { key: 'edit', icon: <Edit className="w-4 h-4" />, label: t('common.edit'), onClick: () => handleOpenEdit(list) },
+ { key: 'delete', icon: <Trash2 className="w-4 h-4" />, label: t('common.delete'), onClick: () => handleDelete(list.id), danger: true, separator: true },
+ ]}
+ />
  </div>
  </div>
  </div>
@@ -1480,7 +1519,7 @@ export function SoftwareCompliancePage({ embedded }: { embedded?: boolean } = {}
 
  {/* ── Repository tab ───────────────────────────────────────────────── */}
  {activeTab === 'repository' && <RepoTab />}
- </div>
+ </PageContainer>
  );
 }
 
@@ -1513,18 +1552,32 @@ function downloadSnippet(kind: 'ps' | 'sh', pkg: SoftwareRepoPackage): string {
  ].join('\n');
 }
 
-async function copyToClipboard(text: string, okMsg: string) {
- try {
- await navigator.clipboard.writeText(text);
- toast.success(okMsg);
- } catch {
- toast.error('Clipboard unavailable');
- }
+/** Copy with the shared helper (Clipboard API → execCommand → native bridge). */
+async function copyToClipboard(text: string, okMsg: string, failMsg: string) {
+ if (await copyText(text)) toast.success(okMsg);
+ else toast.error(failMsg);
 }
+
+/** Accept list for the package picker. Extensions alone make the Android
+ * picker intent filter out everything, so on touch devices MIME types are
+ * added (desktop keeps the extension-only filter). */
+const PACKAGE_ACCEPT = '.msi,.exe,.deb,.rpm,.pkg,.dmg';
+const PACKAGE_ACCEPT_TOUCH = [
+ PACKAGE_ACCEPT,
+ 'application/x-msi', 'application/x-ms-installer', 'application/x-msdownload',
+ 'application/vnd.microsoft.portable-executable', 'application/x-dosexec',
+ 'application/vnd.debian.binary-package', 'application/x-debian-package',
+ 'application/x-rpm', 'application/x-redhat-package-manager',
+ 'application/x-newton-compatible-pkg', 'application/vnd.apple.installer+xml',
+ 'application/x-apple-diskimage', 'application/octet-stream',
+].join(',');
 
 // ── Repository Tab Component ────────────────────────────────────────────────
 function RepoTab() {
  const { t } = useTranslation();
+ const confirm = useConfirm();
+ const prompt = usePrompt();
+ const coarse = useIsCoarsePointer();
  const { isAdmin } = useAuthStore();
  const [packages, setPackages] = useState<SoftwareRepoPackage[]>([]);
  const [settings, setSettings] = useState<SoftwareRepoSettings | null>(null);
@@ -1573,7 +1626,7 @@ function RepoTab() {
  };
 
  const handleDelete = async (id: number) => {
- if (!confirm(t('softwareCompliance.confirmDeletePackage'))) return;
+ if (!(await confirm({ message: t('softwareCompliance.confirmDeletePackage'), danger: true }))) return;
  try {
  await softwareRepoApi.delete(id);
  toast.success(t('softwareCompliance.packageDeleted'));
@@ -1591,7 +1644,12 @@ function RepoTab() {
 
  const handleSetQuota = async () => {
  const current = quotaBytes != null ? String(Math.round(quotaBytes / 1024 / 1024)) : '';
- const input = prompt(t('softwareCompliance.quotaPrompt') || 'Storage quota in MB (empty = unlimited):', current);
+ const input = await prompt({
+ message: t('softwareCompliance.quotaPrompt', 'Storage quota in MB (empty = unlimited):'),
+ defaultValue: current,
+ inputType: 'number',
+ confirmLabel: t('common.save'),
+ });
  if (input === null) return;
  const trimmed = input.trim();
  const mb = trimmed === '' ? null : parseInt(trimmed, 10);
@@ -1604,7 +1662,11 @@ function RepoTab() {
  };
 
  const handleGenerateKey = async () => {
- if (settings?.hasKey && !confirm(t('softwareCompliance.regenKeyConfirm') || 'Replace the existing access key? Scripts using the old key will stop working.')) return;
+ if (settings?.hasKey && !(await confirm({
+ message: t('softwareCompliance.regenKeyConfirm', 'Replace the existing access key? Scripts using the old key will stop working.'),
+ confirmLabel: t('softwareCompliance.regenKey', 'Regenerate'),
+ danger: true,
+ }))) return;
  try {
  const { key } = await softwareRepoApi.generateAccessKey();
  setRevealedKey(key);
@@ -1614,7 +1676,11 @@ function RepoTab() {
  };
 
  const handleRevokeKey = async () => {
- if (!confirm(t('softwareCompliance.revokeKeyConfirm') || 'Revoke the access key? Scripts using it will stop working.')) return;
+ if (!(await confirm({
+ message: t('softwareCompliance.revokeKeyConfirm', 'Revoke the access key? Scripts using it will stop working.'),
+ confirmLabel: t('softwareCompliance.revokeKey', 'Revoke'),
+ danger: true,
+ }))) return;
  try {
  await softwareRepoApi.revokeAccessKey();
  setRevealedKey(null);
@@ -1643,18 +1709,17 @@ function RepoTab() {
  <div className="flex items-center gap-1">
  <button
  onClick={handleSetQuota}
- className="text-xs px-2 py-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+ className="text-xs px-2 py-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors coarse:min-h-10"
  title={t('softwareCompliance.setQuota') || 'Set quota'}
  >
  {t('softwareCompliance.setQuota') || 'Set quota'}
  </button>
- <button
+ <IconButton
+ label={enabled ? (t('softwareCompliance.disable')) : (t('softwareCompliance.enable'))}
+ icon={enabled ? <ToggleRight className="w-5 h-5 text-accent" /> : <ToggleLeft className="w-5 h-5 text-text-muted" />}
  onClick={handleToggleEnabled}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- title={enabled ? (t('softwareCompliance.disable')) : (t('softwareCompliance.enable'))}
- >
- {enabled ? <ToggleRight className="w-5 h-5 text-accent" /> : <ToggleLeft className="w-5 h-5 text-text-muted" />}
- </button>
+ className="hover:bg-bg-tertiary"
+ />
  </div>
  )}
  </div>
@@ -1686,26 +1751,36 @@ function RepoTab() {
  <div className="flex items-center gap-1">
  <button
  onClick={handleGenerateKey}
- className="text-xs px-2.5 py-1 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+ className="text-xs px-2.5 py-1 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors coarse:min-h-10"
  >
  {settings?.hasKey ? (t('softwareCompliance.regenKey') || 'Regenerate') : (t('softwareCompliance.generateKey') || 'Generate key')}
  </button>
  {settings?.hasKey && (
- <button
+ <IconButton
+ label={t('softwareCompliance.revokeKey', 'Revoke')}
+ icon={<Ban className="w-4 h-4" />}
+ variant="danger"
  onClick={handleRevokeKey}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- title={t('softwareCompliance.revokeKey') || 'Revoke'}
- >
- <Ban className="w-4 h-4" />
- </button>
+ />
  )}
  </div>
  </div>
  <p className="text-xs text-text-muted">{t('softwareCompliance.accessKeyHint') || 'Scripts authenticate with this key to download packages (header X-Repo-Key). One key per tenant.'}</p>
  {revealedKey ? (
  <div className="flex items-center gap-2 px-3 py-2 bg-bg-tertiary rounded-lg">
- <code className="flex-1 text-xs font-mono text-green-400 break-all">{revealedKey}</code>
- <button onClick={() => copyToClipboard(revealedKey, t('common.copied') || 'Copied')} className="p-1 text-text-muted hover:text-text-primary shrink-0"><Copy className="w-3.5 h-3.5" /></button>
+ {/* select-all: one tap selects the whole key if the copy fails (shown once). */}
+ <code className="flex-1 min-w-0 text-xs font-mono text-green-400 break-all select-all">{revealedKey}</code>
+ <IconButton
+ label={t('common.copy', 'Copy')}
+ onClick={() => copyToClipboard(revealedKey, t('common.copied') || 'Copied', t('softwareCompliance.keyCopyFailed', 'Copy failed — select the key and copy it manually, it is only shown once.'))}
+ size="sm"
+ variant="plain"
+ className="shrink-0 gap-1 coarse:px-3 coarse:bg-bg-secondary"
+ icon={<>
+ <Copy className="w-3.5 h-3.5" />
+ <span className="hidden coarse:inline text-xs">{t('common.copy', 'Copy')}</span>
+ </>}
+ />
  </div>
  ) : settings?.hasKey ? (
  <div className="flex items-center gap-2 text-xs text-text-muted">
@@ -1721,7 +1796,7 @@ function RepoTab() {
  {/* Upload area */}
  <div
  className={clsx(
- 'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
+ 'border-2 border-dashed rounded-xl p-4 sm:p-8 text-center transition-colors',
  (!enabled || quotaFull) ? 'border-transparent opacity-60' : dragOver ? 'border-accent bg-accent/5' : 'border-transparent hover:border-accent/40',
  )}
  onDragOver={e => { e.preventDefault(); if (enabled && !quotaFull) setDragOver(true); }}
@@ -1734,14 +1809,18 @@ function RepoTab() {
  ) : quotaFull ? (
  <p className="text-sm text-red-400 font-medium mb-1">{t('softwareCompliance.quotaFullMsg') || 'Storage quota reached — delete packages or raise the quota.'}</p>
  ) : (
- <p className="text-sm text-text-primary font-medium mb-1">{t('softwareCompliance.dragDrop')}</p>
+ <p className="text-sm text-text-primary font-medium mb-1">
+ {/* No drag & drop on touch — point at the Browse button instead. */}
+ {coarse ? t('softwareCompliance.tapToChoose', 'Tap Browse to choose a package file') : t('softwareCompliance.dragDrop')}
+ </p>
  )}
  <p className="text-xs text-text-muted mb-3">.msi, .exe, .deb, .rpm, .pkg, .dmg</p>
- <div className="flex items-center justify-center gap-2">
+ <div className="flex flex-wrap items-center justify-center gap-2">
  <select
  value={uploadPlatform}
  onChange={e => setUploadPlatform(e.target.value as any)}
- className="px-2 py-1.5 text-xs bg-bg-secondary rounded text-text-primary"
+ aria-label={t('softwareCompliance.platform')}
+ className="px-2 py-1.5 text-xs bg-bg-secondary rounded text-text-primary coarse:min-h-10"
  >
  <option value="windows">Windows</option>
  <option value="linux">Linux</option>
@@ -1750,11 +1829,11 @@ function RepoTab() {
  <button
  onClick={() => fileInputRef.current?.click()}
  disabled={uploading || !enabled || quotaFull}
- className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+ className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed coarse:min-h-10 coarse:px-5 coarse:text-sm"
  >
  {uploading ? t('softwareCompliance.uploading') : t('softwareCompliance.browse')}
  </button>
- <input ref={fileInputRef} type="file" accept=".msi,.exe,.deb,.rpm,.pkg,.dmg" className="hidden"
+ <input ref={fileInputRef} type="file" accept={coarse ? PACKAGE_ACCEPT_TOUCH : PACKAGE_ACCEPT} className="hidden"
  onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
  </div>
  </div>
@@ -1778,7 +1857,7 @@ function RepoTab() {
  <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
  <div className="flex-1 min-w-0">
  <p className="text-sm font-medium text-text-primary truncate">{pkg.displayName || pkg.filename}</p>
- <div className="flex items-center gap-2 mt-0.5">
+ <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
  <span className="text-xs text-text-muted">{formatBytes(pkg.fileSize)}</span>
  {pi && <span className={clsx('text-[9px] px-1 py-0.5 rounded border font-medium', pi.color)}>{platformLabel(pkg.platform)}</span>}
  <span className="text-xs text-text-muted">{new Date(pkg.createdAt).toLocaleDateString()}</span>
@@ -1787,34 +1866,41 @@ function RepoTab() {
  {/* Copy download command (PS / SH) */}
  <button
  onClick={() => setSnippetFor(showSnippet && snippetFor?.kind === 'ps' ? null : { uuid: pkg.uuid, kind: 'ps' })}
- className={clsx('p-1.5 rounded transition-colors', showSnippet && snippetFor?.kind === 'ps' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ className={clsx('p-1.5 rounded transition-colors coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center', showSnippet && snippetFor?.kind === 'ps' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
  title={t('softwareCompliance.copyPs') || 'PowerShell download command'}
+ aria-label={t('softwareCompliance.copyPs') || 'PowerShell download command'}
+ aria-pressed={showSnippet && snippetFor?.kind === 'ps'}
  >
  <Terminal className="w-4 h-4" />
  </button>
  <button
  onClick={() => setSnippetFor(showSnippet && snippetFor?.kind === 'sh' ? null : { uuid: pkg.uuid, kind: 'sh' })}
- className={clsx('p-1.5 rounded transition-colors text-[11px] font-mono w-7 h-7 flex items-center justify-center', showSnippet && snippetFor?.kind === 'sh' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
+ className={clsx('p-1.5 rounded transition-colors text-[11px] font-mono w-7 h-7 flex items-center justify-center coarse:w-10 coarse:h-10', showSnippet && snippetFor?.kind === 'sh' ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-tertiary')}
  title={t('softwareCompliance.copySh') || 'Bash download command'}
+ aria-label={t('softwareCompliance.copySh') || 'Bash download command'}
+ aria-pressed={showSnippet && snippetFor?.kind === 'sh'}
  >
  sh
  </button>
- <button onClick={() => handleDelete(pkg.id)}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors">
- <Trash2 className="w-4 h-4" />
- </button>
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
+ onClick={() => handleDelete(pkg.id)}
+ />
  </div>
  {showSnippet && (
  <div className="px-4 pb-3">
  <div className="relative">
- <pre className="text-[11px] text-text-primary font-mono bg-bg-tertiary rounded-lg p-3 pr-10 overflow-x-auto whitespace-pre">{downloadSnippet(snippetFor!.kind, pkg)}</pre>
- <button
- onClick={() => copyToClipboard(downloadSnippet(snippetFor!.kind, pkg), t('common.copied') || 'Copied')}
- className="absolute top-2 right-2 p-1 text-text-muted hover:text-text-primary bg-bg-secondary rounded"
- title={t('common.copy') || 'Copy'}
- >
- <Copy className="w-3.5 h-3.5" />
- </button>
+ <pre className="text-[11px] text-text-primary font-mono bg-bg-tertiary rounded-lg p-3 pr-10 overflow-x-auto whitespace-pre coarse:pr-14 coarse:whitespace-pre-wrap coarse:break-all">{downloadSnippet(snippetFor!.kind, pkg)}</pre>
+ <IconButton
+ label={t('common.copy', 'Copy')}
+ icon={<Copy className="w-3.5 h-3.5" />}
+ size="sm"
+ variant="plain"
+ onClick={() => copyToClipboard(downloadSnippet(snippetFor!.kind, pkg), t('common.copied') || 'Copied', t('softwareCompliance.copyFailed', 'Copy failed'))}
+ className="absolute top-2 right-2 bg-bg-secondary"
+ />
  </div>
  {!settings?.hasKey && (
  <p className="text-[10px] text-yellow-400/80 mt-1">{t('softwareCompliance.snippetNeedsKey') || 'Generate an access key above and replace <VOTRE_CLE_DEPOT> in the command.'}</p>
@@ -1880,12 +1966,13 @@ function SoftwareHistoryTab() {
 }
 
 function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBatch }) {
+ const { t } = useTranslation();
  const [open, setOpen] = useState(false);
  const [expandedId, setExpandedId] = useState<string | null>(null);
 
- const typeLabel = batch.type === 'check_software_compliance' ? 'Scan'
- : batch.type === 'install_software' ? 'Install'
- : 'Uninstall';
+ const typeLabel = batch.type === 'check_software_compliance' ? t('softwareCompliance.history.scan', 'Scan')
+ : batch.type === 'install_software' ? t('softwareCompliance.actions.install', 'Install')
+ : t('softwareCompliance.actions.uninstall', 'Uninstall');
  const typeColor = batch.type === 'uninstall_software' ? 'text-red-400 border-red-400/30 bg-red-400/10'
  : batch.type === 'install_software' ? 'text-green-400 border-green-400/30 bg-green-400/10'
  : 'text-accent border-accent/30 bg-accent/10';
@@ -1899,19 +1986,22 @@ function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBa
 
  return (
  <div className="rounded-lg bg-bg-secondary overflow-hidden">
+ {/* Below sm: two lines — badge + list name first, then date + counts
+ (CSS order), instead of one line where the name gets 0 px. */}
  <button
  onClick={() => setOpen(v => !v)}
- className="w-full flex items-center gap-2 text-xs px-3 py-2 text-left hover:bg-bg-tertiary/40"
+ aria-expanded={open}
+ className="w-full flex items-center gap-2 text-xs px-3 py-2 text-left hover:bg-bg-tertiary/40 max-sm:flex-wrap max-sm:gap-y-1"
  >
  {open ? <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
  : <ChevronRight className="w-3.5 h-3.5 text-text-muted shrink-0" />}
  <span className={`shrink-0 px-2 py-0.5 rounded-full border font-medium text-[10px] ${typeColor}`}>{typeLabel}</span>
- <span className="text-text-muted shrink-0">{new Date(batch.triggeredAt).toLocaleString()}</span>
- <span className="text-text-primary font-medium truncate flex-1 min-w-0">{batch.listName}</span>
- <span className="flex items-center gap-1.5 shrink-0 text-[11px]">
- {batch.ok > 0 && <span className="text-green-400">{batch.ok} OK</span>}
- {batch.fail > 0 && <span className="text-red-400">{batch.fail} failed</span>}
- {batch.pending > 0 && <span className="text-blue-400">{batch.pending} pending</span>}
+ <span className="text-text-muted shrink-0 max-sm:order-1 max-sm:pl-[1.375rem]">{new Date(batch.triggeredAt).toLocaleString()}</span>
+ <span className="text-text-primary font-medium truncate flex-1 min-w-0 max-sm:basis-3/5">{batch.listName}</span>
+ <span className="flex items-center gap-1.5 shrink-0 text-[11px] max-sm:order-2 max-sm:ml-auto">
+ {batch.ok > 0 && <span className="text-green-400">{t('softwareCompliance.history.ok', { count: batch.ok, defaultValue: '{{count}} OK' })}</span>}
+ {batch.fail > 0 && <span className="text-red-400">{t('softwareCompliance.history.failed', { count: batch.fail, defaultValue: '{{count}} failed' })}</span>}
+ {batch.pending > 0 && <span className="text-blue-400">{t('softwareCompliance.history.pending', { count: batch.pending, defaultValue: '{{count}} pending' })}</span>}
  <span className="text-text-muted">({batch.total})</span>
  </span>
  </button>
@@ -1929,7 +2019,7 @@ function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBa
  ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
  : <ChevronRight className="w-3 h-3 text-text-muted shrink-0" />}
  {badge(r.status)}
- <span className="text-text-primary truncate flex-1 min-w-0 font-medium">
+ <span className="text-text-primary truncate flex-1 min-w-0 font-medium max-sm:whitespace-normal max-sm:break-words">
  {r.deviceName}
  {r.entryName && <span className="text-text-muted font-normal"> — {r.entryName}</span>}
  </span>
@@ -1937,8 +2027,9 @@ function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBa
  <Link
  to={`/devices/${r.deviceId}`}
  onClick={(e) => e.stopPropagation()}
- className="shrink-0 text-text-muted hover:text-accent p-0.5 rounded hover:bg-accent/10 transition-colors"
- title="Open device"
+ className="shrink-0 text-text-muted hover:text-accent p-0.5 rounded hover:bg-accent/10 transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center"
+ title={t('softwareCompliance.history.openDevice', 'Open device')}
+ aria-label={t('softwareCompliance.history.openDevice', 'Open device')}
  >
  <ExternalLink className="w-3.5 h-3.5" />
  </Link>
@@ -1958,7 +2049,7 @@ function SoftwareHistoryBatchRow({ batch }: { batch: SoftwareComplianceHistoryBa
  </div>
  )}
  {!r.stdout && !r.stderr && (
- <p className="text-[10px] text-text-muted italic">{r.status === 'pending' || r.status === 'sent' ? 'Awaiting agent reply…' : 'No output captured.'}</p>
+ <p className="text-[10px] text-text-muted italic">{r.status === 'pending' || r.status === 'sent' ? t('softwareCompliance.history.awaiting', 'Awaiting agent reply…') : t('softwareCompliance.history.noOutput', 'No output captured.')}</p>
  )}
  </div>
  )}

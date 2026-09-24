@@ -9,3 +9,13 @@ node_modules
 !oblireach-desktop/RELEASE_NOTES.md
 .vscode
 .ps1
+
+# Obli mobile (Android): only the release drop zone (manifest.json,
+# RELEASE_NOTES.md, obliance.apk) enters the build context. The Gradle
+# project (mobile/android: sources, local.properties, keystores) never does.
+mobile/*
+!mobile/release
+!mobile/release/RELEASE_NOTES.md
+**/*.jks
+**/*.keystore
+**/.secrets

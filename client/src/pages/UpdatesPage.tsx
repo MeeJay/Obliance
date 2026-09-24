@@ -11,6 +11,11 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
+import { SegmentedTabs } from '@/components/common/SegmentedTabs';
+import { TableScroll } from '@/components/common/TableScroll';
+import { IconButton } from '@/components/common/IconButton';
+import { PageContainer } from '@/components/common/PageContainer';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type Tab = 'updates' | 'policies';
 
@@ -67,6 +72,7 @@ const defaultPolicyForm: PolicyFormData = {
 
 export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
  const deviceMap = useDeviceStore((s) => s.devices);
  const [activeTab, setActiveTab] = useState<Tab>('updates');
  const [policies, setPolicies] = useState<UpdatePolicy[]>([]);
@@ -188,7 +194,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDeletePolicy = async (id: number) => {
- if (!confirm(t('updates.policy.confirmDelete'))) return;
+ if (!(await confirm({ message: t('updates.policy.confirmDelete'), danger: true }))) return;
  try {
  await updateApi.deletePolicy(id);
  toast.success(t('updates.policy.deleted'));
@@ -267,14 +273,53 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  }
  };
 
+ // Per-row status chips + Approve / Retry. Rendered in the actions column
+ // from lg, and under the title cell below lg (the column would not fit).
+ const renderRowActions = (upd: (typeof aggUpdates)[number], className: string) => {
+ if (upd.deployingCount <= 0 && upd.failedCount <= 0 && upd.availableCount <= 0 && upd.approvedCount <= 0) return null;
  return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
+ <div className={className} onClick={(e) => e.stopPropagation()}>
+ {upd.deployingCount > 0 && (
+ <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400">
+ {t('updates.row.deploying', { count: upd.deployingCount, defaultValue: '{{count}} deploying' })}
+ </span>
+ )}
+ {upd.failedCount > 0 && (
+ <button
+ onClick={async () => {
+ try {
+ const r = await updateApi.bulkRetry(upd.updateUid);
+ toast.success(t('updates.toast.retried', { count: r.retried, defaultValue: '{{count}} update(s) retried' }));
+ await load();
+ } catch { toast.error(t('updates.toast.retryFailed', 'Retry failed')); }
+ }}
+ className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors coarse:min-h-9 coarse:px-3 coarse:text-xs"
+ >
+ {t('updates.row.failedRetry', { count: upd.failedCount, defaultValue: '{{count}} failed — retry' })}
+ </button>
+ )}
+ {upd.availableCount > 0 && (
+ <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors coarse:min-h-9 coarse:px-3">
+ {t('updates.actions.approve')}{upd.approvedCount > 0 ? ` (${upd.availableCount})` : ''}
+ </button>
+ )}
+ {upd.availableCount === 0 && upd.approvedCount > 0 && (
+ <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-400/10 border border-green-400/30 text-green-400">
+ {t('updates.status.approved')}
+ </span>
+ )}
+ </div>
+ );
+ };
+
+ return (
+ <PageContainer embedded={embedded} className="space-y-6">
  {!embedded && <div className="flex items-center justify-between">
  <div>
  <h1 className="text-2xl font-bold text-text-primary">{t('updates.title')}</h1>
  <p className="text-sm text-text-muted mt-0.5">{t('updates.subtitle')}</p>
  </div>
- <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
+ <button onClick={() => load()} aria-label={t('common.refresh')} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors coarse:min-h-10 coarse:min-w-10">
  <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
  </button>
  </div>}
@@ -314,8 +359,18 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  {activeTab === 'updates' && (
  <div className="flex items-center gap-3 flex-wrap">
  <GroupScopePicker value={selectedGroupId} onChange={setSelectedGroupId} />
+ {/* The page is only ever mounted embedded (PoliciesPage), where the
+ header (and its refresh button) is hidden — keep refresh reachable. */}
+ {embedded && (
+ <IconButton
+ label={t('common.refresh')}
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ onClick={() => load()}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
+ )}
  <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)} className="px-3 py-1.5 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent">
- <option value="">All sources</option>
+ <option value="">{t('updates.filters.allSources', 'All sources')}</option>
  <option value="windows_update">Windows Update</option>
  <option value="winget">Winget</option>
  <option value="chocolatey">Chocolatey</option>
@@ -331,7 +386,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  {selectedUids.size > 0 && (
  <>
  <button onClick={handleApproveSelected} className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium">
- Approve ({selectedUids.size})
+ {t('updates.actions.approve')} ({selectedUids.size})
  </button>
  {aggUpdates.some((u) => selectedUids.has(u.updateUid) && u.failedCount > 0) && (
  <button
@@ -339,28 +394,28 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  const failedUids = aggUpdates.filter((u) => selectedUids.has(u.updateUid) && u.failedCount > 0).map((u) => u.updateUid);
  try {
  const r = await updateApi.bulkRetryTitles(failedUids);
- toast.success(`${r.retried} update(s) retried`);
+ toast.success(t('updates.toast.retried', { count: r.retried, defaultValue: '{{count}} update(s) retried' }));
  setSelectedUids(new Set());
  await load();
- } catch { toast.error('Retry failed'); }
+ } catch { toast.error(t('updates.toast.retryFailed', 'Retry failed')); }
  }}
  className="text-xs px-3 py-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors font-medium"
  >
- Retry failed
+ {t('updates.actions.retryFailed', 'Retry failed')}
  </button>
  )}
  <button
  onClick={async () => {
  try {
  const r = await updateApi.bulkApproveAndDeploy([...selectedUids], selectedGroupId);
- toast.success(`${r.approved} approved, ${r.dispatched} dispatched to ${r.devices} device(s)`);
+ toast.success(t('updates.toast.approvedDispatched', { approved: r.approved, dispatched: r.dispatched, devices: r.devices, defaultValue: '{{approved}} approved, {{dispatched}} dispatched to {{devices}} device(s)' }));
  setSelectedUids(new Set());
  await load();
  } catch { toast.error(t('updates.toast.approveFailed')); }
  }}
  className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium"
  >
- Approve & Deploy ({selectedUids.size})
+ {t('updates.actions.approveAndDeploy', 'Approve & Deploy')} ({selectedUids.size})
  </button>
  </>
  )}
@@ -368,13 +423,13 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  onClick={async () => {
  try {
  const r = await updateApi.bulkDeploy(selectedGroupId);
- toast.success(`${r.dispatched} update(s) deployed to ${r.devices} device(s)`);
+ toast.success(t('updates.toast.deployed', { dispatched: r.dispatched, devices: r.devices, defaultValue: '{{dispatched}} update(s) deployed to {{devices}} device(s)' }));
  await load();
- } catch { toast.error('Deploy failed'); }
+ } catch { toast.error(t('updates.toast.deployFailed', 'Deploy failed')); }
  }}
  className="text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
  >
- Deploy all approved
+ {t('updates.actions.deployAllApproved', 'Deploy all approved')}
  </button>
  <button onClick={async () => { try { const r = await updateApi.bulkApproveBySeverity(['critical','important'], selectedGroupId); toast.success(t('updates.toast.bulkApproved',{count:r.approved})); load(); } catch { toast.error(t('updates.toast.approveFailed')); } }} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors">
  {t('updates.actions.approveAllCritical')}
@@ -387,20 +442,14 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  )}
 
  {/* Tabs */}
- <div className="flex items-center gap-1 rounded-lg bg-bg-secondary p-1 border border-transparent">
- {(['updates', 'policies'] as Tab[]).map((tab) => (
- <button
- key={tab}
- onClick={() => setActiveTab(tab)}
- className={clsx(
- 'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
- activeTab === tab ? 'bg-accent text-white' : 'text-text-muted hover:text-text-primary',
- )}
- >
- {tab === 'updates' ? t('updates.tabs.updates') : t('updates.tabs.policies')}
- </button>
- ))}
- </div>
+ <SegmentedTabs<Tab>
+ tabs={[
+ { id: 'updates', label: t('updates.tabs.updates') },
+ { id: 'policies', label: t('updates.tabs.policies') },
+ ]}
+ value={activeTab}
+ onChange={setActiveTab}
+ />
 
  {activeTab === 'updates' && (
  <div className="space-y-4">
@@ -414,12 +463,12 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  ) : (
  <>
- <div className="bg-bg-secondary rounded-xl overflow-hidden">
+ <TableScroll className="bg-bg-secondary rounded-xl">
  <table className="w-full">
  <thead>
  <tr className=" bg-bg-tertiary/50">
- <th className="w-10 px-3 py-3">
- <button onClick={toggleSelectAll} className="text-text-muted hover:text-text-primary transition-colors">
+ <th className="w-10 px-3 py-3 coarse:p-0">
+ <button onClick={toggleSelectAll} aria-label={t('common.selectAll')} className="text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:w-full coarse:min-w-10 coarse:items-center coarse:justify-center">
  {selectedUids.size === aggUpdates.length && aggUpdates.length > 0
  ? <CheckSquare className="w-4 h-4 text-accent" />
  : <Square className="w-4 h-4" />}
@@ -429,7 +478,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">{t('updates.table.severity')}</th>
  <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase hidden md:table-cell">{t('updates.table.source')}</th>
  <th className="px-4 py-3 text-center text-xs font-medium text-text-muted uppercase">{t('updates.table.devices')}</th>
- <th className="w-28 px-4 py-3" />
+ <th className="w-28 px-4 py-3 hidden lg:table-cell" />
  </tr>
  </thead>
  <tbody className="divide-y divide-border">
@@ -439,59 +488,33 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  return (
  <React.Fragment key={upd.updateUid}>
  <tr className="hover:bg-bg-tertiary transition-colors cursor-pointer" onClick={() => handleExpand(upd.updateUid)}>
- <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
- <button onClick={() => toggleSelect(upd.updateUid)} className="text-text-muted hover:text-text-primary transition-colors">
+ <td className="w-10 px-3 py-3 coarse:p-0" onClick={(e) => e.stopPropagation()}>
+ <button onClick={() => toggleSelect(upd.updateUid)} aria-pressed={selectedUids.has(upd.updateUid)} aria-label={upd.title ?? upd.updateUid} className="text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-11 coarse:w-full coarse:min-w-10 coarse:items-center coarse:justify-center">
  {selectedUids.has(upd.updateUid)
  ? <CheckSquare className="w-4 h-4 text-accent" />
  : <Square className="w-4 h-4" />}
  </button>
  </td>
  <td className="px-4 py-3">
- <p className="text-sm text-text-primary font-medium">{upd.title ?? upd.updateUid}</p>
- {upd.requiresReboot && <p className="text-xs text-orange-400 mt-0.5">Requires reboot</p>}
+ <p className="text-sm text-text-primary font-medium max-lg:[overflow-wrap:anywhere]">{upd.title ?? upd.updateUid}</p>
+ {upd.requiresReboot && <p className="text-xs text-orange-400 mt-0.5">{t('updates.requiresReboot', 'Requires reboot')}</p>}
  {upd.category && <p className="text-xs text-text-muted mt-0.5">{upd.category}</p>}
+ {/* Source column is hidden below md — keep it readable here. */}
+ <p className="md:hidden text-xs text-text-muted mt-0.5">{upd.source.replace('_', ' ')}</p>
+ {/* Below lg the actions column is hidden: same actions, wrapping, under the title. */}
+ {renderRowActions(upd, 'lg:hidden mt-2 flex flex-wrap items-center gap-1.5')}
  </td>
  <td className="px-4 py-3"><span className={clsx('text-xs px-2 py-0.5 rounded-full border font-medium', cfg.color)}>{cfg.label}</span></td>
  <td className="px-4 py-3 hidden md:table-cell"><span className="text-xs text-text-muted">{upd.source.replace('_', ' ')}</span></td>
  <td className="px-4 py-3 text-center"><span className="text-xs font-medium text-text-primary bg-bg-tertiary px-2 py-0.5 rounded-full">{upd.deviceCount}</span></td>
- <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
- <div className="flex items-center justify-end gap-1.5">
- {upd.deployingCount > 0 && (
- <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/30 text-blue-400">
- {upd.deployingCount} deploying
- </span>
- )}
- {upd.failedCount > 0 && (
- <button
- onClick={async () => {
- try {
- const r = await updateApi.bulkRetry(upd.updateUid);
- toast.success(`${r.retried} update(s) retried`);
- await load();
- } catch { toast.error('Retry failed'); }
- }}
- className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 border border-red-400/30 text-red-400 hover:bg-red-400/20 transition-colors"
- >
- {upd.failedCount} failed — retry
- </button>
- )}
- {upd.availableCount > 0 && (
- <button onClick={() => handleApproveTitle(upd.updateUid)} className="text-xs px-2.5 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded hover:bg-green-500/30 transition-colors">
- {t('updates.actions.approve')}{upd.approvedCount > 0 ? ` (${upd.availableCount})` : ''}
- </button>
- )}
- {upd.availableCount === 0 && upd.approvedCount > 0 && (
- <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-400/10 border border-green-400/30 text-green-400">
- Approved
- </span>
- )}
- </div>
+ <td className="px-4 py-3 text-right hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
+ {renderRowActions(upd, 'flex items-center justify-end gap-1.5')}
  </td>
  </tr>
  {isExpanded && (
- <tr><td colSpan={6} className="px-8 py-3 bg-bg-tertiary/30">
+ <tr><td colSpan={6} className="px-4 sm:px-8 py-3 bg-bg-tertiary/30">
  <div className="space-y-1">
- {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">Loading...</p> : expandedDevices.map((d) => {
+ {expandedDevices.length === 0 ? <p className="text-xs text-text-muted">{t('common.loading')}</p> : expandedDevices.map((d) => {
  // Pull the tenant from the device store
  // so we can chip-tag rows in the master
  // view; the expanded-devices endpoint
@@ -514,22 +537,22 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  })}
  </tbody>
  </table>
- </div>
- <div className="flex items-center justify-center gap-3 text-sm text-text-muted">
+ </TableScroll>
+ <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-text-muted">
  {Math.ceil(aggTotal / aggPageSize) > 1 && (
  <>
- <button onClick={() => setAggPage(p => Math.max(1, p - 1))} disabled={aggPage === 1} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">←</button>
+ <button onClick={() => setAggPage(p => Math.max(1, p - 1))} disabled={aggPage === 1} aria-label={t('updates.pagination.previous', 'Previous page')} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30 coarse:min-h-10 coarse:min-w-10">←</button>
  <span>{aggPage} / {Math.ceil(aggTotal / aggPageSize)}</span>
- <button onClick={() => setAggPage(p => p + 1)} disabled={aggPage >= Math.ceil(aggTotal / aggPageSize)} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30">→</button>
+ <button onClick={() => setAggPage(p => p + 1)} disabled={aggPage >= Math.ceil(aggTotal / aggPageSize)} aria-label={t('updates.pagination.next', 'Next page')} className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30 coarse:min-h-10 coarse:min-w-10">→</button>
  </>
  )}
- <span className="text-xs">({aggTotal} updates)</span>
+ <span className="text-xs">({t('updates.totalCount', { count: aggTotal, defaultValue: '{{count}} updates' })})</span>
  <select
  value={aggPageSize}
  onChange={(e) => setAggPageSize(parseInt(e.target.value, 10))}
  className="px-2 py-1 text-xs bg-bg-secondary rounded text-text-primary focus:outline-none focus:border-accent"
  >
- {[50, 100, 200, 500].map((n) => <option key={n} value={n}>{n} / page</option>)}
+ {[50, 100, 200, 500].map((n) => <option key={n} value={n}>{t('updates.perPage', { count: n, defaultValue: '{{count}} / page' })}</option>)}
  </select>
  </div>
  </>
@@ -542,8 +565,8 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  <div className="space-y-4">
  {/* Policy form */}
  {showPolicyForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-5">
- <div className="flex items-center justify-between">
+ <div className="bg-bg-secondary rounded-xl p-4 sm:p-6 space-y-5">
+ <div className="flex flex-wrap items-center justify-between gap-2">
  <h2 className="text-lg font-semibold text-text-primary">{editingPolicy ? t('updates.policy.edit') : t('updates.policy.new')}</h2>
  <div className="flex gap-2">
  <button
@@ -587,7 +610,7 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  {policyForm.targetType === 'group' && (
  <div className="space-y-1 md:col-span-2">
- <label className="text-xs font-medium text-text-muted uppercase">Groups</label>
+ <label className="text-xs font-medium text-text-muted uppercase">{t('updates.policy.groups', 'Groups')}</label>
  <UpdatePolicyGroupTree
  selectedIds={policyForm.targetIds}
  onChange={(ids) => setPolicyForm({ ...policyForm, targetIds: ids })}
@@ -708,18 +731,18 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  </div>
  <div className="flex gap-2 shrink-0">
- <button
+ <IconButton
+ label={t('common.edit')}
+ icon={<Edit className="w-4 h-4" />}
  onClick={() => handleOpenEditPolicy(policy)}
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
- >
- <Edit className="w-4 h-4" />
- </button>
- <button
+ className="hover:bg-bg-tertiary"
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 className="w-4 h-4" />}
+ variant="danger"
  onClick={() => handleDeletePolicy(policy.id)}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- >
- <Trash2 className="w-4 h-4" />
- </button>
+ />
  </div>
  </div>
  </div>
@@ -728,22 +751,23 @@ export function UpdatesPage({ embedded }: { embedded?: boolean } = {}) {
  )}
  </div>
  )}
- </div>
+ </PageContainer>
  );
 }
 
 // ── Group Tree Multi-Select for Update Policies ──────────────────────────────
 
 function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[]; onChange: (ids: number[]) => void }) {
+ const { t } = useTranslation();
  const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
  useEffect(() => {
- groupsApi.tree().then((t) => {
- setTree(t);
+ groupsApi.tree().then((tr) => {
+ setTree(tr);
  const all = new Set<number>();
  const walk = (nodes: DeviceGroupTreeNode[]) => { for (const n of nodes) { all.add(n.id); walk(n.children); } };
- walk(t);
+ walk(tr);
  setExpanded(all);
  }).catch(() => {});
  }, []);
@@ -795,11 +819,13 @@ function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[
  <div className={clsx('flex items-center gap-1.5 py-1.5 transition-colors rounded hover:bg-bg-hover', state === 'all' && 'bg-accent/5')}
  style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: 8 }}>
  <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors', !hasChildren && 'invisible')}>
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+ aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary transition-colors coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}>
+ <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
  <button type="button" onClick={() => toggleNode(node)}
- className={clsx('w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+ aria-label={node.name} aria-pressed={state === 'all'}
+ className={clsx('w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors coarse:w-5 coarse:h-5',
  state === 'all' ? 'bg-accent border-accent text-white' :
  state === 'some' ? 'bg-accent/30 border-accent text-white' :
  'border-transparent hover:border-accent/50')}>
@@ -816,7 +842,7 @@ function UpdatePolicyGroupTree({ selectedIds, onChange }: { selectedIds: number[
  );
  };
 
- if (tree.length === 0) return <p className="text-sm text-text-muted py-2">No groups available</p>;
+ if (tree.length === 0) return <p className="text-sm text-text-muted py-2">{t('updates.policy.noGroups', 'No groups available')}</p>;
 
  return (
  <div className="rounded-lg bg-bg-tertiary max-h-60 overflow-y-auto py-1">
@@ -859,12 +885,13 @@ function GroupScopePicker({ value, onChange }: { value: number | undefined; onCh
  <div className={clsx('flex items-center gap-1.5 py-1.5 rounded hover:bg-bg-tertiary', isSel && 'bg-accent/10')}
  style={{ paddingLeft: `${8 + depth * 18}px`, paddingRight: 8 }}>
  <button type="button" onClick={() => hasChildren && toggleExpand(node.id)}
- className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary', !hasChildren && 'invisible')}>
- <ChevronRight className={clsx('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+ aria-label={node.name} aria-expanded={hasChildren ? isExpanded : undefined}
+ className={clsx('shrink-0 p-0.5 text-text-muted hover:text-text-primary coarse:inline-flex coarse:min-h-10 coarse:min-w-10 coarse:items-center coarse:justify-center', !hasChildren && 'invisible')}>
+ <ChevronRight className={clsx('w-3 h-3 coarse:w-4 coarse:h-4 transition-transform', isExpanded && 'rotate-90')} />
  </button>
  <FolderOpen className={clsx('w-3.5 h-3.5 shrink-0', isSel ? 'text-accent' : 'text-text-muted')} />
  <button type="button" onClick={() => { onChange(node.id); setOpen(false); }}
- className={clsx('flex-1 text-left text-sm truncate', isSel ? 'text-accent font-medium' : 'text-text-primary')}>
+ className={clsx('flex-1 text-left text-sm truncate coarse:min-h-10', isSel ? 'text-accent font-medium' : 'text-text-primary')}>
  {node.name}
  </button>
  <span className="text-text-muted text-[10px] shrink-0">{node.total ?? node.deviceCount ?? 0}</span>
@@ -887,12 +914,14 @@ function GroupScopePicker({ value, onChange }: { value: number | undefined; onCh
  {open && (
  <>
  <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
- <div className="absolute left-0 top-full mt-1 z-50 w-72 bg-bg-secondary rounded-lg shadow-2xl overflow-hidden">
+ <div className="absolute left-0 top-full mt-1 z-50 w-72 max-w-[calc(100vw-1.5rem)] bg-bg-secondary rounded-lg shadow-2xl overflow-hidden">
+ {/* The trigger's explanation is only in title= (hover) — show it on touch. */}
+ <p className="can-hover:hidden px-3 pt-2 pb-1 text-[11px] text-text-muted">{t('updates.scope.hint') || 'Scope the list + approvals to a group (and its sub-groups)'}</p>
  <button type="button" onClick={() => { onChange(undefined); setOpen(false); }}
- className={clsx('w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-bg-tertiary', !value ? 'text-accent font-medium' : 'text-text-primary')}>
+ className={clsx('w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-bg-tertiary coarse:min-h-10', !value ? 'text-accent font-medium' : 'text-text-primary')}>
  <Globe className="w-3.5 h-3.5" /> {t('updates.scope.all') || 'All devices'}
  </button>
- <div className="max-h-64 overflow-y-auto py-1 border-t border-border/40">
+ <div className="max-h-64 overflow-y-auto overscroll-contain py-1 border-t border-border/40 max-sm:max-h-[50dvh]">
  {tree.length ? tree.map(n => renderNode(n, 0)) : <p className="text-sm text-text-muted px-3 py-2">{t('updates.scope.none') || 'No groups'}</p>}
  </div>
  </div>

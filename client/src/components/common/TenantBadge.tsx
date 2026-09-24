@@ -3,6 +3,7 @@ import { useTenantStore } from '@/store/tenantStore';
 import { useIsMasterTenant } from '@/hooks/useIsMasterTenant';
 import { MASTER_TENANT_ID } from '@obliance/shared';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
  tenantId: number | null | undefined;
@@ -29,12 +30,15 @@ interface Props {
  * stand out from child tenants in lists scanned at speed.
  */
 export function TenantBadge({ tenantId, tenantName, size = 'sm', className }: Props) {
+ const { t } = useTranslation();
  const isMaster = useIsMasterTenant();
  const tenants = useTenantStore((s) => s.tenants);
  if (!isMaster) return null;
  if (tenantId == null) return null;
 
- const name = tenantName ?? tenants.find((t) => t.id === tenantId)?.name ?? `Tenant ${tenantId}`;
+ // The badge text IS the tenant name, so the hover title adds nothing a
+ // touch user misses (no tap popover needed).
+ const name = tenantName ?? tenants.find((tn) => tn.id === tenantId)?.name ?? t('fanOut.tenantFallback', 'Tenant {{id}}', { id: tenantId });
  const isDefault = tenantId === MASTER_TENANT_ID;
 
  return (
@@ -47,7 +51,7 @@ export function TenantBadge({ tenantId, tenantName, size = 'sm', className }: Pr
  : 'bg-bg-tertiary text-text-secondary border-transparent',
  className,
  )}
- title={`Tenant: ${name}`}
+ title={t('tenantBadge.title', 'Tenant: {{name}}', { name })}
  >
  <Building2 className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
  {name}

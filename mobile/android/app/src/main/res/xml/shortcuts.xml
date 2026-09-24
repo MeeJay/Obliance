@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press on the launcher icon -> native settings. The target package
+     depends on flavor and build type: generated as shortcut_target_package. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_settings"
+        android:shortcutId="settings"
+        android:shortcutLongLabel="@string/shortcut_settings_long"
+        android:shortcutShortLabel="@string/shortcut_settings_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="tools.obli.shell.settings.SettingsActivity"
+            android:targetPackage="@string/shortcut_target_package" />
+    </shortcut>
+</shortcuts>

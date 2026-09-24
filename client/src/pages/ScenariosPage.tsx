@@ -1,65 +1,109 @@
-import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
-import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, ChevronRight, FolderOpen, Check, Minus, ArrowUp, ArrowDown, Zap, X, Download, Upload, FileText, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, RefreshCw, Play, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Minus, ArrowUp, ArrowDown, Zap, X, Download, Upload, FileText, History, Terminal, AlertCircle, CheckCircle2, Clock, Loader2, GitBranch, StopCircle, Check, ClipboardCopy, ClipboardPaste, ArrowLeft } from 'lucide-react';
+import { Modal } from '@/components/common/Modal';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm, usePrompt } from '@/components/common/ConfirmDialog';
+import { GroupTreeMultiSelect } from '@/components/automation/GroupTreeMultiSelect';
+import { StickyFormActions, useRevealOnOpen } from '@/components/automation/FormActions';
+import { PageContainer } from '@/components/common/PageContainer';
+import { useNativeBack } from '@/hooks/useNativeBack';
+import { MEDIA, useMediaQuery, useCanHover } from '@/hooks/useMediaQuery';
+import { saveJson } from '@/utils/download';
+import { copyText } from '@/utils/clipboard';
 
-/** Trigger a browser download of a JS object as JSON. Used by the
- * scenario export buttons + the dummy template download. */
-function downloadJson(filename: string, data: any) {
- const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = filename;
- a.click();
- URL.revokeObjectURL(url);
-}
-
-/** Per-row export button with a flyout menu offering two flavours.
+/** Per-row export button with a menu offering two flavours (+ copy).
  * Lean (default) exports the scenario alone — small file, points at
  * scripts by id. With scripts embeds full bodies so the import is
- * self-contained on a fresh tenant. */
+ * self-contained on a fresh tenant. Rendered through ActionMenu (portal,
+ * fixed position) so the scenario card's overflow-hidden no longer clips
+ * it, and as a bottom sheet on phones. */
 function ExportMenu({
  scenario,
  onExport,
+ onCopy,
 }: {
  scenario: Scenario;
  onExport: (s: Scenario, includeScripts: boolean) => void;
+ onCopy: (s: Scenario) => void;
 }) {
- const [open, setOpen] = useState(false);
+ const { t } = useTranslation();
+ const label = t('scenarios.export.menu', 'Export this scenario as JSON');
  return (
- <div className="relative">
- <button
- onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
- title="Export this scenario as JSON"
- className="p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
- >
- <Download className="w-4 h-4" />
- </button>
- {open && (
- <>
- <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
- <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-xl min-w-[220px] overflow-hidden">
- <button
- onClick={() => { onExport(scenario, false); setOpen(false); }}
- className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-bg-tertiary transition-colors"
- >
- <span className="text-xs font-medium text-text-primary">Export (lean)</span>
- <span className="text-[10px] text-text-muted">Scenario only — references scripts by id</span>
- </button>
- <button
- onClick={() => { onExport(scenario, true); setOpen(false); }}
- className="w-full flex flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-bg-tertiary transition-colors "
- >
- <span className="text-xs font-medium text-text-primary">Export with scripts</span>
- <span className="text-[10px] text-text-muted">Self-contained — embeds full script bodies</span>
- </button>
- </div>
- </>
+ <ActionMenu
+ label={label}
+ menuClassName="w-auto min-w-[220px]"
+ items={exportMenuItems(t, scenario, onExport, onCopy)}
+ trigger={(p) => (
+ <IconButton
+ {...p}
+ label={label}
+ variant="accent"
+ icon={<Download className="w-4 h-4" />}
+ />
  )}
- </div>
+ />
  );
+}
+
+type TFn = ReturnType<typeof useTranslation>['t'];
+
+/** Export actions — shared by the md+ export menu and the phone row menu. */
+function exportMenuItems(
+ t: TFn,
+ scenario: Scenario,
+ onExport: (s: Scenario, includeScripts: boolean) => void,
+ onCopy: (s: Scenario) => void,
+): ActionMenuItem[] {
+ return [
+ {
+ key: 'export-lean',
+ icon: <Download className="w-4 h-4" />,
+ label: t('scenarios.export.lean', 'Export (lean)'),
+ description: t('scenarios.export.leanDesc', 'Scenario only — references scripts by id'),
+ onClick: () => onExport(scenario, false),
+ },
+ {
+ key: 'export-full',
+ icon: <Download className="w-4 h-4" />,
+ label: t('scenarios.export.withScripts', 'Export with scripts'),
+ description: t('scenarios.export.withScriptsDesc', 'Self-contained — embeds full script bodies'),
+ onClick: () => onExport(scenario, true),
+ },
+ {
+ key: 'export-copy',
+ icon: <ClipboardCopy className="w-4 h-4" />,
+ label: t('scenarios.export.copyJson', 'Copy JSON to clipboard'),
+ description: t('scenarios.export.copyJsonDesc', 'Lean export, ready to paste (e.g. into an AI chat)'),
+ onClick: () => onCopy(scenario),
+ },
+ ];
+}
+
+/**
+ * Top of the app body (= bottom of the header, including the safe area,
+ * the ObliTools tab bar and any banner): the full-screen graph editor is
+ * anchored there so the Obliance topbar stays visible. Falls back to the
+ * historic 52 px when <main> is not found.
+ */
+function useAppBodyTop(active: boolean): number {
+ const [top, setTop] = useState(52);
+ useLayoutEffect(() => {
+ if (!active) return;
+ const measure = () => {
+ const main = document.querySelector('main');
+ const value = main ? Math.round(main.getBoundingClientRect().top) : NaN;
+ setTop(Number.isFinite(value) && value >= 0 ? value : 52);
+ };
+ measure();
+ window.addEventListener('resize', measure);
+ return () => window.removeEventListener('resize', measure);
+ }, [active]);
+ return top;
 }
 import { ScenarioGraphEditor } from '@/components/scenarios/ScenarioGraphEditor';
 import { scenarioApi } from '@/api/scenario.api';
@@ -213,6 +257,11 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  const [importBusy, setImportBusy] = useState(false);
  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
+ const confirm = useConfirm();
+ const prompt = usePrompt();
+ const canHover = useCanHover();
+ const readOnlyReason = t('automations.readOnlyMaster', 'Managed by the Default tenant — read-only');
+
  const handlePickImportFile = () => importFileInputRef.current?.click();
 
  const handleImportFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -221,7 +270,40 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  if (!f) return;
  try {
  const text = await f.text();
- const payload = JSON.parse(text);
+ await startImport(JSON.parse(text));
+ } catch (err: any) {
+ toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
+ }
+ };
+
+ // No-file path (phone menu): paste the JSON — handy for LLM-generated
+ // scenarios and when the device has no file to pick.
+ const handlePasteImport = async () => {
+ const text = await prompt({
+ title: t('scenarios.pasteJsonTitle', 'Paste a scenario JSON'),
+ message: t('scenarios.pasteJsonHint', 'Paste an exported scenario (with or without embedded scripts).'),
+ multiline: true,
+ required: true,
+ placeholder: '{ "formatVersion": 2, … }',
+ confirmLabel: t('scenarios.importJson', 'Import JSON'),
+ });
+ if (text === null) return;
+ let payload: unknown;
+ try {
+ payload = JSON.parse(text);
+ } catch {
+ toast.error(t('scenarios.invalidJson', 'Invalid JSON'));
+ return;
+ }
+ try {
+ await startImport(payload);
+ } catch (err: any) {
+ toast.error(err?.response?.data?.error || err?.message || t('scenarios.importFailed', 'Failed to import scenario'));
+ }
+ };
+
+ // Two-pass import: preview (conflicts) → commit, shared by file + paste.
+ const startImport = async (payload: any) => {
  const preview = await scenarioApi.importPreview(payload);
  // Default every conflict to 'skip' (safe — keeps existing scripts)
  const defaultResolutions: Record<string, 'skip' | 'overwrite' | 'new'> = {};
@@ -231,9 +313,6 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  // No conflicts → commit immediately, no modal.
  if (preview.conflicts.length === 0) {
  await commitImport(payload, {});
- }
- } catch (err: any) {
- toast.error(err?.response?.data?.error || err?.message || 'Failed to read file');
  }
  };
 
@@ -252,12 +331,18 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  }
  };
 
+ // Downloads go through utils/download (Android shell → native saveFile,
+ // browser → anchor with deferred revoke).
  const handleDownloadTemplate = async () => {
+ let dummy: unknown;
  try {
- const dummy = await scenarioApi.dummyExport();
- downloadJson('obliance-scenario-template.json', dummy);
+ dummy = await scenarioApi.dummyExport();
  } catch {
- toast.error('Failed to fetch template');
+ toast.error(t('scenarios.templateFetchFailed', 'Failed to fetch template'));
+ return;
+ }
+ if (!(await saveJson(dummy, 'obliance-scenario-template.json'))) {
+ toast.error(t('importExport.failedExport', 'Export failed'));
  }
  };
 
@@ -265,9 +350,21 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  try {
  const data = await scenarioApi.exportScenario(scenario.id, { includeScripts });
  const slug = scenario.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
- downloadJson(`scenario-${slug || scenario.id}${includeScripts ? '-with-scripts' : ''}.json`, data);
+ const ok = await saveJson(data, `scenario-${slug || scenario.id}${includeScripts ? '-with-scripts' : ''}.json`);
+ if (!ok) toast.error(t('scenarios.export.failed', 'Failed to export scenario'));
  } catch {
- toast.error('Failed to export scenario');
+ toast.error(t('scenarios.export.failed', 'Failed to export scenario'));
+ }
+ };
+
+ const handleCopyScenarioJson = async (scenario: Scenario) => {
+ try {
+ const data = await scenarioApi.exportScenario(scenario.id, { includeScripts: false });
+ const ok = await copyText(JSON.stringify(data, null, 2));
+ if (ok) toast.success(t('common.copied', 'Copied!'));
+ else toast.error(t('common.error', 'Error'));
+ } catch {
+ toast.error(t('scenarios.export.failed', 'Failed to export scenario'));
  }
  };
  const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -305,6 +402,24 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  const [importingTemplate, setImportingTemplate] = useState(false);
 
  const { fetchGroups } = useGroupStore();
+
+ // Inline metadata form: scroll it into view when it opens (phone / tablet).
+ const formRef = useRef<HTMLDivElement>(null);
+ useRevealOnOpen(formRef, showForm ? (editingScenario?.id ?? 'new') : null);
+ const closeForm = () => { setShowForm(false); setEditingScenario(null); };
+
+ // Full-screen graph editor: anchored under the real header height, and
+ // the Android back gesture closes it (after a confirmation — the editor
+ // keeps its unsaved state internally) instead of leaving Automations.
+ const graphTop = useAppBodyTop(graphEditorScenarioId != null);
+ useNativeBack(() => {
+ void confirm({
+ message: t('scenarios.graphEditor.closeConfirm', 'Close the graph editor? Unsaved changes will be lost.'),
+ confirmLabel: t('common.close', 'Close'),
+ }).then((ok) => { if (ok) setGraphEditorScenarioId(null); });
+ }, graphEditorScenarioId != null);
+ // Template modal: Android back goes from a template's detail back to the list.
+ useNativeBack(() => setSelectedTemplate(null), showTemplateModal && selectedTemplate != null);
 
  /**
  * Reload scenarios + scripts + schedules.
@@ -482,13 +597,45 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (scenario: Scenario) => {
- if (!confirm(`Delete scenario "${scenario.name}"?`)) return;
+ if (!(await confirm({
+ message: t('scenarios.deleteConfirmNamed', { name: scenario.name, defaultValue: 'Delete scenario "{{name}}"?' }),
+ danger: true,
+ }))) return;
  try {
  await scenarioApi.delete(scenario.id);
  toast.success('Scenario deleted');
  await load();
  } catch {
  toast.error('Failed to delete scenario');
+ }
+ };
+
+ const handleStopRuns = async (scenario: Scenario) => {
+ const count = scenario.activeRunCount ?? 0;
+ if (!(await confirm({
+ message: t('scenarios.stopRunsConfirm', {
+ count,
+ name: scenario.name,
+ defaultValue: `Stop ${count} active run${count > 1 ? 's' : ''} of "{{name}}"?`,
+ }),
+ confirmLabel: t('scenarios.stopRunsAction', 'Stop runs'),
+ danger: true,
+ }))) return;
+ try {
+ const r = await scenarioApi.cancelAllRuns(scenario.id);
+ toast.success(t('scenarios.cancelledRuns', {
+ count: r.cancelled,
+ defaultValue: `Cancelled ${r.cancelled} run${r.cancelled !== 1 ? 's' : ''}`,
+ }));
+ await load();
+ } catch (err) {
+ // Surface the real server message instead of swallowing it — past
+ // iterations of "Failed to start run" / "Failed to stop" hid the
+ // actual cause.
+ const e = err as { response?: { data?: { error?: string } }; message?: string };
+ const detail = e?.response?.data?.error || e?.message || 'Unknown error';
+ console.error('cancelAllRuns failed', err);
+ toast.error(t('scenarios.stopRunsFailed', { detail, defaultValue: 'Failed to stop runs: {{detail}}' }));
  }
  };
 
@@ -650,61 +797,21 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  const checkScripts = scripts.filter((s) => s.purpose === 'check');
  const resolveScripts = scripts.filter((s) => s.purpose === 'resolve' || s.purpose === 'execute' || s.purpose === 'compliance');
 
- return (
- <div className={embedded ? 'space-y-6' : 'p-6 space-y-6'}>
- {!embedded && (
- <div className="flex items-center justify-between">
- <div>
- <h1 className="text-2xl font-bold text-text-primary">Scenarios</h1>
- <p className="text-sm text-text-muted mt-0.5">Automate multi-step check-and-resolve workflows</p>
- </div>
- <div className="flex gap-2">
- <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ // Toolbar: the historic inline buttons from md up; below md the import /
+ // template actions collapse into one labelled "⋯" menu (5 text buttons
+ // wrapped over three rows on a phone), which also offers "Paste JSON".
+ const toolbar = (
+ <>
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ onClick={() => load()}
+ size="lg"
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
  <button
  onClick={handleOpenTemplates}
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
- >
- <Download className="w-4 h-4" />
- Import from template
- </button>
- <button
- onClick={handlePickImportFile}
- disabled={importBusy}
- title="Import a scenario JSON file (with or without embedded scripts)"
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
- >
- <Upload className="w-4 h-4" />
- Import JSON
- </button>
- <button
- onClick={handleDownloadTemplate}
- title="Download an empty scenario JSON to share with an AI / colleague"
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
- >
- <FileText className="w-4 h-4" />
- Empty template
- </button>
- <button
- onClick={handleOpenCreate}
- className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
- >
- <Plus className="w-4 h-4" />
- New Scenario
- </button>
- </div>
- </div>
- )}
-
- {embedded && (
- <div className="flex items-center justify-end gap-2 flex-wrap">
- <button onClick={() => load()} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
- <button
- onClick={handleOpenTemplates}
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
+ className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
  >
  <Download className="w-4 h-4" />
  Import from template
@@ -719,7 +826,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  onClick={handlePickImportFile}
  disabled={importBusy}
  title="Import a scenario JSON file (with or without embedded scripts)"
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
+ className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors disabled:opacity-50"
  >
  <Upload className="w-4 h-4" />
  Import JSON
@@ -727,11 +834,49 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  onClick={handleDownloadTemplate}
  title="Download an empty scenario JSON to share with an AI / colleague"
- className="flex items-center gap-2 px-4 py-2 border border-transparent text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
+ className="hidden md:flex items-center gap-2 px-4 py-2 border border-transparent text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary text-sm transition-colors"
  >
  <FileText className="w-4 h-4" />
  Empty template
  </button>
+ <span className="md:hidden">
+ <ActionMenu
+ label={t('scenarios.importExportMenu', 'Import / templates')}
+ triggerSize="lg"
+ triggerClassName="rounded-lg hover:bg-bg-secondary"
+ items={[
+ {
+ key: 'tpl',
+ icon: <Download className="w-4 h-4" />,
+ label: t('scenarios.importFromTemplate', 'Import from template'),
+ onClick: handleOpenTemplates,
+ },
+ {
+ key: 'file',
+ icon: <Upload className="w-4 h-4" />,
+ label: t('scenarios.importJson', 'Import JSON'),
+ description: t('scenarios.importJsonHint', 'Import a scenario JSON file (with or without embedded scripts)'),
+ disabled: importBusy,
+ onClick: handlePickImportFile,
+ },
+ {
+ key: 'paste',
+ icon: <ClipboardPaste className="w-4 h-4" />,
+ label: t('scenarios.pasteJson', 'Paste JSON'),
+ disabled: importBusy,
+ onClick: () => { void handlePasteImport(); },
+ },
+ {
+ key: 'empty',
+ icon: <FileText className="w-4 h-4" />,
+ label: t('scenarios.emptyTemplate', 'Empty template'),
+ description: t('scenarios.emptyTemplateHint', 'Download an empty scenario JSON to share with an AI / colleague'),
+ separator: true,
+ onClick: () => { void handleDownloadTemplate(); },
+ },
+ ]}
+ />
+ </span>
  <button
  onClick={handleOpenCreate}
  className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80 text-sm transition-colors"
@@ -739,26 +884,38 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <Plus className="w-4 h-4" />
  New Scenario
  </button>
+ </>
+ );
+
+ return (
+ <PageContainer embedded={embedded} className="space-y-6">
+ {!embedded && (
+ <div className="flex flex-wrap items-center justify-between gap-3">
+ <div className="min-w-0">
+ <h1 className="text-2xl font-bold text-text-primary">Scenarios</h1>
+ <p className="text-sm text-text-muted mt-0.5">Automate multi-step check-and-resolve workflows</p>
+ </div>
+ <div className="flex flex-wrap gap-2">
+ {toolbar}
+ </div>
+ </div>
+ )}
+
+ {embedded && (
+ <div className="flex items-center justify-end gap-2 flex-wrap">
+ {toolbar}
  </div>
  )}
 
  {/* Template import modal */}
- {showTemplateModal && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowTemplateModal(false)}>
- <div
- className="bg-bg-primary rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
- onClick={(e) => e.stopPropagation()}
+ <Modal
+ open={showTemplateModal}
+ onClose={() => setShowTemplateModal(false)}
+ title={t('scenarios.importFromTemplate', 'Import from template')}
+ size="lg"
+ className="bg-bg-primary"
+ bodyClassName="p-4 sm:p-6 space-y-3"
  >
- <div className="flex items-center justify-between px-6 py-4 ">
- <h2 className="text-lg font-semibold text-text-primary">Import from template</h2>
- <button
- onClick={() => setShowTemplateModal(false)}
- className="p-1 text-text-muted hover:text-text-primary transition-colors"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
- <div className="flex-1 overflow-y-auto p-6 space-y-3">
  {loadingTemplates ? (
  <div className="flex items-center justify-center py-12">
  <RefreshCw className="w-5 h-5 animate-spin text-text-muted" />
@@ -769,7 +926,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  <div className="space-y-4">
  <button
  onClick={() => setSelectedTemplate(null)}
- className="text-sm text-accent hover:underline"
+ className="text-sm text-accent hover:underline coarse:py-2"
  >
  &larr; Back to templates
  </button>
@@ -792,6 +949,9 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  value={value}
  onChange={(e) => setTemplateVars({ ...templateVars, [key]: e.target.value })}
  placeholder={`Enter ${key}...`}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -826,7 +986,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  <button
  onClick={() => handleSelectTemplate(tpl)}
- className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
+ className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 coarse:min-h-10 text-xs bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
  >
  <Download className="w-3.5 h-3.5" />
  Import
@@ -835,19 +995,17 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  ))
  )}
- </div>
- </div>
- </div>
- )}
+ </Modal>
 
  {/* Form panel */}
  {showForm && (
- <div className="bg-bg-secondary rounded-xl p-6 space-y-5">
+ <div ref={formRef} className="bg-bg-secondary rounded-xl p-3 sm:p-4 lg:p-6 space-y-5 scroll-mt-3">
  <div className="flex items-center justify-between">
  <h2 className="text-lg font-semibold text-text-primary">{editingScenario ? 'Edit Scenario' : 'New Scenario'}</h2>
- <div className="flex gap-2">
+ {/* Below md: Save / Cancel in the sticky bar at the bottom of the form. */}
+ <div className="hidden md:flex gap-2">
  <button
- onClick={() => { setShowForm(false); setEditingScenario(null); }}
+ onClick={closeForm}
  className="px-4 py-2 text-sm text-text-muted hover:text-text-primary rounded-lg transition-colors"
  >
  Cancel
@@ -1075,20 +1233,29 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  value={v.key}
  onChange={(e) => updateVariable(i, 'key', e.target.value)}
  placeholder="Key"
- className="flex-1 px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
+ autoCapitalize="off"
+ autoCorrect="off"
+ autoComplete="off"
+ spellCheck={false}
+ className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent font-mono"
  />
  <input
  value={v.value}
  onChange={(e) => updateVariable(i, 'value', e.target.value)}
  placeholder="Value"
- className="flex-1 px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
+ autoCapitalize="off"
+ autoCorrect="off"
+ autoComplete="off"
+ spellCheck={false}
+ className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
- <button
+ <IconButton
+ label={t('common.delete', 'Delete')}
  onClick={() => removeVariable(i)}
- className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
- >
- <X className="w-3.5 h-3.5" />
- </button>
+ variant="danger"
+ showTooltip={false}
+ icon={<X className="w-3.5 h-3.5" />}
+ />
  </div>
  ))}
  </div>
@@ -1101,7 +1268,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  engine; we keep the React Flow callback below to jump
  straight from the metadata form into the canvas. */}
  <div className=" pt-4">
- <div className="flex items-center gap-3">
+ <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
  <div className="flex-1">
  <h3 className="text-sm font-semibold text-text-primary">Structure</h3>
  <p className="text-xs text-text-muted mt-0.5">
@@ -1111,7 +1278,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  {editingScenario && (
  <button
  onClick={() => { setShowForm(false); setEditingScenario(null); setGraphEditorScenarioId(editingScenario.id); }}
- className="px-3 py-1.5 text-sm bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/20 transition-colors inline-flex items-center gap-1.5"
+ className="px-3 py-1.5 coarse:min-h-10 text-sm bg-accent/10 border border-accent/30 text-accent rounded-lg hover:bg-accent/20 transition-colors inline-flex items-center gap-1.5 max-sm:justify-center"
  >
  <GitBranch className="w-3.5 h-3.5" /> Open graph editor
  </button>
@@ -1231,6 +1398,13 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  )}
  </div>
  </div>
+
+ <StickyFormActions
+ onCancel={closeForm}
+ onSave={handleSave}
+ saving={isSaving}
+ className="-mx-3 -mb-3 sm:-mx-4 sm:-mb-4"
+ />
  </div>
  )}
 

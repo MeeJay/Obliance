@@ -93,39 +93,49 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  const isOverridden = !!override;
  return (
  <div key={d.mount} className={clsx(
- 'p-2 rounded bg-bg-tertiary/40 flex items-center gap-2',
+ // Phone: the two inputs wrap onto their own line so the mount
+ // name keeps a readable width (desktop row unchanged).
+ 'p-2 rounded bg-bg-tertiary/40 flex items-center gap-2 max-sm:flex-wrap',
  isOverridden && 'border-accent/40 bg-accent/5',
  )}>
  <HardDrive className="w-3.5 h-3.5 text-text-muted shrink-0" />
  <div className="flex-1 min-w-0">
  <div className="text-xs font-mono text-text-primary truncate">{d.mount}</div>
  <div className="text-[10px] text-text-muted">
- {d.totalGb.toFixed(0)} GB · {d.percent.toFixed(0)}% used
+ {t('thresholds.perDisk.usage', '{{size}} GB · {{percent}}% used', { size: d.totalGb.toFixed(0), percent: d.percent.toFixed(0) })}
  {d.fstype && <> · {d.fstype}</>}
  </div>
  </div>
- <label className="inline-flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer">
+ <label className="inline-flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer coarse:min-h-10 coarse:px-1 coarse:text-xs">
  <input type="checkbox" checked={isOverridden} onChange={(e) => toggleOverride(d.mount, e.target.checked)} className="accent-accent" />
  <span>{isOverridden ? t('thresholds.perDisk.override', 'override') : t('thresholds.perDisk.inherit', 'inherit')}</span>
  </label>
  {isOverridden && (
- <div className="flex items-center gap-1 shrink-0">
+ <div className="flex items-center gap-1 shrink-0 max-sm:w-full max-sm:justify-end">
+ {/* Touch: warn / crit are otherwise told apart only by colour
+     and a hover title — show short visible labels. */}
+ <span className="can-hover:hidden text-[10px] text-amber-400" aria-hidden="true">{t('thresholds.perDisk.warnShort', 'Warn')}</span>
  <input
  type="number" min={0} max={100}
+ inputMode="numeric"
  value={override?.warn ?? ''}
  onChange={(e) => setMountSlot(d.mount, 'warn', e.target.value)}
  placeholder={String(inheritedDisk?.warn ?? '')}
- className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-amber-400 text-center font-mono focus:outline-none focus:border-accent"
- title="Warning threshold (%)"
+ className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-amber-400 text-center font-mono focus:outline-none focus:border-accent coarse:min-h-10 coarse:w-16"
+ title={t('thresholds.perDisk.warnTitle', 'Warning threshold (%)')}
+ aria-label={t('thresholds.perDisk.warnTitle', 'Warning threshold (%)')}
  />
  <span className="text-[10px] text-text-muted">/</span>
+ <span className="can-hover:hidden text-[10px] text-red-400" aria-hidden="true">{t('thresholds.perDisk.critShort', 'Crit')}</span>
  <input
  type="number" min={0} max={100}
+ inputMode="numeric"
  value={override?.crit ?? ''}
  onChange={(e) => setMountSlot(d.mount, 'crit', e.target.value)}
  placeholder={String(inheritedDisk?.crit ?? '')}
- className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-red-400 text-center font-mono focus:outline-none focus:border-accent"
- title="Critical threshold (%)"
+ className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-red-400 text-center font-mono focus:outline-none focus:border-accent coarse:min-h-10 coarse:w-16"
+ title={t('thresholds.perDisk.critTitle', 'Critical threshold (%)')}
+ aria-label={t('thresholds.perDisk.critTitle', 'Critical threshold (%)')}
  />
  </div>
  )}

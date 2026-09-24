@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { deviceApi } from '../../api/device.api';
 import type { RewindRange, RewindSeries, RewindSnapshot } from '@obliance/shared';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -101,11 +102,80 @@ function TimeScrubber({ min, max, value, detailFrom, onChange }: {
   );
 }
 
+// ─── horizontal day scrubber (below lg) ──────────────────────────────────────
+// The vertical scrubber needs ~460px of height and a side column, so tablets
+// in portrait and phones get a horizontal one instead. It spans the SELECTED
+// DAY only (days are changed with the date input / arrows), which keeps it
+// precise on a narrow screen (~4 min per pixel at 360px). Pointer-captured,
+// touch-none, 44px tall.
+function DayScrubber({ min, max, value, onChange }: {
+  min: number; max: number; value: number; onChange: (t: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState(false);
+  const span = Math.max(1, max - min);
+  const leftFor = (t: number) => ((clamp(t, min, max) - min) / span) * 100;
+  const pick = (clientX: number) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    onChange(min + clamp((clientX - r.left) / r.width, 0, 1) * span);
+  };
+  const hours = [0, 6, 12, 18];
+  return (
+    <div className="select-none">
+      <div
+        ref={ref}
+        role="slider"
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={clamp(value, min, max)}
+        aria-valuetext={fmtTime(value)}
+        tabIndex={0}
+        className="relative h-11 rounded-xl cursor-ew-resize touch-none overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        style={{ background: 'linear-gradient(90deg, #4b6bb0 0%, #7d5ba6 28%, #c0506b 58%, #d97a3a 100%)' }}
+        onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDrag(true); pick(e.clientX); }}
+        onPointerMove={(e) => { if (drag) pick(e.clientX); }}
+        onPointerUp={() => setDrag(false)}
+        onPointerCancel={() => setDrag(false)}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 60 * 60 * 1000 : 5 * 60 * 1000;
+          if (e.key === 'ArrowLeft') { e.preventDefault(); onChange(clamp(value - step, min, max)); }
+          if (e.key === 'ArrowRight') { e.preventDefault(); onChange(clamp(value + step, min, max)); }
+        }}
+      >
+        {/* hour ticks */}
+        {Array.from({ length: 25 }).map((_, i) => (
+          <div key={i} className="absolute bottom-0 w-px bg-white/20" style={{ left: `${(i / 24) * 100}%`, height: i % 6 === 0 ? 14 : 7 }} />
+        ))}
+        {hours.map((h) => (
+          <div key={h} className={`absolute top-1 text-[9px] font-mono text-white/75 ${h === 0 ? "" : "-translate-x-1/2"}`} style={{ left: h === 0 ? 6 : `${(h / 24) * 100}%` }}>
+            {String(h).padStart(2, '0')}h
+          </div>
+        ))}
+        {/* handle */}
+        <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${leftFor(value)}%` }}>
+          <div className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
+        </div>
+      </div>
+      <div className="relative h-5 mt-1">
+        <div
+          className="absolute -translate-x-1/2 rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-mono text-text-primary whitespace-nowrap"
+          style={{ left: `clamp(2rem, ${leftFor(value)}%, calc(100% - 2rem))` }}
+        >
+          {fmtTime(value)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── metric chart ────────────────────────────────────────────────────────────
 function MetricChart({ data, series, unit, selected, onPick, xDomain }: {
   data: any[]; series: { key: string; name: string; color: string }[]; unit: string;
   selected: number; onPick: (t: number) => void; xDomain: [number, number];
 }) {
+  // Wider Brush travellers on touch (8px handles can't be dragged by a finger).
+  const coarse = useIsCoarsePointer();
   return (
     <div style={{ width: '100%', height: 190 }}>
       <ResponsiveContainer>
@@ -136,7 +206,7 @@ function MetricChart({ data, series, unit, selected, onPick, xDomain }: {
               fill={`url(#g-${s.key})`} isAnimationActive={false} dot={false} />
           ))}
           <ReferenceLine x={selected} stroke="#fff" strokeDasharray="3 3" strokeOpacity={0.7} ifOverflow="extendDomain" />
-          <Brush dataKey="t" height={22} travellerWidth={8} tickFormatter={(v) => fmtTime(v)}
+          <Brush dataKey="t" height={coarse ? 28 : 22} travellerWidth={coarse ? 20 : 8} tickFormatter={(v) => fmtTime(v)}
             stroke="rgb(var(--c-accent))" fill="rgba(255,255,255,0.03)" />
         </AreaChart>
       </ResponsiveContainer>
@@ -234,6 +304,18 @@ export default function RewindTab({ deviceId }: { deviceId: number }) {
     const d = new Date(v + 'T12:00:00');
     setSelected(clamp(d.getTime(), minMs, maxMs));
   };
+  // Exact time on the selected day (below lg, where the vertical scrubber is hidden).
+  const onTimeInput = (v: string) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(v);
+    if (!m) return;
+    const d = new Date(dayStart);
+    d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+    setSelected(clamp(d.getTime(), minMs, maxMs));
+  };
+  const fmtTimeInput = (t: number) => {
+    const d = new Date(t);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
 
   return (
     <div className="space-y-4">
@@ -244,19 +326,22 @@ export default function RewindTab({ deviceId }: { deviceId: number }) {
           <span className="font-semibold">{t('rewind.title') || 'Rewind · machine à remonter le temps'}</span>
         </div>
         <div className="flex-1" />
-        <button onClick={() => shiftDay(-1)} className="p-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted" title={t('rewind.prevDay') || 'Jour précédent'}>
+        <button onClick={() => shiftDay(-1)} aria-label={t('rewind.prevDay') || 'Jour précédent'} className="p-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center" title={t('rewind.prevDay') || 'Jour précédent'}>
           <ChevronLeft className="w-4 h-4" />
         </button>
         <input type="date" value={fmtDateInput(new Date(selected))} max={fmtDateInput(new Date(maxMs))} min={fmtDateInput(new Date(minMs))}
           onChange={(e) => onDateInput(e.target.value)}
           className="bg-bg-tertiary/60 rounded-lg px-2 py-1.5 text-sm text-text-primary border border-white/5 [color-scheme:dark]" />
-        <button onClick={() => shiftDay(1)} className="p-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted" title={t('rewind.nextDay') || 'Jour suivant'}>
+        <input type="time" value={fmtTimeInput(selected)} onChange={(e) => onTimeInput(e.target.value)}
+          aria-label={t('rewind.timeOfDay', 'Time of day')}
+          className="lg:hidden bg-bg-tertiary/60 rounded-lg px-2 py-1.5 text-sm text-text-primary border border-white/5 [color-scheme:dark]" />
+        <button onClick={() => shiftDay(1)} aria-label={t('rewind.nextDay') || 'Jour suivant'} className="p-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center" title={t('rewind.nextDay') || 'Jour suivant'}>
           <ChevronRight className="w-4 h-4" />
         </button>
         <div className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent font-mono text-sm tabular-nums">
           {fmtDate(selected)} · {fmtTimeSec(selected)}
         </div>
-        <button onClick={() => setSelected(maxMs)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted text-sm" title={t('rewind.backToNow') || 'Revenir à maintenant'}>
+        <button onClick={() => setSelected(maxMs)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-tertiary/60 hover:bg-bg-tertiary text-text-muted text-sm coarse:min-h-10" title={t('rewind.backToNow') || 'Revenir à maintenant'}>
           <RotateCcw className="w-3.5 h-3.5" /> {t('rewind.now') || 'Maintenant'}
         </button>
       </div>
@@ -278,6 +363,10 @@ export default function RewindTab({ deviceId }: { deviceId: number }) {
         <div className="flex gap-4">
           {/* main column */}
           <div className="flex-1 min-w-0 space-y-4">
+            {/* horizontal time-of-day scrubber (below lg — the vertical one is lg+) */}
+            <div className="lg:hidden p-4 pb-2 bg-bg-secondary rounded-xl">
+              <DayScrubber min={xDomain[0]} max={xDomain[1]} value={selected} onChange={setSelected} />
+            </div>
             {/* metric graphs */}
             <div className="p-4 bg-bg-secondary rounded-xl">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-text-muted">
@@ -374,10 +463,10 @@ function ProcessPanel({ snap, loading, atCpu, atRam, t }: {
             <tbody>
               {p.procs.map((pr, i) => (
                 <tr key={`${pr.pid}-${i}`} className="border-t border-white/5">
-                  <td className="py-1 pr-2 text-text-primary truncate max-w-[160px]" title={pr.name}>{pr.name}</td>
+                  <td className="py-1 pr-2 text-text-primary truncate max-w-[160px] coarse:whitespace-normal coarse:break-all" title={pr.name}>{pr.name}</td>
                   <td className="py-1 text-right font-mono tabular-nums text-accent">{pr.cpu.toFixed(1)}</td>
                   <td className="py-1 text-right font-mono tabular-nums text-text-primary">{fmtMem(pr.memMb)}</td>
-                  <td className="py-1 text-text-muted truncate max-w-[90px]" title={pr.user ?? ''}>{pr.user ?? '—'}</td>
+                  <td className="py-1 text-text-muted truncate max-w-[90px] coarse:whitespace-normal coarse:break-all" title={pr.user ?? ''}>{pr.user ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -414,7 +503,7 @@ function ServicePanel({ snap, loading, t }: { snap: RewindSnapshot | null; loadi
                   <td className="py-1">
                     <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${isRunning(sv.status as string) ? 'bg-green-400' : 'bg-gray-500'}`} />
                   </td>
-                  <td className="py-1 pr-2 text-text-primary truncate max-w-[200px]" title={String(sv.displayName ?? sv.name ?? '')}>
+                  <td className="py-1 pr-2 text-text-primary truncate max-w-[200px] coarse:whitespace-normal coarse:break-words" title={String(sv.displayName ?? sv.name ?? '')}>
                     {String(sv.displayName ?? sv.name ?? '—')}
                   </td>
                   <td className="py-1 text-right text-text-muted">{String(sv.status ?? '')}</td>

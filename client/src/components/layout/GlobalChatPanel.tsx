@@ -5,6 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { getSocket } from '@/socket/socketClient';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore, type ChatSession } from '@/store/chatStore';
+import { useRemoteShellStore } from '@/store/remoteShellStore';
+import { useLayoutMode } from '@/hooks/useMediaQuery';
+import { useNativeBack } from '@/hooks/useNativeBack';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -225,7 +228,7 @@ function ChatTabContent({ session }: { session: ChatSession }) {
  store.getState().addMessage(key, { sender: 'System', text: t('chat.fileTooLarge'), timestamp: Date.now(), isSystem: true });
  return;
  }
- setUploadProgress(`Sending ${file.name}...`);
+ setUploadProgress(t('chat.sendingFile', { name: file.name }) || `Sending ${file.name}...`);
  try {
  const buf = await file.arrayBuffer();
  const b64 = arrayBufferToBase64(buf);
@@ -402,24 +405,29 @@ function ChatTabContent({ session }: { session: ChatSession }) {
  {/* Input */}
  <div className="flex items-center gap-2 bg-bg-primary rounded-2xl px-3 py-1.5">
  <button onClick={() => setShowTemplates(v => !v)} title={t('chat.quickReplies')}
- className="text-text-muted hover:text-accent transition-colors text-xs font-mono">/</button>
+ aria-label={t('chat.quickReplies')} aria-expanded={showTemplates}
+ className="text-text-muted hover:text-accent transition-colors text-xs font-mono coarse:min-h-10 coarse:min-w-8 coarse:text-sm">/</button>
  <input
  ref={inputRef}
  value={input}
  onChange={e => { setInput(e.target.value); emitTyping(); }}
  onKeyDown={e => e.key === 'Enter' && handleSend()}
  placeholder={canSend ? t('chat.messagePlaceholder') : t('chat.disconnected')}
+ aria-label={t('chat.messagePlaceholder')}
+ enterKeyHint="send"
  disabled={!canSend}
  className="flex-1 bg-transparent text-[13px] text-text-primary placeholder-text-muted outline-none disabled:opacity-40"
  />
  <input ref={fileInputRef} type="file" className="hidden"
  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSend(f); e.target.value = ''; }} />
  <button onClick={() => fileInputRef.current?.click()} disabled={!canSend}
- className="text-text-muted hover:text-accent transition-colors disabled:opacity-30">
+ title={t('chat.attachFile') || 'Attach a file'} aria-label={t('chat.attachFile') || 'Attach a file'}
+ className="text-text-muted hover:text-accent transition-colors disabled:opacity-30 coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center">
  <Paperclip className="w-4 h-4" />
  </button>
  <button onClick={handleSend} disabled={!canSend || !input.trim()}
- className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors shrink-0">
+ aria-label={t('chat.send') || 'Send'}
+ className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center hover:bg-accent-hover disabled:opacity-30 transition-colors shrink-0 coarse:w-10 coarse:h-10">
  <Send className="w-3.5 h-3.5 text-white" />
  </button>
  </div>
@@ -429,10 +437,25 @@ function ChatTabContent({ session }: { session: ChatSession }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
+/**
+ * Global chat: a FAB when minimized, a 400×620 panel otherwise — both live
+ * in the bottom-right FloatingDock (AppLayout) so they stack with the toasts
+ * and the shell pill instead of overlapping them. On phones the open panel
+ * is full screen (safe areas, keyboard-aware via dvh) and the Android back
+ * button minimizes it.
+ */
 export function GlobalChatPanel() {
  const { t } = useTranslation();
  const { sessions, activeKey, isOpen, isMinimized } = useChatStore();
  const { setActiveTab, closeTab, setMinimized, toggleOpen, clearUnread } = useChatStore();
+ const isPhone = useLayoutMode() === 'phone';
+ const panelOpen = sessions.length > 0 && isOpen && !isMinimized;
+ // Phone: the full-screen remote-shell panel owns the bottom of the screen
+ // (virtual keys) — the chat FAB would sit on top of them. It comes back
+ // as soon as the shell panel is minimized to its pill.
+ const shellPanelOpen = useRemoteShellStore((s) => s.sessions.length > 0 && s.isOpen);
+ // Android back: minimize the chat (the session stays alive).
+ useNativeBack(() => { setMinimized(true); }, panelOpen);
 
  const activeSession = sessions.find(s => s.key === activeKey) ?? null;
  const totalUnread = sessions.reduce((sum, s) => sum + s.unread, 0);
@@ -451,10 +474,16 @@ export function GlobalChatPanel() {
 
  // Minimized FAB
  if (isMinimized || !isOpen) {
+ if (isPhone && shellPanelOpen) return null;
  return (
  <button
  onClick={() => { if (isMinimized) setMinimized(false); else toggleOpen(); }}
- className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 flex items-center justify-center hover:scale-105 transition-transform"
+ aria-label={totalUnread > 0
+ ? `${t('chat.openChat') || 'Open chat'} (${totalUnread})`
+ : (t('chat.openChat') || 'Open chat')}
+ // md+: 8 px extra margin puts the FAB back at its historic 24 px corner
+ // offset (the dock pads 16 px); only when it is the dock's last item.
+ className="pointer-events-auto relative z-[2] shrink-0 w-14 h-14 rounded-full bg-accent shadow-lg shadow-accent/30 flex items-center justify-center hover:scale-105 transition-transform md:mr-2 md:last:mb-2"
  >
  <MessageCircle className="w-6 h-6 text-white" />
  {totalUnread > 0 && (
@@ -474,8 +503,17 @@ export function GlobalChatPanel() {
 
  return (
  <div
- className="fixed right-4 bottom-4 z-[60] flex flex-col bg-bg-secondary rounded-2xl shadow-2xl overflow-hidden"
- style={{ width: 400, maxHeight: 'calc(100vh - 100px)', height: 620 }}
+ className={clsx(
+ 'pointer-events-auto z-[2] flex flex-col bg-bg-secondary overflow-hidden',
+ isPhone
+ // Phone: full screen above the page (dvh follows the soft keyboard).
+ ? 'fixed inset-0 h-dvh pt-safe pb-safe px-safe'
+ // Dock item: 400×620, shrinks (min 240 px) when the dock is short.
+ : 'relative min-h-[240px] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl',
+ )}
+ style={isPhone ? undefined : { width: 400, flex: '0 1 620px' }}
+ role="dialog"
+ aria-label={t('chat.discussionWith', { name: activeSession?.deviceName ?? '...' })}
  >
  {/* ── Header — "Discussion avec {deviceName}" ── */}
  <div className="flex items-center gap-3 px-4 py-3 shrink-0 ">
@@ -495,12 +533,15 @@ export function GlobalChatPanel() {
  </span>
  </div>
  </div>
- <button onClick={() => setMinimized(true)} className="p-1.5 text-text-muted hover:text-text-primary transition-colors">
+ <button onClick={() => setMinimized(true)}
+ title={t('chat.minimize') || 'Minimize'} aria-label={t('chat.minimize') || 'Minimize'}
+ className="p-1.5 text-text-muted hover:text-text-primary transition-colors coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center">
  <Minus className="w-4 h-4" />
  </button>
  <button
  onClick={() => { if (activeSession) handleCloseTab(activeSession.key, activeSession.chatId); }}
- className="p-1.5 text-text-muted hover:text-red-400 transition-colors"
+ title={t('chat.closeChat') || 'Close chat'} aria-label={t('chat.closeChat') || 'Close chat'}
+ className="p-1.5 text-text-muted hover:text-red-400 transition-colors coarse:min-h-10 coarse:min-w-10 coarse:flex coarse:items-center coarse:justify-center"
  >
  <X className="w-4 h-4" />
  </button>
@@ -510,15 +551,22 @@ export function GlobalChatPanel() {
  {sessions.length > 1 && (
  <div className="flex items-center gap-1 px-3 py-1.5 shrink-0 overflow-x-auto bg-bg-tertiary/30">
  {sessions.map(s => (
- <button
+ <div
  key={s.key}
+ // The whole pill activates the tab (as before); the inner button is
+ // the keyboard / screen-reader entry point (its click bubbles here).
  onClick={() => { setActiveTab(s.key); clearUnread(s.key); }}
  className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg transition-colors shrink-0 max-w-[140px]',
+ 'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg transition-colors shrink-0 max-w-[140px] cursor-pointer coarse:max-w-[180px]',
  s.key === activeKey
  ? 'bg-accent/15 text-accent border border-accent/30'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-hover border border-transparent',
  )}
+ >
+ <button
+ type="button"
+ aria-pressed={s.key === activeKey}
+ className="flex min-w-0 items-center gap-1.5 coarse:min-h-8"
  >
  <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0',
  s.isConnected && !s.userClosed ? 'bg-green-400' : s.userClosed ? 'bg-yellow-400' : 'bg-gray-500'
@@ -529,13 +577,16 @@ export function GlobalChatPanel() {
  {s.unread > 9 ? '9+' : s.unread}
  </span>
  )}
- <span
+ </button>
+ <button
+ type="button"
  onClick={e => { e.stopPropagation(); handleCloseTab(s.key, s.chatId); }}
- className="p-0.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary"
+ aria-label={t('chat.closeTab', { name: s.deviceName }) || `Close ${s.deviceName}`}
+ className="relative shrink-0 p-0.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary coarse:after:absolute coarse:after:left-1/2 coarse:after:top-1/2 coarse:after:h-10 coarse:after:w-10 coarse:after:-translate-x-1/2 coarse:after:-translate-y-1/2 coarse:after:content-['']"
  >
  <X className="w-2.5 h-2.5" />
- </span>
  </button>
+ </div>
  ))}
  </div>
  )}

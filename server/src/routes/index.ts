@@ -54,6 +54,7 @@ import approvalRoutes from './approval.routes';
 import auditRoutes from './audit.routes';
 import restrictionRoutes from './restriction.routes';
 import oblireachDesktopRoutes from './oblireachDesktop.routes';
+import mobileAppRoutes from './mobileApp.routes';
 import cveRoutes from './cve.routes';
 import hypervRoutes from './hyperv.routes';
 import veeamRoutes from './veeam.routes';
@@ -69,6 +70,7 @@ router.use('/oblitools', oblitoolsRoutes); // ObliTools desktop manifest (auth r
 router.use('/agent', agentRoutes);       // agent push endpoint (uses agentAuth middleware internally)
 router.use('/oblireach', obliReachAgentRoutes); // Oblireach agent push (agentAuth)
 router.use('/oblireach-desktop', oblireachDesktopRoutes); // Public: desktop app version + MSI download
+router.use('/mobile', mobileAppRoutes);    // Public: Android app version + APK download (/api/mobile/android/*)
 router.use('/repo', repoPublicRoutes);   // script-facing software repo (per-tenant access key auth)
 router.use('/agent-tools', agentToolsRoutes); // static smartctl binary for the disk-health collector (HMAC token)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)

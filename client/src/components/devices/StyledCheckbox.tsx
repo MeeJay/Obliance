@@ -18,9 +18,13 @@ export function StyledCheckbox({ checked, onChange, indeterminate, disabled, cla
  onClick={() => !disabled && onChange(!checked)}
  className={clsx(
  'w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-150 shrink-0',
+ // Touch (docs/obli-mobile.md §5.4): invisible 40×40 hit area around
+ // the 16px box without moving the layout, and a visible unchecked
+ // border (there is no hover to reveal it on a touch screen).
+ "relative coarse:after:absolute coarse:after:-inset-3 coarse:after:content-['']",
  checked || indeterminate
  ? 'bg-accent border-accent text-white'
- : 'bg-transparent border-transparent hover:border-accent/50',
+ : 'bg-transparent border-transparent hover:border-accent/50 coarse:border-text-muted/40',
  disabled && 'opacity-40 cursor-not-allowed',
  !disabled && 'cursor-pointer',
  className,

@@ -1,6 +1,8 @@
 import { clsx } from 'clsx';
 import type { DeviceMetrics } from '@obliance/shared';
 import { Cpu, MemoryStick, HardDrive } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Tip } from '@/components/common/Tip';
 
 function PercentBar({ value, className }: { value: number; className?: string }) {
   const pct = Math.min(100, Math.max(0, value));
@@ -21,8 +23,9 @@ interface Props {
 }
 
 export function DeviceMetricsBar({ metrics, compact = false }: Props) {
+  const { t } = useTranslation();
   if (!metrics || (!metrics.cpu && !metrics.memory)) {
-    return <span className="text-xs text-text-muted">No metrics</span>;
+    return <span className="text-xs text-text-muted">{t('devices.metrics.none', 'No metrics')}</span>;
   }
 
   if (compact) {
@@ -88,19 +91,29 @@ export function DeviceMetricsBar({ metrics, compact = false }: Props) {
           <PercentBar value={metrics.memory.percent} className="flex-1" />
         </div>
       )}
-      {metrics.disks && metrics.disks.map((disk) => (
-        <div key={disk.mount} className="flex items-center gap-2">
-          <HardDrive className="w-3 h-3 text-text-muted shrink-0" />
-          <span
-            className="text-xs text-text-muted shrink-0 truncate cursor-help"
-            style={{ width: labelWidth }}
-            title={disk.mount}
-          >
-            {smartMountLabel(disk.mount)}
-          </span>
-          <PercentBar value={disk.percent} className="flex-1" />
-        </div>
-      ))}
+      {metrics.disks && metrics.disks.map((disk) => {
+        const label = smartMountLabel(disk.mount);
+        // A shortened mount path keeps its full value reachable on touch
+        // too: <Tip> = hover on desktop, tap on touch (docs §5.2).
+        const shortened = label !== disk.mount;
+        return (
+          <div key={disk.mount} className="flex items-center gap-2">
+            <HardDrive className="w-3 h-3 text-text-muted shrink-0" />
+            <span
+              className="text-xs text-text-muted shrink-0 truncate cursor-help"
+              style={{ width: labelWidth }}
+              title={shortened ? undefined : disk.mount}
+            >
+              {shortened ? (
+                <Tip content={disk.mount} align="start" contentClassName="max-w-xs font-mono break-all">
+                  <span className="truncate">{label}</span>
+                </Tip>
+              ) : label}
+            </span>
+            <PercentBar value={disk.percent} className="flex-1" />
+          </div>
+        );
+      })}
     </div>
   );
 }

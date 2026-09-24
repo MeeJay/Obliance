@@ -1,11 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, TerminalSquare, FileCode2, FileDown } from 'lucide-react';
+import { Loader2, TerminalSquare, FileCode2, FileDown, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import { getSocket } from '@/socket/socketClient';
 import type { CustomSection } from '@obliance/shared';
+import { isAndroidApp } from '@/native/bridge';
+import { saveText } from '@/utils/download';
+import { copyText } from '@/utils/clipboard';
+import { IconButton } from '@/components/common/IconButton';
+
+/** Viewport-height unit: dvh where supported (mobile browser chrome / the
+ *  Android WebView resize with the toolbars), vh otherwise. */
+const VH = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh') ? 'dvh' : 'vh';
+const PANEL_HEIGHT = `calc(100${VH} - 340px)`;
+
+/** window.print() does not exist in the Android WebView — offer a file
+ *  download of the rendered HTML there instead of a print dialog. */
+function canPrint(): boolean {
+  return !isAndroidApp() && typeof window !== 'undefined' && typeof window.print === 'function';
+}
 
 interface Props {
  deviceId: number;
@@ -34,6 +50,7 @@ export function CustomSectionTab({ deviceId, section }: Props) {
 }
 
 function CustomSectionTerminalPanel({ deviceId, section }: Props) {
+ const { t } = useTranslation();
  const containerRef = useRef<HTMLDivElement>(null);
  const termRef = useRef<Terminal | null>(null);
  const fitRef = useRef<FitAddon | null>(null);
@@ -132,14 +149,36 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [deviceId, section.id]);
 
+ // Touch devices: xterm selection is mouse-only, so offer a "copy all"
+ // that reads the whole scrollback buffer.
+ const handleCopyAll = async () => {
+ const term = termRef.current;
+ if (!term) return;
+ const buf = term.buffer.active;
+ const lines: string[] = [];
+ for (let i = 0; i < buf.length; i++) lines.push(buf.getLine(i)?.translateToString(true) ?? '');
+ while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+ const ok = await copyText(lines.join('\n'));
+ if (ok) toast.success(t('common.copied', 'Copied!'));
+ else toast.error(t('common.error', 'Error'));
+ };
+
  return (
  <div className="bg-bg-secondary rounded-xl overflow-hidden flex flex-col">
  <div className="px-4 py-3 flex items-center gap-2">
  <TerminalSquare className="w-4 h-4 text-accent shrink-0" />
  <div className="flex-1 min-w-0">
  <div className="text-sm font-semibold text-text-primary truncate">{section.name}</div>
- <div className="text-xs text-text-muted font-mono truncate" title={section.command}>{section.command}</div>
+ {/* Full command wraps on touch (the title tooltip is mouse-only). */}
+ <div className="text-xs text-text-muted font-mono truncate coarse:whitespace-normal coarse:break-all" title={section.command}>{section.command}</div>
  </div>
+ <IconButton
+ label={t('customSections.copyOutput', 'Copy all output')}
+ icon={<Copy className="w-3.5 h-3.5" />}
+ size="sm"
+ className="hidden coarse:inline-flex shrink-0"
+ onClick={handleCopyAll}
+ />
  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
  status === 'live' ? 'text-green-400 bg-green-400/10 border-green-400/30' :
  status === 'closed' ? 'text-gray-400 bg-gray-400/10 border-gray-400/30' :
@@ -157,8 +196,8 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  )}
  <div
  ref={containerRef}
- className="p-2"
- style={{ background: '#0f1419', height: 'calc(100vh - 340px)', minHeight: '400px' }}
+ className="p-2 min-h-[400px] max-sm:min-h-[260px]"
+ style={{ background: '#0f1419', height: PANEL_HEIGHT }}
  />
  </div>
  );
@@ -182,6 +221,7 @@ function CustomSectionTerminalPanel({ deviceId, section }: Props) {
  * 250 ms once the document grows past 64 KB.
  */
 function CustomSectionHtmlPanel({ deviceId, section }: Props) {
+ const { t } = useTranslation();
  const streamIdRef = useRef<string | null>(null);
  const bufferRef = useRef<string>('');
  const [status, setStatus] = useState<'connecting' | 'live' | 'closed' | 'error' | 'waiting'>('connecting');
@@ -330,9 +370,24 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  * `focus()` first to make sure print() targets that frame and not
  * the host page.
  */
- const handleExportPdf = () => {
+ const handleExportPdf = async () => {
  const iframe = iframeRef.current;
  if (!iframe) return;
+ if (!canPrint()) {
+ // Android WebView: no print dialog. Download a self-contained HTML
+ // file instead (same markup + base styles, scripts stripped — the
+ // sandboxed iframe never ran them either).
+ const raw = bufferRef.current.replace(/<script[\s\S]*?<\/script>/gi, '');
+ const looksLikeFullHtml = /<\s*html[\s>]/i.test(raw.slice(0, 4096));
+ const doc = looksLikeFullHtml
+ ? raw
+ : `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${section.name.replace(/[<>&]/g, '')}</title><style>${baseStyles}</style></head><body>${raw}</body></html>`;
+ const safeName = section.name.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'section';
+ const ok = await saveText(doc, `${safeName}-${new Date().toISOString().split('T')[0]}.html`, 'text/html;charset=utf-8');
+ if (ok) toast.success(t('customSections.htmlSaved', 'HTML file saved'));
+ else toast.error(t('common.error', 'Error'));
+ return;
+ }
  try {
  iframe.contentWindow?.focus();
  iframe.contentWindow?.print();
@@ -411,11 +466,14 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  void renderTick;
  }, [renderTick, baseStyles]);
 
+ const printable = canPrint();
+
  return (
  <div className="bg-bg-secondary rounded-xl overflow-hidden flex flex-col">
- <div className="px-4 py-3 flex items-center gap-2">
+ {/* Header wraps below sm: name on line 1, actions + status on line 2 */}
+ <div className="px-4 py-3 flex items-center gap-2 max-sm:flex-wrap">
  <FileCode2 className="w-4 h-4 text-purple-400 shrink-0" />
- <div className="flex-1 min-w-0">
+ <div className="flex-1 min-w-0 max-sm:basis-[calc(100%-1.5rem)]">
  <div className="text-sm font-semibold text-text-primary truncate">{section.name}</div>
  <div className="text-xs text-text-muted truncate">
  HTML render · {bufferRef.current.length.toLocaleString()} bytes
@@ -440,18 +498,21 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  }}
  disabled={status === 'connecting' || status === 'live'}
  title="Refresh now"
- className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+ className="text-[10px] px-2 py-0.5 rounded-full border border-purple-400/30 bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs">
  Refresh now
  </button>
  )}
  {/* Export PDF — disabled until the first chunk has landed,
- otherwise the print dialog would render an empty page. */}
+ otherwise the print dialog would render an empty page. In the
+ Android app (no print support) it downloads an HTML file. */}
  <button
  onClick={handleExportPdf}
  disabled={bufferRef.current.length === 0}
- title="Open the print dialog (pick 'Save as PDF' as the destination)"
- className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
- <FileDown className="w-3 h-3" /> Export PDF
+ title={printable
+ ? "Open the print dialog (pick 'Save as PDF' as the destination)"
+ : t('customSections.exportHtmlHint', 'Download the dashboard as an HTML file')}
+ className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-bg-tertiary text-text-primary hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed coarse:min-h-9 coarse:px-3 coarse:text-xs">
+ <FileDown className="w-3 h-3" /> {printable ? 'Export PDF' : t('customSections.exportHtml', 'Export HTML')}
  </button>
  {/* Fixed-width status pill so the text swap
  'live' ↔ 'connecting' ↔ 'refresh in Ns' doesn't ripple
@@ -482,7 +543,7 @@ function CustomSectionHtmlPanel({ deviceId, section }: Props) {
  via the effect above, no srcDoc swap, no flicker. The
  loading placeholder is overlaid on top until the first
  chunk arrives. */}
- <div className="relative" style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
+ <div className="relative min-h-[400px] max-sm:min-h-[260px]" style={{ height: PANEL_HEIGHT }}>
  <iframe
  ref={iframeRef}
  // sandbox="allow-same-origin" disables script execution, form

@@ -1,5 +1,6 @@
 import type { Server as SocketIOServer } from 'socket.io';
 import { db } from '../db';
+import { SocketEvents } from '@obliance/shared';
 
 
 let _io: SocketIOServer | null = null;
@@ -101,7 +102,7 @@ export const liveAlertService = {
 
     // Emit to all users subscribed to this tenant's notifications
     if (_io) {
-      _io.to(`tenant:${tenantId}:notifications`).emit('notification:new', enriched);
+      _io.to(`tenant:${tenantId}:notifications`).emit(SocketEvents.NOTIFICATION_NEW, enriched);
     }
 
     return enriched;

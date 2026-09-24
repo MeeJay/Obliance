@@ -4,6 +4,8 @@ import { Button } from '@/components/common/Button';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { saveBlob, downloadUrl } from '@/utils/download';
+import { useIsCoarsePointer } from '@/hooks/useMediaQuery';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,8 @@ function Toggle({
  onClick={() => onChange(!checked)}
  className={[
  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+ // Invisible ≥40px hit area on touch (desktop geometry unchanged).
+ "coarse:after:absolute coarse:after:-inset-2.5 coarse:after:content-['']",
  'transition-colors duration-200 focus:outline-none focus-visible:ring-2',
  'focus-visible:ring-accent focus-visible:ring-offset-2',
  checked
@@ -114,9 +118,9 @@ function SectionSelector({
 
  {/* Individual sections */}
  {sections.map((s) => (
- <div key={s} className="py-1.5">
- <div className="flex items-center justify-between">
- <div>
+ <div key={s} className="py-1.5 coarse:py-2">
+ <div className="flex items-center justify-between gap-3">
+ <div className="min-w-0">
  <span className="text-sm text-text-secondary">{SECTION_LABELS[s]}</span>
  {descriptions[s] && (
  <p className="text-[11px] text-text-muted mt-0.5">{descriptions[s]}</p>
@@ -137,6 +141,8 @@ function SectionSelector({
 
 export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
+ // Touch devices have no drag & drop: the drop zone is a "tap to choose" button there.
+ const coarse = useIsCoarsePointer();
 
  const SECTION_LABELS: Record<Section, string> = {
  monitorGroups: t('importExport.monitorGroups'),
@@ -220,12 +226,9 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  `/admin/export?sections=${encodeURIComponent(sections)}${sshParam}`,
  { responseType: 'blob' },
  );
- const url = URL.createObjectURL(res.data as Blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = `obliance-export-${new Date().toISOString().slice(0, 10)}.json`;
- a.click();
- URL.revokeObjectURL(url);
+ // Shared helper: native Downloads in the Android shell, anchor download otherwise.
+ const ok = await saveBlob(res.data as Blob, `obliance-export-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+ if (!ok) throw new Error('save failed');
  toast.success(t('importExport.exported'));
  } catch {
  toast.error(t('importExport.failedExport'));
@@ -336,7 +339,7 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  // ── Render ───────────────────────────────────────────────────────────────
 
  return (
- <div className={embedded ? 'min-w-0' : 'min-w-0 px-4 py-8'}>
+ <div className={embedded ? 'min-w-0' : 'min-w-0 px-3 py-4 sm:px-4 sm:py-8'}>
 
  {/* Page header — hidden in embedded mode (the parent renders its own) */}
  {!embedded && (
@@ -351,7 +354,13 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  <a
  href="/obliance-import-example.json"
  download="obliance-import-example.json"
- className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent hover:underline"
+ onClick={(e) => {
+ e.preventDefault();
+ void downloadUrl('/obliance-import-example.json', 'obliance-import-example.json').then((ok) => {
+ if (!ok) toast.error(t('common.error'));
+ });
+ }}
+ className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent hover:underline coarse:py-2"
  >
  <ExternalLink size={11} />
  {t('importExport.downloadTemplate')}
@@ -360,7 +369,7 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  )}
 
  {/* ── Export card ── */}
- <div className="mb-6 rounded-xl bg-bg-secondary p-6">
+ <div className="mb-6 rounded-xl bg-bg-secondary p-4 sm:p-6">
  <div className="flex items-center gap-2 mb-1">
  <Download size={15} className="text-accent" />
  <h2 className="text-base font-semibold text-text-primary">{t('importExport.exportTitle')}</h2>
@@ -377,8 +386,8 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  descriptions={SECTION_DESCRIPTIONS}
  extra={
  exportSections.has('remediationActions') && (
- <div className="ml-4 mt-1 flex items-center justify-between gap-4 rounded-lg bg-bg-tertiary px-3 py-2.5">
- <div>
+ <div className="ml-2 sm:ml-4 mt-1 flex items-center justify-between gap-4 rounded-lg bg-bg-tertiary px-3 py-2.5">
+ <div className="min-w-0">
  <span className="text-sm text-text-secondary">{t('importExport.includeSsh')}</span>
  <p className="text-[11px] text-text-muted mt-0.5">
  {t('importExport.includeSshDesc')}
@@ -406,7 +415,7 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
 
  {/* ── Import card ── */}
- <div className="rounded-xl bg-bg-secondary p-6">
+ <div className="rounded-xl bg-bg-secondary p-4 sm:p-6">
  <div className="flex items-center gap-2 mb-1">
  <Upload size={15} className="text-accent" />
  <h2 className="text-base font-semibold text-text-primary">{t('importExport.importTitle')}</h2>
@@ -417,13 +426,16 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* File drop zone */}
  <div
+ role="button"
+ tabIndex={0}
  onClick={() => fileInputRef.current?.click()}
+ onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
  onDragOver={handleDragOver}
  onDragLeave={handleDragLeave}
  onDrop={handleDrop}
  className={[
  'mb-5 flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed',
- 'px-6 py-6 transition-colors',
+ 'px-4 py-6 sm:px-6 transition-colors',
  isDragging
  ? 'border-accent bg-accent/10 scale-[1.01]'
  : importFile
@@ -437,6 +449,8 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  ? t('importExport.dropzoneActive')
  : importFile
  ? importFile.name
+ : coarse
+ ? t('importExport.dropzoneTouch', 'Tap to choose an export file (.json)')
  : t('importExport.dropzone')}
  </span>
  {importFile && (
@@ -447,10 +461,11 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  )}
  </span>
  )}
+ {/* MIME type + extension: the Android file chooser needs a MIME type. */}
  <input
  ref={fileInputRef}
  type="file"
- accept=".json"
+ accept="application/json,.json"
  className="hidden"
  onChange={handleFileChange}
  />
@@ -495,7 +510,7 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  value={opt.value}
  checked={conflictStrategy === opt.value}
  onChange={() => setConflictStrategy(opt.value)}
- className="mt-0.5 accent-accent"
+ className="mt-0.5 accent-accent shrink-0 coarse:h-5 coarse:w-5"
  />
  <div>
  <div className="text-sm font-medium text-text-primary">{opt.label}</div>
@@ -535,7 +550,7 @@ export function ImportExportPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  <div className="space-y-1.5">
  {Object.entries(importResults).map(([section, r]) => (
- <div key={section} className="flex items-center justify-between text-xs">
+ <div key={section} className="flex flex-wrap items-center justify-between gap-x-3 text-xs">
  <span className="text-text-secondary">
  {SECTION_LABELS[section as Section] ?? section}
  </span>

@@ -36,7 +36,7 @@ export function ForgotPasswordPage() {
  };
 
  return (
- <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
+ <div className="flex min-h-dvh supports-[not(height:100dvh)]:min-h-screen items-center justify-center bg-bg-primary p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))]">
  <div className="w-full max-w-sm space-y-8">
  <div className="text-center">
  <Logo className="mx-auto h-24 w-24 mb-3" />
@@ -54,7 +54,7 @@ export function ForgotPasswordPage() {
  <h2 className="text-lg font-semibold text-text-primary">{t('forgotPassword.successTitle')}</h2>
  <p className="mt-1 text-sm text-text-muted">{t('forgotPassword.successMessage')}</p>
  </div>
- <Link to="/login" className="block text-sm text-primary hover:underline">
+ <Link to="/login" className="block text-sm text-primary hover:underline coarse:py-2.5">
  {t('forgotPassword.backToLogin')}
  </Link>
  </div>
@@ -71,6 +71,11 @@ export function ForgotPasswordPage() {
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  placeholder={t('forgotPassword.emailPlaceholder')}
+ autoComplete="email"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="send"
  autoFocus
  required
  />
@@ -83,7 +88,7 @@ export function ForgotPasswordPage() {
  {sending ? t('forgotPassword.sending') : t('forgotPassword.submit')}
  </Button>
  </form>
- <Link to="/login" className="block text-center text-sm text-text-muted hover:text-text-primary">
+ <Link to="/login" className="block text-center text-sm text-text-muted hover:text-text-primary coarse:py-2.5">
  {t('forgotPassword.backToLogin')}
  </Link>
  </>

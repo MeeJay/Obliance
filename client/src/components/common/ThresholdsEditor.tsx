@@ -10,12 +10,14 @@ import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 
 const METRICS: Array<{
  key: GenericMetricKind;
+ /** i18n key + English fallback (CPU / RAM are the same in every locale). */
+ labelKey: string;
  label: string;
  icon: LucideIcon;
 }> = [
- { key: 'disk', label: 'Disque', icon: HardDrive },
- { key: 'cpu', label: 'CPU', icon: Cpu },
- { key: 'ram', label: 'RAM', icon: MemoryStick },
+ { key: 'disk', labelKey: 'thresholds.disk', label: 'Disk', icon: HardDrive },
+ { key: 'cpu', labelKey: 'thresholds.cpu', label: 'CPU', icon: Cpu },
+ { key: 'ram', labelKey: 'thresholds.ram', label: 'RAM', icon: MemoryStick },
 ];
 
 interface Props {
@@ -58,25 +60,29 @@ export function ThresholdsEditor({ value, onChange, inheritedFrom, layer = 'grou
  };
 
  const helper = layer === 'device'
- ? t('thresholds.helpDevice', 'Laisser vide pour hériter du groupe (puis du défaut système).')
- : t('thresholds.helpGroup', 'Laisser vide pour hériter du défaut système.');
+ ? t('thresholds.helpDevice', 'Leave empty to inherit from the group (then the system default).')
+ : t('thresholds.helpGroup', 'Leave empty to inherit the system default.');
 
  return (
  <div className="space-y-3">
  <div>
  <div className="text-sm font-semibold text-text-primary">
- {t('thresholds.title', 'Seuils métriques')}
+ {t('thresholds.title', 'Metric thresholds')}
  </div>
  <div className="text-xs text-text-muted">{helper}</div>
  </div>
- <div className="grid grid-cols-[120px_1fr_1fr] gap-2 items-center text-xs">
+ {/* Phone: the fixed 120 px label column shrinks so both inputs keep a
+     usable width (desktop grid unchanged). */}
+ <div className="grid grid-cols-[120px_1fr_1fr] gap-2 items-center text-xs max-sm:grid-cols-[minmax(0,5.5rem)_1fr_1fr]">
  <div />
- <div className="text-text-muted text-center">Warn (%)</div>
- <div className="text-text-muted text-center">Critical (%)</div>
- {METRICS.map(({ key, label, icon: Icon }) => (
+ <div className="text-text-muted text-center">{t('thresholds.warnPct', 'Warn (%)')}</div>
+ <div className="text-text-muted text-center">{t('thresholds.critPct', 'Critical (%)')}</div>
+ {METRICS.map(({ key, labelKey, label, icon: Icon }) => (
  <FragmentRow
  key={key}
- label={label}
+ label={t(labelKey, label)}
+ warnLabel={`${t(labelKey, label)} — ${t('thresholds.warnPct', 'Warn (%)')}`}
+ critLabel={`${t(labelKey, label)} — ${t('thresholds.critPct', 'Critical (%)')}`}
  Icon={Icon}
  warn={value[key]?.warn ?? ''}
  crit={value[key]?.crit ?? ''}
@@ -91,10 +97,15 @@ export function ThresholdsEditor({ value, onChange, inheritedFrom, layer = 'grou
  );
 }
 
+/** ≥ 40 px inputs on touch (the font is already 16 px on touch phones). */
+const INPUT_CLS = 'min-w-0 px-2 py-1 rounded bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50 text-center coarse:min-h-10';
+
 function FragmentRow({
- label, Icon, warn, crit, warnPlaceholder, critPlaceholder, onWarnChange, onCritChange,
+ label, warnLabel, critLabel, Icon, warn, crit, warnPlaceholder, critPlaceholder, onWarnChange, onCritChange,
 }: {
  label: string;
+ warnLabel: string;
+ critLabel: string;
  Icon: LucideIcon;
  warn: number | '';
  crit: number | '';
@@ -105,23 +116,27 @@ function FragmentRow({
 }) {
  return (
  <>
- <div className="flex items-center gap-2 text-text-secondary">
- <Icon className="w-4 h-4" />
- <span>{label}</span>
+ <div className="flex min-w-0 items-center gap-2 text-text-secondary">
+ <Icon className="w-4 h-4 shrink-0" />
+ <span className="truncate">{label}</span>
  </div>
  <input
  type="number" min={0} max={100}
+ inputMode="numeric"
+ aria-label={warnLabel}
  value={warn === '' ? '' : warn}
  placeholder={warnPlaceholder}
  onChange={(e) => onWarnChange(e.target.value)}
- className="px-2 py-1 rounded bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50 text-center"
+ className={INPUT_CLS}
  />
  <input
  type="number" min={0} max={100}
+ inputMode="numeric"
+ aria-label={critLabel}
  value={crit === '' ? '' : crit}
  placeholder={critPlaceholder}
  onChange={(e) => onCritChange(e.target.value)}
- className="px-2 py-1 rounded bg-bg-primary text-text-primary focus:outline-none focus:border-accent/50 text-center"
+ className={INPUT_CLS}
  />
  </>
  );

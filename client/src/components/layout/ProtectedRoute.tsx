@@ -23,7 +23,7 @@ export function ProtectedRoute({ requiredRole, requiredCapabilities }: Protected
 
   if (!isInitialized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-bg-primary">
+      <div className="flex h-dvh supports-[not(height:100dvh)]:h-screen items-center justify-center bg-bg-primary">
         <LoadingSpinner size="lg" />
       </div>
     );

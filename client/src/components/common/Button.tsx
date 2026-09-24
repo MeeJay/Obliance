@@ -16,8 +16,9 @@ const variants = {
 };
 
 const sizes = {
- sm: 'px-3 py-1.5 text-sm',
- md: 'px-4 py-2 text-sm',
+ // coarse: ≥ 40 px touch target (desktop sizes unchanged).
+ sm: 'px-3 py-1.5 text-sm coarse:min-h-10',
+ md: 'px-4 py-2 text-sm coarse:min-h-10',
  lg: 'px-6 py-3 text-base',
 };
 

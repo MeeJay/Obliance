@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, Terminal, Edit, Trash2, RefreshCw, Code, Tag, ChevronDown, ChevronRight, FolderOpen, Copy } from 'lucide-react';
+import { MasterDetail } from '@/components/common/MasterDetail';
+import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/common/Tip';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { StickyFormActions, useRevealOnOpen } from '@/components/automation/FormActions';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { useCanHover } from '@/hooks/useMediaQuery';
 import { scriptApi } from '@/api/script.api';
 import { useDeviceStore } from '@/store/deviceStore';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -91,6 +99,10 @@ const defaultForm: ScriptFormData = {
 };
 
 export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
+ const confirm = useConfirm();
+ const canHover = useCanHover();
+ const readOnlyReason = t('automations.readOnlyMaster', 'Managed by the Default tenant — read-only');
  const currentTenantId = useTenantStore((s) => s.currentTenantId);
  /** A script is read-only for the active tenant when it's owned by a
  * different tenant AND the caller isn't on the master tenant (master
@@ -195,7 +207,10 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (script: Script) => {
- if (!confirm(`Delete script "${script.name}"?`)) return;
+ if (!(await confirm({
+ message: t('scripts.deleteConfirmNamed', { name: script.name, defaultValue: 'Delete script "{{name}}"?' }),
+ danger: true,
+ }))) return;
  try {
  await scriptApi.delete(script.id);
  if (selectedScript?.id === script.id) setSelectedScript(null);
@@ -285,23 +300,43 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  return a.localeCompare(b);
  });
 
- return (
- <div className={embedded ? 'flex overflow-hidden rounded-xl' : 'flex h-full overflow-hidden'}>
- {/* Left panel: filter + categorized list */}
- <div className="w-72 shrink-0 flex flex-col">
- <div className="p-4 space-y-3">
+ const cancelEdit = () => { setIsEditing(false); setIsCreating(false); };
+ const hasDetail = isEditing || selectedScript != null;
+ // Below lg the list and the detail are one pane at a time (MasterDetail):
+ // the back button / Android back leaves the form first, then the script.
+ const handleBack = () => {
+ if (isEditing) cancelEdit();
+ else setSelectedScript(null);
+ };
+ // Swapping list → detail on a narrow screen keeps the list's scroll
+ // offset; bring the top of the detail (back bar) into view instead.
+ const revealRef = useRef<HTMLDivElement>(null);
+ useRevealOnOpen(
+ revealRef,
+ hasDetail ? `${isEditing ? (isCreating ? 'new' : 'edit') : 'view'}-${selectedScript?.id ?? ''}` : null,
+ { when: 'narrow', behavior: 'auto' },
+ );
+
+ const masterPane = (
+ <div className="flex flex-col lg:h-full">
+ <div className="p-4 max-sm:px-0 max-sm:pt-0 space-y-3">
  <div className="flex items-center justify-between">
  <h1 className="text-lg font-bold text-text-primary">Scripts</h1>
  <div className="flex gap-1">
- <button onClick={load} className="p-1.5 text-text-muted hover:text-text-primary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />
- </button>
- <button
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ onClick={load}
+ variant="plain"
+ className="rounded-lg"
+ icon={<RefreshCw className={clsx('w-3.5 h-3.5', isLoading && 'animate-spin')} />}
+ />
+ <IconButton
+ label={t('scripts.newScript', 'New script')}
  onClick={handleStartCreate}
- className="p-1.5 bg-accent text-white rounded-lg hover:bg-accent/80 transition-colors"
- >
- <Plus className="w-4 h-4" />
- </button>
+ variant="plain"
+ className="bg-accent text-white rounded-lg hover:bg-accent/80 hover:text-white"
+ icon={<Plus className="w-4 h-4" />}
+ />
  </div>
  </div>
  <div className="relative">
@@ -334,7 +369,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Master tenant chip filter — hidden outside master. Lets the
  admin narrow the library to one tenant's scripts when
  scanning a fleet of 8+ tenants. */}
- <div className="px-4 pb-2">
+ <div className="px-4 max-sm:px-0 pb-2">
  <TenantFilterChips
  value={tenantFilter.value}
  onChange={tenantFilter.setValue}
@@ -357,7 +392,8 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  <div key={catName}>
  <button
  onClick={() => toggleCategoryCollapse(catName)}
- className="w-full flex items-center gap-2 px-4 py-2 text-left bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
+ aria-expanded={isExpanded}
+ className="w-full flex items-center gap-2 px-4 py-2 coarse:py-3 text-left bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors sticky top-0 z-10"
  >
  {isExpanded
  ? <ChevronDown className="w-3 h-3 text-text-muted shrink-0" />
@@ -453,16 +489,17 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  )}
  </div>
  </div>
+ );
 
- {/* Right panel: script detail / form */}
- <div className="flex-1 overflow-y-auto">
- {isEditing ? (
- <div className="p-6 space-y-4 max-w-3xl">
+ // Right panel: script detail / form
+ const detailPane = isEditing ? (
+ <div className="p-0 sm:p-2 lg:p-6 space-y-4 max-w-3xl">
  <div className="flex items-center justify-between">
  <h2 className="text-lg font-semibold text-text-primary">{isCreating ? 'New Script' : 'Edit Script'}</h2>
- <div className="flex gap-2">
+ {/* Below md: Save / Cancel in the sticky bar at the bottom of the form. */}
+ <div className="hidden md:flex gap-2">
  <button
- onClick={() => { setIsEditing(false); setIsCreating(false); }}
+ onClick={cancelEdit}
  className="px-4 py-2 text-sm text-text-muted hover:text-text-primary bg-bg-secondary rounded-lg transition-colors"
  >
  Cancel
@@ -588,6 +625,9 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  value={form.tags}
  onChange={(e) => setForm({ ...form, tags: e.target.value })}
  placeholder="e.g. security, audit, cleanup"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  className="w-full px-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
@@ -626,29 +666,45 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
 
  <div className="space-y-1">
  <label className="text-xs font-medium text-text-muted uppercase">Content *</label>
+ {/* Code: no autocapitalise / autocorrect / spellcheck — Android
+ keyboards would otherwise "fix" cmdlets, flags and paths. */}
  <textarea
  value={form.content}
  onChange={(e) => setForm({ ...form, content: e.target.value })}
  rows={20}
- className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent resize-y font-mono"
+ autoCapitalize="off"
+ autoCorrect="off"
+ autoComplete="off"
+ spellCheck={false}
+ className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-accent resize-y font-mono max-md:min-h-[50dvh]"
  placeholder={form.runtime === 'powershell' || form.runtime === 'pwsh' ? '# PowerShell script\nWrite-Host "Hello World"' : '#!/bin/bash\necho "Hello World"'}
  />
  </div>
+
+ <StickyFormActions
+ onCancel={cancelEdit}
+ onSave={handleSave}
+ saving={isSaving}
+ className="bg-bg-primary rounded-none sm:-mx-2 sm:-mb-2 px-0 sm:px-2"
+ />
  </div>
  ) : selectedScript ? (
- <div className="p-6 space-y-4">
- <div className="flex items-center justify-between">
- <div>
- <h2 className="text-xl font-bold text-text-primary">
+ <div className="p-0 sm:p-2 lg:p-6 space-y-4">
+ <div className="flex items-center justify-between max-lg:flex-wrap max-lg:gap-3">
+ <div className="min-w-0">
+ <h2 className="text-xl font-bold text-text-primary break-words">
  {selectedScript.name}
  {/* Master-owned badge — surfaces when the caller is on
  a child tenant and this script is fan-outed from
  Default. Edit/Delete are disabled below since the
- server enforces tenant_id = req.tenantId for writes. */}
+ server enforces tenant_id = req.tenantId for writes.
+ Tap (touch) explains why. */}
  {isReadOnlyForCaller(selectedScript) && (
- <span className="ml-2 inline-flex items-center gap-1 align-middle px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
+ <Tip content={readOnlyReason} disabled={canHover} className="ml-2 align-middle">
+ <span className="inline-flex items-center gap-1 align-middle px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/30">
  🔒 Master
  </span>
+ </Tip>
  )}
  <span className="ml-2 align-middle">
  <FanOutChips targetTenantIds={selectedScript.targetTenantIds} />
@@ -658,12 +714,12 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  {PLATFORM_LABELS[selectedScript.platform]} · {RUNTIME_LABELS[selectedScript.runtime]} · {selectedScript.timeoutSeconds}s timeout · exit code {selectedScript.expectedExitCode ?? 0} · run as {selectedScript.runAs}
  </p>
  </div>
- <div className="flex gap-2">
+ <div className="flex flex-wrap gap-2">
  <button
  onClick={() => handleStartEdit(selectedScript)}
  disabled={isReadOnlyForCaller(selectedScript)}
- title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
- className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+ title={isReadOnlyForCaller(selectedScript) ? readOnlyReason : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 coarse:min-h-10 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Edit className="w-3.5 h-3.5" />
  Edit
@@ -677,7 +733,7 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  setSelectedScript(cloned);
  } catch { toast.error('Failed to clone'); }
  }}
- className="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
+ className="flex items-center gap-2 px-3 py-1.5 coarse:min-h-10 text-sm bg-bg-secondary rounded-lg hover:border-accent/50 text-text-muted hover:text-text-primary transition-colors"
  >
  <Copy className="w-3.5 h-3.5" />
  Clone
@@ -686,8 +742,8 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  <button
  onClick={() => handleDelete(selectedScript)}
  disabled={isReadOnlyForCaller(selectedScript)}
- title={isReadOnlyForCaller(selectedScript) ? 'Géré par le tenant Default — lecture seule' : undefined}
- className="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+ title={isReadOnlyForCaller(selectedScript) ? readOnlyReason : undefined}
+ className="flex items-center gap-2 px-3 py-1.5 coarse:min-h-10 text-sm bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
  >
  <Trash2 className="w-3.5 h-3.5" />
  Delete
@@ -731,7 +787,10 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  {selectedScript.availableInReach && <span className="px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400">Available in Reach</span>}
  </div>
  </div>
- ) : (
+ ) : null;
+
+ // lg+ with nothing selected: placeholder in the detail pane.
+ const emptyPane = (
  <div className="flex flex-col items-center justify-center h-full text-text-muted">
  <Terminal className="w-12 h-12 mb-3 opacity-30" />
  <p>Select a script or create a new one</p>
@@ -743,8 +802,21 @@ export function ScriptLibraryPage({ embedded }: { embedded?: boolean } = {}) {
  New Script
  </button>
  </div>
- )}
- </div>
+ );
+
+ // lg+: the historic w-72 list + flex-1 detail (flush, stretched, own
+ // scroll). Below lg: one pane at a time with a back bar (MasterDetail).
+ return (
+ <div ref={revealRef} className={clsx('min-w-0 scroll-mt-3', !embedded && 'lg:h-full')}>
+ <MasterDetail
+ master={masterPane}
+ detail={detailPane}
+ onBack={handleBack}
+ emptyDetail={emptyPane}
+ className={clsx('lg:items-stretch lg:gap-0 lg:overflow-hidden', embedded ? 'lg:rounded-xl' : 'lg:h-full')}
+ masterClassName="lg:w-72 lg:shrink-0"
+ detailClassName="lg:overflow-y-auto"
+ />
  </div>
  );
 }
@@ -770,14 +842,8 @@ function CategoryCombobox({
 
  const selectedName = categories.find((c) => c.id === value)?.name ?? '';
 
- useEffect(() => {
- if (!open) return;
- const handler = (e: MouseEvent) => {
- if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
- };
- document.addEventListener('mousedown', handler);
- return () => document.removeEventListener('mousedown', handler);
- }, [open]);
+ // pointerdown (mouse + touch + pen) instead of a document 'mousedown' listener.
+ useClickOutside(ref, () => setOpen(false), open);
 
  const filtered = categories.filter((c) =>
  c.name.toLowerCase().includes(query.toLowerCase())
@@ -817,6 +883,7 @@ function CategoryCombobox({
  value={query}
  onChange={(e) => setQuery(e.target.value)}
  placeholder="Search or create..."
+ enterKeyHint="done"
  className="w-full px-2.5 py-1.5 text-sm bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
  onKeyDown={(e) => {
  if (e.key === 'Enter' && query.trim() && !exactMatch) { e.preventDefault(); handleCreate(); }
@@ -826,7 +893,7 @@ function CategoryCombobox({
  <div className="max-h-48 overflow-y-auto">
  <button
  onClick={() => { onChange(null); setOpen(false); }}
- className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === null && 'text-accent')}
+ className={clsx('w-full text-left px-3 py-1.5 coarse:py-2.5 text-sm hover:bg-bg-hover transition-colors', value === null && 'text-accent')}
  >
  No category
  </button>
@@ -834,7 +901,7 @@ function CategoryCombobox({
  <button
  key={cat.id}
  onClick={() => { onChange(cat.id); setOpen(false); }}
- className={clsx('w-full text-left px-3 py-1.5 text-sm hover:bg-bg-hover transition-colors', value === cat.id && 'text-accent font-medium')}
+ className={clsx('w-full text-left px-3 py-1.5 coarse:py-2.5 text-sm hover:bg-bg-hover transition-colors', value === cat.id && 'text-accent font-medium')}
  >
  {cat.name}
  </button>
@@ -843,7 +910,7 @@ function CategoryCombobox({
  <button
  onClick={handleCreate}
  disabled={creating}
- className="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-accent/5 transition-colors "
+ className="w-full text-left px-3 py-1.5 coarse:py-2.5 text-sm text-accent hover:bg-accent/5 transition-colors "
  >
  {creating ? 'Creating...' : `+ Create "${query.trim()}"`}
  </button>

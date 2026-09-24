@@ -70,6 +70,14 @@ COPY agent/dist/ ./agent/dist/
 RUN mkdir -p ./oblireach-desktop/dist
 COPY oblireach-desktop/ ./oblireach-desktop/
 
+# Obli mobile app (Android) — served by GET /api/mobile/android/{version,download}
+# (docs/obli-mobile.md §6). Drop zone written by the release script:
+# manifest.json (committed placeholder: versionCode 0 → available:false),
+# optional RELEASE_NOTES.md and obliance.apk (gitignored; missing → 404).
+# The Gradle project (mobile/android) is excluded by .dockerignore.
+RUN mkdir -p ./mobile/release
+COPY mobile/release/ ./mobile/release/
+
 # Obli.tools VERSION file — obli.tools/ is a symlink to an external directory and cannot be
 # followed by the Docker build context. The version is injected via --build-arg at build time;
 # defaults to "0.0.0" so the build never fails when the arg is omitted.

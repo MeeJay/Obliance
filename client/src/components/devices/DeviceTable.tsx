@@ -1,9 +1,11 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSessionState } from '@/hooks/useSessionState';
 import {
  Search, RefreshCw, ChevronRight, ChevronDown, X, RotateCcw, PowerOff, Trash2, Download,
  ShieldCheck, Loader2, MoreHorizontal, UserX, SortAsc, SortDesc, FolderOpen, MousePointerClick, Check, ArrowRightLeft, FolderX, Tag, Terminal, Building2,
+ SlidersHorizontal, Columns3, FolderTree,
 } from 'lucide-react';
 import { deviceApi } from '@/api/device.api';
 import { scriptApi } from '@/api/script.api';
@@ -22,6 +24,16 @@ import { clsx } from 'clsx';
 import { anonymize } from '@/utils/anonymize';
 import { shortenOsName } from '@/utils/osLabel';
 import { isCommandSupported, unsupportedTooltip } from '@/utils/capabilities';
+import { cn } from '@/utils/cn';
+import { saveBlob } from '@/utils/download';
+import { useLayoutMode } from '@/hooks/useMediaQuery';
+import { useNativeBack } from '@/hooks/useNativeBack';
+import { useAnchoredPosition } from '@/native/overlay';
+import { Modal } from '@/components/common/Modal';
+import { Drawer } from '@/components/common/Drawer';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 import {
  LINE2_FIELDS,
  loadVisibleFields,
@@ -51,15 +63,37 @@ interface DeviceTableProps {
  initialApprovalFilter?: string;
  groupId?: number | null;
  onGroupChange?: (id: number | null) => void;
+ /** Below lg the groups column of /devices is an off-canvas drawer:
+ * when set, the toolbar shows a "Groups" button that opens it. */
+ onOpenGroups?: () => void;
+ /** The host page already pads the content (GroupDetailPage): drop the
+ * table's own padding below lg. Desktop (lg+) is unchanged. */
+ embedded?: boolean;
 }
 
 export function DeviceTable({
  mode, initialStatusFilter, initialOsFilter, initialStaleHours, initialPendingUpdates,
  initialApprovalFilter,
- groupId: externalGroupId, onGroupChange,
+ groupId: externalGroupId, onGroupChange, onOpenGroups, embedded = false,
 }: DeviceTableProps) {
  const { t } = useTranslation();
  const navigate = useNavigate();
+ // docs/obli-mobile.md §4: phone < 768 ≤ tablet < 1024 ≤ desktop. The
+ // desktop rendering is the historic one; phone / tablet adapt below.
+ const layout = useLayoutMode();
+ const isPhone = layout === 'phone';
+ const isDesktop = layout === 'desktop';
+ const confirm = useConfirm();
+ // Phone: the filter chips live in a bottom sheet opened from a
+ // "Filters (n)" button instead of a tall sticky band.
+ const [filtersOpen, setFiltersOpen] = useState(false);
+ // Anchors of the toolbar popovers (viewport-clamped, portal-rendered).
+ const exportBtnRef = useRef<HTMLButtonElement>(null);
+ const columnsBtnRef = useRef<HTMLButtonElement>(null);
+ const osNameBtnRef = useRef<HTMLButtonElement>(null);
+ const osVersionBtnRef = useRef<HTMLButtonElement>(null);
+ const tagsBtnRef = useRef<HTMLButtonElement>(null);
+ const batchBtnRef = useRef<HTMLButtonElement>(null);
  const { isAdmin, permissions } = useAuthStore();
  // Unlocked when admin OR the user has a team_permission row carrying
  // `agent_config:approval`. Drives both the approval-status chip row
@@ -286,12 +320,9 @@ export function DeviceTable({
  sortBy,
  sortOrder,
  });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = filename;
- a.click();
- URL.revokeObjectURL(url);
+ // Shared saver: Android shell → native Downloads, browser → anchor
+ // download with deferred revoke (docs/obli-mobile.md §3).
+ if (!(await saveBlob(blob, filename))) toast.error(t('common.error'));
  } catch {
  toast.error(t('common.error'));
  } finally {
@@ -508,7 +539,9 @@ export function DeviceTable({
  const ids = selectAllGroup && groupId ? undefined : Array.from(selectedIds);
  if (ids) { await Promise.all(ids.map(id => deviceApi.approve(id))); toast.success(t('devices.batch.approved', { count: ids.length })); }
  } else if (action === 'delete') {
- if (!confirm(t('devices.batch.confirmDelete'))) { setIsBatchRunning(false); return; }
+ // Shared confirm dialog (window.confirm is a no-op in the Android
+ // WebView — docs §5.6).
+ if (!(await confirm({ message: t('devices.batch.confirmDelete'), danger: true }))) { setIsBatchRunning(false); return; }
  const ids = Array.from(selectedIds);
  await Promise.all(ids.map(id => deviceApi.delete(id)));
  toast.success(t('devices.batch.deleted', { count: ids.length }));
@@ -520,7 +553,7 @@ export function DeviceTable({
  // whole group selection; the toast reports the real dispatched count.
  if (action === 'update_agent') {
  const count = selectAllGroup && groupId ? total : selectedIds.size;
- if (!confirm((t('devices.action.updateAgentConfirm', { count }) as string) || `Update the agent on ${count} device(s)?`)) { setIsBatchRunning(false); return; }
+ if (!(await confirm((t('devices.action.updateAgentConfirm', { count }) as string) || `Update the agent on ${count} device(s)?`))) { setIsBatchRunning(false); return; }
  }
  const result = await deviceApi.batch({
  groupId: selectAllGroup && groupId ? groupId : undefined,
@@ -622,20 +655,38 @@ export function DeviceTable({
  .sort((a, b) => a.osVersion.localeCompare(b.osVersion, undefined, { numeric: true }));
  }, [osFacets, selectedOsType, osNameFilter]);
 
- return (
- <div className="flex flex-col p-6 space-y-3">
- {/* Sticky toolbar — keeps approval chips + filters + search +
- Select/Columns visible while the user scrolls through the
- device list. The right pane in DevicesPageLayout is the
- scroll container; sticky-top-0 pins this band there.
- Background must be opaque (bg-bg-primary) or the list
- beneath bleeds through the bar at scroll. */}
- <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-bg-primary space-y-3">
- {/* Approval quick filters — visible to admin OR any user with the
- `agent_config:approval` capability. Regular users without it are
- pinned to the "approved" subset so the UI doesn't tease access to
- pending / refused / suspended devices they can't act on. */}
- {canManageApproval && (
+ // ── Toolbar building blocks ─────────────────────────────────────────
+ // Rendered inline in the sticky band on tablet / desktop (the historic
+ // markup) and inside the "Filters" bottom sheet on phone.
+ const clearAllFilters = () => {
+ setSearch('');
+ setStatusFilters(new Set());
+ setOsFilters(new Set());
+ setOsNameFilter(new Set());
+ setOsVersionFilter(new Set());
+ };
+ const activeFilterCount =
+ statusFilters.size + osFilters.size + osNameFilter.size + osVersionFilter.size + tagFilters.size
+ + (isMaster ? tenantFilters.size : 0)
+ + (canManageApproval && approvalFilter !== '' ? 1 : 0);
+
+ const openTagsMenu = async () => {
+ const next = !tagsMenuOpen;
+ setTagsMenuOpen(next);
+ if (next && tagFacets.length === 0) {
+ // Lazy fetch: avoid a request on every page mount.
+ try {
+ const list = await deviceApi.listTags();
+ setTagFacets(list);
+ } catch { /* silent */ }
+ }
+ };
+
+ // Approval quick filters — visible to admin OR any user with the
+ // `agent_config:approval` capability. Regular users without it are
+ // pinned to the "approved" subset so the UI doesn't tease access to
+ // pending / refused / suspended devices they can't act on.
+ const approvalChips = canManageApproval ? (
  <div className="flex items-center gap-2 flex-wrap mb-3">
  {([
  { key: '' as ApprovalFilter, label: t('devices.filters.all'), count: counts.all },
@@ -645,127 +696,20 @@ export function DeviceTable({
  { key: 'suspended' as ApprovalFilter, label: t('devices.filters.suspended'), count: counts.suspended },
  ]).map(({ key, label, count }) => (
  <button key={key} onClick={() => setApprovalFilter(key)}
- className={clsx('px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors',
+ className={clsx('px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors coarse:min-h-10',
  approvalFilter === key ? 'bg-accent text-white border-accent' : 'bg-bg-secondary text-text-muted border-transparent hover:text-text-primary hover:border-accent/50',
  )}>
  {label} <span className="opacity-60">({count})</span>
  </button>
  ))}
  </div>
- )}
+ ) : null;
 
- {/* Filter bar */}
- <div className="space-y-2 mb-3">
- {/* Search + sort + pagesize + refresh */}
- <div className="flex items-center gap-2">
- <div className="relative flex-1">
- <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
- <input type="text" value={search} onChange={e => setSearch(e.target.value)}
- placeholder={t('devices.filters.search')}
- title={t('devices.filters.searchHint', 'Searches hostname, display name, IP, MAC, last user, OS, agent version, location, tags, notes, UUID')}
- className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
- </div>
- {hasFilters && (
- <button onClick={() => {
- setSearch('');
- setStatusFilters(new Set());
- setOsFilters(new Set());
- setOsNameFilter(new Set());
- setOsVersionFilter(new Set());
- }}
- className="p-2 text-text-muted hover:text-text-primary"><X className="w-3.5 h-3.5" /></button>
- )}
- <div className="relative">
- <button
- onClick={() => setExportMenuOpen((v) => !v)}
- disabled={isExporting}
- className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-50"
- title="Export filtered devices"
- >
- <Download className={clsx('w-4 h-4', isExporting && 'animate-pulse')} />
- </button>
- {exportMenuOpen && (
- <>
- <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)} />
- <div className="absolute right-0 top-full mt-1 w-32 bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
- <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">CSV</button>
- <button onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">Excel (xlsx)</button>
- <button onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary">PDF</button>
- </div>
- </>
- )}
- </div>
- <button
- onClick={() => {
- const next = !selectionMode;
- setSelectionMode(next);
- if (!next) { setSelectedIds(new Set()); setSelectAllGroup(false); }
- }}
- className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors',
- selectionMode
- ? 'bg-accent text-white border-accent'
- : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary hover:border-accent/40',
- )}
- title={selectionMode ? t('devices.selection.exit', 'Exit selection mode') : t('devices.selection.enter', 'Enter selection mode — click any row to select')}
- >
- {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
- <span className="hidden sm:inline">{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
- </button>
- {/* Lot D.1 — column toggle popover. Lets the user opt-in to extra
- fields on each row (IP WAN, MAC, geo, lifecycle, warranty, …).
- Choices are persisted in localStorage. */}
- <div className="relative">
- <button
- onClick={() => setColumnsMenuOpen(v => !v)}
- className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors',
- columnsMenuOpen
- ? 'bg-accent text-white border-accent'
- : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary hover:border-accent/40',
- )}
- title={t('devices.columns.title', 'Colonnes affichées')}
- >
- <SortAsc className="w-3.5 h-3.5" />
- <span className="hidden sm:inline">{t('devices.columns.button', 'Colonnes')}</span>
- </button>
- {columnsMenuOpen && (
- <>
- <div className="fixed inset-0 z-10" onClick={() => setColumnsMenuOpen(false)} />
- <div className="absolute right-0 top-full mt-1 w-56 bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
- <div className="px-3 py-2 flex items-center justify-between">
- <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
- {t('devices.columns.title', 'Colonnes affichées')}
- </span>
- <button onClick={resetColumns} className="text-[11px] text-accent hover:underline">
- {t('common.reset', 'Réinit.')}
- </button>
- </div>
- {LINE2_FIELDS.map(f => (
- <label key={f.key} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
- <input
- type="checkbox"
- checked={visibleFields.has(f.key)}
- onChange={() => toggleColumn(f.key)}
- className="accent-accent"
- />
- <span>{f.label}</span>
- </label>
- ))}
- </div>
- </>
- )}
- </div>
- <button onClick={() => load(true)} className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
- </div>
-
- {/* Master-only: tenant filter chips. Drop-down list of every
- tenant present in the loaded device set (devices already
- carry tenantName via the god-view join). The filter is
- client-side over the already-loaded master result set. */}
- {isMaster && (() => {
+ // Master-only: tenant filter chips. Drop-down list of every
+ // tenant present in the loaded device set (devices already
+ // carry tenantName via the god-view join). The filter is
+ // client-side over the already-loaded master result set.
+ const tenantChips = isMaster ? (() => {
  const tenants = new Map<number, string>();
  for (const d of devices) if (d.tenantName) tenants.set(d.tenantId, d.tenantName);
  for (const g of tree) if (g.tenantName) tenants.set(g.tenantId, g.tenantName);
@@ -778,32 +722,32 @@ export function DeviceTable({
  return (
  <div className="flex items-center gap-1.5 flex-wrap mb-2">
  <span className="text-[10px] uppercase tracking-wider text-text-muted mr-1">
- <Building2 size={10} className="inline mr-1" />Tenant
+ <Building2 size={10} className="inline mr-1" />{t('devices.filters.tenant', 'Tenant')}
  </span>
  {ordered.map(([id, name]) => (
  <button key={id} onClick={() => toggleTenantFilter(id)}
- className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+ className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors coarse:py-2',
  tenantFilters.has(id) ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/30',
  )}>
  <Building2 size={10} className="inline mr-1" />
- {id === MASTER_TENANT_ID ? `${name} (master)` : name}
+ {id === MASTER_TENANT_ID ? `${name} ${t('devices.filters.masterSuffix', '(master)')}` : name}
  </button>
  ))}
  {tenantFilters.size > 0 && (
  <button onClick={() => setTenantFilters(new Set())}
- className="text-[10px] text-accent hover:underline ml-1">
- Effacer
+ className="text-[10px] text-accent hover:underline ml-1 coarse:text-xs coarse:min-h-10 coarse:px-2">
+ {t('common.clear', 'Clear')}
  </button>
  )}
  </div>
  );
- })()}
+ })() : null;
 
- {/* Status + OS chips */}
+ const statusOsChips = (
  <div className="flex items-center gap-1.5 flex-wrap">
  {STATUS_CHIPS.map(({ key, label, color }) => (
  <button key={key} onClick={() => toggleStatus(key)}
- className={clsx('flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+ className={clsx('flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors coarse:py-2',
  statusFilters.has(key) ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/30',
  )}>
  <div className={clsx('w-2 h-2 rounded-full', color)} />
@@ -813,7 +757,7 @@ export function DeviceTable({
  {OS_CHIPS.length > 0 && <div className="w-px h-4 bg-border mx-1" />}
  {OS_CHIPS.map(({ key, label }) => (
  <button key={key} onClick={() => toggleOs(key)}
- className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+ className={clsx('px-2.5 py-1 text-xs font-medium rounded-full border transition-colors coarse:py-2',
  osFilters.has(key) ? 'bg-accent/10 border-accent text-accent' : 'border-transparent text-text-muted hover:border-accent/30',
  )}>
  {label} <span className="text-text-muted/70 ml-0.5">{osTypesPresent.get(key) ?? 0}</span>
@@ -824,13 +768,15 @@ export function DeviceTable({
  then osVersion. Each is a multi-select popover (same UX as the
  tag picker just below): checkbox per option, live count, OR
  semantics on the server. Lets admins narrow to e.g.
- (Windows 10 + Windows 11) in one shot. */}
+ (Windows 10 + Windows 11) in one shot. The popovers are
+ viewport-clamped (bottom sheet on phone) — see ToolbarPopover. */}
  {osNameOptions.length > 0 && (
  <div className="relative ml-1">
  <button
+ ref={osNameBtnRef}
  onClick={() => setOsNameMenuOpen((v) => !v)}
  className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[260px] truncate',
+ 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[260px] truncate coarse:py-2',
  osNameFilter.size > 0
  ? 'bg-accent/10 border-accent text-accent'
  : 'border-transparent text-text-muted hover:border-accent/30',
@@ -846,48 +792,15 @@ export function DeviceTable({
  <span className="text-[10px] text-accent/80 ml-0.5">{osNameFilter.size}</span>
  )}
  </button>
- {osNameMenuOpen && (
- <>
- <div className="fixed inset-0 z-10" onClick={() => setOsNameMenuOpen(false)} />
- <div className="absolute left-0 top-full mt-1 w-72 max-h-[320px] flex flex-col bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
- <div className="px-3 py-2 flex items-center justify-between">
- <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
- {t('devices.filters.osNamesTitle', 'Versions')}
- </span>
- {osNameFilter.size > 0 && (
- <button
- onClick={() => setOsNameFilter(new Set())}
- className="text-[11px] text-accent hover:underline"
- >
- {t('common.clear', 'Effacer')}
- </button>
- )}
- </div>
- <div className="overflow-y-auto">
- {osNameOptions.map(({ osName, count }) => (
- <label key={osName} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
- <input
- type="checkbox"
- checked={osNameFilter.has(osName)}
- onChange={() => toggleOsNameFilter(osName)}
- className="accent-accent"
- />
- <span className="flex-1 truncate" title={osName}>{shortenOsName(osName)}</span>
- <span className="text-[10px] text-text-muted">{count}</span>
- </label>
- ))}
- </div>
- </div>
- </>
- )}
  </div>
  )}
  {osVersionOptions.length > 0 && (
  <div className="relative">
  <button
+ ref={osVersionBtnRef}
  onClick={() => setOsVersionMenuOpen((v) => !v)}
  className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[200px] truncate',
+ 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors max-w-[200px] truncate coarse:py-2',
  osVersionFilter.size > 0
  ? 'bg-accent/10 border-accent text-accent'
  : 'border-transparent text-text-muted hover:border-accent/30',
@@ -903,40 +816,6 @@ export function DeviceTable({
  <span className="text-[10px] text-accent/80 ml-0.5">{osVersionFilter.size}</span>
  )}
  </button>
- {osVersionMenuOpen && (
- <>
- <div className="fixed inset-0 z-10" onClick={() => setOsVersionMenuOpen(false)} />
- <div className="absolute left-0 top-full mt-1 w-64 max-h-[320px] flex flex-col bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
- <div className="px-3 py-2 flex items-center justify-between">
- <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
- {t('devices.filters.buildsTitle', 'Builds')}
- </span>
- {osVersionFilter.size > 0 && (
- <button
- onClick={() => setOsVersionFilter(new Set())}
- className="text-[11px] text-accent hover:underline"
- >
- {t('common.clear', 'Effacer')}
- </button>
- )}
- </div>
- <div className="overflow-y-auto">
- {osVersionOptions.map(({ osVersion, count }) => (
- <label key={osVersion} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
- <input
- type="checkbox"
- checked={osVersionFilter.has(osVersion)}
- onChange={() => toggleOsVersionFilter(osVersion)}
- className="accent-accent"
- />
- <span className="flex-1 truncate font-mono" title={osVersion}>{osVersion}</span>
- <span className="text-[10px] text-text-muted">{count}</span>
- </label>
- ))}
- </div>
- </div>
- </>
- )}
  </div>
  )}
 
@@ -947,19 +826,10 @@ export function DeviceTable({
  tag). Mirrors the columns popover's UX. */}
  <div className="relative">
  <button
- onClick={async () => {
- const next = !tagsMenuOpen;
- setTagsMenuOpen(next);
- if (next && tagFacets.length === 0) {
- // Lazy fetch: avoid a request on every page mount.
- try {
- const list = await deviceApi.listTags();
- setTagFacets(list);
- } catch { /* silent */ }
- }
- }}
+ ref={tagsBtnRef}
+ onClick={openTagsMenu}
  className={clsx(
- 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors',
+ 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors coarse:py-2',
  tagFilters.size > 0
  ? 'bg-accent/10 border-accent text-accent'
  : 'border-transparent text-text-muted hover:border-accent/30',
@@ -972,30 +842,130 @@ export function DeviceTable({
  <span className="text-[10px] text-accent/80">{tagFilters.size}</span>
  )}
  </button>
- {tagsMenuOpen && (
+ </div>
+
+ <span className="ml-auto text-xs text-text-muted">{t('devices.list.count', '{{n}} devices', { n: total })}</span>
+ </div>
+ );
+
+ // Popover bodies (shared by the floating popover and the phone sheet).
+ const popRowCls = 'flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer coarse:py-2.5';
+ const exportContent = (
  <>
- <div className="fixed inset-0 z-10" onClick={() => setTagsMenuOpen(false)} />
- <div className="absolute left-0 top-full mt-1 w-64 max-h-[320px] flex flex-col bg-bg-secondary rounded-lg shadow-xl z-20 overflow-hidden">
- <div className="px-3 py-2 flex items-center justify-between">
+ <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:py-3">CSV</button>
+ <button onClick={() => handleExport('xlsx')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:py-3">Excel (xlsx)</button>
+ <button onClick={() => handleExport('pdf')} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary coarse:py-3">PDF</button>
+ </>
+ );
+ const columnsContent = (
+ <>
+ <div className="px-3 py-2 flex items-center justify-between shrink-0">
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+ {t('devices.columns.title', 'Colonnes affichées')}
+ </span>
+ <button onClick={resetColumns} className="text-[11px] text-accent hover:underline coarse:text-xs coarse:min-h-10 coarse:px-2">
+ {t('common.reset', 'Réinit.')}
+ </button>
+ </div>
+ <div className="min-h-0 overflow-y-auto">
+ {LINE2_FIELDS.map(f => (
+ <label key={f.key} className={popRowCls}>
+ <input
+ type="checkbox"
+ checked={visibleFields.has(f.key)}
+ onChange={() => toggleColumn(f.key)}
+ className="accent-accent"
+ />
+ <span>{f.label}</span>
+ </label>
+ ))}
+ </div>
+ </>
+ );
+ const osNameContent = (
+ <>
+ <div className="px-3 py-2 flex items-center justify-between shrink-0">
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+ {t('devices.filters.osNamesTitle', 'Versions')}
+ </span>
+ {osNameFilter.size > 0 && (
+ <button
+ onClick={() => setOsNameFilter(new Set())}
+ className="text-[11px] text-accent hover:underline coarse:text-xs coarse:min-h-10 coarse:px-2"
+ >
+ {t('common.clear', 'Effacer')}
+ </button>
+ )}
+ </div>
+ <div className="min-h-0 overflow-y-auto">
+ {osNameOptions.map(({ osName, count }) => (
+ <label key={osName} className={popRowCls}>
+ <input
+ type="checkbox"
+ checked={osNameFilter.has(osName)}
+ onChange={() => toggleOsNameFilter(osName)}
+ className="accent-accent"
+ />
+ <span className="flex-1 truncate" title={osName}>{shortenOsName(osName)}</span>
+ <span className="text-[10px] text-text-muted">{count}</span>
+ </label>
+ ))}
+ </div>
+ </>
+ );
+ const osVersionContent = (
+ <>
+ <div className="px-3 py-2 flex items-center justify-between shrink-0">
+ <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+ {t('devices.filters.buildsTitle', 'Builds')}
+ </span>
+ {osVersionFilter.size > 0 && (
+ <button
+ onClick={() => setOsVersionFilter(new Set())}
+ className="text-[11px] text-accent hover:underline coarse:text-xs coarse:min-h-10 coarse:px-2"
+ >
+ {t('common.clear', 'Effacer')}
+ </button>
+ )}
+ </div>
+ <div className="min-h-0 overflow-y-auto">
+ {osVersionOptions.map(({ osVersion, count }) => (
+ <label key={osVersion} className={popRowCls}>
+ <input
+ type="checkbox"
+ checked={osVersionFilter.has(osVersion)}
+ onChange={() => toggleOsVersionFilter(osVersion)}
+ className="accent-accent"
+ />
+ <span className="flex-1 truncate font-mono" title={osVersion}>{osVersion}</span>
+ <span className="text-[10px] text-text-muted">{count}</span>
+ </label>
+ ))}
+ </div>
+ </>
+ );
+ const tagsContent = (
+ <>
+ <div className="px-3 py-2 flex items-center justify-between shrink-0">
  <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
  {t('devices.filters.tagsTitle', 'Tags appliqués')}
  </span>
  {tagFilters.size > 0 && (
  <button
  onClick={() => setTagFilters(new Set())}
- className="text-[11px] text-accent hover:underline"
+ className="text-[11px] text-accent hover:underline coarse:text-xs coarse:min-h-10 coarse:px-2"
  >
  {t('common.clear', 'Effacer')}
  </button>
  )}
  </div>
- <div className="overflow-y-auto">
+ <div className="min-h-0 overflow-y-auto">
  {tagFacets.length === 0 ? (
  <div className="px-3 py-3 text-[12px] text-text-muted italic">
  {t('devices.filters.noTags', 'Aucun tag dans la flotte')}
  </div>
  ) : tagFacets.map((f) => (
- <label key={f.tag} className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-tertiary cursor-pointer">
+ <label key={f.tag} className={popRowCls}>
  <input
  type="checkbox"
  checked={tagFilters.has(f.tag)}
@@ -1007,105 +977,360 @@ export function DeviceTable({
  </label>
  ))}
  </div>
+ </>
+ );
+
+ // Batch actions — one data list, rendered with the historic markup in
+ // the popover (desktop) or a bottom sheet (phone). A disabled action
+ // explains itself: title= with a mouse, a visible line on touch.
+ const closeBatchMenuThen = (fn: () => void) => () => { setBatchMenuOpen(false); fn(); };
+ const batchItems: Array<{ key: string; icon: ReactNode; label: string; onClick: () => void; cmd?: CommandType; danger?: boolean; show?: boolean }> = [
+ { key: 'approve', show: canManageApproval && approvalFilter === 'pending', icon: <ShieldCheck className="w-3.5 h-3.5 text-green-400" />, label: t('devices.batch.approve'), onClick: () => handleBatchAction('approve') },
+ { key: 'restart_agent', cmd: 'restart_agent', icon: <RotateCcw className="w-3.5 h-3.5 text-blue-400" />, label: t('devices.batch.restartAgent'), onClick: () => handleBatchAction('restart_agent') },
+ { key: 'reboot', cmd: 'reboot', icon: <RotateCcw className="w-3.5 h-3.5 text-orange-400" />, label: t('devices.batch.reboot'), onClick: () => handleBatchAction('reboot') },
+ { key: 'shutdown', cmd: 'shutdown', icon: <PowerOff className="w-3.5 h-3.5 text-red-400" />, label: t('devices.batch.shutdown'), onClick: () => handleBatchAction('shutdown') },
+ { key: 'scan_inventory', cmd: 'scan_inventory', icon: <Search className="w-3.5 h-3.5 text-text-muted" />, label: t('devices.batch.scanInventory'), onClick: () => handleBatchAction('scan_inventory') },
+ { key: 'update_agent', cmd: 'update_agent', icon: <Download className="w-3.5 h-3.5 text-blue-400" />, label: t('devices.action.updateAgent') || 'Update agent', onClick: () => handleBatchAction('update_agent') },
+ { key: 'run_script', cmd: 'run_script', icon: <Terminal className="w-3.5 h-3.5 text-accent" />, label: t('devices.batch.runScript') || 'Run script…', onClick: closeBatchMenuThen(() => setRunScriptOpen(true)) },
+ { key: 'change_group', icon: <FolderOpen className="w-3.5 h-3.5 text-accent" />, label: t('devices.batch.changeGroup', 'Change group'), onClick: closeBatchMenuThen(() => setChangeGroupOpen(true)) },
+ // Tenant transfer is structurally an admin action: it
+ // moves a device row's tenant_id, which only the
+ // master-tenant god view can resolve cross-tenant
+ // references for. Users never see the foreign tenant
+ // they'd transfer TO, so leave this admin-only.
+ { key: 'transfer', show: isAdmin(), icon: <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />, label: t('devices.batch.transferTenant', 'Transfer to another tenant'), onClick: closeBatchMenuThen(() => setTransferOpen(true)) },
+ { key: 'delete', show: isAdmin(), danger: true, icon: <Trash2 className="w-3.5 h-3.5" />, label: t('devices.batch.delete'), onClick: () => handleBatchAction('delete') },
+ { key: 'uninstall_agent', show: isAdmin(), danger: true, cmd: 'uninstall_agent', icon: <UserX className="w-3.5 h-3.5" />, label: t('devices.batch.uninstall'), onClick: () => handleBatchAction('uninstall_agent') },
+ ];
+ const batchContent = (
+ <>
+ {batchItems.filter((i) => i.show !== false).map((i) => {
+ const unsupported = i.cmd ? !everySupports(i.cmd) : false;
+ return (
+ <button
+ key={i.key}
+ onClick={i.onClick}
+ disabled={unsupported}
+ title={unsupported ? unsupportedTooltip(t) : undefined}
+ className={clsx(
+ 'w-full flex items-center gap-2 px-3 py-2 text-xs text-left coarse:py-3 coarse:text-sm',
+ i.danger ? 'text-red-400 hover:bg-red-400/10' : 'text-text-primary hover:bg-bg-tertiary',
+ i.cmd && 'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent',
+ )}
+ >
+ {i.icon}
+ <span className="min-w-0 flex-1">
+ {i.label}
+ {unsupported && (
+ <span className="block can-hover:hidden text-[11px] text-text-muted">{unsupportedTooltip(t)}</span>
+ )}
+ </span>
+ </button>
+ );
+ })}
+ </>
+ );
+
+ // Phone overflow menu (export / columns / refresh / clear).
+ const phoneMenuItems = [
+ { key: 'csv', icon: <Download className="w-4 h-4" />, label: t('devices.export.csv', 'Export CSV'), onClick: () => handleExport('csv'), disabled: isExporting },
+ { key: 'xlsx', icon: <Download className="w-4 h-4" />, label: t('devices.export.xlsx', 'Export Excel (xlsx)'), onClick: () => handleExport('xlsx'), disabled: isExporting },
+ { key: 'pdf', icon: <Download className="w-4 h-4" />, label: t('devices.export.pdf', 'Export PDF'), onClick: () => handleExport('pdf'), disabled: isExporting },
+ { key: 'columns', icon: <Columns3 className="w-4 h-4" />, label: t('devices.columns.button', 'Colonnes'), onClick: () => setColumnsMenuOpen(true), separator: true },
+ { key: 'refresh', icon: <RefreshCw className="w-4 h-4" />, label: t('common.refresh', 'Refresh'), onClick: () => load(true) },
+ { key: 'clear', icon: <X className="w-4 h-4" />, label: t('devices.filters.clearAll', 'Clear filters'), onClick: clearAllFilters, hidden: !hasFilters },
+ ];
+
+ // Name of the scope shown on the "Groups" drawer button.
+ const scopeLabel = (() => {
+ if (groupId === -1) return t('groupPanel.ungrouped', 'Ungrouped');
+ if (groupId == null) return t('groupPanel.allDevices');
+ const find = (nodes: DeviceGroupTreeNode[]): string | null => {
+ for (const n of nodes) {
+ if (n.id === groupId) return n.name;
+ const f = find(n.children);
+ if (f) return f;
+ }
+ return null;
+ };
+ return anonymize(find(tree)) || t('groupPanel.title');
+ })();
+ const groupsButton = onOpenGroups ? (
+ <button
+ type="button"
+ onClick={onOpenGroups}
+ className="flex min-w-0 items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-tertiary transition-colors coarse:min-h-10"
+ aria-label={`${t('groupPanel.title')}: ${scopeLabel}`}
+ >
+ <FolderTree className="w-3.5 h-3.5 shrink-0 text-accent" />
+ <span className="truncate">{scopeLabel}</span>
+ </button>
+ ) : null;
+
+ const selectToggle = (
+ <button
+ onClick={() => {
+ const next = !selectionMode;
+ setSelectionMode(next);
+ if (!next) { setSelectedIds(new Set()); setSelectAllGroup(false); }
+ }}
+ className={clsx(
+ 'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors coarse:min-h-10',
+ selectionMode
+ ? 'bg-accent text-white border-accent'
+ : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary hover:border-accent/40',
+ )}
+ title={selectionMode ? t('devices.selection.exit', 'Exit selection mode') : t('devices.selection.enter', 'Enter selection mode — click any row to select')}
+ aria-pressed={selectionMode}
+ >
+ {selectionMode ? <Check className="w-3.5 h-3.5" /> : <MousePointerClick className="w-3.5 h-3.5" />}
+ <span className={isPhone ? undefined : 'hidden sm:inline'}>{selectionMode ? t('devices.selection.active', 'Selecting') : t('devices.selection.select', 'Select')}</span>
+ </button>
+ );
+
+ const SORT_OPTIONS: Array<{ field: Exclude<SortField, ''>; label: string }> = [
+ { field: 'name', label: t('sort.name', 'Name') },
+ { field: 'status', label: t('sort.status', 'Status') },
+ { field: 'lastSeen', label: t('sort.lastSeen', 'Last seen') },
+ { field: 'os', label: t('sort.os', 'OS') },
+ { field: 'version', label: t('sort.version', 'Agent version') },
+ { field: 'group', label: t('sort.group', 'Group') },
+ { field: 'cpu', label: 'CPU' },
+ { field: 'ram', label: 'RAM' },
+ { field: 'disk', label: t('sort.disk', 'Disk') },
+ ];
+
+ return (
+ <div className={clsx('flex flex-col space-y-3', embedded ? 'lg:p-6' : 'p-3 sm:p-4 lg:p-6')}>
+ {/* Sticky toolbar — keeps approval chips + filters + search +
+ Select/Columns visible while the user scrolls through the
+ device list. The right pane in DevicesPageLayout is the
+ scroll container; sticky-top-0 pins this band there.
+ Background must be opaque (bg-bg-primary) or the list
+ beneath bleeds through the bar at scroll.
+ Phone: only the search + a compact action row stay sticky; the
+ chips move to the "Filters" sheet (the full band would cover
+ most of a portrait screen and all of a landscape one). */}
+ <div
+ className={clsx(
+ 'sticky top-0 z-20 pb-3 bg-bg-primary space-y-3',
+ embedded
+ ? 'lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6'
+ : '-mx-3 -mt-3 px-3 pt-3 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4 lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6',
+ )}
+ >
+ {!isPhone && approvalChips}
+
+ {/* Filter bar */}
+ <div className={clsx('space-y-2', !isPhone && 'mb-3')}>
+ {isPhone ? (
+ <>
+ <div className="relative">
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+ <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+ placeholder={t('devices.filters.search')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false} enterKeyHint="search"
+ className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ </div>
+ <div className="flex items-center gap-2">
+ {groupsButton
+ ? <div className="min-w-0 flex-1 [&>button]:w-full">{groupsButton}</div>
+ : <div className="flex-1" />}
+ <button
+ type="button"
+ onClick={() => setFiltersOpen(true)}
+ className={clsx(
+ 'flex shrink-0 items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors coarse:min-h-10',
+ activeFilterCount > 0
+ ? 'bg-accent/10 border-accent text-accent'
+ : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary',
+ )}
+ >
+ <SlidersHorizontal className="w-3.5 h-3.5" />
+ {t('devices.filters.button', 'Filters')}
+ {activeFilterCount > 0 && <span className="font-semibold">({activeFilterCount})</span>}
+ </button>
+ <span className="shrink-0">{selectToggle}</span>
+ <ActionMenu
+ items={phoneMenuItems}
+ trigger={(p) => (
+ <button
+ {...p}
+ type="button"
+ aria-label={t('ui.moreActions', 'More actions')}
+ className="flex shrink-0 items-center justify-center rounded-lg bg-bg-secondary p-2 text-text-muted hover:text-text-primary coarse:min-h-10 coarse:min-w-10"
+ >
+ {isExporting || isLoading
+ ? <Loader2 className="w-4 h-4 animate-spin" />
+ : <MoreHorizontal className="w-4 h-4" />}
+ </button>
+ )}
+ />
  </div>
  </>
+ ) : (
+ /* Search + sort + pagesize + refresh */
+ <div className="flex items-center gap-2">
+ {groupsButton && <div className="shrink-0 max-w-[40%]">{groupsButton}</div>}
+ <div className="relative flex-1">
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+ <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+ placeholder={t('devices.filters.search')}
+ title={t('devices.filters.searchHint', 'Searches hostname, display name, IP, MAC, last user, OS, agent version, location, tags, notes, UUID')}
+ autoCapitalize="off" autoCorrect="off" spellCheck={false}
+ className="w-full pl-9 pr-3 py-2 text-sm bg-bg-secondary rounded-lg text-text-primary focus:outline-none focus:border-accent" />
+ </div>
+ {hasFilters && (
+ <button onClick={clearAllFilters}
+ aria-label={t('devices.filters.clearAll', 'Clear filters')}
+ className="p-2 text-text-muted hover:text-text-primary coarse:min-h-10 coarse:min-w-10"><X className="w-3.5 h-3.5" /></button>
  )}
+ <div className="relative">
+ <button
+ ref={exportBtnRef}
+ onClick={() => setExportMenuOpen((v) => !v)}
+ disabled={isExporting}
+ className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-50 coarse:min-h-10 coarse:min-w-10"
+ title={t('devices.export.title', 'Export filtered devices')}
+ aria-label={t('devices.export.title', 'Export filtered devices')}
+ >
+ <Download className={clsx('w-4 h-4', isExporting && 'animate-pulse')} />
+ </button>
  </div>
+ {selectToggle}
+ {/* Lot D.1 — column toggle popover. Lets the user opt-in to extra
+ fields on each row (IP WAN, MAC, geo, lifecycle, warranty, …).
+ Choices are persisted in localStorage. */}
+ <div className="relative">
+ <button
+ ref={columnsBtnRef}
+ onClick={() => setColumnsMenuOpen(v => !v)}
+ className={clsx(
+ 'flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg border transition-colors coarse:min-h-10',
+ columnsMenuOpen
+ ? 'bg-accent text-white border-accent'
+ : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary hover:border-accent/40',
+ )}
+ title={t('devices.columns.title', 'Colonnes affichées')}
+ >
+ <SortAsc className="w-3.5 h-3.5" />
+ <span className="hidden sm:inline">{t('devices.columns.button', 'Colonnes')}</span>
+ </button>
+ </div>
+ <button onClick={() => load(true)}
+ aria-label={t('common.refresh', 'Refresh')}
+ className="p-2 text-text-muted hover:text-text-primary rounded-lg hover:bg-bg-secondary transition-colors coarse:min-h-10 coarse:min-w-10">
+ <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
+ </button>
+ </div>
+ )}
 
- <span className="ml-auto text-xs text-text-muted">{total} device{total !== 1 ? 's' : ''}</span>
- </div>
+ {!isPhone && tenantChips}
+
+ {/* Status + OS chips */}
+ {!isPhone && statusOsChips}
  </div>
 
  {/* Batch action bar */}
  {hasSelection && (
- <div className="flex items-center gap-3 p-2.5 mb-3 bg-accent/5 border border-accent/20 rounded-lg">
+ <div className="flex items-center gap-3 p-2.5 mb-3 bg-accent/5 border border-accent/20 rounded-lg max-md:flex-wrap max-md:gap-2">
  <StyledCheckbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
  <span className="text-sm font-medium text-text-primary">
  {selectAllGroup ? t('devices.batch.allGroupSelected', { count: total }) : t('devices.batch.selected', { count: selectedIds.size })}
  </span>
  {!selectAllGroup && groupId && total > devices.length && (
- <button onClick={handleSelectAllGroup} className="text-xs text-accent hover:underline">
+ <button onClick={handleSelectAllGroup} className="text-xs text-accent hover:underline coarse:min-h-10 max-md:order-last max-md:basis-full max-md:text-left">
  {t('devices.batch.selectAllGroup', { count: total })}
  </button>
  )}
  <div className="relative ml-auto">
- <button onClick={() => setBatchMenuOpen(!batchMenuOpen)} disabled={isBatchRunning}
- className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors">
+ <button ref={batchBtnRef} onClick={() => setBatchMenuOpen(!batchMenuOpen)} disabled={isBatchRunning}
+ aria-haspopup="menu" aria-expanded={batchMenuOpen}
+ className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-white rounded-lg hover:bg-accent/80 disabled:opacity-50 transition-colors coarse:min-h-10">
  {isBatchRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreHorizontal className="w-3.5 h-3.5" />}
  {t('devices.batch.actions')}
  </button>
- {batchMenuOpen && (
- <div className="absolute right-0 top-full mt-1 z-50 bg-bg-secondary rounded-lg shadow-lg overflow-hidden min-w-[180px]">
- {canManageApproval && approvalFilter === 'pending' && (
- <button onClick={() => handleBatchAction('approve')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left">
- <ShieldCheck className="w-3.5 h-3.5 text-green-400" /> {t('devices.batch.approve')}
- </button>
- )}
- <button onClick={() => handleBatchAction('restart_agent')} disabled={!everySupports('restart_agent')} title={everySupports('restart_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <RotateCcw className="w-3.5 h-3.5 text-blue-400" /> {t('devices.batch.restartAgent')}
- </button>
- <button onClick={() => handleBatchAction('reboot')} disabled={!everySupports('reboot')} title={everySupports('reboot') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <RotateCcw className="w-3.5 h-3.5 text-orange-400" /> {t('devices.batch.reboot')}
- </button>
- <button onClick={() => handleBatchAction('shutdown')} disabled={!everySupports('shutdown')} title={everySupports('shutdown') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <PowerOff className="w-3.5 h-3.5 text-red-400" /> {t('devices.batch.shutdown')}
- </button>
- <button onClick={() => handleBatchAction('scan_inventory')} disabled={!everySupports('scan_inventory')} title={everySupports('scan_inventory') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <Search className="w-3.5 h-3.5 text-text-muted" /> {t('devices.batch.scanInventory')}
- </button>
- <button onClick={() => handleBatchAction('update_agent')} disabled={!everySupports('update_agent')} title={everySupports('update_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <Download className="w-3.5 h-3.5 text-blue-400" /> {t('devices.action.updateAgent') || 'Update agent'}
- </button>
- <button
- onClick={() => { setBatchMenuOpen(false); setRunScriptOpen(true); }}
- disabled={!everySupports('run_script')}
- title={everySupports('run_script') ? undefined : unsupportedTooltip(t)}
- className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
- >
- <Terminal className="w-3.5 h-3.5 text-accent" />
- {t('devices.batch.runScript') || 'Run script…'}
- </button>
- <div className="" />
- <button
- onClick={() => { setBatchMenuOpen(false); setChangeGroupOpen(true); }}
- className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
- >
- <FolderOpen className="w-3.5 h-3.5 text-accent" />
- {t('devices.batch.changeGroup', 'Change group')}
- </button>
- {/* Tenant transfer is structurally an admin action: it
- moves a device row's tenant_id, which only the
- master-tenant god view can resolve cross-tenant
- references for. Users never see the foreign tenant
- they'd transfer TO, so leave this admin-only. */}
- {isAdmin() && (
- <button
- onClick={() => { setBatchMenuOpen(false); setTransferOpen(true); }}
- className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-primary hover:bg-bg-tertiary text-left"
- >
- <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
- {t('devices.batch.transferTenant', 'Transfer to another tenant')}
- </button>
- )}
- {isAdmin() && (<>
- <div className="" />
- <button onClick={() => handleBatchAction('delete')} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left">
- <Trash2 className="w-3.5 h-3.5" /> {t('devices.batch.delete')}
- </button>
- <button onClick={() => handleBatchAction('uninstall_agent')} disabled={!everySupports('uninstall_agent')} title={everySupports('uninstall_agent') ? undefined : unsupportedTooltip(t)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-400/10 text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
- <UserX className="w-3.5 h-3.5" /> {t('devices.batch.uninstall')}
- </button>
- </>)}
- </div>
- )}
  </div>
  <button onClick={() => { setSelectedIds(new Set()); setSelectAllGroup(false); }}
- className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1">
+ aria-label={t('devices.batch.clearSelection', 'Clear selection')}
+ className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1 coarse:min-h-10 coarse:min-w-10 coarse:justify-center">
  <X className="w-3.5 h-3.5" />
  </button>
  </div>
  )}
  </div>{/* /sticky toolbar */}
+
+ {/* Toolbar popovers — portal-rendered, clamped to the viewport,
+ bottom sheets on phone (docs/obli-mobile.md §5). */}
+ <ToolbarPopover open={exportMenuOpen && !isPhone} onClose={() => setExportMenuOpen(false)} anchorRef={exportBtnRef} align="end"
+ sheetLabel={t('devices.export.title', 'Export filtered devices')}
+ className="w-32 bg-bg-secondary rounded-lg shadow-xl overflow-hidden overflow-y-auto">
+ {exportContent}
+ </ToolbarPopover>
+ <ToolbarPopover open={columnsMenuOpen} onClose={() => setColumnsMenuOpen(false)} anchorRef={columnsBtnRef} align="end"
+ sheetLabel={t('devices.columns.title', 'Colonnes affichées')}
+ className="w-56 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
+ {columnsContent}
+ </ToolbarPopover>
+ <ToolbarPopover open={osNameMenuOpen} onClose={() => setOsNameMenuOpen(false)} anchorRef={osNameBtnRef} align="start" maxHeight={320}
+ sheetLabel={t('devices.filters.osNamesTitle', 'Versions')}
+ className="w-72 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
+ {osNameContent}
+ </ToolbarPopover>
+ <ToolbarPopover open={osVersionMenuOpen} onClose={() => setOsVersionMenuOpen(false)} anchorRef={osVersionBtnRef} align="start" maxHeight={320}
+ sheetLabel={t('devices.filters.buildsTitle', 'Builds')}
+ className="w-64 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
+ {osVersionContent}
+ </ToolbarPopover>
+ <ToolbarPopover open={tagsMenuOpen} onClose={() => setTagsMenuOpen(false)} anchorRef={tagsBtnRef} align="start" maxHeight={320}
+ sheetLabel={t('devices.filters.tagsTitle', 'Tags appliqués')}
+ className="w-64 flex flex-col bg-bg-secondary rounded-lg shadow-xl overflow-hidden">
+ {tagsContent}
+ </ToolbarPopover>
+ <ToolbarPopover open={batchMenuOpen && hasSelection} onClose={() => setBatchMenuOpen(false)} anchorRef={batchBtnRef} align="end"
+ sheetLabel={t('devices.batch.actions')}
+ className="bg-bg-secondary rounded-lg shadow-lg overflow-hidden overflow-y-auto min-w-[180px]">
+ {batchContent}
+ </ToolbarPopover>
+
+ {/* Phone: filter chips in a bottom sheet. */}
+ {isPhone && (
+ <Drawer
+ open={filtersOpen}
+ onClose={() => setFiltersOpen(false)}
+ side="bottom"
+ size="lg"
+ title={t('devices.filters.button', 'Filters')}
+ headerExtra={hasFilters || activeFilterCount > 0 ? (
+ <button
+ type="button"
+ onClick={() => {
+ clearAllFilters();
+ setTagFilters(new Set());
+ setTenantFilters(new Set());
+ if (canManageApproval) setApprovalFilter('');
+ }}
+ className="text-xs text-accent hover:underline min-h-10 px-2"
+ >
+ {t('devices.filters.clearAll', 'Clear filters')}
+ </button>
+ ) : undefined}
+ bodyClassName="px-4 pb-4 pt-1 space-y-3"
+ footer={
+ <button
+ type="button"
+ onClick={() => setFiltersOpen(false)}
+ className="w-full min-h-11 rounded-lg bg-accent text-sm font-medium text-white"
+ >
+ {t('devices.filters.showResults', 'Show {{n}} devices', { n: total })}
+ </button>
+ }
+ >
+ {approvalChips}
+ {tenantChips}
+ {statusOsChips}
+ </Drawer>
+ )}
 
  {/* Device list */}
  {isLoading ? (
@@ -1118,10 +1343,11 @@ export function DeviceTable({
  </div>
  ) : (
  <div className="bg-bg-secondary rounded-xl overflow-hidden">
- {/* Column header row with click-to-sort. The layout isn't a true
+ {isDesktop ? (
+ /* Column header row with click-to-sort. The layout isn't a true
  HTML table — DeviceRow is a "rich row" with 2 lines per device —
  but this header approximates the column positions so the user
- can click the label closest to the data they want to sort by. */}
+ can click the label closest to the data they want to sort by. */
  <div className="flex items-center gap-3 px-4 py-2 bg-bg-tertiary/50 text-[10px] uppercase tracking-wider font-medium text-text-muted">
  {(isAdmin() || selectionMode) && (
  <StyledCheckbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
@@ -1144,6 +1370,45 @@ export function DeviceTable({
  </span>
  )}
  </div>
+ ) : (
+ /* Phone / tablet: the 10px header labels are no touch target
+ (and CPU / RAM / Disk were unreachable in admin mode) — a
+ native select lists every sort field + a direction toggle. */
+ <div className="flex items-center gap-2 px-3 py-2 bg-bg-tertiary/50 text-xs text-text-muted">
+ {(isAdmin() || selectionMode) && (
+ <StyledCheckbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} className="mr-1" />
+ )}
+ <label className="flex min-w-0 flex-1 items-center gap-2">
+ <span className="shrink-0 text-[10px] uppercase tracking-wider font-medium">{t('devices.sort.label', 'Sort')}</span>
+ <select
+ value={sortBy}
+ onChange={(e) => {
+ const f = e.target.value as SortField;
+ if (!f) { setSortBy(''); setSortOrder('asc'); return; }
+ setSortBy(f);
+ setSortOrder(defaultSortOrder(f));
+ }}
+ className="min-w-0 flex-1 rounded-md bg-bg-secondary px-2 py-1.5 text-sm text-text-primary focus:outline-none coarse:min-h-10"
+ >
+ <option value="">{t('devices.sort.default', 'Default (by group)')}</option>
+ {SORT_OPTIONS.map((o) => <option key={o.field} value={o.field}>{o.label}</option>)}
+ </select>
+ </label>
+ <IconButton
+ label={sortOrder === 'asc' ? t('devices.sort.ascending', 'Ascending') : t('devices.sort.descending', 'Descending')}
+ icon={sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+ disabled={sortBy === ''}
+ active={sortBy !== ''}
+ variant="ghost"
+ onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+ />
+ {selectionMode && (
+ <span className="shrink-0 text-[10px] uppercase tracking-wider text-accent">
+ {t('devices.selection.modeLabel', 'Selection mode')}
+ </span>
+ )}
+ </div>
+ )}
  <div>
  <DeviceListBody
  devices={(isMaster && tenantFilters.size > 0)
@@ -1166,6 +1431,7 @@ export function DeviceTable({
  isMaster={isMaster}
  collapsedTenantIds={collapsedTenantIds}
  onToggleTenant={toggleTenantCollapsed}
+ indentStep={isPhone ? 8 : 16}
  />
  </div>
  </div>
@@ -1177,10 +1443,10 @@ export function DeviceTable({
  "Load more" button as a fallback for browsers that don't fire
  the observer (or zero-height containers). */}
  {total > 0 && (
- <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
+ <div className="flex items-center justify-between mt-3 text-xs text-text-muted max-md:flex-wrap max-md:gap-2">
  <span>
  {treeViewActive
- ? `${total} device${total !== 1 ? 's' : ''}`
+ ? t('devices.list.count', '{{n}} devices', { n: total })
  : `${devices.length} / ${total}`}
  </span>
  {treeViewActive && total > TREE_MAX && (
@@ -1193,7 +1459,7 @@ export function DeviceTable({
  <button
  onClick={() => load(false)}
  disabled={appending}
- className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-50 transition-colors"
+ className="px-2 py-1 rounded hover:bg-bg-secondary disabled:opacity-50 transition-colors coarse:min-h-10 coarse:px-3"
  >
  {appending
  ? (t('common.loading') || 'Loading…')
@@ -1266,8 +1532,8 @@ export function DeviceTable({
  try {
  const ids = Array.from(selectedIds);
  const r = await deviceApi.bulkTransfer(ids, targetTenantId, targetApiKeyId);
- if (r.transferred > 0) toast.success(`Transferred ${r.transferred} device(s)`);
- if (r.failed > 0) toast.error(`${r.failed} transfer(s) failed — see audit log`);
+ if (r.transferred > 0) toast.success(t('devices.transfer.bulkDone', 'Transferred {{n}} device(s)', { n: r.transferred }));
+ if (r.failed > 0) toast.error(t('devices.transfer.bulkFailed', '{{n}} transfer(s) failed — see audit log', { n: r.failed }));
  setSelectedIds(new Set());
  setSelectAllGroup(false);
  await load(true);
@@ -1285,6 +1551,79 @@ export function DeviceTable({
  );
 }
 
+// Metric / recency sorts default to desc (highest / most recent first) —
+// that's the useful direction. Alpha fields default asc.
+function defaultSortOrder(field: SortField): 'asc' | 'desc' {
+ return ['cpu', 'ram', 'disk', 'lastSeen', 'status'].includes(field) ? 'desc' : 'asc';
+}
+
+// ── Toolbar popover ─────────────────────────────────────────────────────────
+//
+// Desktop / tablet: the historic dropdown look, but rendered in a portal with
+// position: fixed and clamped to the viewport (flips above the anchor when
+// there is no room below, never overflows the right edge on a narrow screen),
+// with a transparent click-catcher so an outside click only closes it — as
+// before. Escape / Android back close it too. Phone: a bottom sheet.
+
+function ToolbarPopover({
+ open, onClose, anchorRef, align = 'start', maxHeight, className, sheetLabel, children,
+}: {
+ open: boolean;
+ onClose: () => void;
+ anchorRef: RefObject<HTMLElement>;
+ align?: 'start' | 'end';
+ /** Cap in px (e.g. the historic max-h-[320px]); the viewport may cap it lower. */
+ maxHeight?: number;
+ /** Classes of the floating panel (not used for the phone sheet). */
+ className?: string;
+ sheetLabel?: string;
+ children: ReactNode;
+}) {
+ const layout = useLayoutMode();
+ const asSheet = layout === 'phone';
+ const popRef = useRef<HTMLDivElement>(null);
+ const floating = open && !asSheet;
+ const pos = useAnchoredPosition(anchorRef, popRef, floating, { placement: 'bottom', align, offset: 4 });
+ useNativeBack(() => onClose(), floating, { escape: true });
+
+ if (!open) return null;
+ if (asSheet) {
+ return (
+ <Drawer
+ open
+ onClose={onClose}
+ side="bottom"
+ size="md"
+ ariaLabel={sheetLabel}
+ overlayClassName="z-[260]"
+ bodyClassName="px-0 pt-0 pb-3"
+ >
+ {children}
+ </Drawer>
+ );
+ }
+ const cap = pos ? (maxHeight ? Math.min(maxHeight, pos.maxHeight) : pos.maxHeight) : maxHeight;
+ return createPortal(
+ <>
+ <div className="fixed inset-0 z-[259]" onClick={onClose} aria-hidden />
+ <div
+ ref={popRef}
+ style={{
+ position: 'fixed',
+ top: pos?.top ?? 0,
+ left: pos?.left ?? 0,
+ maxHeight: cap,
+ visibility: pos ? 'visible' : 'hidden',
+ }}
+ className={cn('z-[260] max-w-[calc(100vw-1rem)]', className)}
+ >
+ {children}
+ </div>
+ </>,
+ document.body,
+ );
+}
+
 // ── Change-group modal ─────────────────────────────────────────────────────
 function ChangeGroupModal({
  count, onCancel, onConfirm,
@@ -1296,42 +1635,35 @@ function ChangeGroupModal({
  const { t } = useTranslation();
  const [groupId, setGroupId] = useState<number | null>(null);
  return (
- <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
- <div
- className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-md mx-4"
- onClick={(e) => e.stopPropagation()}
- >
- <div className="px-4 py-3 flex items-center gap-2">
- <FolderOpen className="w-4 h-4 text-accent" />
- <span className="text-sm font-semibold text-text-primary">
- {t('devices.batch.changeGroupTitle', { count, defaultValue: `Change group for ${count} device${count > 1 ? 's' : ''}` })}
- </span>
- <button onClick={onCancel} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
- </button>
- </div>
- <div className="px-4 py-4 space-y-3">
- <p className="text-xs text-text-muted">
- {t('devices.batch.changeGroupHint', 'Pick a target group, or leave blank to move to "Ungrouped".')}
- </p>
- <GroupTreePicker value={groupId} onChange={(id) => setGroupId(id)} />
- </div>
- <div className="px-4 py-3 flex justify-end gap-2">
+ <Modal
+ open
+ onClose={onCancel}
+ size="sm"
+ icon={<FolderOpen className="w-4 h-4 text-accent" />}
+ title={t('devices.batch.changeGroupTitle', { count, defaultValue: `Change group for ${count} device${count > 1 ? 's' : ''}` })}
+ bodyClassName="px-4 py-4 space-y-3"
+ footer={
+ <>
  <button
  onClick={onCancel}
- className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary"
+ className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary coarse:min-h-10"
  >
  {t('common.cancel', 'Cancel')}
  </button>
  <button
  onClick={() => onConfirm(groupId)}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90"
+ className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 coarse:min-h-10"
  >
  {t('devices.batch.moveHere', 'Move')}
  </button>
- </div>
- </div>
- </div>
+ </>
+ }
+ >
+ <p className="text-xs text-text-muted">
+ {t('devices.batch.changeGroupHint', 'Pick a target group, or leave blank to move to "Ungrouped".')}
+ </p>
+ <GroupTreePicker value={groupId} onChange={(id) => setGroupId(id)} />
+ </Modal>
  );
 }
 
@@ -1343,6 +1675,7 @@ function BulkTransferTenantModal({
  onCancel: () => void;
  onConfirm: (targetTenantId: number, targetApiKeyId: number) => void;
 }) {
+ const { t } = useTranslation();
  const [candidates, setCandidates] = useState<Array<{ tenantId: number; tenantName: string; tenantSlug: string; apiKeys: Array<{ id: number; label: string; defaultGroupId: number | null }> }>>([]);
  const [loading, setLoading] = useState(true);
  const [tenantId, setTenantId] = useState<number | null>(null);
@@ -1357,34 +1690,46 @@ function BulkTransferTenantModal({
  if (rows[0].apiKeys.length > 0) setKeyId(rows[0].apiKeys[0].id);
  }
  })
- .catch(() => toast.error('Failed to load target tenants'))
+ .catch(() => toast.error(t('devices.transfer.loadFailed', 'Failed to load target tenants')))
  .finally(() => setLoading(false));
- }, []);
+ }, [t]);
 
  const selectedTenant = candidates.find((c) => c.tenantId === tenantId);
 
  return (
- <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
- <div className="px-4 py-3 flex items-center gap-2">
- <ArrowRightLeft className="w-4 h-4 text-accent" />
- <span className="text-sm font-semibold text-text-primary">Transfer {count} device{count > 1 ? 's' : ''} to another tenant</span>
- <button onClick={onCancel} className="ml-auto p-1 text-text-muted hover:text-text-primary rounded">
- <X className="w-4 h-4" />
+ <Modal
+ open
+ onClose={onCancel}
+ size="md"
+ icon={<ArrowRightLeft className="w-4 h-4 text-accent" />}
+ title={t('devices.transfer.bulkTitle', 'Transfer {{n}} device(s) to another tenant', { n: count })}
+ bodyClassName="px-4 py-4 space-y-4"
+ footer={
+ <>
+ <button onClick={onCancel} className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary coarse:min-h-10">
+ {t('common.cancel', 'Cancel')}
  </button>
- </div>
- <div className="px-4 py-4 space-y-4">
+ <button
+ disabled={!tenantId || !keyId}
+ onClick={() => { if (tenantId && keyId) onConfirm(tenantId, keyId); }}
+ className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50 coarse:min-h-10"
+ >
+ {t('devices.transfer.submit', 'Transfer')}
+ </button>
+ </>
+ }
+ >
  <div className="flex items-start gap-2 p-2.5 rounded bg-orange-400/5 border border-orange-400/20 text-[11px] text-orange-400/90">
- Group assignment, custom metrics and compliance results in the current tenant will be cleared for every selected device. Each agent is reconfigured with the target tenant's API key on its next check-in.
+ {t('devices.transfer.bulkWarning', "Group assignment, custom metrics and compliance results in the current tenant will be cleared for every selected device. Each agent is reconfigured with the target tenant's API key on its next check-in.")}
  </div>
  {loading ? (
  <div className="py-8 flex justify-center text-text-muted"><Loader2 className="w-5 h-5 animate-spin" /></div>
  ) : candidates.length === 0 ? (
- <p className="text-sm text-text-muted italic">You are not admin in any other tenant.</p>
+ <p className="text-sm text-text-muted italic">{t('devices.transfer.noCandidatesShort', 'You are not admin in any other tenant.')}</p>
  ) : (
  <>
  <div>
- <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">Target tenant</label>
+ <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">{t('devices.transfer.targetTenant', 'Target tenant')}</label>
  <select
  value={tenantId ?? ''}
  onChange={(e) => {
@@ -1395,43 +1740,31 @@ function BulkTransferTenantModal({
  }}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
  >
- <option value="">— Select —</option>
+ <option value="">{t('devices.transfer.selectShort', '— Select —')}</option>
  {candidates.map((c) => (
  <option key={c.tenantId} value={c.tenantId}>
- {c.tenantName} ({c.tenantSlug}){c.apiKeys.length === 0 ? ' — no API keys' : ''}
+ {c.tenantName} ({c.tenantSlug}){c.apiKeys.length === 0 ? ` — ${t('devices.transfer.noApiKeys', 'no API keys')}` : ''}
  </option>
  ))}
  </select>
  </div>
  {selectedTenant && selectedTenant.apiKeys.length > 0 && (
  <div>
- <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">Target API key</label>
+ <label className="block text-[10px] uppercase font-semibold text-text-muted mb-1.5">{t('devices.transfer.targetKey', 'Target API key')}</label>
  <select
  value={keyId ?? ''}
  onChange={(e) => setKeyId(e.target.value ? parseInt(e.target.value) : null)}
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
  >
  {selectedTenant.apiKeys.map((k) => (
- <option key={k.id} value={k.id}>{k.label || `Key #${k.id}`}</option>
+ <option key={k.id} value={k.id}>{k.label || t('devices.transfer.keyFallback', 'Key #{{id}}', { id: k.id })}</option>
  ))}
  </select>
  </div>
  )}
  </>
  )}
- </div>
- <div className="px-4 py-3 flex justify-end gap-2">
- <button onClick={onCancel} className="px-3 py-1.5 text-xs rounded text-text-muted hover:text-text-primary">Cancel</button>
- <button
- disabled={!tenantId || !keyId}
- onClick={() => { if (tenantId && keyId) onConfirm(tenantId, keyId); }}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50"
- >
- Transfer
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
 
@@ -1463,6 +1796,9 @@ type GroupRenderContext = {
  /** Lot D.1 — which optional line-2 fields the user has enabled. Threaded
  * through to every DeviceRow render. */
  visibleFields: Set<string>;
+ /** Indentation per tree level in px (16 on tablet / desktop, 8 on phone
+ * where every pixel of row width counts). */
+ indentStep: number;
 };
 
 function hasDevicesRecursive(
@@ -1495,14 +1831,15 @@ function renderTreeNode(
  // Nested groups shift right by 16 px per level so the hierarchy reads
  // at a glance. Cap at depth 6 to avoid tiny device rows on pathological
  // trees.
- const indent = Math.min(depth, 6) * 16;
+ const indent = Math.min(depth, 6) * ctx.indentStep;
 
  const out: JSX.Element[] = [
  <button
  key={`g-${node.id}`}
  onClick={() => ctx.onToggleGroup(node.id)}
- className="w-full flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 hover:bg-bg-tertiary transition-colors text-left"
- style={{ paddingLeft: `${16 + indent}px` }}
+ aria-expanded={!isCollapsed}
+ className="w-full flex items-center gap-2 px-4 py-1.5 bg-bg-tertiary/70 hover:bg-bg-tertiary transition-colors text-left coarse:min-h-10"
+ style={{ paddingLeft: `${(ctx.indentStep === 16 ? 16 : 12) + indent}px` }}
  >
  {isCollapsed
  ? <ChevronRight className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
@@ -1541,7 +1878,7 @@ function DeviceListBody({
  devices, tree, groupId, searchActive,
  collapsedGroupIds, onToggleGroup,
  mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
- visibleFields, isMaster, collapsedTenantIds, onToggleTenant,
+ visibleFields, isMaster, collapsedTenantIds, onToggleTenant, indentStep = 16,
 }: {
  devices: Device[];
  tree: DeviceGroupTreeNode[];
@@ -1562,6 +1899,7 @@ function DeviceListBody({
  isMaster: boolean;
  collapsedTenantIds: Set<number>;
  onToggleTenant: (tenantId: number) => void;
+ indentStep?: number;
 }) {
  const { t } = useTranslation();
  // Hooks MUST run unconditionally (Rules of Hooks), so build the maps and
@@ -1613,7 +1951,7 @@ function DeviceListBody({
  const ctx: GroupRenderContext = {
  devicesByGroupId, collapsedGroupIds, onToggleGroup,
  mode, selectedIds, toggleSelect, onNavigate, onGroupChange, selectionMode,
- visibleFields,
+ visibleFields, indentStep,
  };
 
  // Fallback when the tree is empty or hasn't loaded yet — behave like the
@@ -1670,16 +2008,17 @@ function DeviceListBody({
  <button
  type="button"
  onClick={() => onToggleTenant(b.id)}
- className="w-full flex items-center gap-2 px-3 py-2 bg-accent/5 border-y border-accent/20 text-left hover:bg-accent/10 transition-colors"
+ aria-expanded={!collapsed}
+ className="w-full flex items-center gap-2 px-3 py-2 bg-accent/5 border-y border-accent/20 text-left hover:bg-accent/10 transition-colors coarse:min-h-10"
  >
  {collapsed
  ? <ChevronRight className="w-3.5 h-3.5 text-accent" />
  : <ChevronDown className="w-3.5 h-3.5 text-accent" />}
  <Building2 className="w-3.5 h-3.5 text-accent flex-shrink-0" />
  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent flex-1">
- {b.id === MASTER_TENANT_ID ? `${b.name} (master)` : b.name}
+ {b.id === MASTER_TENANT_ID ? `${b.name} ${t('devices.filters.masterSuffix', '(master)')}` : b.name}
  </span>
- <span className="text-[10px] text-text-muted">{total} device{total !== 1 ? 's' : ''}</span>
+ <span className="text-[10px] text-text-muted">{t('devices.list.count', '{{n}} devices', { n: total })}</span>
  </button>
  {!collapsed && (
  <>
@@ -1814,33 +2153,60 @@ function RunScriptModal({
  const selected = scriptId != null ? scripts.find((s) => s.id === scriptId) ?? null : null;
  const hasRequiredParam = !!selected?.parameters?.some((p) => (p as any).required);
 
+ // Shared Modal (docs/obli-mobile.md §5.5): full-screen on phone, backdrop
+ // tap / Escape / Android back close it, z-[200] like the sibling modals.
+ // The body is a column: hint + search stay put, only the list scrolls.
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
- <div className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
- <div className="px-5 py-4 ">
- <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
- <Terminal className="w-4 h-4 text-accent" />
- {t('devices.batch.runScriptTitle', { count, defaultValue: `Run script on ${count} device${count > 1 ? 's' : ''}` })}
- </h3>
- <p className="text-xs text-text-muted mt-1">
+ <Modal
+ open
+ onClose={onCancel}
+ size="md"
+ icon={<Terminal className="w-4 h-4 text-accent" />}
+ title={t('devices.batch.runScriptTitle', { count, defaultValue: `Run script on ${count} device${count > 1 ? 's' : ''}` })}
+ className="sm:max-h-[80vh] sm:max-h-[80dvh]"
+ bodyClassName="flex flex-col p-0 overflow-hidden"
+ footer={
+ <>
+ <button
+ onClick={onCancel}
+ className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary coarse:min-h-10"
+ >
+ {t('common.cancel') || 'Cancel'}
+ </button>
+ <button
+ onClick={() => scriptId != null && onConfirm(scriptId)}
+ disabled={scriptId == null || hasRequiredParam}
+ className="px-3 py-1.5 text-xs bg-accent text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/80 transition-colors coarse:min-h-10"
+ >
+ {t('devices.batch.runScriptConfirm') || 'Run'}
+ </button>
+ </>
+ }
+ footerClassName="px-5"
+ >
+ <div className="shrink-0 px-5">
+ <p className="text-xs text-text-muted">
  {t('devices.batch.runScriptHint') || 'Pick a script from the library. Each device runs the script independently — failures on one don\'t block the others.'}
  </p>
  </div>
 
- <div className="px-5 pt-3">
+ <div className="shrink-0 px-5 pt-3">
  <div className="relative">
  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
  <input
- type="text"
+ type="search"
  value={search}
  onChange={(e) => setSearch(e.target.value)}
  placeholder={t('devices.batch.runScriptSearch') || 'Search by name, tag, description…'}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  className="w-full pl-7 pr-2 py-1.5 text-sm bg-bg-primary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
  </div>
 
- <div className="flex-1 overflow-y-auto px-5 py-3">
+ <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3">
  {isLoading ? (
  <div className="flex items-center justify-center py-8 text-text-muted">
  <Loader2 className="w-4 h-4 animate-spin" />
@@ -1859,7 +2225,7 @@ function RunScriptModal({
  type="button"
  onClick={() => setScriptId(s.id)}
  className={clsx(
- 'w-full text-left px-3 py-2 rounded border transition-colors',
+ 'w-full text-left px-3 py-2 rounded border transition-colors coarse:py-3',
  isSel
  ? 'border-accent bg-accent/10'
  : 'border-transparent hover:border-accent/40 hover:bg-bg-tertiary',
@@ -1881,36 +2247,20 @@ function RunScriptModal({
  </div>
 
  {hasRequiredParam && (
- <div className="px-5 py-2 bg-amber-400/10 border-t border-amber-400/30">
+ <div className="shrink-0 px-5 py-2 bg-amber-400/10 border-t border-amber-400/30">
  <p className="text-[11px] text-amber-300">
  {t('devices.batch.runScriptParamWarn') || 'This script declares required parameters. Use the dedicated run page to fill them in.'}
  <button
  type="button"
  onClick={() => navigate(`/scripts/run?scriptId=${scriptId}`)}
- className="ml-2 underline hover:no-underline"
+ className="ml-2 underline hover:no-underline coarse:min-h-10"
  >
  {t('devices.batch.runScriptOpenRunPage') || 'Open run page →'}
  </button>
  </p>
  </div>
  )}
-
- <div className="flex items-center justify-end gap-2 px-5 py-3 ">
- <button
- onClick={onCancel}
- className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary"
- >
- {t('common.cancel') || 'Cancel'}
- </button>
- <button
- onClick={() => scriptId != null && onConfirm(scriptId)}
- disabled={scriptId == null || hasRequiredParam}
- className="px-3 py-1.5 text-xs bg-accent text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/80 transition-colors"
- >
- {t('devices.batch.runScriptConfirm') || 'Run'}
- </button>
- </div>
- </div>
- </div>
+ </Modal>
  );
 }
+

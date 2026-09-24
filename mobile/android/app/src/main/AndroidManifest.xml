@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Background alerts, bridge notify(), download/update notifications.
+         Requested at runtime only when the user turns alerts on or the page
+         asks through requestNotificationPermission(). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- In-app updates from the configured server (never silent: Android shows
+         its installer, which re-checks the signature). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Public Downloads folder before scoped storage (API 26-28) only. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <!-- Sibling Obli shells (OPEN_URL) and Custom Tabs providers must be
+         visible to this app on Android 11+. -->
+    <queries>
+        <intent>
+            <action android:name="tools.obli.action.OPEN_URL" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".ObliShellApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ObliShell"
+        android:usesCleartextTraffic="false"
+        tools:targetApi="33">
+
+        <!-- configChanges: rotation, keyboard, split-screen resizes and theme
+             switches must NEVER recreate the activity (it would reload the
+             WebView and lose the page). -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|colorMode|touchscreen"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- obli-<app>://setup?server=https://... pre-fills the setup screen
+                 (the user still confirms). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="setup"
+                    android:scheme="${obliScheme}" />
+            </intent-filter>
+
+            <!-- Another Obli shell hands over a link of THIS app's server. Only
+                 same-origin page paths are honoured (see IncomingLinks). -->
+            <intent-filter>
+                <action android:name="tools.obli.action.OPEN_URL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|colorMode|touchscreen"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- content:// URIs for the verified update APK (installer) and, below
+             API 29, for files saved to the public Downloads folder. The
+             authority follows the applicationId, so debug and release differ. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- DOWNLOAD_COMPLETE is sent by the download provider (another uid):
+             the receiver must be exported. It only acts on the download id this
+             app enqueued, re-reads its status from DownloadManager and verifies
+             SHA-256 + signing certificate before offering anything. -->
+        <receiver
+            android:name=".update.UpdateDownloadReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

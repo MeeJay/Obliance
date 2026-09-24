@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, BellOff } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -67,8 +67,18 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
  summary: t('notifications.modeSummaryHint') || 'Sends one aggregate recap after every device has finished.',
  };
 
+ // This widget is sometimes rendered inside a <label> (graph editor node
+ // form). A tap on plain text there is forwarded by the browser to the
+ // label's first labelable descendant — our first Bind button — and flips a
+ // binding by accident. Cancelling the default action of clicks that did
+ // not land on a control stops that forwarding; our own buttons still work.
+ const blockLabelForwarding = (e: MouseEvent<HTMLDivElement>) => {
+ const target = e.target as HTMLElement | null;
+ if (!target?.closest('button, a, input, select, textarea')) e.preventDefault();
+ };
+
  return (
- <div className="space-y-2">
+ <div className="space-y-2" onClick={blockLabelForwarding}>
  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-text-muted uppercase tracking-widest">
  <Bell className="w-3 h-3" />
  {t('notifications.channelsHeader') || 'Notification channels'}
@@ -109,7 +119,7 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
  type="button"
  onClick={() => toggleBind(ch.id)}
  className={clsx(
- 'shrink-0 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
+ 'shrink-0 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors coarse:min-h-9 coarse:px-3.5',
  bound
  ? 'border-orange-400/50 text-orange-400 hover:bg-orange-400/10'
  : 'border-accent/40 text-accent hover:bg-accent/10',
@@ -124,7 +134,8 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
  {/* Row 2: mode pills — only when bound, lives under the
  channel name so it never overflows the sidebar. */}
  {bound && (
- <div className="flex flex-wrap items-center gap-1 pl-6">
+ <>
+ <div className="flex flex-wrap items-center gap-1 pl-6 coarse:gap-1.5">
  {(['per_device', 'summary'] as const).map((m) => (
  <button
  key={m}
@@ -132,7 +143,7 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
  onClick={() => setMode(ch.id, m)}
  title={modeHints[m]}
  className={clsx(
- 'px-2.5 py-0.5 text-[11px] font-medium rounded-full border transition-colors',
+ 'px-2.5 py-0.5 text-[11px] font-medium rounded-full border transition-colors coarse:min-h-9 coarse:px-3.5',
  cur === m
  ? 'bg-accent text-white border-accent'
  : 'border-bg-tertiary text-text-muted hover:text-text-primary hover:border-accent/40',
@@ -142,6 +153,12 @@ export function NotificationChannelBindings({ value, onChange }: Props) {
  </button>
  ))}
  </div>
+ {/* The mode hints live in title= for mouse users; touch
+ devices get the active mode's hint as a caption. */}
+ <p className="can-hover:hidden pl-6 text-[11px] leading-snug text-text-muted">
+ {modeHints[cur]}
+ </p>
+ </>
  )}
  </div>
  );

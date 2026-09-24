@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Actions génériques -->
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="action_retry">Réessayer</string>
+    <string name="action_back">Retour</string>
+    <string name="unknown">inconnue</string>
+    <string name="error_generic">Une erreur est survenue.</string>
+
+    <!-- Configuration -->
+    <string name="setup_subtitle">Connexion à votre serveur</string>
+    <string name="setup_title">Adresse du serveur</string>
+    <string name="setup_url_label">URL du serveur</string>
+    <string name="setup_https_title">HTTPS uniquement</string>
+    <string name="setup_https_body">Le cookie de session des serveurs Obli est marqué « Secure » : en HTTP simple, vous ne pourriez jamais vous connecter, et vos identifiants circuleraient en clair. Saisissez l\'adresse HTTPS publique enregistrée auprès de votre SSO.</string>
+    <string name="setup_connect">Se connecter</string>
+    <string name="setup_checking">Vérification…</string>
+    <string name="setup_error_empty">Saisissez l\'adresse de votre serveur.</string>
+    <string name="setup_error_https">Seules les adresses https:// sont acceptées.</string>
+    <string name="setup_error_malformed">Cette adresse n\'est pas valide.</string>
+    <string name="setup_error_credentials">L\'adresse ne doit contenir ni nom d\'utilisateur ni mot de passe.</string>
+    <string name="setup_error_unreachable">Le serveur est injoignable. Vérifiez l\'adresse et votre connexion.</string>
+    <string name="setup_error_timeout">Le serveur n\'a pas répondu à temps.</string>
+    <string name="setup_error_tls">Le certificat du serveur n\'est pas reconnu (erreur TLS).</string>
+    <string name="setup_error_http">Le serveur a répondu HTTP %1$d. S\'agit-il bien d\'un serveur Obli ?</string>
+    <string name="setup_error_not_obli">Le serveur a répondu, mais pas comme un serveur Obli (JSON attendu sur /api/auth/sso-config).</string>
+    <string name="server_replace_title">Remplacer le serveur ?</string>
+    <string name="server_replace_body">Vous allez quitter %1$s pour %2$s. Vous serez déconnecté et les données web locales (cookies, stockage) seront effacées.</string>
+    <string name="server_replace_confirm">Remplacer</string>
+
+    <!-- Erreurs de chargement -->
+    <string name="error_subtitle">Problème de connexion</string>
+    <string name="error_title">La page n\'a pas pu être chargée</string>
+    <string name="error_body">%1$s est injoignable. Vérifiez votre connexion, puis réessayez.</string>
+    <string name="error_ssl_title">Échec de la connexion sécurisée</string>
+    <string name="error_ssl_body">Le certificat présenté par %1$s n\'est pas reconnu. La connexion a été interrompue pour protéger vos données.</string>
+    <string name="error_sso_title">Le serveur d\'authentification est injoignable</string>
+    <string name="error_sso_body">Le serveur d\'authentification unique n\'est peut-être accessible que depuis votre réseau interne. Vous pouvez utiliser le formulaire de connexion locale de votre serveur à la place.</string>
+    <string name="error_sso_local_login">Utiliser la connexion locale</string>
+    <string name="error_no_browser">Aucun navigateur n\'est disponible pour ouvrir ce lien.</string>
+    <string name="error_no_app_for_link">Aucune application ne peut ouvrir ce lien.</string>
+    <string name="error_no_file_picker">Aucun sélecteur de fichiers n\'est disponible.</string>
+
+    <!-- WebView -->
+    <string name="webview_subtitle">Composant système obsolète</string>
+    <string name="webview_title">Mettez à jour Android System WebView</string>
+    <string name="webview_body_old">Cette application affiche votre serveur au moyen d\'Android System WebView, et la version installée (%1$s) est trop ancienne. Certaines pages risquent de ne pas fonctionner tant qu\'elle n\'est pas mise à jour.</string>
+    <string name="webview_body_features">La version installée d\'Android System WebView (%1$s) ne dispose pas de fonctions dont l\'application a besoin (enregistrement de fichiers, liens natifs). Mettez-la à jour pour profiter pleinement de l\'application.</string>
+    <string name="webview_update">Mettre à jour</string>
+    <string name="webview_continue">Continuer quand même</string>
+
+    <!-- Boîtes de dialogue JavaScript -->
+    <string name="js_dialog_title">Message de %1$s</string>
+    <string name="js_leave_title">Quitter cette page ?</string>
+    <string name="js_leave">Quitter</string>
+    <string name="js_stay">Rester</string>
+
+    <!-- Verrouillage -->
+    <string name="lock_title">%1$s est verrouillé</string>
+    <string name="lock_unlock">Déverrouiller</string>
+    <string name="lock_prompt_title">Déverrouiller</string>
+    <string name="lock_prompt_subtitle">Confirmez votre identité pour ouvrir %1$s</string>
+    <string name="lock_disabled_no_credential">Le verrouillage de l\'application a été désactivé : cet appareil n\'a plus de verrouillage d\'écran ni de biométrie.</string>
+
+    <!-- Téléchargements -->
+    <string name="download_started">Téléchargement lancé</string>
+    <string name="download_failed">Le téléchargement n\'a pas pu démarrer.</string>
+    <string name="download_permission_denied">Autorisation de stockage refusée : le fichier n\'a pas été enregistré.</string>
+    <string name="download_complete">Téléchargement terminé</string>
+    <string name="open_with">Ouvrir avec</string>
+
+    <!-- Mises à jour -->
+    <string name="update_available_title">Mise à jour disponible</string>
+    <string name="update_available_body">La version %1$s est disponible.</string>
+    <string name="update_required">Cette version n\'est plus prise en charge par votre serveur.</string>
+    <string name="update_release_notes">Nouveautés</string>
+    <string name="update_download">Télécharger</string>
+    <string name="update_later">Plus tard</string>
+    <string name="update_downloading">Téléchargement de la mise à jour…</string>
+    <string name="update_failed_start">Le téléchargement de la mise à jour n\'a pas pu démarrer.</string>
+    <string name="update_ready_title">Mise à jour prête</string>
+    <string name="update_ready_text">La version %1$s a été vérifiée. Touchez pour l\'installer.</string>
+    <string name="update_failed_title">Mise à jour non installée</string>
+    <string name="update_failed_download">Le téléchargement a échoué.</string>
+    <string name="update_failed_integrity">Le fichier téléchargé n\'a pas passé le contrôle d\'intégrité (empreinte ou signature) et a été supprimé.</string>
+    <string name="update_allow_install_sources">Autorisez cette application à installer des mises à jour, puis revenez.</string>
+    <string name="update_install_failed">Le programme d\'installation n\'a pas pu être ouvert.</string>
+    <string name="update_up_to_date">Vous êtes à jour (%1$s).</string>
+    <string name="update_not_applicable">La version %1$s existe mais ne peut pas être installée sur cette version de l\'application.</string>
+    <string name="update_check_failed">La recherche de mise à jour a échoué.</string>
+
+    <!-- Notifications -->
+    <string name="channel_alerts">Alertes</string>
+    <string name="channel_alerts_desc">Notifications envoyées par l\'application web.</string>
+    <string name="channel_critical">Alertes critiques</string>
+    <string name="channel_critical_desc">Alertes critiques reçues en arrière-plan.</string>
+    <string name="channel_warning">Avertissements</string>
+    <string name="channel_warning_desc">Alertes d\'avertissement reçues en arrière-plan.</string>
+    <string name="channel_info">Informations</string>
+    <string name="channel_info_desc">Alertes d\'information reçues en arrière-plan.</string>
+    <string name="channel_downloads">Téléchargements</string>
+    <string name="channel_downloads_desc">Fichiers enregistrés dans le dossier Téléchargements.</string>
+    <string name="channel_updates">Mises à jour de l\'application</string>
+    <string name="channel_updates_desc">Nouvelles versions de l\'application.</string>
+    <string name="channel_session">Session</string>
+    <string name="channel_session_desc">Expiration de la session.</string>
+    <string name="alert_untitled">Nouvelle alerte</string>
+    <plurals name="alert_overflow">
+        <item quantity="one">%1$d autre nouvelle alerte</item>
+        <item quantity="many">%1$d autres nouvelles alertes</item>
+        <item quantity="other">%1$d autres nouvelles alertes</item>
+    </plurals>
+    <string name="signin_again_title">Reconnectez-vous</string>
+    <string name="signin_again_text">Votre session a expiré. Ouvrez l\'application pour vous reconnecter ; les alertes en arrière-plan sont suspendues d\'ici là.</string>
+
+    <!-- Réglages -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_section_server">Serveur</string>
+    <string name="settings_server">Serveur</string>
+    <string name="settings_server_none">Non configuré</string>
+    <string name="settings_server_configure">Configurer</string>
+    <string name="settings_server_change">Changer de serveur</string>
+    <string name="settings_change_server_title">Changer de serveur ?</string>
+    <string name="settings_change_server_body">Vous serez déconnecté et les données web locales (cookies, stockage) seront effacées. Vous saisirez ensuite la nouvelle adresse.</string>
+    <string name="settings_no_server">Configurez d\'abord un serveur.</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_alerts">Alertes en arrière-plan</string>
+    <string name="settings_alerts_summary">Recherche les nouvelles alertes environ toutes les 15 minutes lorsque l\'application est fermée.</string>
+    <string name="settings_alerts_enabled">Les alertes en arrière-plan sont activées. Seules les alertes qui arriveront désormais vous seront notifiées.</string>
+    <string name="settings_alerts_denied">Les notifications ne sont pas autorisées pour cette application.</string>
+    <string name="settings_alerts_blocked">Les notifications sont bloquées dans les réglages du système.</string>
+    <string name="settings_open_notification_settings">Ouvrir les réglages des notifications</string>
+    <string name="settings_section_security">Sécurité</string>
+    <string name="settings_lock">Verrouillage de l\'application</string>
+    <string name="settings_lock_summary">Demande la biométrie ou le code de l\'appareil au lancement et après 5 minutes en arrière-plan.</string>
+    <string name="settings_lock_unavailable">Configurez d\'abord un verrouillage d\'écran ou la biométrie sur cet appareil.</string>
+    <string name="settings_lock_confirm">Activer le verrouillage de l\'application</string>
+    <string name="settings_screenshots">Bloquer les captures d\'écran</string>
+    <string name="settings_screenshots_summary">Masque le contenu de l\'application aux captures, aux enregistrements d\'écran et à l\'écran des applications récentes.</string>
+    <string name="settings_section_maintenance">Maintenance</string>
+    <string name="settings_check_updates">Rechercher des mises à jour</string>
+    <string name="settings_check_updates_summary">Demande à votre serveur si une version plus récente de l\'application est disponible.</string>
+    <string name="settings_clear_cache">Vider le cache</string>
+    <string name="settings_clear_cache_summary">Supprime les fichiers web en cache. Vous restez connecté.</string>
+    <string name="settings_cache_cleared">Cache vidé.</string>
+    <string name="settings_section_about">À propos</string>
+    <string name="settings_about_app">Version de l\'application</string>
+    <string name="settings_about_webview">WebView</string>
+    <string name="settings_about_sso">Serveur d\'authentification (SSO)</string>
+
+    <!-- Raccourci du lanceur -->
+    <string name="shortcut_settings_short">Réglages</string>
+    <string name="shortcut_settings_long">Réglages de l\'application</string>
+</resources>

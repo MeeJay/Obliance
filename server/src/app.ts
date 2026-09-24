@@ -23,6 +23,14 @@ import { logger } from './utils/logger';
 
 const PgSession = connectPgSimple(session);
 
+// The SAME session middleware is shared with Socket.io (socket.ts): the
+// socket handshake is authenticated by the httpOnly session cookie, never by
+// identifiers the client puts in `handshake.auth`.
+let sessionMiddleware: express.RequestHandler | null = null;
+export function getSessionMiddleware(): express.RequestHandler | null {
+  return sessionMiddleware;
+}
+
 export function createApp() {
   const app = express();
 
@@ -92,8 +100,7 @@ export function createApp() {
     }
   }
 
-  app.use(
-    session({
+  sessionMiddleware = session({
       store: sessionStore,
       secret: config.sessionSecret,
       resave: false,
@@ -110,8 +117,8 @@ export function createApp() {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         sameSite: 'lax',
       },
-    }),
-  );
+    });
+  app.use(sessionMiddleware);
 
   // Rate limiting — runs after session so authenticated users can be skipped.
   // Only unauthenticated endpoints (login page, public health, etc.) are limited.

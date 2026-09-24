@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config';
 import { db } from './db';
 import { logger } from './utils/logger';
+import { getSessionMiddleware } from './app';
 import { SocketEvents } from '@obliance/shared';
 import { processService } from './services/process.service';
 import { fileExplorerService } from './services/fileExplorer.service';
@@ -11,6 +12,11 @@ import { oblireachHub } from './services/oblireachHub.service';
 import crypto from 'crypto';
 
 let io: SocketIOServer;
+
+// The only agent command types the FILE_EXPLORER_CMD socket channel may carry.
+const FILE_EXPLORER_COMMANDS = new Set([
+  'list_directory', 'create_directory', 'rename_file', 'delete_file', 'download_file', 'upload_file',
+]);
 
 export function createSocketServer(server: HttpServer): SocketIOServer {
   io = new SocketIOServer(server, {
@@ -28,11 +34,25 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
     maxHttpBufferSize: 150 * 1024 * 1024, // 150 MB for file explorer uploads (base64)
   });
 
-  // Authentication middleware — validate user + tenant membership
+  // Run the Express session middleware on the handshake request, so the
+  // httpOnly session cookie (sent by the browser on the WS upgrade / polling
+  // requests) populates socket.request.session.
+  const sessionMw = getSessionMiddleware();
+  if (sessionMw) io.engine.use(sessionMw as any);
+
+  // Authentication middleware — the identity comes from the SESSION only.
+  // SECURITY: never trust `handshake.auth.userId`: it is client-controlled.
+  // Until 2026-09 it was the only check, so anyone reaching /socket.io could
+  // claim any user id (e.g. the bootstrap admin) without credentials.
   io.use(async (socket, next) => {
     try {
-      const { userId, tenantId } = socket.handshake.auth;
+      const sess = (socket.request as any).session as { userId?: number; currentTenantId?: number } | undefined;
+      const userId = sess?.userId;
       if (!userId) return next(new Error('Unauthorized'));
+
+      // Tenant: the session's current tenant (what the REST API uses); the
+      // client-supplied one is only a fallback and is membership-checked below.
+      const tenantId = sess?.currentTenantId ?? socket.handshake.auth?.tenantId;
 
       const user = await db('users').where({ id: userId, is_active: true }).first();
       if (!user) return next(new Error('Unauthorized'));
@@ -108,6 +128,14 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
     // ── File explorer commands (with permission check) ──────────────────────
     socket.on('FILE_EXPLORER_CMD', async (payload: { requestId?: string; deviceId: number; commandType: string; payload: Record<string, any>; audit?: any }) => {
       if (!payload?.deviceId || !payload?.commandType || !tenantId) return;
+      // SECURITY: this channel pushes the command straight to the agent, so
+      // only the file-explorer command types may travel through it. Without
+      // this list any caller could push `run_script` (or anything else) here,
+      // bypassing the `execute` capability, restrictions and approvals.
+      if (!FILE_EXPLORER_COMMANDS.has(payload.commandType)) {
+        logger.warn({ userId: user.id, commandType: payload.commandType }, 'FILE_EXPLORER_CMD: rejected non file-explorer command type');
+        return;
+      }
       // Verify device belongs to tenant
       if (!await verifyDevice(payload.deviceId)) return;
       // Check file explorer permission for non-admins
@@ -115,7 +143,19 @@ export function createSocketServer(server: HttpServer): SocketIOServer {
         const allowed = await permissionService.canUseCapability(user.id, payload.deviceId, false, 'files');
         if (!allowed) return;
       }
-      const audit = payload.audit ? { ...payload.audit, userId: user.id } : undefined;
+      // Mutating operations are always audited server-side: the client-sent
+      // `audit` block is only a hint (it could be omitted by a crafted client).
+      const p = payload.payload || {};
+      const mutating = payload.commandType !== 'list_directory';
+      const audit = mutating
+        ? {
+            action: `file_explorer.${payload.commandType}`,
+            resourceType: typeof p.path === 'string' && p.path.endsWith('/') ? 'directory' : 'file',
+            resourcePath: String(p.path || p.oldPath || '').slice(0, 1024),
+            details: p.newPath ? { newPath: String(p.newPath).slice(0, 1024) } : undefined,
+            userId: user.id,
+          }
+        : undefined;
       await fileExplorerService.send(
         payload.deviceId, tenantId, socket.id,
         payload.commandType, payload.payload,

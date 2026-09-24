@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppCompat-based: androidx.biometric shows an AppCompat dialog below
+         API 28. Dark on purpose: the WebView reports prefers-color-scheme from
+         this theme, and the Obli web clients are dark by default. -->
+    <style name="Theme.ObliShell" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/obli_accent</item>
+        <item name="colorPrimaryDark">@color/obli_bg</item>
+        <item name="colorAccent">@color/obli_accent</item>
+        <item name="android:windowBackground">@color/obli_bg</item>
+    </style>
+</resources>

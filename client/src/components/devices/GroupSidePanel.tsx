@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useCallback, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, createContext, useContext, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight, FolderOpen, Search, PanelLeftClose, PanelLeftOpen, Monitor, FolderX,
-  Plus, Pencil, X, Check, GripVertical, Building2,
+  Plus, Pencil, X, Check, GripVertical, Building2, FolderInput, Settings2, FolderTree,
 } from 'lucide-react';
 import {
-  DndContext, PointerSensor, useSensor, useSensors, closestCenter,
+  DndContext, closestCenter,
   useDraggable, useDroppable,
   type DragEndEvent,
 } from '@dnd-kit/core';
@@ -19,12 +19,30 @@ import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { anonymize } from '@/utils/anonymize';
+import { useDndSensors } from '@/hooks/useDndSensors';
+import { useCanHover } from '@/hooks/useMediaQuery';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
 
 interface GroupSidePanelProps {
   groupId: number | null;
   onGroupChange: (id: number | null) => void;
   className?: string;
+  /**
+   * 'panel' (default): the resizable / collapsible inline column of /devices
+   * (desktop, ≥ lg). 'drawer': full-width content of the off-canvas groups
+   * drawer used below lg — no collapse, no resize, a close button instead
+   * (docs/obli-mobile.md §4 / §5.8).
+   */
+  variant?: 'panel' | 'drawer';
+  /** Drawer variant: closes the drawer (header × button). */
+  onClose?: () => void;
 }
+
+/** True while a group is being dragged — the drop-between zones grow on
+ *  touch screens so a finger can hit them. */
+const DraggingContext = createContext(false);
 
 interface FleetCounts {
   online: number;
@@ -140,7 +158,7 @@ function getNodeParentId(nodes: DeviceGroupTreeNode[], id: number, parent: numbe
 // ── Tree node — draggable + droppable together ──────────────────────────────
 
 function TreeNode({
-  node, depth, selectedGroupId, onSelect, onEdit,
+  node, depth, selectedGroupId, onSelect, onEdit, onMove,
   expandedIds, toggleExpand, canDnd,
 }: {
   node: DeviceGroupTreeNode;
@@ -148,10 +166,14 @@ function TreeNode({
   selectedGroupId: number | null;
   onSelect: (id: number) => void;
   onEdit: (id: number) => void;
+  /** Opens the "Move to…" picker — the tap alternative to drag-and-drop. */
+  onMove: (node: DeviceGroupTreeNode) => void;
   expandedIds: Set<number>;
   toggleExpand: (id: number) => void;
   canDnd: boolean;
 }) {
+  const { t } = useTranslation();
+  const canHover = useCanHover();
   const isSelected = node.id === selectedGroupId;
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedIds.has(node.id);
@@ -196,41 +218,52 @@ function TreeNode({
         ref={drop.setNodeRef}
         className={clsx(
           'group/row flex w-full items-center gap-1.5 rounded-md py-1 pr-1 text-left text-sm transition-colors',
-          'hover:bg-accent/5',
+          'hover:bg-accent/5 coarse:min-h-10',
           isSelected && 'bg-accent/10 font-medium',
           drag.isDragging && 'opacity-40',
           drop.isOver && !drag.isDragging && 'ring-1 ring-accent/70 bg-accent/10',
         )}
         style={{ paddingLeft: `${8 + depth * 16}px` }}
-        title={node.name}
+        title={canHover ? node.name : undefined}
       >
-        {/* Drag grip — explicit, visible on hover. dnd-kit listeners
-            attach HERE so click-to-select on the rest of the row is
-            never confused with a drag. cursor-grab/grabbing convey
-            the affordance even before hover. */}
+        {/* Drag grip — explicit, visible on hover (always visible on touch,
+            where it is dragged with a long-press — useDndSensors). dnd-kit
+            listeners attach HERE so click-to-select on the rest of the row
+            is never confused with a drag. cursor-grab/grabbing convey the
+            affordance even before hover. */}
         {canDnd ? (
           <span
             ref={drag.setNodeRef}
             {...drag.attributes}
             {...drag.listeners}
-            className="flex h-4 w-3 shrink-0 items-center justify-center text-text-muted/60 hover:text-text-primary cursor-grab active:cursor-grabbing opacity-0 group-hover/row:opacity-100 transition-opacity"
-            title="Drag to reorder or move to another group"
+            aria-label={t('groupPanel.dragHint', 'Drag to reorder or move to another group')}
+            className={clsx(
+              'flex h-4 w-3 shrink-0 items-center justify-center text-text-muted/60 hover:text-text-primary cursor-grab active:cursor-grabbing transition-opacity',
+              'can-hover:opacity-0 can-hover:group-hover/row:opacity-100',
+              'touch-none select-none [-webkit-touch-callout:none] coarse:h-8 coarse:w-5',
+            )}
+            title={canHover ? t('groupPanel.dragHint', 'Drag to reorder or move to another group') : undefined}
           >
             <GripVertical size={12} />
           </span>
         ) : (
-          <span className="w-3 shrink-0" />
+          <span className="w-3 shrink-0 coarse:w-5" />
         )}
 
-        {/* Expand / collapse chevron */}
+        {/* Expand / collapse chevron — 32px tap target on touch. */}
         <span
-          className={clsx('flex h-4 w-4 shrink-0 items-center justify-center', !hasChildren && 'invisible')}
+          className={clsx(
+            'flex h-4 w-4 shrink-0 items-center justify-center coarse:h-8 coarse:w-8 coarse:rounded',
+            !hasChildren && 'invisible',
+          )}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             if (hasChildren) toggleExpand(node.id);
           }}
           role="button"
+          aria-label={isExpanded ? t('groupPicker.collapse', 'Collapse') : t('groupPicker.expand', 'Expand')}
+          aria-expanded={hasChildren ? isExpanded : undefined}
           tabIndex={-1}
         >
           <ChevronRight
@@ -242,7 +275,7 @@ function TreeNode({
         <button
           type="button"
           onClick={() => onSelect(node.id)}
-          className="flex min-w-0 flex-1 items-center gap-1.5"
+          className="flex min-w-0 flex-1 items-center gap-1.5 coarse:self-stretch"
         >
           <FolderOpen
             size={15}
@@ -252,15 +285,42 @@ function TreeNode({
           <span className="ml-auto shrink-0 text-xs text-text-muted">{count}</span>
         </button>
 
-        {/* Pencil — visible on hover, opens the existing GroupEditPage. */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEdit(node.id); }}
-          className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-tertiary"
-          title="Group settings"
-        >
-          <Pencil size={12} />
-        </button>
+        {canHover ? (
+          /* Pencil — visible on hover, opens the existing GroupEditPage. */
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onEdit(node.id); }}
+            className="can-hover:opacity-0 can-hover:group-hover/row:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-tertiary"
+            title={t('groupPanel.settings', 'Group settings')}
+            aria-label={t('groupPanel.settings', 'Group settings')}
+          >
+            <Pencil size={12} />
+          </button>
+        ) : (
+          /* Touch: no hover to reveal the pencil — a "⋯" row menu holds the
+             settings link and "Move to…", the tap path for reparenting
+             (drag-and-drop is never the only way — docs §5.3). */
+          <ActionMenu
+            triggerSize="xs"
+            triggerClassName="shrink-0"
+            sheetTitle={anonymize(node.name)}
+            items={[
+              {
+                key: 'settings',
+                icon: <Settings2 className="w-4 h-4" />,
+                label: t('groupPanel.settings', 'Group settings'),
+                onClick: () => onEdit(node.id),
+              },
+              {
+                key: 'move',
+                icon: <FolderInput className="w-4 h-4" />,
+                label: t('groupPanel.moveTo', 'Move to…'),
+                onClick: () => onMove(node),
+                hidden: !canDnd,
+              },
+            ]}
+          />
+        )}
       </div>
 
       {hasChildren && isExpanded && (
@@ -273,6 +333,7 @@ function TreeNode({
               selectedGroupId={selectedGroupId}
               onSelect={onSelect}
               onEdit={onEdit}
+              onMove={onMove}
               expandedIds={expandedIds}
               toggleExpand={toggleExpand}
               canDnd={canDnd}
@@ -301,6 +362,7 @@ function TreeNode({
 // Set `insertBeforeId = null` to mean "insert at the END of this
 // parent's children" (used by the tail zone after the last child).
 function DropBetween({ parentId, insertBeforeId, depth }: { parentId: number | null; insertBeforeId: number | null; depth: number }) {
+  const dragging = useContext(DraggingContext);
   const drop = useDroppable({
     id: `group-between-${parentId ?? 'root'}-${insertBeforeId ?? 'tail'}`,
     data: { type: 'between', parentId, insertBeforeId },
@@ -311,6 +373,9 @@ function DropBetween({ parentId, insertBeforeId, depth }: { parentId: number | n
       className={clsx(
         'transition-all',
         drop.isOver ? 'h-1.5 my-0.5 bg-accent rounded-full mx-2' : 'h-0.5',
+        // Touch: a 2px strip is impossible to hit with a finger — the
+        // zones grow while a drag is in flight (mouse layout unchanged).
+        dragging && 'coarse:h-3',
       )}
       style={{ marginLeft: `${8 + depth * 16}px` }}
       aria-hidden
@@ -327,6 +392,7 @@ function CreateGroupInline({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [parentId, setParentId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -352,11 +418,11 @@ function CreateGroupInline({
     setSaving(true);
     try {
       await groupsApi.create({ name: trimmed, parentId });
-      toast.success('Group created');
+      toast.success(t('groups.created', 'Group created'));
       onCreated();
       onClose();
     } catch {
-      toast.error('Failed to create group');
+      toast.error(t('groups.failedCreate', 'Failed to create group'));
     } finally {
       setSaving(false);
     }
@@ -370,7 +436,7 @@ function CreateGroupInline({
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-        placeholder="New group name"
+        placeholder={t('groupPanel.newGroupName', 'New group name')}
         className="w-full rounded-md border border-border bg-bg-secondary py-1 px-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
       />
       <select
@@ -378,27 +444,33 @@ function CreateGroupInline({
         onChange={(e) => setParentId(e.target.value === '' ? null : parseInt(e.target.value, 10))}
         className="w-full rounded-md border border-border bg-bg-secondary py-1 px-2 text-xs text-text-primary focus:border-accent focus:outline-none"
       >
-        <option value="">(root — no parent)</option>
+        <option value="">{t('groupPanel.rootNoParent', '(root — no parent)')}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>{o.label}</option>
         ))}
       </select>
-      <div className="flex items-center justify-end gap-1">
+      {/* Touch: the icon-only Cancel / Create buttons get a visible label
+          and a 40px height (their meaning was only in title=). */}
+      <div className="flex items-center justify-end gap-1 coarse:gap-2">
         <button
           type="button"
           onClick={onClose}
-          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary"
-          title="Cancel (Esc)"
+          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary coarse:inline-flex coarse:items-center coarse:gap-1.5 coarse:min-h-10 coarse:px-3"
+          title={t('groupPanel.cancelEsc', 'Cancel (Esc)')}
+          aria-label={t('common.cancel', 'Cancel')}
         >
           <X size={14} />
+          <span className="hidden coarse:inline text-sm">{t('common.cancel', 'Cancel')}</span>
         </button>
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="p-1 rounded text-green-400 hover:bg-bg-secondary disabled:opacity-40"
-          title="Create"
+          className="p-1 rounded text-green-400 hover:bg-bg-secondary disabled:opacity-40 coarse:inline-flex coarse:items-center coarse:gap-1.5 coarse:min-h-10 coarse:px-3"
+          title={t('common.create', 'Create')}
+          aria-label={t('common.create', 'Create')}
         >
           <Check size={14} />
+          <span className="hidden coarse:inline text-sm">{t('common.create', 'Create')}</span>
         </button>
       </div>
     </form>
@@ -407,9 +479,14 @@ function CreateGroupInline({
 
 // ── Main panel ───────────────────────────────────────────────────────────────
 
-export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSidePanelProps) {
+export function GroupSidePanel({ groupId, onGroupChange, className, variant = 'panel', onClose }: GroupSidePanelProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isDrawer = variant === 'drawer';
+  // Group being reparented through the "Move to…" picker (tap path).
+  const [moveTarget, setMoveTarget] = useState<DeviceGroupTreeNode | null>(null);
+  // True while a group is dragged (drop zones grow on touch).
+  const [dragging, setDragging] = useState(false);
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [width, setWidth] = useState<number>(getInitialWidth);
   const [tree, setTree] = useState<DeviceGroupTreeNode[]>([]);
@@ -523,7 +600,8 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
   }, [filteredTree, isMaster, allTenants]);
 
   // ── Drag and drop — reparent only (reorder handled on GroupEditPage) ──
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Mouse (5px, as before) + touch (long-press) + keyboard — docs §5.3.
+  const sensors = useDndSensors();
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -560,10 +638,10 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
         // Reorder is per-tenant and only respects same-parent rows, so
         // we always send the full target sibling list.
         await groupsApi.reorder(ordered.map((id, idx) => ({ id, sortOrder: idx })));
-        toast.success('Group moved');
+        toast.success(t('groups.moved', 'Group moved'));
         fetchTree();
       } catch {
-        toast.error('Failed to move group');
+        toast.error(t('groups.failedMove', 'Failed to move group'));
       }
       return;
     }
@@ -584,10 +662,25 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
 
     try {
       await groupsApi.move(draggedId, targetParentId);
-      toast.success('Group moved');
+      toast.success(t('groups.moved', 'Group moved'));
       fetchTree();
     } catch {
-      toast.error('Failed to move group');
+      toast.error(t('groups.failedMove', 'Failed to move group'));
+    }
+  };
+
+  // Tap alternative to drag-and-drop ("Move to…" in the touch row menu).
+  const moveGroupTo = async (draggedId: number, newParent: number | null) => {
+    const currentParent = getNodeParentId(tree, draggedId) ?? null;
+    if (currentParent === newParent) { setMoveTarget(null); return; }
+    if (newParent !== null && (newParent === draggedId || isDescendantOf(tree, draggedId, newParent))) return;
+    try {
+      await groupsApi.move(draggedId, newParent);
+      toast.success(t('groups.moved', 'Group moved'));
+      setMoveTarget(null);
+      fetchTree();
+    } catch {
+      toast.error(t('groups.failedMove', 'Failed to move group'));
     }
   };
 
@@ -599,8 +692,10 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
 
   // ── Resize handle ───────────────────────────────────────────────────
   const resizing = useRef(false);
+  // Pointer events (not mouse events) so the handle also works with a pen
+  // or a finger on a touch laptop / large tablet (≥ lg).
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       if (!resizing.current) return;
       const next = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, e.clientX));
       setWidth(next);
@@ -612,11 +707,13 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
         document.body.style.userSelect = '';
       }
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
   }, []);
   const startResize = () => {
@@ -625,8 +722,8 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     document.body.style.userSelect = 'none';
   };
 
-  // ── Collapsed bar ───────────────────────────────────────────────────
-  if (collapsed) {
+  // ── Collapsed bar (inline panel only — the drawer is never collapsed) ─
+  if (collapsed && !isDrawer) {
     return (
       <div
         className={clsx(
@@ -637,8 +734,9 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary"
+          className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary coarse:min-h-10 coarse:min-w-10"
           title={t('groupPanel.expand')}
+          aria-label={t('groupPanel.expand')}
         >
           <PanelLeftOpen size={18} />
         </button>
@@ -646,17 +744,41 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
     );
   }
 
+  const renderTreeNode = (node: DeviceGroupTreeNode, depth: number) => (
+    <TreeNode
+      key={node.id}
+      node={node}
+      depth={depth}
+      selectedGroupId={groupId}
+      onSelect={(id) => onGroupChange(id)}
+      onEdit={(id) => navigate(`/group/${id}/edit`)}
+      onMove={setMoveTarget}
+      expandedIds={expandedIds}
+      toggleExpand={toggleExpand}
+      canDnd={!search}
+    />
+  );
+
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={() => setDragging(true)}
+      onDragCancel={() => setDragging(false)}
+      onDragEnd={(e) => { setDragging(false); void handleDragEnd(e); }}
+    >
+      <DraggingContext.Provider value={dragging}>
       <div
-        style={{ width: `${width}px` }}
+        style={isDrawer ? undefined : { width: `${width}px` }}
         className={clsx(
           // h-full so the panel always spans the parent's full height
           // (the page layout). Without it, the flex column would shrink
           // to its content's height while the tree is still loading,
           // and "snap" to full height after the API call resolved —
           // visually the sidebar would briefly look like a short box.
-          'relative flex h-full shrink-0 flex-col border-r border-border bg-bg-secondary',
+          isDrawer
+            ? 'relative flex h-full w-full flex-col bg-bg-secondary'
+            : 'relative flex h-full shrink-0 flex-col border-r border-border bg-bg-secondary',
           className,
         )}
       >
@@ -667,19 +789,31 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
             <button
               type="button"
               onClick={() => setCreating((v) => !v)}
-              className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-accent"
-              title="New group"
+              className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-accent coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
+              title={t('groups.new', 'New group')}
+              aria-label={t('groups.new', 'New group')}
             >
               <Plus size={16} />
             </button>
-            <button
-              type="button"
-              onClick={() => setCollapsed(true)}
-              className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary"
-              title={t('groupPanel.collapse')}
-            >
-              <PanelLeftClose size={16} />
-            </button>
+            {isDrawer ? (
+              <IconButton
+                label={t('common.close', 'Close')}
+                icon={<X size={16} />}
+                size="sm"
+                variant="plain"
+                onClick={onClose}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-text-primary coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center"
+                title={t('groupPanel.collapse')}
+                aria-label={t('groupPanel.collapse')}
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -695,25 +829,25 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
         {/* Fleet summary bar */}
         <div className="flex items-center gap-3 border-b border-border px-3 py-2">
           {fleet.online > 0 && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1 text-xs text-text-muted" aria-label={`${t('deviceStatus.online')}: ${fleet.online}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
               {fleet.online}
             </span>
           )}
           {fleet.offline > 0 && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1 text-xs text-text-muted" aria-label={`${t('deviceStatus.offline')}: ${fleet.offline}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
               {fleet.offline}
             </span>
           )}
           {fleet.warning > 0 && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1 text-xs text-text-muted" aria-label={`${t('deviceStatus.warning')}: ${fleet.warning}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />
               {fleet.warning}
             </span>
           )}
           {fleet.critical > 0 && (
-            <span className="flex items-center gap-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1 text-xs text-text-muted" aria-label={`${t('deviceStatus.critical')}: ${fleet.critical}`}>
               <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
               {fleet.critical}
             </span>
@@ -729,13 +863,16 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('groupPanel.filterPlaceholder')}
-              className="w-full rounded-md border border-border bg-bg-secondary py-1 pl-7 pr-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full rounded-md border border-border bg-bg-secondary py-1 pl-7 pr-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none coarse:py-2"
             />
           </div>
         </div>
 
         {/* Tree */}
-        <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
           {/* All Devices — doubles as a drop target for "promote to root". */}
           <div
             ref={rootDrop.setNodeRef}
@@ -748,7 +885,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
               onClick={() => onGroupChange(null)}
               className={clsx(
                 'flex w-full items-center gap-1.5 rounded-md py-1 pl-2 pr-2 text-left text-sm transition-colors',
-                'hover:bg-accent/5',
+                'hover:bg-accent/5 coarse:min-h-10',
                 groupId === null && 'bg-accent/10 font-medium',
               )}
             >
@@ -764,7 +901,7 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
             onClick={() => onGroupChange(-1)}
             className={clsx(
               'flex w-full items-center gap-1.5 rounded-md py-1 pl-2 pr-2 text-left text-sm transition-colors',
-              'hover:bg-accent/5',
+              'hover:bg-accent/5 coarse:min-h-10',
               groupId === -1 && 'bg-accent/10 font-medium',
             )}
             title={t('groupPanel.ungroupedHint', 'Devices that don\'t belong to any group yet')}
@@ -787,8 +924,9 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
                   <button
                     type="button"
                     onClick={() => toggleTenantCollapsed(tid)}
-                    className="group/tenant flex w-full items-center gap-1.5 rounded-md py-1 pl-1 pr-2 text-left text-xs uppercase tracking-wide font-semibold transition-colors hover:bg-accent/5"
+                    className="group/tenant flex w-full items-center gap-1.5 rounded-md py-1 pl-1 pr-2 text-left text-xs uppercase tracking-wide font-semibold transition-colors hover:bg-accent/5 coarse:min-h-10"
                     title={tenantName}
+                    aria-expanded={!tenantCollapsed}
                   >
                     <ChevronRight
                       size={14}
@@ -807,49 +945,104 @@ export function GroupSidePanel({ groupId, onGroupChange, className }: GroupSideP
                         {t('groupPanel.tenantEmpty', 'No groups yet')}
                       </div>
                     ) : (
-                      nodes.map((node) => (
-                        <TreeNode
-                          key={node.id}
-                          node={node}
-                          depth={1}
-                          selectedGroupId={groupId}
-                          onSelect={(id) => onGroupChange(id)}
-                          onEdit={(id) => navigate(`/group/${id}/edit`)}
-                          expandedIds={expandedIds}
-                          toggleExpand={toggleExpand}
-                          canDnd={!search}
-                        />
-                      ))
+                      nodes.map((node) => renderTreeNode(node, 1))
                     )
                   )}
                 </div>
               );
             })
           ) : (
-            filteredTree.map((node) => (
-              <TreeNode
-                key={node.id}
-                node={node}
-                depth={0}
-                selectedGroupId={groupId}
-                onSelect={(id) => onGroupChange(id)}
-                onEdit={(id) => navigate(`/group/${id}/edit`)}
-                expandedIds={expandedIds}
-                toggleExpand={toggleExpand}
-                canDnd={!search}
-              />
-            ))
+            filteredTree.map((node) => renderTreeNode(node, 0))
           )}
         </div>
 
         {/* Resize handle — thin grab zone on the right edge, cursor changes
-            on hover so it's discoverable without being visually noisy. */}
-        <div
-          onMouseDown={startResize}
-          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-accent/40"
-          title="Drag to resize"
-        />
+            on hover so it's discoverable without being visually noisy.
+            Pointer events + touch-none so a pen / finger can drag it too
+            (wider invisible grab zone on touch). Not in the drawer. */}
+        {!isDrawer && (
+          <div
+            onPointerDown={(e) => { e.preventDefault(); startResize(); }}
+            className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-accent/40 touch-none coarse:w-3 coarse:-right-1"
+            title={t('groupPanel.dragToResize', 'Drag to resize')}
+            aria-hidden
+          />
+        )}
       </div>
+      </DraggingContext.Provider>
+
+      <MoveGroupModal
+        group={moveTarget}
+        tree={tree}
+        onClose={() => setMoveTarget(null)}
+        onPick={(parentId) => { if (moveTarget) void moveGroupTo(moveTarget.id, parentId); }}
+      />
     </DndContext>
   );
 }
+
+// ── "Move to…" picker (tap alternative to drag-and-drop) ──────────────────────
+//
+// Lists every valid new parent for `group`: the root level plus every group
+// of the same tenant except the group itself and its own descendants.
+
+function MoveGroupModal({
+  group, tree, onClose, onPick,
+}: {
+  group: DeviceGroupTreeNode | null;
+  tree: DeviceGroupTreeNode[];
+  onClose: () => void;
+  onPick: (parentId: number | null) => void;
+}) {
+  const { t } = useTranslation();
+  const options = useMemo(() => {
+    if (!group) return [];
+    const out: { id: number; name: string; depth: number }[] = [];
+    const walk = (nodes: DeviceGroupTreeNode[], depth: number) => {
+      for (const n of nodes) {
+        if (n.id === group.id) continue; // skip itself + its whole subtree
+        if (n.tenantId !== group.tenantId) continue; // never across tenants
+        out.push({ id: n.id, name: n.name, depth });
+        walk(n.children, depth + 1);
+      }
+    };
+    walk(tree, 0);
+    return out;
+  }, [group, tree]);
+  const currentParent = group?.parentId ?? null;
+
+  const rowCls = (active: boolean) => clsx(
+    'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors min-h-10',
+    active ? 'bg-accent/10 text-accent font-medium' : 'text-text-primary hover:bg-bg-tertiary',
+  );
+
+  return (
+    <Modal
+      open={group != null}
+      onClose={onClose}
+      size="sm"
+      phoneLayout="sheet"
+      icon={<FolderInput className="w-4 h-4 text-accent" />}
+      title={group ? t('groupPanel.moveTitle', 'Move "{{name}}" to…', { name: anonymize(group.name) }) : ''}
+      bodyClassName="px-2 py-2"
+    >
+      <button type="button" className={rowCls(currentParent === null)} onClick={() => onPick(null)}>
+        <FolderTree size={15} className="shrink-0 text-text-muted" />
+        <span className="truncate">{t('groupPanel.rootLevel', 'Root level (no parent)')}</span>
+      </button>
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          className={rowCls(currentParent === o.id)}
+          style={{ paddingLeft: `${8 + o.depth * 14}px` }}
+          onClick={() => onPick(o.id)}
+        >
+          <FolderOpen size={15} className="shrink-0 text-text-muted" />
+          <span className="truncate">{anonymize(o.name)}</span>
+        </button>
+      ))}
+    </Modal>
+  );
+}
+

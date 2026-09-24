@@ -294,3 +294,81 @@
     @apply bg-border-light;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Mobile / touch foundation — docs/obli-mobile.md §4-§5, §8
+   Everything below is either a CSS variable, an opt-in utility class, or is
+   scoped to touch / small-screen media queries: desktop rendering is unchanged.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Safe-area insets (notch, gesture bar). Non-zero only when the viewport meta
+   has viewport-fit=cover (index.html) on a device that has insets.
+   Use them as `pt-[var(--safe-top)]` or through the .p*-safe utilities. */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+}
+
+@layer base {
+  html {
+    /* No grey flash on tap (mobile browsers / WebView only). */
+    -webkit-tap-highlight-color: transparent;
+    /* Stop mobile browsers from inflating font sizes in landscape. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  html,
+  body {
+    /* No pull-to-refresh / scroll chaining out of the app shell. */
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Phones with a touch screen: 16px form fields (prevents focus-zoom on
+   WebKit and keeps text readable). !important is required because the
+   text-xs / text-sm utilities on the fields would otherwise win.
+   Opt out with the `keep-font-size` class (e.g. dense code editors). */
+@media (pointer: coarse) and (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not(.xterm-helper-textarea):not(.keep-font-size),
+  select:not(.keep-font-size),
+  textarea:not(.xterm-helper-textarea):not(.keep-font-size) {
+    font-size: 16px !important;
+  }
+}
+
+@layer utilities {
+  /* Safe-area padding helpers (work with variants: `sm:pb-safe`, ...). */
+  .pt-safe { padding-top: var(--safe-top); }
+  .pr-safe { padding-right: var(--safe-right); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pl-safe { padding-left: var(--safe-left); }
+  .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .py-safe { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+  /* Scrollable strip without a visible scrollbar (SegmentedTabs, chip rows). */
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  /* Surfaces that take raw pointer input (remote screen canvas, drawing,
+     graph panes): no browser pan/zoom, no text selection, no long-press
+     callout. */
+  .touch-none-canvas {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* TableScroll `stickyFirstCol` — the first cell of every row stays visible
+   while the table scrolls horizontally. Background is overridable per table
+   with the --table-sticky-bg custom property (defaults to the card colour). */
+.table-sticky-first tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--table-sticky-bg, rgb(var(--c-bg-secondary)));
+}

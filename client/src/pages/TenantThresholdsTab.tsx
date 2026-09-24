@@ -84,8 +84,9 @@ export function TenantThresholdsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-bg-secondary p-5">
-        <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="rounded-xl bg-bg-secondary p-4 sm:p-5">
+        {/* Phones: Cancel / Save move under the description instead of squeezing it. */}
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div>
             <h3 className="text-base font-semibold text-text-primary">
               {t('thresholds.tenantTitle', 'Seuils par défaut du tenant')}
@@ -94,7 +95,7 @@ export function TenantThresholdsTab() {
               {t('thresholds.tenantHelp', "Chaque groupe et chaque appareil de ce tenant héritent de ces valeurs si rien n'est défini à leur propre niveau. Laissez un champ vide pour hériter de la couche globale (placeholder en gris).")}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 max-sm:justify-end">
             <Button variant="ghost" size="sm" onClick={reset} disabled={!dirty || saving}>
               <RotateCcw size={14} className="mr-1" />
               {t('common.cancel', 'Annuler')}

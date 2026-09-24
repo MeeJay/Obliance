@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useIsCoarsePointer, useLayoutMode } from '@/hooks/useMediaQuery';
 
 interface UiState {
   sidebarOpen: boolean;
@@ -8,6 +9,9 @@ interface UiState {
    *  hiding entirely. Persisted so the choice survives reloads + cross-app
    *  navigation (every Obli* uses the same key per the design spec). */
   sidebarCollapsed: boolean;
+  /** Off-canvas navigation drawer used below 1024 px (docs/obli-mobile.md §4).
+   *  Forced by the layout mode, so it is NEVER persisted. */
+  mobileNavOpen: boolean;
   addAgentModalOpen: boolean;
 
   toggleSidebar: () => void;
@@ -15,6 +19,8 @@ interface UiState {
   setSidebarWidth: (width: number) => void;
   toggleSidebarFloating: () => void;
   toggleSidebarCollapsed: () => void;
+  setMobileNavOpen: (open: boolean) => void;
+  toggleMobileNav: () => void;
   openAddAgentModal: () => void;
   closeAddAgentModal: () => void;
 }
@@ -58,10 +64,13 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarWidth: loadSavedWidth(),
   sidebarFloating: loadSavedFloating(),
   sidebarCollapsed: loadSavedCollapsed(),
+  mobileNavOpen: false,
   addAgentModalOpen: false,
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
+  toggleMobileNav: () => set((s) => ({ mobileNavOpen: !s.mobileNavOpen })),
   openAddAgentModal: () => set({ addAgentModalOpen: true }),
   closeAddAgentModal: () => set({ addAgentModalOpen: false }),
   // Floating and collapsed are mutually exclusive — leaving both on makes
@@ -94,3 +103,59 @@ export const useUiStore = create<UiState>((set) => ({
     set({ sidebarWidth: clamped });
   },
 }));
+
+// ── Effective sidebar presentation (docs/obli-mobile.md §4) ─────────────────
+
+export type SidebarPresentation = 'drawer' | 'pinned' | 'collapsed' | 'floating';
+
+export interface EffectiveSidebar {
+  presentation: SidebarPresentation;
+  /** Below 1024 px: the sidebar lives in an off-canvas Drawer (hamburger). */
+  isDrawer: boolean;
+  /** Auto-hide (hover strip) mode actually in use. */
+  floating: boolean;
+  /** 64 px icon rail actually in use. */
+  collapsed: boolean;
+  /** Mouse resize handles are offered. */
+  resizable: boolean;
+  /** The Float / Pin toggle is offered (it needs a hovering pointer). */
+  canFloat: boolean;
+}
+
+/**
+ * The sidebar mode the shell must render, derived from the persisted desktop
+ * preferences AND the current device. Forced states (drawer below lg, no
+ * floating / resizing on a touch screen) are computed here and never written
+ * back to localStorage — the stored preferences are shared across Obli apps
+ * and must survive a visit from a phone or a tablet untouched.
+ */
+export function useEffectiveSidebar(): EffectiveSidebar {
+  const mode = useLayoutMode();
+  const coarse = useIsCoarsePointer();
+  const floatingPref = useUiStore((s) => s.sidebarFloating);
+  const collapsedPref = useUiStore((s) => s.sidebarCollapsed);
+
+  if (mode !== 'desktop') {
+    return {
+      presentation: 'drawer',
+      isDrawer: true,
+      floating: false,
+      collapsed: false,
+      resizable: false,
+      canFloat: false,
+    };
+  }
+
+  // Floating opens on mouse-enter of an 8 px edge strip: unusable (and in the
+  // Android back-gesture zone) on a touch screen → fall back to pinned.
+  const floating = floatingPref && !coarse;
+  const collapsed = collapsedPref && !floating;
+  return {
+    presentation: floating ? 'floating' : collapsed ? 'collapsed' : 'pinned',
+    isDrawer: false,
+    floating,
+    collapsed,
+    resizable: !coarse && !collapsed,
+    canFloat: !coarse,
+  };
+}

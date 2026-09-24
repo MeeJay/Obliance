@@ -9,6 +9,14 @@ import { TenantBadge } from '@/components/common/TenantBadge';
 import { TenantFilterChips } from '@/components/common/TenantFilterChips';
 import { useTenantFilter } from '@/hooks/useTenantFilter';
 import { useIsMasterTenant } from '@/hooks/useIsMasterTenant';
+import { MEDIA, useIsCoarsePointer, useMediaQuery } from '@/hooks/useMediaQuery';
+import { useClickOutside } from '@/hooks/useClickOutside';
+import { PageContainer } from '@/components/common/PageContainer';
+import { TableScroll } from '@/components/common/TableScroll';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { saveText } from '@/utils/download';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 
 // Tenant-wide audit log — "who did what when, and from which IP".
@@ -75,9 +83,11 @@ function Row({ row, isMaster }: { row: AuditLogRow; isMaster: boolean }) {
  <span className="text-text-muted">—</span>
  )}
  </td>
- <td className="px-2 py-1.5 text-[11px] truncate max-w-[260px]" title={row.resourceType ? `${row.resourceType}:${row.resourcePath}` : ''}>
+ {/* Below lg (touch, scrolling table) the resource wraps instead of
+     truncating — the full path used to live only in title=. */}
+ <td className="px-2 py-1.5 text-[11px] max-w-[260px] lg:truncate max-lg:min-w-[180px] max-lg:break-all" title={row.resourceType ? `${row.resourceType}:${row.resourcePath}` : ''}>
  {row.resourceType ? (
- <span className="inline-flex items-baseline gap-1">
+ <span className="inline-flex items-baseline gap-1 max-lg:flex-wrap">
  {row.resourceName ? (
  <>
  <span className="text-text-primary">{row.resourceName}</span>
@@ -109,6 +119,9 @@ function Row({ row, isMaster }: { row: AuditLogRow; isMaster: boolean }) {
 }
 
 export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
+ const confirm = useConfirm();
+ const isWide = useMediaQuery(MEDIA.lg);
  const isMaster = useIsMasterTenant();
  // Master narrow filter — single-select via the chip row. The
  // querystring keeps the selection across reloads / colleague-shared
@@ -158,7 +171,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  setFilters({ limit: PAGE_SIZE, offset: 0 });
  };
 
- const exportCsv = () => {
+ const exportCsv = async () => {
  const header = ['When', 'Action', 'User', 'Device', 'Resource', 'Resource Name', 'IP', 'Details'];
  const rows = items.map((r) => [
  new Date(r.createdAt).toISOString(),
@@ -171,13 +184,9 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  r.details ? JSON.stringify(r.details) : '',
  ]);
  const csv = [header, ...rows].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
- const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
- a.click();
- URL.revokeObjectURL(url);
+ // Shared helper: native Downloads in the Android shell, anchor download otherwise.
+ const ok = await saveText(csv, `audit-log-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8');
+ if (!ok) toast.error(t('common.error'));
  };
 
  const page = Math.floor((filters.offset ?? 0) / (filters.limit ?? PAGE_SIZE)) + 1;
@@ -192,8 +201,8 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  }
 
  return (
- <div className={embedded ? '' : 'p-6'}>
- <div className="flex items-center justify-between mb-6">
+ <PageContainer embedded={embedded}>
+ <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
  {!embedded && (
  <div className="flex items-center gap-3">
  <FileText className="w-6 h-6 text-accent" />
@@ -204,17 +213,22 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  </div>
  )}
  {embedded && <div />}
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 coarse:gap-3">
  <button
  onClick={exportCsv}
  disabled={items.length === 0}
- className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors disabled:opacity-50"
+ className="flex items-center gap-1.5 text-xs px-2.5 py-1 coarse:px-3 coarse:py-2 rounded text-text-muted hover:text-text-primary hover:border-accent/40 transition-colors disabled:opacity-50"
  >
  <Download className="w-3.5 h-3.5" /> CSV
  </button>
  <button
  onClick={async () => {
- if (!confirm('Clear the ENTIRE audit log for this tenant?\n\nThis typically requires a second-admin approval (default: Restricted). A single "audit.cleared" entry is kept so investigators can still see who wiped it.')) return;
+ if (!(await confirm({
+ title: t('audit.clearTitle', 'Clear the audit log'),
+ message: t('audit.clearConfirm', 'Clear the ENTIRE audit log for this tenant?\n\nThis typically requires a second-admin approval (default: Restricted). A single "audit.cleared" entry is kept so investigators can still see who wiped it.'),
+ danger: true,
+ confirmLabel: t('audit.clearAction', 'Clear'),
+ }))) return;
  try {
  const r = await auditApi.clear();
  toast.success(`Cleared ${r.deleted} entries`);
@@ -229,18 +243,18 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  }
  }
  }}
- className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10 transition-colors"
- title="Clear all audit entries (requires second-admin approval by default)"
+ className="flex items-center gap-1.5 text-xs px-2.5 py-1 coarse:px-3 coarse:py-2 rounded border border-red-400/30 text-red-400 hover:bg-red-400/10 transition-colors"
+ title={t('audit.clearHint', 'Clear all audit entries (requires second-admin approval by default)')}
  >
  <Trash2 className="w-3.5 h-3.5" /> Clear
  </button>
- <button
+ <IconButton
+ label={t('common.refresh')}
+ icon={<RefreshCw className="w-4 h-4" />}
+ variant="plain"
  onClick={() => load(true)}
- className="p-1.5 rounded text-text-muted hover:text-text-primary hover:border-accent/40"
- title="Refresh"
- >
- <RefreshCw className="w-4 h-4" />
- </button>
+ className="hover:border-accent/40"
+ />
  </div>
  </div>
 
@@ -278,7 +292,11 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  onChange={(e) => setSearch(e.target.value)}
  onKeyDown={(e) => e.key === 'Enter' && applySearch()}
  placeholder="path, details, username..."
- className="w-full pl-7 pr-2 py-1.5 text-xs bg-bg-secondary rounded text-text-primary"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="search"
+ className="w-full pl-7 pr-2 py-1.5 coarse:py-2 text-xs bg-bg-secondary rounded text-text-primary"
  />
  </div>
  </div>
@@ -287,7 +305,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  <select
  value={filters.action || ''}
  onChange={(e) => setFilters({ ...filters, action: e.target.value || undefined, offset: 0 })}
- className="py-1.5 px-2 text-xs bg-bg-secondary rounded text-text-primary min-w-[180px]"
+ className="py-1.5 coarse:py-2 px-2 text-xs bg-bg-secondary rounded text-text-primary min-w-[180px] max-w-full"
  >
  <option value="">All</option>
  {Object.entries(groupedActions).map(([root, acts]) => (
@@ -312,7 +330,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  type="datetime-local"
  value={filters.since?.slice(0, 16) || ''}
  onChange={(e) => setFilters({ ...filters, since: e.target.value ? new Date(e.target.value).toISOString() : undefined, offset: 0 })}
- className="py-1.5 px-2 text-xs bg-bg-secondary rounded text-text-primary"
+ className="py-1.5 coarse:py-2 px-2 text-xs bg-bg-secondary rounded text-text-primary max-w-full"
  />
  </div>
  <div>
@@ -321,31 +339,31 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  type="datetime-local"
  value={filters.until?.slice(0, 16) || ''}
  onChange={(e) => setFilters({ ...filters, until: e.target.value ? new Date(e.target.value).toISOString() : undefined, offset: 0 })}
- className="py-1.5 px-2 text-xs bg-bg-secondary rounded text-text-primary"
+ className="py-1.5 coarse:py-2 px-2 text-xs bg-bg-secondary rounded text-text-primary max-w-full"
  />
  </div>
  <button
  onClick={applySearch}
- className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
+ className="flex items-center gap-1.5 text-xs px-3 py-1.5 coarse:py-2.5 rounded border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
  >
  <Filter className="w-3.5 h-3.5" /> Apply
  </button>
  <button
  onClick={clearFilters}
- className="text-xs px-2 py-1.5 rounded text-text-muted hover:text-text-primary"
+ className="text-xs px-2 py-1.5 coarse:px-3 coarse:py-2.5 rounded text-text-muted hover:text-text-primary"
  >
  Clear
  </button>
  </div>
 
- {/* Table */}
- <div className="rounded bg-bg-secondary overflow-hidden">
+ {/* Table — scrolls horizontally on narrow screens (When column pinned) */}
+ <TableScroll className="rounded bg-bg-secondary" stickyFirstCol={!isWide}>
  {isLoading ? (
  <div className="p-8 text-center text-text-muted text-sm italic">Loading...</div>
  ) : items.length === 0 ? (
  <div className="p-8 text-center text-text-muted text-sm italic">No audit entries match your filters.</div>
  ) : (
- <table className="w-full border-collapse">
+ <table className="w-full border-collapse min-w-[640px]">
  <thead>
  <tr className=" bg-bg-primary/40">
  <th className="px-2 py-1.5 text-left text-[10px] uppercase text-text-muted font-medium">When</th>
@@ -364,31 +382,31 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  </tbody>
  </table>
  )}
- </div>
+ </TableScroll>
 
  {/* Pagination */}
  {total > (filters.limit ?? PAGE_SIZE) && (
- <div className="flex items-center justify-between mt-3 text-xs text-text-muted">
+ <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-xs text-text-muted">
  <span>{total} entries · page {page} of {pages}</span>
- <div className="flex items-center gap-1">
+ <div className="flex items-center gap-1 coarse:gap-2">
  <button
  disabled={page <= 1}
  onClick={() => setFilters({ ...filters, offset: Math.max(0, (filters.offset ?? 0) - (filters.limit ?? PAGE_SIZE)) })}
- className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30"
+ className="px-2 py-1 coarse:px-4 coarse:py-2.5 rounded hover:text-text-primary disabled:opacity-30"
  >
  Prev
  </button>
  <button
  disabled={page >= pages}
  onClick={() => setFilters({ ...filters, offset: (filters.offset ?? 0) + (filters.limit ?? PAGE_SIZE) })}
- className="px-2 py-1 rounded hover:text-text-primary disabled:opacity-30"
+ className="px-2 py-1 coarse:px-4 coarse:py-2.5 rounded hover:text-text-primary disabled:opacity-30"
  >
  Next
  </button>
  </div>
  </div>
  )}
- </div>
+ </PageContainer>
  );
 }
 
@@ -411,15 +429,11 @@ function UserCombobox({
  const [query, setQuery] = useState('');
  const ref = useRef<HTMLDivElement>(null);
  const selected = users.find((u) => u.id === value) ?? null;
+ // No autofocus on touch: the soft keyboard would cover the list.
+ const coarse = useIsCoarsePointer();
 
- useEffect(() => {
- if (!open) return;
- const onDocClick = (e: MouseEvent) => {
- if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
- };
- document.addEventListener('mousedown', onDocClick);
- return () => document.removeEventListener('mousedown', onDocClick);
- }, [open]);
+ // pointerdown (mouse + touch + pen) instead of document 'mousedown'.
+ useClickOutside(ref, () => setOpen(false), open);
 
  const q = query.trim().toLowerCase();
  const filtered = users.filter((u) => !q || u.username.toLowerCase().includes(q) || (u.displayName ?? '').toLowerCase().includes(q));
@@ -429,28 +443,33 @@ function UserCombobox({
  <button
  type="button"
  onClick={() => setOpen((v) => !v)}
- className="w-full flex items-center justify-between gap-2 py-1.5 px-2 text-xs bg-bg-secondary rounded text-text-primary hover:border-accent/40"
+ aria-haspopup="listbox"
+ aria-expanded={open}
+ className="w-full flex items-center justify-between gap-2 py-1.5 coarse:py-2 px-2 text-xs bg-bg-secondary rounded text-text-primary hover:border-accent/40"
  >
  <span className="truncate">{selected ? selected.username : 'Any user'}</span>
  <span className="text-text-muted shrink-0">▾</span>
  </button>
  {open && (
- <div className="absolute left-0 top-full mt-1 z-20 w-full max-h-64 overflow-y-auto bg-bg-secondary rounded shadow-xl">
+ <div className="absolute left-0 top-full mt-1 z-20 w-full max-h-64 overflow-y-auto overscroll-contain bg-bg-secondary rounded shadow-xl">
  <div className="p-1.5 /50 sticky top-0 bg-bg-secondary">
  <input
- autoFocus
+ autoFocus={!coarse}
  type="text"
  value={query}
  onChange={(e) => setQuery(e.target.value)}
  placeholder="Search…"
- className="w-full px-2 py-1 text-xs bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ className="w-full px-2 py-1 coarse:py-2 text-xs bg-bg-tertiary rounded text-text-primary focus:outline-none focus:border-accent"
  />
  </div>
  <button
  type="button"
  onClick={() => { onChange(null); setOpen(false); setQuery(''); }}
  className={clsx(
- 'w-full text-left px-2.5 py-1.5 text-xs hover:bg-bg-tertiary',
+ 'w-full text-left px-2.5 py-1.5 coarse:py-3 text-xs hover:bg-bg-tertiary',
  value === null ? 'text-accent' : 'text-text-muted',
  )}
  >
@@ -464,7 +483,7 @@ function UserCombobox({
  type="button"
  onClick={() => { onChange(u.id); setOpen(false); setQuery(''); }}
  className={clsx(
- 'w-full text-left px-2.5 py-1.5 text-xs hover:bg-bg-tertiary flex items-center gap-1.5',
+ 'w-full text-left px-2.5 py-1.5 coarse:py-3 text-xs hover:bg-bg-tertiary flex items-center gap-1.5',
  value === u.id ? 'text-accent' : 'text-text-primary',
  )}
  >

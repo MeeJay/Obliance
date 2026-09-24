@@ -38,6 +38,11 @@ export const apiLimiter = rateLimit({
     req.path.startsWith('/api/oblireach/') ||
     // Passive heartbeats (token authenticated, triggered by external systems).
     req.path.startsWith('/api/heartbeat/') ||
+    // Android app update check + APK download (public, docs/obli-mobile.md §6).
+    // Shells poll without a session, often from shared carrier-NAT IPs; counting
+    // them would eat the shared 500/5 min budget of the login page. Read-only,
+    // served from disk, no user input.
+    req.path.startsWith('/api/mobile/android/') ||
     // Login is already protected by the dedicated authLimiter (IP+username keyed,
     // brute-force focused). Skipping it here avoids false positives when many
     // unauthenticated requests arrive from the same apparent IP (shared proxy).

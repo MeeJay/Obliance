@@ -1,10 +1,15 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, X, StopCircle } from 'lucide-react';
+import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, AlertTriangle, User, CalendarClock, Terminal, Monitor, Maximize2, StopCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { scriptApi } from '@/api/script.api';
 import { getSocket } from '@/socket/socketClient';
 import type { ExecutionBatch } from '@obliance/shared';
 import { clsx } from 'clsx';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { Modal } from '@/components/common/Modal';
+import { MEDIA, useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface BatchDevice {
  id: string;
@@ -53,6 +58,11 @@ function TriggerBadge({ batch }: { batch: ExecutionBatch }) {
 }
 
 export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
+ const { t } = useTranslation();
+ // md+: device list | output side by side (historic layout). Below md the
+ // output opens under the tapped device row (accordion): two 50 % columns
+ // are unreadable on a phone.
+ const isMd = useMediaQuery(MEDIA.md);
  const [batches, setBatches] = useState<ExecutionBatch[]>([]);
  const [isLoading, setIsLoading] = useState(true);
  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
@@ -125,25 +135,82 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  }
  };
 
- return (
- <div className={embedded ? 'space-y-4' : 'p-6 space-y-4'}>
- {!embedded && (
- <div className="flex items-center justify-between">
+ const stopExecution = (dev: BatchDevice, batchId: string) => {
+ scriptApi.stopExecution(dev.id).then(() => {
+ toast.success(t('scripts.history.stopped', 'Stopped'));
+ toggleBatch(batchId);
+ toggleBatch(batchId);
+ }).catch(() => toast.error(t('scripts.history.stopFailed', 'Failed to stop')));
+ };
+
+ const refreshButton = (
+ <IconButton
+ label={t('common.refresh', 'Refresh')}
+ onClick={load}
+ size="lg"
+ icon={<RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />}
+ className="rounded-lg hover:bg-bg-secondary"
+ />
+ );
+
+ // stdout / stderr of one device: right pane on md+, inline under the row below md.
+ const renderOutput = (dev: BatchDevice) => (
+ <div className="flex-1 overflow-y-auto p-3 space-y-3">
+ {dev.stdout && (
  <div>
+ <div className="flex items-center justify-between mb-1">
+ <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
+ <IconButton
+ label={t('scripts.history.fullscreen', 'Full screen')}
+ onClick={() => setFullscreenOutput({ title: `${dev.hostname} — stdout`, content: dev.stdout!, type: 'stdout' })}
+ size="xs"
+ variant="plain"
+ icon={<Maximize2 className="w-3 h-3" />}
+ />
+ </div>
+ <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{dev.stdout}</pre>
+ </div>
+ )}
+ {dev.stderr && (
+ <div>
+ <div className="flex items-center justify-between mb-1">
+ <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
+ <IconButton
+ label={t('scripts.history.fullscreen', 'Full screen')}
+ onClick={() => setFullscreenOutput({ title: `${dev.hostname} — stderr`, content: dev.stderr!, type: 'stderr' })}
+ size="xs"
+ variant="plain"
+ icon={<Maximize2 className="w-3 h-3" />}
+ />
+ </div>
+ <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{dev.stderr}</pre>
+ </div>
+ )}
+ {!dev.stdout && !dev.stderr && (
+ <p className="text-sm text-text-muted text-center py-6">
+ {dev.status === 'pending' || dev.status === 'sent' || dev.status === 'running'
+ ? 'Execution in progress...'
+ : 'No output'}
+ </p>
+ )}
+ </div>
+ );
+
+ return (
+ <PageContainer embedded={embedded} className="space-y-4">
+ {!embedded && (
+ <div className="flex items-center justify-between gap-3">
+ <div className="min-w-0">
  <h1 className="text-2xl font-bold text-text-primary">Execution History</h1>
  <p className="text-sm text-text-muted mt-0.5">All script executions across devices</p>
  </div>
- <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ {refreshButton}
  </div>
  )}
 
  {embedded && (
  <div className="flex justify-end">
- <button onClick={load} className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors">
- <RefreshCw className={clsx('w-4 h-4', isLoading && 'animate-spin')} />
- </button>
+ {refreshButton}
  </div>
  )}
 
@@ -168,6 +235,7 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Batch header */}
  <button
  onClick={() => toggleBatch(batch.batchId)}
+ aria-expanded={isExpanded}
  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-bg-hover transition-colors text-left"
  >
  {isExpanded
@@ -187,7 +255,7 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
 
  {/* Mini progress bar */}
- <div className="w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden shrink-0">
+ <div className="w-16 sm:w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden shrink-0">
  <div className="h-full flex">
  {batch.successCount > 0 && <div className="bg-green-400" style={{ width: `${(batch.successCount / batch.totalCount) * 100}%` }} />}
  {batch.failureCount > 0 && <div className="bg-red-400" style={{ width: `${(batch.failureCount / batch.totalCount) * 100}%` }} />}
@@ -205,16 +273,25 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  ) : (
  <div className="flex">
- {/* Left: device list */}
- <div className={clsx('divide-y divide-border overflow-y-auto max-h-80', selectedDevice ? 'w-1/2 ' : 'w-full')}>
- {devices.map((dev) => (
- <button
- key={dev.id}
- onClick={() => setSelectedDevice(selectedDevice?.id === dev.id ? null : dev)}
+ {/* Left: device list (full width below md, output inline) */}
+ <div className={clsx('divide-y divide-border md:overflow-y-auto md:max-h-80', selectedDevice && isMd ? 'w-1/2 ' : 'w-full')}>
+ {devices.map((dev) => {
+ const isSelected = selectedDevice?.id === dev.id;
+ const canStop = dev.status === 'running' || dev.status === 'sent';
+ return (
+ <Fragment key={dev.id}>
+ {/* Row = select button + optional sibling Stop button
+ (a button must not contain another control). */}
+ <div
  className={clsx(
- 'w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-bg-hover transition-colors',
- selectedDevice?.id === dev.id && 'bg-accent/5',
+ 'flex items-center hover:bg-bg-hover transition-colors',
+ isSelected && 'bg-accent/5',
  )}
+ >
+ <button
+ onClick={() => setSelectedDevice(isSelected ? null : dev)}
+ aria-expanded={!isMd ? isSelected : undefined}
+ className={clsx('flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left', canStop ? 'pr-2' : 'pr-4')}
  >
  <StatusIcon status={dev.status} />
  <Monitor className="w-3.5 h-3.5 text-text-muted shrink-0" />
@@ -229,59 +306,39 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  {((new Date(dev.finishedAt).getTime() - new Date(dev.startedAt).getTime()) / 1000).toFixed(1)}s
  </span>
  )}
- {(dev.status === 'running' || dev.status === 'sent') && (
- <span
- onClick={(e) => { e.stopPropagation(); scriptApi.stopExecution(dev.id).then(() => { toast.success('Stopped'); toggleBatch(batch.batchId); toggleBatch(batch.batchId); }).catch(() => toast.error('Failed to stop')); }}
- className="p-1 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors cursor-pointer shrink-0" title="Stop"
- >
- <StopCircle className="w-3.5 h-3.5" />
- </span>
- )}
  </button>
- ))}
+ {canStop && (
+ <IconButton
+ label={t('scripts.history.stop', 'Stop execution')}
+ onClick={() => stopExecution(dev, batch.batchId)}
+ size="sm"
+ variant="plain"
+ icon={<StopCircle className="w-3.5 h-3.5" />}
+ className="mr-4 shrink-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+ />
+ )}
+ </div>
+ {!isMd && isSelected && (
+ <div className="flex flex-col bg-bg-tertiary/30">
+ {renderOutput(dev)}
+ </div>
+ )}
+ </Fragment>
+ );
+ })}
  {devices.length === 0 && (
  <p className="text-sm text-text-muted text-center py-4">No devices in this batch</p>
  )}
  </div>
 
- {/* Right: stdout/stderr panel */}
- {selectedDevice && (
+ {/* Right: stdout/stderr panel (md+) */}
+ {isMd && selectedDevice && (
  <div className="w-1/2 flex flex-col max-h-80">
  <div className="px-3 py-2 bg-bg-tertiary/50 flex items-center gap-2">
  <StatusIcon status={selectedDevice.status} />
  <span className="text-sm font-medium text-text-primary">{selectedDevice.hostname}</span>
  </div>
- <div className="flex-1 overflow-y-auto p-3 space-y-3">
- {selectedDevice.stdout && (
- <div>
- <div className="flex items-center justify-between mb-1">
- <p className="text-[10px] text-text-muted uppercase font-medium">stdout</p>
- <button onClick={() => setFullscreenOutput({ title: `${selectedDevice.hostname} — stdout`, content: selectedDevice.stdout!, type: 'stdout' })} className="p-0.5 text-text-muted hover:text-text-primary transition-colors" title="Fullscreen">
- <Maximize2 className="w-3 h-3" />
- </button>
- </div>
- <pre className="text-xs text-green-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{selectedDevice.stdout}</pre>
- </div>
- )}
- {selectedDevice.stderr && (
- <div>
- <div className="flex items-center justify-between mb-1">
- <p className="text-[10px] text-text-muted uppercase font-medium">stderr</p>
- <button onClick={() => setFullscreenOutput({ title: `${selectedDevice.hostname} — stderr`, content: selectedDevice.stderr!, type: 'stderr' })} className="p-0.5 text-text-muted hover:text-text-primary transition-colors" title="Fullscreen">
- <Maximize2 className="w-3 h-3" />
- </button>
- </div>
- <pre className="text-xs text-red-300 bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">{selectedDevice.stderr}</pre>
- </div>
- )}
- {!selectedDevice.stdout && !selectedDevice.stderr && (
- <p className="text-sm text-text-muted text-center py-6">
- {selectedDevice.status === 'pending' || selectedDevice.status === 'sent' || selectedDevice.status === 'running'
- ? 'Execution in progress...'
- : 'No output'}
- </p>
- )}
- </div>
+ {renderOutput(selectedDevice)}
  </div>
  )}
  </div>
@@ -295,25 +352,23 @@ export function ScriptHistoryPage({ embedded }: { embedded?: boolean } = {}) {
  )}
 
  {/* Fullscreen output modal */}
+ <Modal
+ open={!!fullscreenOutput}
+ onClose={() => setFullscreenOutput(null)}
+ title={fullscreenOutput?.title}
+ size="full"
+ className="bg-bg-primary"
+ bodyClassName="p-0"
+ >
  {fullscreenOutput && (
- <>
- <div className="fixed inset-0 bg-black/60 z-50" onClick={() => setFullscreenOutput(null)} />
- <div className="fixed inset-4 z-50 bg-bg-primary rounded-xl flex flex-col overflow-hidden shadow-2xl">
- <div className="flex items-center justify-between px-4 py-3 shrink-0">
- <h3 className="text-sm font-semibold text-text-primary">{fullscreenOutput.title}</h3>
- <button onClick={() => setFullscreenOutput(null)} className="p-1 text-text-muted hover:text-text-primary rounded transition-colors">
- <X className="w-4 h-4" />
- </button>
- </div>
  <pre className={clsx(
- 'flex-1 p-4 text-sm font-mono overflow-auto whitespace-pre-wrap',
+ 'min-h-full p-4 text-sm font-mono whitespace-pre-wrap',
  fullscreenOutput.type === 'stdout' ? 'text-green-300' : 'text-red-300',
  )}>
  {fullscreenOutput.content}
  </pre>
- </div>
- </>
  )}
- </div>
+ </Modal>
+ </PageContainer>
  );
 }

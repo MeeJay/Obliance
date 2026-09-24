@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "app": "obliance",
+  "packageName": null,
+  "version": "0.0.0",
+  "versionCode": 0,
+  "minSupportedVersionCode": 0,
+  "minSdk": null,
+  "sha256": null,
+  "sizeBytes": 0,
+  "signerSha256": null,
+  "builtAt": null
+}

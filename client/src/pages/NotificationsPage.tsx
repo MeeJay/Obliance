@@ -25,6 +25,14 @@ import { Input } from '@/components/common/Input';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useTenantStore } from '@/store/tenantStore';
+import { PageContainer } from '@/components/common/PageContainer';
+import { IconButton } from '@/components/common/IconButton';
+import { ActionMenu } from '@/components/common/ActionMenu';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { matchesMedia, MEDIA } from '@/hooks/useMediaQuery';
+
+// Invisible ≥40px hit area around tiny chip "×" buttons (touch only).
+const CHIP_X_HIT = "relative coarse:after:absolute coarse:after:-inset-3 coarse:after:content-['']";
 
 // ── Tenant sharing panel (per channel) ──────────────────────────────────────
 
@@ -104,7 +112,7 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
  </p>
 
  {/* Current shared tenants */}
- <div className="flex flex-wrap gap-1.5 min-h-[22px]">
+ <div className="flex flex-wrap gap-1.5 coarse:gap-3 min-h-[22px]">
  {sharedTenantIds && sharedTenantIds.length === 0 && (
  <span className="text-xs text-text-muted italic">{t('notifications.notShared')}</span>
  )}
@@ -113,15 +121,16 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
  return (
  <span
  key={tid}
- className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary border border-transparent px-2 py-0.5 text-xs text-text-primary"
+ className="inline-flex items-center gap-1 coarse:gap-2 rounded-md bg-bg-tertiary border border-transparent px-2 py-0.5 coarse:py-1.5 text-xs text-text-primary"
  >
  <Building2 size={10} className="text-text-muted shrink-0" />
  {tenant?.name ?? `Tenant #${tid}`}
  <button
  onClick={() => handleRemove(tid)}
  disabled={saving}
- className="ml-0.5 text-text-muted hover:text-status-down transition-colors"
+ className={`ml-0.5 text-text-muted hover:text-status-down transition-colors ${CHIP_X_HIT}`}
  title={t('notifications.removeTenantAccess')}
+ aria-label={t('notifications.removeTenantAccess')}
  >
  <X size={10} />
  </button>
@@ -133,11 +142,11 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
 
  {/* Add tenant */}
  {availableTenants.length > 0 && (
- <div className="flex items-center gap-2">
+ <div className="flex flex-wrap items-center gap-2">
  <select
  value={addingId}
  onChange={(e) => setAddingId(e.target.value ? Number(e.target.value) : '')}
- className="rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+ className="min-w-0 max-w-full rounded-md bg-bg-tertiary px-2 py-1 coarse:py-2 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
  >
  <option value="">{t('notifications.selectTenant')}</option>
  {availableTenants.map((t) => (
@@ -149,7 +158,7 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
  <button
  onClick={handleAdd}
  disabled={!addingId || saving}
- className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+ className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 coarse:px-3 coarse:py-2 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
  >
  <Plus size={11} />
  {t('notifications.grantAccess')}
@@ -167,6 +176,7 @@ function TenantSharingPanel({ channelId, currentTenantId }: TenantSharingPanelPr
 function EmailChips({ value, onChange, placeholder }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState('');
   const chips = value.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
   const setChips = (next: string[]) => onChange(Array.from(new Set(next)).join(', '));
@@ -191,15 +201,17 @@ function EmailChips({ value, onChange, placeholder }: {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-bg-tertiary px-2 py-1.5 focus-within:ring-2 focus-within:ring-accent">
+    <div className="flex flex-wrap items-center gap-1.5 coarse:gap-2.5 rounded-md bg-bg-tertiary px-2 py-1.5 focus-within:ring-2 focus-within:ring-accent">
       {chips.map((c) => (
-        <span key={c} className="inline-flex items-center gap-1 rounded bg-accent/15 px-2 py-0.5 text-xs text-accent">
-          {c}
+        <span key={c} className="inline-flex max-w-full items-center gap-1 coarse:gap-2 rounded bg-accent/15 px-2 py-0.5 coarse:py-1.5 text-xs text-accent">
+          <span className="min-w-0 break-all">{c}</span>
+          {/* Backspace-on-empty is unreliable with Android IMEs: the × is the
+              touch path, so give it a real hit area. */}
           <button
             type="button"
             onClick={() => setChips(chips.filter((x) => x !== c))}
-            className="text-accent/70 hover:text-status-down"
-            aria-label={`Remove ${c}`}
+            className={`shrink-0 text-accent/70 hover:text-status-down ${CHIP_X_HIT}`}
+            aria-label={t('notifications.removeRecipient', { defaultValue: 'Remove {{email}}', email: c })}
           >
             <X size={11} />
           </button>
@@ -215,6 +227,11 @@ function EmailChips({ value, onChange, placeholder }: {
         }}
         onBlur={commitDraft}
         placeholder={chips.length ? '' : placeholder}
+        inputMode="email"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="done"
         className="min-w-[140px] flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
       />
     </div>
@@ -225,6 +242,7 @@ function EmailChips({ value, onChange, placeholder }: {
 
 export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  const { t } = useTranslation();
+ const confirm = useConfirm();
  const { currentTenantId, tenants } = useTenantStore();
  const isMultiTenant = tenants.length > 1;
 
@@ -265,12 +283,22 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
 
  const selectedPlugin = plugins.find((p) => p.type === selectedType);
 
+ // The form renders above the list: on narrow screens bring it into view
+ // after tapping Edit on a row further down.
+ const revealForm = () => {
+ if (matchesMedia(MEDIA.lg)) return;
+ requestAnimationFrame(() => {
+ document.getElementById('notification-channel-form')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+ });
+ };
+
  const openCreate = () => {
  setEditingId(null);
  setSelectedType(plugins[0]?.type || '');
  setFormName('');
  setFormConfig({});
  setShowForm(true);
+ revealForm();
  };
 
  const openEdit = (ch: NotificationChannel) => {
@@ -279,6 +307,7 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  setFormName(ch.name);
  setFormConfig({ ...ch.config });
  setShowForm(true);
+ revealForm();
  };
 
  const handleSubmit = async (e: FormEvent) => {
@@ -309,7 +338,7 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  const handleDelete = async (id: number, name: string) => {
- if (!confirm(t('notifications.confirmDelete', { name }))) return;
+ if (!(await confirm({ message: t('notifications.confirmDelete', { name }), danger: true }))) return;
  try {
  await notificationsApi.deleteChannel(id);
  toast.success(t('notifications.deleted'));
@@ -366,8 +395,8 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  };
 
  return (
- <div className={embedded ? 'min-w-0' : 'p-6 min-w-0'}>
- {!embedded && <div className="flex items-center justify-between mb-6">
+ <PageContainer embedded={embedded}>
+ {!embedded && <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
  <h1 className="text-2xl font-semibold text-text-primary">{t('notifications.title')}</h1>
  <Button size="sm" onClick={openCreate}>
  <Plus size={16} className="mr-1.5" />
@@ -378,7 +407,7 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
 
  {/* Create/Edit Form */}
  {showForm && (
- <div className="mb-6 rounded-lg bg-bg-secondary p-5">
+ <div id="notification-channel-form" className="mb-6 rounded-lg bg-bg-secondary p-4 sm:p-5 scroll-mt-4">
  <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-4">
  {editingId ? t('notifications.editChannel') : t('notifications.newChannel')}
  </h2>
@@ -426,9 +455,9 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  onChange={(e) =>
  setFormConfig({ ...formConfig, [field.key]: e.target.checked })
  }
- className="h-4 w-4 rounded border-transparent bg-bg-tertiary text-accent focus:ring-accent"
+ className="h-4 w-4 coarse:h-5 coarse:w-5 shrink-0 rounded border-transparent bg-bg-tertiary text-accent focus:ring-accent"
  />
- <label htmlFor={`cfg-${field.key}`} className="text-sm text-text-secondary">
+ <label htmlFor={`cfg-${field.key}`} className="text-sm text-text-secondary coarse:py-2">
  {field.label}
  </label>
  </div>
@@ -485,6 +514,10 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  }
  placeholder={field.placeholder}
  required={field.required}
+ // Config values are URLs / tokens / addresses: no autocorrect.
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
  />
  );
  })}
@@ -529,10 +562,10 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  const isExpanded = expandedTenants.has(ch.id);
 
  return (
- <div key={ch.id} className="px-4 py-3 group">
- {/* Main row */}
- <div className="flex items-center gap-3">
- <div className="flex-1 min-w-0">
+ <div key={ch.id} className="px-3 sm:px-4 py-3 group">
+ {/* Main row — phones: name + badges on the first line, actions wrap below */}
+ <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2">
+ <div className="flex-1 min-w-0 max-sm:basis-full">
  <div className="flex items-center gap-2 flex-wrap">
  <span className="text-sm font-medium text-text-primary">{ch.name}</span>
  <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] font-medium text-text-muted">
@@ -556,12 +589,13 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  {/* Global binding toggle */}
  <button
  onClick={() => toggleGlobalBinding(ch.id)}
- className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+ className={`shrink-0 rounded-md px-2 py-1 coarse:px-3 coarse:py-2 text-xs font-medium transition-colors ${
  isGloballyBound(ch.id)
  ? 'bg-accent/10 text-accent'
  : 'text-text-muted hover:bg-bg-hover'
  }`}
- title={isGloballyBound(ch.id) ? 'Remove from global' : 'Add to global notifications'}
+ title={isGloballyBound(ch.id) ? t('notifications.removeFromGlobalHint', 'Remove from global') : t('notifications.addToGlobalHint', 'Add to global notifications')}
+ aria-pressed={isGloballyBound(ch.id)}
  >
  <Zap size={12} className="inline mr-1" />
  {isGloballyBound(ch.id) ? t('remediations.globalActive') : t('common.enable')}
@@ -571,7 +605,8 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  {isMultiTenant && !isShared && (
  <button
  onClick={() => toggleTenantPanel(ch.id)}
- className={`shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+ aria-expanded={isExpanded}
+ className={`shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 coarse:px-3 coarse:py-2 text-xs font-medium transition-colors ${
  isExpanded
  ? 'bg-bg-tertiary text-text-primary'
  : 'text-text-muted hover:bg-bg-hover'
@@ -587,35 +622,47 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  )}
 
  {/* Test — allowed even on shared channels (targeted use / verify delivery) */}
- <button
- onClick={() => handleTest(ch.id)}
- disabled={testing === ch.id}
- className="shrink-0 p-1.5 text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
- title={t('notifications.sendTest')}
- >
- {testing === ch.id
+ {/* md+: inline icons (hover-revealed with a mouse, always
+     visible on touch). Phones: the same actions in a "⋯" menu. */}
+ <IconButton
+ label={t('notifications.sendTest')}
+ icon={testing === ch.id
  ? <Loader2 size={14} className="animate-spin" />
  : <TestTube2 size={14} />}
- </button>
+ variant="plain"
+ // Not disabled while testing: keeps the original look (no disabled fade).
+ onClick={() => { if (testing !== ch.id) handleTest(ch.id); }}
+ aria-disabled={testing === ch.id}
+ className="hidden md:inline-flex shrink-0 hover:text-accent can-hover:opacity-0 can-hover:group-hover:opacity-100 transition-opacity"
+ />
  {/* Edit / Delete — owner only; shared channels are read-only */}
  {!isShared && (
  <>
- <button
+ <IconButton
+ label={t('common.edit')}
+ icon={<Pencil size={14} />}
+ variant="plain"
  onClick={() => openEdit(ch)}
- className="shrink-0 p-1.5 text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
- title={t('common.edit')}
- >
- <Pencil size={14} />
- </button>
- <button
+ className="hidden md:inline-flex shrink-0 can-hover:opacity-0 can-hover:group-hover:opacity-100 transition-opacity"
+ />
+ <IconButton
+ label={t('common.delete')}
+ icon={<Trash2 size={14} />}
+ variant="plain"
  onClick={() => handleDelete(ch.id, ch.name)}
- className="shrink-0 p-1.5 text-text-muted hover:text-status-down opacity-0 group-hover:opacity-100 transition-opacity"
- title={t('common.delete')}
- >
- <Trash2 size={14} />
- </button>
+ className="hidden md:inline-flex shrink-0 hover:text-status-down can-hover:opacity-0 can-hover:group-hover:opacity-100 transition-opacity"
+ />
  </>
  )}
+ <ActionMenu
+ sheetTitle={ch.name}
+ triggerClassName="md:hidden shrink-0 ml-auto"
+ items={[
+ { key: 'test', icon: <TestTube2 size={16} />, label: t('notifications.sendTest'), onClick: () => handleTest(ch.id), disabled: testing === ch.id },
+ { key: 'edit', icon: <Pencil size={16} />, label: t('common.edit'), onClick: () => openEdit(ch), hidden: isShared },
+ { key: 'delete', icon: <Trash2 size={16} />, label: t('common.delete'), onClick: () => handleDelete(ch.id, ch.name), hidden: isShared, danger: true, separator: true },
+ ]}
+ />
  </div>
 
  {/* Tenant sharing panel (expandable, own channels only) */}
@@ -628,6 +675,6 @@ export function NotificationsPage({ embedded }: { embedded?: boolean } = {}) {
  </div>
  )}
  </div>
- </div>
+ </PageContainer>
  );
 }

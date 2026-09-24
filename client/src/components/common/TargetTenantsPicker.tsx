@@ -50,7 +50,7 @@ export function TargetTenantsPicker({ value, onChange, label, disabled }: Props)
  <div className="space-y-1.5">
  <label className="block text-xs font-medium text-text-muted uppercase tracking-wider">
  <Building2 size={11} className="inline mr-1" />
- {label ?? (t('fanOut.label') || 'Diffuser à (lecture seule sur les tenants ciblés)')}
+ {label ?? t('fanOut.label', 'Share to (read-only on target tenants)')}
  </label>
  <div className="flex items-center gap-1.5 flex-wrap">
  {childTenants.map((tenant) => {
@@ -62,7 +62,7 @@ export function TargetTenantsPicker({ value, onChange, label, disabled }: Props)
  onClick={() => toggle(tenant.id)}
  disabled={disabled}
  className={clsx(
- 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-colors',
+ 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border transition-colors coarse:min-h-10 coarse:px-3',
  on
  ? 'bg-accent text-white border-accent'
  : 'bg-bg-secondary border-transparent text-text-muted hover:text-text-primary',
@@ -78,14 +78,14 @@ export function TargetTenantsPicker({ value, onChange, label, disabled }: Props)
  <button
  type="button"
  onClick={() => onChange(null)}
- className="text-[11px] text-text-muted underline hover:text-text-primary"
+ className="text-[11px] text-text-muted underline hover:text-text-primary coarse:min-h-10 coarse:px-2"
  >
- {t('fanOut.clear') || 'Retirer'}
+ {t('fanOut.clear', 'Clear')}
  </button>
  )}
  </div>
  <p className="text-[11px] text-text-muted">
- {t('fanOut.hint') || 'Le tenant Default reste propriétaire ; les tenants ciblés voient l\'entité en lecture seule et ne peuvent pas la modifier.'}
+ {t('fanOut.hint', 'The Default tenant stays the owner. Target tenants see the entity read-only and cannot modify it.')}
  </p>
  </div>
  );

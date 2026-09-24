@@ -1,18 +1,24 @@
 import 'xterm/css/xterm.css';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import {
  Terminal as TerminalIcon, X, Maximize2, Minus, Plus,
- AlertTriangle, Keyboard, Copy, Radio, RotateCcw, Ungroup,
+ AlertTriangle, Keyboard, Copy, Radio, RotateCcw, Ungroup, Columns2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { VirtualKeyPanel } from '@/components/VirtualKeyPanel';
+import { ActionMenu, type ActionMenuItem } from '@/components/common/ActionMenu';
 import { useRemoteShellStore, type ShellSession, type ShellProtocol } from '@/store/remoteShellStore';
 import { remoteApi } from '@/api/remote.api';
 import { deviceApi } from '@/api/device.api';
 import { getSocket } from '@/socket/socketClient';
 import { useNativeTopOffset } from '@/hooks/useNativeTopOffset';
+import { useNativeBack } from '@/hooks/useNativeBack';
+import { useCanHover, useIsCoarsePointer, useLayoutMode } from '@/hooks/useMediaQuery';
+import { isAndroidApp, isTouchDevice } from '@/native/bridge';
+import { copyText } from '@/utils/clipboard';
 import type { Device } from '@obliance/shared';
 import { isAgentReachable } from '@/utils/deviceStatus';
 import toast from 'react-hot-toast';
@@ -36,6 +42,9 @@ const PROTOCOL_LABEL: Record<ShellProtocol, string> = {
  powershell: 'PowerShell',
 };
 
+/** 40 px touch target on coarse pointers (desktop size unchanged). */
+const TOUCH_BTN = 'coarse:min-h-10 coarse:min-w-10 coarse:inline-flex coarse:items-center coarse:justify-center';
+
 function buildWsUrl(sessionToken: string): string {
  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
  return `${proto}//${window.location.host}/api/remote/tunnel/${sessionToken}`;
@@ -46,6 +55,7 @@ function sendResize(ws: WebSocket, cols: number, rows: number) {
 }
 
 export function GlobalShellPanel() {
+ const { t } = useTranslation();
  const { sessions, activeId, isOpen, groupedIds } = useRemoteShellStore();
  const removeSession = useRemoteShellStore((s) => s.removeSession);
  const setActive = useRemoteShellStore((s) => s.setActive);
@@ -53,6 +63,14 @@ export function GlobalShellPanel() {
  const setStatus = useRemoteShellStore((s) => s.setStatus);
  const addSession = useRemoteShellStore((s) => s.addSession);
  const toggleGrouped = useRemoteShellStore((s) => s.toggleGrouped);
+
+ // Device-aware presentation (docs/obli-mobile.md §4-§5): touch screens get
+ // menus instead of drag-and-drop / Ctrl+click, phones a compact toolbar.
+ const isPhone = useLayoutMode() === 'phone';
+ const canHover = useCanHover();
+ const coarse = useIsCoarsePointer();
+ // The Fullscreen API is a no-op in the Android WebView (no custom view).
+ const fullscreenSupported = typeof document !== 'undefined' && !!document.fullscreenEnabled && !isAndroidApp();
 
  // Devices for the picker. Fetched lazily when the modal opens (full
  // tenant fleet, not bound to whatever is cached in the deviceStore).
@@ -64,7 +82,9 @@ export function GlobalShellPanel() {
  // Tile containers for grid mode: one <div> per grouped session
  const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
  const runtimes = useRef<Map<string, Runtime>>(new Map());
- const [showKeys, setShowKeys] = useState(false);
+ // Virtual keys (Esc, Tab, arrows, Ctrl combos, F-keys) are shown by default
+ // on touch screens: a soft keyboard has none of them.
+ const [showKeys, setShowKeys] = useState(() => isTouchDevice());
  const [pickerOpen, setPickerOpen] = useState(false);
  const [pickerSearch, setPickerSearch] = useState('');
  const [isFullscreen, setIsFullscreen] = useState(false);
@@ -80,6 +100,12 @@ export function GlobalShellPanel() {
  const [dragId, setDragId] = useState<string | null>(null);
  const [dragOverId, setDragOverId] = useState<string | null>(null);
  const nativeTop = useNativeTopOffset();
+
+ // Android back: close the device picker first, then minimize the panel
+ // (sessions stay alive). Escape is left to the terminal, except in the
+ // picker where it closes the picker.
+ useNativeBack(() => { setOpen(false); }, sessions.length > 0 && isOpen);
+ useNativeBack(() => { setPickerOpen(false); }, pickerOpen, { escape: true });
 
  // Recently-used device ids for the "+" picker, persisted in localStorage.
  // We push a device id to the front whenever a shell is opened on it.
@@ -149,10 +175,10 @@ export function GlobalShellPanel() {
  const data = ev.data instanceof ArrayBuffer ? new Uint8Array(ev.data) : ev.data;
  term.write(data);
  };
- ws.onerror = () => setStatus(session.id, 'error', 'WebSocket connection failed');
+ ws.onerror = () => setStatus(session.id, 'error', t('shell.wsFailed') || 'WebSocket connection failed');
  ws.onclose = (ev) => {
  if (ev.wasClean) setStatus(session.id, 'disconnected');
- else setStatus(session.id, 'error', 'Connection lost');
+ else setStatus(session.id, 'error', t('shell.connectionLost') || 'Connection lost');
  };
 
  term.onData((data: string) => {
@@ -182,7 +208,7 @@ export function GlobalShellPanel() {
  const rt: Runtime = { term, fit, ws, attachedTo: null, opened: false };
  runtimes.current.set(session.id, rt);
  return rt;
- }, [setStatus]);
+ }, [setStatus, t]);
 
  // ── Attach visible terminals to their DOM containers ────────────────────
  //
@@ -316,7 +342,12 @@ export function GlobalShellPanel() {
  if (rt?.ws && rt.ws.readyState === WebSocket.OPEN) {
  rt.ws.send(new TextEncoder().encode(sequence));
  }
+ // Keep the keyboard focus in the terminal with a mouse. On touch the
+ // key panel no longer steals focus (see its wrapper below), and a
+ // focus() here would re-open a soft keyboard the user just dismissed.
+ if (!isTouchDevice()) {
  try { rt?.term.focus(); } catch {}
+ }
  }, [activeId]);
 
  // Copy the visible+scrollback buffer of a session to the clipboard.
@@ -339,12 +370,10 @@ export function GlobalShellPanel() {
  text = lines.join('\n').replace(/\s+$/, '');
  } catch { /* no buffer yet — empty copy */ }
  }
- try {
- await navigator.clipboard.writeText(text);
- toast.success(text ? 'Terminal contents copied' : 'Nothing to copy');
- } catch {
- toast.error('Clipboard blocked by the browser');
- }
+ // Clipboard API → execCommand → native bridge (WebView-safe).
+ const ok = await copyText(text);
+ if (ok) toast.success(text ? (t('shell.copied') || 'Terminal contents copied') : (t('shell.nothingToCopy') || 'Nothing to copy'));
+ else toast.error(t('shell.clipboardBlocked') || 'Clipboard blocked by the browser');
  };
 
  // Reconnect a session that hit `error` or `disconnected`. Tears down
@@ -389,7 +418,7 @@ export function GlobalShellPanel() {
  }
  }, 1500);
  } catch {
- toast.error('Reconnect failed');
+ toast.error(t('shell.reconnectFailed') || 'Reconnect failed');
  }
  };
 
@@ -406,6 +435,13 @@ export function GlobalShellPanel() {
  if (!st.groupedIds.includes(sourceId)) toggleGrouped(sourceId);
  if (!st.groupedIds.includes(targetId)) toggleGrouped(targetId);
  setActive(sourceId);
+ };
+
+ // Tap path for split view (touch screens have no drag-and-drop in a
+ // WebView and no Ctrl key): same effect as Ctrl+click on a tab.
+ const toggleSplit = (id: string) => {
+ toggleGrouped(id);
+ setActive(id);
  };
 
  // Close = kill the shell + tear down the local runtime. The server
@@ -437,7 +473,7 @@ export function GlobalShellPanel() {
  deviceName,
  protocol,
  sessionToken: session.sessionToken,
-   serverSessionId: session.id,
+ serverSessionId: session.id,
  });
  if (!socket) { add(); return; }
  const onReady = (s: any) => {
@@ -454,26 +490,49 @@ export function GlobalShellPanel() {
  }
  }, 1500);
  } catch {
- toast.error(`Failed to start ${protocol} session`);
+ toast.error(t('shell.startFailed', { protocol: PROTOCOL_LABEL[protocol] }) || `Failed to start ${protocol} session`);
  }
  setPickerOpen(false);
+ };
+
+ const openPicker = async () => {
+ setPickerSearch('');
+ setPickerOpen(true);
+ setPickerLoading(true);
+ try {
+ const res = await deviceApi.listPaginated({
+ approvalStatus: 'approved',
+ pageSize: 10000,
+ });
+ setPickerDevices(res.items);
+ } catch {
+ toast.error(t('shell.loadDevicesFailed') || 'Failed to load devices');
+ setPickerDevices([]);
+ } finally {
+ setPickerLoading(false);
+ }
  };
 
  if (sessions.length === 0) return null;
 
  const activeSession = sessions.find((s) => s.id === activeId);
 
- // ── Minimized pill (floating) ────────────────────────────────────────────
+ // ── Minimized pill (in the FloatingDock, under the chat FAB) ─────────────
  if (!isOpen) {
+ const pillLabel = t('shell.pill', { count: sessions.length })
+ || `${sessions.length} shell${sessions.length > 1 ? 's' : ''}`;
+ const pillTitle = t('shell.pillTitle', { count: sessions.length })
+ || `${sessions.length} remote shell session${sessions.length > 1 ? 's' : ''}`;
  return (
  <button
  onClick={() => setOpen(true)}
- title={`${sessions.length} remote shell session${sessions.length > 1 ? 's' : ''}`}
- className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full bg-accent text-white shadow-lg hover:bg-accent/90 transition-colors"
+ title={pillTitle}
+ aria-label={pillTitle}
+ className="pointer-events-auto relative shrink-0 flex items-center gap-2 px-3 py-2 rounded-full bg-accent text-white shadow-lg hover:bg-accent/90 transition-colors coarse:min-h-11 coarse:px-4"
  >
  <TerminalIcon className="w-4 h-4" />
  <span className="text-sm font-medium">
- {sessions.length} shell{sessions.length > 1 ? 's' : ''}
+ {pillLabel}
  </span>
  {sessions.some((s) => s.status === 'error') && (
  <AlertTriangle className="w-3.5 h-3.5 text-red-300" />
@@ -482,12 +541,53 @@ export function GlobalShellPanel() {
  );
  }
 
+ const closeLabel = t('shell.closeSession') || 'Close session';
+
+ // Phone toolbar overflow: the secondary actions live in a "⋯" menu.
+ const phoneMenuItems: ActionMenuItem[] = [
+ {
+ key: 'copy',
+ icon: <Copy className="w-4 h-4" />,
+ label: t('shell.copyContents') || 'Copy terminal contents',
+ onClick: () => { if (activeSession) void copyTerminal(activeSession.id); },
+ hidden: !activeSession || isGroupMode,
+ },
+ {
+ key: 'ungroup',
+ icon: <Ungroup className="w-4 h-4" />,
+ label: t('shell.clearSplit') || 'Clear split group',
+ onClick: () => useRemoteShellStore.getState().clearGroup(),
+ hidden: groupedIds.length < 2,
+ },
+ {
+ key: 'fullscreen',
+ icon: <Maximize2 className="w-4 h-4" />,
+ label: isFullscreen ? (t('shell.exitFullscreen') || 'Exit fullscreen') : (t('shell.enterFullscreen') || 'Enter fullscreen'),
+ onClick: toggleFullscreen,
+ hidden: !fullscreenSupported,
+ },
+ {
+ key: 'close',
+ icon: <X className="w-4 h-4" />,
+ label: closeLabel,
+ onClick: () => { if (activeSession) void handleDisconnect(activeSession.id); },
+ hidden: !activeSession,
+ danger: true,
+ separator: true,
+ },
+ ];
+
  return (
- <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#0d0f14]" style={{ top: nativeTop }}>
+ <div
+ className="pointer-events-auto fixed inset-x-0 bottom-0 z-[1] flex flex-col bg-[#0d0f14] pb-safe px-safe"
+ style={{ top: nativeTop }}
+ role="dialog"
+ aria-label={t('shell.panelTitle') || 'Remote shells'}
+ >
  {/* ── Toolbar ── */}
- <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary shrink-0 gap-3">
+ <div className="flex items-center justify-between px-3 py-1.5 bg-bg-primary shrink-0 gap-3 pt-[max(0.375rem,var(--safe-top))] max-md:gap-1.5 max-md:px-2">
  <div className="flex items-center gap-2 min-w-0 overflow-x-auto scrollbar-thin">
- <TerminalIcon className="w-4 h-4 text-text-muted shrink-0" />
+ <TerminalIcon className="w-4 h-4 text-text-muted shrink-0 max-md:hidden" />
 
  {/* Tabs */}
  {sessions.map((s) => {
@@ -500,10 +600,42 @@ export function GlobalShellPanel() {
  'text-gray-400';
  const isDeadStatus = s.status === 'error' || s.status === 'disconnected';
  const isDropTarget = dragOverId === s.id && dragId && dragId !== s.id;
+ // Touch: every tab action (split, reconnect, copy, close) sits in
+ // a per-tab menu — no drag, no Ctrl, no 18 px close target.
+ const tabMenuItems: ActionMenuItem[] = [
+ {
+ key: 'split',
+ icon: <Columns2 className="w-4 h-4" />,
+ label: isGrouped ? (t('shell.removeFromSplit') || 'Remove from split view') : (t('shell.addToSplit') || 'Add to split view'),
+ onClick: () => toggleSplit(s.id),
+ hidden: sessions.length < 2 && !isGrouped,
+ },
+ {
+ key: 'reconnect',
+ icon: <RotateCcw className="w-4 h-4" />,
+ label: t('shell.reconnect') || 'Reconnect',
+ onClick: () => { void handleReconnect(s.id); },
+ hidden: !isDeadStatus,
+ },
+ {
+ key: 'copy',
+ icon: <Copy className="w-4 h-4" />,
+ label: t('shell.copyContents') || 'Copy terminal contents',
+ onClick: () => { void copyTerminal(s.id); },
+ },
+ {
+ key: 'close',
+ icon: <X className="w-4 h-4" />,
+ label: closeLabel,
+ onClick: () => { void handleDisconnect(s.id); },
+ danger: true,
+ separator: true,
+ },
+ ];
  return (
  <div
  key={s.id}
- draggable
+ draggable={canHover}
  onDragStart={(e) => {
  setDragId(s.id);
  try {
@@ -533,6 +665,7 @@ export function GlobalShellPanel() {
  }}
  className={clsx(
  'flex items-center gap-1.5 px-2.5 py-1.5 rounded cursor-pointer shrink-0 transition-colors border',
+ !canHover && 'py-0.5 pr-0.5',
  isActive
  ? 'bg-accent/15 text-text-primary border-accent/40'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary border-transparent',
@@ -541,9 +674,11 @@ export function GlobalShellPanel() {
  isDropTarget && 'ring-2 ring-accent/70 bg-accent/10',
  dragId === s.id && 'opacity-50',
  )}
- title={isGrouped
- ? 'Drop another tab here to add it · Ctrl+Click to remove from split'
- : 'Click to activate · Drag onto another tab to split · Ctrl+Click to toggle split'}
+ title={canHover
+ ? (isGrouped
+ ? (t('shell.tabHintGrouped') || 'Drop another tab here to add it · Ctrl+Click to remove from split')
+ : (t('shell.tabHint') || 'Click to activate · Drag onto another tab to split · Ctrl+Click to toggle split'))
+ : undefined}
  onClick={(e) => {
  if (e.ctrlKey || e.metaKey) {
  e.preventDefault();
@@ -558,16 +693,19 @@ export function GlobalShellPanel() {
  }}
  >
  <span className={clsx('w-2 h-2 rounded-full', statusColor.replace('text-', 'bg-'))} />
- <span className="text-sm font-medium max-w-[200px] truncate">{s.deviceName}</span>
+ <span className="text-sm font-medium max-w-[200px] truncate max-md:max-w-[120px]">{s.deviceName}</span>
  <span className="text-[11px] text-text-muted/80">{PROTOCOL_LABEL[s.protocol]}</span>
  {isGrouped && (
- <span className="text-[10px] text-purple-400" title="In split group">◎</span>
+ <span className="text-[10px] text-purple-400" title={t('shell.inSplit') || 'In split group'}>◎</span>
  )}
+ {canHover ? (
+ <>
  {isDeadStatus && (
  <button
  onClick={(e) => { e.stopPropagation(); handleReconnect(s.id); }}
  className="p-0.5 rounded hover:bg-accent/20 text-text-muted hover:text-accent"
- title="Reconnect"
+ title={t('shell.reconnect') || 'Reconnect'}
+ aria-label={t('shell.reconnect') || 'Reconnect'}
  >
  <RotateCcw className="w-3.5 h-3.5" />
  </button>
@@ -575,35 +713,34 @@ export function GlobalShellPanel() {
  <button
  onClick={(e) => { e.stopPropagation(); handleDisconnect(s.id); }}
  className="p-0.5 rounded hover:bg-red-500/20 text-text-muted hover:text-red-400"
- title="Close session"
+ title={closeLabel}
+ aria-label={closeLabel}
  >
  <X className="w-3.5 h-3.5" />
  </button>
+ </>
+ ) : (
+ // stopPropagation: menu clicks (portal) must not also hit the
+ // tab's own onClick through the React tree.
+ <span className="flex" onClick={(e) => e.stopPropagation()}>
+ <ActionMenu
+ items={tabMenuItems}
+ label={t('shell.tabActions', { name: s.deviceName }) || `Actions for ${s.deviceName}`}
+ sheetTitle={`${s.deviceName} · ${PROTOCOL_LABEL[s.protocol]}`}
+ triggerSize="sm"
+ />
+ </span>
+ )}
  </div>
  );
  })}
 
  {/* Add-new-session button */}
  <button
- onClick={async () => {
- setPickerSearch('');
- setPickerOpen(true);
- setPickerLoading(true);
- try {
- const res = await deviceApi.listPaginated({
- approvalStatus: 'approved',
- pageSize: 10000,
- });
- setPickerDevices(res.items);
- } catch {
- toast.error('Failed to load devices');
- setPickerDevices([]);
- } finally {
- setPickerLoading(false);
- }
- }}
- title="Open another remote session"
- className="p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors shrink-0"
+ onClick={() => { void openPicker(); }}
+ title={t('shell.openAnother') || 'Open another remote session'}
+ aria-label={t('shell.openAnother') || 'Open another remote session'}
+ className={clsx('p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors shrink-0', TOUCH_BTN)}
  >
  <Plus className="w-4 h-4" />
  </button>
@@ -617,12 +754,13 @@ export function GlobalShellPanel() {
  )}
  {/* Copy whole buffer (or current selection) — always available
  when there's an active session. In group mode each tile has
- its own Copy button too. */}
- {activeSession && !isGroupMode && (
+ its own Copy button too. (Phone: in the "⋯" menu.) */}
+ {!isPhone && activeSession && !isGroupMode && (
  <button
  onClick={() => copyTerminal(activeSession.id)}
- title="Copy terminal contents to clipboard"
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+ title={t('shell.copyToClipboard') || 'Copy terminal contents to clipboard'}
+ aria-label={t('shell.copyToClipboard') || 'Copy terminal contents to clipboard'}
+ className={clsx('p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors', TOUCH_BTN)}
  >
  <Copy className="w-4 h-4" />
  </button>
@@ -635,45 +773,54 @@ export function GlobalShellPanel() {
  <button
  onClick={() => setBroadcast((v) => !v)}
  title={broadcast
- ? 'Broadcast ON — keystrokes go to every grouped terminal'
- : 'Broadcast OFF — keystrokes go to the focused terminal only'}
+ ? (t('shell.broadcastOn') || 'Broadcast ON — keystrokes go to every grouped terminal')
+ : (t('shell.broadcastOff') || 'Broadcast OFF — keystrokes go to the focused terminal only')}
+ aria-label={t('shell.broadcast') || 'Broadcast'}
+ aria-pressed={broadcast}
  className={clsx(
- 'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors border',
+ 'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors border coarse:min-h-10',
  broadcast
  ? 'bg-purple-400/15 text-purple-300 border-purple-400/50'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary border-transparent',
  )}
  >
  <Radio className={clsx('w-3.5 h-3.5', broadcast && 'animate-pulse')} />
- <span className="hidden sm:inline">Broadcast</span>
+ <span className="hidden sm:inline">{t('shell.broadcast') || 'Broadcast'}</span>
  </button>
  )}
  {/* Ungroup all — visible whenever 2+ tabs are grouped. Cheaper
- than Ctrl+Clicking each tab individually. */}
- {groupedIds.length >= 2 && (
+ than Ctrl+Clicking each tab individually. (Phone: "⋯" menu.) */}
+ {!isPhone && groupedIds.length >= 2 && (
  <button
  onClick={() => useRemoteShellStore.getState().clearGroup()}
- title="Clear split group"
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+ title={t('shell.clearSplit') || 'Clear split group'}
+ aria-label={t('shell.clearSplit') || 'Clear split group'}
+ className={clsx('p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors', TOUCH_BTN)}
  >
  <Ungroup className="w-4 h-4" />
  </button>
  )}
  <button
  onClick={() => setShowKeys((v) => !v)}
- title={showKeys ? 'Hide virtual keys' : 'Show virtual keys'}
+ title={showKeys ? (t('shell.hideKeys') || 'Hide virtual keys') : (t('shell.showKeys') || 'Show virtual keys')}
+ aria-label={showKeys ? (t('shell.hideKeys') || 'Hide virtual keys') : (t('shell.showKeys') || 'Show virtual keys')}
+ aria-pressed={showKeys}
  className={clsx(
  'p-1.5 rounded transition-colors',
+ TOUCH_BTN,
  showKeys ? 'bg-accent/15 text-accent' : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary',
  )}
  >
  <Keyboard className="w-4 h-4" />
  </button>
+ {!isPhone && fullscreenSupported && (
  <button
  onClick={toggleFullscreen}
- title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+ title={isFullscreen ? (t('shell.exitFullscreen') || 'Exit fullscreen') : (t('shell.enterFullscreen') || 'Enter fullscreen')}
+ aria-label={isFullscreen ? (t('shell.exitFullscreen') || 'Exit fullscreen') : (t('shell.enterFullscreen') || 'Enter fullscreen')}
  className={clsx(
  'p-1.5 rounded transition-colors',
+ TOUCH_BTN,
  isFullscreen
  ? 'bg-accent/15 text-accent'
  : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary',
@@ -681,21 +828,31 @@ export function GlobalShellPanel() {
  >
  <Maximize2 className="w-4 h-4" />
  </button>
+ )}
+ {isPhone && (
+ <ActionMenu
+ items={phoneMenuItems}
+ label={t('ui.moreActions') || 'More actions'}
+ triggerSize="md"
+ />
+ )}
  <button
  onClick={() => setOpen(false)}
- title="Minimize (stays alive in background)"
- className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors"
+ title={t('shell.minimize') || 'Minimize (stays alive in background)'}
+ aria-label={t('shell.minimize') || 'Minimize (stays alive in background)'}
+ className={clsx('p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-secondary rounded transition-colors', TOUCH_BTN)}
  >
  <Minus className="w-4 h-4" />
  </button>
- {activeSession && (
+ {!isPhone && activeSession && (
  <button
  onClick={() => handleDisconnect(activeSession.id)}
- title="Close session"
- className="flex items-center gap-1.5 px-2 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors"
+ title={closeLabel}
+ aria-label={closeLabel}
+ className="flex items-center gap-1.5 px-2 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors coarse:min-h-10"
  >
  <X className="w-3.5 h-3.5" />
- <span className="hidden sm:inline">Close</span>
+ <span className="hidden sm:inline">{t('common.close') || 'Close'}</span>
  </button>
  )}
  </div>
@@ -704,9 +861,10 @@ export function GlobalShellPanel() {
  {/* ── Terminal container(s) ── */}
  {isGroupMode ? (
  (() => {
- // Tile the grouped terminals in a near-square grid.
+ // Tile the grouped terminals in a near-square grid. Phones stack
+ // them in one column (a 2×2 grid of 180 px terminals is unusable).
  const n = visibleIds.length;
- const cols = Math.ceil(Math.sqrt(n));
+ const cols = isPhone ? 1 : Math.ceil(Math.sqrt(n));
  return (
  <div
  className="flex-1 overflow-hidden p-1 grid gap-1"
@@ -740,7 +898,7 @@ export function GlobalShellPanel() {
  )}
  onClick={() => setActive(id)}
  >
- <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bg-primary/90 shrink-0">
+ <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bg-primary/90 shrink-0 coarse:py-0.5">
  <span className={clsx('w-2 h-2 rounded-full shrink-0', statusColor)} />
  <span className="text-xs font-medium text-text-primary truncate flex-1" title={session.deviceName}>
  {session.deviceName}
@@ -752,23 +910,26 @@ export function GlobalShellPanel() {
  {isDead && (
  <button
  onClick={(e) => { e.stopPropagation(); handleReconnect(id); }}
- title="Reconnect"
- className="p-0.5 rounded hover:bg-accent/20 text-text-muted hover:text-accent shrink-0"
+ title={t('shell.reconnect') || 'Reconnect'}
+ aria-label={t('shell.reconnect') || 'Reconnect'}
+ className={clsx('p-0.5 rounded hover:bg-accent/20 text-text-muted hover:text-accent shrink-0', TOUCH_BTN)}
  >
  <RotateCcw className="w-3.5 h-3.5" />
  </button>
  )}
  <button
  onClick={(e) => { e.stopPropagation(); copyTerminal(id); }}
- title="Copy this terminal's contents"
- className="p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0"
+ title={t('shell.copyThis') || "Copy this terminal's contents"}
+ aria-label={t('shell.copyThis') || "Copy this terminal's contents"}
+ className={clsx('p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0', TOUCH_BTN)}
  >
  <Copy className="w-3.5 h-3.5" />
  </button>
  <button
  onClick={(e) => { e.stopPropagation(); toggleGrouped(id); }}
- title="Remove from split group"
- className="p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0"
+ title={t('shell.removeFromSplit') || 'Remove from split group'}
+ aria-label={t('shell.removeFromSplit') || 'Remove from split group'}
+ className={clsx('p-0.5 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary shrink-0', TOUCH_BTN)}
  >
  <Minus className="w-3.5 h-3.5" />
  </button>
@@ -790,7 +951,18 @@ export function GlobalShellPanel() {
  <div ref={containerRef} className="flex-1 overflow-hidden p-1" style={{ minHeight: 0 }} />
  )}
 
- {showKeys && <VirtualKeyPanel onKey={sendRawToActive} />}
+ {/* Virtual keys. The wrapper keeps the focus in the terminal: pressing
+ a key must not blur xterm's textarea (on touch that closed and
+ re-opened the soft keyboard on every key). 40 px keys on touch. */}
+ {showKeys && (
+ <div
+ className="shrink-0 coarse:[&_button]:min-h-10 coarse:[&_button]:min-w-10"
+ onMouseDown={(e) => e.preventDefault()}
+ onPointerDown={(e) => { if (e.pointerType !== 'mouse') e.preventDefault(); }}
+ >
+ <VirtualKeyPanel onKey={sendRawToActive} />
+ </div>
+ )}
 
  {/* ── Device picker modal (+) ────────────────────────────────────── */}
  {pickerOpen && (() => {
@@ -814,19 +986,23 @@ export function GlobalShellPanel() {
  const capped = q ? filtered : filtered.slice(0, 10);
  return (
  <div
- className="fixed inset-0 z-[200] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-24"
+ className="fixed inset-0 z-[200] flex items-start justify-center bg-black/60 backdrop-blur-sm pt-24 max-sm:items-stretch max-sm:pt-0"
  onClick={() => setPickerOpen(false)}
  >
  <div
- className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[70vh]"
+ className="bg-bg-secondary rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[70dvh] max-sm:mx-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:pt-safe max-sm:pb-safe"
  onClick={(e) => e.stopPropagation()}
+ role="dialog"
+ aria-modal="true"
+ aria-label={t('shell.pickerTitle') || 'Open remote session'}
  >
  <div className="px-4 py-3 flex items-center gap-2">
  <Plus className="w-4 h-4 text-accent" />
- <span className="text-sm font-semibold text-text-primary">Open remote session</span>
+ <span className="text-sm font-semibold text-text-primary">{t('shell.pickerTitle') || 'Open remote session'}</span>
  <button
  onClick={() => setPickerOpen(false)}
- className="ml-auto p-1 text-text-muted hover:text-text-primary rounded"
+ aria-label={t('common.close') || 'Close'}
+ className={clsx('ml-auto p-1 text-text-muted hover:text-text-primary rounded', TOUCH_BTN)}
  >
  <X className="w-4 h-4" />
  </button>
@@ -834,24 +1010,32 @@ export function GlobalShellPanel() {
  <div className="px-4 py-3 ">
  <input
  type="text"
- autoFocus
+ // Touch: no autofocus — the soft keyboard would cover the
+ // recent-devices list the user most likely wants to tap.
+ autoFocus={!coarse}
  value={pickerSearch}
  onChange={(e) => setPickerSearch(e.target.value)}
- placeholder="Search devices..."
+ placeholder={t('shell.searchDevices') || 'Search devices...'}
+ aria-label={t('shell.searchDevices') || 'Search devices...'}
+ autoCapitalize="off"
+ autoCorrect="off"
+ spellCheck={false}
+ enterKeyHint="search"
  className="w-full px-3 py-2 text-sm bg-bg-tertiary rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
  />
  {!q && (
  <p className="text-[10px] text-text-muted mt-1 ml-1">
- Showing {capped.length} most recent · type to search all
+ {t('shell.showingRecent', { count: capped.length })
+ || `Showing ${capped.length} most recent · type to search all`}
  </p>
  )}
  </div>
- <div className="flex-1 overflow-y-auto">
+ <div className="flex-1 overflow-y-auto overscroll-contain">
  {pickerLoading ? (
- <div className="p-6 text-center text-sm text-text-muted">Loading devices...</div>
+ <div className="p-6 text-center text-sm text-text-muted">{t('shell.loadingDevices') || 'Loading devices...'}</div>
  ) : capped.length === 0 ? (
  <div className="p-6 text-center text-sm text-text-muted">
- {q ? 'No devices match your search' : 'No devices available'}
+ {q ? (t('shell.noMatch') || 'No devices match your search') : (t('shell.noDevices') || 'No devices available')}
  </div>
  ) : (
  capped.map((d) => {
@@ -871,12 +1055,12 @@ export function GlobalShellPanel() {
  <span className="truncate">{d.displayName || d.hostname}</span>
  {inPrivacy && (
  <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-orange-400/10 text-orange-400 border border-orange-400/30">
- privacy
+ {t('shell.privacyBadge') || 'privacy'}
  </span>
  )}
  </div>
  <div className="text-[10px] text-text-muted">
- {d.osName || d.osType} · {d.ipLocal || d.ipPublic || 'no IP'}
+ {d.osName || d.osType} · {d.ipLocal || d.ipPublic || (t('shell.noIp') || 'no IP')}
  </div>
  </div>
  <div className="flex gap-1 shrink-0">
@@ -889,8 +1073,8 @@ export function GlobalShellPanel() {
  openNew(d.id, d.displayName || d.hostname || '', p);
  setPickerOpen(false);
  }}
- title={inPrivacy ? 'Privacy mode is active — unlock Remote on the device detail page first' : undefined}
- className="text-xs px-2.5 py-1 rounded text-text-muted hover:text-accent hover:border-accent/40 hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text-muted disabled:hover:border-transparent disabled:hover:bg-transparent transition-colors"
+ title={inPrivacy ? (t('shell.privacyBlocked') || 'Privacy mode is active — unlock Remote on the device detail page first') : undefined}
+ className="text-xs px-2.5 py-1 rounded text-text-muted hover:text-accent hover:border-accent/40 hover:bg-accent/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-text-muted disabled:hover:border-transparent disabled:hover:bg-transparent transition-colors coarse:min-h-10 coarse:px-3 coarse:bg-bg-tertiary"
  >
  {PROTOCOL_LABEL[p]}
  </button>

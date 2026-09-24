@@ -6,6 +6,18 @@ import toast from 'react-hot-toast';
 import { cveApi } from '@/api/cve.api';
 import { useAuthStore } from '@/store/authStore';
 import type { DeviceCve } from '@obliance/shared';
+import { useCanHover } from '@/hooks/useMediaQuery';
+import { Tip } from '@/components/common/Tip';
+import { IconButton } from '@/components/common/IconButton';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { openExternal } from '@/utils/openExternal';
+
+/** Mouse: native title tooltip (unchanged desktop). Touch: tap-to-open Tip. */
+function HintSpan({ hint, className, children }: { hint: string; className?: string; children?: React.ReactNode }) {
+  const canHover = useCanHover();
+  if (canHover) return <span title={hint} className={className}>{children}</span>;
+  return <Tip content={hint}><span className={className}>{children}</span></Tip>;
+}
 
 // Same GHSA/NVD dispatch as CvesPage — keep them in sync if you move
 // this into a shared util later.
@@ -45,6 +57,8 @@ export function DeviceCvesSection({ deviceId }: Props) {
  const [items, setItems] = useState<DeviceCve[]>([]);
  const [isLoading, setIsLoading] = useState(true);
  const [collapsed, setCollapsed] = useState(false);
+ const confirm = useConfirm();
+ const canHover = useCanHover();
 
  const load = async () => {
    setIsLoading(true);
@@ -59,7 +73,14 @@ export function DeviceCvesSection({ deviceId }: Props) {
 
  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [deviceId]);
 
- const handleDismiss = async (dcId: number) => {
+ const handleDismiss = async (dcId: number, cveId: string) => {
+   // Touch: a stray tap on this small control permanently hides the
+   // match, so ask first (mouse keeps the one-click behaviour).
+   if (!canHover && !(await confirm({
+     message: t('cves.dismissConfirm', { defaultValue: 'Dismiss {{cve}} as a false positive? It will not be recreated on the next scan.', cve: cveId }),
+     danger: true,
+     confirmLabel: t('cves.dismiss', 'Dismiss'),
+   }))) return;
    try {
      await cveApi.dismiss(dcId);
      setItems((prev) => prev.filter((x) => x.id !== dcId));
@@ -109,21 +130,22 @@ export function DeviceCvesSection({ deviceId }: Props) {
        <div className="border-t border-bg-tertiary divide-y divide-bg-tertiary/50">
          {items.map((it) => (
            <div key={it.id} className="px-4 py-3 flex items-start gap-3">
-             <span
-               title={`${it.matchConfidence} confidence match`}
+             <HintSpan
+               hint={`${it.matchConfidence} confidence match`}
                className={clsx('w-2 h-2 rounded-full shrink-0 mt-1.5', CONFIDENCE_CLR[it.matchConfidence] ?? CONFIDENCE_CLR.medium)}
              />
              <div className="flex-1 min-w-0">
                <div className="flex items-center gap-2 flex-wrap">
                  {it.cve.kevFlag && (
-                   <span title={t('cves.kevTooltip') || 'CISA Known Exploited Vulnerability'}>
+                   <HintSpan hint={t('cves.kevTooltip') || 'CISA Known Exploited Vulnerability'}>
                      <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-                   </span>
+                   </HintSpan>
                  )}
                  <a
                    href={cveDetailUrl(it.cve.cveId)}
                    target="_blank" rel="noopener noreferrer"
-                   className="font-mono text-xs text-accent hover:underline flex items-center gap-1"
+                   onClick={(e) => { e.preventDefault(); void openExternal(cveDetailUrl(it.cve.cveId)); }}
+                   className="font-mono text-xs text-accent hover:underline flex items-center gap-1 coarse:min-h-8"
                  >
                    {it.cve.cveId}
                    <ExternalLink className="w-3 h-3" />
@@ -140,7 +162,7 @@ export function DeviceCvesSection({ deviceId }: Props) {
                {it.cve.name && (
                  <div className="text-sm text-text-primary mt-1">{it.cve.name}</div>
                )}
-               <div className="text-[11px] text-text-muted mt-1 truncate">
+               <div className="text-[11px] text-text-muted mt-1 truncate coarse:whitespace-normal coarse:break-words">
                  {t('cves.matchedAs') || 'Matched via'}: {[it.matchedVendor, it.matchedProduct, it.matchedVersion].filter(Boolean).join(' · ') || '—'}
                </div>
                {it.cve.firstPatchedVersion && (
@@ -156,13 +178,17 @@ export function DeviceCvesSection({ deviceId }: Props) {
                )}
              </div>
              {isAdmin() && (
-               <button
-                 onClick={() => handleDismiss(it.id)}
-                 className="p-1 text-text-muted hover:text-text-primary shrink-0"
-                 title={t('cves.dismissTooltip') || 'Mark as false positive (won\'t recreate on next scan)'}
+               <IconButton
+                 onClick={() => handleDismiss(it.id, it.cve.cveId)}
+                 size="sm"
+                 variant="plain"
+                 className="shrink-0 rounded-none gap-1 coarse:rounded-lg coarse:px-2 coarse:border coarse:border-border"
+                 label={t('cves.dismissTooltip') || 'Mark as false positive (won\'t recreate on next scan)'}
                >
                  <X className="w-3.5 h-3.5" />
-               </button>
+                 {/* Visible label on touch — the tooltip is mouse-only. */}
+                 <span className="hidden coarse:inline text-xs">{t('cves.dismiss', 'Dismiss')}</span>
+               </IconButton>
              )}
            </div>
          ))}
