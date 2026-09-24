@@ -8,6 +8,7 @@ import { anonymize } from '@/utils/anonymize';
 import { useSocketStore } from '@/store/socketStore';
 import { NotificationCenter } from './NotificationCenter';
 import { TenantSwitcher } from './TenantSwitcher';
+import { SshBastionButton } from './SshBastionButton';
 import { Logo } from '@/components/common/Logo';
 import { cn } from '@/utils/cn';
 
@@ -142,6 +143,9 @@ export function Header() {
  {t('nav.downloadApp')}
  </Link>
  )}
+
+ {/* SSH bastion: authorize this IP for 24h (hidden when disabled) */}
+ <SshBastionButton />
 
  {/* Socket connection status dot */}
  <button

@@ -13,6 +13,7 @@ import { applyTheme, loadSavedTheme, type AppTheme } from '@/utils/theme';
 import { anonymize } from '@/utils/anonymize';
 import { SUPPORTED_LANGUAGES, setLanguage } from '@/i18n';
 import toast from 'react-hot-toast';
+import { SshKeysSection } from '@/components/profile/SshKeysSection';
 
 export function ProfilePage() {
  const { t } = useTranslation();
@@ -202,6 +203,7 @@ export function ProfilePage() {
  Open Obligate Profile
  </a>
  </div>
+ <SshKeysSection />
  </div>
  );
  }
@@ -730,6 +732,7 @@ export function ProfilePage() {
  )}
 
  <TrustedIpsSection />
+ <SshKeysSection />
  </div>
  );
 }

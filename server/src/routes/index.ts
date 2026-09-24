@@ -57,6 +57,8 @@ import oblireachDesktopRoutes from './oblireachDesktop.routes';
 import cveRoutes from './cve.routes';
 import hypervRoutes from './hyperv.routes';
 import veeamRoutes from './veeam.routes';
+import sshBastionRoutes from './sshBastion.routes';
+import { requireRole } from '../middleware/rbac';
 
 const router = Router();
 
@@ -71,6 +73,8 @@ router.use('/repo', repoPublicRoutes);   // script-facing software repo (per-ten
 router.use('/agent-tools', agentToolsRoutes); // static smartctl binary for the disk-health collector (HMAC token)
 router.use('/obliance', oblianceRoutes);    // cross-app link endpoint (Bearer auth)
 router.use('/system', systemRoutes);       // system info / about (admin only, no tenant required)
+// SSH bastion administration — platform service, platform admins only.
+router.use('/ssh-bastion', requireAuth, requireRole('admin'), sshBastionRoutes);
 
 // ── Authenticated, no tenant required ───────────────────────────────────────
 router.use('/profile/2fa', twoFactorRoutes); // must be before /profile (auth handled inside twoFactorRoutes)

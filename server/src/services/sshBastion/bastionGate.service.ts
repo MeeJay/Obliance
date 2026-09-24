@@ -1,3 +1,4 @@
+import net from 'net';
 import { db } from '../../db';
 import { logger } from '../../utils/logger';
 import { bastionAudit } from './bastionUtil';
@@ -62,6 +63,19 @@ function cidrMatch(ip: string, entry: string): boolean {
   return (ipN & mask) === (baseN & mask);
 }
 
+// Admin input validation for an allow-list entry: exact IPv4 / IPv4 CIDR
+// (strict dotted-quad, /0-32) or exact IPv6. Anything else is rejected.
+export function isValidAllowEntry(raw: string): boolean {
+  const s = String(raw || '').trim();
+  if (!s) return false;
+  if (s.includes('/')) {
+    const [base, bits] = s.split('/');
+    return ipv4ToInt(base) !== null && /^(\d|[12]\d|3[0-2])$/.test(bits);
+  }
+  if (ipv4ToInt(s) !== null) return true;
+  return net.isIPv6(s);
+}
+
 class BastionGateService {
   private allowlist: string[] = [];
   private allowlistAt = 0;
@@ -77,6 +91,22 @@ class BastionGateService {
 
   normalize(ip: string | undefined): string {
     return normalizeIp(ip || '');
+  }
+
+  // Admin changes take effect immediately instead of after the cache window.
+  invalidateAllowlist(): void { this.allowlistAt = 0; }
+  invalidateEnforce(): void { this.enforceAt = 0; }
+
+  // Lift a ban (admin). Clears every counter so the IP starts clean.
+  async unban(sourceIp: string): Promise<boolean> {
+    const ip = normalizeIp(sourceIp);
+    const wasBannedInMemory = this.bans.has(ip) || this.unpersisted.has(ip);
+    this.bans.delete(ip);
+    this.unpersisted.delete(ip);
+    this.strikes.delete(ip);
+    this.failedConns.delete(ip);
+    const n = await db('ssh_bastion_bans').where({ ip }).delete();
+    return n > 0 || wasBannedInMemory;
   }
 
   private async loadAllowlist(): Promise<string[]> {

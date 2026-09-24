@@ -34,20 +34,30 @@ const MAX_SESSION_MS = 8 * 60 * 60_000;
 const HOST_KEY_DIR = path.join(config.customDir, 'ssh-bastion');
 const HOST_KEY_PATH = path.join(HOST_KEY_DIR, 'host_rsa');
 
+// ssh2 1.x only parses PKCS#1 ("BEGIN RSA PRIVATE KEY") — NOT PKCS#8
+// ("BEGIN PRIVATE KEY"): with a PKCS#8 host key the server cannot start. So
+// the key is generated as PKCS#1, and a PKCS#8 file left by an earlier build
+// is converted IN PLACE (same key => same fingerprint users already pinned).
 function ensureHostKey(): string {
-  try {
-    return fs.readFileSync(HOST_KEY_PATH, 'utf8');
-  } catch {
-    fs.mkdirSync(HOST_KEY_DIR, { recursive: true });
-    const { privateKey } = crypto.generateKeyPairSync('rsa', {
-      modulusLength: 3072,
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-    });
-    fs.writeFileSync(HOST_KEY_PATH, privateKey, { mode: 0o600 });
-    logger.info('[ssh-bastion] generated persistent host key');
-    return privateKey;
+  const { utils } = require('ssh2') as typeof import('ssh2');
+  if (fs.existsSync(HOST_KEY_PATH)) {
+    let pem = fs.readFileSync(HOST_KEY_PATH, 'utf8');
+    if (utils.parseKey(pem) instanceof Error) {
+      pem = crypto.createPrivateKey(pem).export({ type: 'pkcs1', format: 'pem' }).toString();
+      fs.writeFileSync(HOST_KEY_PATH, pem, { mode: 0o600 });
+      logger.info('[ssh-bastion] converted host key to PKCS#1');
+    }
+    return pem;
   }
+  fs.mkdirSync(HOST_KEY_DIR, { recursive: true });
+  const { privateKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 3072,
+    privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+  fs.writeFileSync(HOST_KEY_PATH, privateKey, { mode: 0o600 });
+  logger.info('[ssh-bastion] generated persistent host key');
+  return privateKey;
 }
 
 async function loadUser(userId: number, sourceIp?: string): Promise<BastionUser | null> {
@@ -71,6 +81,30 @@ async function passGate(stream: any, u: BastionUser, isExec: boolean): Promise<b
   if (isExec) { try { stream.exit(1); } catch { /* */ } }
   stream.end();
   return false;
+}
+
+// Public identity of the bastion, shown in the UI so users can check the
+// fingerprint their client prints on first connection (TOFU). Same format as
+// `ssh-keygen -lf`. null until the host key exists (bastion never started).
+export function getHostKeyInfo(): { type: string; fingerprint: string } | null {
+  try {
+    if (!fs.existsSync(HOST_KEY_PATH)) return null;
+    const { utils } = require('ssh2') as typeof import('ssh2');
+    const parsed = utils.parseKey(fs.readFileSync(HOST_KEY_PATH, 'utf8')) as any;
+    if (!parsed || parsed instanceof Error) return null;
+    const key = Array.isArray(parsed) ? parsed[0] : parsed;
+    const blob: Buffer = key.getPublicSSH();
+    return {
+      type: String(key.type),
+      fingerprint: 'SHA256:' + crypto.createHash('sha256').update(blob).digest('base64').replace(/=+$/, ''),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function isBastionRunning(): boolean {
+  return started;
 }
 
 let started = false;

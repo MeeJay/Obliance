@@ -4,6 +4,7 @@ import { scenarioApi } from '@/api/scenario.api';
 import { ImportExportPage } from './ImportExportPage';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { QuickReplyTemplatesSection } from '@/components/settings/QuickReplyTemplatesSection';
+import { SshBastionAdminSection } from '@/components/settings/SshBastionAdminSection';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import { useAuthStore } from '@/store/authStore';
 import { smtpServerApi, type CreateSmtpServerRequest } from '@/api/smtpServer.api';
@@ -622,6 +623,9 @@ export function SettingsPage() {
 
  {/* ── File explorer editable extensions ── */}
  {admin && <EditableExtensionsSection />}
+
+ {/* ── SSH bastion (ObliJump) ── */}
+ {admin && <SshBastionAdminSection />}
 
  {/* ── Import / Export ── */}
  {admin && (

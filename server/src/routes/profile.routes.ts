@@ -148,4 +148,52 @@ router.post('/ssh-authorize-ip', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Revoke the caller's own SSH authorization for their current IP.
+router.delete('/ssh-authorize-ip', async (req, res, next) => {
+  try {
+    const userId = (req.session as any).userId as number;
+    const { clientIp } = await import('../services/tfaTrust.service');
+    const { db: kdb } = await import('../db');
+    const { bastionGate } = await import('../services/sshBastion/bastionGate.service');
+    const ip = bastionGate.normalize(clientIp(req));
+    await kdb('ssh_bastion_ip_grants').where({ user_id: userId, ip }).delete();
+    const { bastionAudit } = await import('../services/sshBastion/bastionUtil');
+    bastionAudit('ip_authorization_revoked', { tenantId: (req as any).tenantId, userId, ip });
+    res.status(204).send();
+  } catch (err) { next(err); }
+});
+
+// Everything the user-facing UI needs: is the bastion on, where to connect,
+// the host-key fingerprint to verify, and the SSH-button state for THIS IP.
+router.get('/ssh-bastion', async (req, res, next) => {
+  try {
+    const userId = (req.session as any).userId as number;
+    const { config } = await import('../config');
+    const { clientIp } = await import('../services/tfaTrust.service');
+    const { getHostKeyInfo, isBastionRunning } = await import('../services/sshBastion/sshBastion.service');
+    const { bastionGate } = await import('../services/sshBastion/bastionGate.service');
+    const ip = bastionGate.normalize(clientIp(req));
+    const grant = ip
+      ? await db('ssh_bastion_ip_grants')
+          .where({ user_id: userId, ip })
+          .andWhere('expires_at', '>', new Date())
+          .first('expires_at')
+      : null;
+    const user = await db('users').where({ id: userId }).first('totp_enabled', 'totp_secret', 'foreign_source', 'foreign_id');
+    const has2fa = !!(user && ((user.totp_enabled && user.totp_secret) || (user.foreign_source === 'obligate' && user.foreign_id)));
+    res.json({
+      data: {
+        enabled: config.sshBastion.enabled,
+        running: isBastionRunning(),
+        port: config.sshBastion.port,
+        enforce: await bastionGate.isEnforce(),
+        hostKey: getHostKeyInfo(),
+        currentIp: ip || null,
+        ipAuthorizedUntil: grant?.expires_at ?? null,
+        has2fa,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;

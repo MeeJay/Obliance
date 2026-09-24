@@ -2,10 +2,24 @@ import crypto from 'crypto';
 import { db } from '../../db';
 import type { SshPublicKey } from '@obliance/shared';
 
+// Only types ssh2 1.x can verify at login. FIDO keys (sk-*) are NOT parsed by
+// ssh2's keyParser: accepting them here would register a key that never works.
 const KEY_TYPES = new Set([
-  'ssh-ed25519', 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384',
-  'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com',
+  'ssh-ed25519', 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521',
 ]);
+const MIN_RSA_BITS = 2048;
+
+// RSA wire blob: string "ssh-rsa", mpint e, mpint n -> modulus size in bits.
+function rsaModulusBits(blob: Buffer, offset: number): number {
+  const eLen = blob.readUInt32BE(offset);
+  const nOff = offset + 4 + eLen;
+  if (nOff + 4 > blob.length) throw new Error('Invalid key data');
+  const nLen = blob.readUInt32BE(nOff);
+  if (nOff + 4 + nLen > blob.length) throw new Error('Invalid key data');
+  let n = blob.subarray(nOff + 4, nOff + 4 + nLen);
+  while (n.length && n[0] === 0) n = n.subarray(1); // mpint sign padding
+  return n.length ? (n.length - 1) * 8 + (32 - Math.clz32(n[0])) : 0;
+}
 
 function rowToKey(r: any): SshPublicKey {
   return {
@@ -30,6 +44,10 @@ export function parsePublicKey(line: string): { type: string; fingerprint: strin
   const nameLen = blob.readUInt32BE(0);
   if (nameLen > 64 || 4 + nameLen > blob.length) throw new Error('Invalid key data');
   if (blob.subarray(4, 4 + nameLen).toString('ascii') !== type) throw new Error('Key type / data mismatch');
+  if (type === 'ssh-rsa') {
+    if (4 + nameLen + 4 > blob.length) throw new Error('Invalid key data');
+    if (rsaModulusBits(blob, 4 + nameLen) < MIN_RSA_BITS) throw new Error(`Invalid key: RSA keys must be at least ${MIN_RSA_BITS} bits`);
+  }
   const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(blob).digest('base64').replace(/=+$/, '');
   return { type, fingerprint, normalized: `${type} ${b64}` };
 }

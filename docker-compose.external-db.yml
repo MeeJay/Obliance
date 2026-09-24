@@ -17,6 +17,14 @@ services:
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+      # SSH bastion (off by default) — see .env.example
+      SSH_BASTION_ENABLED: ${SSH_BASTION_ENABLED:-false}
+      SSH_BASTION_PORT: ${SSH_BASTION_PORT:-2222}
+    # SSH bastion: uncomment to publish its port once SSH_BASTION_ENABLED=true.
+    # Publish it DIRECTLY (no TCP proxy in front): the bastion must see the real
+    # client IP, or the IP allow-list / bans / 3-strike rule become meaningless.
+    #ports:
+    #  - "${SSH_BASTION_PORT:-2222}:${SSH_BASTION_PORT:-2222}"
     volumes:
       # Persistent custom directory: scripts, SSH keys, etc.
       # SSH keys: chmod 700 custom/.ssh && chmod 600 custom/.ssh/id_*
