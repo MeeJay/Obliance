@@ -449,6 +449,10 @@ class ReportService {
         device: deviceName.get(s.device_id) || `#${s.device_id}`,
         name: s.name, version: s.version, publisher: s.publisher,
         install_date: s.install_date, source: s.source,
+        // device_id → exact COUNT(DISTINCT device) per app in the catalog
+        // (hidden from generic tables via HIDDEN_COLS; the software section
+        // uses its own catalog renderer, not detailTable).
+        device_id: s.device_id,
       }));
     }
 

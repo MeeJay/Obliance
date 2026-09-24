@@ -263,6 +263,11 @@ async function main() {
   reportService.sweepStaleGenerating().catch(() => {});                       // run once at startup
   setInterval(() => reportService.sweepStaleGenerating().catch(() => {}), 15 * 60 * 1000);
 
+  // SSH Bastion (ObliJump) — opt-in via .env; binds its own port only when
+  // SSH_BASTION_ENABLED=true. No-op otherwise.
+  const { startSshBastion } = require('./services/sshBastion/sshBastion.service');
+  startSshBastion();
+
   // Sync built-in preset rules to existing policies (auto-update on deploy)
   const { complianceService } = require('./services/compliance.service');
   complianceService.syncPresetsToExistingPolicies()

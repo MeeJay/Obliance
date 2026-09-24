@@ -23,4 +23,12 @@ export const config = {
   customDir: process.env.CUSTOM_DIR || './custom',
   // Remote access
   remoteTunnelPath: '/api/remote/tunnel',
+  // SSH Bastion (ObliJump) — opt-in via .env, like the Oblihub stacks. The
+  // ssh2 server only binds when enabled; SSH_BASTION_PORT must NOT be 22 (that
+  // stays the host sshd). This port is the one guarded by the IP whitelist,
+  // anti-bruteforce and honeypot.
+  sshBastion: {
+    enabled: process.env.SSH_BASTION_ENABLED === 'true',
+    port: parseInt(process.env.SSH_BASTION_PORT || '2222', 10),
+  },
 };

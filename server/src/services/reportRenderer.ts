@@ -374,6 +374,218 @@ ${nics ? `<div class="d-nics"><span class="d-key">Network</span>${nics}</div>` :
   return `<h2>Detailed inventory <span class="count">${num(rows.length)}</span></h2><div class="dcards">${cards}</div>`;
 }
 
+// ── software catalog (group by normalized app; drift watchlist + standardized) ─
+
+// Best-effort canonical app name: strip trailing version tokens, bitness and
+// locale so "Advanced IP Scanner 2.4 / 2.5 / 2.5.1" collapse to one app — while
+// GUARDING years ("Office 2019", "SQL Server 2022") and "Windows 10/11".
+function normalizeApp(name: string): { displayName: string; key: string } {
+  let s = String(name || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+  s = s.replace(/\s*[([]?\b(?:x64|x86|amd64|arm64|aarch64|64[\s-]?bit|32[\s-]?bit)\b[)\]]?/gi, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/\s*[-–]\s*(?:English|Fran[çc]ais|Deutsch|Espa[ñn]ol|Italiano|Portugu[êe]s|日本語|简体中文)\s*$/i, '').trim();
+  s = s.replace(/\s*[([][a-z]{2}(?:[-_][A-Za-z]{2})?[)\]]\s*$/, '').trim();
+  const VER = /\s+v?\d+(?:[.,]\d+){0,4}(?:[ ._-]?(?:rc|beta|alpha|build|preview|sp)\d*)?[)\]]?$/i;
+  const YEAR = /^(?:19|20)\d{2}$/;
+  const STOP = new Set(['windows']);
+  for (let i = 0; i < 6; i++) {
+    const mm = s.match(VER);
+    if (!mm) break;
+    const tok = mm[0].trim().replace(/^v/i, '').replace(/[)\]]+$/, '');
+    // Guard on the LEADING number: "2019 SP1"/"2022 Preview" carry a year token
+    // even with a suffix, so testing the whole token misses them (year gets
+    // stripped → yearly editions false-merge).
+    const lead = (tok.match(/^\d+/) || [''])[0];
+    if (YEAR.test(lead)) break;                      // keep "…2019"/"…2022 Preview"
+    const cand = s.slice(0, mm.index).replace(/[\s.,;:–-]+$/, '').trim();
+    if (!cand || STOP.has(cand.toLowerCase())) break; // keep "Windows 10"
+    s = cand;
+  }
+  s = s.replace(/\(\s*\)|\[\s*\]/g, '').replace(/[\s.,;:–-]+$/, '').trim();
+  const displayName = s || String(name || '').trim() || '(unknown)';
+  const key = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '') || displayName.toLowerCase();
+  return { displayName, key };
+}
+
+// Numeric component-wise version compare (>0 ⇒ a is newer).
+function verCmp(a: string, b: string): number {
+  const pa = String(a).split(/[^\d]+/).filter(Boolean).map(Number);
+  const pb = String(b).split(/[^\d]+/).filter(Boolean).map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
+function modeOf(counts: Map<string, number>): string {
+  let best = '', n = -1;
+  for (const [k, c] of counts) if (c > n) { best = k; n = c; }
+  return best;
+}
+
+function computeSoftwareCatalog(rows: any[]): any[] {
+  const groups = new Map<string, any>();
+  for (const r of rows) {
+    const { displayName, key } = normalizeApp(r.name);
+    let g = groups.get(key);
+    if (!g) { g = { nameCounts: new Map(), pubCounts: new Map(), sources: new Set(), rawNames: new Set(), verDev: new Map(), devices: new Set() }; groups.set(key, g); }
+    g.nameCounts.set(displayName, (g.nameCounts.get(displayName) || 0) + 1);
+    g.rawNames.add(r.name);
+    if (r.publisher) g.pubCounts.set(r.publisher, (g.pubCounts.get(r.publisher) || 0) + 1);
+    if (r.source) g.sources.add(r.source);
+    const dev = r.device_id ?? r.device ?? r.name;
+    g.devices.add(dev);
+    const ver = (r.version && String(r.version).trim()) || '—';
+    if (!g.verDev.has(ver)) g.verDev.set(ver, new Set());
+    g.verDev.get(ver).add(dev);
+  }
+  const apps: any[] = [];
+  for (const g of groups.values()) {
+    const all = [...g.verDev.entries()].map(([v, set]: any) => ({ v, n: set.size }));
+    // Unknown/empty version ('—') is NOT a real version: it must not create
+    // false drift nor become the baseline (which would flag correctly-versioned
+    // machines as "to update"). Track its device count separately.
+    const versions = all.filter((x) => x.v !== '—').sort((a, b) => b.n - a.n || verCmp(a.v, b.v) * -1);
+    const unknown = all.find((x) => x.v === '—')?.n || 0;
+    const installs = g.devices.size;
+    const knownInstalls = versions.reduce((s, x) => s + x.n, 0);
+    const topN = versions[0]?.n || 0;                      // most common REAL version
+    const latest = versions.length ? versions.map((x) => x.v).sort(verCmp).pop() : '—';
+    const sources = [...g.sources] as string[];
+    apps.push({
+      displayName: modeOf(g.nameCounts), publisher: modeOf(g.pubCounts) || '',
+      installs, versions, unknown, versionCount: versions.length,
+      offBaseline: Math.max(0, knownInstalls - topN),
+      latest, source: sources.length <= 1 ? (sources[0] || '') : `${sources[0]}+${sources.length - 1}`,
+      mergedFrom: g.rawNames.size, drift: versions.length > 1,
+    });
+  }
+  return apps;
+}
+
+// green (newest) → red (oldest) interpolation for the version-spread bar.
+function hexLerp(a: string, b: string, t: number): string {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return '#' + pa.map((x, i) => Math.round(x + (pb[i] - x) * t).toString(16).padStart(2, '0')).join('');
+}
+
+function driftLevel(versions: any[]): 'major' | 'minor' | null {
+  if (versions.length < 2) return null;
+  const majorMinor = new Set(versions.map((x) => {
+    const c = String(x.v).split(/[^\d]+/).filter(Boolean).map(Number);
+    return `${c[0] ?? -1}.${c[1] ?? -1}`;
+  }));
+  return majorMinor.size > 1 ? 'major' : 'minor';
+}
+
+function spreadBar(versions: any[], unknown = 0): string {
+  const byVer = [...versions].sort((a, b) => verCmp(b.v, a.v)); // newest→oldest
+  const total = versions.reduce((s, x) => s + x.n, 0) + unknown || 1;
+  const k = byVer.length;
+  let seg = byVer.map((x, i) => {
+    const color = k === 1 ? '#10b981' : hexLerp('#10b981', '#ef4444', i / (k - 1));
+    return `<span style="width:${(x.n / total * 100).toFixed(1)}%;background:${color}"></span>`;
+  }).join('');
+  if (unknown > 0) seg += `<span style="width:${(unknown / total * 100).toFixed(1)}%;background:#cbd5e1"></span>`;
+  const text = versions.slice(0, 4).map((x) => `${esc(x.v)} ×${x.n}`).join(', ')
+    + (versions.length > 4 ? `, +${versions.length - 4}` : '')
+    + (unknown > 0 ? `, — ×${unknown}` : '');
+  return `<div class="vbar">${seg}</div><div class="vtext">${text}</div>`;
+}
+
+function coverage(installs: number, fleet: number): string {
+  const p = fleet ? installs / fleet * 100 : 0;
+  const label = p >= 1 ? `${Math.round(p)}%` : (installs > 0 ? '<1%' : '0%');
+  return `<div class="cov"><span class="cov-n">${num(installs)}</span><div class="cov-bar"><div class="cov-fill" style="width:${Math.min(100, p).toFixed(1)}%"></div></div><span class="cov-p">${label}</span></div>`;
+}
+
+const SW_DRIFT_CAP = 200;
+const SW_STD_CAP = 400;
+
+function softwareCatalogBlocks(rows: any[], fleet: number): string {
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const apps = computeSoftwareCatalog(rows);
+  if (apps.length === 0) return '';
+  const drift = apps.filter((a) => a.drift)
+    .sort((a, b) => b.offBaseline - a.offBaseline || b.versionCount - a.versionCount || b.installs - a.installs);
+  const std = apps.filter((a) => !a.drift)
+    .sort((a, b) => b.installs - a.installs || a.displayName.localeCompare(b.displayName));
+  const totalInstalls = apps.reduce((s, a) => s + a.installs, 0);
+  const offTotal = drift.reduce((s, a) => s + a.offBaseline, 0);
+  const stdPct = apps.length ? (apps.length - drift.length) / apps.length * 100 : 100;
+
+  const kpis = [
+    kpi(num(apps.length), 'Applications', 'catalogued', ACCENT),
+    kpi(num(totalInstalls), 'Installs', 'across fleet', MUTED),
+    kpi(num(drift.length), 'Version drift', 'apps to standardize', drift.length ? '#f59e0b' : '#10b981'),
+    kpi(num(offTotal), 'Off-baseline', 'installs to update', offTotal ? '#ef4444' : '#10b981'),
+    ring(stdPct, stdPct >= 90 ? '#10b981' : stdPct >= 70 ? '#f59e0b' : '#ef4444', 'Standardized'),
+  ].join('');
+
+  // Tier 1 — drift watchlist.
+  let driftTbl = '';
+  if (drift.length) {
+    const shown = drift.slice(0, SW_DRIFT_CAP);
+    const body = shown.map((a) => {
+      const lvl = driftLevel(a.versions);
+      const chip = lvl ? `<span class="chip ${lvl === 'major' ? 'chip-r' : 'chip-a'}">${lvl === 'major' ? 'MAJOR' : 'MINOR'}</span>` : '';
+      const merged = a.mergedFrom > 1 ? `<div class="merged">ⓘ merged from ${a.mergedFrom} names</div>` : '';
+      return `<tr>
+<td>${esc(a.displayName)}${merged}</td>
+<td>${esc(a.publisher)}</td>
+<td>${coverage(a.installs, fleet)}</td>
+<td><span class="verpill">${a.versionCount} ▲</span></td>
+<td class="vspread">${spreadBar(a.versions, a.unknown)}</td>
+<td>${esc(a.latest)}</td>
+<td>${chip}</td>
+<td>${esc(a.source)}</td>
+</tr>`;
+    }).join('');
+    const more = drift.length > SW_DRIFT_CAP ? `<div class="tbl-more">+ ${num(drift.length - SW_DRIFT_CAP)} more drift apps — see the CSV/Excel export</div>` : '';
+    driftTbl = `<h2>Version drift — watchlist <span class="count">${num(drift.length)}</span></h2>
+<table class="detail sw"><thead><tr><th>App</th><th>Publisher</th><th>Installs</th><th>Ver</th><th>Version spread (servers per version)</th><th>Latest</th><th>Drift</th><th>Src</th></tr></thead><tbody>${body}</tbody></table>${more}`;
+  }
+
+  // Tier 2 — standardized catalog, split into two side-by-side compact tables.
+  let stdTbl = '';
+  if (std.length) {
+    const shown = std.slice(0, SW_STD_CAP);
+    const half = Math.ceil(shown.length / 2);
+    const col = (list: any[]) => `<table class="detail sw-std"><thead><tr><th>App</th><th>Publisher</th><th>Version</th><th>Inst.</th></tr></thead><tbody>${
+      list.map((a) => `<tr><td>${esc(a.displayName)}</td><td>${esc(a.publisher)}</td><td>${esc(a.versions[0]?.v ?? '—')}</td><td class="num">${num(a.installs)}</td></tr>`).join('')
+    }</tbody></table>`;
+    const more = std.length > SW_STD_CAP ? `<div class="tbl-more">+ ${num(std.length - SW_STD_CAP)} more standardized apps — see the CSV/Excel export</div>` : '';
+    stdTbl = `<h2>Standardized catalog <span class="count">${num(std.length)}</span></h2>
+<div class="sw-cols">${col(shown.slice(0, half))}${col(shown.slice(half))}</div>${more}`;
+  }
+
+  return `<div class="section-h">Software</div><div class="kpis">${kpis}</div>${driftTbl}${stdTbl}`;
+}
+
+// Detailed mode — group by SERVER (one card per server, its apps + versions).
+function softwareByServerBlocks(rows: any[]): string {
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const byServer = new Map<string, any[]>();
+  for (const r of rows) {
+    const s = r.device || '(unknown)';
+    if (!byServer.has(s)) byServer.set(s, []);
+    byServer.get(s)!.push(r);
+  }
+  const APP_CAP = 200;
+  const cards = [...byServer.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([server, apps]) => {
+      const sorted = apps.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      const shown = sorted.slice(0, APP_CAP);
+      const items = shown.map((a) =>
+        `<div class="sw-item"><span class="sw-name">${esc(a.name)}</span><span class="sw-ver">${esc(a.version || '—')}</span></div>`).join('');
+      const more = sorted.length > APP_CAP ? `<div class="tbl-more">+ ${num(sorted.length - APP_CAP)} more</div>` : '';
+      return `<div class="dcard"><div class="dcard-h">${esc(server)} <span class="count">${num(sorted.length)} apps</span></div><div class="sw-list">${items}</div>${more}</div>`;
+    }).join('');
+  return `<h2>Software by server <span class="count">${num(byServer.size)}</span></h2><div class="dcards">${cards}</div>`;
+}
+
 // ── document assembly ─────────────────────────────────────────────────────────
 
 export function renderReportHtml(data: Record<string, any>, report: any, opts: RenderOpts): string {
@@ -394,7 +606,7 @@ export function renderReportHtml(data: Record<string, any>, report: any, opts: R
     kpis.push(kpi(num(m.updateTotal), 'Pending updates', `${num(m.criticalUpdates)} critical/important`, m.criticalUpdates > 0 ? '#ef4444' : '#3b82f6'));
     kpis.push(kpi(num(m.rebootDevices), 'Reboot needed', 'devices', m.rebootDevices > 0 ? '#f59e0b' : '#10b981'));
   }
-  if (m.softwareTotal) kpis.push(kpi(num(m.softwareTotal), 'Software items', 'installed', MUTED));
+  // (software analytics live in their own section strip, not the exec row)
 
   // Charts.
   const charts: string[] = [];
@@ -421,13 +633,24 @@ export function renderReportHtml(data: Record<string, any>, report: any, opts: R
     ], num(m.rulePass + m.ruleFail + m.ruleWarn + m.ruleOther)));
   }
 
-  // Detail tables — every non-empty section, in a stable order. The per-server
-  // detailed cards (hardwareDetail) are drawn right after the flat inventory
-  // table, not as a generic table.
+  // Detail sections, in a stable order. Two sections are special-cased instead
+  // of the generic detailTable: hardware (flat table + per-server cards) and
+  // software (catalog in normal mode; grouped-by-server cards in detailed mode).
+  const wantDetail = Array.isArray(report.sections) && report.sections.includes('inventory_detail');
+  const fleetSize = m.total || (Array.isArray(data.devices) ? data.devices.length : 0);
   const order = ['devices', 'hardware', 'software', 'updates', 'compliance', 'scriptHistory'];
   const skip = new Set([...order, 'hardwareDetail']);
   const parts: string[] = [];
   for (const s of [...order, ...Object.keys(data).filter((k) => !skip.has(k))]) {
+    if (s === 'software') {
+      const catalog = softwareCatalogBlocks(data.software, fleetSize);
+      if (catalog) parts.push(catalog);
+      if (wantDetail) {
+        const byServer = softwareByServerBlocks(data.software);
+        if (byServer) parts.push(byServer);
+      }
+      continue;
+    }
     const t = detailTable(s, data[s]);
     if (t) parts.push(t);
     if (s === 'hardware') {
@@ -507,6 +730,30 @@ table.detail tr { page-break-inside: avoid; }
 .d-nics .d-key { display: block; margin-bottom: 2px; }
 .d-sub { color: #334155; padding: 1px 0 1px 8px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Software catalog */
+table.sw td { vertical-align: middle; }
+.verpill { display: inline-block; background: #f59e0b; color: #fff; font-size: 8px; font-weight: 700; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
+.chip { display: inline-block; font-size: 8px; font-weight: 700; padding: 1px 6px; border-radius: 8px; color: #fff; }
+.chip-r { background: #ef4444; }
+.chip-a { background: #f59e0b; }
+.merged { font-size: 8px; color: ${MUTED}; font-style: italic; margin-top: 1px; }
+.cov { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cov-n { font-weight: 700; min-width: 26px; text-align: right; }
+.cov-bar { width: 46px; height: 7px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.cov-fill { height: 100%; background: ${ACCENT}; border-radius: 4px; }
+.cov-p { color: ${MUTED}; font-size: 8px; min-width: 26px; }
+.vspread { min-width: 190px; }
+.vbar { display: flex; width: 100%; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 2px; }
+.vbar span { display: block; height: 100%; }
+.vtext { font-size: 8px; color: #334155; word-break: break-word; }
+.sw-cols { display: flex; gap: 12px; align-items: flex-start; }
+.sw-cols > table { flex: 1 1 0; width: 50%; }
+table.sw-std td.num { text-align: right; font-weight: 700; }
+.sw-list { columns: 2; column-gap: 18px; }
+.sw-item { display: flex; justify-content: space-between; gap: 8px; font-size: 9px; padding: 1px 0; break-inside: avoid; }
+.sw-name { color: #1e293b; word-break: break-word; }
+.sw-ver { color: ${MUTED}; white-space: nowrap; }
 
 /* Signature footer */
 .sig { margin-top: 26px; padding-top: 12px; border-top: 2px solid #e5e7eb; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9.5px; color: ${MUTED}; page-break-inside: avoid; }

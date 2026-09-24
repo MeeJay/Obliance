@@ -1810,6 +1810,50 @@ export interface ReportOutput {
   createdAt: string;
 }
 
+// ─── SSH BASTION (ObliJump) ──────────────────────────────────────────────────
+
+// T0 = managed-shell (reuse the agent PTY tunnel, root, records content).
+// T1 = ephemeral authorized_keys on a hardened `obli` account (no sshd_config
+// edit, works OpenSSH 4.7 → Debian 13).
+export type BastionTier = 'managed_shell' | 'ephemeral_authkeys';
+export type BastionGrantStatus = 'pending' | 'active' | 'closed' | 'revoked' | 'error';
+
+export interface SshPublicKey {
+  id: number;
+  userId: number;
+  name: string;
+  keyType: string | null;
+  publicKey: string;
+  fingerprint: string;       // SHA256:... — globally unique, maps a key to its Obliance user
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface BastionGrant {
+  id: string;                // uuid, also the session id
+  userId: number;
+  deviceId: number;
+  tenantId: number;
+  tier: BastionTier;
+  targetUser: string | null; // 'obli' (T1) or the agent user / root (T0)
+  status: BastionGrantStatus;
+  sourceIp: string | null;
+  publicKeyFp: string | null;
+  sshdPort: number | null;
+  error: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  closedAt: string | null;
+}
+
+export interface BastionIpAllow {
+  id: number;
+  cidr: string;
+  label: string | null;
+  createdBy: number | null;
+  createdAt: string;
+}
+
 // ─── API RESPONSE ────────────────────────────────────────────────────────────
 
 export interface ApiResponse<T = unknown> {

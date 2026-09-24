@@ -302,6 +302,13 @@ class RemoteService {
     // in registerAgentTunnel when the agent eventually arrives.
   }
 
+  /** Drop a tunnel entry whose browser side gave up BEFORE the agent paired
+   *  (e.g. the in-process SSH bastion hit its connect timeout). Without this
+   *  the entry would linger in memory until an agent that never comes. */
+  dropTunnel(sessionToken: string) {
+    this.tunnels.delete(sessionToken);
+  }
+
   /** Flush buffered agent frames to the browser, then wire up browser→agent relay. */
   private _flushAndBridgeBrowser(sessionToken: string, browserWs: any, agentWs: any) {
     const tunnel = this.tunnels.get(sessionToken);
