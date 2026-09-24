@@ -1,15 +1,18 @@
 import net from 'net';
+import os from 'os';
 import { db } from '../../db';
 import { logger } from '../../utils/logger';
 import { bastionAudit } from './bastionUtil';
 
 // ─── Network gate + anti-bruteforce for the bastion port ─────────────────────
 //
-// An IP is allowed when it is:
-//   1. in the static allow-list (ssh_bastion_ip_allowlist) — always wins, or
+// An IP is allowed ONLY when it is:
+//   1. in the static allow-list (ssh_bastion_ip_allowlist), or
 //   2. authorized by the user through the header "SSH" button (fresh 2FA,
-//      ssh_bastion_ip_grants, 24h), or
-//   3. trusted by a web 2FA step-up with "trust this IP" (tfa_trusted_sessions).
+//      ssh_bastion_ip_grants, 24h).
+// A web 2FA "trust this IP" (tfa_trusted_sessions) deliberately does NOT count:
+// it is ticked casually on any sensitive web action, is invisible from the SSH
+// UI, and silently opened the bastion (incident 2026-09-24).
 //
 // `enforce` (app_config ssh_bastion_enforce) makes the gate hard: a non-allowed
 // IP is refused with "Your IP is not allowed" and banned on the 3rd attempt.
@@ -75,6 +78,48 @@ export function isValidAllowEntry(raw: string): boolean {
   if (ipv4ToInt(s) !== null) return true;
   return net.isIPv6(s);
 }
+
+// ── Infrastructure IPs (fail closed) ──────────────────────────────────────────
+// A source IP that belongs to the server's OWN networks (loopback, the Docker
+// bridge the container sits on, its gateway) is never a real client: it means
+// the connection was relayed (docker-proxy for IPv6, an NPM/nginx stream, a
+// NAT hairpin...). Every user behind that relay would share ONE IP, so an
+// SSH-button grant or a web trust for it would open the bastion to all of
+// them. Such IPs are therefore never allowed, and never banned (a ban would
+// lock everybody out).
+let infraNets: string[] = [];
+let infraV6: string[] = [];
+let infraAt = 0;
+function refreshInfra(): void {
+  if (Date.now() - infraAt < 60_000) return;
+  const v4: string[] = ['127.0.0.0/8'];
+  const v6: string[] = ['::1'];
+  const ifaces = os.networkInterfaces();
+  // Normal bridged container: every interface is Docker plumbing. In the HOST
+  // network namespace (network_mode: host, recognizable by docker0), the real
+  // LAN interfaces must NOT count — only the Docker bridges do.
+  const hostNetns = 'docker0' in ifaces;
+  for (const [name, addrs] of Object.entries(ifaces)) {
+    if (hostNetns && !/^(docker\d*|br-|veth|cni|flannel|cali|vxlan)/.test(name)) continue;
+    for (const a of addrs || []) {
+      if (a.family === 'IPv4' && a.cidr) v4.push(a.cidr);
+      else if (a.family === 'IPv6') v6.push(normalizeIp(a.address.split('%')[0]));
+    }
+  }
+  infraNets = v4;
+  infraV6 = v6;
+  infraAt = Date.now();
+}
+export function isInfraIp(raw: string | undefined): boolean {
+  const ip = normalizeIp(raw || '');
+  if (!ip) return true; // unknown source = fail closed
+  refreshInfra();
+  if (net.isIPv6(ip)) return infraV6.includes(ip) || ip.startsWith('fe80:');
+  return infraNets.some((c) => cidrMatch(ip, c));
+}
+
+export type GateVia = 'allowlist' | 'ssh_button';
+export interface GateDecision { allowed: boolean; enforce: boolean; via: GateVia | null; entry?: string; infra: boolean }
 
 class BastionGateService {
   private allowlist: string[] = [];
@@ -154,7 +199,7 @@ class BastionGateService {
   }
 
   async ban(sourceIp: string | undefined, reason: string, durationMs: number | null = BAN_MS): Promise<void> {
-    if (!sourceIp) return;
+    if (!sourceIp || isInfraIp(sourceIp)) return; // would lock out everyone behind the relay
     const ip = normalizeIp(sourceIp);
     const expiresAt = durationMs === null ? null : new Date(Date.now() + durationMs);
     const expMs = expiresAt ? expiresAt.getTime() : Infinity;
@@ -189,6 +234,7 @@ class BastionGateService {
   }
 
   async grantIp(userId: number, sourceIp: string): Promise<Date> {
+    if (isInfraIp(sourceIp)) throw new Error('INFRA_IP');
     const ip = normalizeIp(sourceIp);
     const expiresAt = new Date(Date.now() + GRANT_MS);
     await db('ssh_bastion_ip_grants')
@@ -200,26 +246,26 @@ class BastionGateService {
     return expiresAt;
   }
 
-  // 2FA-equivalent proof for this (user, ip): SSH-button grant or web trust.
+  // 2FA-equivalent proof for this (user, ip): the SSH-button grant only.
   async hasFreshSecondFactor(userId: number, sourceIp: string | undefined): Promise<boolean> {
-    if (!sourceIp) return false;
-    if (await this.hasGrant(userId, sourceIp)) return true;
-    const { tfaTrustService } = await import('../tfaTrust.service');
-    return tfaTrustService.isTrusted(userId, normalizeIp(sourceIp));
+    if (!sourceIp || isInfraIp(sourceIp)) return false;
+    return this.hasGrant(userId, sourceIp); // SSH-button grant only (fresh TOTP), never web trust
   }
 
-  async evaluate(sourceIp: string | undefined, userId: number): Promise<{ allowed: boolean; enforce: boolean }> {
+  async evaluate(sourceIp: string | undefined, userId: number): Promise<GateDecision> {
     const enforce = await this.isEnforce();
-    if (!sourceIp) return { allowed: false, enforce };
+    if (!sourceIp || isInfraIp(sourceIp)) return { allowed: false, enforce, via: null, infra: true };
     const ip = normalizeIp(sourceIp);
     const list = await this.loadAllowlist();
-    if (list.some((c) => cidrMatch(ip, c))) return { allowed: true, enforce };
-    return { allowed: await this.hasFreshSecondFactor(userId, ip), enforce };
+    const entry = list.find((c) => cidrMatch(ip, c));
+    if (entry) return { allowed: true, enforce, via: 'allowlist', entry, infra: false };
+    if (await this.hasGrant(userId, ip)) return { allowed: true, enforce, via: 'ssh_button', infra: false };
+    return { allowed: false, enforce, via: null, infra: false };
   }
 
   // Refused not-allowed attempt (enforce mode). Returns true when banned.
   async strike(sourceIp: string | undefined): Promise<boolean> {
-    if (!sourceIp) return false;
+    if (!sourceIp || isInfraIp(sourceIp)) return false;
     const ip = normalizeIp(sourceIp);
     const n = (this.strikes.get(ip) || 0) + 1;
     if (n >= IP_STRIKE_LIMIT) {
@@ -238,7 +284,7 @@ class BastionGateService {
   // A connection that closed without ever authenticating (scanner, wrong
   // key, dropped handshake). Too many within the window -> ban.
   async recordFailedConnection(sourceIp: string | undefined): Promise<void> {
-    if (!sourceIp) return;
+    if (!sourceIp || isInfraIp(sourceIp)) return;
     const ip = normalizeIp(sourceIp);
     const now = Date.now();
     // Bound memory under a wide scan: drop IPs whose window has fully expired.

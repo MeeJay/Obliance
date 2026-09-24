@@ -92,6 +92,7 @@ export function SshKeysSection() {
 
   const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
   const command = sshConnectCommand(info, user?.username);
+  const jumpCommand = `ssh -J ${user?.username ? `${user.username}@` : ''}${window.location.hostname}${info.port === 22 ? '' : `:${info.port}`} obli@<machine>`;
 
   return (
     <div id="ssh-keys" ref={rootRef} className="mt-8 bg-bg-secondary rounded-xl p-6 scroll-mt-6">
@@ -198,6 +199,22 @@ export function SshKeysSection() {
         </div>
         <p className="text-[11px] text-text-muted">
           {t('sshBastion.connect.help') || 'Once connected, type "help": "list" shows the machines you can reach, "ssh <machine>" opens a shell on it.'}
+        </p>
+        <p className="pt-1 text-[11px] font-semibold text-text-secondary">
+          {t('sshBastion.connect.proxyJumpTitle') || 'Native ProxyJump (Linux machines — scp, sftp, VS Code Remote…)'}
+        </p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 min-w-0 truncate rounded bg-bg-primary px-3 py-1.5 font-mono text-xs text-text-primary select-all">{jumpCommand}</code>
+          <button
+            onClick={() => copyText(jumpCommand, t('common.copied') || 'Copied')}
+            className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
+            title={t('common.copy') || 'Copy'}
+          >
+            <Copy size={13} />
+          </button>
+        </div>
+        <p className="text-[11px] text-text-muted">
+          {t('sshBastion.connect.proxyJumpHelp') || 'The target account is always "obli" (then "sudo -i" for root). A one-time entry for your key is installed on the machine only while you connect. Requires an up-to-date agent.'}
         </p>
         {info.hostKey && (
           <p className="text-[11px] text-text-muted">

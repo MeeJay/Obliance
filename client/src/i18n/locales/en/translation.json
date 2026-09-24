@@ -2384,7 +2384,9 @@
       "help": "Once connected, type \"help\": \"list\" shows the machines you can reach, \"ssh <machine>\" opens a shell on it.",
       "hostKey": "Server fingerprint (check it on first connection)",
       "enforceHint": "Access is limited to authorized IPs: use the \"SSH\" button in the header to authorize your current IP for 24h.",
-      "notRunning": "The bastion is enabled but not running — contact an administrator."
+      "notRunning": "The bastion is enabled but not running — contact an administrator.",
+      "proxyJumpTitle": "Native ProxyJump (Linux machines — scp, sftp, VS Code Remote…)",
+      "proxyJumpHelp": "The target account is always \"obli\" (then \"sudo -i\" for root). A one-time entry for your key is installed on the machine only while you connect. Requires an up-to-date agent."
     },
     "button": {
       "title": "SSH bastion",
@@ -2400,7 +2402,9 @@
       "revoked": "SSH authorization revoked for this IP",
       "need2fa": "Enable two-factor authentication on your account to authorize an IP.",
       "notEnforced": "IP restriction is currently disabled by an administrator: any IP can connect with a valid key.",
-      "manageKeys": "Manage my SSH keys"
+      "manageKeys": "Manage my SSH keys",
+      "relayed": "Obliance cannot see your real IP (internal relay address): SSH access is impossible from here. Contact an administrator.",
+      "allowlisted": "This IP is in the administrator allow-list: SSH access is open without the button."
     },
     "admin": {
       "title": "SSH bastion",

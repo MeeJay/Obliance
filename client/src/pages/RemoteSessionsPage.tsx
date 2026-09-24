@@ -19,6 +19,7 @@ const PROTOCOL_CONFIG: Record<RemoteProtocol, { label: string; color: string; de
  cmd: { label: 'CMD', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', description: 'Windows Command Prompt' },
  powershell: { label: 'PowerShell', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30', description: 'Windows PowerShell terminal' },
  vmconsole: { label: 'VM Console', color: 'text-violet-400 bg-violet-400/10 border-violet-400/30', description: 'Hyper-V VM interactive console (FreeRDP)' },
+ sshjump: { label: 'SSH ProxyJump', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30', description: 'Native SSH through the Obliance bastion' },
 };
 
 const STATUS_CONFIG: Record<RemoteSessionStatus, { label: string; color: string; pulse?: boolean }> = {
@@ -242,8 +243,10 @@ export function RemoteSessionsPage({ embedded }: { embedded?: boolean } = {}) {
  <label className="text-xs font-medium text-text-muted uppercase">Protocol</label>
  <div className="space-y-2">
  {(Object.entries(PROTOCOL_CONFIG) as [RemoteProtocol, typeof PROTOCOL_CONFIG[RemoteProtocol]][]).filter(([proto]) =>
+ // ProxyJump sessions are opened by the SSH bastion only, never from here.
+ proto !== 'sshjump' &&
  // Oblireach only on Windows and macOS — not Linux
- proto !== 'oblireach' || selectedDevice?.osType !== 'linux'
+ (proto !== 'oblireach' || selectedDevice?.osType !== 'linux')
  ).map(([proto, cfg]) => (
  <button
  key={proto}

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { WebSocket } from 'ws';
 import { db } from '../db';
 import { getIO } from '../socket';
@@ -56,11 +57,20 @@ interface AgentPrivacyNotify {
   enabled: boolean;
 }
 
+export interface AgentRequestResult {
+  success: boolean;
+  result?: any;
+  error?: string;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 class AgentHubService {
   /** deviceId → active connection */
   private byDevice = new Map<number, AgentConn>();
+
+  /** In-flight request() calls: command id -> resolver (bound to ONE device). */
+  private pending = new Map<string, { deviceId: number; resolve: (r: AgentRequestResult) => void; timer: NodeJS.Timeout }>();
 
   constructor() {
     // Ping all connected agents every 15 s so the WebSocket stays alive through
@@ -312,6 +322,19 @@ class AgentHubService {
   private async _handleAck(conn: AgentConn, msg: AgentAck): Promise<void> {
     if (msg.type !== 'ack') return;
 
+    // request() callers: answered in-process, never touches command_queue. The
+    // ack must come from the device the request was sent to (ids are random,
+    // but a mismatched device is ignored rather than trusted).
+    const waiter = this.pending.get(msg.id);
+    if (waiter && waiter.deviceId === conn.deviceId) {
+      this.pending.delete(msg.id);
+      clearTimeout(waiter.timer);
+      let result = msg.result;
+      if (typeof result === 'string') { try { result = JSON.parse(result); } catch { /* keep raw */ } }
+      waiter.resolve({ success: !!msg.success, result, error: msg.error });
+      return;
+    }
+
     // Ephemeral process list — never touches the command_queue path (rewind
     // dispatches carry no DB row; live-poll dispatches have random ids). Handle
     // BOTH success and failure here and always return, so a failed ack can't
@@ -400,6 +423,27 @@ class AgentHubService {
       this._unregister(deviceId, conn.ws);
       return false;
     }
+  }
+
+  /**
+   * Send a command over the live WS channel and await the agent's ack.
+   * Live-only (no DB-queue fallback): resolves { success:false } when the
+   * agent is not connected or does not answer within timeoutMs.
+   */
+  request(deviceId: number, commandType: string, payload: Record<string, unknown>, timeoutMs = 20_000): Promise<AgentRequestResult> {
+    const id = 'req_' + crypto.randomBytes(12).toString('hex');
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({ success: false, error: 'agent did not answer in time' });
+      }, timeoutMs);
+      this.pending.set(id, { deviceId, resolve, timer });
+      if (!this.push(deviceId, { type: 'command', id, commandType, payload })) {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        resolve({ success: false, error: 'agent offline' });
+      }
+    });
   }
 
   isConnected(deviceId: number): boolean {

@@ -153,9 +153,20 @@ func (d *CommandDispatcher) handleOpenRemoteTunnel(cmd AgentCommand) (interface{
 	if protocol == "ssh" || protocol == "cmd" || protocol == "powershell" {
 		return d.handleShellTunnel(cmd.ID, wsURL, sessionToken, protocol, wtsSessionId)
 	}
-	// ── RDP : TCP relay ──────────────────────────────────────────────────────
-	tcpAddr := "localhost:3389" // RDP only
-	if protocol != "rdp" {
+	// ── TCP relay: RDP, or the local sshd for bastion ProxyJump ──────────────
+	var tcpAddr string
+	switch protocol {
+	case "rdp":
+		tcpAddr = "localhost:3389"
+	case "sshjump":
+		// Always the LOCAL sshd detected by the agent — never a destination
+		// supplied by the server.
+		addr, err := sshJumpTargetAddr()
+		if err != nil {
+			return nil, fmt.Errorf("open_remote_tunnel: %w", err)
+		}
+		tcpAddr = addr
+	default:
 		return nil, fmt.Errorf("open_remote_tunnel: unsupported TCP protocol %q", protocol)
 	}
 

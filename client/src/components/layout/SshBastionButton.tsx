@@ -51,6 +51,7 @@ export function SshBastionButton() {
 
   const ms = remaining(info.ipAuthorizedUntil);
   const authorized = ms > 0;
+  const allowlisted = info.gateVia === 'allowlist';
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const left = h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}min`;
@@ -91,7 +92,7 @@ export function SshBastionButton() {
         onClick={() => setOpen((o) => !o)}
         className={cn(
           'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-colors',
-          authorized ? 'text-status-up hover:bg-bg-hover' : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
+          authorized || allowlisted ? 'text-status-up hover:bg-bg-hover' : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
         )}
         title={authorized
           ? (t('sshBastion.button.authorizedFor', { time: left }) || `SSH authorized for this IP (${left} left)`)
@@ -112,7 +113,11 @@ export function SshBastionButton() {
             </p>
           </div>
 
-          {authorized ? (
+          {info.ipRelayed ? (
+            <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-300">
+              {t('sshBastion.button.relayed') || 'Obliance cannot see your real IP (internal relay address): SSH access is impossible from here. Contact an administrator.'}
+            </p>
+          ) : authorized ? (
             <div className="flex items-center justify-between gap-2 rounded-md bg-status-up/10 px-3 py-2">
               <span className="flex items-center gap-1.5 text-xs text-status-up">
                 <ShieldCheck size={14} />
@@ -143,6 +148,13 @@ export function SshBastionButton() {
           ) : (
             <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
               {t('sshBastion.button.need2fa') || 'Enable two-factor authentication on your account to authorize an IP.'}
+            </p>
+          )}
+
+          {allowlisted && !authorized && (
+            <p className="flex items-center gap-1.5 rounded-md bg-status-up/10 px-3 py-2 text-xs text-status-up">
+              <ShieldCheck size={14} />
+              {t('sshBastion.button.allowlisted') || 'This IP is in the administrator allow-list: SSH access is open without the button.'}
             </p>
           )}
 

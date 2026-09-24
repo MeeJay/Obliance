@@ -48,7 +48,7 @@ export async function authorizeJump(u: BastionUser, deviceId: number): Promise<J
 
   if (level === 'sensitive') {
     // Same rule as the web path: TOTP must be enrolled, and a 2FA proof must
-    // exist for this origin — here the SSH-button grant or a web "trust this IP".
+    // exist for this origin — here the SSH-button grant only (never web trust).
     const user = await db('users').where({ id: u.userId }).first('totp_enabled', 'totp_secret', 'foreign_source', 'foreign_id');
     const has2fa = !!(user && ((user.totp_enabled && user.totp_secret) || (user.foreign_source === 'obligate' && user.foreign_id)));
     if (!has2fa) return { ok: false, reason: 'Remote sessions on this machine require 2FA. Enable TOTP on your Obliance profile.' };

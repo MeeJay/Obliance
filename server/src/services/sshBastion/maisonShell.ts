@@ -14,6 +14,8 @@ export interface BastionUser {
   isAdmin: boolean;
   username: string;
   sourceIp?: string;
+  /** Which gate rule admitted this connection (audit / diagnostics). */
+  gateVia?: string;
   /** Current terminal size (updated on window-change) — for the jump bridge. */
   pty?: { cols: number; rows: number };
   /** Register a live-resize forwarder while a jump is active (null clears it). */
@@ -24,6 +26,7 @@ export interface BastionDevice {
   id: number; uuid: string; hostname: string; display_name: string | null;
   os_type: string; status: string; tenant: string | null; dossier: string | null;
   tenant_id: number;
+  agent_version: string | null;
 }
 
 // P3/P5 inject the real jump; P2 passes a stub. Returns when the jump session ends.
@@ -39,7 +42,12 @@ const HELP =
   "  list [-t <tenant>] [-d <folder>]   list machines you can reach\r\n" +
   "  ssh <machine> [-t <tenant>]   jump to a machine (by hostname or uuid)\r\n" +
   "  whoami                        show your identity\r\n" +
-  "  exit                          disconnect\r\n";
+  "  exit                          disconnect\r\n" +
+  "\r\n" +
+  "Native ProxyJump (scp, sftp, rsync, VS Code Remote...) - Linux machines:\r\n" +
+  "  ssh -J <you>@<this bastion>:<port> obli@<machine>     then: sudo -i\r\n" +
+  "  The target account is always 'obli'; a one-time key entry for YOUR key\r\n" +
+  "  is installed only while you connect, then removed.\r\n";
 
 async function listMachines(u: BastionUser, tenant?: string, dossier?: string): Promise<BastionDevice[]> {
   const visible = await permissionService.getVisibleDeviceIds(u.userId, u.isAdmin);
@@ -49,7 +57,7 @@ async function listMachines(u: BastionUser, tenant?: string, dossier?: string): 
     .leftJoin('device_groups as g', 'g.id', 'd.group_id')
     .whereNot('d.os_type', 'windows')  // bastion = SSH targets (unix-like); Windows uses RDP
     .select(
-      'd.id', 'd.uuid', 'd.hostname', 'd.display_name', 'd.os_type', 'd.status', 'd.tenant_id',
+      'd.id', 'd.uuid', 'd.hostname', 'd.display_name', 'd.os_type', 'd.status', 'd.tenant_id', 'd.agent_version',
       't.name as tenant', 'g.name as dossier',
     );
   q = q.where('d.approval_status', 'approved');
@@ -57,6 +65,16 @@ async function listMachines(u: BastionUser, tenant?: string, dossier?: string): 
   if (tenant) q = q.where('t.name', 'ilike', `%${tenant}%`);
   if (dossier) q = q.where('g.name', 'ilike', `%${dossier}%`);
   return q.orderBy([{ column: 't.name' }, { column: 'g.name' }, { column: 'd.hostname' }]).limit(2000);
+}
+
+// Resolve a user-typed target (hostname, display name or uuid) among the
+// machines the user may see. Shared by "ssh <machine>" and ProxyJump.
+export async function resolveMachine(u: BastionUser, target: string, tenant?: string): Promise<BastionDevice[]> {
+  const want = target.toLowerCase();
+  return (await listMachines(u, tenant)).filter((r) =>
+    r.hostname.toLowerCase() === want ||
+    (r.display_name || '').toLowerCase() === want ||
+    (r.uuid || '').toLowerCase() === want); // OpenSSH lowercases -J / -W hostnames
 }
 
 function parseFlags(tokens: string[]): { positional: string[]; t?: string; d?: string } {
@@ -101,10 +119,7 @@ export async function handleCommand(line: string, stream: any, u: BastionUser, o
       const target = positional[0];
       if (!target) { w('usage: ssh <machine> [-t <tenant>]\n'); break; }
       const shown = clean(target, 64);
-      const matches = (await listMachines(u, t)).filter((r) =>
-        r.hostname.toLowerCase() === target.toLowerCase() ||
-        (r.display_name || '').toLowerCase() === target.toLowerCase() ||
-        r.uuid === target);
+      const matches = await resolveMachine(u, target, t);
       if (matches.length === 0) { w(`No accessible machine "${shown}".\n`); break; }
       if (matches.length > 1) {
         w(`Ambiguous "${shown}" — ${matches.length} matches; narrow with -t <tenant> or use the uuid:\n`);

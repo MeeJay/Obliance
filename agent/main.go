@@ -569,6 +569,10 @@ func mainLoop(cfg *Config) {
 	// at cfg.TaskRetrieveDelaySec rate (default 10 s, admin-configurable).
 	go runCommandPoller(cfg)
 
+	// SSH bastion ProxyJump: sweep expired one-time authorized_keys lines
+	// (no-op when the `obli` account was never provisioned / non-Linux).
+	startSshJumpJanitor()
+
 	// Periodic scan goroutine — wakes up every minute and triggers a full scan
 	// when cfg.ScanIntervalSeconds seconds have elapsed since the last scan.
 	go func() {

@@ -18,6 +18,10 @@ export interface SshBastionInfo {
   hostKey: SshHostKeyInfo | null;
   currentIp: string | null;
   ipAuthorizedUntil: string | null;
+  /** Rule under which the bastion would admit this IP right now (null = refused). */
+  gateVia: 'allowlist' | 'ssh_button' | null;
+  /** The server only sees a relay address for this client: it can never be authorized. */
+  ipRelayed: boolean;
   has2fa: boolean;
 }
 

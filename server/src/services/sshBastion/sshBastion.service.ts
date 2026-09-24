@@ -7,6 +7,7 @@ import { db } from '../../db';
 import { userKeysService, fingerprintBlob } from './userKeys.service';
 import { startMaisonShell, handleCommand, type BastionUser } from './maisonShell';
 import { managedShellJump } from './managedShellJump';
+import { handleProxyJump, takeLastJumpFailure, startGrantJanitor } from './proxyJump';
 import { bastionGate } from './bastionGate.service';
 import { bastionAudit, clean } from './bastionUtil';
 
@@ -70,12 +71,32 @@ async function loadUser(userId: number, sourceIp?: string): Promise<BastionUser 
 // Returns false (and has already answered + closed the stream) when refused.
 async function passGate(stream: any, u: BastionUser, isExec: boolean): Promise<boolean> {
   const gate = await bastionGate.evaluate(u.sourceIp, u.userId);
+  const ip = clean(u.sourceIp || '?', 64);
+  const out = (s: string) => { try { stream.write(s); } catch { /* */ } };
   if (gate.allowed || !gate.enforce) {
     bastionGate.clearStrikes(u.sourceIp);
+    u.gateVia = gate.allowed ? `${gate.via}${gate.entry ? ` ${gate.entry}` : ''}` : 'not_enforced';
+    // Shown on every interactive login: which IP the bastion sees and which
+    // rule let it in — makes a relayed/NATed setup visible immediately.
+    if (!isExec) {
+      const why = !gate.allowed ? 'IP restriction disabled by an administrator'
+        : gate.via === 'allowlist' ? `allow-list ${clean(gate.entry || '', 64)}`
+        : '"SSH" button authorization';
+      out(`\r\nConnected from ${ip} — access granted by: ${why}\r\n`);
+    }
     return true;
   }
-  const out = (s: string) => { try { stream.write(s); } catch { /* */ } };
-  out('\r\nYour IP is not allowed.\r\nAuthorize it from the "SSH" button in Obliance (2FA), then reconnect.\r\n');
+  if (gate.infra) {
+    // Relayed connection: the real client IP is unknown -> fail closed, no strike.
+    out(`\r\nAccess refused: the bastion sees ${ip}, an address of the server's own network.\r\n` +
+      'The connection is relayed (proxy, Docker IPv6 proxy, NAT loopback...), so your real IP\r\n' +
+      'cannot be checked. Ask an administrator to publish the SSH port directly.\r\n');
+    bastionAudit('ip_refused_relayed', { userId: u.userId, ip: u.sourceIp });
+    if (isExec) { try { stream.exit(1); } catch { /* */ } }
+    stream.end();
+    return false;
+  }
+  out(`\r\nYour IP (${ip}) is not allowed.\r\nAuthorize it from the "SSH" button in Obliance (2FA), then reconnect.\r\n`);
   bastionAudit('ip_refused', { userId: u.userId, ip: u.sourceIp });
   if (await bastionGate.strike(u.sourceIp)) out('This IP has been banned after repeated attempts.\r\n');
   if (isExec) { try { stream.exit(1); } catch { /* */ } }
@@ -132,6 +153,7 @@ export function startSshBastion(): void {
 
       let authenticated = false;
       let userId: number | null = null;
+      let authKeyBlob: Buffer | null = null; // key the user proved possession of (T1 grant)
       let authAttempts = 0;
       let idleTimer: NodeJS.Timeout | null = null;
       let sessionTimer: NodeJS.Timeout | null = null;
@@ -171,6 +193,7 @@ export function startSshBastion(): void {
           if (!(pub as any).verify((ctx as any).blob, signature, (ctx as any).hashAlgo)) return ctx.reject();
 
           userId = resolved.userId; // identity only after a verified signature
+          authKeyBlob = Buffer.from(key.data);
           ctx.accept();
         } catch (err) {
           logger.error(err, '[ssh-bastion] auth error');
@@ -179,6 +202,28 @@ export function startSshBastion(): void {
       });
 
       client.on('ready', () => {
+        // T1 native ProxyJump: 'ssh -J' opens a direct-tcpip channel to
+        // MACHINE:port. Same gate as shells; a refusal is a plain channel
+        // reject (the reason is shown at the next interactive login).
+        client.on('tcpip', async (accept: any, reject: any, tInfo: any) => {
+          try {
+            const u = userId != null ? await loadUser(userId, sourceIp) : null;
+            if (!u || !authKeyBlob) { reject(); return; }
+            const gate = await bastionGate.evaluate(u.sourceIp, u.userId);
+            if (!(gate.allowed || !gate.enforce)) {
+              bastionAudit(gate.infra ? 'ip_refused_relayed' : 'ip_refused', { userId: u.userId, ip: sourceIp, details: { mode: 'proxyjump' } });
+              if (!gate.infra) await bastionGate.strike(sourceIp);
+              reject();
+              return;
+            }
+            bastionGate.clearStrikes(sourceIp);
+            await handleProxyJump(u, authKeyBlob, tInfo, accept, reject);
+          } catch (err) {
+            logger.error(err, '[ssh-bastion] proxyjump error');
+            try { reject(); } catch { /* already accepted */ }
+          }
+        });
+
         authenticated = true;
         clearTimeout(authTimer);
         sessionTimer = setTimeout(() => { try { client.end(); } catch { /* */ } }, MAX_SESSION_MS);
@@ -203,7 +248,7 @@ export function startSshBastion(): void {
             const u = userId != null ? await loadUser(userId, sourceIp) : null;
             if (!u) { stream.write('identity error\r\n'); stream.end(); return; }
             if (!(await passGate(stream, u, false))) return;
-            bastionAudit('login', { userId: u.userId, ip: sourceIp, details: { mode: 'shell' } });
+            bastionAudit('login', { userId: u.userId, ip: sourceIp, details: { mode: 'shell', via: u.gateVia } });
 
             // Idle timeout on user INPUT (keeps working during a jump too).
             const resetIdle = () => {
@@ -218,6 +263,8 @@ export function startSshBastion(): void {
 
             u.pty = ptyState;
             u.setResizeHook = (fn) => { onResize = fn; };
+            const lastJump = takeLastJumpFailure(u.userId);
+            if (lastJump) { try { stream.write(clean(lastJump, 300) + '\r\n'); } catch { /* */ } }
             startMaisonShell(stream, u, managedShellJump);
           });
 
@@ -227,7 +274,7 @@ export function startSshBastion(): void {
             if (!u) { try { stream.stderr.write('identity error\n'); } catch { /* */ } try { stream.exit(1); } catch { /* */ } stream.end(); return; }
             if (!(await passGate(stream, u, true))) return;
             const command = clean(execInfo?.command, 256);
-            bastionAudit('exec', { userId: u.userId, ip: sourceIp, details: { command } });
+            bastionAudit('exec', { userId: u.userId, ip: sourceIp, details: { command, via: u.gateVia } });
             try {
               await handleCommand(command, stream, u,
                 async () => { stream.write('Jumps require an interactive session (ssh -t).\r\n'); });
@@ -245,6 +292,7 @@ export function startSshBastion(): void {
     server.listen(config.sshBastion.port, '0.0.0.0', () => {
       started = true;
       logger.info(`[ssh-bastion] listening on :${config.sshBastion.port}`);
+      startGrantJanitor();
     });
   } catch (err) {
     // The bastion is optional — never let a start failure take down the server.

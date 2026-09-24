@@ -140,7 +140,13 @@ router.post('/ssh-authorize-ip', async (req, res, next) => {
       const { AppError } = await import('../middleware/errorHandler');
       return next(new AppError(400, 'Could not determine your IP address'));
     }
-    const { bastionGate } = await import('../services/sshBastion/bastionGate.service');
+    const { bastionGate, isInfraIp } = await import('../services/sshBastion/bastionGate.service');
+    // The web side only sees a relay (reverse proxy / Docker) address: granting
+    // it would authorize every user behind that relay. Fail closed.
+    if (isInfraIp(ip)) {
+      const { AppError } = await import('../middleware/errorHandler');
+      return next(new AppError(400, `Obliance sees your IP as ${ip}, an internal relay address — your real IP cannot be authorized. Ask an administrator to fix the reverse-proxy X-Forwarded-For configuration.`));
+    }
     const expiresAt = await bastionGate.grantIp(userId, ip);
     const { bastionAudit } = await import('../services/sshBastion/bastionUtil');
     bastionAudit('ip_authorized', { tenantId: (req as any).tenantId, userId, ip, details: { expiresAt } });
@@ -179,6 +185,8 @@ router.get('/ssh-bastion', async (req, res, next) => {
           .andWhere('expires_at', '>', new Date())
           .first('expires_at')
       : null;
+    // Same decision the bastion takes for this (user, IP) — the UI shows the truth.
+    const gate = await bastionGate.evaluate(ip || undefined, userId);
     const user = await db('users').where({ id: userId }).first('totp_enabled', 'totp_secret', 'foreign_source', 'foreign_id');
     const has2fa = !!(user && ((user.totp_enabled && user.totp_secret) || (user.foreign_source === 'obligate' && user.foreign_id)));
     res.json({
@@ -190,6 +198,8 @@ router.get('/ssh-bastion', async (req, res, next) => {
         hostKey: getHostKeyInfo(),
         currentIp: ip || null,
         ipAuthorizedUntil: grant?.expires_at ?? null,
+        gateVia: gate.allowed ? gate.via : null,
+        ipRelayed: gate.infra,
         has2fa,
       },
     });

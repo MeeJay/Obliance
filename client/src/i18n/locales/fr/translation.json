@@ -2383,7 +2383,9 @@
       "help": "Une fois la connexion établie, tapez « help » : « list » affiche les machines accessibles, « ssh <machine> » ouvre un shell dessus.",
       "hostKey": "Empreinte du serveur (à vérifier à la première connexion)",
       "enforceHint": "L'accès est limité aux IP autorisées : utilisez le bouton « SSH » de l'en-tête pour autoriser votre IP actuelle pendant 24 h.",
-      "notRunning": "Le bastion est activé mais ne tourne pas — contactez un administrateur."
+      "notRunning": "Le bastion est activé mais ne tourne pas — contactez un administrateur.",
+      "proxyJumpTitle": "ProxyJump natif (machines Linux — scp, sftp, VS Code Remote…)",
+      "proxyJumpHelp": "Le compte cible est toujours « obli » (puis « sudo -i » pour root). Une entrée à usage unique pour votre clé est installée sur la machine uniquement le temps de la connexion. Nécessite un agent à jour."
     },
     "button": {
       "title": "Bastion SSH",
@@ -2399,7 +2401,9 @@
       "revoked": "Autorisation SSH révoquée pour cette IP",
       "need2fa": "Activez l'authentification à deux facteurs sur votre compte pour autoriser une IP.",
       "notEnforced": "La restriction par IP est actuellement désactivée par un administrateur : toute IP peut se connecter avec une clé valide.",
-      "manageKeys": "Gérer mes clés SSH"
+      "manageKeys": "Gérer mes clés SSH",
+      "relayed": "Obliance ne voit pas votre IP réelle (adresse de relais interne) : l'accès SSH est impossible depuis ici. Contactez un administrateur.",
+      "allowlisted": "Cette IP figure dans la liste autorisée par l'administrateur : l'accès SSH est ouvert sans le bouton."
     },
     "admin": {
       "title": "Bastion SSH",

@@ -100,7 +100,7 @@ func (d *CommandDispatcher) HandleCommand(cmd AgentCommand) {
 // privacy mode is active.
 func isBlockedByPrivacy(cmdType string) bool {
 	switch cmdType {
-	case "open_remote_tunnel", "run_script", "list_wts_sessions",
+	case "open_remote_tunnel", "ssh_jump_grant", "run_script", "list_wts_sessions",
 		"list_processes", "kill_process",
 		"list_directory", "create_directory", "rename_file",
 		"delete_file", "download_file", "upload_file":
@@ -116,7 +116,7 @@ func privacyFeatureForCommand(cmdType string) string {
 	switch cmdType {
 	case "run_script":
 		return "scripts"
-	case "open_remote_tunnel":
+	case "open_remote_tunnel", "ssh_jump_grant":
 		return "remote"
 	case "list_wts_sessions", "list_processes", "kill_process":
 		return "processes"
@@ -210,6 +210,12 @@ func (d *CommandDispatcher) executeCommand(cmd AgentCommand) {
 
 	case "close_remote_tunnel":
 		result, execErr = d.handleCloseRemoteTunnel(cmd)
+
+	case "ssh_jump_grant":
+		result, execErr = d.handleSshJumpGrant(cmd)
+
+	case "ssh_jump_revoke":
+		result, execErr = d.handleSshJumpRevoke(cmd)
 
 	case "reboot":
 		execErr = d.handleReboot(cmd)
@@ -2163,6 +2169,10 @@ func (d *CommandDispatcher) ExecuteSync(cmd AgentCommand) (interface{}, error) {
 		}
 	}
 	switch cmd.Type {
+	case "ssh_jump_grant":
+		return d.handleSshJumpGrant(cmd)
+	case "ssh_jump_revoke":
+		return d.handleSshJumpRevoke(cmd)
 	case "scan_inventory":
 		return d.handleScanInventory(cmd)
 	case "scan_updates":
