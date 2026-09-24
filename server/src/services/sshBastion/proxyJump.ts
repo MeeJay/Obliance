@@ -168,7 +168,13 @@ export async function handleProxyJump(
   if (!target) return fail('empty target');
   if ((activeJumps.get(u.userId) || 0) >= MAX_JUMPS_PER_USER) return fail('too many simultaneous ProxyJump connections');
 
-  const matches = await resolveMachine(u, target);
+  let matches = await resolveMachine(u, target);
+  // SSH-config alias form "<machine>.<alias>" (Host *.obliance -> ProxyJump):
+  // exact name first, then without the last label. Only ever narrows to a
+  // machine the user may already reach, so a wrong strip cannot widen access.
+  if (matches.length === 0 && target.includes('.')) {
+    matches = await resolveMachine(u, target.slice(0, target.lastIndexOf('.')));
+  }
   if (matches.length === 0) return fail(`no accessible machine "${target}"`);
   if (matches.length > 1) return fail(`"${target}" is ambiguous (${matches.length} machines) — use its uuid (see "list")`);
   const dev = matches[0];

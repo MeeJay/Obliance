@@ -9,7 +9,8 @@ import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/utils/cn';
 
 // ── Header "SSH" button (ObliJump) ──────────────────────────────────────────
-// Authorizes the caller's CURRENT IP to reach the SSH bastion for 24h, after a
+// Authorizes the caller's CURRENT IP to reach the SSH bastion for the tenant
+// "Trust this IP" duration (0 = disabled), after a
 // fresh 2FA code (the api client interceptor prompts and replays). Hidden when
 // the bastion is disabled in .env.
 
@@ -52,6 +53,11 @@ export function SshBastionButton() {
   const ms = remaining(info.ipAuthorizedUntil);
   const authorized = ms > 0;
   const allowlisted = info.gateVia === 'allowlist';
+  // Button duration = tenant "Trust this IP" setting (0 = IP authorization disabled).
+  const grantHours = info.grantHours ?? 24;
+  const duration = grantHours >= 1
+    ? `${Math.round(grantHours * 10) / 10}h`
+    : `${Math.max(1, Math.round(grantHours * 60))} min`;
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const left = h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}min`;
@@ -60,7 +66,7 @@ export function SshBastionButton() {
     setBusy(true);
     try {
       await sshBastionApi.authorizeIp();
-      toast.success(t('sshBastion.button.authorized') || 'This IP can connect over SSH for 24h');
+      toast.success(t('sshBastion.button.authorized', { duration }) || `This IP can connect over SSH for ${duration}`);
       await load();
     } catch (err) {
       const msg = apiErrorMessage(err, t('sshBastion.button.authorizeFailed') || 'Could not authorize this IP');
@@ -132,6 +138,10 @@ export function SshBastionButton() {
                 {t('sshBastion.button.revoke') || 'Revoke'}
               </button>
             </div>
+          ) : grantHours <= 0 ? (
+            <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
+              {t('sshBastion.button.grantDisabled') || 'IP authorization is disabled on this tenant ("Trust this IP" duration = 0). Ask an administrator to add your IP to the allow-list.'}
+            </p>
           ) : info.has2fa ? (
             <div className="space-y-1.5">
               <button
@@ -139,7 +149,7 @@ export function SshBastionButton() {
                 disabled={busy}
                 className="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
               >
-                {t('sshBastion.button.authorize') || 'Authorize this IP for 24h'}
+                {t('sshBastion.button.authorize', { duration }) || `Authorize this IP for ${duration}`}
               </button>
               <p className="text-[11px] text-text-muted">
                 {t('sshBastion.button.authorizeHint') || 'A two-factor code is requested. Only this IP is authorized, and only for the SSH bastion.'}

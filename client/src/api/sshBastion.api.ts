@@ -22,6 +22,8 @@ export interface SshBastionInfo {
   gateVia: 'allowlist' | 'ssh_button' | null;
   /** The server only sees a relay address for this client: it can never be authorized. */
   ipRelayed: boolean;
+  /** SSH-button authorization length = tenant "Trust this IP" duration (0 = button disabled). */
+  grantHours: number;
   has2fa: boolean;
 }
 

@@ -2383,7 +2383,7 @@
       "fingerprint": "Fingerprint",
       "help": "Once connected, type \"help\": \"list\" shows the machines you can reach, \"ssh <machine>\" opens a shell on it.",
       "hostKey": "Server fingerprint (check it on first connection)",
-      "enforceHint": "Access is limited to authorized IPs: use the \"SSH\" button in the header to authorize your current IP for 24h.",
+      "enforceHint": "Access is limited to authorized IPs: use the \"SSH\" button in the header to authorize your current IP.",
       "notRunning": "The bastion is enabled but not running — contact an administrator.",
       "proxyJumpTitle": "Native ProxyJump (Linux machines — scp, sftp, VS Code Remote…)",
       "proxyJumpHelp": "The target account is always \"obli\" (then \"sudo -i\" for root). A one-time entry for your key is installed on the machine only while you connect. Requires an up-to-date agent."
@@ -2392,9 +2392,9 @@
       "title": "SSH bastion",
       "tooltip": "SSH bastion access",
       "currentIp": "Your IP",
-      "authorize": "Authorize this IP for 24h",
+      "authorize": "Authorize this IP for {{duration}}",
       "authorizeHint": "A two-factor code is requested. Only this IP is authorized, and only for the SSH bastion.",
-      "authorized": "This IP can connect over SSH for 24h",
+      "authorized": "This IP can connect over SSH for {{duration}}",
       "authorizeFailed": "Could not authorize this IP",
       "authorizedFor": "SSH authorized for this IP ({{time}} left)",
       "authorizedUntil": "Authorized until {{time}}",
@@ -2404,7 +2404,8 @@
       "notEnforced": "IP restriction is currently disabled by an administrator: any IP can connect with a valid key.",
       "manageKeys": "Manage my SSH keys",
       "relayed": "Obliance cannot see your real IP (internal relay address): SSH access is impossible from here. Contact an administrator.",
-      "allowlisted": "This IP is in the administrator allow-list: SSH access is open without the button."
+      "allowlisted": "This IP is in the administrator allow-list: SSH access is open without the button.",
+      "grantDisabled": "IP authorization is disabled on this tenant (\"Trust this IP\" duration = 0). Ask an administrator to add your IP to the allow-list."
     },
     "admin": {
       "title": "SSH bastion",
@@ -2413,7 +2414,7 @@
       "disabled": "Disabled",
       "howToEnable": "To enable it, set SSH_BASTION_ENABLED=true (and optionally SSH_BASTION_PORT) in .env, publish the port in docker-compose.yml, then restart the server.",
       "enforceTitle": "Restrict access by IP",
-      "enforceDesc": "Only IPs from the allow-list below, or authorized by a user through the \"SSH\" button (2FA, 24h), can open a session. An IP refused 3 times is banned.",
+      "enforceDesc": "Only IPs from the allow-list below, or authorized by a user through the \"SSH\" button (2FA, for the 2FA \"Trust this IP\" duration), can open a session. An IP refused 3 times is banned.",
       "enforceOn": "IP enforcement enabled",
       "enforceOff": "IP enforcement disabled",
       "confirmDisableEnforce": "Disable IP enforcement? Any IP holding a valid key will be able to reach the bastion, and refused IPs will no longer be banned.",
@@ -2433,6 +2434,15 @@
       "unban": "Unban",
       "unbanned": "IP unbanned",
       "confirmUnban": "Unban {{ip}}?"
+    },
+    "sshConfig": {
+      "title": "SSH profile for this Obliance",
+      "identityFile": "Private key (IdentityFile)",
+      "formatConfig": "~/.ssh/config",
+      "formatPowershell": "Windows (PowerShell)",
+      "formatBash": "Linux / macOS",
+      "hintConfig": "Add to ~/.ssh/config (Windows: %USERPROFILE%\\.ssh\\config). Then: \"ssh {{alias}}\" for the bastion, \"ssh <machine>.{{alias}}\" to jump to a machine (scp, sftp, VS Code Remote too).",
+      "hintScript": "Appends the profile to your SSH config. Then: \"ssh {{alias}}\" for the bastion, \"ssh <machine>.{{alias}}\" to jump to a machine."
     }
   }
 }

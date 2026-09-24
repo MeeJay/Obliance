@@ -14,6 +14,21 @@ export function clientIp(req: Request): string {
   return raw.replace(/^::ffff:/i, '').trim();
 }
 
+/** Effective "Trust this IP" window for a tenant, in ms (0 = IP trust
+ *  disabled). Also drives the SSH bastion "SSH" button authorization. */
+export async function trustWindowMs(tenantId?: number): Promise<number> {
+  if (!tenantId) return DEFAULT_TRUST_WINDOW_MS;
+  try {
+    const { settingsService } = await import('./settings.service');
+    const { SETTINGS_KEYS } = await import('@obliance/shared');
+    const hours = await settingsService.getGlobalNumber(tenantId, SETTINGS_KEYS.TFA_TRUST_HOURS);
+    if (!Number.isFinite(hours)) return DEFAULT_TRUST_WINDOW_MS;
+    return hours <= 0 ? 0 : hours * 60 * 60 * 1000;
+  } catch {
+    return DEFAULT_TRUST_WINDOW_MS;
+  }
+}
+
 export const tfaTrustService = {
   /** Is this (user, ip) currently trusted? Falls back to false on DB error. */
   async isTrusted(userId: number, ip: string): Promise<boolean> {
@@ -34,16 +49,8 @@ export const tfaTrustService = {
    *  disabled (no row written, so the user is always re-prompted). */
   async grant(userId: number, ip: string, tenantId?: number): Promise<void> {
     if (!userId || !ip) return;
-    let windowMs = DEFAULT_TRUST_WINDOW_MS;
-    if (tenantId) {
-      try {
-        const { settingsService } = await import('./settings.service');
-        const { SETTINGS_KEYS } = await import('@obliance/shared');
-        const hours = await settingsService.getGlobalNumber(tenantId, SETTINGS_KEYS.TFA_TRUST_HOURS);
-        if (hours <= 0) return; // IP trust disabled — never grant.
-        windowMs = hours * 60 * 60 * 1000;
-      } catch { /* fall back to default window */ }
-    }
+    const windowMs = await trustWindowMs(tenantId);
+    if (windowMs <= 0) return; // IP trust disabled — never grant.
     const until = new Date(Date.now() + windowMs);
     try {
       await db('tfa_trusted_sessions')

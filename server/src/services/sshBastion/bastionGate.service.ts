@@ -9,7 +9,7 @@ import { bastionAudit } from './bastionUtil';
 // An IP is allowed ONLY when it is:
 //   1. in the static allow-list (ssh_bastion_ip_allowlist), or
 //   2. authorized by the user through the header "SSH" button (fresh 2FA,
-//      ssh_bastion_ip_grants, 24h).
+//      ssh_bastion_ip_grants, for the tenant "Trust this IP" duration).
 // A web 2FA "trust this IP" (tfa_trusted_sessions) deliberately does NOT count:
 // it is ticked casually on any sensitive web action, is invisible from the SSH
 // UI, and silently opened the bastion (incident 2026-09-24).
@@ -28,7 +28,6 @@ const IP_STRIKE_LIMIT = 3;                    // not-allowed attempts before ban
 const FAILED_CONN_LIMIT = 10;                 // unauthenticated connections...
 const FAILED_CONN_WINDOW_MS = 10 * 60_000;    // ...within this window -> ban
 const BAN_MS = 24 * 60 * 60_000;              // ban duration
-const GRANT_MS = 24 * 60 * 60_000;            // header SSH button authorization
 const CACHE_MS = 15_000;
 
 function normalizeIp(ip: string): string {
@@ -233,10 +232,12 @@ class BastionGateService {
     } catch { return false; }
   }
 
-  async grantIp(userId: number, sourceIp: string): Promise<Date> {
+  // windowMs = the tenant "Trust this IP" duration (caller resolves it).
+  async grantIp(userId: number, sourceIp: string, windowMs: number): Promise<Date> {
     if (isInfraIp(sourceIp)) throw new Error('INFRA_IP');
     const ip = normalizeIp(sourceIp);
-    const expiresAt = new Date(Date.now() + GRANT_MS);
+    if (!(windowMs > 0)) throw new Error('GRANT_DISABLED');
+    const expiresAt = new Date(Date.now() + windowMs);
     await db('ssh_bastion_ip_grants')
       .insert({ user_id: userId, ip, expires_at: expiresAt })
       .onConflict(['user_id', 'ip'])

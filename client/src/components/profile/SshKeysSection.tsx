@@ -7,6 +7,7 @@ import { sshBastionApi, apiErrorMessage, type SshBastionInfo } from '@/api/sshBa
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { SshConfigGenerator } from './SshConfigGenerator';
 
 // ── SSH bastion keys (ObliJump) ─────────────────────────────────────────────
 // The user's SSH public keys: their identity at the bastion door. Rendered
@@ -216,6 +217,7 @@ export function SshKeysSection() {
         <p className="text-[11px] text-text-muted">
           {t('sshBastion.connect.proxyJumpHelp') || 'The target account is always "obli" (then "sudo -i" for root). A one-time entry for your key is installed on the machine only while you connect. Requires an up-to-date agent.'}
         </p>
+        <SshConfigGenerator port={info.port} username={user?.username} />
         {info.hostKey && (
           <p className="text-[11px] text-text-muted">
             {t('sshBastion.connect.hostKey') || 'Server fingerprint (check it on first connection)'}:{' '}
@@ -224,7 +226,7 @@ export function SshKeysSection() {
         )}
         {info.enforce && (
           <p className="text-[11px] text-text-muted">
-            {t('sshBastion.connect.enforceHint') || 'Access is limited to authorized IPs: use the "SSH" button in the header to authorize your current IP for 24h.'}
+            {t('sshBastion.connect.enforceHint') || 'Access is limited to authorized IPs: use the "SSH" button in the header to authorize your current IP.'}
           </p>
         )}
         {!info.running && (

@@ -130,6 +130,14 @@ router.delete('/ssh-keys/:id', async (req, res, next) => {
 router.post('/ssh-authorize-ip', async (req, res, next) => {
   try {
     const userId = (req.session as any).userId as number;
+    // Same duration as the tenant "Trust this IP" setting; 0 disables IP
+    // authorization entirely (allow-list only). Checked BEFORE the 2FA prompt.
+    const { trustWindowMs } = await import('../services/tfaTrust.service');
+    const windowMs = await trustWindowMs((req as any).tenantId);
+    if (windowMs <= 0) {
+      const { AppError } = await import('../middleware/errorHandler');
+      return next(new AppError(403, 'IP authorization is disabled ("Trust this IP" duration is 0). Ask an administrator to add your IP to the SSH bastion allow-list.'));
+    }
     const { requireFreshTotp } = await import('../services/sshBastion/stepUp');
     const step = await requireFreshTotp(req, 'profile.ssh_authorize_ip');
     if (!step.ok) return res.status(step.status).json(step.body);
@@ -147,7 +155,7 @@ router.post('/ssh-authorize-ip', async (req, res, next) => {
       const { AppError } = await import('../middleware/errorHandler');
       return next(new AppError(400, `Obliance sees your IP as ${ip}, an internal relay address — your real IP cannot be authorized. Ask an administrator to fix the reverse-proxy X-Forwarded-For configuration.`));
     }
-    const expiresAt = await bastionGate.grantIp(userId, ip);
+    const expiresAt = await bastionGate.grantIp(userId, ip, windowMs);
     const { bastionAudit } = await import('../services/sshBastion/bastionUtil');
     bastionAudit('ip_authorized', { tenantId: (req as any).tenantId, userId, ip, details: { expiresAt } });
     res.json({ data: { ip, expiresAt } });
@@ -187,6 +195,8 @@ router.get('/ssh-bastion', async (req, res, next) => {
       : null;
     // Same decision the bastion takes for this (user, IP) — the UI shows the truth.
     const gate = await bastionGate.evaluate(ip || undefined, userId);
+    const { trustWindowMs } = await import('../services/tfaTrust.service');
+    const grantHours = (await trustWindowMs((req as any).tenantId)) / 3_600_000;
     const user = await db('users').where({ id: userId }).first('totp_enabled', 'totp_secret', 'foreign_source', 'foreign_id');
     const has2fa = !!(user && ((user.totp_enabled && user.totp_secret) || (user.foreign_source === 'obligate' && user.foreign_id)));
     res.json({
@@ -200,6 +210,7 @@ router.get('/ssh-bastion', async (req, res, next) => {
         ipAuthorizedUntil: grant?.expires_at ?? null,
         gateVia: gate.allowed ? gate.via : null,
         ipRelayed: gate.infra,
+        grantHours, // SSH-button duration (tenant "Trust this IP"); 0 = button disabled
         has2fa,
       },
     });

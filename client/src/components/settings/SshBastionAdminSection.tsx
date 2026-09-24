@@ -141,7 +141,7 @@ export function SshBastionAdminSection() {
                   {t('sshBastion.admin.enforceTitle') || 'Restrict access by IP'}
                 </p>
                 <p className="text-xs text-text-muted mt-0.5 max-w-2xl">
-                  {t('sshBastion.admin.enforceDesc') || 'Only IPs from the allow-list below, or authorized by a user through the "SSH" button (2FA, 24h), can open a session. An IP refused 3 times is banned.'}
+                  {t('sshBastion.admin.enforceDesc') || 'Only IPs from the allow-list below, or authorized by a user through the "SSH" button (2FA, for the 2FA "Trust this IP" duration), can open a session. An IP refused 3 times is banned.'}
                 </p>
               </div>
               <button

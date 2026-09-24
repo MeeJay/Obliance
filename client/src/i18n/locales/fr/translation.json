@@ -2382,7 +2382,7 @@
       "fingerprint": "Empreinte",
       "help": "Une fois la connexion établie, tapez « help » : « list » affiche les machines accessibles, « ssh <machine> » ouvre un shell dessus.",
       "hostKey": "Empreinte du serveur (à vérifier à la première connexion)",
-      "enforceHint": "L'accès est limité aux IP autorisées : utilisez le bouton « SSH » de l'en-tête pour autoriser votre IP actuelle pendant 24 h.",
+      "enforceHint": "L'accès est limité aux IP autorisées : utilisez le bouton « SSH » de l'en-tête pour autoriser votre IP actuelle.",
       "notRunning": "Le bastion est activé mais ne tourne pas — contactez un administrateur.",
       "proxyJumpTitle": "ProxyJump natif (machines Linux — scp, sftp, VS Code Remote…)",
       "proxyJumpHelp": "Le compte cible est toujours « obli » (puis « sudo -i » pour root). Une entrée à usage unique pour votre clé est installée sur la machine uniquement le temps de la connexion. Nécessite un agent à jour."
@@ -2391,9 +2391,9 @@
       "title": "Bastion SSH",
       "tooltip": "Accès au bastion SSH",
       "currentIp": "Votre IP",
-      "authorize": "Autoriser cette IP pendant 24 h",
+      "authorize": "Autoriser cette IP pendant {{duration}}",
       "authorizeHint": "Un code à deux facteurs est demandé. Seule cette IP est autorisée, et uniquement pour le bastion SSH.",
-      "authorized": "Cette IP peut se connecter en SSH pendant 24 h",
+      "authorized": "Cette IP peut se connecter en SSH pendant {{duration}}",
       "authorizeFailed": "Impossible d'autoriser cette IP",
       "authorizedFor": "SSH autorisé pour cette IP (reste {{time}})",
       "authorizedUntil": "Autorisée jusqu'au {{time}}",
@@ -2403,7 +2403,8 @@
       "notEnforced": "La restriction par IP est actuellement désactivée par un administrateur : toute IP peut se connecter avec une clé valide.",
       "manageKeys": "Gérer mes clés SSH",
       "relayed": "Obliance ne voit pas votre IP réelle (adresse de relais interne) : l'accès SSH est impossible depuis ici. Contactez un administrateur.",
-      "allowlisted": "Cette IP figure dans la liste autorisée par l'administrateur : l'accès SSH est ouvert sans le bouton."
+      "allowlisted": "Cette IP figure dans la liste autorisée par l'administrateur : l'accès SSH est ouvert sans le bouton.",
+      "grantDisabled": "L'autorisation d'IP est désactivée sur ce tenant (durée « Trust this IP » = 0). Demandez à un administrateur d'ajouter votre IP à la liste autorisée."
     },
     "admin": {
       "title": "Bastion SSH",
@@ -2412,7 +2413,7 @@
       "disabled": "Désactivé",
       "howToEnable": "Pour l'activer : SSH_BASTION_ENABLED=true (et éventuellement SSH_BASTION_PORT) dans le .env, publier le port dans docker-compose.yml, puis redémarrer le serveur.",
       "enforceTitle": "Restreindre l'accès par IP",
-      "enforceDesc": "Seules les IP de la liste ci-dessous, ou autorisées par un utilisateur via le bouton « SSH » (2FA, 24 h), peuvent ouvrir une session. Une IP refusée 3 fois est bannie.",
+      "enforceDesc": "Seules les IP de la liste ci-dessous, ou autorisées par un utilisateur via le bouton « SSH » (2FA, pendant la durée « Trust this IP » de la 2FA), peuvent ouvrir une session. Une IP refusée 3 fois est bannie.",
       "enforceOn": "Restriction par IP activée",
       "enforceOff": "Restriction par IP désactivée",
       "confirmDisableEnforce": "Désactiver la restriction par IP ? Toute IP disposant d'une clé valide pourra atteindre le bastion, et les IP refusées ne seront plus bannies.",
@@ -2432,6 +2433,15 @@
       "unban": "Débannir",
       "unbanned": "IP débannie",
       "confirmUnban": "Débannir {{ip}} ?"
+    },
+    "sshConfig": {
+      "title": "Profil SSH pour cet Obliance",
+      "identityFile": "Clé privée (IdentityFile)",
+      "formatConfig": "~/.ssh/config",
+      "formatPowershell": "Windows (PowerShell)",
+      "formatBash": "Linux / macOS",
+      "hintConfig": "À ajouter dans ~/.ssh/config (Windows : %USERPROFILE%\\.ssh\\config). Ensuite : « ssh {{alias}} » pour le bastion, « ssh <machine>.{{alias}} » pour rebondir sur une machine (scp, sftp, VS Code Remote aussi).",
+      "hintScript": "Ajoute le profil à votre configuration SSH. Ensuite : « ssh {{alias}} » pour le bastion, « ssh <machine>.{{alias}} » pour rebondir sur une machine."
     }
   }
 }
