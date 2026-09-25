@@ -45,7 +45,8 @@ data class ServerProfile(
     val id: ServerId,
     val origin: String,
     val displayName: String,
-    val color: ServerColor,
+    /** Default only for tolerant decoding of an unknown colour (newer app version). */
+    val color: ServerColor = ServerColor.VIOLET,
     val monogram: String,
     val order: Int,
     val notify: NotifyScope = NotifyScope.ALL,

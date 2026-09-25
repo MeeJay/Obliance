@@ -158,3 +158,27 @@ class ServerRegistryTest {
         assertEquals(r.state.value, json.decodeFromString(ServerRegistryState.serializer(), text))
     }
 }
+
+class ServerRegistryCodecTest {
+    @Test fun unreadableOrUnknownFieldsAreTolerated() {
+        assertNull(ServerRegistryCodec.decode("{not json"))
+        assertNull(ServerRegistryCodec.decode(""))
+        val text = """{"version":1,"profiles":[{"id":"a","origin":"https://a.example.org","displayName":"A","color":"PINK_UNKNOWN","monogram":"A","order":0,"future":true}],"activeId":"a"}"""
+        val state = ServerRegistryCodec.decode(text)!!
+        // An unknown colour must not wipe the registry: it falls back to violet.
+        assertEquals(ServerColor.VIOLET, state.profiles.single().color)
+        assertEquals(ServerId("a"), state.activeId)
+    }
+
+    @Test fun roundTrip() = runBlocking {
+        val store = object : ServerRegistryStore {
+            var text: String? = null
+            override suspend fun load() = ServerRegistryCodec.decode(text)
+            override suspend fun save(state: ServerRegistryState) { text = ServerRegistryCodec.encode(state) }
+        }
+        val r = ServerRegistry(store)
+        r.add("obliance.binaryhearts.me", "BinaryHearts")
+        r.add("rmm.durand-associes.fr", "Client Durand", ServerColor.FUCHSIA)
+        assertEquals(r.state.value, ServerRegistry(store).load())
+    }
+}

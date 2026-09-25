@@ -20,6 +20,9 @@ kotlin {
 dependencies {
     api(project(":core:common"))
     api(project(":core:model"))
+    api(project(":core:network"))
+    api(project(":core:realtime"))
     api(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
 }

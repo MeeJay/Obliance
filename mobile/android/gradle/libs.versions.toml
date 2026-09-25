@@ -23,6 +23,7 @@ browser = "1.10.0"
 # Latest STABLE biometric. It pulls appcompat, which is why the activities are
 # AppCompat-themed (its API < 28 fingerprint dialog needs an AppCompat theme).
 biometric = "1.1.0"
+datastore = "1.2.1"
 
 # --- Third party -------------------------------------------------------------
 # The WebView shell only uses the JsonElement tree API; the native modules also
@@ -48,6 +49,7 @@ androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", 
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
