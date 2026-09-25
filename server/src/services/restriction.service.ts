@@ -314,7 +314,11 @@ export const restrictionService = {
       // for the rest of the trust window. See tfaTrust.service.ts.
       const { tfaTrustService, clientIp } = await import('./tfaTrust.service');
       const ip = clientIp(req);
-      if (ip && await tfaTrustService.isTrusted(userId, ip)) {
+      // A relay address (our proxy / Docker gateway) is shared by everyone
+      // behind it: never honour nor grant an IP trust for it.
+      const { isRelayAddress } = await import('../utils/clientIp');
+      const ipTrustUsable = !isRelayAddress(ip);
+      if (ipTrustUsable && await tfaTrustService.isTrusted(userId, ip)) {
         return { ok: true };
       }
 
@@ -345,7 +349,7 @@ export const restrictionService = {
 
       // Grant IP trust ONLY if the user explicitly opted in. Default off.
       // Duration comes from the tenant's `tfaTrustHours` setting (0 disables).
-      if (ip && req.body?.trustIp === true) {
+      if (ipTrustUsable && req.body?.trustIp === true) {
         await tfaTrustService.grant(userId, ip, tenantId);
       }
 

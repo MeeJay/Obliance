@@ -1,3 +1,4 @@
+import { clientIp } from '../utils/clientIp';
 import { Router, Request, Response, NextFunction } from 'express';
 import express from 'express';
 import { commandService } from '../services/command.service';
@@ -52,7 +53,7 @@ router.post('/:deviceId/files/create-directory', async (req: Request, res: Respo
       action: 'file_explorer.create_directory',
       resourceType: 'directory',
       resourcePath: path,
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     const cmd = await commandService.enqueue({
       deviceId,
@@ -80,7 +81,7 @@ router.post('/:deviceId/files/rename', async (req: Request, res: Response, next:
       resourceType: 'file',
       resourcePath: oldPath,
       details: { newPath },
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     const cmd = await commandService.enqueue({
       deviceId,
@@ -108,7 +109,7 @@ router.post('/:deviceId/files/delete', async (req: Request, res: Response, next:
       resourceType: recursive ? 'directory' : 'file',
       resourcePath: path,
       details: { recursive: !!recursive },
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     const cmd = await commandService.enqueue({
       deviceId,
@@ -135,7 +136,7 @@ router.post('/:deviceId/files/download', async (req: Request, res: Response, nex
       action: 'file_explorer.download',
       resourceType: 'file',
       resourcePath: path,
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     const cmd = await commandService.enqueue({
       deviceId,
@@ -163,7 +164,7 @@ router.post('/:deviceId/files/upload', uploadBodyParser, async (req: Request, re
       resourceType: 'file',
       resourcePath: path,
       details: { overwrite: !!overwrite, sizeBytes: Math.round(data.length * 0.75) },
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     const cmd = await commandService.enqueue({
       deviceId,
@@ -186,7 +187,7 @@ router.post('/:deviceId/files/open-explorer', async (req: Request, res: Response
       userId: req.session?.userId,
       deviceId,
       action: 'file_explorer.open',
-      ipAddress: req.ip,
+      ipAddress: clientIp(req),
     });
     res.json({ data: { logged: true } });
   } catch (err) { next(err); }

@@ -157,12 +157,15 @@ export const approvalService = {
       throw Object.assign(new Error('Cannot approve your own request'), { status: 403 });
     }
 
-    await db('pending_approvals').where({ id: row.id }).update({
+    // Conditional on 'pending': two approvers (or a double click) racing on
+    // the same request execute it once.
+    const claimed = await db('pending_approvals').where({ id: row.id, status: 'pending' }).update({
       status: 'approved',
       reviewed_by: params.reviewerId,
       reviewed_at: new Date(),
       review_reason: params.reason ?? null,
     });
+    if (!claimed) throw Object.assign(new Error('Already handled'), { status: 409 });
 
     // Execute the underlying action.
     try {
@@ -253,7 +256,14 @@ export const approvalService = {
     // needs the script content, interpreter and timeout, and the run must
     // appear as a script execution. Go through the same path as the direct
     // (non-restricted) run, as the requester.
-    if (payload.action === 'run_script' && payload.params?.scriptId != null) {
+    const p = payload.params ?? {};
+    const isManualScriptRun = payload.action === 'run_script' && p.scriptId != null && (
+      p.source === 'script_execute'
+      // Requests filed before the marker existed: script id + parameter
+      // values and no inline content (a raw command approval carries content).
+      || (p.source === undefined && p.parameterValues !== undefined && p.content === undefined)
+    );
+    if (isManualScriptRun) {
       await this._executeManualScript(tenantId, userId, payload);
       return;
     }
@@ -294,6 +304,15 @@ export const approvalService = {
       }
     }
     if (!deviceIds.length) throw new Error('approved script run: no device left to run on');
+    // The approver reviewed THIS content: refuse if the script changed since.
+    if (typeof payload.params?.contentSha256 === 'string') {
+      const script = await db('scripts').where({ id: scriptId }).first('content') as { content: string | null } | undefined;
+      const { createHash } = await import('crypto');
+      const now = createHash('sha256').update(String(script?.content ?? '')).digest('hex');
+      if (now !== payload.params.contentSha256) {
+        throw new Error('approved script run refused: the script was modified after the request');
+      }
+    }
     const { scheduleService } = await import('./schedule.service');
     await scheduleService.executeNow(scriptId, deviceIds, tenantId, parameterValues, userId);
   },

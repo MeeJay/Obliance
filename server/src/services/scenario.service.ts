@@ -953,7 +953,11 @@ export const scenarioService = {
           // flagged this relationship — the scenario id is only known
           // here (after the insert above).
           on_failure_scenario_id: s.onFailureBindsToImportedScenario ? sRow.id : null,
-          enabled: s.enabled !== false,
+          // Like imported scenarios (always 'draft'): an imported schedule
+          // never runs before someone enables it through PATCH, which checks
+          // the 'execute' capability on its targets. An enabled import could
+          // run an embedded script on every device of the tenant.
+          enabled: false,
           created_by: opts.userId,
         }).returning('*');
         // If a scenario node referenced this schedule by id (via
@@ -1528,7 +1532,13 @@ export const scenarioService = {
     const scenarioRow = await db('scenarios').where({ id: scenarioId, tenant_id: tenantId }).first();
     if (!scenarioRow) return [];
     const scenario = rowToScenario(scenarioRow);
+    return scenarioService.resolveTargetsFor(tenantId, scenario.targetType, scenario.targetIds || []);
+  },
 
+  /** Devices a scenario with this target would run on today (also used to
+   *  check a target BEFORE it is saved). */
+  async resolveTargetsFor(tenantId: number, targetType: string, targetIds: number[]): Promise<number[]> {
+    const scenario = { targetType, targetIds };
     if (scenario.targetType === 'all') {
       const rows = await db('devices').where({ tenant_id: tenantId }).select('id');
       return rows.map((r: any) => r.id);

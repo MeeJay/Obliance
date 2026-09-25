@@ -4,7 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { permissionService } from '../services/permission.service';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
-import { scenarioDenialFor } from '../services/scenarioPermission.service';
+import { scenarioDenialFor, type ScenarioNodeLike } from '../services/scenarioPermission.service';
 
 const router = Router();
 
@@ -19,9 +19,10 @@ async function assertMayRunScenarioOn(
   scenario: { id: number; tenant_id: number },
   runDeviceIds: number[],
   onlyNodeId?: number,
+  pendingNodes?: ScenarioNodeLike[],
 ): Promise<void> {
   if (req.session.role === 'admin') return;
-  const denial = await scenarioDenialFor(req.session.userId as number, scenario, runDeviceIds, onlyNodeId);
+  const denial = await scenarioDenialFor(req.session.userId as number, scenario, runDeviceIds, onlyNodeId, pendingNodes);
   if (denial?.capability === 'execute') {
     throw new AppError(403, `Capability 'execute' not permitted for your team on device #${denial.deviceId} targeted by this scenario`);
   }
@@ -31,18 +32,27 @@ async function assertMayRunScenarioOn(
 }
 
 /**
- * A non-admin who makes a scenario ACTIVE (enable, create/update with
- * status 'active', graph save of an active scenario) becomes accountable for
- * its automatic runs: refuse up front when they could not run it themselves
- * on the devices it targets today. Devices joining the target later are
- * checked at run start (scenarioGraph.startRun -> accountableUserMayRun).
+ * A non-admin who makes a scenario ACTIVE (enable, create/update with status
+ * 'active', graph save of an active scenario) becomes accountable for its
+ * automatic runs. Checked BEFORE anything is written: the tenant capability
+ * `scripts.execute` (what POST /:id/enable requires) and the device rights on
+ * the targets it would run on today — [target] / [pendingNodes] describe the
+ * state about to be saved (default: what is stored). Devices joining the
+ * target later are checked at run start (scenarioGraph.startRun).
  */
-async function assertMayActivateScenario(req: any, scenarioId: number): Promise<void> {
+async function assertMayActivateScenario(
+  req: any,
+  scenario: { id: number; tenant_id: number },
+  target?: { targetType: string; targetIds: number[] },
+  pendingNodes?: ScenarioNodeLike[],
+): Promise<void> {
   if (req.session.role === 'admin') return;
-  const scenario = await db('scenarios').where({ id: scenarioId }).first('id', 'tenant_id') as { id: number; tenant_id: number } | undefined;
-  if (!scenario) return;
-  const targets = await scenarioService.resolveTargetDevices(scenario.id, scenario.tenant_id);
-  await assertMayRunScenarioOn(req, scenario, targets);
+  const canExecute = await permissionService.userHasTenantCapability(req.session.userId as number, scenario.tenant_id, 'scripts.execute');
+  if (!canExecute) throw new AppError(403, 'Insufficient permissions to activate a scenario');
+  const runIds = target
+    ? await scenarioService.resolveTargetsFor(scenario.tenant_id, target.targetType, target.targetIds)
+    : await scenarioService.resolveTargetDevices(scenario.id, scenario.tenant_id);
+  await assertMayRunScenarioOn(req, scenario, runIds, undefined, pendingNodes);
 }
 
 // ── Routes with fixed paths MUST come before /:id ──
@@ -339,8 +349,12 @@ router.get('/:id/export', async (req, res, next) => {
 // POST / — create scenario
 router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
-    const wantsActive = req.body?.status === 'active' && req.session.role !== 'admin';
-    const scenario = await scenarioService.create(req.tenantId!, wantsActive ? { ...req.body, status: 'draft' } : req.body, req.session.userId!);
+    if (req.body?.status === 'active') {
+      // New scenario: no graph yet (v1 steps carry no per-node targets).
+      await assertMayActivateScenario(req, { id: 0, tenant_id: req.tenantId! },
+        { targetType: req.body.targetType ?? 'all', targetIds: Array.isArray(req.body.targetIds) ? req.body.targetIds.map(Number) : [] }, []);
+    }
+    const scenario = await scenarioService.create(req.tenantId!, req.body, req.session.userId!);
     // v2: convert the freshly created scenario into the graph model so
     // the editor opens directly on the React Flow canvas. No-op if the
     // body already shipped nodes/edges (Phase 1C UI saves graph-first).
@@ -355,13 +369,6 @@ router.post('/', requireTenantCapability('scripts.manage'), async (req, res, nex
         details: { name: scenario.name, triggerType: scenario.triggerType },
       });
     } catch {}
-    // A non-admin asking for an ACTIVE scenario: it was created as a draft;
-    // activate only if they may run it on its current targets.
-    if (wantsActive) {
-      await assertMayActivateScenario(req, scenario.id);
-      const activated = await scenarioService.enable(scenario.id, req.tenantId!, req.session.userId!);
-      return res.status(201).json({ data: activated ?? scenario });
-    }
     res.status(201).json({ data: scenario });
   } catch (err) { next(err); }
 });
@@ -392,15 +399,17 @@ router.put('/:id', requireTenantCapability('scripts.manage'), async (req, res, n
     }
 
     if (req.session.role !== 'admin') {
-      const current = await db('scenarios').where({ id, tenant_id: req.tenantId! }).first('status');
+      const current = await db('scenarios').where({ id, tenant_id: req.tenantId! })
+        .first('id', 'tenant_id', 'status', 'target_type', 'target_ids') as
+        { id: number; tenant_id: number; status: string; target_type: string; target_ids: unknown } | undefined;
       const willBeActive = req.body?.status === 'active' || (req.body?.status === undefined && current?.status === 'active');
-      if (willBeActive) {
-        // Check against the targets the update will leave in place.
-        const scenario = await scenarioService.update(id, req.tenantId!, { ...req.body, status: 'draft' }, req.session.userId!);
-        if (scenario) {
-          await assertMayActivateScenario(req, id);
-          await scenarioService.enable(id, req.tenantId!, req.session.userId!);
-        }
+      if (current && willBeActive) {
+        // Check the target the update will leave in place, before writing.
+        const storedIds = (typeof current.target_ids === 'string' ? JSON.parse(current.target_ids) : current.target_ids) ?? [];
+        await assertMayActivateScenario(req, current, {
+          targetType: req.body?.targetType ?? current.target_type,
+          targetIds: (Array.isArray(req.body?.targetIds) ? req.body.targetIds : storedIds).map(Number),
+        });
       }
     }
     const scenario = await scenarioService.update(id, req.tenantId!, req.body, req.session.userId!);
@@ -435,7 +444,7 @@ router.post('/:id/enable', requireTenantCapability('scripts.execute'), async (re
     const scenarioId = parseInt(req.params.id);
     const owned = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first('id');
     if (!owned) return res.status(404).json({ error: 'Scenario not found' });
-    await assertMayActivateScenario(req, scenarioId);
+    await assertMayActivateScenario(req, { id: scenarioId, tenant_id: req.tenantId! });
     // The enabling user becomes accountable for the automatic runs.
     await scenarioService.enable(scenarioId, req.tenantId!, req.session.userId!);
     try {
@@ -589,6 +598,13 @@ router.put('/:id/graph', requireTenantCapability('scripts.manage'), async (req, 
       edges: Array<{ sourceClientId?: string; targetClientId?: string; sourceHandle?: string | null; condition?: any; sortOrder?: number }>;
     };
 
+    // Saving the graph of an ACTIVE scenario can add run_script targets: a
+    // non-admin must be allowed on them — checked on the nodes about to be
+    // saved, before anything is written.
+    if (scenario.status === 'active') {
+      await assertMayActivateScenario(req, scenario, undefined, nodes.map((n) => ({ type: n.type, config: n.config })));
+    }
+
     await db.transaction(async (trx) => {
       // The saving user becomes accountable for the automatic runs of the
       // new graph (scenarioPermission.accountableUserMayRun).
@@ -624,18 +640,6 @@ router.put('/:id/graph', requireTenantCapability('scripts.manage'), async (req, 
         });
       }
     });
-
-    // Saving the graph of an ACTIVE scenario can add run_script targets: a
-    // non-admin must be allowed on them, else the scenario goes back to draft.
-    if (scenario.status === 'active' && req.session.role !== 'admin') {
-      try {
-        await assertMayActivateScenario(req, scenarioId);
-      } catch (err) {
-        await scenarioService.disable(scenarioId, scenario.tenant_id);
-        await db('scenarios').where({ id: scenarioId }).update({ status: 'draft' });
-        throw err;
-      }
-    }
 
     res.json({ data: { success: true } });
   } catch (err) { next(err); }

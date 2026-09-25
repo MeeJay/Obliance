@@ -22,16 +22,26 @@ type ScenarioRef = { id: number; tenant_id: number };
 
 export type ScenarioDenial = { capability: 'execute' | 'write'; deviceId: number };
 
+export type ScenarioNodeLike = { type: string; config?: unknown };
+const ACTING_TYPES = ['run_script', 'run_command', 'tag_device', 'move_device_to_group'];
+
 async function devicesTouched(
   scenario: ScenarioRef,
   runDeviceIds: number[],
   onlyNodeId?: number,
+  /** Nodes about to be saved (graph PUT); default: the stored graph. */
+  pendingNodes?: ScenarioNodeLike[],
 ): Promise<{ execIds: number[]; writeIds: number[] }> {
-  const nodesQ = db('scenario_nodes')
-    .where({ scenario_id: scenario.id })
-    .whereIn('type', ['run_script', 'run_command', 'tag_device', 'move_device_to_group']);
-  if (onlyNodeId != null) nodesQ.where({ id: onlyNodeId });
-  const nodes = await nodesQ.select('id', 'type', 'config') as Array<{ id: number; type: string; config: unknown }>;
+  let nodes: ScenarioNodeLike[];
+  if (pendingNodes) {
+    nodes = pendingNodes.filter((n) => ACTING_TYPES.includes(n.type));
+  } else {
+    const nodesQ = db('scenario_nodes')
+      .where({ scenario_id: scenario.id })
+      .whereIn('type', ACTING_TYPES);
+    if (onlyNodeId != null) nodesQ.where({ id: onlyNodeId });
+    nodes = await nodesQ.select('id', 'type', 'config') as ScenarioNodeLike[];
+  }
 
   const execIds = new Set<number>(runDeviceIds);
   const writeIds = new Set<number>();
@@ -57,8 +67,9 @@ export async function scenarioDenialFor(
   scenario: ScenarioRef,
   runDeviceIds: number[],
   onlyNodeId?: number,
+  pendingNodes?: ScenarioNodeLike[],
 ): Promise<ScenarioDenial | null> {
-  const { execIds, writeIds } = await devicesTouched(scenario, runDeviceIds, onlyNodeId);
+  const { execIds, writeIds } = await devicesTouched(scenario, runDeviceIds, onlyNodeId, pendingNodes);
   const lacking = await permissionService.devicesLackingCapability(userId, execIds, 'execute');
   if (lacking.length) return { capability: 'execute', deviceId: lacking[0] };
   for (const id of writeIds) {

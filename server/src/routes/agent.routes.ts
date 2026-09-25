@@ -71,7 +71,7 @@ router.post('/register', agentAuth, async (req, res, next) => {
       osName, osVersion, osBuild, osArch,
       cpuModel, cpuCores, ramTotalGb,
       ipLocal,
-      ipPublic: req.ip,
+      ipPublic: clientIp(req),
       agentVersion,
       apiKeyId: req.agentApiKeyId!,
       tenantId: req.agentTenantId!,
