@@ -2,8 +2,8 @@ package tools.obli.core.model
 
 /**
  * Two-letter monogram of a server tile: initials of the first two words
- * ("Client Durand" -> "CD"), else the first two letters ("Atelier" -> "AT"),
- * CamelCase counts as two words ("BinaryHearts" -> "BH"). Letters and digits
+ * ("Obliance Qual" -> "OQ"), else the first two letters ("Obliance Dev" -> "OD"),
+ * CamelCase counts as two words ("ObliProd" -> "OP"). Letters and digits
  * only, upper case; "?" when nothing usable is left.
  */
 object Monogram {

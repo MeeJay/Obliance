@@ -228,7 +228,7 @@ suite reads as one product.
 
 1. **App switcher persists tenant context.** Clicking an app pill opens that
    app at the same tenant. Implementation: tenant id rides in the URL hash or
-   a shared cookie scoped to the parent domain (`.binaryhearts.me`).
+   a shared cookie scoped to the parent domain (`.example.org`).
 2. **Theme selector lives in Obligate.** The user picks one theme; every Obli*
    app reads it from the Obligate session and renders accordingly.
    - **The "Obli design v1" theme described in this document is the new

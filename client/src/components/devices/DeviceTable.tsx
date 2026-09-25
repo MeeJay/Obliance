@@ -286,7 +286,7 @@ export function DeviceTable({
  }, [visibleFields, isMaster]);
  // Persist tenant collapse state across reloads — same key used by
  // the GroupSidePanel so the two views stay in sync. (Collapsing
- // "Pimkie" in the sidebar should also fold its bucket in the table.)
+ // "Contoso" in the sidebar should also fold its bucket in the table.)
  const [collapsedTenantIds, setCollapsedTenantIds] = useState<Set<number>>(() => {
  try {
  const raw = localStorage.getItem('obliance:groupPanelCollapsedTenants');
@@ -1909,7 +1909,7 @@ function DeviceListBody({
  visibleFields: Set<string>;
  /** True when the caller is on the master tenant — adds an extra
  * tenant-grouping level above the regular group tree so admins can
- * scan "what's in Default vs what's in Pimkie" at a glance. */
+ * scan "what's in Default vs what's in Contoso" at a glance. */
  isMaster: boolean;
  collapsedTenantIds: Set<number>;
  onToggleTenant: (tenantId: number) => void;
@@ -1991,7 +1991,7 @@ function DeviceListBody({
  const ungrouped = devicesByGroupId.get(null) ?? [];
 
  // ── Master view: bucket roots + ungrouped by tenant ───────────────────
- // Adds an extra hierarchy level: a "Tenant: Default", "Tenant: Pimkie"
+ // Adds an extra hierarchy level: a "Tenant: Default", "Tenant: Contoso"
  // header above each tenant's group sub-tree. Default is forced to the
  // top so platform-internal devices stay grouped together; the rest is
  // alpha. When the user has picked a specific group (groupId != null)

@@ -192,7 +192,7 @@ requis).
 | | |
 |---|---|
 | **Keystore** | `D:\keys\obli-release.jks` — **hors du dépôt**, 4 372 octets, ne change jamais |
-| **Alias** | `obli` (RSA 4096, `CN=Obli Shell, OU=Self-hosted, O=BinaryHearts, L=Paris, C=FR`, valide jusqu'au 2056-09-16) |
+| **Alias** | `obli` (RSA 4096, `CN=Obli Shell, OU=Self-hosted, O=Obliance Prod, L=Paris, C=FR`, valide jusqu'au 2056-09-16) |
 | **Mot de passe** | `D:\keys\obli-release-password.txt` — le même mot de passe **sur deux lignes identiques** (format `--ks-pass file:` / `--key-pass file:` d'`apksigner`, qui lit une ligne par mot de passe demandé dans le même fichier ; `keytool -storepass:file` lit la première) |
 | **Empreinte du certificat** | [`RELEASE-FINGERPRINT.txt`](RELEASE-FINGERPRINT.txt) : `8C:7E:67:F8:…:6D:82:AC:8D` — c'est le `signerSha256` du manifeste |
 | **Portée** | une seule clé signe **toutes** les flavors (toutes les apps Obli) |

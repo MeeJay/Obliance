@@ -30,26 +30,26 @@ class ServerRegistryTest {
 
     @Test fun firstServerBecomesActive() = runBlocking {
         val r = registry()
-        val bh = r.addOk("obliance.binaryhearts.me", "BinaryHearts")
-        val at = r.addOk("https://atelier.binaryhearts.me/", "Atelier")
+        val bh = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        val at = r.addOk("https://obliance-dev.example.org/", "Obliance Dev")
         assertEquals(bh.id, r.state.value.activeId)
-        assertEquals("https://atelier.binaryhearts.me", at.origin)
-        assertEquals(listOf("BH", "AT"), r.state.value.profiles.map { it.monogram })
+        assertEquals("https://obliance-dev.example.org", at.origin)
+        assertEquals(listOf("OP", "OD"), r.state.value.profiles.map { it.monogram })
         assertEquals(listOf(ServerColor.VIOLET, ServerColor.TEAL), r.state.value.profiles.map { it.color })
         assertTrue(r.state.value.isMultiServer)
     }
 
     @Test fun sameOriginIsRefused() = runBlocking {
         val r = registry()
-        val bh = r.addOk("obliance.binaryhearts.me", "BinaryHearts")
-        val again = r.add("HTTPS://Obliance.BinaryHearts.me:443/devices/12")
+        val bh = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        val again = r.add("HTTPS://Obliance-Prod.Example.org:443/devices/12")
         assertEquals(AddServerResult.AlreadyConfigured(bh), again)
         assertEquals(1, r.state.value.profiles.size)
     }
 
     @Test fun invalidAddressIsRefused() = runBlocking {
         val r = registry()
-        assertEquals(AddServerResult.Invalid(ServerUrl.Problem.NOT_HTTPS), r.add("http://rmm.durand-associes.fr"))
+        assertEquals(AddServerResult.Invalid(ServerUrl.Problem.NOT_HTTPS), r.add("http://obliance-qual.example.org"))
         assertEquals(AddServerResult.Invalid(ServerUrl.Problem.EMPTY), r.add("  "))
     }
 
@@ -62,8 +62,8 @@ class ServerRegistryTest {
 
     @Test fun removingActiveActivatesNextAndNotifiesListeners() = runBlocking {
         val r = registry()
-        val bh = r.addOk("obliance.binaryhearts.me", "BinaryHearts")
-        val at = r.addOk("atelier.binaryhearts.me", "Atelier")
+        val bh = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        val at = r.addOk("obliance-dev.example.org", "Obliance Dev")
         val purged = mutableListOf<ServerId>()
         r.addRemovalListener { purged += it.id }
         val result = r.remove(bh.id)
@@ -75,7 +75,7 @@ class ServerRegistryTest {
 
     @Test fun lastServerCannotBeRemoved() = runBlocking {
         val r = registry()
-        val bh = r.addOk("obliance.binaryhearts.me")
+        val bh = r.addOk("obliance-prod.example.org")
         assertEquals(RemoveServerResult.LastServer, r.remove(bh.id))
         assertEquals(RemoveServerResult.NotFound, r.remove(ServerId("nope")))
     }
@@ -89,11 +89,11 @@ class ServerRegistryTest {
 
     @Test fun renameRecomputesMonogramAndDefaultNameIsHost() = runBlocking {
         val r = registry()
-        val cd = r.addOk("rmm.durand-associes.fr")
-        assertEquals("rmm.durand-associes.fr", cd.displayName)
-        assertTrue(r.rename(cd.id, "  Client   Durand "))
-        assertEquals("Client Durand", r.state.value.byId(cd.id)!!.displayName)
-        assertEquals("CD", r.state.value.byId(cd.id)!!.monogram)
+        val cd = r.addOk("obliance-qual.example.org")
+        assertEquals("obliance-qual.example.org", cd.displayName)
+        assertTrue(r.rename(cd.id, "  Obliance   Qual "))
+        assertEquals("Obliance Qual", r.state.value.byId(cd.id)!!.displayName)
+        assertEquals("OQ", r.state.value.byId(cd.id)!!.monogram)
         assertFalse(r.rename(cd.id, "   "))
     }
 
@@ -108,9 +108,9 @@ class ServerRegistryTest {
     @Test fun legacyShellServerIsMigratedOnce() = runBlocking {
         val store = MemoryStore()
         val r = registry(store)
-        val state = r.load(legacyServerUrl = "https://obliance.binaryhearts.me/")
-        assertEquals("https://obliance.binaryhearts.me", state.active!!.origin)
-        assertEquals("obliance.binaryhearts.me", state.active!!.displayName)
+        val state = r.load(legacyServerUrl = "https://obliance-prod.example.org/")
+        assertEquals("https://obliance-prod.example.org", state.active!!.origin)
+        assertEquals("obliance-prod.example.org", state.active!!.displayName)
         assertEquals(1, store.saves)
         // Next start: the stored registry wins, the legacy URL is ignored.
         val again = registry(store).load(legacyServerUrl = "https://other.example.org")
@@ -145,14 +145,14 @@ class ServerRegistryTest {
 
     @Test fun byUrlMatchesOrigin() = runBlocking {
         val r = registry()
-        val at = r.addOk("atelier.binaryhearts.me")
-        assertEquals(at, r.state.value.byUrl("https://atelier.binaryhearts.me/devices/12?tab=processes"))
+        val at = r.addOk("obliance-dev.example.org")
+        assertEquals(at, r.state.value.byUrl("https://obliance-dev.example.org/devices/12?tab=processes"))
         assertNull(r.state.value.byUrl("https://evil.example.org/devices/12"))
     }
 
     @Test fun stateSurvivesJsonRoundTrip() = runBlocking {
         val r = registry()
-        r.addOk("obliance.binaryhearts.me", "BinaryHearts"); r.addOk("atelier.binaryhearts.me", "Atelier")
+        r.addOk("obliance-prod.example.org", "Obliance Prod"); r.addOk("obliance-dev.example.org", "Obliance Dev")
         val json = Json { encodeDefaults = true }
         val text = json.encodeToString(ServerRegistryState.serializer(), r.state.value)
         assertEquals(r.state.value, json.decodeFromString(ServerRegistryState.serializer(), text))
@@ -177,8 +177,8 @@ class ServerRegistryCodecTest {
             override suspend fun save(state: ServerRegistryState) { text = ServerRegistryCodec.encode(state) }
         }
         val r = ServerRegistry(store)
-        r.add("obliance.binaryhearts.me", "BinaryHearts")
-        r.add("rmm.durand-associes.fr", "Client Durand", ServerColor.FUCHSIA)
+        r.add("obliance-prod.example.org", "Obliance Prod")
+        r.add("obliance-qual.example.org", "Obliance Qual", ServerColor.FUCHSIA)
         assertEquals(r.state.value, ServerRegistry(store).load())
     }
 }

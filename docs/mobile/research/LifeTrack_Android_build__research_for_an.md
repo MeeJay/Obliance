@@ -68,7 +68,7 @@ If the four signing values are missing, the release build comes out **unsigned**
 ## (3) Signing model
 
 **Where the key lives.**
-- Keystore: `D:\LifeTrack\.secrets\lifetrack-release.jks` (4,414 bytes, RSA 4096, SHA384withRSA, `CN=LifeTrack Companion, OU=Self-hosted, O=BinaryHearts, L=Paris, C=FR`).
+- Keystore: `D:\LifeTrack\.secrets\lifetrack-release.jks` (4,414 bytes, RSA 4096, SHA384withRSA, `CN=LifeTrack Companion, OU=Self-hosted, O=Obliance Prod, L=Paris, C=FR`).
 - Password: `.secrets\keystore-password.txt`.
 - `.secrets/` is git-ignored, and `.gitignore` also blocks `*.jks`, `*.keystore`, `keystore.properties`, `local.properties` and `keystore-hors-machine/`.
 
@@ -163,13 +163,13 @@ The fingerprint is `4aa6ffa1…154b9e`. The rule is to check it with `apksigner 
 
 ## (7) Files that can be copied as a template
 
-These can be copied verbatim, renaming the `lifetrack.*` / `fr.binaryhearts.lifetrack` identifiers (for example to `obliance.*` / `tools.obli.obliance`):
+These can be copied verbatim, renaming the `lifetrack.*` / `com.example.lifetrack` identifiers (for example to `obliance.*` / `tools.obli.obliance`):
 - `D:\LifeTrack\apps\android\gradlew`, `gradlew.bat`, `gradle\wrapper\gradle-wrapper.jar`, `gradle\wrapper\gradle-wrapper.properties`
 - `D:\LifeTrack\apps\android\gradle\libs.versions.toml`: drop the Health Connect, CameraX, ML Kit and Room entries if unused; add `material3-adaptive` if needed.
 - `D:\LifeTrack\apps\android\settings.gradle.kts`, `build.gradle.kts` (root), `gradle.properties` (change the server-URL property), `local.properties.example`
 - `D:\LifeTrack\apps\android\app\build.gradle.kts`: keep the `localProperties` + `secret()` + signingConfigs + `DEFAULT_SERVER_URL` + lint/packaging blocks, and drop the changelog comments and the LifeTrack-only dependencies.
 - `D:\LifeTrack\apps\android\app\proguard-rules.pro`
-- Update feature, taking the whole package: `D:\LifeTrack\apps\android\app\src\main\kotlin\fr\binaryhearts\lifetrack\update\` (`UpdateContract.kt`, `UpdateVersions.kt`, `ApkManifestParser.kt`, `Sha256.kt`, `DefaultUpdateRepository.kt`, `UpdateModule.kt`, `UpdateNotifications.kt`, `StoredUpdateServerSource.kt`, `download\*`, `install\ApkInstaller.kt`, `net\OkHttpApkManifestClient.kt`, `store\SharedPreferencesUpdateStore.kt`), plus `ui\update\*`, `res\xml\file_paths.xml`, `res\values\strings_update.xml`, and the provider/receiver/permissions blocks from `AndroidManifest.xml`. The tests are in `app\src\test\kotlin\...\update\`.
+- Update feature, taking the whole package: `D:\LifeTrack\apps\android\app\src\main\kotlin\com\example\lifetrack\update\` (`UpdateContract.kt`, `UpdateVersions.kt`, `ApkManifestParser.kt`, `Sha256.kt`, `DefaultUpdateRepository.kt`, `UpdateModule.kt`, `UpdateNotifications.kt`, `StoredUpdateServerSource.kt`, `download\*`, `install\ApkInstaller.kt`, `net\OkHttpApkManifestClient.kt`, `store\SharedPreferencesUpdateStore.kt`), plus `ui\update\*`, `res\xml\file_paths.xml`, `res\values\strings_update.xml`, and the provider/receiver/permissions blocks from `AndroidManifest.xml`. The tests are in `app\src\test\kotlin\...\update\`.
 - Publishing: `D:\LifeTrack\apps\landing\tools\build-apk-manifest.ps1` and `.sh`, and the `/downloads/` locations in `D:\LifeTrack\docker\nginx.conf` (lines 350–396).
 - Keystore safety: `D:\LifeTrack\ops\keystore-archive.ps1` (it depends on LifeTrack's Docker `backup` image, so adapt it or use the manual "sans Docker" procedure), `apps\android\RELEASE-FINGERPRINT.txt` as a pattern, and the signing rules from `D:\LifeTrack\.gitignore` (lines 31–85).
 - The minimal project I built is in the scratchpad (`...\scratchpad\offline-probe`, config files and one screen). It builds with the same toolchain and is a clean starting point.

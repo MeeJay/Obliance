@@ -78,8 +78,8 @@ Tout ce qui suit est sur la branche de la PR vers `dev`, **rien n'est déployé*
   bascule, tuile monogramme, ajout / retrait, mise à jour « plus haut
   versionCode », raccourcis), barre du haut, S10, S80, S81 « Serveur et tenant »,
   S83, S84, S86, **S92 Serveurs**, **S93 Ajouter un serveur**, routeur de liens
-  (`server=`), §4 (BinaryHearts / Atelier / Client Durand, alertes SRV-DURAND01
-  et NAS-ATELIER), confirmations nommant le serveur, palette serveur (§8.2),
+  (`server=`), §4 (Obliance Prod / Obliance Dev / Obliance Qual, alertes SRV-QUAL01
+  et NAS-DEV01), confirmations nommant le serveur, palette serveur (§8.2),
   groupes de canaux par serveur (§9), architecture (`ServerRegistry`,
   `ServerSession`, un socket = serveur actif + sondage des autres), plan (v1
   ≈ 34 ps), risques R13–R15, questions 16–19, serveur S20.
@@ -252,9 +252,9 @@ softwareRepo.routes.ts). Rien de ce qui suit n'est déployé, sauf mention.
   `TenantSwitch` (devient « Serveur et tenant »), `AppSettings` (section
   Serveurs), `Notifications` (plusieurs serveurs), `More` (entrée Serveurs) ;
   ajouter `ServerManage` (liste et réglages par serveur) et `AddServer` (URL,
-  vérification, SSO). Données d'exemple : serveur principal « BinaryHearts »
-  (https://obliance.binaryhearts.me, tenants Default et BASH) + « Atelier » et
-  « Client Durand » avec leurs couleurs (distinctes du rouge de marque et des
+  vérification, SSO). Données d'exemple : serveur principal « Obliance Prod »
+  (https://obliance-prod.example.org, tenants Default et ACME) + « Obliance Dev » et
+  « Obliance Qual » avec leurs couleurs (distinctes du rouge de marque et des
   couleurs de statut). Format des artboards : `docs/mobile/mockup/mockup-format.md`.
 
 ### Ordre conseillé pour la session cloud

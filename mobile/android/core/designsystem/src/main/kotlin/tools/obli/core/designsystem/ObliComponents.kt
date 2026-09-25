@@ -90,9 +90,9 @@ fun ObliStatusPill(status: ObliTokens.Status, label: String, modifier: Modifier 
 @Composable
 private fun ServerTilesPreview() = ObliTheme {
     Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        ObliServerTile(ServerColor.VIOLET, "BH", "BinaryHearts")
-        ObliServerTile(ServerColor.TEAL, "AT", "Atelier")
-        ObliServerTile(ServerColor.FUCHSIA, "CD", "Client Durand", size = 28.dp)
+        ObliServerTile(ServerColor.VIOLET, "OP", "Obliance Prod")
+        ObliServerTile(ServerColor.TEAL, "OD", "Obliance Dev")
+        ObliServerTile(ServerColor.FUCHSIA, "OQ", "Obliance Qual", size = 28.dp)
         ObliStatusPill(ObliTokens.Status.OFFLINE, "Hors ligne")
     }
 }

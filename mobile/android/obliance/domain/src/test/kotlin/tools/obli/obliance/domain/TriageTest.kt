@@ -11,9 +11,9 @@ import tools.obli.shell.alerts.LiveAlert
 
 /** Reference data of the design doc §4 (night of 25 September 2026). */
 class TriageTest {
-    private val bh = ServerId("binaryhearts")
-    private val at = ServerId("atelier")
-    private val cd = ServerId("client-durand")
+    private val bh = ServerId("prod")
+    private val at = ServerId("dev")
+    private val cd = ServerId("qual")
 
     private fun alert(id: Long, time: String, title: String, message: String, severity: AlertSeverity, tenant: Long = 1, read: Boolean = false) =
         LiveAlert(id, tenant, null, severity, title, message, "/devices/$id", if (read) "2026-09-25T03:30:00Z" else null, "2026-09-25T${time}:00Z")
@@ -21,9 +21,9 @@ class TriageTest {
     private val night = listOf(
         ServerAlert(bh, alert(512, "03:12", "SRV-AD2: Hors ligne", "Aucun push reçu depuis 4 min.", AlertSeverity.CRITICAL, 4), DeviceHints(isServer = true)),
         ServerAlert(bh, alert(508, "03:05", "PC-COMPTA-03: Critique", "CPU 98 % (seuil 90 %)", AlertSeverity.CRITICAL, 4)),
-        ServerAlert(cd, alert(77, "02:58", "SRV-DURAND01: Hors ligne", "Aucun push reçu depuis 5 min.", AlertSeverity.CRITICAL), DeviceHints(isServer = true)),
+        ServerAlert(cd, alert(77, "02:58", "SRV-QUAL01: Hors ligne", "Aucun push reçu depuis 5 min.", AlertSeverity.CRITICAL), DeviceHints(isServer = true)),
         ServerAlert(bh, alert(503, "02:47", "BOB01: Alerte", "Disque / 94 % (seuil 90 %)", AlertSeverity.WARNING)),
-        ServerAlert(at, alert(19, "01:50", "NAS-ATELIER: Alerte", "Disque /volume1 91 % (seuil 90 %)", AlertSeverity.WARNING)),
+        ServerAlert(at, alert(19, "01:50", "NAS-DEV01: Alerte", "Disque /volume1 91 % (seuil 90 %)", AlertSeverity.WARNING)),
         ServerAlert(bh, alert(497, "01:30", "SRV-FILES01: santé disque à surveiller", "Disque 1 : 5 secteurs réalloués", AlertSeverity.WARNING)),
         ServerAlert(bh, alert(490, "00:58", "140: De retour en ligne", "", AlertSeverity.INFO)),
     )
@@ -62,7 +62,7 @@ class TriageTest {
     }
 
     @Test fun serverFilterAndReadSection() {
-        val withRead = night + ServerAlert(at, alert(18, "01:10", "NAS-ATELIER: retour à la normale", "", AlertSeverity.INFO, read = true))
+        val withRead = night + ServerAlert(at, alert(18, "01:10", "NAS-DEV01: retour à la normale", "", AlertSeverity.INFO, read = true))
         val list = Triage.build(withRead, serverFilter = setOf(at))
         assertEquals(listOf(19L), list.unread.map { it.alert.id })
         assertEquals(listOf(18L), list.read.map { it.alert.id })

@@ -29,7 +29,7 @@ class ActionRunnerTest {
         override suspend fun sessionExpired() { log += "expired" }
     }
 
-    private val reboot = ActionSpec("device.reboot", Tier.T2, "Redémarrer", "SRV-AD2", "BinaryHearts › BASH", "2 utilisateurs sont connectés")
+    private val reboot = ActionSpec("device.reboot", Tier.T2, "Redémarrer", "SRV-AD2", "Obliance Prod › ACME", "2 utilisateurs sont connectés")
 
     private fun <T> scripted(vararg answers: ApiOutcome<T>): Pair<MutableList<JsonObject>, suspend (JsonObject) -> ApiOutcome<T>> {
         val bodies = mutableListOf<JsonObject>()
@@ -119,10 +119,10 @@ class ActionRunnerTest {
         assertTrue(bodies.isEmpty())
 
         var switched = false
-        val r = ActionRunner(p).run(reboot, { Preflight.NeedsTenantSwitch("BASH") { switched = true; true } }, call)
+        val r = ActionRunner(p).run(reboot, { Preflight.NeedsTenantSwitch("ACME") { switched = true; true } }, call)
         assertEquals(ActionResult.Done(Unit), r)
         assertTrue(switched)
-        assertEquals(listOf("switch?BASH", "confirm:T2"), p.log)
+        assertEquals(listOf("switch?ACME", "confirm:T2"), p.log)
     }
 
     @Test fun trustWindowForSingleT2Only() = runBlocking {

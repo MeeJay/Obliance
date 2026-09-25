@@ -26,30 +26,30 @@ class WebCookieJarTest {
     @Test fun cookiesStayWithTheirServer() {
         val store = FakeWebCookies()
         val jar = WebCookieJar(store)
-        val bh = "https://obliance.binaryhearts.me/api/auth/login".toHttpUrl()
-        val at = "https://atelier.binaryhearts.me/api/auth/me".toHttpUrl()
+        val bh = "https://obliance-prod.example.org/api/auth/login".toHttpUrl()
+        val at = "https://obliance-dev.example.org/api/auth/me".toHttpUrl()
         jar.saveFromResponse(bh, listOf(Cookie.parse(bh, "connect.sid=s%3Abh; Path=/; HttpOnly; Secure")!!))
         jar.saveFromResponse(at, listOf(Cookie.parse(at, "connect.sid=s%3Aat; Path=/; HttpOnly; Secure")!!))
         assertEquals(listOf("connect.sid" to "s%3Abh"), jar.loadForRequest(bh).map { it.name to it.value })
-        assertEquals("connect.sid=s%3Aat", jar.headerFor("https://atelier.binaryhearts.me"))
+        assertEquals("connect.sid=s%3Aat", jar.headerFor("https://obliance-dev.example.org"))
         assertEquals(2, store.flushes)
     }
 
     @Test fun clearOriginOnlyTouchesThatServer() {
         val store = FakeWebCookies()
         val jar = WebCookieJar(store)
-        store.set("https://obliance.binaryhearts.me/", "connect.sid=s%3Abh")
-        store.set("https://obliance.binaryhearts.me/", "lang=fr")
-        store.set("https://id.binaryhearts.me/", "obligate.sid=keep")
-        jar.clearOrigin("https://obliance.binaryhearts.me")
-        assertNull(jar.headerFor("https://obliance.binaryhearts.me"))
-        assertEquals("obligate.sid=keep", jar.headerFor("https://id.binaryhearts.me"))
+        store.set("https://obliance-prod.example.org/", "connect.sid=s%3Abh")
+        store.set("https://obliance-prod.example.org/", "lang=fr")
+        store.set("https://id.example.org/", "obligate.sid=keep")
+        jar.clearOrigin("https://obliance-prod.example.org")
+        assertNull(jar.headerFor("https://obliance-prod.example.org"))
+        assertEquals("obligate.sid=keep", jar.headerFor("https://id.example.org"))
     }
 
     @Test fun malformedPairsAreSkipped() {
         val store = FakeWebCookies()
-        store.byHost["obliance.binaryhearts.me"] = linkedMapOf("ok" to "1", "" to "x", "bad name" to "2")
+        store.byHost["obliance-prod.example.org"] = linkedMapOf("ok" to "1", "" to "x", "bad name" to "2")
         val jar = WebCookieJar(store)
-        assertEquals(listOf("ok"), jar.loadForRequest("https://obliance.binaryhearts.me/".toHttpUrl()).map { it.name })
+        assertEquals(listOf("ok"), jar.loadForRequest("https://obliance-prod.example.org/".toHttpUrl()).map { it.name })
     }
 }

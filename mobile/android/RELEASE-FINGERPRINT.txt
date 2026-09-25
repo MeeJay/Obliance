@@ -1,7 +1,7 @@
 # Empreinte du certificat de signature des APK Obli Shell (release)
 #
 # Keystore : D:\keys\obli-release.jks, alias obli
-# Certificat : CN=Obli Shell, OU=Self-hosted, O=BinaryHearts, L=Paris, C=FR
+# Certificat : CN=Obli Shell, OU=Self-hosted, O=Obliance Prod, L=Paris, C=FR
 #              RSA 4096, valide du 2026-09-24 au 2056-09-16
 # Calculée avec :
 #   keytool -J-Duser.language=en -list -v -keystore D:\keys\obli-release.jks -alias obli -storepass:file D:\keys\obli-release-password.txt

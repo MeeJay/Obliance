@@ -60,35 +60,35 @@ class ServerSessionsTest {
 
     @Test fun oneSocketTheActiveServers() = runBlocking {
         val (registry, sessions, log) = setUp()
-        val bh = (registry.add("obliance.binaryhearts.me", "BinaryHearts") as AddServerResult.Added).profile
-        val at = (registry.add("atelier.binaryhearts.me", "Atelier") as AddServerResult.Added).profile
+        val bh = (registry.add("obliance-prod.example.org", "Obliance Prod") as AddServerResult.Added).profile
+        val at = (registry.add("obliance-dev.example.org", "Obliance Dev") as AddServerResult.Added).profile
         assertEquals(bh.id, sessions.active.value!!.id)
         sessions.activate(bh.id)
         sessions.activate(at.id)
         assertEquals(at.id, sessions.active.value!!.id)
-        assertEquals(listOf("connect:BH", "disconnect:BH", "connect:AT"), log)
+        assertEquals(listOf("connect:OP", "disconnect:OP", "connect:OD"), log)
     }
 
     @Test fun editingAProfileKeepsTheSession() = runBlocking {
         val (registry, sessions, _) = setUp()
-        val cd = (registry.add("rmm.durand-associes.fr") as AddServerResult.Added).profile
+        val cd = (registry.add("obliance-qual.example.org") as AddServerResult.Added).profile
         val before = sessions.session(cd.id)!!
-        registry.rename(cd.id, "Client Durand")
+        registry.rename(cd.id, "Obliance Qual")
         registry.recolor(cd.id, ServerColor.FUCHSIA)
         val after = sessions.session(cd.id)!!
         assertSame(before, after)
-        assertEquals("Client Durand", after.profile.displayName)
-        assertEquals("CD", after.profile.monogram)
+        assertEquals("Obliance Qual", after.profile.displayName)
+        assertEquals("OQ", after.profile.monogram)
     }
 
     @Test fun removedServerLosesItsSessionAndSocket() = runBlocking {
         val (registry, sessions, log) = setUp()
-        val bh = (registry.add("obliance.binaryhearts.me", "BinaryHearts") as AddServerResult.Added).profile
-        val at = (registry.add("atelier.binaryhearts.me", "Atelier") as AddServerResult.Added).profile
+        val bh = (registry.add("obliance-prod.example.org", "Obliance Prod") as AddServerResult.Added).profile
+        val at = (registry.add("obliance-dev.example.org", "Obliance Dev") as AddServerResult.Added).profile
         sessions.activate(at.id)
         registry.remove(at.id)
         assertNull(sessions.session(at.id))
-        assertTrue("disconnect:AT" in log)
+        assertTrue("disconnect:OD" in log)
         assertEquals(bh.id, sessions.active.value!!.id)
         assertEquals(listOf(bh.id), sessions.all().map { it.id })
     }
@@ -96,7 +96,7 @@ class ServerSessionsTest {
     @Test fun probeReadsAuthMe() = runBlocking {
         val origin = Origins.of(server.url("/").toString())!!
         val s = ServerSession(tools.obli.core.model.ServerId("x"), {
-            tools.obli.core.model.ServerProfile(tools.obli.core.model.ServerId("x"), origin, "BH", ServerColor.VIOLET, "BH", 0)
+            tools.obli.core.model.ServerProfile(tools.obli.core.model.ServerId("x"), origin, "OP", ServerColor.VIOLET, "OP", 0)
         }, ObliHttp(origin, client), { error("no realtime") })
         server.enqueue(MockResponse.Builder().code(200).addHeader("Content-Type", "application/json").body(
             """{"success":true,"data":{"user":{"id":3,"username":"og_karim.benali","displayName":"Karim Benali","role":"admin","isActive":true,"foreignSource":"obligate","preferences":{}},"permissions":{},"requires2faSetup":false,"currentTenantId":1}}""",

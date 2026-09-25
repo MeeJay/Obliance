@@ -38,7 +38,7 @@ object ObliTypography {
     val body get() = TextStyle(fontFamily = ObliFonts.sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = "tnum")
     val label get() = TextStyle(fontFamily = ObliFonts.sans, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp)
     val labelSmall get() = TextStyle(fontFamily = ObliFonts.sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp)
-    /** Overline « CRITIQUE · BASH · 03:12 » — upper case is applied by the caller. */
+    /** Overline « CRITIQUE · ACME · 03:12 » — upper case is applied by the caller. */
     val overline get() = TextStyle(fontFamily = ObliFonts.mono, fontWeight = FontWeight.Normal, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.14.em)
     val monoCaption get() = TextStyle(fontFamily = ObliFonts.mono, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp)
     val terminal get() = TextStyle(fontFamily = ObliFonts.mono, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 19.sp)
