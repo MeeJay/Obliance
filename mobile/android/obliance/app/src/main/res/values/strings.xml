@@ -8,10 +8,6 @@
     <string name="app_nav_more">More</string>
     <string name="app_nav_triage_badge">Triage, %1$d to handle</string>
     <string name="app_select_activity">Select a batch or a session</string>
-    <string name="app_notifications_title">Allow notifications</string>
-    <string name="app_notifications_body">Open remote sessions stay connected while you use another app. A notification lists them and lets you end them all; without it, Android hides it.</string>
-    <string name="app_notifications_allow">Continue</string>
-    <string name="app_notifications_later">Not now</string>
     <string name="app_scope_global_view">Global view</string>
     <string name="app_scope_label">Scope: %1$s</string>
     <string name="app_scope_unknown">Scope</string>
@@ -23,4 +19,25 @@
     <string name="app_switch_back">Switch back</string>
     <string name="app_select_device">Select a device</string>
     <string name="app_device_fallback">device %1$d</string>
+    <string name="app_nav_more_update">More, update available</string>
+    <string name="app_switched_to_server">Switched to %1$s</string>
+    <string name="app_tenant_switched_to">Switched to %1$s to open %2$s</string>
+    <string name="app_scope_filter">%1$s · filter</string>
+    <plurals name="app_scope_filter_count">
+        <item quantity="one">%1$d tenant · filter</item>
+        <item quantity="other">%1$d tenants · filter</item>
+    </plurals>
+    <string name="app_scope_filtered">Scope: global view filtered on %1$s</string>
+    <string name="app_scope_filtered_server">Scope: %1$s, global view filtered on %2$s</string>
+    <string name="app_unlock_to_open">Unlock to open %1$s</string>
+    <string name="app_route_approval">the approval request</string>
+    <string name="app_route_enrolment">the enrolment of %1$s</string>
+    <string name="app_route_enrolments">the devices waiting for enrolment</string>
+    <string name="app_route_approvals">the approval requests</string>
+    <string name="app_route_inbox">Triage</string>
+    <string name="app_route_sign_in">the sign-in to %1$s</string>
+    <string name="app_route_page">a page of %1$s</string>
+    <string name="app_route_tab_services">the services of %1$s</string>
+    <string name="app_route_tab_processes">the processes of %1$s</string>
+    <string name="app_route_tab_tasks">the tasks of %1$s</string>
 </resources>

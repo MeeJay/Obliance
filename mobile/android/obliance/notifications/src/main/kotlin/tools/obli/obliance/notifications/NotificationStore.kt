@@ -23,7 +23,15 @@ import tools.obli.core.model.ServerId
 
 /** Outcome of the last background pass of one server (S84 "Acheminement", S81, diagnostics). */
 @Serializable
-internal enum class PassResult { OK, EXPIRED, UNREACHABLE, SKIPPED }
+internal enum class PassResult {
+    OK,
+    EXPIRED,
+    UNREACHABLE,
+    SKIPPED,
+
+    /** Alerts checked (and saved), but the escalations or the enrolments could not be. */
+    PARTIAL,
+}
 
 @Serializable
 internal data class LastPass(
@@ -42,6 +50,11 @@ internal data class PostedAlert(
     val critical: Boolean = false,
     /** Replaced by "Rétabli à HH:mm": no reminder, no second merge. */
     val recovered: Boolean = false,
+    /**
+     * [tools.obli.obliance.domain.AlertCategory] name of the alert: a recovery only
+     * replaces a notification of the kind it answers (RecoveryMatch). Null = unknown: never replaced.
+     */
+    val category: String? = null,
 )
 
 /** What the notification engine keeps for ONE server. */

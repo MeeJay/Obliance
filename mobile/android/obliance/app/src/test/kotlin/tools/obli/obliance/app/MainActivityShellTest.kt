@@ -1,8 +1,11 @@
 package tools.obli.obliance.app
 
+import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,6 +27,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import tools.obli.obliance.data.FeedStatus
 import tools.obli.obliance.data.sample.SampleData
+import tools.obli.obliance.more.AppLock
+import tools.obli.obliance.notifications.NotificationRoute
 
 /**
  * Smoke test of the whole application: the real [MainActivity] and shell over
@@ -40,16 +46,33 @@ class MainActivityShellTest {
     private var scenario: ActivityScenario<MainActivity>? = null
 
     @After fun tearDown() {
+        AppLock.setLockedForTest(false)
         scenario?.close()
         fake?.close()
     }
 
-    private fun launch(f: FakeObliance): FakeObliance {
+    private val app: ShellTestApplication get() = ApplicationProvider.getApplicationContext()
+
+    /** Starts the app over [f]; [route]: as if a notification had been tapped (cold start). */
+    private fun launch(f: FakeObliance, route: NotificationRoute? = null): FakeObliance {
         fake = f
-        ApplicationProvider.getApplicationContext<ShellTestApplication>().host = f
+        app.host = f
         f.start()
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+        scenario = if (route == null) ActivityScenario.launch(MainActivity::class.java) else ActivityScenario.launch<MainActivity>(app.intentFor(route))
         return f
+    }
+
+    /** A notification tapped while the app runs (singleTask: onNewIntent). */
+    private fun deliver(route: NotificationRoute) {
+        val intent: Intent = app.intentFor(route)
+        scenario!!.onActivity { InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(it, intent) }
+        compose.waitForIdle()
+    }
+
+    /** The destination [label] is the selected one (the bar is visible). */
+    private fun waitSelected(label: String) = waitFor {
+        compose.onAllNodes(hasContentDescription(label, substring = true) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected) and isSelected())
+            .fetchSemanticsNodes().isNotEmpty()
     }
 
     private fun shot(name: String) =
@@ -100,9 +123,10 @@ class MainActivityShellTest {
         waitText("Obliance Qual")
         shot("${prefix}_5_scope_sheet.png")
 
-        // Lists are the ACTIVE server's: Dev and Qual never got a device list request.
-        assertFalse(f.requests(SampleData.DEV).any { it.startsWith("GET /api/devices") })
-        assertFalse(f.requests(SampleData.QUAL).any { it.startsWith("GET /api/devices") })
+        // Lists are the ACTIVE server's: Dev and Qual never got a device list request
+        // (À traiter's enrolment feed, `approvalStatus=pending`, covers every server).
+        assertFalse(f.fullRequests(SampleData.DEV).any { it.startsWith("GET /api/devices") && "approvalStatus=pending" !in it })
+        assertFalse(f.fullRequests(SampleData.QUAL).any { it.startsWith("GET /api/devices") && "approvalStatus=pending" !in it })
         assertFalse(f.requests(SampleData.DEV).contains("GET /api/updates/stats"))
     }
 
@@ -237,6 +261,99 @@ class MainActivityShellTest {
         waitText("PC-COMPTA-02")
         compose.waitForIdle()
         shot("tablet_11_activity_batch.png")
+    }
+
+    /**
+     * 0.3.0 notification route (cold start): a device of Obliance Qual while
+     * Prod is active. Implicit switch to Qual, `locate-device` (member of
+     * Default there, not a master admin), same tenant so no tenant switch, the
+     * detail on the À traiter stack, « Passé sur Obliance Qual pour ouvrir
+     * SRV-QUAL01 · Revenir ».
+     */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneRouteDeviceOfAnotherServer() {
+        val f = launch(FakeObliance(), NotificationRoute.Device(SampleData.QUAL, 5, tenantId = null, label = "SRV-QUAL01"))
+        waitFor { f.registry.state.value.activeId == SampleData.QUAL }
+        waitText("IDENTITÉ")
+        waitText("Passé sur Obliance Qual pour ouvrir SRV-QUAL01")
+        compose.waitForIdle()
+        shot("phone_20_route_device_other_server.png")
+        assertTrue(f.requests(SampleData.QUAL).contains("GET /api/tenants/locate-device/5"))
+        assertFalse(f.requests(SampleData.QUAL).contains("POST /api/tenant/switch"))
+        assertTrue(f.requests(SampleData.QUAL).contains("GET /api/devices/5"))
+        assertFalse(f.requests(SampleData.PROD).contains("GET /api/devices/5"))
+        // The detail was pushed on À traiter: back shows À traiter's root.
+        back()
+        waitSelected("À traiter")
+    }
+
+    /** Server AND tenant change: ONE snackbar names both (design doc §2.10 item 3). */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneRouteDeviceSwitchesServerAndTenant() {
+        val f = launch(FakeObliance(deviceTenants = mapOf(5L to SampleData.ACME_TENANT)), NotificationRoute.Device(SampleData.QUAL, 5, tenantId = null, label = "SRV-QUAL01"))
+        waitFor { f.registry.state.value.activeId == SampleData.QUAL }
+        waitText("Passé sur Obliance Qual › ACME pour ouvrir SRV-QUAL01")
+        waitText("IDENTITÉ")
+        compose.waitForIdle()
+        shot("phone_21_route_device_server_and_tenant.png")
+        assertTrue(f.requests(SampleData.QUAL).contains("POST /api/tenant/switch"))
+        assertFalse(f.requests(SampleData.PROD).contains("POST /api/tenant/switch"))
+    }
+
+    /**
+     * A two-person approval tapped while the app runs on Appareils: À traiter,
+     * Approbations segment, S11 of #17. No server switch (inbox action, §2.10 item 4).
+     */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneRouteApprovalSelectsTheApprovalsSegment() {
+        val f = launch(FakeObliance())
+        assertAggregated(f)
+        nav("Appareils")
+        waitText("PC-COMPTA-03")
+        deliver(NotificationRoute.Approval(SampleData.PROD, 17, tenantId = SampleData.ACME_TENANT))
+        waitFor { compose.onAllNodes(hasText("Approbations", substring = true) and isSelected()).fetchSemanticsNodes().isNotEmpty() }
+        waitText("Approuver")
+        compose.waitForIdle()
+        shot("phone_22_route_approval.png")
+        assertEquals(SampleData.PROD, f.registry.state.value.activeId)
+    }
+
+    /** "Se reconnecter" for a server that is not active: S03 for THAT server, the active one stays. */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneRouteSignInOfAnotherServer() {
+        val f = launch(FakeObliance(expired = setOf(SampleData.QUAL)), NotificationRoute.SignIn(SampleData.QUAL))
+        waitText("Votre session sur Obliance Qual a expiré")
+        compose.waitForIdle()
+        shot("phone_23_route_sign_in_other_server.png")
+        assertEquals(SampleData.PROD, f.registry.state.value.activeId)
+    }
+
+    /**
+     * S00 over the real shell (the app wraps ObliNextApp in AppLockGate): lock
+     * then unlock with a device detail open on Appareils. The same screen comes
+     * back (not À traiter's root) and its stack is unchanged: back returns to
+     * the Appareils list.
+     */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneLockThenUnlockKeepsTheOpenScreenAndItsStack() {
+        val f = launch(FakeObliance())
+        assertAggregated(f)
+        nav("Appareils")
+        click("PC-COMPTA-03")
+        waitText("IDENTITÉ")
+
+        AppLock.setLockedForTest(true)
+        waitText("Obliance est verrouillé")
+        compose.waitForIdle()
+        assertTrue("nothing of the app is composed behind S00", compose.onAllNodesWithText("IDENTITÉ").fetchSemanticsNodes().isEmpty())
+        shot("phone_24_locked.png")
+
+        AppLock.setLockedForTest(false)
+        waitText("IDENTITÉ")
+        assertTrue(compose.onAllNodesWithText("Obliance est verrouillé").fetchSemanticsNodes().isEmpty())
+        back()
+        waitSelected("Appareils")
+        waitText("PC-COMPTA-03")
     }
 
     private companion object {

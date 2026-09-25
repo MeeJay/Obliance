@@ -220,4 +220,9 @@
     <string name="triage_enrol_not_applied">The server did not apply the request. Try again.</string>
     <string name="triage_request_approval_gone">This request is no longer pending.</string>
     <string name="triage_request_enrolment_gone">This device is no longer waiting for enrolment.</string>
+    <!-- « Filtrer la vue globale » of the active server applied to Triage (§2.3) -->
+    <plurals name="triage_view_filter_hidden">
+        <item quantity="one">Global view filter: %1$d item of other tenants hidden</item>
+        <item quantity="other">Global view filter: %1$d items of other tenants hidden</item>
+    </plurals>
 </resources>

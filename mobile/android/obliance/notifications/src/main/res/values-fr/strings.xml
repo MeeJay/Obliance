@@ -61,6 +61,18 @@
     <string name="notif_enrolment_refused">%1$s refusé</string>
     <string name="notif_enrolment_open_app">Ouvrez Obliance pour terminer</string>
     <string name="notif_enrolment_failed_text">%1$s n’a pas pu être traité depuis la notification.</string>
+    <plurals name="notif_enrolments_more_title">
+        <item quantity="one">%1$d appareil en attente d’enrôlement</item>
+        <item quantity="many">%1$d appareils en attente d’enrôlement</item>
+        <item quantity="other">%1$d appareils en attente d’enrôlement</item>
+    </plurals>
+    <string name="notif_enrolments_more_text">À examiner dans À traiter › Enrôlements.</string>
+    <plurals name="notif_approvals_more_title">
+        <item quantity="one">%1$d demande d’approbation en attente</item>
+        <item quantity="many">%1$d demandes d’approbation en attente</item>
+        <item quantity="other">%1$d demandes d’approbation en attente</item>
+    </plurals>
+    <string name="notif_approvals_more_text">À examiner dans À traiter › Approbations.</string>
 
     <!-- Compte -->
     <string name="notif_expired_title">Session expirée sur %1$s</string>
@@ -116,6 +128,7 @@
     <string name="notif_section_delivery">Acheminement</string>
     <string name="notif_delivery_poll">Vérification toutes les 15 min — Android peut retarder les alertes</string>
     <string name="notif_server_checked">Vérifié à %1$s</string>
+    <string name="notif_server_partial">Alertes vérifiées à %1$s ; approbations ou enrôlements non vérifiés</string>
     <string name="notif_server_expired">Session expirée · Se reconnecter</string>
     <string name="notif_server_unreachable">Injoignable depuis %1$s</string>
     <string name="notif_server_disabled">Notifications désactivées</string>

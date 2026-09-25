@@ -81,6 +81,12 @@
     <string name="more_lock_title">Obliance est verrouillé</string>
     <string name="more_lock_unlock">Déverrouiller</string>
     <string name="more_lock_prompt_title">Déverrouiller Obliance</string>
+    <!-- S04 étape 3 (une seule fois, après les étapes des notifications) -->
+    <string name="more_lock_onboarding_title">Verrouiller Obliance</string>
+    <string name="more_lock_onboarding_body">Obliance vous demandera votre empreinte ou le code de l’appareil à l’ouverture et après %1$s en arrière-plan.</string>
+    <string name="more_lock_onboarding_body_immediate">Obliance vous demandera votre empreinte ou le code de l’appareil à l’ouverture et dès le passage en arrière-plan.</string>
+    <string name="more_lock_onboarding_enable">Activer</string>
+    <string name="more_lock_onboarding_later">Pas maintenant</string>
 
     <!-- S86 À propos et mises à jour -->
     <string name="more_about_title">À propos et mises à jour</string>

@@ -11,11 +11,22 @@
 // show the warn/crit values; saving them writes into
 // `thresholdsOverride.diskByMount[mount]`. Removing the toggle clears
 // the override entirely.
+//
+// Per-mount "Alerts" switch (`diskByMount[mount].notify`): muting a mount
+// silences its notifications only (status colour unchanged). It is
+// independent from the warn / crit override: an entry holding only
+// `notify` does not override the thresholds. When the generic Disk alerts
+// switch is effectively off every mount is muted — the per-mount switches
+// are then greyed (a mount cannot re-enable what the Disk switch mutes).
 
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HardDrive } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { MetricThresholds, MetricThreshold, DeviceMetrics } from '@obliance/shared';
+import type { MetricThresholds, MetricThreshold, DeviceMetrics, ResolvedThresholds } from '@obliance/shared';
+import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
+import { ToggleSwitch } from './ToggleSwitch';
+import { inheritedFromLabel } from './ThresholdsEditor';
 
 interface Props {
  /** Disks reported by the agent on this device. */
@@ -23,30 +34,46 @@ interface Props {
  /** Current thresholds_override blob — we read/write `diskByMount`. */
  value: MetricThresholds;
  onChange: (next: MetricThresholds) => void;
- /** Default disk threshold inherited from group/system. Shown as
- * placeholder so the user knows what they're overriding against. */
- inheritedDisk?: Required<MetricThreshold>;
+ /** What the device inherits (cascade resolved without the device's own
+ * override: group chain / tenant / global / system). Placeholders and
+ * seeds use it together with the device's own generic `disk` values. */
+ inherited?: ResolvedThresholds;
 }
 
-export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk }: Props) {
+/** Keys of a mount entry that override thresholds (anything but notify). */
+function hasThresholdOverride(entry: MetricThreshold | undefined): boolean {
+ return !!entry && Object.keys(entry).some((k) => k !== 'notify');
+}
+
+export function PerDiskThresholdsEditor({ disks, value, onChange, inherited }: Props) {
  const { t } = useTranslation();
+ // Ids linking each Alerts switch to the text explaining its state.
+ const idBase = useId();
+ const diskOffHintId = `${idBase}-disk-off`;
  // Skip removable / optical disks — they're already excluded from
  // alerts server-side, and showing them here would just confuse the
  // admin into setting thresholds that don't apply.
  const eligible = disks.filter((d) => !d.removable && !['iso9660', 'udf', 'cdfs'].includes((d.fstype ?? '').toLowerCase()));
  const byMount = value.diskByMount ?? {};
 
- const setMountSlot = (mount: string, slot: 'warn' | 'crit', raw: string) => {
+ // Generic disk values that apply to a mount without its own slot: the
+ // device's own `disk` override first, then what the device inherits.
+ const genericDisk = {
+ warn: value.disk?.warn ?? inherited?.disk.warn ?? SYSTEM_DEFAULT_THRESHOLDS.disk.warn,
+ crit: value.disk?.crit ?? inherited?.disk.crit ?? SYSTEM_DEFAULT_THRESHOLDS.disk.crit,
+ };
+ // Values currently applied to a mount when the device does not override
+ // it: an inherited per-mount override (group chain), else generic disk.
+ const inheritedMount = (mount: string) => {
+ const im = inherited?.diskByMount?.[mount];
+ return { warn: im?.warn ?? genericDisk.warn, crit: im?.crit ?? genericDisk.crit };
+ };
+ // Effective generic Disk alerts switch (the draft above wins).
+ const diskNotify = typeof value.disk?.notify === 'boolean' ? value.disk.notify : (inherited?.disk.notify ?? true);
+
+ const writeMount = (mount: string, mt: MetricThreshold | null) => {
  const next: MetricThresholds = { ...value, diskByMount: { ...byMount } };
- const mt: MetricThreshold = { ...(next.diskByMount![mount] ?? {}) };
- if (raw === '') {
- delete mt[slot];
- } else {
- const n = parseInt(raw, 10);
- if (Number.isNaN(n) || n < 0 || n > 100) return;
- mt[slot] = n;
- }
- if (Object.keys(mt).length === 0) {
+ if (!mt || Object.keys(mt).length === 0) {
  delete next.diskByMount![mount];
  } else {
  next.diskByMount![mount] = mt;
@@ -55,21 +82,40 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  onChange(next);
  };
 
- const toggleOverride = (mount: string, on: boolean) => {
- const next: MetricThresholds = { ...value, diskByMount: { ...byMount } };
- if (on) {
- // Seed with the inherited values so the inputs are pre-filled
- // rather than empty — the admin almost always wants to tweak,
- // not start blank.
- next.diskByMount![mount] = next.diskByMount![mount] ?? {
- warn: inheritedDisk?.warn,
- crit: inheritedDisk?.crit,
- };
+ const setMountSlot = (mount: string, slot: 'warn' | 'crit', raw: string) => {
+ const mt: MetricThreshold = { ...(byMount[mount] ?? {}) };
+ if (raw === '') {
+ delete mt[slot];
  } else {
- delete next.diskByMount![mount];
+ const n = parseInt(raw, 10);
+ if (Number.isNaN(n) || n < 0 || n > 100) return;
+ mt[slot] = n;
  }
- if (Object.keys(next.diskByMount!).length === 0) delete next.diskByMount;
- onChange(next);
+ writeMount(mount, mt);
+ };
+
+ const toggleOverride = (mount: string, on: boolean) => {
+ const current = byMount[mount];
+ if (on) {
+ // Seed with the values currently applied so the inputs are
+ // pre-filled rather than empty — the admin almost always wants to
+ // tweak, not start blank.
+ const seed = inheritedMount(mount);
+ writeMount(mount, { ...(current ?? {}), warn: current?.warn ?? seed.warn, crit: current?.crit ?? seed.crit });
+ } else {
+ // Drop the thresholds, keep a per-mount alerts choice if any.
+ writeMount(mount, typeof current?.notify === 'boolean' ? { notify: current.notify } : null);
+ }
+ };
+
+ /** Tri-state: back to "inherit" when the choice equals the inherited
+ * value, explicit true / false otherwise. */
+ const setMountNotify = (mount: string, next: boolean) => {
+ const inheritedNotify = inherited?.diskByMount?.[mount]?.notify ?? true;
+ const mt: MetricThreshold = { ...(byMount[mount] ?? {}) };
+ if (next === inheritedNotify) delete mt.notify;
+ else mt.notify = next;
+ writeMount(mount, mt);
  };
 
  if (eligible.length === 0) {
@@ -88,9 +134,22 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  'Override the global disk threshold for a specific mount point — useful for system partitions that are full by nature, or for data drives that need tighter alerts. Removable / ISO mounts are always excluded.',
  )}
  </div>
- {eligible.map((d) => {
+ {!diskNotify && (
+ <div id={diskOffHintId} className="text-[11px] text-amber-400/90">
+ {t('thresholds.perDisk.diskAlertsOff', 'Disk alerts are off: every disk is muted. Turn the Disk alerts switch back on to choose disk by disk.')}
+ </div>
+ )}
+ {eligible.map((d, idx) => {
  const override = byMount[d.mount];
- const isOverridden = !!override;
+ const isOverridden = hasThresholdOverride(override);
+ const ownNotify = override?.notify;
+ const inheritedMountNotify = inherited?.diskByMount?.[d.mount]?.notify;
+ const mountNotify = typeof ownNotify === 'boolean' ? ownNotify : (inheritedMountNotify ?? true);
+ const effectiveNotify = diskNotify && mountNotify;
+ const alertsLabel = `${d.mount} — ${t('thresholds.alerts', 'Alerts')}`;
+ const mutedAbove = typeof ownNotify !== 'boolean' && inheritedMountNotify === false;
+ const inheritedHintId = `${idBase}-m${idx}`;
+ const describedBy = [!diskNotify ? diskOffHintId : null, mutedAbove ? inheritedHintId : null].filter(Boolean).join(' ') || undefined;
  return (
  <div key={d.mount} className={clsx(
  // Phone: the two inputs wrap onto their own line so the mount
@@ -104,8 +163,24 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  <div className="text-[10px] text-text-muted">
  {t('thresholds.perDisk.usage', '{{size}} GB · {{percent}}% used', { size: d.totalGb.toFixed(0), percent: d.percent.toFixed(0) })}
  {d.fstype && <> · {d.fstype}</>}
+ {/* A mount muted higher up (group chain) is worth a word. */}
+ {mutedAbove && (
+ <> · <span id={inheritedHintId} className="italic">{inheritedFromLabel(t, inherited?.diskByMount?.[d.mount]?.origin?.notify)}</span></>
+ )}
  </div>
  </div>
+ <span className="inline-flex items-center gap-1.5 text-[11px] text-text-muted coarse:min-h-10 coarse:px-1 coarse:text-xs">
+ {/* Visible caption; the switch carries the full name (mount + Alerts). */}
+ <span aria-hidden="true" className={clsx(!diskNotify && 'opacity-50')}>{t('thresholds.alerts', 'Alerts')}</span>
+ <ToggleSwitch
+ size="sm"
+ checked={effectiveNotify}
+ disabled={!diskNotify}
+ onChange={(v) => setMountNotify(d.mount, v)}
+ ariaLabel={alertsLabel}
+ ariaDescribedBy={describedBy}
+ />
+ </span>
  <label className="inline-flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer coarse:min-h-10 coarse:px-1 coarse:text-xs">
  <input type="checkbox" checked={isOverridden} onChange={(e) => toggleOverride(d.mount, e.target.checked)} className="accent-accent" />
  <span>{isOverridden ? t('thresholds.perDisk.override', 'override') : t('thresholds.perDisk.inherit', 'inherit')}</span>
@@ -120,7 +195,7 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  inputMode="numeric"
  value={override?.warn ?? ''}
  onChange={(e) => setMountSlot(d.mount, 'warn', e.target.value)}
- placeholder={String(inheritedDisk?.warn ?? '')}
+ placeholder={String(genericDisk.warn)}
  className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-amber-400 text-center font-mono focus:outline-none focus:border-accent coarse:min-h-10 coarse:w-16"
  title={t('thresholds.perDisk.warnTitle', 'Warning threshold (%)')}
  aria-label={t('thresholds.perDisk.warnTitle', 'Warning threshold (%)')}
@@ -132,7 +207,7 @@ export function PerDiskThresholdsEditor({ disks, value, onChange, inheritedDisk 
  inputMode="numeric"
  value={override?.crit ?? ''}
  onChange={(e) => setMountSlot(d.mount, 'crit', e.target.value)}
- placeholder={String(inheritedDisk?.crit ?? '')}
+ placeholder={String(genericDisk.crit)}
  className="w-14 px-1.5 py-0.5 text-xs bg-bg-primary rounded text-red-400 text-center font-mono focus:outline-none focus:border-accent coarse:min-h-10 coarse:w-16"
  title={t('thresholds.perDisk.critTitle', 'Critical threshold (%)')}
  aria-label={t('thresholds.perDisk.critTitle', 'Critical threshold (%)')}

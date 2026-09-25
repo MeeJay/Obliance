@@ -48,6 +48,36 @@ class TriageMapperTest {
         assertEquals("OQ", ui.unread[2].server?.monogram)
     }
 
+    /**
+     * §2.3 « Filtrer la vue globale » (Karim on Default of Prod, filtered on
+     * ACME): Prod's items of the other tenants are hidden and counted; the
+     * other servers stay (À traiter aggregates them, §2.10).
+     */
+    @Test fun theActiveServersGlobalViewFilterAppliesToTriage() {
+        assertEquals(0, map().hiddenByViewFilter)
+        val onAcme = scope.copy(viewFilter = setOf(SampleData.ACME_TENANT))
+        val ui = map(tenant = onAcme)
+        val names = ui.unread.map { it.deviceName }
+        assertTrue(names.toString(), "SRV-AD2" in names)
+        assertTrue(names.toString(), "PC-COMPTA-03" in names)
+        assertFalse(names.toString(), "BOB01" in names)
+        assertFalse(names.toString(), "SRV-FILES01" in names)
+        assertTrue("other servers are never filtered", "SRV-QUAL01" in names && "NAS-DEV01" in names)
+        assertTrue(ui.unread.filter { it.alert.serverId == SampleData.PROD }.all { it.alert.alert.tenantId == SampleData.ACME_TENANT })
+        assertTrue(ui.hiddenByViewFilter >= 2)
+        assertEquals(ui.unread.size, ui.alertCount)
+        // The approval #17 of ACME stays in view.
+        assertEquals(listOf(17L), ui.approvals.map { it.item.approval.id })
+
+        // Filtered on Default: #17 (ACME) is hidden from the segment and the pinned summary, but a
+        // notification tap can still find it.
+        val onDefault = map(tenant = scope.copy(viewFilter = setOf(SampleData.DEFAULT_TENANT)))
+        assertTrue(onDefault.approvals.isEmpty())
+        assertTrue(onDefault.escalations.isEmpty())
+        assertEquals(listOf(17L), onDefault.allEscalations.map { it.item.approval.id })
+        assertFalse("PC-COMPTA-03" in onDefault.unread.map { it.deviceName })
+    }
+
     @Test fun singleServerHasNoTilesAndNoServerChips() {
         val one = SampleObliServices(serverCount = 1)
         val ui = TriageMapper.map(one.alerts.snapshot.value, one.registry.state.value, one.tenants.scope.value, true, true, LocalState(), prodDevices, NIGHT_NOW)

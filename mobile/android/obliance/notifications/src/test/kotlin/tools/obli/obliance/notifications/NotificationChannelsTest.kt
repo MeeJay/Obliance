@@ -117,8 +117,7 @@ class NotificationChannelsTest {
         waitUntil("state seen") { ObliNotifications.runtime?.lastState?.servers?.isNotEmpty() == true }
         val lines = ObliNotifications.diagnostics(fleet.app)
         assertTrue(lines.toString(), lines.any { it.startsWith("server[1] OP: notify=ALL last=OK") })
-        val all = lines.joinToString("
-")
+        val all = lines.joinToString(" | ")
         for (secret in listOf("example.org", "127.0.0.1", "SRV-AD2", "Hors ligne", "ACME", "Obliance Prod")) assertFalse(secret, secret in all)
     }
 

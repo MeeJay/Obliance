@@ -106,13 +106,19 @@ object ObliNotifications {
     /**
      * The route of a tapped notification, or null. Reads AND removes the route
      * extras (a recreation does not replay it). Null as well when the server
-     * is no longer configured or the route is not valid (unsafe path…).
+     * is no longer configured, the route is not valid (unsafe path…), or the
+     * intent does not come from one of the app's own notifications
+     * ([ACTION_OPEN] and this install's [RouteToken]: the launcher activity is
+     * exported, any app could send it route extras). A refused route is
+     * stripped from the intent too.
      */
     fun routeFrom(intent: Intent?): NotificationRoute? {
         if (intent == null || !RouteExtras.has(intent)) return null
-        val route = RouteExtras.read(intent)
+        val rt = runtime
+        val authentic = rt != null && intent.action == ACTION_OPEN && RouteToken.matches(rt.context, intent.getStringExtra(RouteToken.EXTRA))
+        val route = if (authentic) RouteExtras.read(intent) else null
         RouteExtras.remove(intent)
-        val registry = runtime?.services?.registry?.state?.value ?: return null
+        val registry = rt?.services?.registry?.state?.value ?: return null
         return route?.takeIf { registry.byId(it.serverId) != null }
     }
 

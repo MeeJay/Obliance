@@ -1,7 +1,11 @@
 package tools.obli.obliance.notifications
 
+import android.content.Context
 import android.content.Intent
+import java.io.File
 import java.net.URI
+import java.security.MessageDigest
+import java.security.SecureRandom
 import tools.obli.core.model.ServerId
 import tools.obli.shell.nav.Origins
 
@@ -33,6 +37,12 @@ sealed interface NotificationRoute {
     /** S12 review of a pending device (À traiter › Enrôlements). */
     data class Enrolment(override val serverId: ServerId, val deviceId: Long, val tenantId: Long?, val label: String?) : NotificationRoute
 
+    /** À traiter › Enrôlements, on that server (« N appareils en attente », the rest of a burst). */
+    data class Enrolments(override val serverId: ServerId) : NotificationRoute
+
+    /** À traiter › Approbations, on that server (« N demandes d'approbation en attente »). */
+    data class Approvals(override val serverId: ServerId) : NotificationRoute
+
     /** À traiter, filtered on that server. */
     data class Inbox(override val serverId: ServerId) : NotificationRoute
 
@@ -40,7 +50,12 @@ sealed interface NotificationRoute {
     data class SignIn(override val serverId: ServerId) : NotificationRoute
 }
 
-/** Intent extras of a [NotificationRoute] (all prefixed, so they never clash with the app's). */
+/**
+ * Intent extras of a [NotificationRoute] (all prefixed, so they never clash with
+ * the app's). The launcher activity is exported: any installed app may start it
+ * with these extras. Only the app's own PendingIntents carry the install's
+ * [RouteToken]; [ObliNotifications.routeFrom] drops a route without it.
+ */
 internal object RouteExtras {
     const val PREFIX = "tools.obli.obliance.notifications.route."
     const val KIND = PREFIX + "kind"
@@ -56,10 +71,14 @@ internal object RouteExtras {
     private const val K_PATH = "path"
     private const val K_APPROVAL = "approval"
     private const val K_ENROLMENT = "enrolment"
+    private const val K_ENROLMENTS = "enrolments"
+    private const val K_APPROVALS = "approvals"
     private const val K_INBOX = "inbox"
     private const val K_SIGN_IN = "sign_in"
 
-    fun write(intent: Intent, route: NotificationRoute) {
+    /** [token]: [RouteToken.get] of this install (the app's own notifications only). */
+    fun write(intent: Intent, route: NotificationRoute, token: String) {
+        intent.putExtra(RouteToken.EXTRA, token)
         intent.putExtra(SERVER, route.serverId.value)
         when (route) {
             is NotificationRoute.Device -> {
@@ -81,6 +100,8 @@ internal object RouteExtras {
                 route.tenantId?.let { intent.putExtra(TENANT, it) }
                 route.label?.let { intent.putExtra(LABEL, it) }
             }
+            is NotificationRoute.Enrolments -> intent.putExtra(KIND, K_ENROLMENTS)
+            is NotificationRoute.Approvals -> intent.putExtra(KIND, K_APPROVALS)
             is NotificationRoute.Inbox -> intent.putExtra(KIND, K_INBOX)
             is NotificationRoute.SignIn -> intent.putExtra(KIND, K_SIGN_IN)
         }
@@ -88,7 +109,7 @@ internal object RouteExtras {
 
     fun has(intent: Intent?): Boolean = intent?.extras?.keySet()?.any { it.startsWith(PREFIX) } == true
 
-    /** The route carried by [intent], validated (ids, paths, tab), or null. Does not remove it. */
+    /** The route carried by [intent], validated (ids, paths, tab), or null. Checks no token, removes nothing. */
     fun read(intent: Intent): NotificationRoute? {
         val server = intent.getStringExtra(SERVER)?.takeIf { it.isNotBlank() && it.length <= 64 } ?: return null
         val serverId = ServerId(server)
@@ -107,6 +128,8 @@ internal object RouteExtras {
             }
             K_APPROVAL -> NotificationRoute.Approval(serverId, longOrNull(intent, APPROVAL)?.takeIf { it > 0 } ?: return null, tenant)
             K_ENROLMENT -> NotificationRoute.Enrolment(serverId, longOrNull(intent, DEVICE)?.takeIf { it > 0 } ?: return null, tenant, label)
+            K_ENROLMENTS -> NotificationRoute.Enrolments(serverId)
+            K_APPROVALS -> NotificationRoute.Approvals(serverId)
             K_INBOX -> NotificationRoute.Inbox(serverId)
             K_SIGN_IN -> NotificationRoute.SignIn(serverId)
             else -> null
@@ -186,4 +209,48 @@ internal object NotificationRoutes {
     }.getOrNull()
 
     private const val PROBE_ORIGIN = "https://route.invalid"
+}
+
+/**
+ * A random 128-bit secret of this install, in app-private no-backup storage.
+ * [RouteExtras.write] puts it in every PendingIntent of the app's notifications;
+ * a route whose token does not match (constant-time) is dropped: another app
+ * cannot switch the active server or the tenant, open an S90 page of a
+ * configured server, or put its own text on S00 through the exported launcher.
+ */
+internal object RouteToken {
+    const val EXTRA = RouteExtras.PREFIX + "token"
+    private const val FILE = "obli_notification_route_token"
+    private const val HEX = "0123456789abcdef"
+
+    @Volatile private var cached: String? = null
+
+    fun get(context: Context): String = cached ?: synchronized(this) {
+        cached ?: load(context.applicationContext).also { cached = it }
+    }
+
+    /** Constant-time comparison with this install's token; false for a missing one. */
+    fun matches(context: Context, candidate: String?): Boolean {
+        if (candidate.isNullOrEmpty()) return false
+        return MessageDigest.isEqual(candidate.toByteArray(Charsets.US_ASCII), get(context).toByteArray(Charsets.US_ASCII))
+    }
+
+    private fun load(context: Context): String {
+        val file = File(context.noBackupFilesDir, FILE)
+        runCatching { file.readText().trim() }.getOrNull()
+            ?.takeIf { it.length == 32 && it.all { c -> c in HEX } }
+            ?.let { return it }
+        val bytes = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        val token = buildString(32) { bytes.forEach { b -> append(HEX[(b.toInt() shr 4) and 0xF]).append(HEX[b.toInt() and 0xF]) } }
+        // Written once; if it cannot be, the token lives for this process only (older notifications then open nothing).
+        runCatching {
+            val tmp = File(file.parentFile, FILE + ".tmp")
+            tmp.writeText(token)
+            if (!tmp.renameTo(file)) {
+                file.writeText(token)
+                tmp.delete()
+            }
+        }
+        return token
+    }
 }

@@ -1,5 +1,6 @@
 package tools.obli.obliance.notifications
 
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import tools.obli.core.model.ServerProfile
 import tools.obli.obliance.api.Approval
@@ -14,7 +15,11 @@ import tools.obli.shell.alerts.LiveAlert
  * prefixes the scope ("CRITIQUE · Obliance Qual › Default — SRV-QUAL01"), is
  * the sub-text and its tile is the large icon.
  */
-internal class NotificationFactory(private val texts: NotificationTexts) {
+internal class NotificationFactory(
+    private val texts: NotificationTexts,
+    /** Android version: T1 broadcast actions need API 31 (see [enrolment]). */
+    private val sdkInt: Int = Build.VERSION.SDK_INT,
+) {
 
     private fun serverName(profile: ServerProfile, multi: Boolean): String? = if (multi) profile.displayName else null
 
@@ -164,14 +169,17 @@ internal class NotificationFactory(private val texts: NotificationTexts) {
 
     /**
      * A device waiting for approval. "Approuver" / "Refuser" (T1, device
-     * authentication) only when it belongs to the SESSION tenant: the server
-     * scopes approve and refuse to it. Otherwise "Examiner" opens S12.
+     * authentication) only when it belongs to the SESSION tenant (the server
+     * scopes approve and refuse to it) AND on Android 12+: before API 31
+     * `setAuthenticationRequired` does nothing and a broadcast action runs from
+     * the lock screen without an unlock (design doc §7.6, S12). Otherwise
+     * "Examiner" opens S12 (an activity: Android asks for the unlock first).
      */
     fun enrolment(profile: ServerProfile, multi: Boolean, device: Device, sessionTenantId: Long?, tenants: Map<Long, String>, silent: Boolean): PlannedNotification {
         val id = NotificationIds.enrolment(profile.id, device.id)
         val tenant = device.tenantName?.takeIf { it.isNotBlank() } ?: device.tenantId?.let { tenants[it] }
         val route = NotificationRoute.Enrolment(profile.id, device.id, device.tenantId, device.label)
-        val actions = if (device.tenantId != null && device.tenantId == sessionTenantId) {
+        val actions = if (sdkInt >= Build.VERSION_CODES.S && device.tenantId != null && device.tenantId == sessionTenantId) {
             val target = ActionTarget(profile.id, id, deviceId = device.id, tenantId = device.tenantId, label = device.label)
             listOf(
                 PlannedAction.Broadcast(texts.string(R.string.notif_action_approve), ActionKind.APPROVE, target),
@@ -194,6 +202,44 @@ internal class NotificationFactory(private val texts: NotificationTexts) {
             silent = silent,
             largeIcon = tile(profile, multi),
             category = NotificationCompat.CATEGORY_STATUS,
+        )
+    }
+
+    /** « 12 appareils en attente d'enrôlement » (the rest of a burst): "Examiner" opens À traiter › Enrôlements. */
+    fun enrolmentsMore(profile: ServerProfile, multi: Boolean, count: Int, silent: Boolean): PlannedNotification {
+        val route = NotificationRoute.Enrolments(profile.id)
+        return PlannedNotification(
+            serverId = profile.id,
+            id = NotificationIds.enrolmentsMore(profile.id),
+            channel = NotifChannel.ENROLMENTS,
+            title = texts.plural(R.plurals.notif_enrolments_more_title, count, count),
+            text = texts.string(R.string.notif_enrolments_more_text),
+            subText = serverName(profile, multi),
+            publicTitle = texts.string(R.string.notif_public_enrolment),
+            content = route,
+            actions = listOf(PlannedAction.Open(texts.string(R.string.notif_action_review), route)),
+            silent = silent,
+            largeIcon = tile(profile, multi),
+            category = NotificationCompat.CATEGORY_STATUS,
+        )
+    }
+
+    /** « 5 demandes d'approbation en attente »: "Examiner" opens À traiter › Approbations. */
+    fun approvalsMore(profile: ServerProfile, multi: Boolean, count: Int, silent: Boolean): PlannedNotification {
+        val route = NotificationRoute.Approvals(profile.id)
+        return PlannedNotification(
+            serverId = profile.id,
+            id = NotificationIds.approvalsMore(profile.id),
+            channel = NotifChannel.ESCALATIONS,
+            title = texts.plural(R.plurals.notif_approvals_more_title, count, count),
+            text = texts.string(R.string.notif_approvals_more_text),
+            subText = serverName(profile, multi),
+            publicTitle = texts.string(R.string.notif_public_approval),
+            content = route,
+            actions = listOf(PlannedAction.Open(texts.string(R.string.notif_action_review), route)),
+            silent = silent,
+            largeIcon = tile(profile, multi),
+            category = NotificationCompat.CATEGORY_REMINDER,
         )
     }
 

@@ -117,8 +117,19 @@ export interface DeviceGroup {
 
 /** Lot D.2 — Pair of warn/crit percentages applied to a single metric.
  *  Either field may be undefined; the resolver substitutes the inherited
- *  level (group → tenant default) for any missing field. */
-export interface MetricThreshold { warn?: number; crit?: number }
+ *  level (group → tenant default) for any missing field.
+ *
+ *  `notify` is the per-metric ALERTS switch, tri-state per layer:
+ *    - undefined = inherit from the layer above (default: alerts on),
+ *    - true      = alerts on (re-enables what a parent layer muted),
+ *    - false     = muted: the metric still drives the device status and
+ *                  every colour (sidebar bubble, badges) exactly as before,
+ *                  but it never sends a notification — no notification
+ *                  channel message, no live alert (web bell / toast /
+ *                  mobile "À traiter"). Scenario metric_* triggers are
+ *                  automations, not notifications: they keep firing.
+ *  Note: warn=0 / crit=0 keeps its historical meaning ("always critical"). */
+export interface MetricThreshold { warn?: number; crit?: number; notify?: boolean }
 
 /** Lot D.2 — Map of metric kind → threshold pair. Stored verbatim in JSONB
  *  on both `device_groups.thresholds` and `devices.thresholds_override`.
@@ -146,10 +157,51 @@ export type MetricThresholds = Partial<{
  *  resolved at run-time. */
 export type GenericMetricKind = 'disk' | 'cpu' | 'ram';
 export const SYSTEM_DEFAULT_THRESHOLDS: Record<GenericMetricKind, Required<MetricThreshold>> = {
-  disk: { warn: 85, crit: 95 },
-  cpu:  { warn: 80, crit: 95 },
-  ram:  { warn: 80, crit: 95 },
+  disk: { warn: 85, crit: 95, notify: true },
+  cpu:  { warn: 80, crit: 95, notify: true },
+  ram:  { warn: 80, crit: 95, notify: true },
 };
+
+/** Layer of the threshold cascade a resolved value comes from. */
+export type ThresholdLayer = 'system' | 'global' | 'tenant' | 'group' | 'device';
+
+/** Where a resolved threshold value was set. `id` / `name` identify the
+ *  tenant, group or device for those layers (null for system / global). */
+export interface ThresholdOrigin {
+  layer: ThresholdLayer;
+  id: number | null;
+  name: string | null;
+}
+
+/** One fully-resolved metric slot (output of the server cascade). */
+export interface ResolvedMetricThreshold {
+  warn: number;
+  crit: number;
+  /** Resolved alerts switch of THIS slot. For a `diskByMount` entry it is
+   *  the mount's own flag: the mount alerts only when the generic `disk`
+   *  slot alerts too — use `isMountNotified()`. */
+  notify: boolean;
+  /** Layer that set each value (absent on legacy payloads). */
+  origin?: { warn: ThresholdOrigin; crit: ThresholdOrigin; notify: ThresholdOrigin };
+}
+
+/** Output of the threshold cascade for a device, a group or a tenant. */
+export interface ResolvedThresholds {
+  cpu: ResolvedMetricThreshold;
+  ram: ResolvedMetricThreshold;
+  disk: ResolvedMetricThreshold;
+  diskByMount: Record<string, ResolvedMetricThreshold>;
+}
+
+/** Effective alerts switch of one disk mount: the generic disk switch AND
+ *  the mount's own switch. Muting "Disk" therefore mutes every disk; a
+ *  single mount can additionally be muted on its own (`notify: true` on a
+ *  mount cannot re-enable it while the generic disk switch is off). */
+export function isMountNotified(r: Pick<ResolvedThresholds, 'disk' | 'diskByMount'>, mount?: string | null): boolean {
+  if (r.disk.notify === false) return false;
+  if (!mount) return true;
+  return r.diskByMount[mount]?.notify !== false;
+}
 
 export interface DeviceGroupConfig {
   pushIntervalSeconds?: number;

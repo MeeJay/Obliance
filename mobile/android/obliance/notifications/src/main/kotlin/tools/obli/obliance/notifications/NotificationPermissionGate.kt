@@ -28,25 +28,34 @@ import tools.obli.obliance.data.LocalObliServices
 import tools.obli.obliance.data.ObliServices
 
 /**
- * S04 steps 1-2 (design doc §5 S04): on Android 13+, once at least one server
- * is signed in and POST_NOTIFICATIONS was never asked under THIS module's
+ * S04 steps 1-2 (design doc §5 S04), once at least one server is signed in:
+ * on Android 13+, when POST_NOTIFICATIONS was never asked under THIS module's
  * key, a rationale dialog « Autoriser les notifications » [Autoriser] [Plus
  * tard]; after a grant, when Android still optimises the app's battery, «
  * Autoriser Obliance à fonctionner en arrière-plan ». Both count as asked
  * whatever the answer: a refusal is never asked again automatically (S84
- * offers it). Place it once at the root of the signed-in app.
+ * offers it). [next] (S04 step 3, the app lock of `:obliance:more`) is
+ * composed only once a server is signed in and nothing of steps 1-2 is shown
+ * or waiting (the system permission dialog included), so the steps never
+ * overlap. Place it once at the root of the signed-in app.
  */
 @Composable
-fun NotificationPermissionGate() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || LocalInspectionMode.current) return
-    val runtime = ObliNotifications.runtime ?: return
-    val context = LocalContext.current
+fun NotificationPermissionGate(next: @Composable () -> Unit = {}) {
     val services = LocalObliServices.current
+    val signedIn by remember(services) { anySignedIn(services) }.collectAsStateWithLifecycle(initialValue = false)
+    if (!signedIn) return
+    val runtime = ObliNotifications.runtime
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || LocalInspectionMode.current || runtime == null) {
+        next()
+        return
+    }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by runtime.store.state.collectAsStateWithLifecycle(initialValue = null)
-    val signedIn by remember(services) { anySignedIn(services) }.collectAsStateWithLifecycle(initialValue = false)
     var requested by rememberSaveable { mutableStateOf(false) }
     var battery by rememberSaveable { mutableStateOf(false) }
+    /** The system permission dialog is open: step 3 waits for its answer. */
+    var awaiting by rememberSaveable { mutableStateOf(false) }
 
     fun markAsked(permission: Boolean = false, batteryShown: Boolean = false) {
         scope.launch(Dispatchers.Default) {
@@ -55,6 +64,7 @@ fun NotificationPermissionGate() {
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        awaiting = false
         if (granted) {
             ObliNotifications.sync(context)
             if (!ObliNotifications.ignoringBatteryOptimizations(context) && state?.batteryAsked != true) battery = true
@@ -63,17 +73,19 @@ fun NotificationPermissionGate() {
 
     val st = state ?: return
     val granted = AndroidNotificationPublisher.permissionGranted(context)
-    if (!requested && !granted && !st.permissionAsked && signedIn) {
+    if (!requested && !granted && !st.permissionAsked) {
         Dialog(onDismissRequest = { requested = true; markAsked(permission = true) }) {
             PermissionRationaleContent(
                 onAllow = {
                     requested = true
+                    awaiting = true
                     markAsked(permission = true)
                     launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 },
                 onLater = { requested = true; markAsked(permission = true) },
             )
         }
+        return
     }
     if (battery) {
         Dialog(onDismissRequest = { battery = false; markAsked(batteryShown = true) }) {
@@ -86,7 +98,9 @@ fun NotificationPermissionGate() {
                 onLater = { battery = false; markAsked(batteryShown = true) },
             )
         }
+        return
     }
+    if (!awaiting) next()
 }
 
 /** « Autoriser les notifications » (S04 step 1). */

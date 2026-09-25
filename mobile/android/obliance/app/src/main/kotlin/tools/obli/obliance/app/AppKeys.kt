@@ -25,9 +25,13 @@ data object FleetKey : AppKey
 @Serializable
 data object MoreKey : AppKey
 
-/** S30, pushed on the stack it was opened from (À traiter or Appareils). */
+/**
+ * S30, pushed on the stack it was opened from (À traiter or Appareils).
+ * [tab]: the first tab ("processes"…) when a notification names one; it only
+ * applies to a new entry (another tab = another key).
+ */
 @Serializable
-data class DeviceKey(val serverId: String, val deviceId: Long) : AppKey
+data class DeviceKey(val serverId: String, val deviceId: Long, val tab: String? = null) : AppKey
 
 /** S90: a same-origin page of [serverId] in the web view, pushed on the current destination. */
 @Serializable
@@ -78,6 +82,16 @@ data object ServersKey : AppKey
 
 @Serializable
 data object AddServerKey : AppKey
+
+/** 0.3.0, pushed on the Plus stack like [ServersKey]: S83 app settings, S84 notifications, S86 about. */
+@Serializable
+data object AppSettingsKey : AppKey
+
+@Serializable
+data object NotificationSettingsKey : AppKey
+
+@Serializable
+data object AboutKey : AppKey
 
 /** The 5 destinations of design doc §2.1, in this order; each has its own back stack. */
 enum class Destination(val root: AppKey, @param:StringRes val label: Int, val icon: ImageVector) {

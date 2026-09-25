@@ -1049,7 +1049,7 @@ function GlobalThresholdsSection() {
             <p className="text-xs text-text-muted mb-4 max-w-2xl">
               {t('thresholds.globalHelp', "Défaut s'appliquant à TOUS les tenants. Chaque tenant peut surcharger via /policies → Seuils. Laisser un champ vide = utiliser le défaut système (placeholder en gris).")}
             </p>
-            <ThresholdsEditor value={draft} onChange={setDraft} layer="group" />
+            <ThresholdsEditor value={draft} onChange={setDraft} layer="global" />
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setDraft(initial)} disabled={!dirty || saving}>
                 <RotateCcw size={14} className="mr-1" />

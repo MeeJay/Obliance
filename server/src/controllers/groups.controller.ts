@@ -4,6 +4,7 @@ import { permissionService } from '../services/permission.service';
 import { teamService } from '../services/team.service';
 import { groupNotificationService } from '../services/groupNotification.service';
 import { AppError } from '../middleware/errorHandler';
+import { db } from '../db';
 import type { CreateGroupInput, UpdateGroupInput, MoveGroupInput } from '../validators/group.schema';
 
 export const groupsController = {
@@ -148,6 +149,16 @@ export const groupsController = {
         groupNotificationService.removeGroup(id);
       }
 
+      // Per-metric alerts switch (`notify`) changed on this group → the
+      // group and every sub-group inherit it: silently re-baseline the
+      // alertable level of their devices (async, after the response).
+      if (data.thresholds !== undefined) {
+        const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+        if (metricAlertRebaseline.notifyChanged(existing.thresholds, group.thresholds)) {
+          metricAlertRebaseline.schedule({ kind: 'groupSubtree', groupId: id }, 'group notify switch');
+        }
+      }
+
       const io = req.app.get('io');
       if (io) {
         io.to('role:admin').emit('group:updated', { group });
@@ -198,6 +209,12 @@ export const groupsController = {
       const group = await groupService.move(id, newParentId);
       if (!group) throw new AppError(404, 'Group not found');
 
+      // New ancestors = possibly different inherited alerts switches.
+      if ((existing.parentId ?? null) !== (newParentId ?? null)) {
+        const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+        metricAlertRebaseline.schedule({ kind: 'groupSubtree', groupId: id }, 'group move');
+      }
+
       const io = req.app.get('io');
       if (io) {
         io.to('role:admin').emit('group:moved', { group });
@@ -227,8 +244,22 @@ export const groupsController = {
 
       groupNotificationService.removeGroup(id);
 
+      // Devices of the deleted subtree inherit a different alerts switch
+      // (`notify`) chain afterwards (FK SET NULL: the group's devices
+      // become ungrouped, its children become roots). Collect them BEFORE
+      // the delete — the closure rows are cascaded away with the group.
+      const subtreeDeviceIds = await db('devices')
+        .whereIn('group_id', db('device_group_closure').where({ ancestor_id: id }).select('descendant_id'))
+        .pluck('id') as number[];
+
       const deleted = await groupService.delete(id);
       if (!deleted) throw new AppError(404, 'Group not found');
+
+      // groupService.delete already invalidated the group threshold cache.
+      if (subtreeDeviceIds.length > 0) {
+        const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+        metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: subtreeDeviceIds }, 'group delete');
+      }
 
       const io = req.app.get('io');
       if (io) {

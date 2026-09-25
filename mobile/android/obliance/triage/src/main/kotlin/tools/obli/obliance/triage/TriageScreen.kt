@@ -344,6 +344,7 @@ internal fun TriageContent(ui: TriageUi, time: TriageTime, actions: TriageAction
                     TriageSegment.ENROLMENTS -> if (ui.multiServer) FilterChips(ui, actions, severities = false)
                     TriageSegment.APPROVALS -> Unit
                 }
+                if (ui.hiddenByViewFilter > 0) ViewFilterCaption(ui.hiddenByViewFilter)
                 PullToRefreshBox(
                     isRefreshing = if (ui.segment == TriageSegment.ENROLMENTS) ui.enrolmentRefreshing else ui.refreshing,
                     onRefresh = actions.onRefresh,
@@ -372,6 +373,18 @@ internal fun TriageContent(ui: TriageUi, time: TriageTime, actions: TriageAction
             }
         }
     }
+}
+
+/** « Filtre de la vue globale : 3 éléments d'autres tenants masqués » (active server only, §2.3). */
+@Composable
+private fun ViewFilterCaption(hidden: Int) {
+    val c = ObliTheme.colors
+    Text(
+        pluralStringResource(R.plurals.triage_view_filter_hidden, hidden, hidden),
+        style = ObliTypography.labelSmall,
+        color = c.textMuted,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+    )
 }
 
 @Composable

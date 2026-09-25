@@ -12,6 +12,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,7 +48,13 @@ class NotificationRouteTest {
         ObliNotifications.runtime = null
     }
 
-    private fun intentOf(route: NotificationRoute) = Intent(ObliNotifications.ACTION_OPEN).also { RouteExtras.write(it, route) }.putExtra("app.other", "kept")
+    private val token: String get() = RouteToken.get(app)
+
+    private fun intentOf(route: NotificationRoute) = Intent(ObliNotifications.ACTION_OPEN).also { RouteExtras.write(it, route, token) }.putExtra("app.other", "kept")
+
+    /** Hand-built extras, as the app's own PendingIntents carry them (action + token). */
+    private fun rawPath(path: String) = Intent(ObliNotifications.ACTION_OPEN)
+        .putExtra(RouteToken.EXTRA, token).putExtra(RouteExtras.KIND, "path").putExtra(RouteExtras.SERVER, prod.value).putExtra(RouteExtras.PATH, path)
 
     @Test fun everyRouteSurvivesTheIntentRoundTripAndIsConsumed() {
         val routes = listOf(
@@ -56,6 +63,8 @@ class NotificationRouteTest {
             NotificationRoute.Path(prod, "/admin/security?approval=17", SampleData.ACME_TENANT),
             NotificationRoute.Approval(prod, 17, SampleData.ACME_TENANT),
             NotificationRoute.Enrolment(prod, 240, SampleData.ACME_TENANT, "KIOSK-ACCUEIL-02"),
+            NotificationRoute.Enrolments(prod),
+            NotificationRoute.Approvals(SampleData.DEV),
             NotificationRoute.Inbox(SampleData.DEV),
             NotificationRoute.SignIn(SampleData.QUAL),
         )
@@ -76,14 +85,52 @@ class NotificationRouteTest {
 
     @Test fun unsafePathsAreRejected() {
         for (path in listOf("//evil.example", "https://other.example/x", "javascript:alert(1)", "/a\\b", "/with space", "/" + "x".repeat(600))) {
-            val intent = Intent().putExtra(RouteExtras.KIND, "path").putExtra(RouteExtras.SERVER, prod.value).putExtra(RouteExtras.PATH, path)
-            assertNull(path, ObliNotifications.routeFrom(intent))
+            assertNull(path, ObliNotifications.routeFrom(rawPath(path)))
         }
     }
 
     @Test fun aDevicePathBecomesADeviceRoute() {
-        val intent = Intent().putExtra(RouteExtras.KIND, "path").putExtra(RouteExtras.SERVER, prod.value).putExtra(RouteExtras.PATH, "/devices/12?tab=processes")
-        assertEquals(NotificationRoute.Device(prod, 12, null, null, "processes"), ObliNotifications.routeFrom(intent))
+        assertEquals(NotificationRoute.Device(prod, 12, null, null, "processes"), ObliNotifications.routeFrom(rawPath("/devices/12?tab=processes")))
+    }
+
+    /**
+     * The launcher is exported: another app can start it with route extras.
+     * Without this install's token (or with a wrong one, or without
+     * ACTION_OPEN) the route is dropped AND stripped, nothing is switched.
+     */
+    @Test fun aRouteFromAnotherAppIsIgnoredAndStripped() {
+        val route = NotificationRoute.Device(SampleData.QUAL, 5, SampleData.ACME_TENANT, "Tapez votre code ici")
+        val forged = listOf(
+            // A launcher intent carrying the extras, no token.
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).also { RouteExtras.write(it, route, token); it.removeExtra(RouteToken.EXTRA) },
+            Intent(ObliNotifications.ACTION_OPEN).also { RouteExtras.write(it, route, "0".repeat(32)) },
+            Intent(ObliNotifications.ACTION_OPEN).also { RouteExtras.write(it, route, token.dropLast(1)) },
+            Intent(Intent.ACTION_MAIN).also { RouteExtras.write(it, route, token) },
+        )
+        for (intent in forged) {
+            assertNull(ObliNotifications.routeFrom(intent))
+            assertFalse("stripped", RouteExtras.has(intent))
+        }
+    }
+
+    @Test fun theTokenIsStableAndRandom() {
+        val t = token
+        assertEquals(32, t.length)
+        assertEquals(t, RouteToken.get(app))
+        assertTrue(RouteToken.matches(app, t))
+        assertFalse(RouteToken.matches(app, null))
+        assertFalse(RouteToken.matches(app, ""))
+    }
+
+    /** What the publisher puts in a notification is accepted (the production path). */
+    @Test fun thePublishersOwnIntentIsAccepted() {
+        val publisher = AndroidNotificationPublisher(app) { Intent().setClassName(app.packageName, "tools.obli.obliance.app.MainActivity") }
+        val route = NotificationRoute.Enrolment(prod, 240, SampleData.ACME_TENANT, "KIOSK-ACCUEIL-02")
+        val n = publisher.build(
+            PlannedNotification(prod, 7, NotifChannel.ENROLMENTS, "t", "x", null, "p", content = route),
+        )
+        val intent = org.robolectric.Shadows.shadowOf(n.contentIntent).savedIntent
+        assertEquals(route, ObliNotifications.routeFrom(intent))
     }
 
     @Test fun navigateToIsResolvedAgainstItsOwnServer() {

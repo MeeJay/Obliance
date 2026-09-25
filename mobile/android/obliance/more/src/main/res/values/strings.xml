@@ -80,6 +80,12 @@
     <string name="more_lock_title">Obliance is locked</string>
     <string name="more_lock_unlock">Unlock</string>
     <string name="more_lock_prompt_title">Unlock Obliance</string>
+    <!-- S04 step 3 (asked once, after the notification steps) -->
+    <string name="more_lock_onboarding_title">Lock Obliance</string>
+    <string name="more_lock_onboarding_body">Obliance will ask for your fingerprint or device PIN when it opens and after %1$s in the background.</string>
+    <string name="more_lock_onboarding_body_immediate">Obliance will ask for your fingerprint or device PIN when it opens and as soon as it goes to the background.</string>
+    <string name="more_lock_onboarding_enable">Turn on</string>
+    <string name="more_lock_onboarding_later">Not now</string>
 
     <!-- S86 About and updates -->
     <string name="more_about_title">About and updates</string>

@@ -41,8 +41,10 @@ enum class LockTimeout(val millis: Long) {
 /**
  * Preferences of THIS phone (design doc S83), not of an account or a server.
  *
- * [lockEnabled] null = never decided (S04 step 3 not answered yet): the lock is
- * then ON by default (design doc S04 "verrou biométrique (activé par défaut)").
+ * [lockEnabled] null = never decided: S04 step 3 « Verrouiller Obliance »
+ * ([LockOnboardingDialog], [Activer] first, as the design doc's "activé par
+ * défaut") has not been answered yet. The lock is NOT armed meanwhile: a phone
+ * coming from 0.2.0 (no lock) never meets a lock it did not choose.
  */
 data class AppPrefs(
     val lockEnabled: Boolean? = null,
@@ -51,8 +53,11 @@ data class AppPrefs(
     val themeMode: ThemeMode = ThemeMode.FOLLOW_SERVER,
     val autoNight: Boolean = false,
 ) {
-    /** The lock wanted by the user (on unless explicitly turned off); the device must still have a screen lock. */
-    val lockWanted: Boolean get() = lockEnabled ?: true
+    /** The lock turned on by the user (S04 step 3 or S83); the device must still have a screen lock. */
+    val lockWanted: Boolean get() = lockEnabled == true
+
+    /** S04 step 3 not answered yet. */
+    val lockUndecided: Boolean get() = lockEnabled == null
 }
 
 /**

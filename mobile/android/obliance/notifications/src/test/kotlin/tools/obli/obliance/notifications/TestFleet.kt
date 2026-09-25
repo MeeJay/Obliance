@@ -133,6 +133,10 @@ fun approvalsJson(vararg approvals: Triple<Long, String, String>): String =
 
 const val KIOSK_PENDING = """{"id":240,"tenantId":4,"tenantName":"ACME","hostname":"KIOSK-ACCUEIL-02","osName":"Windows 11 IoT Enterprise","ipLocal":"10.0.3.41","status":"pending","approvalStatus":"pending","createdAt":"2026-09-25T00:59:00Z"}"""
 
+/** A pending agent of ACME, as GET /api/devices lists it. */
+fun pendingJson(id: Long, host: String = "PC-DEPLOY-%03d".format(id)): String =
+    """{"id":$id,"tenantId":4,"tenantName":"ACME","hostname":"$host","osName":"Windows 11 Pro","ipLocal":"10.0.4.${id % 250}","status":"pending","approvalStatus":"pending","createdAt":"2026-09-25T01:00:00Z"}"""
+
 fun devicesJson(vararg items: String): String = """{"success":true,"data":{"items":[${items.joinToString(",")}],"total":${items.size},"page":1,"pageSize":50}}"""
 
 fun me(role: String, tenant: Long = 1): String {
@@ -157,10 +161,18 @@ class RecordingWork : WorkScheduler {
     override fun cancelReminders(serverId: ServerId) { log += "cancel-reminders ${serverId.value}" }
 }
 
-/** The real Android publisher, plus a record of what was posted (silent flag, route…). */
+/**
+ * The real Android publisher, plus a record of what was posted (silent flag,
+ * route…). [drop]: like Android over its per-app quota, `notify` "succeeds"
+ * but nothing shows.
+ */
 internal class RecordingPublisher(private val delegate: NotificationPublisher) : NotificationPublisher by delegate {
     val posted = CopyOnWriteArrayList<PlannedNotification>()
-    override fun post(n: PlannedNotification): Boolean = delegate.post(n).also { if (it) posted += n }
+    @Volatile var drop: (PlannedNotification) -> Boolean = { false }
+    override fun post(n: PlannedNotification): Boolean {
+        if (drop(n)) return true.also { posted += n }
+        return delegate.post(n).also { if (it) posted += n }
+    }
 }
 
 /**
@@ -212,7 +224,8 @@ internal class TestFleet(serverCount: Int = 3) : AutoCloseable {
 
     fun server(id: ServerId): FakeServer = mocks.getValue(id)
 
-    fun pass(timeoutMs: Long = 5_000): List<ServerPassReport> = runBlocking {
+    /** [timeoutMs]: budget of each network step; [verifyDelayMs]: Robolectric posts at once. */
+    fun pass(timeoutMs: Long = 5_000, verifyDelayMs: Long = 0): List<ServerPassReport> = runBlocking {
         NotificationPass(
             services, store, publisher,
             clock = { now.toEpochMilli() },
@@ -220,7 +233,8 @@ internal class TestFleet(serverCount: Int = 3) : AutoCloseable {
             texts = NotificationTexts(app.resources, PARIS),
             work = work,
             zone = PARIS,
-            serverTimeoutMs = timeoutMs,
+            stepTimeoutMs = timeoutMs,
+            verifyDelayMs = verifyDelayMs,
         ).run()
     }
 

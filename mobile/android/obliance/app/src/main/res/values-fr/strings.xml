@@ -8,10 +8,6 @@
     <string name="app_nav_more">Plus</string>
     <string name="app_nav_triage_badge">À traiter, %1$d à traiter</string>
     <string name="app_select_activity">Sélectionnez un lot ou une session</string>
-    <string name="app_notifications_title">Autoriser les notifications</string>
-    <string name="app_notifications_body">Les sessions distantes ouvertes restent connectées pendant que vous utilisez une autre application. Une notification les liste et permet de toutes les terminer ; sans autorisation, Android la masque.</string>
-    <string name="app_notifications_allow">Continuer</string>
-    <string name="app_notifications_later">Plus tard</string>
     <string name="app_scope_global_view">Vue globale</string>
     <string name="app_scope_label">Périmètre : %1$s</string>
     <string name="app_scope_unknown">Périmètre</string>
@@ -23,4 +19,26 @@
     <string name="app_switch_back">Revenir</string>
     <string name="app_select_device">Sélectionnez un appareil</string>
     <string name="app_device_fallback">l\'appareil %1$d</string>
+    <string name="app_nav_more_update">Plus, mise à jour disponible</string>
+    <string name="app_switched_to_server">Passé sur %1$s</string>
+    <string name="app_tenant_switched_to">Basculé sur %1$s pour ouvrir %2$s</string>
+    <string name="app_scope_filter">%1$s · filtre</string>
+    <plurals name="app_scope_filter_count">
+        <item quantity="one">%1$d tenant · filtre</item>
+        <item quantity="many">%1$d tenants · filtre</item>
+        <item quantity="other">%1$d tenants · filtre</item>
+    </plurals>
+    <string name="app_scope_filtered">Périmètre : vue globale filtrée sur %1$s</string>
+    <string name="app_scope_filtered_server">Périmètre : %1$s, vue globale filtrée sur %2$s</string>
+    <string name="app_unlock_to_open">Déverrouillez pour ouvrir %1$s</string>
+    <string name="app_route_approval">la demande d\'approbation</string>
+    <string name="app_route_enrolment">l\'enrôlement de %1$s</string>
+    <string name="app_route_enrolments">les appareils en attente d\'enrôlement</string>
+    <string name="app_route_approvals">les demandes d\'approbation</string>
+    <string name="app_route_inbox">À traiter</string>
+    <string name="app_route_sign_in">la connexion à %1$s</string>
+    <string name="app_route_page">une page de %1$s</string>
+    <string name="app_route_tab_services">les services de %1$s</string>
+    <string name="app_route_tab_processes">les processus de %1$s</string>
+    <string name="app_route_tab_tasks">les tâches de %1$s</string>
 </resources>

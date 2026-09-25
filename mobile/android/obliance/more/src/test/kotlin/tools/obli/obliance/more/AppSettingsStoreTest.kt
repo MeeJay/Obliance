@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -52,8 +53,9 @@ class AppSettingsStoreTest {
         assertEquals(LockTimeout.FIVE_MIN, prefs.lockTimeout)
         assertEquals(false, prefs.blockScreenshots)
         assertNull(prefs.lockEnabled)
-        // Undecided means ON (design doc S04 step 3).
-        assertTrue(prefs.lockWanted)
+        // Undecided: not armed until S04 step 3 is answered.
+        assertTrue(prefs.lockUndecided)
+        assertFalse(prefs.lockWanted)
         assertEquals(AppPrefs(), prefs)
     }
 

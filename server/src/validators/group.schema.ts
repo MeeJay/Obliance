@@ -4,10 +4,23 @@ import { z } from 'zod';
 // without touching the other (the cascade resolver falls back to the
 // next layer when a side is undefined). 0–100 because the values are
 // percentages.
+//
+// `notify` is the per-metric ALERTS switch (tri-state per layer):
+// absent = inherit, true = alerts on, false = muted (the metric still
+// drives the device status, but sends no notification). `null` is
+// accepted as an explicit "inherit" and stripped, so the stored JSON only
+// ever holds true / false or no key at all.
 const metricThresholdPair = z.object({
   warn: z.number().min(0).max(100).optional(),
   crit: z.number().min(0).max(100).optional(),
-}).strict();
+  notify: z.boolean().nullable().optional(),
+}).strict().transform((p): { warn?: number; crit?: number; notify?: boolean } => {
+  const out: { warn?: number; crit?: number; notify?: boolean } = {};
+  if (p.warn !== undefined) out.warn = p.warn;
+  if (p.crit !== undefined) out.crit = p.crit;
+  if (typeof p.notify === 'boolean') out.notify = p.notify;
+  return out;
+});
 
 // Whole `MetricThresholds` JSONB blob (per-group / per-device). Empty
 // object means "fall back to the next layer". `diskByMount` is a free-

@@ -3,10 +3,12 @@ package tools.obli.obliance.notifications
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -64,9 +66,9 @@ internal data class ServerPassReport(val serverId: ServerId, val result: PassRes
 
 /**
  * One background pass over EVERY configured server (design doc §10.8), in
- * parallel, [serverTimeoutMs] each: a failing server never blocks or delays
- * the others. Each server is called through ITS OWN session (its cookie, its
- * origin) — never the hot `services.alerts` repository.
+ * parallel: a failing server never blocks or delays the others. Each server is
+ * called through ITS OWN session (its cookie, its origin) — never the hot
+ * `services.alerts` repository.
  *
  * Per server: skipped with no request at all when its notify scope is NONE
  * or the user signed out of it; `/api/auth/me` (expired → one "Session
@@ -75,6 +77,18 @@ internal data class ServerPassReport(val serverId: ServerId, val result: PassRes
  * for platform admins; enrolments with `agent_config:approval`; one group
  * summary. On-call, notify scope and "app in the foreground" decide what may
  * ring.
+ *
+ * Every network step has its own [stepTimeoutMs], and each part is SAVED as
+ * soon as it is done (alerts, then escalations, then enrolments): a slow or
+ * failing later step never rolls back what was already posted (no second
+ * ring, reminders keep their record). Such a pass reports [PassResult.PARTIAL].
+ *
+ * Android keeps about 50 notifications per app and silently drops the next
+ * ones: enrolments and escalations are capped per server and per pass (the
+ * rest goes into ONE « N en attente » notification), the publisher makes room
+ * before the limit, and the criticals posted by the pass are checked
+ * [verifyDelayMs] later (Android posts asynchronously) and posted once more if
+ * they are missing.
  */
 internal class NotificationPass(
     private val services: ObliServices,
@@ -85,7 +99,8 @@ internal class NotificationPass(
     private val texts: NotificationTexts,
     private val work: WorkScheduler = WorkScheduler.None,
     private val zone: ZoneId = ZoneId.systemDefault(),
-    private val serverTimeoutMs: Long = SERVER_TIMEOUT_MS,
+    private val stepTimeoutMs: Long = STEP_TIMEOUT_MS,
+    private val verifyDelayMs: Long = VERIFY_DELAY_MS,
 ) {
     private val factory = NotificationFactory(texts)
 
@@ -101,26 +116,46 @@ internal class NotificationPass(
         }
         val onCall = store.read().onCall
         val foreground = isForeground()
-        return supervisorScope {
-            registry.profiles.map { profile ->
+        val passes = registry.profiles.map { ServerPass(it, registry.isMultiServer, now, onCall, foreground) }
+        val reports = supervisorScope {
+            passes.map { pass ->
                 async {
                     try {
-                        withTimeoutOrNull(serverTimeoutMs) {
-                            ServerPass(profile, registry.isMultiServer, now, onCall, foreground).run()
-                        } ?: unreachable(profile.id, now)
+                        pass.run()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
-                        unreachable(profile.id, now)
+                        if (pass.alertsSaved) partial(pass.id, now, pass.postedCount) else unreachable(pass.id, now)
                     }
                 }
             }.awaitAll()
         }
+        verifyCriticals(passes.flatMap { it.criticalPosted })
+        return reports
     }
 
     private suspend fun unreachable(id: ServerId, now: Long): ServerPassReport {
         store.updateServer(id) { it.copy(lastPass = unreachablePass(it.lastPass, now)) }
         return ServerPassReport(id, PassResult.UNREACHABLE)
+    }
+
+    private suspend fun partial(id: ServerId, now: Long, posted: Int): ServerPassReport {
+        store.updateServer(id) { it.copy(lastPass = LastPass(now, PassResult.PARTIAL)) }
+        return ServerPassReport(id, PassResult.PARTIAL, posted)
+    }
+
+    /**
+     * Android enqueues a notification and posts it a little later, and drops it
+     * silently over the per-app quota: a critical posted by this pass that is
+     * not on screen [verifyDelayMs] later is posted once more (the publisher
+     * makes room first).
+     */
+    private suspend fun verifyCriticals(posted: List<PlannedNotification>) {
+        if (posted.isEmpty()) return
+        if (verifyDelayMs > 0) delay(verifyDelayMs)
+        for (n in posted) {
+            if (!publisher.isShown(n.serverId, n.id)) publisher.post(n)
+        }
     }
 
     private inner class ServerPass(
@@ -130,9 +165,18 @@ internal class NotificationPass(
         private val onCall: OnCallSettings,
         private val foreground: Boolean,
     ) {
-        private val id = profile.id
+        val id = profile.id
         private val at: ZonedDateTime = Instant.ofEpochMilli(now).atZone(zone)
-        private var postedCount = 0
+
+        @Volatile var postedCount = 0
+            private set
+
+        /** The alerts part is saved: a later failure is PARTIAL, never UNREACHABLE. */
+        @Volatile var alertsSaved = false
+            private set
+
+        /** Critical alerts posted by this pass (their delivery is checked at the end). */
+        val criticalPosted = CopyOnWriteArrayList<PlannedNotification>()
 
         suspend fun run(): ServerPassReport {
             // 1. No request at all for a muted or signed-out server.
@@ -156,7 +200,7 @@ internal class NotificationPass(
             }
 
             // 2. Who is signed in (GET /api/auth/me).
-            val probe: SessionProbe = when (val auth = session.probe()) {
+            val probe: SessionProbe = when (val auth = step { session.probe() }) {
                 is AuthState.SignedIn -> auth.probe
                 AuthState.Expired -> return expired(state)
                 else -> return unreachable(id, now)
@@ -167,7 +211,7 @@ internal class NotificationPass(
             }
 
             // 3. Live alerts of every tenant of the user.
-            val feed: AlertsFeed = when (val out = AlertsApi(session.http).all()) {
+            val feed: AlertsFeed = when (val out = step { AlertsApi(session.http).all() }) {
                 is ApiOutcome.Ok -> out.value
                 ApiOutcome.SessionExpired -> {
                     session.markExpired()
@@ -176,30 +220,45 @@ internal class NotificationPass(
                 else -> return unreachable(id, now)
             }
             val alerts = alerts(session, state, feed)
-            // 4. Escalations (platform admins) and 5. enrolments.
-            val isAdmin = probe.user.isPlatformAdmin
-            val approvals = approvals(session, state, isAdmin, alerts.tenants)
-            val enrolments = enrolments(session, state, probe, isAdmin, alerts.tenants)
-
-            // 7. Save (only the fields the pass owns: the user may edit the others meanwhile).
+            // Saved at once (only the fields the pass owns: the user may edit the others meanwhile).
             store.updateServer(id) {
                 it.copy(
                     alertsMark = alerts.mark,
                     postedAlerts = alerts.posted,
                     knownTenants = alerts.tenants,
-                    approvalsMark = approvals.mark,
-                    postedApprovals = approvals.posted,
-                    enrolmentsMark = enrolments.mark,
-                    postedEnrolments = enrolments.posted,
                     expiredNotified = false,
                     lastNotify = profile.notify,
-                    lastPass = LastPass(now, PassResult.OK),
                     lastCriticalUnread = alerts.criticalUnread,
                 )
             }
+            alertsSaved = true
+
+            // 4. Escalations (platform admins), saved at once.
+            val isAdmin = probe.user.isPlatformAdmin
+            val approvals = guarded { approvals(session, state, isAdmin, alerts.tenants) }
+            if (approvals != null) store.updateServer(id) { it.copy(approvalsMark = approvals.mark, postedApprovals = approvals.posted) }
+
+            // 5. Enrolments, saved at once.
+            val enrolments = guarded { enrolments(session, state, probe, isAdmin, alerts.tenants) }
+            if (enrolments != null) store.updateServer(id) { it.copy(enrolmentsMark = enrolments.mark, postedEnrolments = enrolments.posted) }
+
+            val result = if (approvals?.complete == true && enrolments?.complete == true) PassResult.OK else PassResult.PARTIAL
+            store.updateServer(id) { it.copy(lastPass = LastPass(now, result)) }
             // 6. One group summary per server.
             summary(alerts)
-            return ServerPassReport(id, PassResult.OK, postedCount)
+            return ServerPassReport(id, result, postedCount)
+        }
+
+        /** One network step: its own budget; null when it ran out. */
+        private suspend fun <T> step(block: suspend () -> T): T? = withTimeoutOrNull(stepTimeoutMs) { block() }
+
+        /** A later step: its own budget; null (nothing saved for it) when it ran out or failed. */
+        private suspend fun <T> guarded(block: suspend () -> T): T? = try {
+            withTimeoutOrNull(stepTimeoutMs) { block() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
         }
 
         private fun post(n: PlannedNotification): Boolean = publisher.post(n).also { if (it) postedCount++ }
@@ -223,7 +282,8 @@ internal class NotificationPass(
             // The mark covers every alert (excluded tenants too): un-excluding one later never floods.
             val hw = LiveAlerts.process(feed.alerts, state.alertsMark, Int.MAX_VALUE)
             val fresh = hw.toNotify.filter(::visible)
-            val hints = deviceHints(session, fresh)
+            // Optional (is an offline device a server?): never worth losing the pass for.
+            val hints = step { deviceHints(session, fresh) } ?: emptyMap()
             val classified = fresh.map { it to AlertClassifier.classify(it, hints[it.id] ?: DeviceHints()) }
 
             // Alerts read elsewhere, gone or now excluded: their notification goes.
@@ -249,19 +309,30 @@ internal class NotificationPass(
                 val n = factory.alert(profile, multi, cand.a, cand.c, cand.kind, tenants, silent = cand.delivery == Delivery.SILENT)
                 if (post(n)) {
                     posted.removeAll { it.alertId == cand.a.id }
-                    posted += PostedAlert(cand.a.id, NotificationRoutes.deviceIdOf(cand.a.navigateTo), critical = cand.kind == AlertKind.CRITICAL)
+                    posted += PostedAlert(
+                        cand.a.id,
+                        NotificationRoutes.deviceIdOf(cand.a.navigateTo),
+                        critical = cand.kind == AlertKind.CRITICAL,
+                        category = cand.c.category.name,
+                    )
+                    if (cand.kind == AlertKind.CRITICAL) criticalPosted += n
                     if (cand.kind == AlertKind.CRITICAL && cand.delivery == Delivery.NORMAL && remind) {
                         work.scheduleReminder(id, cand.a.id, 1)
                     }
                 }
             }
 
-            // Recoveries: update the device's earlier notification in place, else (ALL only) a silent one.
+            // Recoveries: update the device's earlier notification OF THE SAME KIND in place
+            // (« De retour en ligne » → its « Hors ligne »…), the newest one; else (ALL only) a silent one.
             var newRecoveries = 0
             for ((a, c) in classified.filter { it.second.category == AlertCategory.RECOVERY }.sortedBy { it.first.id }) {
                 val device = NotificationRoutes.deviceIdOf(a.navigateTo)
-                val target = device?.let { d ->
-                    posted.lastOrNull { it.deviceId == d && !it.recovered && publisher.isShown(id, NotificationIds.alert(id, it.alertId)) }
+                val answers = RecoveryMatch.answeredCategory(a.title)
+                val target = if (device == null || answers == null) {
+                    null
+                } else {
+                    posted.filter { it.deviceId == device && !it.recovered && it.category == answers.name && publisher.isShown(id, NotificationIds.alert(id, it.alertId)) }
+                        .maxByOrNull { it.alertId }
                 }
                 if (target != null) {
                     if (post(factory.recovery(profile, multi, a, c, tenants, byId[target.alertId], target.alertId))) {
@@ -273,7 +344,7 @@ internal class NotificationPass(
                     OnCallPolicy.delivery(onCall, state.inOnCall, at, Urgency.NORMAL) != Delivery.DROP
                 ) {
                     if (post(factory.recovery(profile, multi, a, c, tenants, original = null, originalId = null))) {
-                        posted += PostedAlert(a.id, device, critical = false, recovered = true)
+                        posted += PostedAlert(a.id, device, critical = false, recovered = true, category = AlertCategory.RECOVERY.name)
                         newRecoveries++
                     }
                 }
@@ -336,10 +407,12 @@ internal class NotificationPass(
         // --- Escalations ----------------------------------------------------------------
 
         private suspend fun approvals(session: ServerSession, state: ServerNotifState, isAdmin: Boolean, tenants: Map<Long, String>): IdPart {
-            val keep = IdPart(state.approvalsMark, state.postedApprovals)
+            val keep = IdPart(state.approvalsMark, state.postedApprovals, complete = false)
+            val moreId = NotificationIds.approvalsMore(id)
             if (!isAdmin) {
                 state.postedApprovals.forEach { publisher.cancel(id, NotificationIds.approval(id, it)) }
-                return IdPart(state.approvalsMark, emptyList())
+                publisher.cancel(id, moreId)
+                return IdPart(state.approvalsMark, emptyList(), complete = true)
             }
             val list: List<Approval> = when (val out = ApprovalsApi(session.http).list()) {
                 is ApiOutcome.Ok -> out.value
@@ -352,12 +425,18 @@ internal class NotificationPass(
             val posted = state.postedApprovals.toMutableList()
             posted.removeAll { pid -> (pid !in liveIds).also { if (it) publisher.cancel(id, NotificationIds.approval(id, pid)) } }
             val delivery = OnCallPolicy.delivery(onCall, state.inOnCall, at, Urgency.ESCALATION)
+            var overflow = 0
             if (delivery != Delivery.DROP) {
-                for (approval in fresh.sortedBy { it.id }) {
+                val ordered = fresh.sortedBy { it.id }
+                for (approval in ordered.take(MAX_ITEMS_PER_PASS)) {
                     if (post(factory.approval(profile, multi, approval, tenants, silent = delivery == Delivery.SILENT))) posted += approval.id
                 }
+                overflow = (ordered.size - MAX_ITEMS_PER_PASS).coerceAtLeast(0)
             }
-            return IdPart(mark, posted.distinct())
+            // The rest of a burst: ONE « N demandes en attente », kept up to date, gone once nothing is left.
+            val waiting = live.count { it.id !in posted }
+            more(moreId, overflow, waiting) { silent -> factory.approvalsMore(profile, multi, waiting, silent || delivery == Delivery.SILENT) }
+            return IdPart(mark, posted.distinct(), complete = true)
         }
 
         private fun expired(approval: Approval): Boolean = NotificationTexts.parseTime(approval.expiresAt)?.let { it <= now } ?: false
@@ -365,11 +444,14 @@ internal class NotificationPass(
         // --- Enrolments -------------------------------------------------------------------
 
         private suspend fun enrolments(session: ServerSession, state: ServerNotifState, probe: SessionProbe, isAdmin: Boolean, tenants: Map<Long, String>): IdPart {
-            val keep = IdPart(state.enrolmentsMark, state.postedEnrolments)
-            val allowed = isAdmin || APPROVAL_CAPABILITY in capabilities(session)
+            val keep = IdPart(state.enrolmentsMark, state.postedEnrolments, complete = false)
+            val moreId = NotificationIds.enrolmentsMore(id)
+            // The capability could not be read: keep what is shown, nothing is decided on a failure.
+            val allowed = isAdmin || (capabilitiesOrNull(session) ?: return keep).contains(APPROVAL_CAPABILITY)
             if (!allowed) {
                 state.postedEnrolments.forEach { publisher.cancel(id, NotificationIds.enrolment(id, it)) }
-                return IdPart(state.enrolmentsMark, emptyList())
+                publisher.cancel(id, moreId)
+                return IdPart(state.enrolmentsMark, emptyList(), complete = true)
             }
             val devices = when (val out = DevicesApi(session.http).list(DeviceQuery(approvalStatus = "pending", pageSize = 50))) {
                 is ApiOutcome.Ok -> out.value.items
@@ -382,13 +464,31 @@ internal class NotificationPass(
             val posted = state.postedEnrolments.toMutableList()
             posted.removeAll { did -> (did !in pendingIds).also { if (it) publisher.cancel(id, NotificationIds.enrolment(id, did)) } }
             val delivery = OnCallPolicy.delivery(onCall, state.inOnCall, at, Urgency.NORMAL)
+            var overflow = 0
             if (profile.notify == NotifyScope.ALL && !foreground && delivery != Delivery.DROP) {
-                for (device in fresh.sortedBy { it.id }) {
+                // A mass deployment (a GPO enrolling 50 agents) is a few notifications and ONE « N en attente ».
+                val ordered = fresh.sortedBy { it.id }
+                for (device in ordered.take(MAX_ITEMS_PER_PASS)) {
                     val n = factory.enrolment(profile, multi, device, probe.currentTenantId, tenants, silent = delivery == Delivery.SILENT)
                     if (post(n)) posted += device.id
                 }
+                overflow = (ordered.size - MAX_ITEMS_PER_PASS).coerceAtLeast(0)
             }
-            return IdPart(mark, posted.distinct())
+            val waiting = pending.count { it.id !in posted }
+            more(moreId, overflow, waiting) { silent -> factory.enrolmentsMore(profile, multi, waiting, silent || delivery == Delivery.SILENT) }
+            return IdPart(mark, posted.distinct(), complete = true)
+        }
+
+        /**
+         * The « N en attente » notification of a kind: posted when this pass had
+         * more fresh items than [MAX_ITEMS_PER_PASS]; once shown, updated
+         * silently with the current count, cancelled when nothing is left.
+         */
+        private fun more(moreId: Int, overflow: Int, waiting: Int, build: (silent: Boolean) -> PlannedNotification) {
+            when {
+                overflow > 0 && waiting > 0 -> post(build(false))
+                publisher.isShown(id, moreId) -> if (waiting > 0) publisher.post(build(true)) else publisher.cancel(id, moreId)
+            }
         }
 
         // --- Summary -----------------------------------------------------------------------
@@ -423,11 +523,19 @@ internal class NotificationPass(
         val criticalUnread: Int,
     )
 
-    private data class IdPart(val mark: Long?, val posted: List<Long>)
+    /** [complete] false: the step could not ask the server (its marks stay, the pass is PARTIAL). */
+    private data class IdPart(val mark: Long?, val posted: List<Long>, val complete: Boolean)
 
     companion object {
-        const val SERVER_TIMEOUT_MS = 20_000L
+        /** Budget of ONE network step of one server (sign-in probe, alerts, escalations, enrolments). */
+        const val STEP_TIMEOUT_MS = 20_000L
+
+        /** Android enqueues, then posts (up to ~200 ms later with a notification assistant). */
+        const val VERIFY_DELAY_MS = 1_500L
         const val MAX_PER_SERVER = 5
+
+        /** New enrolments / escalations notified one by one, per server and per pass; the rest is one « N en attente ». */
+        const val MAX_ITEMS_PER_PASS = 3
         const val MAX_POSTED = 100
         const val MAX_DEVICE_LOOKUPS = 5
         const val APPROVAL_CAPABILITY = "agent_config:approval"
@@ -450,16 +558,32 @@ internal class NotificationPass(
     }
 }
 
+/**
+ * Which earlier notification a recovery answers (design doc §9 #1): « De
+ * retour en ligne » a « Hors ligne », « santé disque revenue à la normale » a
+ * « santé disque … », « retour à la normale » a metric alert (« Critique » /
+ * « Alerte »). Titles as liveAlert.service.ts writes them, until the server
+ * sends a `category` (change S1).
+ */
+internal object RecoveryMatch {
+    fun answeredCategory(title: String): AlertCategory? = when {
+        title.contains(": santé disque revenue à la normale", ignoreCase = true) -> AlertCategory.DISK_HEALTH
+        title.contains(": De retour en ligne", ignoreCase = true) -> AlertCategory.OFFLINE
+        title.contains(": retour à la normale", ignoreCase = true) -> AlertCategory.METRIC
+        else -> null
+    }
+}
+
 /** `GET /api/auth/permissions` → `data` (permission.service.ts getUserPermissions). */
 @Serializable
 private data class PermissionsDto(val tenantCapabilities: List<String> = emptyList())
 
-/** Capabilities of the user in the SESSION tenant of that server; empty on any failure. */
-internal suspend fun capabilities(session: ServerSession): List<String> =
+/** Capabilities of the user in the SESSION tenant of that server; null when the server could not say. */
+internal suspend fun capabilitiesOrNull(session: ServerSession): List<String>? =
     when (val out = session.http.call(ObliHttp.Method.GET, "/api/auth/permissions", decode = ApiJson.unwrapped(PermissionsDto.serializer()))) {
         is ApiOutcome.Ok -> out.value.tenantCapabilities
-        ApiOutcome.SessionExpired -> emptyList<String>().also { session.markExpired() }
-        else -> emptyList()
+        ApiOutcome.SessionExpired -> null.also { session.markExpired() }
+        else -> null
     }
 
 /**
@@ -492,7 +616,7 @@ internal class ReminderRunner(
             false
         } else {
             val session = services.sessions.session(serverId)
-            val out = session?.let { withTimeoutOrNull(NotificationPass.SERVER_TIMEOUT_MS) { AlertsApi(it.http).all() } }
+            val out = session?.let { withTimeoutOrNull(NotificationPass.STEP_TIMEOUT_MS) { AlertsApi(it.http).all() } }
             if (out == ApiOutcome.SessionExpired) session?.markExpired()
             val feed = (out as? ApiOutcome.Ok)?.value
             alert = feed?.alerts?.firstOrNull { it.id == alertId }

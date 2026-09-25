@@ -38,6 +38,8 @@ agent/cmd/wizard-linux/obliance-agent
 # mobile/release/ only commits README.md + manifest.json (placeholder).
 # Gradle state and signing material must never be committed.
 mobile/release/*.apk
+# Signed APKs of the native app handed to the owner (never committed).
+mobile/release-native/
 mobile/android/local.properties
 mobile/android/.gradle/
 mobile/android/**/build/

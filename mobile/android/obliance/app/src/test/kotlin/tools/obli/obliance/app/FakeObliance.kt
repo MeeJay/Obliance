@@ -1,6 +1,7 @@
 package tools.obli.obliance.app
 
 import android.app.Application
+import android.content.Intent
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,7 @@ import tools.obli.core.realtime.RealtimeEvent
 import tools.obli.obliance.api.ApiJson
 import tools.obli.obliance.api.Approval
 import tools.obli.obliance.api.Device
+import tools.obli.obliance.api.DeviceLocation
 import tools.obli.obliance.api.DevicePage
 import tools.obli.obliance.api.FleetSummary
 import tools.obli.obliance.api.LiveMetricsAck
@@ -47,20 +49,56 @@ import tools.obli.obliance.api.Tenant
 import tools.obli.obliance.data.DefaultObliServices
 import tools.obli.obliance.data.ObliServices
 import tools.obli.obliance.data.sample.SampleData
+import tools.obli.obliance.notifications.NotificationRoute
 import tools.obli.shell.alerts.LiveAlert
 import tools.obli.shell.nav.Origins
 
-/** Robolectric Application of the shell tests: [MainActivity] reads its services from [host]. */
+/**
+ * Robolectric Application of the shell tests: [MainActivity] reads its services
+ * from [host]. The notification engine is not installed here (no WorkManager,
+ * no lock): a test hands a route to the activity with [intentFor], the way a
+ * tapped notification does (the extras round trip itself is tested in
+ * :obliance:notifications).
+ */
 class ShellTestApplication : Application(), ObliServicesHost {
     lateinit var host: ObliServicesHost
+    private val routes = java.util.concurrent.ConcurrentHashMap<String, NotificationRoute>()
 
     override val services: ObliServices get() = host.services
     override val ready: StateFlow<Boolean> get() = host.ready
+
+    /**
+     * An intent of [MainActivity] carrying [route] (read and removed once, like
+     * the real extras). ACTION_MAIN + LAUNCHER like ActivityScenario.launch(Class):
+     * MainActivity.onNewIntent calls setIntent, and ActivityScenario only follows
+     * an activity whose intent still filterEquals its start intent (otherwise
+     * close() waits forever under Robolectric's frozen clock).
+     */
+    fun intentFor(route: NotificationRoute): Intent {
+        val key = java.util.UUID.randomUUID().toString()
+        routes[key] = route
+        return Intent.makeMainActivity(android.content.ComponentName(this, MainActivity::class.java)).putExtra(ROUTE_EXTRA, key)
+    }
+
+    override fun routeFrom(intent: Intent?): NotificationRoute? {
+        val key = intent?.getStringExtra(ROUTE_EXTRA) ?: return null
+        intent.removeExtra(ROUTE_EXTRA)
+        return routes.remove(key)
+    }
+
+    private companion object {
+        const val ROUTE_EXTRA = "test.route"
+    }
 }
 
-/** One fake Obliance server: answers "METHOD /path" (query ignored) and records every request. */
-internal class FakeObliServer(private val route: (method: String, path: String) -> Pair<Int, String>?) : AutoCloseable {
+/**
+ * One fake Obliance server: answers "METHOD /path" (the query is passed along)
+ * and records every request, as "METHOD /path" in [requests] and with its
+ * query in [fullRequests].
+ */
+internal class FakeObliServer(private val route: (method: String, path: String, query: String?) -> Pair<Int, String>?) : AutoCloseable {
     val requests = CopyOnWriteArrayList<String>()
+    val fullRequests = CopyOnWriteArrayList<String>()
     private val server = MockWebServer()
 
     init {
@@ -68,7 +106,8 @@ internal class FakeObliServer(private val route: (method: String, path: String) 
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val key = "${request.method} ${request.url.encodedPath}"
                 requests += key
-                val (code, body) = route(request.method, request.url.encodedPath) ?: (404 to """{"success":false,"error":"Not found"}""")
+                fullRequests += key + (request.url.encodedQuery?.let { "?$it" } ?: "")
+                val (code, body) = route(request.method, request.url.encodedPath, request.url.query) ?: (404 to """{"success":false,"error":"Not found"}""")
                 return MockResponse.Builder().code(code).addHeader("Content-Type", "application/json").body(body).build()
             }
         }
@@ -103,10 +142,12 @@ internal class FakeObliance(
     serverCount: Int = 3,
     /** Servers whose `/api/auth/me` answers 401 (session expired). */
     expired: Set<ServerId> = emptySet(),
+    /** `locate-device` answers: device id → tenant, instead of the device's own tenant. */
+    deviceTenants: Map<Long, Long> = emptyMap(),
 ) : ObliServicesHost, AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val profiles = SampleData.profiles.take(serverCount)
-    val servers: Map<ServerId, FakeObliServer> = profiles.associate { it.id to FakeObliServer(routes(it.id, it.id in expired)) }
+    val servers: Map<ServerId, FakeObliServer> = profiles.associate { it.id to FakeObliServer(routes(it.id, it.id in expired, deviceTenants)) }
     private val byOrigin = profiles.associate { it.origin to servers.getValue(it.id) }
     private val client = ObliHttp.defaultClient(CookieJar.NO_COOKIES, "ObliApp-test")
 
@@ -144,6 +185,9 @@ internal class FakeObliance(
 
     fun requests(id: ServerId): List<String> = servers.getValue(id).requests.toList()
 
+    /** Requests of [id] with their query ("GET /api/devices?approvalStatus=pending…"). */
+    fun fullRequests(id: ServerId): List<String> = servers.getValue(id).fullRequests.toList()
+
     override fun close() {
         scope.cancel()
         servers.values.forEach { it.close() }
@@ -152,6 +196,7 @@ internal class FakeObliance(
     private companion object {
         const val EXPIRED = """{"success":false,"error":"Authentication required"}"""
         val DEVICE_PATH = Regex("/api/devices/(\\d+)")
+        val LOCATE_PATH = Regex("/api/tenants/locate-device/(\\d+)")
 
         fun <T> ok(serializer: KSerializer<T>, value: T): Pair<Int, String> = ok(ApiJson.json.encodeToJsonElement(serializer, value))
         fun ok(data: JsonElement): Pair<Int, String> = 200 to JsonObject(mapOf("success" to JsonPrimitive(true), "data" to data)).toString()
@@ -228,12 +273,12 @@ internal class FakeObliance(
             }
         }
 
-        fun routes(server: ServerId, expired: Boolean): (String, String) -> Pair<Int, String>? {
+        fun routes(server: ServerId, expired: Boolean, deviceTenants: Map<Long, Long>): (String, String, String?) -> Pair<Int, String>? {
             val devices = if (server == SampleData.PROD) SampleData.devices else SampleData.otherDevices[server].orEmpty()
             val alerts = SampleData.alerts.filter { it.serverId == server }.map { it.alert }
             val approvals = SampleData.escalations.filter { it.serverId == server }.map { it.approval }
             val prod = server == SampleData.PROD
-            return route@{ method, path ->
+            return route@{ method, path, query ->
                 // Public routes (no session): what S01 and S03 check first.
                 if (path == "/health") return@route 200 to """{"status":"ok","version":"5.1.110","timestamp":"2026-09-25T01:21:00.000Z"}"""
                 if (path == "/api/auth/sso-config") {
@@ -241,12 +286,32 @@ internal class FakeObliance(
                 }
                 if (expired && path.startsWith("/api/")) return@route 401 to EXPIRED
                 val deviceId = DEVICE_PATH.matchEntire(path)?.groupValues?.get(1)?.toLong()
+                val located = LOCATE_PATH.matchEntire(path)?.groupValues?.get(1)?.toLong()
+                // À traiter's enrolment feed asks every server for its pending devices.
+                val pendingOnly = query?.split('&')?.contains("approvalStatus=pending") == true
                 when {
                     path == "/api/auth/me" -> ok(SessionProbe.serializer(), SampleData.probe(server))
                     path == "/api/tenants" -> ok(ListSerializer(Tenant.serializer()), SampleData.tenants)
                     path == "/api/live-alerts/all" -> 200 to alertsFeed(alerts)
-                    path == "/api/approvals" -> ok(ListSerializer(Approval.serializer()), approvals)
-                    path == "/api/devices" -> ok(DevicePage.serializer(), DevicePage(devices, devices.size, 1, 50))
+                    // The repository judges expiry with the fixed clock (03:21), À traiter with the real one:
+                    // keep the §4 request open for both (expires 30 min from now).
+                    path == "/api/approvals" -> ok(
+                        ListSerializer(Approval.serializer()),
+                        approvals.map { it.copy(expiresAt = Instant.now().plusSeconds(1_800).toString()) },
+                    )
+                    path == "/api/devices" -> {
+                        val page = if (pendingOnly) devices.filter { it.approvalStatus == "pending" } else devices
+                        ok(DevicePage.serializer(), DevicePage(page, page.size, 1, 50))
+                    }
+                    // §2.3 rule 1: the device's tenant (tenant.routes.ts locate-device).
+                    located != null -> devices.find { it.id == located }?.let { d ->
+                        val tenant = deviceTenants[d.id] ?: d.tenantId
+                        ok(
+                            DeviceLocation.serializer(),
+                            DeviceLocation(d.id, d.hostname, d.displayName, tenant, SampleData.tenants.firstOrNull { it.id == tenant }?.name, null, SampleData.DEFAULT_TENANT),
+                        )
+                    }
+                    method == "POST" && path == "/api/tenant/switch" -> 200 to """{"success":true,"data":{}}"""
                     path == "/api/devices/summary" -> ok(FleetSummary.serializer(), if (prod) SampleData.summary else summaryOf(devices))
                     path == "/api/devices/group-stats" -> ok(ApiJson.json.parseToJsonElement(if (prod) GROUP_STATS else "[]"))
                     path == "/api/devices/disk-saturated" -> ok(ApiJson.json.parseToJsonElement(if (prod) DISKS else """{"count":0,"top":[]}"""))

@@ -14,7 +14,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import { NotificationBindingsPanel } from '@/components/notifications/NotificationBindingsPanel';
 import { MaintenanceWindowList } from '@/components/maintenance/MaintenanceWindowList';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
-import type { MetricThresholds } from '@obliance/shared';
+import type { MetricThresholds, ResolvedThresholds } from '@obliance/shared';
 import { cn } from '@/utils/cn';
 import { PageContainer } from '@/components/common/PageContainer';
 import { IconButton } from '@/components/common/IconButton';
@@ -396,19 +396,20 @@ function GroupThresholdsCard({
  const { t } = useTranslation();
  const [draft, setDraft] = useState<MetricThresholds>(initial);
  const [saving, setSaving] = useState(false);
- // `inheritedFrom` placeholder = the tenant-layer resolved values
- // (which themselves include the global override + system default).
- // Without this, the placeholder showed the hardcoded SYSTEM default
- // even after the tenant admin set a per-tenant override under
- // /policies → Seuils.
- const [tenantInherited, setTenantInherited] = useState<MetricThresholds | undefined>(undefined);
+ // `inheritedFrom` = what this group inherits, resolved server-side
+ // WITHOUT its own values: the group's tenant layer (+ global + system)
+ // for warn / crit placeholders, and the ancestor groups for the Alerts
+ // switches (greyed + "Inherited from group X").
+ const [inherited, setInherited] = useState<ResolvedThresholds | undefined>(undefined);
  useEffect(() => {
- import('@/api/thresholds.api').then(({ thresholdsApi, resolvedToInherited }) => {
- thresholdsApi.getTenantResolved()
- .then((r) => setTenantInherited(resolvedToInherited(r)))
+ let cancelled = false;
+ import('@/api/thresholds.api').then(({ thresholdsApi }) => {
+ thresholdsApi.getGroupResolved(groupId, { scope: 'parent' })
+ .then((r) => { if (!cancelled) setInherited(r); })
  .catch(() => { /* leave undefined → falls back to system default */ });
  });
- }, []);
+ return () => { cancelled = true; };
+ }, [groupId]);
  const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
 
  const save = async () => {
@@ -429,7 +430,7 @@ function GroupThresholdsCard({
  <div className="mb-3 text-base font-semibold text-text-primary">
  {t('thresholds.titleGroup', 'Seuils')} — "{groupName}"
  </div>
- <ThresholdsEditor value={draft} onChange={setDraft} inheritedFrom={tenantInherited} layer="group" />
+ <ThresholdsEditor value={draft} onChange={setDraft} inheritedFrom={inherited} layer="group" />
  <div className="mt-4 flex justify-end gap-2">
  {dirty && (
  <Button variant="secondary" onClick={() => setDraft(initial)} disabled={saving}>

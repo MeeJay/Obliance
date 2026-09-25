@@ -20,13 +20,14 @@ screens, §7 interaction, §8 visual language, §10 architecture). Mockups:
 | `:obliance:domain` | JVM | foundation | alert classification, multi-server triage aggregation, site outages |
 | `:obliance:data` | Android lib | foundation | `ObliServices`, `LocalObliServices`, repositories, `SampleObliServices` |
 | `:obliance:access` | screens | access agent | S01 sign-in, S02 SSO, S03 re-auth, S81 scope sheet, S92 servers, S93 add server |
-| `:obliance:triage` | screens | triage agent | S10 À traiter, S11 approval detail, S12 enrolment review |
+| `:obliance:triage` | screens | triage agent | S10 À traiter (Alertes, Approbations, Enrôlements), S11 approval detail, S12 enrolment review, `TriageRequest` |
 | `:obliance:devices` | screens | devices agent | S20 device list, S21 filters, S30/S31 device detail |
 | `:obliance:fleet` | screens | fleet agent | S70 Flotte |
-| `:obliance:more` | screens | more agent | S80 Plus, S83 app settings, S85 profile |
+| `:obliance:more` | screens | more agent | S80 Plus, S83 app settings, S86 about and updates, S00 lock (`AppLock`, `AppLockGate`), `SecureWindow`, `AppSettings`, theme resolution, in-app updates (`AppUpdates`) |
 | `:obliance:remote` | screens | remote agent | S60 terminal, S61 session choice, S62 ObliReach viewer, sessions pill / Activité section, `RemoteSessionService` |
 | `:obliance:automations` | screens | automations agent | S50 script picker, S51 run, S52/S53 batch, S55 Activité, S57 schedules, S58 scenarios |
-| `:obliance:app` | application | foundation | shell, navigation, top bar, `AppGraph` |
+| `:obliance:notifications` | screens + engine | notifications agent | background notifications of EVERY server (WorkManager pass every 15 min, one channel group per server, on-call rules), T0/T1 notification actions, `NotificationRoute`, S04 permission gate, S84, the « Astreinte » Quick Settings tile |
+| `:obliance:app` | application | foundation | shell, navigation, top bar, `AppGraph`, notification routing (`planRoute`), release signing |
 
 **A screen agent may only create or modify files under its own
 `obliance/<module>/` directory** (sources, resources, tests, and its own
@@ -53,13 +54,21 @@ depends on the screen modules.
 @Composable fun ReauthSheet(serverId: ServerId, onDone: () -> Unit)
 
 // :obliance:triage  (package tools.obli.obliance.triage)
-@Composable fun TriageScreen(onOpenDevice: (ServerId, Long) -> Unit)
+@Composable fun TriageScreen(onOpenDevice: (ServerId, Long) -> Unit, request: TriageRequest? = null, onRequestHandled: () -> Unit = {})
+sealed interface TriageRequest {                      // handled once; onRequestHandled is called at once
+    data class Alerts(val serverId: ServerId?)        // Alertes segment, that server's chip (2+ servers)
+    data class Approval(val serverId: ServerId, val approvalId: Long)   // Approbations, then S11 (waits 10 s for it)
+    data class Enrolment(val serverId: ServerId, val deviceId: Long)    // Enrôlements, then S12 (waits 10 s for it; found even when the view filter hides it)
+    data class Enrolments(val serverId: ServerId?)    // Enrôlements segment, that server's chip (2+ servers) — « N appareils en attente »
+    data class Approvals(val serverId: ServerId?)     // Approbations segment, that server's chip — « N demandes en attente »
+}
 
 // :obliance:devices (package tools.obli.obliance.devices)
 @Composable fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit, onRunScript: (ServerId, List<Long>) -> Unit = …)
 @Composable fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit,
     onOpenTerminal: (ServerId, Long, protocol: String) -> Unit = …, onOpenReach: (ServerId, Long) -> Unit = …,
-    onRunScript: (ServerId, List<Long>) -> Unit = …, onOpenAutomations: (ServerId, Long) -> Unit = …)
+    onRunScript: (ServerId, List<Long>) -> Unit = …, onOpenAutomations: (ServerId, Long) -> Unit = …,
+    initialTab: String? = null)   // "overview" | "services" | "processes" | "tasks"; anything else opens Aperçu
 
 // :obliance:remote (package tools.obli.obliance.remote)
 @Composable fun TerminalScreen(serverId: ServerId, deviceId: Long, protocol: String, onMinimize: () -> Unit, modifier: Modifier = Modifier, wtsSessionId: Int? = null, resumeId: String? = null)
@@ -83,7 +92,42 @@ class RemoteSessionService { companion object { const val EXTRA_SESSION_ID } }
 @Composable fun FleetScreen(onOpenDevices: () -> Unit)
 
 // :obliance:more    (package tools.obli.obliance.more)
-@Composable fun MoreScreen(onOpenServers: () -> Unit, onOpenScope: () -> Unit)
+@Composable fun MoreScreen(onOpenServers: () -> Unit, onOpenScope: () -> Unit, onOpenSettings: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {}, onOpenAbout: () -> Unit = {}, notificationsSummary: String? = null)
+@Composable fun AppSettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit, onOpenServers: () -> Unit,
+    onAddServer: () -> Unit, onOpenAbout: () -> Unit, notificationsSummary: String? = null)          // S83
+@Composable fun AboutScreen(onBack: () -> Unit, extraDiagnostics: () -> List<String> = { emptyList() }) // S86
+object AppSettings { fun store(context): AppSettingsStore }  // prefs: StateFlow<AppPrefs> (lockEnabled?, lockTimeout, blockScreenshots, themeMode, autoNight), loaded
+                                                             // lockEnabled null = S04 step 3 not answered: the lock is NOT armed (lockWanted = lockEnabled == true)
+object AppLock { fun install(app: Application, store: AppSettingsStore); val locked: StateFlow<Boolean>; val ready: StateFlow<Boolean>
+    fun canUseLock(context): Boolean; @VisibleForTesting fun setLockedForTest(locked: Boolean) }   // ready false only before the prefs are read
+@Composable fun AppLockGate(reason: String? = null, content: @Composable () -> Unit)   // S00: content NOT composed while locked;
+    // its saved state (back stacks, destination, rememberSaveable) is kept by a SaveableStateHolder outside the lock
+@Composable fun LockOnboardingDialog()            // S04 step 3 « Verrouiller Obliance », once (lockEnabled null + a screen lock)
+@Composable fun SecureWindow(block: Boolean)                                           // FLAG_SECURE, reference-counted
+object ThemeResolver { fun resolve(mode, autoNight, serverVariant, now: LocalTime): ObliThemeVariant }
+@Composable fun rememberAppTheme(serverVariant: ObliThemeVariant): ObliThemeVariant  // resolve() re-evaluated at 22:00, 07:00 and on foreground
+object AppUpdates { val offer: StateFlow<UpdateOffer?>; suspend fun check(context, services, force = false): UpdateCheck; suspend fun checkIfDue(context, services) }
+
+// :obliance:notifications (package tools.obli.obliance.notifications)
+object ObliNotifications {
+    const val ACTION_OPEN
+    fun install(context, services: ObliServices, ready: StateFlow<Boolean>, launchIntent: (Context) -> Intent = …)  // Application.onCreate
+    fun sync(context); fun checkNow(context)
+    fun routeFrom(intent: Intent?): NotificationRoute?   // reads AND removes the route extras; null for an unknown server,
+                                                         // and for any intent without ACTION_OPEN + this install's RouteToken (exported launcher)
+    fun diagnostics(context): List<String>               // no origin, host, cookie or alert text
+}
+sealed interface NotificationRoute { val serverId: ServerId
+    Device(serverId, deviceId, tenantId?, label?, tab? = null); Path(serverId, path, tenantId?)
+    Approval(serverId, approvalId, tenantId?); Enrolment(serverId, deviceId, tenantId?, label?)
+    Enrolments(serverId); Approvals(serverId)       // the « N en attente » of a burst
+    Inbox(serverId); SignIn(serverId) }
+@Composable fun NotificationSettingsScreen(onBack: () -> Unit, onOpenServers: () -> Unit)   // S84
+@Composable fun NotificationPermissionGate(next: @Composable () -> Unit = {})  // S04 steps 1-2, once a server is signed in;
+                                                  // next (step 3) only when nothing of steps 1-2 is shown or waiting
+@Composable fun rememberOnCallSummary(): String?  // "Astreinte active · 19:00–08:00" / "Astreinte désactivée"; null if not installed
+class OnCallTileService : TileService              // long press → MainActivity with ACTION_QS_TILE_PREFERENCES
 ```
 
 Everything else in a screen module should be `internal` or `private`.
@@ -147,8 +191,66 @@ Everything else in a screen module should be `internal` or `private`.
   Opening a device from a list clears its stack above the root first.
 - **Remote transport**: `AppGraph` calls `RemoteAccess.configure(client,
   USER_AGENT, cookieJar::headerFor)` (one OkHttp client, one cookie store).
-  Android 13+: POST_NOTIFICATIONS is asked once, when the first remote session
-  opens, after a short rationale dialog ("Plus tard" also counts as asked).
+  Android 13+: POST_NOTIFICATIONS is asked by `NotificationPermissionGate`
+  (0.3.0, once a server is signed in, then the battery exemption); the 0.2.0
+  prompt at the first remote session is gone.
+- **0.3.0 application wiring**:
+  - `ObliNextApplication.onCreate`: `AppGraph.start()`, `AppLock.install(this,
+    AppSettings.store(this))`, `ObliNotifications.install(this, services, ready,
+    launchIntent = MainActivity)`, then once ready `AppUpdates.checkIfDue`.
+  - **Socket only in the foreground**: `DefaultObliServices.start(foreground:
+    StateFlow<Boolean>, backgroundGraceMs = 30 s)`. `AppGraph.foreground`
+    follows `ProcessLifecycleOwner` ON_START / ON_STOP. The active server's
+    socket connects only when it is SignedIn AND the app is in the foreground,
+    and disconnects 30 s after the app went to the background (a socket
+    reconnected meanwhile, by a tenant switch for instance, is closed again).
+    The startup probe still runs. A process started by WorkManager, a
+    notification action or the tile never opens a socket. `start()` without
+    arguments keeps the 0.2.0 behaviour (always in the foreground: tests, previews).
+  - `MainActivity` content: `SecureWindow(prefs.blockScreenshots)` (outside the
+    lock, so S00 is covered too), `ObliTheme(variant =
+    rememberAppTheme(rememberActiveServerTheme(services)))`,
+    `LocalObliServices`, `AppLockGate(reason = « Déverrouillez pour ouvrir … »)`,
+    then `ObliNextApp(ready, resume…, route, onRouteHandled,
+    openNotificationSettings, onNotificationSettingsOpened)`.
+  - `ObliServicesHost.routeFrom(intent)` (default: `ObliNotifications.routeFrom`)
+    is read in `onCreate` (fresh start only) and `onNewIntent`, once the registry
+    is loaded; the route waits behind S00 (the shell is not composed while locked).
+  - Manifest: `MainActivity` handles `android.service.quicksettings.action.QS_TILE_PREFERENCES`
+    (long press on the tile) → S84. Everything else (POST_NOTIFICATIONS, battery
+    exemption, notification receiver, tile service, REQUEST_INSTALL_PACKAGES,
+    update FileProvider and DOWNLOAD_COMPLETE receiver, WorkManager initializer)
+    comes in by manifest merge.
+- **0.3.0 Plus screens** (NavKeys pushed on the Plus stack like `ServersKey`,
+  full screen on phones, bars hidden): `AppSettingsKey` → S83,
+  `NotificationSettingsKey` → S84, `AboutKey` → S86 (`extraDiagnostics =
+  ObliNotifications.diagnostics`). A Plus screen already in the stack is brought
+  back instead of pushed twice. Plus carries an 8 dp `#60A5FA` dot while
+  `AppUpdates.offer != null`.
+- **Top bar with a global-view filter** (`tenants.scope.viewFiltered`): chip
+  « ACME · filtre » (« 2 tenants · filtre »), 6 dp `accent2` dot instead of the
+  « VUE GLOBALE » tag, content description « Périmètre : Obliance Prod, vue
+  globale filtrée sur ACME » (server named with 2+ servers). À traiter applies
+  the filter to the ACTIVE server's alerts, escalations and enrolments (other
+  servers are never filtered) and says « Filtre de la vue globale : N éléments
+  d'autres tenants masqués »; a notification route still finds a hidden item.
+- **S00 and S04 step 3**: `AppLockGate` keeps the shell's saved state across
+  the lock (ViewModels of the entries are recreated and reload; an open
+  S41–S44 prompt is cancelled, never replayed). `NotificationPermissionGate {
+  LockOnboardingDialog() }` in the shell: the lock is proposed once, after the
+  notification steps; until it is answered the lock is not armed.
+- **Notification routes** (`planRoute` in `:obliance:app`, pure and JVM-tested;
+  NAVIGATION ONLY, a route never runs an action):
+
+  | Route | What the shell does |
+  |---|---|
+  | `Device` | À traiter selected, `DeviceKey(serverId, deviceId, tab)` on its stack after the implicit server switch. §2.3 rule 1: platform admin on the master tenant → no tenant switch; otherwise `locate-device` and `tenants.switchTo(itsTenant, serverId)` when it differs. ONE snackbar with **Revenir** (5 s): « Passé sur Obliance Qual › ACME pour ouvrir SRV-QUAL01 », « Passé sur Obliance Qual pour ouvrir … » or « Basculé sur ACME pour ouvrir … ». Revenir restores the tenant, then the server. |
+  | `Path` | `openOn(serverId)`, then `webPathToNative(path)` (S30 / Flotte) or `navigator.openWeb(path, server name)`; « Passé sur … · Revenir » when the server changed. |
+  | `Approval` / `Enrolment` | À traiter popped to its root + `TriageRequest.Approval` / `.Enrolment`. No server switch (inbox action, §2.10 item 4). |
+  | `Enrolments` / `Approvals` | À traiter popped to its root + `TriageRequest.Enrolments` / `.Approvals` (server chip with 2+ servers). |
+  | `Inbox` | `TriageRequest.Alerts(serverId)` (server chip only with 2+ servers). |
+  | `SignIn` | Active server → S03 again (`reauthRequests++`); another server → `ReauthSheet(thatServer)`, the active server stays; signed in again since → just À traiter. |
+  | Removed / unknown server | Just À traiter. |
 - **Insets**: the app pads the status bar (chrome colour) and the navigation
   bar. Screens do not add system-bar insets (IME insets are yours).
 - Dark theme only: everything is inside `ObliTheme { }`.
@@ -195,6 +297,7 @@ server origin therefore signs the native session in too: open
 | `scope: StateFlow<TenantScope>` | `serverId`, `tenants` (master first), `currentTenantId` (session tenant from `/api/auth/me`), `current`, `isGlobalView` (tenant 1 "Default"), `canSwitch` (2+ tenants), `loading`, `error`. Follows server switches; loads the list once the active server is signed in. **Screens reload their data when `scope.serverId` or `scope.currentTenantId` changes.** |
 | `refresh()` | `GET /api/tenants`. |
 | `switchTo(tenantId, serverId = null)` | `POST /api/tenant/switch` on `serverId` (null = active server), re-probes that server's `/me`, reconnects the socket if it is the active server, remembers it as the profile's last tenant. Runs in the app scope (a dismissed sheet does not cancel it halfway). The tenant list is per account: dropped on sign-out, reloaded for another account, failed loads retried. |
+| `setViewFilter(tenantIds, serverId = null): Boolean` | 0.3.0 « Filtrer la vue globale » (§2.3): stored per server in `ServerProfile.viewFilter` (`ServerRegistry.setViewFilter`, ids > 0, at most 64); selecting every tenant stores "no filter". `TenantScope` gains `viewFilter`, `viewFiltered`, `filterTenants`, `listTenantIds` (what lists pass as `DeviceQuery.tenantIds`), `withStoredViewFilter`, `effectiveViewFilter` (empty outside the master tenant). **Lists also reload when `scope.listTenantIds` changes.** |
 
 ### `alerts: AlertsRepository` (EVERY server with `includeInTriage`)
 
@@ -355,14 +458,43 @@ The APK is `obliance/app/build/outputs/apk/debug/app-debug.apk`
 (applicationId `tools.obli.obliance.next`, "Obliance Next", installs next to
 the WebView app). Report exactly what you compiled and tested.
 
+Release (`:obliance:app:assembleRelease`, 0.3.0): signed with the
+`obli.keystore.*` key when all four values are set (`-P`, `local.properties`
+or `OBLI_KEYSTORE_FILE`…), unsigned when none is, a build error naming the
+missing KEYS when only some are. The certificate SHA-256 must equal
+`mobile/android/RELEASE-FINGERPRINT.txt`. A phone with a debug build must
+uninstall it before the first release-signed install (different signer).
+
 ## 11. Known gaps of the foundation (not yours unless listed in your module)
 
 - Obligate SSO (S02) not wired (access agent).
 - Server switch does not restore the last tenant of that server yet, and back
   stacks are not remembered per server (§2.10 item 2).
-- No alert notifications (only the remote-sessions notification), no app
-  shortcuts, no search palette (S82). No tablet session dock (§2.6): the pill
-  stands in for it; no mini chip in pushed screens' top bars.
+- No app shortcuts, no search palette (S82). No tablet session dock (§2.6): the
+  pill stands in for it; no mini chip in pushed screens' top bars.
+- Notifications (0.3.0): each network step of a server pass has its own 20 s
+  budget and each part (alerts, escalations, enrolments) is saved as soon as it
+  is done (a late failure is `PARTIAL`, S84 « Alertes vérifiées à … ;
+  approbations ou enrôlements non vérifiés »). Enrolments and escalations: 3
+  per server and per pass, the rest in ONE « N en attente » notification; the
+  publisher cancels the oldest non-critical notifications before the app
+  reaches 40 (Android drops silently past ~50); the criticals of a pass are
+  checked 1.5 s later and posted again if missing. A recovery replaces only the
+  newest notification of the kind it answers (`PostedAlert.category`). Before
+  Android 12 an enrolment notification offers « Examiner » only, and an action
+  from a locked phone sends nothing.
+- Notifications (0.3.0): background alerts come from a 15-minute WorkManager
+  poll only (Android may defer it under Doze); push (UnifiedPush, server S6) is
+  v1.1. « Surveiller » (the watch engine: follow a device until it recovers)
+  does not exist yet. S84's per-category matrix is read-only: categories are
+  Android channels, changed in the Android settings of each channel.
+- Tenant rule §2.3 rule 1 (`locate-device`, automatic switch) applies to
+  notification routes only; a tap on an alert card in À traiter keeps the 0.2.0
+  behaviour (server switch only).
+- FLAG_SECURE: S60 terminal and S62 ObliReach set it only while shown (and,
+  since 0.3.0, never clear a flag they did not set); a minimised terminal
+  session (pill, Activité) is not covered, and nothing was checked on a real
+  window (recents thumbnail, screen recording).
 - Action host: S43 has no "Suivre dans Activité"; S44 only
   covers the unlock route (`/privacy/unlock`): the "disable privacy mode with
   the password" variant (`/privacy/disable-with-password`) is the device

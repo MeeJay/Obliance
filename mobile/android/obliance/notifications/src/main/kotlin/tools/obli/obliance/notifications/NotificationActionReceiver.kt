@@ -1,8 +1,10 @@
 package tools.obli.obliance.notifications
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,8 +23,10 @@ import tools.obli.obliance.api.DevicesApi
 
 /**
  * "Marquer lu" (T0) and "Approuver" / "Refuser" an enrolment (T1) from a
- * notification (design doc §7.6, §10.8). Android already asked for the device
- * credential (`setAuthenticationRequired`). Each call goes to the ITEM's
+ * notification (design doc §7.6, §10.8). On Android 12+ Android already asked
+ * for the device credential (`setAuthenticationRequired`). Before API 31 that
+ * flag does nothing: an action tapped on the lock screen of a locked phone is
+ * NOT sent (see [NotificationActions.handle]). Each call goes to the ITEM's
  * server session only; nothing is ever replayed.
  */
 internal class NotificationActionReceiver : BroadcastReceiver() {
@@ -56,6 +60,17 @@ internal object NotificationActions {
         if (!rt.awaitReady(STATE_TIMEOUT_MS)) return false
         val profile = rt.services.registry.state.value.byId(target.serverId) ?: return false
         val session = rt.services.sessions.session(target.serverId) ?: return false
+        if (lockedWithoutAuthentication(context)) {
+            // Android 8-11 ran the action from the lock screen, no unlock asked: nothing is sent.
+            // An enrolment says « Ouvrez Obliance pour terminer » (opening S12 asks for the unlock);
+            // « Marquer lu » leaves the alert as it is.
+            if (kind != ActionKind.MARK_READ) {
+                val multi = rt.services.registry.state.value.isMultiServer
+                rt.publisher.post(NotificationFactory(rt.texts()).enrolmentResult(profile, multi, target, target.label ?: "", null, null))
+                updateState(rt, target.serverId) { s -> s.copy(postedEnrolments = s.postedEnrolments - (target.deviceId ?: -1)) }
+            }
+            return false
+        }
         return when (kind) {
             ActionKind.MARK_READ -> markRead(rt, session, target)
             ActionKind.APPROVE, ActionKind.REFUSE -> {
@@ -111,6 +126,17 @@ internal object NotificationActions {
         if (out == ApiOutcome.SessionExpired) session.markExpired()
         val result = (out as? ApiOutcome.Ok)?.value ?: return null
         return result.takeIf { it.approvalStatus == expected }
+    }
+
+    /**
+     * Before API 31 `setAuthenticationRequired` is ignored: a broadcast action
+     * runs on a locked phone. True then (and when the keyguard cannot be read:
+     * fail closed); always false from API 31, where Android asked for the unlock.
+     */
+    internal fun lockedWithoutAuthentication(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return false
+        val keyguard = context.getSystemService(KeyguardManager::class.java) ?: return true
+        return keyguard.isDeviceLocked
     }
 
     private suspend fun updateState(rt: NotificationRuntime, serverId: ServerId, change: (ServerNotifState) -> ServerNotifState) {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Badge
@@ -43,6 +44,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -68,7 +71,10 @@ import tools.obli.core.designsystem.ObliTokens
 import tools.obli.core.designsystem.toColor
 import tools.obli.core.model.ServerId
 import tools.obli.core.model.ServerProfile
+import tools.obli.core.model.SessionProbe
 import tools.obli.core.network.ApiOutcome
+import tools.obli.obliance.api.DeviceLocation
+import tools.obli.obliance.api.TenantsApi
 import tools.obli.obliance.access.AddServerScreen
 import tools.obli.obliance.access.ReauthSheet
 import tools.obli.obliance.access.ScopeSheet
@@ -93,7 +99,16 @@ import tools.obli.obliance.automations.ScriptPickerScreen
 import tools.obli.obliance.devices.DeviceDetailScreen
 import tools.obli.obliance.devices.DeviceListScreen
 import tools.obli.obliance.fleet.FleetScreen
+import tools.obli.obliance.more.AboutScreen
+import tools.obli.obliance.more.AppSettingsScreen
+import tools.obli.obliance.more.AppUpdates
+import tools.obli.obliance.more.LockOnboardingDialog
 import tools.obli.obliance.more.MoreScreen
+import tools.obli.obliance.notifications.NotificationPermissionGate
+import tools.obli.obliance.notifications.NotificationRoute
+import tools.obli.obliance.notifications.NotificationSettingsScreen
+import tools.obli.obliance.notifications.ObliNotifications
+import tools.obli.obliance.notifications.rememberOnCallSummary
 import tools.obli.obliance.remote.ReachScreen
 import tools.obli.obliance.remote.RemoteAccess
 import tools.obli.obliance.remote.RemoteSessionRef
@@ -101,14 +116,25 @@ import tools.obli.obliance.remote.RemoteSessionsSection
 import tools.obli.obliance.remote.SessionChoiceSheet
 import tools.obli.obliance.remote.SessionsPill
 import tools.obli.obliance.remote.TerminalScreen
+import tools.obli.obliance.triage.TriageRequest
 import tools.obli.obliance.triage.TriageScreen
 
 /**
  * Root of the app: nothing until the registry is loaded, S01 without a server, else the shell.
  * [resumeSessionId]: a remote session to resume (tap on the sessions notification); [onResumeHandled] clears it.
+ * [route]: where a tapped notification leads (navigation only, see [planRoute]); [onRouteHandled] clears it.
+ * [openNotificationSettings]: the Quick Settings tile was long-pressed (S84); [onNotificationSettingsOpened] clears it.
  */
 @Composable
-fun ObliNextApp(ready: Boolean, resumeSessionId: String? = null, onResumeHandled: () -> Unit = {}) {
+fun ObliNextApp(
+    ready: Boolean,
+    resumeSessionId: String? = null,
+    onResumeHandled: () -> Unit = {},
+    route: NotificationRoute? = null,
+    onRouteHandled: () -> Unit = {},
+    openNotificationSettings: Boolean = false,
+    onNotificationSettingsOpened: () -> Unit = {},
+) {
     val services = LocalObliServices.current
     val registry by services.registry.state.collectAsStateWithLifecycle()
     /** Bumped when an action met an expired session: S03 shows again even if it was dismissed. */
@@ -119,7 +145,16 @@ fun ObliNextApp(ready: Boolean, resumeSessionId: String? = null, onResumeHandled
             when {
                 !ready -> Unit
                 registry.profiles.isEmpty() -> SignInScreen(onSignedIn = {})
-                else -> Shell(reauthRequests, resumeSessionId, onResumeHandled)
+                else -> Shell(
+                    reauthRequests = reauthRequests,
+                    onRequestReauth = { reauthRequests++ },
+                    resumeSessionId = resumeSessionId,
+                    onResumeHandled = onResumeHandled,
+                    route = route,
+                    onRouteHandled = onRouteHandled,
+                    openNotificationSettings = openNotificationSettings,
+                    onNotificationSettingsOpened = onNotificationSettingsOpened,
+                )
             }
         }
     }
@@ -129,13 +164,24 @@ fun ObliNextApp(ready: Boolean, resumeSessionId: String? = null, onResumeHandled
  * The shell of design doc §2: NavigationSuiteScaffold (bottom bar on phones,
  * rail from medium width), one Navigation 3 back stack per destination, the
  * list-detail scene for devices on wide windows, the scope chip, the implicit
- * server switch with "Revenir" (§2.10) and the session-expired sheet (S03).
+ * server switch with "Revenir" (§2.10), the session-expired sheet (S03) and
+ * the routes of tapped notifications (§2.9).
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onResumeHandled: () -> Unit = {}) {
+internal fun Shell(
+    reauthRequests: Int = 0,
+    onRequestReauth: () -> Unit = {},
+    resumeSessionId: String? = null,
+    onResumeHandled: () -> Unit = {},
+    route: NotificationRoute? = null,
+    onRouteHandled: () -> Unit = {},
+    openNotificationSettings: Boolean = false,
+    onNotificationSettingsOpened: () -> Unit = {},
+) {
     val services = LocalObliServices.current
     val resources = LocalResources.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     /** Server the "Passé sur …" snackbar names: its tile leads the message (mockup Main.dc.html). */
@@ -157,6 +203,10 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
     val showTopBar = !pushed || (!compact && stack.first() in LIST_ROOTS && top != null && top.inDetailPane())
     /** Windows shell waiting for S61 « Sur quelle session ouvrir ? » (server, device, protocol). */
     var sessionChoice by rememberSaveable { mutableStateOf<String?>(null) }
+    /** What À traiter shows once (a notification route: approval, enrolment, a server's alerts). */
+    var triageRequest by remember { mutableStateOf<TriageRequest?>(null) }
+    /** S03 requested for a server that is NOT active (the active one has [SessionExpiredSheet]). */
+    var reauthFor by rememberSaveable { mutableStateOf<String?>(null) }
     val layoutType = if (showNav) NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptive) else NavigationSuiteType.None
 
     fun select(destination: Destination) {
@@ -183,6 +233,30 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
         stacks.getValue(current).add(key)
     }
 
+    /**
+     * Pushes a Plus screen (servers, settings, notifications, about) and shows
+     * Plus; a screen already in the stack is brought back instead of pushed twice.
+     */
+    fun pushOnMore(key: AppKey) {
+        val more = stacks.getValue(Destination.MORE)
+        val at = more.indexOf(key)
+        if (at >= 0) {
+            while (more.size > at + 1) more.removeAt(more.lastIndex)
+        } else {
+            more.add(key)
+        }
+        current = Destination.MORE
+    }
+
+    /** « Passé sur … » with **Revenir** for 5 s (§2.10 item 3); true when Revenir was tapped. */
+    suspend fun announceSwitch(message: String, tile: ServerProfile?): Boolean {
+        snackServer = tile?.takeIf { services.registry.state.value.isMultiServer }
+        val result = withTimeoutOrNull(5_000) {
+            snackbar.showSnackbar(message = message, actionLabel = resources.getString(R.string.app_switch_back), duration = SnackbarDuration.Indefinite)
+        }
+        return result == SnackbarResult.ActionPerformed
+    }
+
     /** RunScript started a batch: the picker and the preparation make way for the batch (back returns to where the flow began). */
     fun showBatch(serverId: ServerId, batchId: String) {
         val s = stacks.getValue(current)
@@ -205,31 +279,60 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
         else push(TerminalKey(serverId.value, deviceId, protocol))
     }
 
-    fun openDevice(from: Destination, serverId: ServerId, deviceId: Long) {
+    /**
+     * S30 of [deviceId] on the stack of [from], with the implicit server switch
+     * (§2.10). [tenant]: a notification route applies §2.3 rule 1 — the device's
+     * tenant is located and switched to when it is not the session's; ONE
+     * snackbar names what changed. [tab]: the first tab of the detail.
+     */
+    fun openDevice(
+        from: Destination,
+        serverId: ServerId,
+        deviceId: Long,
+        tab: String? = null,
+        label: String? = null,
+        tenant: TenantRule = TenantRule.Stay,
+    ) {
         scope.launch {
             val previous = services.openOn(serverId)
             val target = stacks.getValue(from)
             // A new device replaces the whole detail flow (device, terminal, script run…) above the root.
             while (target.size > 1) target.removeAt(target.lastIndex)
-            target.add(DeviceKey(serverId.value, deviceId))
-            if (previous == null) return@launch
-            // Implicit switch (§2.10): say it, and offer "Revenir" for 5 s.
-            val serverName = services.registry.state.value.byId(serverId)?.displayName.orEmpty()
-            val deviceName = withTimeoutOrNull(3_000) { (services.devices.detail(serverId, deviceId) as? ApiOutcome.Ok)?.value?.label }
-                ?: resources.getString(R.string.app_device_fallback, deviceId)
-            snackServer = services.registry.state.value.byId(serverId)?.takeIf { services.registry.state.value.isMultiServer }
-            val result = withTimeoutOrNull(5_000) {
-                snackbar.showSnackbar(
-                    message = resources.getString(R.string.app_switched_to, serverName, deviceName),
-                    actionLabel = resources.getString(R.string.app_switch_back),
-                    duration = SnackbarDuration.Indefinite,
-                )
+            var location: DeviceLocation? = null
+            var switchedTenant: Long? = null
+            if (tenant is TenantRule.Locate) {
+                location = locate(services, serverId, deviceId)
+                val next = tenantToSwitch(tenant, location)
+                if (next != null && services.tenants.switchTo(next, serverId) is ApiOutcome.Ok) switchedTenant = next
             }
-            if (result == SnackbarResult.ActionPerformed) {
-                services.openOn(previous)
+            target.add(DeviceKey(serverId.value, deviceId, tab))
+            if (previous == null && switchedTenant == null) return@launch
+            val profile = services.registry.state.value.byId(serverId)
+            val tenantName = switchedTenant?.let { id ->
+                location?.tenantName?.takeIf { it.isNotBlank() } ?: services.tenants.scope.value.tenants.firstOrNull { it.id == id }?.name ?: "#$id"
+            }
+            val (what, serverChanged) = switchTarget(profile?.displayName?.takeIf { previous != null }, tenantName) ?: return@launch
+            val deviceName = label?.takeIf { it.isNotBlank() }
+                ?: location?.label?.takeIf { it.isNotBlank() }
+                ?: withTimeoutOrNull(3_000) { (services.devices.detail(serverId, deviceId) as? ApiOutcome.Ok)?.value?.label }
+                ?: resources.getString(R.string.app_device_fallback, deviceId)
+            val message = resources.getString(if (serverChanged) R.string.app_switched_to else R.string.app_tenant_switched_to, what, deviceName)
+            if (announceSwitch(message, profile.takeIf { serverChanged })) {
+                // Revenir: the tenant first (on the device's server), then the server.
+                val back = (tenant as? TenantRule.Locate)?.currentTenantId
+                if (switchedTenant != null && back != null) services.tenants.switchTo(back, serverId)
+                if (previous != null) services.openOn(previous)
                 target.removeAll { it is DeviceKey && it.serverId == serverId.value }
             }
         }
+    }
+
+    /** À traiter, popped to its root, then [request] (handled once by TriageScreen). */
+    fun openTriage(request: TriageRequest?) {
+        val s = stacks.getValue(Destination.TRIAGE)
+        while (s.size > 1) s.removeAt(s.lastIndex)
+        current = Destination.TRIAGE
+        triageRequest = request
     }
 
     val navigator = remember(stacks) {
@@ -249,11 +352,63 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
     }
     val webOpener = remember(navigator) { WebPageOpener(navigator::openWeb) }
 
+    /** A same-origin page of [serverId] (notification route): its native screen or S90, after the implicit switch. */
+    fun openPath(serverId: ServerId, path: String) {
+        val native = webPathToNative(path)
+        if (native is NativeTarget.Device) {
+            current = Destination.TRIAGE
+            openDevice(Destination.TRIAGE, serverId, native.id)
+            return
+        }
+        scope.launch {
+            val previous = services.openOn(serverId)
+            val profile = services.registry.state.value.byId(serverId)
+            if (native == NativeTarget.Fleet) select(Destination.FLEET) else navigator.openWeb(path, profile?.displayName.orEmpty())
+            if (previous == null || profile == null) return@launch
+            if (announceSwitch(resources.getString(R.string.app_switched_to_server, profile.displayName), profile)) {
+                services.openOn(previous)
+                stacks.values.forEach { st -> st.removeAll { it is WebKey && it.serverId == serverId.value } }
+            }
+        }
+    }
+
+    /** A tapped notification (§2.9): navigation only, never an action. */
+    fun handleRoute(r: NotificationRoute) {
+        scope.launch {
+            val probe = routeProbe(services, r)
+            when (val plan = planRoute(r, services.registry.state.value, services.tenants.scope.value, probe)) {
+                is RoutePlan.OpenDevice -> {
+                    current = Destination.TRIAGE
+                    openDevice(Destination.TRIAGE, plan.serverId, plan.deviceId, plan.tab, plan.label, plan.tenant)
+                }
+                is RoutePlan.OpenPath -> openPath(plan.serverId, plan.path)
+                is RoutePlan.Triage -> openTriage(plan.request)
+                RoutePlan.ReauthActive -> onRequestReauth()
+                is RoutePlan.ReauthOther -> reauthFor = plan.serverId.value
+            }
+        }
+    }
+
     // Tap on the sessions notification (MainActivity): resume that session on the current destination.
     LaunchedEffect(resumeSessionId) {
         if (resumeSessionId != null) {
             RemoteAccess.session(resumeSessionId)?.let(::resume)
             onResumeHandled()
+        }
+    }
+
+    // Tap on an alert notification (MainActivity, after the S00 lock): open its target.
+    LaunchedEffect(route) {
+        val r = route ?: return@LaunchedEffect
+        handleRoute(r)
+        onRouteHandled()
+    }
+
+    // Long press on the « Astreinte » Quick Settings tile: S84.
+    LaunchedEffect(openNotificationSettings) {
+        if (openNotificationSettings) {
+            pushOnMore(NotificationSettingsKey)
+            onNotificationSettingsOpened()
         }
     }
 
@@ -263,6 +418,8 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
     val registryState by services.registry.state.collectAsStateWithLifecycle()
     val alerts by services.alerts.snapshot.collectAsStateWithLifecycle()
     val badge = alerts.badgeCount
+    // Plus carries an 8 dp info dot while an app update is offered (§2.1).
+    val updateOffer by AppUpdates.offer.collectAsStateWithLifecycle()
     val barColors = NavigationBarItemDefaults.colors(
         selectedIconColor = c.accent2,
         selectedTextColor = c.accent2,
@@ -281,6 +438,7 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
     // navigationSuiteItems is not composable: resolve texts and colours here.
     val labels = Destination.entries.associateWith { stringResource(it.label) }
     val triageA11y = stringResource(R.string.app_nav_triage_badge, badge)
+    val moreA11y = stringResource(R.string.app_nav_more_update)
     val itemColors = NavigationSuiteDefaults.itemColors(navigationBarItemColors = barColors, navigationRailItemColors = railColors)
 
     CompositionLocalProvider(LocalObliNavigator provides navigator, LocalWebPageOpener provides webOpener) {
@@ -295,17 +453,23 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
         navigationSuiteItems = {
             Destination.entries.forEach { d ->
                 val label = labels.getValue(d)
-                val a11y = if (d == Destination.TRIAGE && badge > 0) triageA11y else label
+                val a11y = when {
+                    d == Destination.TRIAGE && badge > 0 -> triageA11y
+                    d == Destination.MORE && updateOffer != null -> moreA11y
+                    else -> label
+                }
                 item(
                     selected = d == current,
                     onClick = { select(d) },
                     icon = {
-                        if (d == Destination.TRIAGE && badge > 0) {
-                            BadgedBox(badge = { Badge(containerColor = ObliTokens.DANGER.toColor(), contentColor = c.onAccentFill) { Text(badge.coerceAtMost(99).toString()) } }) {
+                        when {
+                            d == Destination.TRIAGE && badge > 0 -> BadgedBox(badge = { Badge(containerColor = ObliTokens.DANGER.toColor(), contentColor = c.onAccentFill) { Text(badge.coerceAtMost(99).toString()) } }) {
                                 Icon(d.icon, contentDescription = null)
                             }
-                        } else {
-                            Icon(d.icon, contentDescription = null)
+                            d == Destination.MORE && updateOffer != null -> BadgedBox(badge = { Badge(containerColor = UPDATE_DOT, modifier = Modifier.size(8.dp)) }) {
+                                Icon(d.icon, contentDescription = null)
+                            }
+                            else -> Icon(d.icon, contentDescription = null)
                         }
                     },
                     label = { Text(label) },
@@ -332,7 +496,11 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
                     sceneStrategies = listOf(listDetail),
                     entryProvider = entryProvider {
                         entry<TriageKey>(metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { DetailPlaceholder() })) {
-                            TriageScreen(onOpenDevice = { serverId, id -> openDevice(Destination.TRIAGE, serverId, id) })
+                            TriageScreen(
+                                onOpenDevice = { serverId, id -> openDevice(Destination.TRIAGE, serverId, id) },
+                                request = triageRequest,
+                                onRequestHandled = { triageRequest = null },
+                            )
                         }
                         entry<DevicesKey>(metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { DetailPlaceholder() })) {
                             DeviceListScreen(
@@ -353,7 +521,14 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
                         }
                         entry<FleetKey> { FleetScreen(onOpenDevices = { select(Destination.DEVICES) }) }
                         entry<MoreKey> {
-                            MoreScreen(onOpenServers = { stacks.getValue(Destination.MORE).add(ServersKey) }, onOpenScope = { scopeSheet = true })
+                            MoreScreen(
+                                onOpenServers = { pushOnMore(ServersKey) },
+                                onOpenScope = { scopeSheet = true },
+                                onOpenSettings = { pushOnMore(AppSettingsKey) },
+                                onOpenNotifications = { pushOnMore(NotificationSettingsKey) },
+                                onOpenAbout = { pushOnMore(AboutKey) },
+                                notificationsSummary = rememberOnCallSummary(),
+                            )
                         }
                         entry<DeviceKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
                             DeviceDetailScreen(
@@ -365,6 +540,7 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
                                 onRunScript = { serverId, ids -> push(ScriptPickerKey(serverId.value, ids)) },
                                 // "Planifier / scénarios": S58 natively (list, runs, manual trigger); edition stays in the web view.
                                 onOpenAutomations = { _, _ -> push(ScenariosKey) },
+                                initialTab = key.tab,
                             )
                         }
                         entry<TerminalKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
@@ -436,13 +612,30 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
                             }
                         }
                         entry<ServersKey> {
-                            ServersScreen(onAddServer = { stacks.getValue(Destination.MORE).add(AddServerKey) }, onBack = ::pop)
+                            ServersScreen(onAddServer = { pushOnMore(AddServerKey) }, onBack = ::pop)
                         }
                         entry<AddServerKey> {
                             AddServerScreen(
                                 onDone = { stacks.getValue(Destination.MORE).removeAll { it == AddServerKey } },
                                 onBack = ::pop,
                             )
+                        }
+                        // 0.3.0: S83, S84, S86 on the Plus stack (full screen on phones, like S92).
+                        entry<AppSettingsKey> {
+                            AppSettingsScreen(
+                                onBack = ::pop,
+                                onOpenNotifications = { pushOnMore(NotificationSettingsKey) },
+                                onOpenServers = { pushOnMore(ServersKey) },
+                                onAddServer = { pushOnMore(AddServerKey) },
+                                onOpenAbout = { pushOnMore(AboutKey) },
+                                notificationsSummary = rememberOnCallSummary(),
+                            )
+                        }
+                        entry<NotificationSettingsKey> {
+                            NotificationSettingsScreen(onBack = ::pop, onOpenServers = { pushOnMore(ServersKey) })
+                        }
+                        entry<AboutKey> {
+                            AboutScreen(onBack = ::pop, extraDiagnostics = { ObliNotifications.diagnostics(context) })
                         }
                     },
                 )
@@ -498,9 +691,7 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
             onDismiss = { scopeSheet = false },
             onManageServers = {
                 scopeSheet = false
-                val more = stacks.getValue(Destination.MORE)
-                if (more.lastOrNull() != ServersKey) more.add(ServersKey)
-                current = Destination.MORE
+                pushOnMore(ServersKey)
             },
         )
     }
@@ -518,8 +709,45 @@ internal fun Shell(reauthRequests: Int = 0, resumeSessionId: String? = null, onR
         )
     }
 
-    NotificationPermissionPrompt()
+    // S04, once a server is signed in: POST_NOTIFICATIONS, the battery exemption,
+    // then step 3 « Verrouiller Obliance » (never on top of the first two).
+    NotificationPermissionGate { LockOnboardingDialog() }
     SessionExpiredSheet(reauthRequests)
+
+    // "Se reconnecter" of a notification for a server that is not active: S03 for that server only.
+    reauthFor?.let { id ->
+        if (id == registryState.activeId?.value || registryState.byId(ServerId(id)) == null) {
+            // The active server has its own sheet; a removed server has nothing to sign in to.
+            LaunchedEffect(id) { reauthFor = null }
+        } else {
+            ReauthSheet(ServerId(id), onDone = { reauthFor = null })
+        }
+    }
+}
+
+/** STYLEKIT bottom-nav: the Plus update dot (#60A5FA, info). */
+private val UPDATE_DOT = Color(0xFF60A5FA)
+
+/**
+ * `/api/auth/me` of the route's server for [planRoute]. A device or sign-in
+ * route on a session never probed in this process (cold start from the
+ * notification) is probed first, 5 s at most.
+ */
+private suspend fun routeProbe(services: ObliServices, route: NotificationRoute): SessionProbe? {
+    val session = services.sessions.session(route.serverId) ?: return null
+    var auth = session.auth.value
+    if (auth is AuthState.Unknown && (route is NotificationRoute.Device || route is NotificationRoute.SignIn)) {
+        auth = withTimeoutOrNull(5_000) { session.probe() } ?: auth
+    }
+    return (auth as? AuthState.SignedIn)?.probe
+}
+
+/** `GET /api/tenants/locate-device/:id` on [serverId] (5 s at most); null when not found, refused or failed. */
+private suspend fun locate(services: ObliServices, serverId: ServerId, deviceId: Long): DeviceLocation? {
+    val session = services.sessions.session(serverId) ?: return null
+    val out = withTimeoutOrNull(5_000) { TenantsApi(session.http).locateDevice(deviceId) } ?: return null
+    if (out == ApiOutcome.SessionExpired) session.markExpired()
+    return (out as? ApiOutcome.Ok)?.value
 }
 
 /** Roots whose stack shows as list | detail on wide windows. */

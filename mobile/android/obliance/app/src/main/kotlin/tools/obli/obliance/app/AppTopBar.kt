@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -42,7 +43,9 @@ import tools.obli.obliance.data.LocalObliServices
 /**
  * First row of the top bar of a top-level screen (design doc §2.2): the scope
  * chip (server tile when 2+ servers, tenant, "Vue globale" on the master
- * tenant) and the account avatar whose 2 dp ring gives the realtime state.
+ * tenant, « ACME · filtre » with a 6 dp accent2 dot when the global view is
+ * filtered, STYLEKIT tenant-chip-filter) and the account avatar whose 2 dp
+ * ring gives the realtime state.
  * The screen draws the second row (title + freshness) itself.
  */
 @Composable
@@ -59,15 +62,27 @@ internal fun AppTopBar(onScope: () -> Unit, onAccount: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Scope chip: 36 dp visual inside a 48 dp touch target.
-        val tenantName = tenants.current?.name ?: server?.displayName.orEmpty()
-        val globalView = tenants.isGlobalView
+        val filtered = tenants.viewFiltered
+        val filterNames = tenants.filterTenants.map { it.name }
+        val tenantName = when {
+            filtered && filterNames.size == 1 -> stringResource(R.string.app_scope_filter, filterNames.single())
+            filtered -> pluralStringResource(R.plurals.app_scope_filter_count, tenants.viewFilter.size, tenants.viewFilter.size)
+            else -> tenants.current?.name ?: server?.displayName.orEmpty()
+        }
+        val globalView = tenants.isGlobalView && !filtered
         val globalLabel = stringResource(R.string.app_scope_global_view)
         val scopeText = listOfNotNull(
             server?.displayName?.takeIf { registry.isMultiServer },
             tenantName.takeIf { it.isNotEmpty() },
             globalLabel.takeIf { globalView },
         ).joinToString(", ")
-        val scopeLabel = if (scopeText.isEmpty()) stringResource(R.string.app_scope_unknown) else stringResource(R.string.app_scope_label, scopeText)
+        val scopeLabel = when {
+            filtered && registry.isMultiServer && server != null ->
+                stringResource(R.string.app_scope_filtered_server, server.displayName, filterNames.joinToString(", "))
+            filtered -> stringResource(R.string.app_scope_filtered, filterNames.joinToString(", "))
+            scopeText.isEmpty() -> stringResource(R.string.app_scope_unknown)
+            else -> stringResource(R.string.app_scope_label, scopeText)
+        }
         Box(
             Modifier.height(48.dp).widthIn(max = 280.dp).clickable(onClick = onScope).clearAndSetSemantics {
                 contentDescription = scopeLabel
@@ -94,6 +109,10 @@ internal fun AppTopBar(onScope: () -> Unit, onAccount: () -> Unit) {
                         maxLines = 1,
                         modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(c.divider).padding(horizontal = 5.dp, vertical = 1.dp),
                     )
+                }
+                if (filtered) {
+                    // STYLEKIT tenant-chip-filter: a 6 dp accent2 dot says "this is a filter, not the whole view".
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(c.accent2))
                 }
                 Icon(ObliIcons.ChevronDown, contentDescription = null, tint = c.textMuted, modifier = Modifier.size(16.dp))
             }

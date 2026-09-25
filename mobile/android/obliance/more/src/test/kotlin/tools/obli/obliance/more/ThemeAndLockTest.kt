@@ -76,9 +76,44 @@ class LockControllerTest {
 
     private fun controller(prefs: AppPrefs = AppPrefs(lockEnabled = true)) = LockController({ now }, { canUse }, prefs)
 
-    @Test fun `locked at cold start when the lock is enabled or undecided`() {
+    @Test fun `locked at cold start only when the lock was turned on`() {
         assertTrue(controller(AppPrefs(lockEnabled = true)).locked.value)
-        assertTrue(controller(AppPrefs(lockEnabled = null)).locked.value)
+        // S04 step 3 not answered (a phone coming from 0.2.0): never a lock it did not choose.
+        assertFalse(controller(AppPrefs(lockEnabled = null)).locked.value)
+    }
+
+    @Test fun `before the preferences are read it stays locked, then follows them`() {
+        val on = LockController({ now }, { canUse }, AppPrefs(), initialLoaded = false)
+        assertTrue(on.locked.value)
+        assertFalse(on.ready.value)
+        on.onPrefs(AppPrefs(), loaded = false)
+        assertTrue("the defaults are not the user's choice", on.locked.value)
+        on.onPrefs(AppPrefs(lockEnabled = true), loaded = true)
+        assertTrue(on.locked.value)
+        assertTrue(on.ready.value)
+
+        val undecided = LockController({ now }, { canUse }, AppPrefs(), initialLoaded = false)
+        undecided.onPrefs(AppPrefs(lockEnabled = null), loaded = true)
+        assertFalse(undecided.locked.value)
+    }
+
+    @Test fun `answering S04 step 3 with Activer never locks at once, then the delay applies`() {
+        val c = controller(AppPrefs(lockEnabled = null, lockTimeout = LockTimeout.ONE_MIN))
+        assertFalse(c.locked.value)
+        c.onPrefs(AppPrefs(lockEnabled = true, lockTimeout = LockTimeout.ONE_MIN))
+        assertFalse("the user has just authenticated", c.locked.value)
+        c.onBackground()
+        now += 60_000
+        c.onForeground()
+        assertTrue(c.locked.value)
+    }
+
+    @Test fun `undecided never locks, even after a long time in the background`() {
+        val c = controller(AppPrefs(lockEnabled = null, lockTimeout = LockTimeout.IMMEDIATE))
+        c.onBackground()
+        now += 3_600_000
+        c.onForeground()
+        assertFalse(c.locked.value)
     }
 
     @Test fun `never locked when the lock is off`() {

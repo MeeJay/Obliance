@@ -30,6 +30,12 @@ export function useSocket() {
     socket.on(SocketEvents.NOTIFICATION_NEW, (alert: LiveAlert) => {
       useLiveAlertsStore.getState().addAlertFromServer(alert);
     });
+    // Alerts marked read server-side (e.g. a metric's alerts were muted
+    // while it was breaching) leave the bell without a reload.
+    socket.on(SocketEvents.NOTIFICATION_READ, (data: { ids?: number[]; readAt?: string }) => {
+      if (!data || !Array.isArray(data.ids) || data.ids.length === 0) return;
+      useLiveAlertsStore.getState().markReadFromServer(data.ids, data.readAt ?? new Date().toISOString());
+    });
 
     // ── Device lifecycle ───────────────────────────────────────────────────────
     // The server emits DEVICE_UPDATED with multiple payload shapes depending
@@ -151,6 +157,7 @@ export function useSocket() {
 
     return () => {
       socket.off(SocketEvents.NOTIFICATION_NEW);
+      socket.off(SocketEvents.NOTIFICATION_READ);
       socket.off(SocketEvents.DEVICE_UPDATED);
       socket.off(SocketEvents.DEVICE_METRICS_PUSHED);
       socket.off(SocketEvents.DEVICE_ONLINE);

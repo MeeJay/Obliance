@@ -24,4 +24,10 @@ sealed interface TriageRequest {
      * loaded (10 s at most); otherwise « Cet appareil n'est plus en attente d'enrôlement. ».
      */
     data class Enrolment(val serverId: ServerId, val deviceId: Long) : TriageRequest
+
+    /** The Enrôlements segment; with two servers or more, [serverId] selects that server chip (null = all servers). */
+    data class Enrolments(val serverId: ServerId?) : TriageRequest
+
+    /** The Approbations segment; with two servers or more, [serverId] selects that server chip (null = all servers). */
+    data class Approvals(val serverId: ServerId?) : TriageRequest
 }

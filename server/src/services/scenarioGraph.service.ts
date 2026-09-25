@@ -884,6 +884,11 @@ const EXECUTORS: Partial<Record<ScenarioNodeType, (ctx: ExecutorContext) => Prom
       group_id: groupId,
       updated_at: new Date(),
     });
+    // New group chain = possibly different inherited alerts switches
+    // (`notify`): silently re-baseline the alertable level so a newly
+    // muted metric does not send a "back to normal" on the next push.
+    const { metricAlertRebaseline } = await import('./metricAlertRebaseline.service');
+    metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: targets }, 'scenario move_device_to_group');
     return { exitCode: 0 };
   },
 

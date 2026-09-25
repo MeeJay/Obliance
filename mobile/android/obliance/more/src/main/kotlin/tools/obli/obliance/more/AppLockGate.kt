@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,9 +43,17 @@ import tools.obli.core.designsystem.ObliTypography
 /**
  * S00: while [AppLock.locked], shows the lock screen INSTEAD of [content]
  * (the content is not composed at all, so nothing of the app renders behind
- * it). The system prompt opens by itself once per foreground; after a
- * success [content] composes, so a pending route (a notification action)
- * continues without another tap.
+ * it, not even in the recents thumbnail). The system prompt opens by itself
+ * once per foreground; after a success [content] composes again, so a pending
+ * route (a notification action) continues without another tap.
+ *
+ * The content's saved state (Navigation 3 back stacks, current destination,
+ * `rememberSaveable` values) is kept across the lock by a
+ * [rememberSaveableStateHolder] placed OUTSIDE the lock: after the unlock the
+ * user is back on the screen they left (S30 › terminal, a batch, S90…), not on
+ * À traiter. Entry ViewModels are recreated and reload by their keys (a
+ * terminal re-attaches to its live session); a prompt that was open (S41–S44)
+ * is cancelled, never replayed.
  *
  * @param reason the intent being unlocked, shown under the title and in the
  *   prompt ("Déverrouillez pour ouvrir les processus de PC-COMPTA-03").
@@ -52,8 +61,15 @@ import tools.obli.core.designsystem.ObliTypography
 @Composable
 fun AppLockGate(reason: String? = null, content: @Composable () -> Unit) {
     val locked by AppLock.locked.collectAsState()
+    val saved = rememberSaveableStateHolder()
     if (!locked) {
-        content()
+        saved.SaveableStateProvider(CONTENT_STATE_KEY) { content() }
+        return
+    }
+    val ready by AppLock.ready.collectAsState()
+    if (!ready) {
+        // Cold start, preferences not read yet: neither the app nor a lock screen it may not need.
+        Box(Modifier.fillMaxSize().background(ObliTheme.colors.bg).testTag(LOCK_PENDING_TAG))
         return
     }
     val context = LocalContext.current
@@ -106,6 +122,8 @@ internal fun LockScreen(reason: String?, onUnlock: () -> Unit) {
 }
 
 internal const val LOCK_SCREEN_TAG = "more_lock_screen"
+internal const val LOCK_PENDING_TAG = "more_lock_pending"
+private const val CONTENT_STATE_KEY = "obliance.app"
 
 internal tailrec fun Context.findFragmentActivity(): FragmentActivity? = when (this) {
     is FragmentActivity -> this

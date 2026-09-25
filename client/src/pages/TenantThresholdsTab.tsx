@@ -4,7 +4,7 @@ import { Loader2, RotateCcw, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/common/Button';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
-import { thresholdsApi, resolvedToInherited, type ResolvedThresholds } from '@/api/thresholds.api';
+import { thresholdsApi, type ResolvedThresholds } from '@/api/thresholds.api';
 import { useTenantStore } from '@/store/tenantStore';
 import type { MetricThresholds } from '@obliance/shared';
 
@@ -34,7 +34,9 @@ export function TenantThresholdsTab() {
     setLoading(true);
     Promise.all([
       thresholdsApi.getTenantThresholds(),
-      thresholdsApi.getTenantResolved(),
+      // `parent` = what the tenant layer inherits (global + system): the
+      // tenant's own saved values are never echoed back as "inherited".
+      thresholdsApi.getTenantResolved({ scope: 'parent' }),
     ])
       .then(([stored, inherited]) => {
         if (cancelled) return;
@@ -63,7 +65,7 @@ export function TenantThresholdsTab() {
       // (the inherited-from-global slot doesn't change, but if the
       // admin cleared a tenant slot we want the placeholder to fall
       // back visually too).
-      const inherited = await thresholdsApi.getTenantResolved();
+      const inherited = await thresholdsApi.getTenantResolved({ scope: 'parent' });
       setResolved(inherited);
     } catch {
       toast.error(t('thresholds.failedSave', 'Échec de la mise à jour des seuils'));
@@ -109,8 +111,8 @@ export function TenantThresholdsTab() {
         <ThresholdsEditor
           value={draft}
           onChange={setDraft}
-          inheritedFrom={resolved ? resolvedToInherited(resolved) : undefined}
-          layer="group"
+          inheritedFrom={resolved ?? undefined}
+          layer="tenant"
         />
       </div>
     </div>

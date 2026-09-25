@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- POST_NOTIFICATIONS, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, the notification action
+         receiver, the tile service (:obliance:notifications), REQUEST_INSTALL_PACKAGES, the
+         update FileProvider and receiver (:obliance:more) and WorkManager's initializer come
+         in through manifest merge. -->
 
     <!-- Nothing is backed up: session cookies and the server registry stay on the device. -->
     <application
@@ -27,6 +31,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Long press on the « Astreinte » Quick Settings tile (:obliance:notifications): S84. -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>

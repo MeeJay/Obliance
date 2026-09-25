@@ -564,6 +564,7 @@ router.post('/batch/transfer', requireTenantCapability('devices.manage'), async 
     const serverUrl = `${req.protocol}://${req.get('host')}`;
 
     const results = { transferred: 0, failed: 0 };
+    const transferredIds: number[] = [];
     for (const device of validDevices) {
       try {
         await db.transaction(async (trx) => {
@@ -597,10 +598,19 @@ router.post('/batch/transfer', requireTenantCapability('devices.manage'), async 
             .update({ status: 'cancelled', finished_at: new Date() });
         });
         results.transferred++;
+        transferredIds.push(device.id);
       } catch (err) {
         logger.error({ err, deviceId: device.id }, 'bulk transfer: failed for device');
         results.failed++;
       }
+    }
+
+    // New tenant, no group = a different alerts switch (`notify`) chain:
+    // silently re-baseline the alertable level (and, when it drops to ok,
+    // mark read the metric alerts left in the source tenant's inbox).
+    if (transferredIds.length > 0) {
+      const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+      metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: transferredIds }, 'tenant transfer');
     }
 
     try {
@@ -657,14 +667,22 @@ router.post('/batch/change-group', requireTenantCapability('devices.manage'), as
       .update({ group_id: normalized, updated_at: new Date() });
 
     let changedCount = 0;
+    const changedIds: number[] = [];
     for (const id of deviceIds) {
       if (prevById.get(id) !== normalized) {
         changedCount++;
+        changedIds.push(id);
         if (normalized !== null) {
           scenarioService.fireTrigger('group_join', id, req.tenantId!, { groupId: normalized })
             .catch(err => logger.error({ err, deviceId: id }, 'group_join trigger failed'));
         }
       }
+    }
+    // The new group chain may mute / unmute metric alerts (`notify`):
+    // silently re-baseline the alertable level of the moved devices.
+    if (changedIds.length > 0) {
+      const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+      metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: changedIds }, 'bulk group change');
     }
 
     try {
@@ -790,6 +808,22 @@ router.post('/:id/live-metrics', requireDeviceRead('id'), async (req, res, next)
 router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
   try {
     const deviceId = parseInt(req.params.id);
+    // thresholdsOverride is stored verbatim in JSONB and read by the
+    // threshold cascade on every push: validate it with the same schema as
+    // the group / tenant / global layers (null or {} = clear the override).
+    if (req.body && req.body.thresholdsOverride !== undefined) {
+      if (req.body.thresholdsOverride === null) {
+        req.body.thresholdsOverride = {};
+      } else {
+        const { metricThresholdsSchema } = await import('../validators/group.schema');
+        const parsed = metricThresholdsSchema.safeParse(req.body.thresholdsOverride);
+        if (!parsed.success) {
+          const issues = parsed.error.errors.map((e) => `${e.path.join('.') || '<root>'}: ${e.message}`).join('; ');
+          throw new AppError(400, `Invalid thresholdsOverride — ${issues}`);
+        }
+        req.body.thresholdsOverride = parsed.data;
+      }
+    }
     // Check if group is changing so we can fire a scenario trigger
     const hadGroupChange = req.body.groupId !== undefined;
     const device = await deviceService.updateDevice(deviceId, req.tenantId!, req.body);
@@ -801,6 +835,22 @@ router.patch('/:id', requireDeviceWrite(), async (req, res, next) => {
       });
     }
     res.json({ data: device });
+  } catch (err) { next(err); }
+});
+
+// GET /api/devices/:id/thresholds-resolved — threshold cascade of the device
+// with the origin (layer + name) of every value. `?scope=parent` stops above
+// the device's own override: what the device inherits (device editor:
+// placeholders + greyed alerts switch), group chain or tenant when ungrouped.
+router.get('/:id/thresholds-resolved', requireDeviceRead(), async (req, res, next) => {
+  try {
+    const deviceId = parseInt(req.params.id);
+    const q = db('devices').where({ id: deviceId }).first('id');
+    if (!isMasterTenant(req.tenantId!)) q.where({ tenant_id: req.tenantId! });
+    if (!(await q)) return res.status(404).json({ error: 'Device not found' });
+    const { thresholdService } = await import('../services/threshold.service');
+    const resolved = await thresholdService.resolveForDevice(deviceId, { includeDevice: req.query.scope !== 'parent' });
+    res.json({ data: resolved });
   } catch (err) { next(err); }
 });
 
@@ -1424,6 +1474,13 @@ router.post('/:id/transfer', requireTenantCapability('devices.manage'), async (r
         .whereNot({ type: 'reconfigure_agent' })
         .update({ status: 'cancelled', finished_at: new Date() });
     });
+
+    // New tenant, no group = a different alerts switch (`notify`) chain:
+    // silently re-baseline the alertable level (see bulk transfer above).
+    {
+      const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+      metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: [deviceId] }, 'tenant transfer');
+    }
 
     try {
       const { auditService } = await import('../services/audit.service');

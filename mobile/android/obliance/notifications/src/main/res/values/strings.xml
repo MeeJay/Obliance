@@ -61,6 +61,16 @@
     <string name="notif_enrolment_refused">%1$s refused</string>
     <string name="notif_enrolment_open_app">Open Obliance to finish</string>
     <string name="notif_enrolment_failed_text">%1$s could not be handled from the notification.</string>
+    <plurals name="notif_enrolments_more_title">
+        <item quantity="one">%1$d device waiting for enrolment</item>
+        <item quantity="other">%1$d devices waiting for enrolment</item>
+    </plurals>
+    <string name="notif_enrolments_more_text">Review them in Triage › Enrolments.</string>
+    <plurals name="notif_approvals_more_title">
+        <item quantity="one">%1$d approval request waiting</item>
+        <item quantity="other">%1$d approval requests waiting</item>
+    </plurals>
+    <string name="notif_approvals_more_text">Review them in Triage › Approvals.</string>
 
     <!-- Account -->
     <string name="notif_expired_title">Session expired on %1$s</string>
@@ -112,6 +122,7 @@
     <string name="notif_section_delivery">Delivery</string>
     <string name="notif_delivery_poll">Checked every 15 min — Android may delay alerts</string>
     <string name="notif_server_checked">Checked at %1$s</string>
+    <string name="notif_server_partial">Alerts checked at %1$s; approvals or enrolments could not be</string>
     <string name="notif_server_expired">Session expired · Sign in again</string>
     <string name="notif_server_unreachable">Unreachable since %1$s</string>
     <string name="notif_server_disabled">Notifications off</string>

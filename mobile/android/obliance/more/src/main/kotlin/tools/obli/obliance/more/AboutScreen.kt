@@ -83,6 +83,7 @@ fun AboutScreen(onBack: () -> Unit, extraDiagnostics: () -> List<String> = { emp
                 when {
                     !AppLock.canUseLock(app) -> "unavailable (no screen lock)"
                     p.lockWanted -> "on (${p.lockTimeout.name.lowercase()})"
+                    p.lockUndecided -> "undecided (S04 step 3 not answered)"
                     else -> "off"
                 }
             },

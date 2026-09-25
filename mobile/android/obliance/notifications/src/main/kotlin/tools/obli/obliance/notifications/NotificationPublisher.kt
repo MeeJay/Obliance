@@ -16,6 +16,8 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -47,16 +49,52 @@ internal class AndroidNotificationPublisher(
 ) : NotificationPublisher {
     private val manager get() = NotificationManagerCompat.from(context)
 
+    /** Posted by this publisher in the last RECENT_MS (not listed by Android yet), by "tag|id". */
+    private val recent = HashMap<String, Long>()
+
     override fun canPost(): Boolean = permissionGranted(context) && manager.areNotificationsEnabled()
 
     @SuppressLint("MissingPermission") // canPost() checks POST_NOTIFICATIONS just before.
     override fun post(n: PlannedNotification): Boolean {
         if (!canPost()) return false
         return try {
+            makeRoom(n)
             manager.notify(n.serverId.value, n.id, build(n))
+            synchronized(recent) { recent[key(n.serverId.value, n.id)] = SystemClock.elapsedRealtime() }
             true
         } catch (_: SecurityException) {
             false
+        }
+    }
+
+    /**
+     * Android keeps about [ANDROID_LIMIT] notifications per app and SILENTLY drops
+     * the next ones (`notify` does not throw). Before a NEW notification would
+     * take the app to [SOFT_LIMIT] (the ones just posted and not listed yet
+     * count too), the oldest engine notifications that matter least are
+     * cancelled: recoveries, then attention, enrolments, escalations. Never a
+     * critical, an account notice, a summary or another component's notification.
+     */
+    private fun makeRoom(n: PlannedNotification) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val active = runCatching { nm.activeNotifications }.getOrNull() ?: return
+        // An update of a notification on screen takes no new slot.
+        if (active.any { it.tag == n.serverId.value && it.id == n.id }) return
+        val now = SystemClock.elapsedRealtime()
+        synchronized(recent) {
+            recent.entries.removeAll { now - it.value !in 0..RECENT_MS }
+            val listed = active.mapTo(HashSet()) { key(it.tag, it.id) }
+            val inFlight = recent.keys.count { it !in listed }
+            var excess = active.size + inFlight + 1 - SOFT_LIMIT
+            if (excess <= 0) return
+            val victims = active.mapNotNull { sbn -> evictionRank(sbn)?.let { sbn to it } }
+                .sortedWith(compareBy({ it.second }, { it.first.postTime }))
+            for ((sbn, _) in victims) {
+                if (excess <= 0) break
+                nm.cancel(sbn.tag, sbn.id)
+                recent.remove(key(sbn.tag, sbn.id))
+                excess--
+            }
         }
     }
 
@@ -128,7 +166,7 @@ internal class AndroidNotificationPublisher(
             // Distinct data per (notification, slot): PendingIntents ignore extras when comparing.
             data = uniqueUri("open", id, slot)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            RouteExtras.write(this, route)
+            RouteExtras.write(this, route, RouteToken.get(context))
         }
         return PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
@@ -144,6 +182,28 @@ internal class AndroidNotificationPublisher(
     companion object {
         /** Brand red of the small icon tint (#E03A3A). */
         const val BRAND = 0xFFE03A3A.toInt()
+
+        /** Android's per-app limit (NotificationManagerService MAX_PACKAGE_NOTIFICATIONS). */
+        const val ANDROID_LIMIT = 50
+
+        /** Room kept below [ANDROID_LIMIT] (remote sessions, a burst in flight). */
+        const val SOFT_LIMIT = 40
+
+        /** A notification just posted may take this long to be listed (a notification assistant delays it). */
+        private const val RECENT_MS = 3_000L
+
+        private fun key(tag: String?, id: Int) = "$tag|$id"
+
+        /** Channels an engine notification may be cancelled from to make room, least important first. */
+        private val EVICTABLE = listOf(NotifChannel.RECOVERY, NotifChannel.ATTENTION, NotifChannel.ENROLMENTS, NotifChannel.ESCALATIONS)
+
+        /** Order in which [sbn] may be cancelled to make room; null: never (critical, account, summary, not the engine's). */
+        internal fun evictionRank(sbn: StatusBarNotification): Int? {
+            val tag = sbn.tag ?: return null
+            if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
+            val channel = sbn.notification.channelId ?: return null
+            return EVICTABLE.indexOfFirst { channel == it.id(ServerId(tag)) }.takeIf { it >= 0 }
+        }
 
         /** Marks a notification posted without sound (on-call SILENT, recoveries). */
         const val EXTRA_SILENT = "tools.obli.obliance.notifications.silent"

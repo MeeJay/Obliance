@@ -72,6 +72,9 @@ internal data class EnrolmentsUi(
     val refreshing: Boolean = false,
     /** Pending devices per server (server chip menu), whatever the server filter. */
     val pendingByServer: Map<ServerId, Int> = emptyMap(),
+    /** Devices hidden by the global-view filter of the active server, and their sections. */
+    val hidden: Int = 0,
+    val hiddenGroups: List<EnrolmentGroupUi> = emptyList(),
 )
 
 internal object EnrolmentMapper {
@@ -81,6 +84,7 @@ internal object EnrolmentMapper {
         scope: TenantScope,
         alerts: AlertsSnapshot,
         serverFilter: ServerId?,
+        view: ViewFilter = ViewFilter(scope),
     ): EnrolmentsUi {
         val multi = registry.isMultiServer
         val feeds = state.servers.associateBy { it.serverId }
@@ -90,7 +94,7 @@ internal object EnrolmentMapper {
         if (allowed.isEmpty()) return EnrolmentsUi(refreshing = state.refreshing)
         val shown = allowed.filter { (p, _) -> serverFilter == null || p.id == serverFilter }
 
-        val groups = shown.flatMap { (profile, feed) ->
+        val allGroups = shown.flatMap { (profile, feed) ->
             val stale = when (feed.status) {
                 FeedStatus.EXPIRED -> EnrolmentStale.Expired
                 FeedStatus.UNREACHABLE -> EnrolmentStale.Unreachable(feed.updatedAt)
@@ -119,6 +123,8 @@ internal object EnrolmentMapper {
                 EnrolmentGroupUi(profile.id, if (multi) profile else null, tenantId, tenantName, items)
             }.sortedWith(compareBy<EnrolmentGroupUi>({ it.tenantId != MASTER_TENANT_ID }, { it.tenantName.orEmpty().lowercase() }, { it.tenantId ?: 0L }))
         }
+        // « Filtrer la vue globale » (§2.3): the active server's sections of the other tenants are hidden.
+        val (groups, hiddenGroups) = allGroups.partition { view.shows(it.serverId, it.tenantId) }
 
         val notices = shown.mapNotNull { (p, feed) ->
             when (feed.status) {
@@ -141,7 +147,9 @@ internal object EnrolmentMapper {
             notices = notices,
             listState = listState,
             refreshing = state.refreshing,
-            pendingByServer = allowed.associate { (p, f) -> p.id to f.items.size },
+            pendingByServer = allowed.associate { (p, f) -> p.id to f.items.count { view.shows(p.id, it.tenantId) } },
+            hidden = hiddenGroups.sumOf { it.items.size },
+            hiddenGroups = hiddenGroups,
         )
     }
 

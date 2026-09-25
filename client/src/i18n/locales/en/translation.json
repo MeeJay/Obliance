@@ -3299,7 +3299,9 @@
       "warnShort": "Warn",
       "critShort": "Crit",
       "warnTitle": "Warning threshold (%)",
-      "critTitle": "Critical threshold (%)"
+      "critTitle": "Critical threshold (%)",
+      "title": "Per-disk override",
+      "diskAlertsOff": "Disk alerts are off: every disk is muted. Turn the Disk alerts switch back on to choose disk by disk."
     },
     "saved": "Thresholds updated",
     "failedSave": "Failed to update thresholds",
@@ -3308,7 +3310,19 @@
     "globalTitle": "Global metric thresholds",
     "globalHelp": "Default applied to ALL tenants. Each tenant can override it under /policies → Thresholds. Leave a field empty to use the system default (grey placeholder).",
     "tenantTitle": "Tenant default thresholds",
-    "tenantHelp": "Every group and device of this tenant inherits these values unless set at its own level. Leave a field empty to inherit from the global layer (grey placeholder)."
+    "tenantHelp": "Every group and device of this tenant inherits these values unless set at its own level. Leave a field empty to inherit from the global layer (grey placeholder).",
+    "alerts": "Alerts",
+    "alertsOffHint": "Off: the status colour is still shown, but no notification (web, channels, mobile app) is sent for this metric.",
+    "inheritedFrom": "Inherited from {{name}}",
+    "inherited": {
+      "system": "Inherited from the system default",
+      "global": "Inherited from the global settings",
+      "tenant": "Inherited from tenant {{name}}",
+      "group": "Inherited from group {{name}}"
+    },
+    "override": "Override",
+    "resetInherit": "Reset to inherited",
+    "deviceTitle": "Custom thresholds"
   },
   "desktopUpdate": {
     "appName": "Desktop app",

@@ -29,7 +29,6 @@ import { PrivacyPasswordManageModal } from '@/components/devices/PrivacyPassword
 import { CustomSectionTab } from '@/components/devices/CustomSectionTab';
 import { ThresholdsEditor } from '@/components/common/ThresholdsEditor';
 import { PerDiskThresholdsEditor } from '@/components/common/PerDiskThresholdsEditor';
-import { SYSTEM_DEFAULT_THRESHOLDS } from '@obliance/shared';
 import type { CustomSection } from '@obliance/shared';
 import { getSocket } from '@/socket/socketClient';
 import { inventoryApi } from '@/api/inventory.api';
@@ -58,7 +57,7 @@ import { OsIcon } from '@/components/devices/OsIcon';
 import FileExplorerTab from '@/components/devices/FileExplorerTab';
 import RewindTab from '@/components/devices/RewindTab';
 import { DeviceCvesSection } from '@/components/devices/DeviceCvesSection';
-import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, MetricThresholds, DeviceMetricsHistory } from '@obliance/shared';
+import type { Device, HardwareInventory, SoftwareEntry, Script, ScriptExecution, ScriptSchedule, DeviceUpdate, ComplianceResult, CompliancePolicy, RemoteSession, Command, ServiceInfo, ProcessInfo, DeviceLicense, SoftwareComplianceResult, SoftwareComplianceEntryResult, ResolvedThresholds, DeviceMetricsHistory } from '@obliance/shared';
 import { SocketEvents } from '@obliance/shared';
 import { useTranslation } from 'react-i18next';
 import { anonymize, anonymizeIp, anonymizeMac } from '@/utils/anonymize';
@@ -2812,19 +2811,19 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
 
  // Resolved cascade up to (but not including) the device override —
  // i.e. what the device WOULD inherit if its own override were
- // cleared. Fed to ThresholdsEditor as `inheritedFrom` so the slot
- // placeholders show the inherited group/tenant/global values
- // instead of the system default.
- const [groupResolvedThresholds, setGroupResolvedThresholds] = useState<MetricThresholds | undefined>(undefined);
+ // cleared (group chain, or the tenant when ungrouped), with the origin
+ // of each value. Fed to ThresholdsEditor / PerDiskThresholdsEditor:
+ // warn / crit placeholders + greyed Alerts switches.
+ const [inheritedThresholds, setInheritedThresholds] = useState<ResolvedThresholds | undefined>(undefined);
  useEffect(() => {
- const gid = (device as any).groupId as number | null | undefined;
- if (!gid) { setGroupResolvedThresholds(undefined); return; }
- import('@/api/thresholds.api').then(({ thresholdsApi, resolvedToInherited }) => {
- thresholdsApi.getGroupResolved(gid)
- .then((r) => setGroupResolvedThresholds(resolvedToInherited(r)))
- .catch(() => setGroupResolvedThresholds(undefined));
+ let cancelled = false;
+ import('@/api/thresholds.api').then(({ thresholdsApi }) => {
+ thresholdsApi.getDeviceResolved(device.id, { scope: 'parent' })
+ .then((r) => { if (!cancelled) setInheritedThresholds(r); })
+ .catch(() => { if (!cancelled) setInheritedThresholds(undefined); });
  });
- }, [(device as any).groupId]);
+ return () => { cancelled = true; };
+ }, [device.id, device.groupId]);
 
  // For toggles: set + auto-save immediately
  const setAndSave = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
@@ -2931,11 +2930,11 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  Inherits from the device's group (which itself inherits from the
  system default). Empty fields mean "stay inherited". */}
  <div className={cardCls}>
- <h3 className={headCls}>Seuils personnalisés</h3>
+ <h3 className={headCls}>{t('thresholds.deviceTitle', 'Custom thresholds')}</h3>
  <ThresholdsEditor
  value={form.thresholdsOverride}
  onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
- inheritedFrom={groupResolvedThresholds}
+ inheritedFrom={inheritedThresholds}
  layer="device"
  />
  {/* Per-disk overrides — only shown when the agent has reported
@@ -2944,16 +2943,12 @@ function DeviceSettingsTab({ device, onSaved, adminMode, onDeleted, onManagePriv
  still applies to mounts not listed here. */}
  {(device.latestMetrics?.disks?.length ?? 0) > 0 && (
  <div className="mt-3 pt-3 ">
- <div className="text-xs uppercase text-text-muted tracking-wider mb-2">Override par disque</div>
+ <div className="text-xs uppercase text-text-muted tracking-wider mb-2">{t('thresholds.perDisk.title', 'Per-disk override')}</div>
  <PerDiskThresholdsEditor
  disks={device.latestMetrics!.disks!}
  value={form.thresholdsOverride}
  onChange={(next) => { set('thresholdsOverride', next); autoSave(); }}
- inheritedDisk={
- form.thresholdsOverride.disk?.warn != null && form.thresholdsOverride.disk?.crit != null
- ? { warn: form.thresholdsOverride.disk.warn, crit: form.thresholdsOverride.disk.crit }
- : SYSTEM_DEFAULT_THRESHOLDS.disk
- }
+ inherited={inheritedThresholds}
  />
  </div>
  )}

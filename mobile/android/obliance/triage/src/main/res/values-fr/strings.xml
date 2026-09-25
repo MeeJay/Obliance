@@ -228,4 +228,10 @@
     <string name="triage_enrol_not_applied">Le serveur n\'a pas pris en compte la demande. Réessayez.</string>
     <string name="triage_request_approval_gone">Cette demande n\'est plus en attente.</string>
     <string name="triage_request_enrolment_gone">Cet appareil n\'est plus en attente d\'enrôlement.</string>
+    <!-- « Filtrer la vue globale » du serveur actif appliqué à À traiter (§2.3) -->
+    <plurals name="triage_view_filter_hidden">
+        <item quantity="one">Filtre de la vue globale : %1$d élément d’autres tenants masqué</item>
+        <item quantity="many">Filtre de la vue globale : %1$d éléments d’autres tenants masqués</item>
+        <item quantity="other">Filtre de la vue globale : %1$d éléments d’autres tenants masqués</item>
+    </plurals>
 </resources>

@@ -192,7 +192,10 @@ internal fun SecureImmersive(immersive: Boolean = true) {
     DisposableEffect(context) {
         val activity = context.findActivity()
         val window = activity?.window
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Only clear what this screen set: the flag may already be on (S83 « Bloquer les
+        // captures d'écran partout », another secure screen), and must stay on then.
+        val alreadySecure = window != null && window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0
+        if (window != null && !alreadySecure) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         if (immersive) {
             controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -200,7 +203,7 @@ internal fun SecureImmersive(immersive: Boolean = true) {
         }
         onDispose {
             if (immersive) controller?.show(WindowInsetsCompat.Type.systemBars())
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (window != null && !alreadySecure) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 }

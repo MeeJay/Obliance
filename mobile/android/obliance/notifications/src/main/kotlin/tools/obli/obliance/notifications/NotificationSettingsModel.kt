@@ -33,7 +33,7 @@ import tools.obli.obliance.data.ObliServices
 /** How a channel behaves today (S84 "Catégories"), read from Android. */
 internal enum class ChannelLevel { SOUND, VIBRATE, SILENT, OFF }
 
-internal enum class ServerStatus { CHECKED, EXPIRED, UNREACHABLE, DISABLED, SIGNED_OUT, PENDING }
+internal enum class ServerStatus { CHECKED, PARTIAL, EXPIRED, UNREACHABLE, DISABLED, SIGNED_OUT, PENDING }
 
 internal data class TenantChipUi(val id: Long, val name: String, val included: Boolean)
 
@@ -107,6 +107,8 @@ internal object SettingsMapper {
                 a == AuthState.Expired || (a !is AuthState.SignedIn && last?.result == PassResult.EXPIRED) -> ServerStatus.EXPIRED to null
                 last?.result == PassResult.UNREACHABLE -> ServerStatus.UNREACHABLE to time(last.since ?: last.at)
                 last?.result == PassResult.OK -> ServerStatus.CHECKED to time(last.at)
+                // Alerts arrived; the escalations or the enrolments could not be checked.
+                last?.result == PassResult.PARTIAL -> ServerStatus.PARTIAL to time(last.at)
                 else -> ServerStatus.PENDING to null
             }
             ServerRowUi(

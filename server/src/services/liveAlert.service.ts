@@ -136,6 +136,44 @@ export const liveAlertService = {
     await db('live_alerts').where({ id, tenant_id: tenantId }).update({ read_at: new Date() });
   },
 
+  /**
+   * Mark as read the unread metric-threshold alerts
+   * (`stable_key = device:{id}:metric:warning|critical`) of the given
+   * devices, so they leave the web bell and the mobile "À traiter" inbox.
+   * Used by the silent alert re-baseline when muting a metric brings a
+   * device's alertable level back to ok. Device ids are global, so this is
+   * deliberately NOT tenant-scoped: after a tenant transfer the device's
+   * alerts still sit in the SOURCE tenant and must leave that inbox too.
+   * Internal callers only (never with ids taken from a request). Open web
+   * clients of each affected tenant are told through NOTIFICATION_READ (the
+   * mobile app re-reads the list on its own refresh). Returns the ids
+   * marked read.
+   */
+  async markDeviceMetricAlertsRead(deviceIds: number[]): Promise<number[]> {
+    if (deviceIds.length === 0) return [];
+    const keys = deviceIds.flatMap((id) => [`device:${id}:metric:warning`, `device:${id}:metric:critical`]);
+    const readAt = new Date();
+    const rows = await db('live_alerts')
+      .whereIn('stable_key', keys)
+      .whereNull('read_at')
+      .update({ read_at: readAt })
+      .returning(['id', 'tenant_id']) as Array<{ id: number; tenant_id: number }>;
+    const byTenant = new Map<number, number[]>();
+    for (const r of rows) {
+      const list = byTenant.get(r.tenant_id) ?? [];
+      list.push(r.id);
+      byTenant.set(r.tenant_id, list);
+    }
+    if (_io) {
+      for (const [tenantId, ids] of byTenant) {
+        _io.to(`tenant:${tenantId}:notifications`).emit(SocketEvents.NOTIFICATION_READ, {
+          tenantId, ids, readAt: readAt.toISOString(),
+        });
+      }
+    }
+    return rows.map((r) => r.id);
+  },
+
   async markAllRead(tenantId: number): Promise<void> {
     await db('live_alerts')
       .where({ tenant_id: tenantId })

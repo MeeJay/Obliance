@@ -44,6 +44,7 @@ export const SocketEvents = {
   // Notification & alert events
   NOTIFICATION_SENT:      'NOTIFICATION_SENT',
   NOTIFICATION_NEW:       'NOTIFICATION_NEW',         // live alert created
+  NOTIFICATION_READ:      'NOTIFICATION_READ',        // live alerts marked read server-side ({ ids, readAt })
 
   // Settings
   SETTINGS_UPDATED:       'SETTINGS_UPDATED',

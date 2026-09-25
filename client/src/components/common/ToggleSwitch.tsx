@@ -10,6 +10,12 @@ interface Props {
  label?: React.ReactNode;
  description?: React.ReactNode;
  title?: string;
+ /** Accessible name of the switch when it has no visible `label` (a
+ * wrapping element's aria-label does not name the control). */
+ ariaLabel?: string;
+ /** Id(s) of the element(s) that describe the switch (e.g. why it is
+ * disabled / inherited). */
+ ariaDescribedBy?: string;
 }
 
 /**
@@ -25,7 +31,7 @@ interface Props {
  * tooltip) is also offered as a tap-to-open (i) next to the label.
  */
 export function ToggleSwitch({
- checked, onChange, disabled = false, size = 'md', label, description, title,
+ checked, onChange, disabled = false, size = 'md', label, description, title, ariaLabel, ariaDescribedBy,
 }: Props) {
  // Geometry (px). Chosen so the knob has a 2px visual padding from the
  // track edge in both OFF and ON positions.
@@ -45,6 +51,8 @@ export function ToggleSwitch({
  type="button"
  role="switch"
  aria-checked={checked}
+ aria-label={ariaLabel}
+ aria-describedby={ariaDescribedBy}
  disabled={disabled}
  onClick={(e) => { e.stopPropagation(); if (!disabled) onChange(!checked); }}
  title={title}

@@ -6,6 +6,7 @@ import { tenantService } from '../services/tenant.service';
 import { permissionService } from '../services/permission.service';
 import { db } from '../db';
 import { AppError } from '../middleware/errorHandler';
+import type { MetricThresholds } from '@obliance/shared';
 
 const router = Router();
 
@@ -281,10 +282,26 @@ router.put('/current/thresholds', requireTenant, async (req, res, next) => {
     const tenantId = req.tenantId!;
     const { metricThresholdsSchema } = await import('../validators/group.schema');
     const { thresholds } = req.body as { thresholds?: unknown };
-    if (thresholds == null || (typeof thresholds === 'object' && Object.keys(thresholds as object).length === 0)) {
-      await db('tenants').where({ id: tenantId }).update({ metric_thresholds_default: null });
+    // Previous value — a change of a per-metric alerts switch (`notify`)
+    // triggers a silent re-baseline of the tenant's devices.
+    const beforeRow = await db('tenants').where({ id: tenantId }).first('metric_thresholds_default') as { metric_thresholds_default: unknown } | undefined;
+    let before: MetricThresholds | null = null;
+    if (typeof beforeRow?.metric_thresholds_default === 'string') {
+      try { before = JSON.parse(beforeRow.metric_thresholds_default) as MetricThresholds; } catch { before = null; }
+    } else if (beforeRow?.metric_thresholds_default && typeof beforeRow.metric_thresholds_default === 'object') {
+      before = beforeRow.metric_thresholds_default as MetricThresholds;
+    }
+    const afterSave = async (after: MetricThresholds | null) => {
       const { invalidateTenantThresholdCache } = await import('../services/threshold.service');
       invalidateTenantThresholdCache(tenantId);
+      const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+      if (metricAlertRebaseline.notifyChanged(before, after)) {
+        metricAlertRebaseline.schedule({ kind: 'tenant', tenantId }, 'tenant notify switch');
+      }
+    };
+    if (thresholds == null || (typeof thresholds === 'object' && Object.keys(thresholds as object).length === 0)) {
+      await db('tenants').where({ id: tenantId }).update({ metric_thresholds_default: null });
+      await afterSave(null);
       res.json({ success: true, data: { thresholds: null } });
       return;
     }
@@ -294,21 +311,23 @@ router.put('/current/thresholds', requireTenant, async (req, res, next) => {
       throw new AppError(400, `Invalid thresholds — ${issues}`);
     }
     await db('tenants').where({ id: tenantId }).update({ metric_thresholds_default: JSON.stringify(parsed.data) });
-    const { invalidateTenantThresholdCache } = await import('../services/threshold.service');
-    invalidateTenantThresholdCache(tenantId);
+    await afterSave(parsed.data);
     res.json({ success: true, data: { thresholds: parsed.data } });
   } catch (err) { next(err); }
 });
 
 // ── Resolved tenant defaults (read-only) ────────────────────────────
-// Used by the GroupEditPage so its `inheritedFrom` placeholder shows
-// the effective values inherited at the tenant level. Mirrors what
-// the threshold cascade resolves up to (but excluding) the group
-// layer. Admin-only because it includes the global override.
+// Effective values (with the origin of each value) resolved up to and
+// including the tenant layer. `?scope=parent` stops above the tenant:
+// what the tenant itself inherits (global + system) — used by the tenant
+// thresholds tab so its placeholders / greyed alerts switches never echo
+// the tenant's own saved values.
 router.get('/current/thresholds-resolved', requireTenant, async (req, res, next) => {
   try {
     const { thresholdService } = await import('../services/threshold.service');
-    const resolved = await thresholdService.resolveForTenant(req.tenantId!);
+    const resolved = req.query.scope === 'parent'
+      ? await thresholdService.resolveGlobal()
+      : await thresholdService.resolveForTenant(req.tenantId!);
     res.json({ success: true, data: resolved });
   } catch (err) { next(err); }
 });

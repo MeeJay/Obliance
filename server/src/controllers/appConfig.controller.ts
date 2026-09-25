@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { appConfigService } from '../services/appConfig.service';
 import { AppError } from '../middleware/errorHandler';
+import type { MetricThresholds } from '@obliance/shared';
 
 const ALLOWED_KEYS = [
   'allow_2fa', 'force_2fa', 'otp_smtp_server_id',
@@ -110,12 +111,27 @@ export const appConfigController = {
     try {
       const { metricThresholdsSchema } = await import('../validators/group.schema');
       const { thresholds } = req.body as { thresholds?: unknown };
+      // Previous value — a change of a per-metric alerts switch (`notify`)
+      // triggers a silent re-baseline of every device (only the currently
+      // alerting ones are actually re-evaluated).
+      const beforeRaw = await appConfigService.get('metric_thresholds_global');
+      let before: MetricThresholds | null = null;
+      if (beforeRaw) {
+        try { before = JSON.parse(beforeRaw) as MetricThresholds; } catch { before = null; }
+      }
+      const afterSave = async (after: MetricThresholds | null) => {
+        const { invalidateGlobalThresholdCache } = await import('../services/threshold.service');
+        invalidateGlobalThresholdCache();
+        const { metricAlertRebaseline } = await import('../services/metricAlertRebaseline.service');
+        if (metricAlertRebaseline.notifyChanged(before, after)) {
+          metricAlertRebaseline.schedule({ kind: 'all' }, 'global notify switch');
+        }
+      };
       // Treat null/undefined/{} as "clear" — drop the row so the
       // resolver falls through to the system default below it.
       if (thresholds == null || (typeof thresholds === 'object' && Object.keys(thresholds as object).length === 0)) {
         await appConfigService.set('metric_thresholds_global', '');
-        const { invalidateGlobalThresholdCache } = await import('../services/threshold.service');
-        invalidateGlobalThresholdCache();
+        await afterSave(null);
         res.json({ success: true, data: { thresholds: null } });
         return;
       }
@@ -125,8 +141,7 @@ export const appConfigController = {
         throw new AppError(400, `Invalid thresholds — ${issues}`);
       }
       await appConfigService.set('metric_thresholds_global', JSON.stringify(parsed.data));
-      const { invalidateGlobalThresholdCache } = await import('../services/threshold.service');
-      invalidateGlobalThresholdCache();
+      await afterSave(parsed.data);
       res.json({ success: true, data: { thresholds: parsed.data } });
     } catch (err) { next(err); }
   },

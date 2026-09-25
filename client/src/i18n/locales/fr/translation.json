@@ -3301,7 +3301,9 @@
       "warnShort": "Alerte",
       "critShort": "Crit.",
       "warnTitle": "Seuil d'alerte (%)",
-      "critTitle": "Seuil critique (%)"
+      "critTitle": "Seuil critique (%)",
+      "title": "Surcharge par disque",
+      "diskAlertsOff": "Les alertes Disque sont désactivées : tous les disques sont muets. Réactivez l'interrupteur Alertes de la ligne Disque pour choisir disque par disque."
     },
     "saved": "Seuils mis à jour",
     "failedSave": "Échec de la mise à jour des seuils",
@@ -3310,7 +3312,19 @@
     "globalTitle": "Seuils métriques globaux",
     "globalHelp": "Valeurs par défaut appliquées à TOUS les tenants. Chaque tenant peut les remplacer dans /policies → Seuils. Laissez un champ vide pour utiliser la valeur système par défaut (indication en gris).",
     "tenantTitle": "Seuils par défaut du tenant",
-    "tenantHelp": "Chaque groupe et chaque appareil de ce tenant hérite de ces valeurs si rien n'est défini à son propre niveau. Laissez un champ vide pour hériter du niveau global (indication en gris)."
+    "tenantHelp": "Chaque groupe et chaque appareil de ce tenant hérite de ces valeurs si rien n'est défini à son propre niveau. Laissez un champ vide pour hériter du niveau global (indication en gris).",
+    "alerts": "Alertes",
+    "alertsOffHint": "Désactivées : la couleur d'état reste affichée, mais aucune notification (web, canaux, application mobile) n'est envoyée pour cette métrique.",
+    "inheritedFrom": "Hérité de {{name}}",
+    "inherited": {
+      "system": "Hérité du défaut système",
+      "global": "Hérité des paramètres globaux",
+      "tenant": "Hérité du tenant {{name}}",
+      "group": "Hérité du groupe {{name}}"
+    },
+    "override": "Personnaliser",
+    "resetInherit": "Rétablir l'héritage",
+    "deviceTitle": "Seuils personnalisés"
   },
   "desktopUpdate": {
     "appName": "L'application de bureau",

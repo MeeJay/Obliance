@@ -65,6 +65,29 @@ class TriageRequestTest {
         assertEquals(2, handled)
     }
 
+    /** « N appareils en attente » of a burst: the Enrôlements segment, reported once. */
+    @Test fun enrolmentsRequestSelectsTheSegment() {
+        var handled = 0
+        var request by mutableStateOf<TriageRequest?>(TriageRequest.Enrolments(SampleData.PROD))
+        compose.setContent {
+            ObliTheme {
+                CompositionLocalProvider(LocalObliServices provides SampleObliServices()) {
+                    TriageRoute(
+                        onOpenDevice = { _, _ -> }, clock = { NIGHT_NOW }, zone = paris, tick = false,
+                        request = request,
+                        onRequestHandled = {
+                            handled++
+                            request = null
+                        },
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(1, handled)
+        compose.onNodeWithText("KIOSK-ACCUEIL-02", substring = true).assertExists()
+    }
+
     @Test fun aRequestTheCallerKeepsIsNotReportedTwice() {
         var handled = 0
         var recompose by mutableIntStateOf(0)

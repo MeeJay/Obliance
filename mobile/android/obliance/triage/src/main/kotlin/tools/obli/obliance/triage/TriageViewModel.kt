@@ -515,11 +515,24 @@ internal class TriageViewModel(
                 requestJob = viewModelScope.launch {
                     launch { services.alerts.refresh() }
                     val match = { u: TriageUi ->
-                        u.escalations.firstOrNull { it.item.serverId == request.serverId && it.item.approval.id == request.approvalId }
+                        u.allEscalations.firstOrNull { it.item.serverId == request.serverId && it.item.approval.id == request.approvalId }
                     }
                     val found = withTimeoutOrNull(requestWaitMs) { ui.first { match(it) != null } }?.let(match)
                     if (found != null) openReview(found) else eventChannel.trySend(TriageEvent.RequestGone(enrolment = false))
                 }
+            }
+            is TriageRequest.Enrolments -> {
+                local.update { it.copy(segment = TriageSegment.ENROLMENTS, serverFilter = request.serverId) }
+                if (enrolFeed.enabled) {
+                    requestJob = viewModelScope.launch {
+                        val id = request.serverId
+                        if (id != null) enrolFeed.refresh(id) else enrolFeed.refreshAll()
+                    }
+                }
+            }
+            is TriageRequest.Approvals -> {
+                local.update { it.copy(segment = TriageSegment.APPROVALS, serverFilter = request.serverId) }
+                requestJob = viewModelScope.launch { services.alerts.refresh() }
             }
             is TriageRequest.Enrolment -> {
                 local.update { it.copy(segment = TriageSegment.ENROLMENTS, serverFilter = it.serverFilter?.takeIf { f -> f == request.serverId }) }

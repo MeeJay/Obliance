@@ -1,5 +1,6 @@
 package tools.obli.obliance.notifications
 
+import android.app.KeyguardManager
 import android.content.Intent
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -10,6 +11,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tools.obli.obliance.data.sample.SampleData
 
@@ -111,6 +113,46 @@ class NotificationActionReceiverTest {
         fleet.prod.on("POST /api/devices/240/approve", """{"error":"Capability 'agent_config:approval' not permitted for your team"}""", code = 403)
         assertFalse(handle(actionIntent(id, "Approuver")))
         assertEquals("Ouvrez Obliance pour terminer", fleet.shownFor(fleet.prodId).single { it.id == id }.title)
+    }
+
+    /**
+     * Android 8-11: `setAuthenticationRequired` does nothing, so the enrolment
+     * notification offers « Examiner » only (an activity: Android asks for the
+     * unlock), and an action that still arrives from a LOCKED phone (an older
+     * notification) sends nothing.
+     */
+    @Config(sdk = [30], qualifiers = "fr-rFR")
+    @Test fun beforeAndroid12ALockedPhoneSendsNothing() {
+        val id = postKiosk()
+        assertEquals(listOf("Examiner"), fleet.shownFor(fleet.prodId).single { it.id == id }.actionTitles)
+
+        shadowOf(fleet.app.getSystemService(KeyguardManager::class.java)).setIsDeviceLocked(true)
+        fleet.prod.on("POST /api/devices/240/approve", """{"data":${KIOSK_PENDING.replace("\"approvalStatus\":\"pending\"", "\"approvalStatus\":\"approved\"")}}""")
+        fleet.prod.on("PATCH /api/live-alerts/9812/read", """{"success":true}""")
+        listOf(fleet.prod, fleet.dev, fleet.qual).forEach { it.requests.clear() }
+
+        val approve = Intent(fleet.app, NotificationActionReceiver::class.java).setAction(ActionKind.APPROVE.action)
+        ActionExtras.write(approve, ActionTarget(fleet.prodId, id, deviceId = 240, tenantId = SampleData.ACME_TENANT, label = "KIOSK-ACCUEIL-02"))
+        assertFalse(handle(approve))
+        val markRead = Intent(fleet.app, NotificationActionReceiver::class.java).setAction(ActionKind.MARK_READ.action)
+        ActionExtras.write(markRead, ActionTarget(fleet.prodId, NotificationIds.alert(fleet.prodId, 9812), alertId = 9812, deviceId = 211))
+        assertFalse(handle(markRead))
+
+        assertEquals(0, fleet.prod.count("POST /api/devices/240/approve"))
+        assertEquals(0, fleet.prod.count("PATCH /api/live-alerts/9812/read"))
+        assertTrue(fleet.prod.requests.isEmpty())
+        assertEquals("Ouvrez Obliance pour terminer", fleet.shownFor(fleet.prodId).single { it.id == id }.title)
+    }
+
+    @Config(sdk = [30], qualifiers = "fr-rFR")
+    @Test fun beforeAndroid12AnUnlockedPhoneStillActs() {
+        val id = postKiosk()
+        shadowOf(fleet.app.getSystemService(KeyguardManager::class.java)).setIsDeviceLocked(false)
+        fleet.prod.on("POST /api/devices/240/approve", """{"data":${KIOSK_PENDING.replace("\"approvalStatus\":\"pending\"", "\"approvalStatus\":\"approved\"")}}""")
+        val approve = Intent(fleet.app, NotificationActionReceiver::class.java).setAction(ActionKind.APPROVE.action)
+        ActionExtras.write(approve, ActionTarget(fleet.prodId, id, deviceId = 240, tenantId = SampleData.ACME_TENANT, label = "KIOSK-ACCUEIL-02"))
+        assertTrue(handle(approve))
+        assertEquals(1, fleet.prod.count("POST /api/devices/240/approve"))
     }
 
     @Test fun aTenantMismatchIsNeverSent() {

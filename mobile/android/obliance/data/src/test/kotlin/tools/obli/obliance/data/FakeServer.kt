@@ -50,14 +50,29 @@ class FakeServer : AutoCloseable {
     override fun close() = server.close()
 }
 
-class FakeRealtime : RealtimeClient {
+/**
+ * Realtime of a fake server. By default it always reports CONNECTED; with
+ * [stateful] it starts DISCONNECTED and follows connect / reconnect / disconnect
+ * (the foreground tests watch the state the way the app does).
+ */
+class FakeRealtime(private val stateful: Boolean = false) : RealtimeClient {
     val log = CopyOnWriteArrayList<String>()
-    override val state: StateFlow<ConnectionState> = MutableStateFlow(ConnectionState.CONNECTED)
+    private val _state = MutableStateFlow(if (stateful) ConnectionState.DISCONNECTED else ConnectionState.CONNECTED)
+    override val state: StateFlow<ConnectionState> = _state
     val flow = MutableSharedFlow<RealtimeEvent>(extraBufferCapacity = 16)
     override val events: SharedFlow<RealtimeEvent> = flow
-    override fun connect() { log += "connect" }
-    override fun reconnect() { log += "reconnect" }
-    override fun disconnect() { log += "disconnect" }
+    override fun connect() {
+        log += "connect"
+        if (stateful) _state.value = ConnectionState.CONNECTED
+    }
+    override fun reconnect() {
+        log += "reconnect"
+        if (stateful) _state.value = ConnectionState.CONNECTING
+    }
+    override fun disconnect() {
+        log += "disconnect"
+        if (stateful) _state.value = ConnectionState.DISCONNECTED
+    }
     override fun emit(name: String, payload: JsonElement?) = false
     override suspend fun emitWithAck(name: String, payload: JsonElement?, timeoutMs: Long): JsonElement? = null
 }

@@ -95,6 +95,12 @@ internal object NotificationIds {
     fun alert(serverId: ServerId, alertId: Long) = of(serverId, "alert", alertId.toString())
     fun approval(serverId: ServerId, approvalId: Long) = of(serverId, "approval", approvalId.toString())
     fun enrolment(serverId: ServerId, deviceId: Long) = of(serverId, "enrolment", deviceId.toString())
+
+    /** « N appareils en attente » of that server (the rest of a burst). */
+    fun enrolmentsMore(serverId: ServerId) = of(serverId, "enrolments", "more")
+
+    /** « N demandes d'approbation en attente » of that server. */
+    fun approvalsMore(serverId: ServerId) = of(serverId, "approvals", "more")
     fun expired(serverId: ServerId) = of(serverId, "account", "expired")
     fun summary(serverId: ServerId) = of(serverId, "summary", "0")
     fun test(serverId: ServerId) = of(serverId, "test", "0")

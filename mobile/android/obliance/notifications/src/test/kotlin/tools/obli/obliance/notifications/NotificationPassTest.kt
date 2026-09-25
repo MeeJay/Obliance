@@ -324,6 +324,160 @@ class NotificationPassTest {
         assertTrue(fleet.state(fleet.prodId).postedAlerts.single { it.alertId == 9812L }.recovered)
     }
 
+    /**
+     * Two notifications of SRV-AD2 on screen (CPU « Critique » #100, then « Hors
+     * ligne » #105): « De retour en ligne » replaces the OFFLINE one only; the
+     * CPU critical stays, with its reminder.
+     */
+    @Test fun aRecoveryReplacesOnlyTheNotificationOfItsKind() {
+        onCall(OutsideRule.NONE)
+        baseline()
+        val cpu = Row(10100, "critical", "SRV-AD2: Critique", "CPU 97 % (seuil 90 %)", SampleData.ACME_TENANT, device = 211, at = "2026-09-25T01:05:00Z")
+        val offline = Row(10105, "critical", "SRV-AD2: Hors ligne", "Aucun push reçu depuis 4 min.", SampleData.ACME_TENANT, device = 211, at = "2026-09-25T01:12:04Z")
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(offline, cpu))
+        fleet.pass()
+        assertEquals(2, fleet.shownFor(fleet.prodId).size)
+
+        fleet.prod.on(
+            "GET /api/live-alerts/all",
+            feedJson(Row(10110, "info", "SRV-AD2: De retour en ligne", "", SampleData.ACME_TENANT, device = 211, at = "2026-09-25T01:19:00Z"), offline, cpu),
+        )
+        fleet.pass()
+        val shown = fleet.shownFor(fleet.prodId).associateBy { it.id }
+        val cpuN = shown.getValue(NotificationIds.alert(fleet.prodId, 10100))
+        val offN = shown.getValue(NotificationIds.alert(fleet.prodId, 10105))
+        assertEquals("${fleet.prodId.value}.critical", cpuN.notification.channelId)
+        assertEquals("${fleet.prodId.value}.recovery", offN.notification.channelId)
+        val posted = fleet.state(fleet.prodId).postedAlerts
+        assertFalse(posted.single { it.alertId == 10100L }.recovered)
+        assertTrue(posted.single { it.alertId == 10105L }.recovered)
+        assertFalse("the CPU reminder stays", "cancel-reminder ${fleet.prodId.value} 10100" in fleet.work.log)
+        assertTrue("cancel-reminder ${fleet.prodId.value} 10105" in fleet.work.log)
+    }
+
+    @Test fun aMetricRecoveryNeverReplacesADiskHealthNotification() {
+        baseline()
+        val disk = Row(10200, "critical", "SRV-FILES01: santé disque critique", "Disque 1 : 40 secteurs réalloués", device = 30, at = "2026-09-25T01:00:00Z")
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(disk))
+        fleet.pass()
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(Row(10201, "info", "SRV-FILES01: retour à la normale", "CPU 40 %", device = 30), disk))
+        fleet.pass()
+        val n = fleet.shownFor(fleet.prodId).single { it.id == NotificationIds.alert(fleet.prodId, 10200) }
+        assertEquals("${fleet.prodId.value}.critical", n.notification.channelId)
+        assertFalse(fleet.state(fleet.prodId).postedAlerts.single { it.alertId == 10200L }.recovered)
+    }
+
+    /**
+     * A mass deployment: 50 agents pending under a key without auto-approval.
+     * Three notifications and ONE « 47 appareils en attente » that opens
+     * À traiter › Enrôlements; nothing else, so the alerts that follow still show.
+     */
+    @Test fun anEnrolmentBurstIsThreeNotificationsAndOneSummary() {
+        fleet.prod.on("GET /api/devices", devicesJson())
+        fleet.pass()
+        fleet.prod.on("GET /api/devices", devicesJson(*(301L..350L).map { pendingJson(it) }.toTypedArray()))
+        fleet.pass()
+        val enrol = fleet.shownFor(fleet.prodId).filter { it.notification.channelId == "${fleet.prodId.value}.enrolments" }
+        assertEquals(4, enrol.size)
+        val individual = enrol.filter { it.id != NotificationIds.enrolmentsMore(fleet.prodId) }.map { it.id }.toSet()
+        assertEquals((301L..303L).map { NotificationIds.enrolment(fleet.prodId, it) }.toSet(), individual)
+        val more = enrol.single { it.id == NotificationIds.enrolmentsMore(fleet.prodId) }
+        assertEquals("47 appareils en attente d’enrôlement", more.title)
+        assertEquals(listOf("Examiner"), more.actionTitles)
+        assertEquals(NotificationRoute.Enrolments(fleet.prodId), RouteExtras.read(more.notification.actions.single().actionIntent.saved()))
+        assertEquals(350L, fleet.state(fleet.prodId).enrolmentsMark)
+        assertEquals(listOf(301L, 302L, 303L), fleet.state(fleet.prodId).postedEnrolments.sorted())
+
+        // Approved in bulk elsewhere but five: the summary follows, silently.
+        fleet.prod.on("GET /api/devices", devicesJson(*(301L..305L).map { pendingJson(it) }.toTypedArray()))
+        fleet.pass()
+        assertEquals("2 appareils en attente d’enrôlement", fleet.shownFor(fleet.prodId).single { it.id == NotificationIds.enrolmentsMore(fleet.prodId) }.title)
+        assertTrue(fleet.publisher.posted.last { it.id == NotificationIds.enrolmentsMore(fleet.prodId) }.silent)
+
+        // Only the three notified ones left: the summary goes.
+        fleet.prod.on("GET /api/devices", devicesJson(*(301L..303L).map { pendingJson(it) }.toTypedArray()))
+        fleet.pass()
+        assertTrue(fleet.shownFor(fleet.prodId).none { it.id == NotificationIds.enrolmentsMore(fleet.prodId) })
+    }
+
+    @Test fun anEscalationBurstIsCappedToo() {
+        baseline()
+        val burst = (18L..27L).map { Triple(it, "pending", "2026-09-25T02:30:00Z") }.toTypedArray()
+        fleet.prod.on("GET /api/approvals", approvalsJson(Triple(17, "pending", "2026-09-25T01:51:08Z"), *burst))
+        fleet.pass()
+        val esc = fleet.shownFor(fleet.prodId).filter { it.notification.channelId == "${fleet.prodId.value}.escalations" }
+        assertEquals(4, esc.size)
+        val more = esc.single { it.id == NotificationIds.approvalsMore(fleet.prodId) }
+        // 11 pending, 3 notified one by one.
+        assertEquals("8 demandes d’approbation en attente", more.title)
+        assertEquals(NotificationRoute.Approvals(fleet.prodId), RouteExtras.read(more.notification.contentIntent.saved()))
+    }
+
+    /**
+     * Android keeps ~50 notifications per app and drops the next ones without a
+     * word: near the limit the oldest non-critical ones make room, and a
+     * critical that still did not show is posted again at the end of the pass.
+     */
+    @Test fun nearTheAndroidLimitTheOldestNonCriticalMakeRoom() {
+        baseline()
+        val attention = (1..AndroidNotificationPublisher.SOFT_LIMIT).map { i ->
+            PlannedNotification(
+                serverId = fleet.devId, id = 5_000 + i, channel = NotifChannel.ATTENTION, title = "old $i", text = "", subText = null,
+                publicTitle = "Alerte", content = NotificationRoute.Inbox(fleet.devId),
+            )
+        }
+        attention.forEach { fleet.publisher.post(it) }
+        assertEquals(AndroidNotificationPublisher.SOFT_LIMIT, fleet.nm.activeNotifications.size)
+
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(Row(9812, "critical", "SRV-AD2: Hors ligne", "Aucun push reçu depuis 4 min.", SampleData.ACME_TENANT, device = 211)))
+        fleet.pass()
+        assertTrue(fleet.nm.activeNotifications.size <= AndroidNotificationPublisher.SOFT_LIMIT)
+        assertNotNull(fleet.shownFor(fleet.prodId).singleOrNull { it.id == NotificationIds.alert(fleet.prodId, 9812) })
+        assertTrue("the oldest attention one went", fleet.shownFor(fleet.devId).none { it.id == 5_001 })
+    }
+
+    @Test fun aCriticalAndroidDroppedIsPostedAgain() {
+        baseline()
+        val id = NotificationIds.alert(fleet.prodId, 9812)
+        var dropped = 0
+        fleet.publisher.drop = { n -> (n.id == id && dropped == 0).also { if (it) dropped++ } }
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(Row(9812, "critical", "SRV-AD2: Hors ligne", tenantId = SampleData.ACME_TENANT, device = 211)))
+        fleet.pass()
+        assertEquals(1, dropped)
+        assertEquals(2, fleet.publisher.posted.count { it.id == id })
+        assertNotNull(fleet.shownFor(fleet.prodId).singleOrNull { it.id == id })
+    }
+
+    /**
+     * The enrolments step times out AFTER the alerts were posted: the alerts
+     * part is already saved (no second ring, the reminder has its record), the
+     * pass is PARTIAL and S84 does not say « Injoignable ».
+     */
+    @Test fun aSlowLaterStepNeverRollsBackThePostedAlerts() {
+        onCall(OutsideRule.NONE)
+        baseline()
+        fleet.prod.delays["GET /api/devices"] = 3_000
+        fleet.prod.on("GET /api/live-alerts/all", feedJson(Row(9812, "critical", "SRV-AD2: Hors ligne", tenantId = SampleData.ACME_TENANT, device = 211)))
+        val reports = fleet.pass(timeoutMs = 1_000)
+        assertEquals(PassResult.PARTIAL, reports.single { it.serverId == fleet.prodId }.result)
+        val st = fleet.state(fleet.prodId)
+        assertEquals(PassResult.PARTIAL, st.lastPass?.result)
+        assertEquals(9812L, st.alertsMark)
+        assertTrue(st.postedAlerts.single { it.alertId == 9812L }.critical)
+        assertEquals("the enrolments mark stays", 240L, st.enrolmentsMark)
+        assertTrue("reminder ${fleet.prodId.value} 9812 1" in fleet.work.log)
+
+        // Swiped away, next pass: never rung again.
+        fleet.nm.cancel(fleet.prodId.value, NotificationIds.alert(fleet.prodId, 9812))
+        fleet.prod.delays.remove("GET /api/devices")
+        val before = fleet.publisher.posted.count { it.id == NotificationIds.alert(fleet.prodId, 9812) }
+        fleet.pass()
+        assertEquals(before, fleet.publisher.posted.count { it.id == NotificationIds.alert(fleet.prodId, 9812) })
+        assertEquals(PassResult.OK, fleet.state(fleet.prodId).lastPass?.result)
+        // The reminder still finds its record.
+        assertNotNull(fleet.state(fleet.prodId).postedAlerts.singleOrNull { it.alertId == 9812L })
+    }
+
     @Test fun alertsReadElsewhereLoseTheirNotification() {
         baseline()
         fleet.prod.on("GET /api/live-alerts/all", feedJson(Row(9790, "warning", "BOB01: Alerte", "Disque / 94 % (seuil 90 %)", device = 15)))

@@ -169,10 +169,34 @@ internal data class TriageUi(
     val enrolmentNotices: List<FeedNotice> = emptyList(),
     val enrolmentState: ListState = ListState.EMPTY,
     val enrolmentRefreshing: Boolean = false,
+    /**
+     * « Filtrer la vue globale » of the ACTIVE server (§2.3) applied here: its
+     * alerts, escalations and enrolments of the other tenants are hidden (other
+     * servers are not filtered, §2.10). How many are hidden (caption).
+     */
+    val hiddenByViewFilter: Int = 0,
+    /** Every pending escalation, the filtered-out ones included (a notification may name one). */
+    val allEscalations: List<EscalationUi> = emptyList(),
+    /** Enrolment sections hidden by the global-view filter (a notification may name one of their devices). */
+    val hiddenEnrolmentGroups: List<EnrolmentGroupUi> = emptyList(),
 ) {
-    /** The pending device [key] as listed now (null when it left the list). */
+    /** The pending device [key] as listed now, shown or hidden by the view filter (null when it left the list). */
     fun enrolment(key: EnrolmentKey): EnrolmentItemUi? =
-        enrolmentGroups.firstNotNullOfOrNull { g -> g.items.firstOrNull { it.key == key } }
+        (enrolmentGroups + hiddenEnrolmentGroups).firstNotNullOfOrNull { g -> g.items.firstOrNull { it.key == key } }
+}
+
+/**
+ * §2.3 « Filtrer la vue globale » applied to À traiter: the stored filter of the
+ * ACTIVE server ([TenantScope.viewFilter], empty outside its master tenant) hides
+ * that server's items of the other tenants. Items of other servers, and items
+ * without a tenant, always show.
+ */
+internal class ViewFilter(private val scope: TenantScope) {
+    private val tenants: Set<Long> = scope.viewFilter
+    val active: Boolean get() = tenants.isNotEmpty() && scope.serverId != null
+
+    fun shows(serverId: ServerId, tenantId: Long?): Boolean =
+        !active || serverId != scope.serverId || tenantId == null || tenantId in tenants
 }
 
 /** Screen-local choices kept by the ViewModel. */
@@ -213,8 +237,15 @@ internal object TriageMapper {
         val serverSet = serverFilter?.let { setOf(it) }
         val feeds = snapshot.feeds.associateBy { it.serverId }
 
-        // Alerts minus the ones swiped away (their call waits for the undo delay).
-        val alerts = snapshot.alerts.filter { it.key !in local.pendingDeletes }
+        // Alerts minus the ones swiped away (their call waits for the undo delay) and,
+        // on the active server, the tenants outside « Filtrer la vue globale » (§2.3).
+        val view = ViewFilter(scope)
+        val alerts = snapshot.alerts.filter { it.key !in local.pendingDeletes && view.shows(it.serverId, it.alert.tenantId) }
+        val hiddenAlerts = if (view.active) {
+            snapshot.alerts.count { it.alert.readAt == null && !view.shows(it.serverId, it.alert.tenantId) }
+        } else {
+            0
+        }
         val serverScoped = Triage(alerts, serverSet, null)
         val filtered = Triage(alerts, serverSet, local.severities.takeIf { it.isNotEmpty() })
 
@@ -263,7 +294,7 @@ internal object TriageMapper {
         }
         // Past its expiry a request can only answer 410: the server never sweeps them
         // (approval.service.ts sweepExpired has no caller), so they are hidden here.
-        val pending = snapshot.escalations
+        val allPending = snapshot.escalations
             .filter { it.approval.isPending && !isExpired(it, now) }
             .map { e ->
                 EscalationUi(
@@ -275,6 +306,7 @@ internal object TriageMapper {
                 )
             }
             .sortedWith(compareBy<EscalationUi> { it.expiresAt ?: Instant.MAX }.thenBy { it.item.approval.id })
+        val pending = allPending.filter { view.shows(it.item.serverId, it.item.approval.tenantId) }
         // The pinned "ESCALADES DE DROITS" summary covers every server; the segment follows the server filter.
         val approvals = pending.filter { serverSet == null || it.item.serverId in serverSet }
 
@@ -312,7 +344,7 @@ internal object TriageMapper {
         }
 
         val unreadByServer = serverScoped.unreadByServer
-        val enrol = EnrolmentMapper.map(enrolments, registry, scope, snapshot, serverFilter)
+        val enrol = EnrolmentMapper.map(enrolments, registry, scope, snapshot, serverFilter, view)
         // A segment without the right is hidden (§5 S10): its choice falls back to Alertes.
         val segment = when (local.segment) {
             TriageSegment.ALERTS -> TriageSegment.ALERTS
@@ -358,6 +390,9 @@ internal object TriageMapper {
             enrolmentNotices = enrol.notices,
             enrolmentState = enrol.listState,
             enrolmentRefreshing = enrol.refreshing,
+            hiddenByViewFilter = hiddenAlerts + (if (isPlatformAdmin) allPending.size - pending.size else 0) + enrol.hidden,
+            allEscalations = if (isPlatformAdmin) allPending else emptyList(),
+            hiddenEnrolmentGroups = enrol.hiddenGroups,
         )
     }
 

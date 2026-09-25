@@ -4,7 +4,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { SocketEvents, isMasterTenant } from '@obliance/shared';
-import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck, DeviceIdentityFingerprint } from '@obliance/shared';
+import type { Device, DeviceMetrics, AgentPushRequest, AgentPushResponse, CommandAck, DeviceIdentityFingerprint, ResolvedThresholds } from '@obliance/shared';
+import { filterNotifiedBreaches, worstLevel, planMetricTransitions, inlineRebaselinePrevAlert, type MetricBreach } from './thresholdCascade';
 import { appConfigService } from './appConfig.service';
 import { settingsService } from './settings.service';
 import { SETTINGS_KEYS } from '@obliance/shared';
@@ -746,9 +747,29 @@ class DeviceService {
     // the UI exposes the pencil on /devices for cross-tenant rename in
     // god view. Child tenants stay strictly scoped to their own rows.
     const isMaster = isMasterTenant(tenantId);
+    // Per-metric alerts switch (`notify`): a change of the device override
+    // or of its group (the group chain carries inherited switches) needs a
+    // silent re-baseline of the alertable level, so a newly muted metric
+    // does not send a "back to normal" message on the next push.
+    let before: { thresholds_override: unknown; group_id: number | null } | undefined;
+    if (data.thresholdsOverride !== undefined || data.groupId !== undefined) {
+      const beforeQ = db('devices').where({ id }).select('thresholds_override', 'group_id');
+      if (!isMaster) beforeQ.where({ tenant_id: tenantId });
+      before = await beforeQ.first();
+    }
     const updateQ = db('devices').where({ id });
     if (!isMaster) updateQ.where({ tenant_id: tenantId });
     await updateQ.update(updates);
+    if (before) {
+      const parse = (v: unknown) => (typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch { return null; } })() : v) as import('@obliance/shared').MetricThresholds | null;
+      const { metricAlertRebaseline } = await import('./metricAlertRebaseline.service');
+      const notifyChanged = data.thresholdsOverride !== undefined
+        && metricAlertRebaseline.notifyChanged(parse(before.thresholds_override), data.thresholdsOverride);
+      const groupChanged = data.groupId !== undefined && (data.groupId ?? null) !== (before.group_id ?? null);
+      if (notifyChanged || groupChanged) {
+        metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: [id] }, groupChanged ? 'device group change' : 'device notify switch');
+      }
+    }
     const updated = await this.getDeviceById(id, tenantId);
     if (updated && this.io) {
       // Emit on the OWNING tenant's room so the device's home tenant
@@ -778,6 +799,13 @@ class DeviceService {
       group_id: groupId ?? null,
       updated_at: new Date(),
     });
+    // The API key's default group may bring a different alerts switch
+    // (`notify`) chain — pending devices are already evaluated on push, so
+    // re-baseline the alertable level silently.
+    if (deviceRow && (groupId ?? null) !== (deviceRow.group_id ?? null)) {
+      const { metricAlertRebaseline } = await import('./metricAlertRebaseline.service');
+      metricAlertRebaseline.schedule({ kind: 'devices', deviceIds: [id] }, 'approval default group');
+    }
     const device = await this.getDeviceById(id, tenantId);
     if (device && this.io) {
       this.io.to(`tenant:${tenantId}`).emit(SocketEvents.DEVICE_APPROVED, device);
@@ -1194,11 +1222,14 @@ class DeviceService {
 
     // Capture previous status + version to detect transitions
     const prev = await db('devices').where({ id: deviceId })
-      .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'metric_alerts_enabled', 'peak_metrics')
+      .select('status', 'agent_version', 'privacy_mode_enabled', 'airgap_enabled', 'last_offline_at', 'tenant_id', 'group_id', 'last_metric_status', 'last_metric_alert_status', 'metric_alerts_enabled', 'peak_metrics', 'latest_metrics')
       .first();
     const prevStatus = prev?.status as string | undefined;
     const prevOfflineAt = prev?.last_offline_at ? new Date(prev.last_offline_at) : null;
     const prevMetricStatus = (prev?.last_metric_status ?? null) as 'ok' | 'warning' | 'critical' | null;
+    // Alertable level (breaches of metrics whose alerts are ON). NULL =
+    // never written yet → read as the full level (migration 125).
+    const rawPrevAlertStatus = (prev?.last_metric_alert_status ?? null) as 'ok' | 'warning' | 'critical' | null;
     const prevPrivacy = !!prev?.privacy_mode_enabled;
     const prevAirgap = !!prev?.airgap_enabled;
 
@@ -1273,16 +1304,26 @@ class DeviceService {
       if (typeof grp?.metric_alerts_enabled === 'boolean') alertsEnabled = grp.metric_alerts_enabled;
     }
 
+    // Two levels from ONE evaluation:
+    //   - metricStatus / breaches: every breach → device status, colours and
+    //     the metric_warning / metric_critical scenario triggers (unchanged);
+    //   - alertStatus / alertBreaches: only the metrics whose per-metric
+    //     alerts switch (`notify`) is on → notification channels + live
+    //     alerts (web bell / toast / mobile "À traiter").
     let metricStatus: 'ok' | 'warning' | 'critical' = 'ok';
-    let breaches: Array<{ metric: 'cpu' | 'memory' | 'disk'; level: 'warning' | 'critical'; percent: number; mount?: string }> = [];
-    let thresholds: any = null;
+    let breaches: MetricBreach[] = [];
+    let alertStatus: 'ok' | 'warning' | 'critical' = 'ok';
+    let alertBreaches: MetricBreach[] = [];
+    let thresholds: ResolvedThresholds | null = null;
     try {
       if (alertsEnabled && push.metrics) {
         const { thresholdService } = await import('./threshold.service');
         thresholds = await thresholdService.resolveForDevice(deviceId);
         const r = thresholdService.computeMetricStatus(push.metrics as any, thresholds);
         metricStatus = r.status;
-        breaches = r.breaches as any;
+        breaches = r.breaches;
+        alertBreaches = filterNotifiedBreaches(breaches, thresholds);
+        alertStatus = worstLevel(alertBreaches);
       }
     } catch (thresholdErr) {
       logger.error(thresholdErr, 'metric-threshold evaluation failed');
@@ -1312,91 +1353,151 @@ class DeviceService {
         .update(statusUpdate);
     }
 
-    // Persist the latest metric status separately from device status so
+    // Persist the metric levels separately from device status so
     // notifications + scenario triggers fire on metric-state transitions
     // (ok→warning, warning→critical, …→ok) regardless of the device
     // status (which may legitimately stay protected as 'suspended' etc).
-    if (prevMetricStatus !== metricStatus) {
-      await db('devices').where({ id: deviceId }).update({ last_metric_status: metricStatus });
-      const becameBad = metricStatus !== 'ok' && (prevMetricStatus == null || prevMetricStatus === 'ok' || (prevMetricStatus === 'warning' && metricStatus === 'critical'));
-      const recovered = metricStatus === 'ok' && prevMetricStatus !== 'ok' && prevMetricStatus != null;
-      if ((becameBad || recovered) && thresholds) {
-        // Resolve violations + display name ONCE for both the
-        // outbound notification (Slack/webhook) and the bell row —
-        // previously each block re-fetched / re-computed and the
-        // bell branch couldn't see `violations` because they sat
-        // inside the notify try-block scope (TS2304 at build time).
-        const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
-        const dispName = dev?.display_name || dev?.hostname || `#${deviceId}`;
-        const violations = breaches.map((b) => {
-          const pct = Math.round(b.percent);
-          const t = thresholds[b.metric];
-          const limit = b.level === 'critical' ? t.crit : t.warn;
-          const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
-          return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
+    //   - last_metric_status       = level of EVERY breach → triggers;
+    //   - last_metric_alert_status = level of the breaches whose alerts are
+    //     on → notification channels + live alerts.
+    // Same transition rules for both (levelTransition): ok→bad and
+    // warning→critical alert, bad→ok recovers, critical→warning is silent.
+    // With `thresholds` null (all-metrics switch off / no metrics) both
+    // levels reset to ok silently, as before. Pure plan in
+    // thresholdCascade.planMetricTransitions.
+    //
+    // Inline re-baseline (thresholdCascade.inlineRebaselinePrevAlert): an
+    // alerts switch turned off moments ago must not produce a false "back
+    // to normal" on a push that lands before the background re-baseline
+    // reached this device. `prev.latest_metrics` = the PREVIOUS push.
+    let rebasedPrevAlert: 'ok' | 'warning' | 'critical' | null = null;
+    if (thresholds) {
+      try {
+        const raw = prev?.latest_metrics;
+        const prevMetrics = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        rebasedPrevAlert = inlineRebaselinePrevAlert({
+          storedPrevAlert: rawPrevAlertStatus ?? prevMetricStatus,
+          alert: alertStatus,
+          prevMetrics: prevMetrics && typeof prevMetrics === 'object' ? prevMetrics : null,
+          thresholds,
         });
-        try {
-          const { notificationService } = await import('./notification.service');
-          await notificationService.sendForAgent(
-            deviceId, dispName,
-            recovered ? 'up' : 'alert',
-            prevMetricStatus ?? 'ok',
-            violations,
-            metricStatus === 'critical' ? 'alert' : (metricStatus === 'warning' ? 'alert' : 'up'),
-          );
-        } catch (notifyErr) {
-          logger.error(notifyErr, 'metric-threshold notification failed');
-        }
+      } catch (rebaseErr) {
+        logger.error(rebaseErr, 'inline metric alert re-baseline failed');
+      }
+    }
+    const effRawPrevAlert = rebasedPrevAlert ?? rawPrevAlertStatus;
+    const plan = planMetricTransitions({
+      prevMetric: prevMetricStatus,
+      rawPrevAlert: effRawPrevAlert,
+      metric: metricStatus,
+      alert: alertStatus,
+      evaluated: !!thresholds,
+    });
+    const prevAlertStatus = plan.prevAlert;
+    // The stored column still holds the pre-mute level: always persist the
+    // fresh alertable level when the inline re-baseline kicked in.
+    if (rebasedPrevAlert != null) plan.levelUpdate.last_metric_alert_status = alertStatus;
+    if (rebasedPrevAlert === 'ok') {
+      // Same as the background job: the muted metric's unread alerts leave
+      // the web bell and the mobile "À traiter" (before any new alert of
+      // this push, so its stable-key dedupe sees them as read).
+      try {
+        const { liveAlertService } = await import('./liveAlert.service');
+        await liveAlertService.markDeviceMetricAlertsRead([deviceId]);
+      } catch (markErr) {
+        logger.error(markErr, 'marking muted metric alerts read failed');
+      }
+    }
+    if (Object.keys(plan.levelUpdate).length > 0) {
+      await db('devices').where({ id: deviceId }).update(plan.levelUpdate);
+    }
 
-        // In-app bell — write a row into live_alerts so the bell icon
-        // surfaces what the Slack/email channel just received. Severity
-        // mirrors the metric state ('critical' / 'warning' / 'info' on
-        // recovery). Message embeds the offending metrics so the admin
-        // can see WHY without opening the device page.
-        try {
-          const { liveAlertService } = await import('./liveAlert.service');
-          if (recovered) {
-            await liveAlertService.add(tenantId, {
-              severity: 'info',
-              title: `${dispName}: retour à la normale`,
-              message: 'Toutes les métriques sont revenues sous les seuils configurés.',
-              navigateTo: `/devices/${deviceId}`,
-              // No stable key on recovery: every fresh recovery should
-              // ping (admin wants to know the issue cleared, even if a
-              // previous "back to normal" alert is still unread).
-              stableKey: null,
-            });
-          } else {
-            await liveAlertService.add(tenantId, {
-              severity: metricStatus === 'critical' ? 'critical' : 'warning',
-              title: `${dispName}: ${metricStatus === 'critical' ? 'Critique' : 'Alerte'}`,
-              message: violations.length > 0
-                ? violations.join(' · ')
-                : 'Une métrique a franchi le seuil configuré.',
-              navigateTo: `/devices/${deviceId}`,
-              // Per-state dedup: while the device is stuck in critical,
-              // only one unread "Critical" alert sits in the bell. As
-              // soon as the admin marks it read, the next event for the
-              // same state pings again (so a flapping device stays
-              // visible).
-              stableKey: `device:${deviceId}:metric:${metricStatus}`,
-            });
-          }
-        } catch (alertErr) {
-          logger.error(alertErr, 'live-alert (metric) failed');
-        }
+    // ── Notifications (alertable level) ──────────────────────────────────
+    // A metric whose alerts are muted never shows up in `alertBreaches`:
+    // it cannot raise, escalate or "recover" a notification. Breaches of
+    // the other metrics of the same device still alert normally and the
+    // message lists only them.
+    if (plan.notify && thresholds) {
+      const alertRecovered = plan.notify === 'recovery';
+      const th = thresholds;
+      // Resolve violations + display name ONCE for both the
+      // outbound notification (Slack/webhook) and the bell row.
+      const dev = await db('devices').where({ id: deviceId }).select('hostname', 'display_name').first() as { hostname: string; display_name: string | null } | undefined;
+      const dispName = dev?.display_name || dev?.hostname || `#${deviceId}`;
+      const violations = alertBreaches.map((b) => {
+        const pct = Math.round(b.percent);
+        const t = b.metric === 'disk' && b.mount && th.diskByMount[b.mount] ? th.diskByMount[b.mount] : th[b.metric];
+        const limit = b.level === 'critical' ? t.crit : t.warn;
+        const where = b.metric === 'disk' && b.mount ? ` on ${b.mount}` : '';
+        return `${b.metric.toUpperCase()}${where}: ${pct}% (≥ ${limit}%)`;
+      });
+      try {
+        const { notificationService } = await import('./notification.service');
+        await notificationService.sendForAgent(
+          deviceId, dispName,
+          alertRecovered ? 'up' : 'alert',
+          prevAlertStatus ?? 'ok',
+          violations,
+          alertStatus === 'critical' ? 'alert' : (alertStatus === 'warning' ? 'alert' : 'up'),
+        );
+      } catch (notifyErr) {
+        logger.error(notifyErr, 'metric-threshold notification failed');
+      }
 
-        // Scenario trigger — only on transitions INTO warning/critical.
-        // Recoveries don't fire (admins don't usually automate "all good").
-        if (becameBad) {
-          try {
-            const { scenarioService } = await import('./scenario.service');
-            const triggerType = metricStatus === 'critical' ? 'metric_critical' : 'metric_warning';
-            await scenarioService.fireTrigger(triggerType, deviceId, tenantId, { metricBreaches: breaches } as any);
-          } catch (triggerErr) {
-            logger.error(triggerErr, 'metric-threshold scenario trigger failed');
-          }
+      // In-app bell — write a row into live_alerts so the bell icon
+      // surfaces what the Slack/email channel just received. Severity
+      // mirrors the alertable state ('critical' / 'warning' / 'info' on
+      // recovery). Message embeds the offending metrics so the admin
+      // can see WHY without opening the device page.
+      try {
+        const { liveAlertService } = await import('./liveAlert.service');
+        if (alertRecovered) {
+          await liveAlertService.add(tenantId, {
+            severity: 'info',
+            title: `${dispName}: retour à la normale`,
+            // A muted metric may still be over its threshold (status
+            // colour unchanged): don't claim "all metrics" then.
+            message: metricStatus === 'ok'
+              ? 'Toutes les métriques sont revenues sous les seuils configurés.'
+              : 'Les métriques avec alertes actives sont revenues sous les seuils configurés.',
+            navigateTo: `/devices/${deviceId}`,
+            // No stable key on recovery: every fresh recovery should
+            // ping (admin wants to know the issue cleared, even if a
+            // previous "back to normal" alert is still unread).
+            stableKey: null,
+          });
+        } else {
+          await liveAlertService.add(tenantId, {
+            severity: alertStatus === 'critical' ? 'critical' : 'warning',
+            title: `${dispName}: ${alertStatus === 'critical' ? 'Critique' : 'Alerte'}`,
+            message: violations.length > 0
+              ? violations.join(' · ')
+              : 'Une métrique a franchi le seuil configuré.',
+            navigateTo: `/devices/${deviceId}`,
+            // Per-state dedup: while the device is stuck in critical,
+            // only one unread "Critical" alert sits in the bell. As
+            // soon as the admin marks it read, the next event for the
+            // same state pings again (so a flapping device stays
+            // visible).
+            stableKey: `device:${deviceId}:metric:${alertStatus}`,
+          });
         }
+      } catch (alertErr) {
+        logger.error(alertErr, 'live-alert (metric) failed');
+      }
+    }
+
+    // ── Scenario triggers (full level, unchanged) ────────────────────────
+    // Only on transitions INTO warning/critical of EVERY breach — muting a
+    // metric's alerts does not stop automations. Recoveries don't fire
+    // (admins don't usually automate "all good").
+    if (plan.trigger) {
+      try {
+        const { scenarioService } = await import('./scenario.service');
+        const triggerType = metricStatus === 'critical' ? 'metric_critical' : 'metric_warning';
+        await scenarioService.fireTrigger(triggerType, deviceId, tenantId, { metricBreaches: breaches } as any);
+      } catch (triggerErr) {
+        logger.error(triggerErr, 'metric-threshold scenario trigger failed');
       }
     }
 

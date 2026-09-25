@@ -3,6 +3,7 @@ import { groupsController } from '../controllers/groups.controller';
 import { requireAuth } from '../middleware/auth';
 import { requireTenantCapability, requireGroupWrite, requireCanCreate } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
+import { isMasterTenant } from '@obliance/shared';
 import {
   createGroupSchema,
   updateGroupSchema,
@@ -19,15 +20,29 @@ router.get('/', groupsController.list);
 router.get('/tree', groupsController.tree);
 router.get('/stats', groupsController.stats);
 router.get('/:id', groupsController.getById);
-// Resolved threshold cascade up to the group layer — used by
-// DeviceDetailPage so the per-device override editor's placeholder
-// shows what the device WOULD inherit if its override were cleared.
+// Resolved threshold cascade for a group, with the origin (layer + name)
+// of every value. `?scope=parent` leaves the group's own values out: what
+// the group inherits (group editor: placeholders + greyed alerts switch).
+// Without it: what a device of the group inherits. Uses the GROUP's tenant
+// layer (master god view editing a child tenant's group). Same read gate
+// as GET /groups/:id — group names of the ancestor chain are returned.
 router.get('/:id/thresholds-resolved', async (req, res, next) => {
   try {
-    const { thresholdService } = await import('../services/threshold.service');
     const groupId = parseInt(req.params.id, 10);
     if (!Number.isFinite(groupId)) return res.status(400).json({ success: false, error: 'Invalid group id' });
-    const resolved = await thresholdService.resolveForGroup(groupId, req.tenantId!);
+    const { groupService } = await import('../services/group.service');
+    const group = await groupService.getById(groupId);
+    if (!group || (!isMasterTenant(req.tenantId!) && group.tenantId !== req.tenantId)) {
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+    if (req.session.role !== 'admin') {
+      const { permissionService } = await import('../services/permission.service');
+      const canRead = await permissionService.canReadGroup(req.session.userId!, groupId, false);
+      if (!canRead) return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+    const { thresholdService } = await import('../services/threshold.service');
+    const resolved = await thresholdService.resolveForGroup(groupId, { includeSelf: req.query.scope !== 'parent' });
+    if (!resolved) return res.status(404).json({ success: false, error: 'Group not found' });
     res.json({ success: true, data: resolved });
   } catch (err) { next(err); }
 });

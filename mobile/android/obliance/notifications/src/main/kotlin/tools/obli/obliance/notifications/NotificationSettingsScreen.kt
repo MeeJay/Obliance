@@ -261,6 +261,7 @@ private fun DeliverySection(ui: SettingsUi, actions: SettingsActions) {
 @Composable
 private fun statusText(s: ServerRowUi): String = when (s.status) {
     ServerStatus.CHECKED -> stringResource(R.string.notif_server_checked, s.statusTime.orEmpty())
+    ServerStatus.PARTIAL -> stringResource(R.string.notif_server_partial, s.statusTime.orEmpty())
     ServerStatus.EXPIRED -> stringResource(R.string.notif_server_expired)
     ServerStatus.UNREACHABLE -> stringResource(R.string.notif_server_unreachable, s.statusTime.orEmpty())
     ServerStatus.DISABLED -> stringResource(R.string.notif_server_disabled)
@@ -274,6 +275,7 @@ private fun StatusMark(status: ServerStatus) {
     val c = ObliTheme.colors
     val (icon, tint) = when (status) {
         ServerStatus.CHECKED -> ObliIcons.CircleCheck to OkGreen
+        ServerStatus.PARTIAL -> ObliIcons.TriangleAlert to WarnYellow
         ServerStatus.EXPIRED -> ObliIcons.ChevronRight to c.textMuted
         ServerStatus.UNREACHABLE -> ObliIcons.TriangleAlert to WarnYellow
         ServerStatus.DISABLED -> NotifIcons.BellOff to c.textMuted

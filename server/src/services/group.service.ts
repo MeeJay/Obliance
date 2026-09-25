@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { isMasterTenant } from '@obliance/shared';
 import type { DeviceGroup, DeviceGroupTreeNode, DeviceGroupConfig, MetricThresholds } from '@obliance/shared';
+import { invalidateGroupThresholdCache } from './threshold.service';
 
 interface GroupRow {
   id: number;
@@ -127,6 +128,8 @@ export const groupService = {
       );
     }
 
+    // The threshold cascade walks the group tree from a cached index.
+    invalidateGroupThresholdCache();
     return rowToGroup(row);
   },
 
@@ -163,6 +166,7 @@ export const groupService = {
       .update(updateData)
       .returning('*');
 
+    if (data.thresholds !== undefined || data.name !== undefined) invalidateGroupThresholdCache();
     return row ? rowToGroup(row) : null;
   },
 
@@ -213,12 +217,14 @@ export const groupService = {
       .update({ parent_id: newParentId, updated_at: new Date() })
       .returning('*');
 
+    invalidateGroupThresholdCache();
     return row ? rowToGroup(row) : null;
   },
 
   async delete(id: number): Promise<boolean> {
     // CASCADE in the DB handles closure table and child groups
     const count = await db('device_groups').where({ id }).del();
+    invalidateGroupThresholdCache();
     return count > 0;
   },
 

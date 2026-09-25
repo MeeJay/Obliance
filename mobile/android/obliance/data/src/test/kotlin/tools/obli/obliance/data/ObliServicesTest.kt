@@ -4,6 +4,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -44,6 +46,9 @@ class ObliServicesTest {
     private val realtimes = java.util.concurrent.ConcurrentHashMap<ServerId, FakeRealtime>()
     private val cleared = mutableListOf<String>()
 
+    /** Realtimes that follow connect / disconnect (the foreground tests). */
+    private var statefulRealtime = false
+
     private val prodId = ServerId("prod")
     private val qualId = ServerId("qual")
     private val prodOrigin = "https://obliance-prod.example.org"
@@ -69,7 +74,7 @@ class ObliServicesTest {
         )
         registry.load()
         val sessions = ServerSessions(registry, { p, now ->
-            val rt = FakeRealtime().also { realtimes[p.id] = it }
+            val rt = FakeRealtime(statefulRealtime).also { realtimes[p.id] = it }
             ServerSession(p.id, now, ObliHttp(mockOf.getValue(p.origin).origin, client), { rt })
         }, scope)
         DefaultObliServices(
@@ -184,6 +189,66 @@ class ObliServicesTest {
         assertTrue("connect" in realtimes.getValue(qualId).log)
         assertTrue("disconnect" in realtimes.getValue(prodId).log)
         assertNull(s.openOn(ServerId("unknown")))
+    }
+
+    /**
+     * 0.3.0: the socket lives only in the foreground. A process started in the
+     * background (notification worker, notification action, Quick Settings tile)
+     * probes the active server but never connects; the app in front connects; a
+     * quick trip to another app keeps the socket; a longer one closes it.
+     */
+    @Test fun socketOnlyInTheForeground() = runBlocking<Unit> {
+        prod.on("GET /api/auth/me", body = ME_USER)
+        statefulRealtime = true
+        val s = services()
+        val rt = realtimes.getValue(prodId)
+        val foreground = MutableStateFlow(false)
+        s.start(foreground, backgroundGraceMs = 300)
+
+        // Background process: the startup probe runs, no socket.
+        withTimeout(5_000) { s.sessions.session(prodId)!!.auth.first { it is AuthState.SignedIn } }
+        delay(400)
+        assertTrue("connect" !in rt.log)
+        assertTrue(prod.count("GET /api/auth/me") >= 1)
+
+        // The app comes to the front: connect.
+        foreground.value = true
+        withTimeout(5_000) { while ("connect" !in rt.log) delay(10) }
+
+        // Back within the grace period: the socket stays.
+        rt.log.clear()
+        foreground.value = false
+        delay(50)
+        foreground.value = true
+        delay(500)
+        assertTrue("disconnect" !in rt.log)
+
+        // Longer than the grace period: closed, and not reopened while in the background.
+        foreground.value = false
+        withTimeout(5_000) { while ("disconnect" !in rt.log) delay(10) }
+        rt.log.clear()
+        delay(400)
+        assertTrue("connect" !in rt.log)
+
+        // Front again: reconnects.
+        foreground.value = true
+        withTimeout(5_000) { while ("connect" !in rt.log) delay(10) }
+    }
+
+    /** Whatever reconnects the socket in the background (a tenant switch), the background rule closes it again. */
+    @Test fun noSocketSurvivesInTheBackground() = runBlocking<Unit> {
+        prod.on("GET /api/auth/me", body = ME_ADMIN)
+        prod.on("POST /api/tenant/switch", body = """{"success":true,"data":{"currentTenantId":4}}""")
+        statefulRealtime = true
+        val s = services()
+        val rt = realtimes.getValue(prodId)
+        s.start(MutableStateFlow(false), backgroundGraceMs = 100)
+        withTimeout(5_000) { s.sessions.session(prodId)!!.auth.first { it is AuthState.SignedIn } }
+        assertEquals(ApiOutcome.Ok(Unit), s.tenants.switchTo(4))
+        assertTrue("reconnect" in rt.log)
+        // The reconnection is closed again at once (the process is in the background).
+        withTimeout(5_000) { while (rt.log.lastIndexOf("disconnect") < rt.log.lastIndexOf("reconnect")) delay(10) }
+        withTimeout(5_000) { rt.state.first { it == tools.obli.core.realtime.ConnectionState.DISCONNECTED } }
     }
 
     @Test fun tenantSwitchReprobesAndReconnects() = runBlocking {

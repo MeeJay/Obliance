@@ -37,6 +37,8 @@ interface LiveAlertsState extends AlertPrefs {
   fetchAlerts: () => Promise<void>;
   /** Add a single alert received via socket (NOTIFICATION_NEW). */
   addAlertFromServer: (alert: SharedLiveAlert) => void;
+  /** Apply a server-side "mark read" (socket NOTIFICATION_READ). */
+  markReadFromServer: (ids: number[], readAt: string) => void;
 
   // ── Actions ───────────────────────────────────────────────────────────────────
   /** Dismiss the toast popup for one alert (keeps it in the bell, does NOT mark as read). */
@@ -102,6 +104,15 @@ export const useLiveAlertsStore = create<LiveAlertsState>()(
           // Skip if already in list (e.g. double-emit)
           if (s.alerts.some((a) => a.id === alert.id)) return s;
           return { alerts: [toLocalAlert(alert), ...s.alerts].slice(0, 200) };
+        }),
+
+      markReadFromServer: (ids, readAt) =>
+        set((s) => {
+          const wanted = new Set(ids);
+          if (!s.alerts.some((a) => wanted.has(a.id) && !a.readAt)) return s;
+          return {
+            alerts: s.alerts.map((a) => (wanted.has(a.id) && !a.readAt ? { ...a, readAt, toastDismissed: true } : a)),
+          };
         }),
 
       // ── Actions ────────────────────────────────────────────────────────────
