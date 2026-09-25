@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="fleet_title">Fleet</string>
+    <string name="fleet_updated_at">Updated at %1$s</string>
+    <string name="fleet_stale_at">Data from %1$s</string>
+
+    <!-- Featured card. "N offline / critical / warning" are invariable in English (PluralsCandidate ignored). -->
+    <string name="fleet_devices">Devices</string>
+    <string name="fleet_your_devices">Your devices</string>
+    <plurals name="fleet_connected_count">
+        <item quantity="one">%d connected</item>
+        <item quantity="other">%d connected</item>
+    </plurals>
+    <string name="fleet_offline_count" tools:ignore="PluralsCandidate">%d offline</string>
+    <string name="fleet_ribbon_a11y">Fleet health: %1$s</string>
+    <string name="fleet_legend_a11y">Show the devices: %1$s %2$d</string>
+
+    <!-- Statuses -->
+    <string name="fleet_status_critical">Critical</string>
+    <string name="fleet_status_warning">Warning</string>
+    <string name="fleet_status_updating">Updating</string>
+    <string name="fleet_status_online">Online</string>
+    <string name="fleet_status_offline">Offline</string>
+    <string name="fleet_status_pending">Pending</string>
+    <string name="fleet_status_update_error">Update failed</string>
+
+    <!-- Deltas -->
+    <string name="fleet_delta_yesterday">%1$d vs yesterday</string>
+    <string name="fleet_delta_week">%1$d vs last week</string>
+    <string name="fleet_delta_same_yesterday">Unchanged vs yesterday</string>
+    <string name="fleet_delta_same_week">Unchanged vs last week</string>
+    <string name="fleet_delta_up_yesterday_a11y" tools:ignore="PluralsCandidate">%1$d more than yesterday</string>
+    <string name="fleet_delta_down_yesterday_a11y" tools:ignore="PluralsCandidate">%1$d fewer than yesterday</string>
+    <string name="fleet_delta_up_week_a11y" tools:ignore="PluralsCandidate">%1$d more than last week</string>
+    <string name="fleet_delta_down_week_a11y" tools:ignore="PluralsCandidate">%1$d fewer than last week</string>
+    <string name="fleet_no_delta" translatable="false">—</string>
+
+    <!-- Indicators -->
+    <string name="fleet_kpi_online">Online</string>
+    <string name="fleet_kpi_offline">Offline</string>
+    <string name="fleet_kpi_critical">Critical</string>
+    <string name="fleet_kpi_warning">Warning</string>
+    <string name="fleet_kpi_pending_updates">Pending updates</string>
+    <string name="fleet_kpi_agents">Agents up to date</string>
+    <string name="fleet_kpi_out_of">/ %1$d</string>
+    <plurals name="fleet_kpi_critical_updates">
+        <item quantity="one">incl. %d critical</item>
+        <item quantity="other">incl. %d critical</item>
+    </plurals>
+    <string name="fleet_kpi_a11y">%1$s: %2$d</string>
+
+    <!-- Needs attention -->
+    <string name="fleet_attention">Needs attention</string>
+    <string name="fleet_see_all">See all</string>
+    <string name="fleet_attention_none">No device needs attention</string>
+    <string name="fleet_reason_cpu">CPU %1$d %%</string>
+    <string name="fleet_reason_ram">RAM %1$d %%</string>
+    <string name="fleet_reason_disk">Disk %1$s %2$d %%</string>
+    <string name="fleet_reason_disk_free">%1$s GB free</string>
+    <string name="fleet_reason_offline_since">Offline since %1$s</string>
+    <plurals name="fleet_reason_offline_days">
+        <item quantity="one">Offline for %d day</item>
+        <item quantity="other">Offline for %d days</item>
+    </plurals>
+
+    <!-- Activity chart -->
+    <string name="fleet_activity">Activity</string>
+    <string name="fleet_activity_title">Connections · 24 h</string>
+    <string name="fleet_chart_connected">Connected</string>
+    <string name="fleet_chart_offline">Offline</string>
+    <string name="fleet_chart_a11y" tools:ignore="PluralsCandidate">Last 24 hours: %1$d to %2$d devices connected, %3$d to %4$d offline</string>
+
+    <!-- Full disks -->
+    <string name="fleet_disks">Full disks · %1$d</string>
+    <string name="fleet_disks_none">No disk above its threshold</string>
+    <string name="fleet_disk_pct">%1$d %%</string>
+    <string name="fleet_disk_threshold">threshold %1$d %%</string>
+
+    <!-- Groups -->
+    <string name="fleet_groups">Groups</string>
+    <string name="fleet_group_online" tools:ignore="PluralsCandidate">%1$d/%2$d online</string>
+    <plurals name="fleet_group_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+    <string name="fleet_group_compliance">compliance %1$d %%</string>
+    <string name="fleet_group_offline" tools:ignore="PluralsCandidate">%1$d offline</string>
+    <string name="fleet_group_critical" tools:ignore="PluralsCandidate">%1$d critical</string>
+    <string name="fleet_group_warning" tools:ignore="PluralsCandidate">%1$d warning</string>
+
+    <!-- Context -->
+    <string name="fleet_context">Context</string>
+    <plurals name="fleet_ctx_sessions">
+        <item quantity="one">%d active remote session</item>
+        <item quantity="other">%d active remote sessions</item>
+    </plurals>
+    <plurals name="fleet_ctx_schedules">
+        <item quantity="one">%d schedule in the next 24 h</item>
+        <item quantity="other">%d schedules in the next 24 h</item>
+    </plurals>
+    <plurals name="fleet_ctx_stale">
+        <item quantity="one">%d device unreachable for more than 72 h</item>
+        <item quantity="other">%d devices unreachable for more than 72 h</item>
+    </plurals>
+
+    <!-- States -->
+    <string name="fleet_loading">Loading the fleet…</string>
+    <string name="fleet_error_offline">No connection — showing the last known data.</string>
+    <string name="fleet_error_offline_empty">No connection. The fleet will load as soon as the server answers.</string>
+    <string name="fleet_error_server">The server answered unexpectedly. Try again.</string>
+    <string name="fleet_error_forbidden">You are not allowed to see the fleet indicators.</string>
+    <string name="fleet_session_expired">Your session has expired.</string>
+    <string name="fleet_retry">Retry</string>
+    <string name="fleet_empty_title">No devices yet</string>
+    <string name="fleet_empty_body">Devices appear here once their agent is installed and approved.</string>
+    <string name="fleet_open_devices">Show the devices</string>
+</resources>

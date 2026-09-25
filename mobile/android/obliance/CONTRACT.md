@@ -1,0 +1,312 @@
+# Native Obliance alpha — contract for the screen modules
+
+This is the contract between the **foundation** (shared plumbing and the
+application) and the agents that build the screens. It is binding: if something
+you need is not here, implement it privately inside your module (see §7) and
+report it; do not edit shared files.
+
+Spec: `docs/obliance-mobile-design.md` (§2 navigation, §4 reference data, §5
+screens, §7 interaction, §8 visual language, §10 architecture). Mockups:
+`docs/mobile/mockup/*.dc.html` + `STYLEKIT.md`.
+
+## 1. Modules and who owns what
+
+| Module | Kind | Owner | Contents |
+|---|---|---|---|
+| `:core:*` | platform | foundation | models, HTTP (`ObliHttp`), auth (`ServerRegistry`, `ServerSessions`), realtime, security (`ActionRunner`), design system |
+| `:obliance:api` | JVM | foundation | typed server calls + tolerant DTOs (`AuthApi`, `TenantsApi`, `AlertsApi`, `ApprovalsApi`, `DevicesApi`, `ObliEvents`, `ApiJson`) |
+| `:obliance:domain` | JVM | foundation | alert classification, multi-server triage aggregation, site outages |
+| `:obliance:data` | Android lib | foundation | `ObliServices`, `LocalObliServices`, repositories, `SampleObliServices` |
+| `:obliance:access` | screens | access agent | S01 sign-in, S02 SSO, S03 re-auth, S81 scope sheet, S92 servers, S93 add server |
+| `:obliance:triage` | screens | triage agent | S10 À traiter, S11 approval detail, S12 enrolment review |
+| `:obliance:devices` | screens | devices agent | S20 device list, S21 filters, S30/S31 device detail |
+| `:obliance:fleet` | screens | fleet agent | S70 Flotte |
+| `:obliance:more` | screens | more agent | S80 Plus, S83 app settings, S85 profile |
+| `:obliance:app` | application | foundation | shell, navigation, top bar, Activity placeholder, `AppGraph` |
+
+**A screen agent may only create or modify files under its own
+`obliance/<module>/` directory** (sources, resources, tests, and its own
+`build.gradle.kts` for dependencies that already exist in
+`gradle/libs.versions.toml`). It never edits `settings.gradle.kts`, the root
+`build.gradle.kts`, the version catalog, `core/*`, `obliance/api`,
+`obliance/domain`, `obliance/data`, `obliance/app` or another screen module.
+Need a new library? Ask the lead. Found a bug in shared code? Report it with a
+failing case; work around it inside your module meanwhile.
+
+Module graph (checked at configuration time by the root `build.gradle.kts`): a
+screen module depends on `:core:*` and `:obliance:api|domain|data` only, never
+on another screen module, `:obliance:app` or `:app`. Only `:obliance:app`
+depends on the screen modules.
+
+## 2. Entry points (FINAL signatures — do not change them)
+
+```kotlin
+// :obliance:access  (package tools.obli.obliance.access)
+@Composable fun SignInScreen(onSignedIn: () -> Unit, modifier: Modifier = Modifier)
+@Composable fun AddServerScreen(onDone: () -> Unit, onBack: () -> Unit)
+@Composable fun ServersScreen(onAddServer: () -> Unit, onBack: () -> Unit)
+@Composable fun ScopeSheet(onDismiss: () -> Unit, onManageServers: () -> Unit)
+@Composable fun ReauthSheet(serverId: ServerId, onDone: () -> Unit)
+
+// :obliance:triage  (package tools.obli.obliance.triage)
+@Composable fun TriageScreen(onOpenDevice: (ServerId, Long) -> Unit)
+
+// :obliance:devices (package tools.obli.obliance.devices)
+@Composable fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit)
+@Composable fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit)
+
+// :obliance:fleet   (package tools.obli.obliance.fleet)
+@Composable fun FleetScreen(onOpenDevices: () -> Unit)
+
+// :obliance:more    (package tools.obli.obliance.more)
+@Composable fun MoreScreen(onOpenServers: () -> Unit, onOpenScope: () -> Unit)
+```
+
+Everything else in a screen module should be `internal` or `private`.
+
+### How the application hosts them (`:obliance:app`, `ObliNextApp.kt`)
+
+- **No server configured** → `SignInScreen` full screen. As soon as
+  `auth.completeSignIn` adds the first profile, the app swaps to the shell by
+  itself (`onSignedIn` may be a no-op). SSO (S02) is yours to add inside
+  `SignInScreen` (see §6 access).
+- **Shell**: `NavigationSuiteScaffold` (bottom bar on compact width, rail from
+  600 dp) with 5 destinations in this order: À traiter, Appareils, Activité
+  (placeholder "Bientôt disponible" owned by the app), Flotte, Plus. Each
+  destination has its own Navigation 3 back stack; re-selecting a destination
+  pops it to its root; back on a non-Triage root goes to À traiter.
+- **Top bar**: on top-level screens the app draws the FIRST row (56 dp, chrome):
+  scope chip (server tile when 2+ servers, tenant, "VUE GLOBALE" tag on the
+  master tenant) → opens `ScopeSheet`; avatar with the realtime ring → Plus.
+  **Your top-level screen draws the SECOND row itself** as its first element:
+  `ObliScreenHeader(title, freshness = …)` from `core:designsystem`.
+- **Pushed screens** (`DeviceDetailScreen`, `ServersScreen`, `AddServerScreen`)
+  draw their own `ObliDetailTopBar(title, onBack, backLabel, subtitle)`. On
+  compact width the app hides its top bar and the bottom bar for them (§2.4).
+- **Device detail**: `DeviceKey(serverId, deviceId)` is pushed on the stack it
+  was opened from (À traiter or Appareils), replacing a previous device. From
+  600 dp the list-detail scene shows list | detail side by side (placeholder
+  "Sélectionnez un appareil" when nothing is open). `onBack` pops.
+- **Implicit server switch** (§2.10): when `onOpenDevice(serverId, id)` targets
+  another server, the app calls `services.openOn(serverId)`, pushes the detail
+  and shows "Passé sur <server> pour ouvrir <device>" with **Revenir** for 5 s.
+  Screens never switch servers themselves for this.
+- **Session expired** on the ACTIVE server (401 anywhere, refused socket
+  handshake, or signed out) → the app shows `ReauthSheet(activeId)`; it hides it
+  once the session is signed in again, or when `onDone` is called.
+- `onManageServers` (ScopeSheet) and `onOpenServers` (More) push
+  `ServersScreen` on the Plus stack; `onAddServer` pushes `AddServerScreen`;
+  `AddServerScreen.onDone` pops back to the servers list.
+- `FleetScreen.onOpenDevices` selects the Appareils destination.
+- **Insets**: the app pads the status bar (chrome colour) and the navigation
+  bar. Screens do not add system-bar insets (IME insets are yours).
+- Dark theme only: everything is inside `ObliTheme { }`.
+
+## 3. `ObliServices` (`:obliance:data`)
+
+```kotlin
+val services = LocalObliServices.current            // in any composable
+val vm = viewModel { MyViewModel(services) }        // lifecycle-viewmodel-compose
+```
+
+Each Navigation 3 entry has its OWN `ViewModelStore` (cleared when the entry is
+popped), so `viewModel { }` in `DeviceDetailScreen` is per device. If one
+composable needs several instances of the same ViewModel class, pass `key =`.
+
+| Member | Semantics |
+|---|---|
+| `registry: ServerRegistry` | `state: StateFlow<ServerRegistryState>` (`profiles` in user order, `activeId`, `active`, `isMultiServer`, `byId`, `byUrl`); `add`, `remove`, `rename`, `recolor`, `setNotify`, `setIncludeInTriage`, `setLastTenant`, `reorder`. 1..8 servers, unique https origins. |
+| `sessions: ServerSessions` | `active: StateFlow<ServerSession?>`, `session(id)`, `all()`, `activate(id)`. A `ServerSession` has `http: ObliHttp` (bound to its origin), `auth: StateFlow<AuthState>` (`Unknown`, `SignedIn(probe)`, `Expired`, `Unreachable`, `SignedOut`), `probe()`, `markExpired()`, `realtime: RealtimeClient` (only the active server's socket is connected). |
+| `suspend fun openOn(serverId): ServerId?` | Implicit switch: activates `serverId` if needed; returns the previously active id when a switch happened, null otherwise (already active or unknown). The app uses it; screens rarely need it (ScopeSheet does). |
+
+### `auth: AuthRepository` (steps take an ORIGIN: a new server has no profile yet)
+
+| Call | Semantics |
+|---|---|
+| `checkServer(address)` | Normalises (https only, `ServerUrl`), then `GET /health` + `GET /api/auth/sso-config` → `ServerCheck.Ok(origin, health, sso, existing)` / `Invalid(problem)` / `NotObliance` / `Unreachable(outcome)` / `LimitReached`. `sso.offersObligate` tells whether to show the Obligate button. |
+| `login(origin, user, password)` | `POST /api/auth/login` → `LoginResult.SignedIn(user)` / `TwoFactorRequired(methods)` / `InvalidCredentials` / `RateLimited` / `Failed(outcome)`. |
+| `verifyTwoFactor(origin, method, code)` | `POST /api/profile/2fa/verify {code, method}` → `SignedIn` / `InvalidCode` (retry) / `TwoFactorSessionLost` (restart at password) / … For e-mail OTP the server already sent a code at login. |
+| `resendEmailCode(origin)` | `POST /api/profile/2fa/resend-email`. |
+| `completeSignIn(origin, displayName?, activate = true)` | After `SignedIn`: adds the profile if new, confirms with `/api/auth/me`, activates it (socket connects) → `SignInResult.Done(profile, probe)` / `Refused` / `NotSignedIn`. Runs in the app scope (not cancelled when your screen leaves). Use `activate = false` to re-authenticate a non-active server. |
+| `signOut(serverId)` | `POST /api/auth/logout`, clears that origin's cookies, session → `SignedOut`, socket closed; the profile stays. |
+
+Cookies: native calls, the socket handshake and any `android.webkit.WebView`
+share one cookie store (`CookieManager`). An SSO login done in a WebView on the
+server origin therefore signs the native session in too: open
+`${origin}/auth/sso-redirect`, wait until the WebView comes back to the origin
+(not `/login`), then call `completeSignIn(origin)`.
+
+### `tenants: TenantsRepository` (ACTIVE server)
+
+| Member | Semantics |
+|---|---|
+| `scope: StateFlow<TenantScope>` | `serverId`, `tenants` (master first), `currentTenantId` (session tenant from `/api/auth/me`), `current`, `isGlobalView` (tenant 1 "Default"), `canSwitch` (2+ tenants), `loading`, `error`. Follows server switches; loads the list once the active server is signed in. **Screens reload their data when `scope.serverId` or `scope.currentTenantId` changes.** |
+| `refresh()` | `GET /api/tenants`. |
+| `switchTo(tenantId, serverId = null)` | `POST /api/tenant/switch` on `serverId` (null = active server), re-probes that server's `/me`, reconnects the socket if it is the active server, remembers it as the profile's last tenant. Runs in the app scope (a dismissed sheet does not cancel it halfway). The tenant list is per account: dropped on sign-out, reloaded for another account, failed loads retried. |
+
+### `alerts: AlertsRepository` (EVERY server with `includeInTriage`)
+
+| Member | Semantics |
+|---|---|
+| `snapshot: StateFlow<AlertsSnapshot>` | Hot while collected: refresh every 60 s + `NOTIFICATION_NEW` / `APPROVAL_*` of the active server's socket. `alerts: List<ServerAlert>` (each with its `serverId`), `escalations: List<ServerApproval>` (pending two-person approvals of servers where the user is platform admin), `feeds` (per server: `LOADING`, `OK`, `EXPIRED`, `UNREACHABLE`, `SIGNED_OUT`, `EXCLUDED`; expired/unreachable servers keep their last items), `refreshing`, `updatedAt`, `badgeCount`, `triage(serverFilter, severityFilter)` → domain `TriageList` (unread by priority, read, site outages, unread per server). |
+| `refresh()` | Pull to refresh (all servers in parallel). |
+| `markRead(alert)` / `delete(alert)` | `PATCH /api/live-alerts/:id/read` / `DELETE /api/live-alerts/:id` on the ALERT'S server; local state updated on success. Never switches server. |
+| `markAllRead(serverId)` | `POST /api/live-alerts/read-all` on that server — its SESSION tenant only; then reloads that server. |
+| `approve(item, reason?, extra?)` / `deny(…)` | `POST /api/approvals/:id/approve|deny` on the approval's server. `extra` carries step-up fields (`twoFactorCode`, `trustIp`): run it inside `ActionRunner` (T2). 409 (already resolved) and 410 (expired) also remove it from the list. |
+
+### `devices: DevicesRepository` (ACTIVE server unless a `serverId` is given)
+
+| Member | Semantics |
+|---|---|
+| `page(query = DeviceQuery(), serverId = null)` | `GET /api/devices` with `page`, `pageSize`, `search`, `status` (real or virtual `connected` / `disconnected` / `outdated`), `sortBy` (`DeviceSort`) + `sortOrder`, `groupId`, `includeSubgroups`, `approvalStatus`, `osType`, `tags`, `tenantIds` (master tenant only: the "filter the global view" of §2.3) → `DevicePage(items, total, page, pageSize, hasMore)`. |
+| `summary(serverId = null)` | `GET /api/devices/summary` → `FleetSummary` (`total` excludes pending/suspended/uninstalling; `connected`; `deltas`). |
+| `detail(serverId, deviceId)` | `GET /api/devices/:id` → `Device` (`label`, `statusKind`, `latestMetrics`, …). |
+| `liveMetrics(serverId, deviceId): Flow<LiveSample>` | While collected: arms live mode (`POST /api/devices/:id/live-metrics`, every 30 s), emits each `DEVICE_METRICS_PUSHED` of that device (`live = true`); after 15 s without a push, falls back to `detail()` every 15 s (`live = false`: show "actualisation toutes les 15 s", §2.3 rule 3). |
+| `signals(): Flow<DeviceSignal>` | `DEVICE_UPDATED` / `ONLINE` / `OFFLINE` / `DELETED` / `APPROVED` / `MAINTENANCE_CHANGED` of the active server (`deviceId`, optional `status`). |
+
+Every call returns `ApiOutcome<T>` (core:network): `Ok`, `Accepted`,
+`PendingApproval`, `StepUpRequired`, `StepUpRejected`, `PrivacyLocked`,
+`Unsupported` (409), `Forbidden`, `AgentOffline` (503), `SessionExpired`,
+`RateLimited`, `Validation`, `Failure(status, kind)`. A `SessionExpired` has
+already marked that server's session expired (the app shows S03 for the active
+server): just show a calm state.
+
+### Sample data for previews and tests
+
+`SampleObliServices(serverCount = 3)` is an in-memory `ObliServices` over
+`SampleData` = design doc §4 (Obliance Prod / Dev / Qual, tenants Default and
+ACME, the alerts of the night of 25 September, devices SRV-AD2, PC-COMPTA-03,
+BOB01…). Sessions are signed in; actions mutate memory. **Never invent other
+names** (no real organisation names anywhere: code, tests, docs).
+
+## 4. Multi-server and multi-tenant safety
+
+- An item always travels with its `ServerId`; every call about it goes through
+  `services.sessions.session(item.serverId)` — never the active session, never a
+  hand-built URL. `ObliHttp` refuses any path that would leave its origin.
+- Lists (devices, fleet, activity) are the ACTIVE server's; À traiter is every
+  server's. Inbox actions (read, delete, approve/deny) never switch server; any
+  other action on a device requires it to be on the active server.
+- Action routes are bound to the SESSION tenant (§2.3): from the global view an
+  action on a child-tenant device needs a tenant switch first
+  (`Preflight.NeedsTenantSwitch` of `ActionRunner`).
+- Every mutating call goes through `core:security` `ActionRunner` (tiers
+  T0–T3, step-up 2FA, pending approval, privacy lock, never replayed after a
+  401). There is no shared `ActionPrompter` host yet: implement a
+  module-private one (sheets) if your screen performs guarded actions.
+
+## 5. UI rules (design doc §7–§8)
+
+- Colours only from `ObliTheme.colors` / `ObliTokens`; type from
+  `ObliTypography`; components from `core:designsystem`: `ObliScreenHeader`,
+  `ObliDetailTopBar`, `ObliIconButton` (48 dp), `ObliCalmState`,
+  `ObliServerTile` (only when `registry.isMultiServer`), `ObliStatusPill`,
+  `ObliStatusDot`, `ObliIcons` (Lucide set; add module-private icons with
+  `ObliIcons.lucide(name, *paths)`). No material-icons dependency.
+- Red discipline (§8.3): brand red `#C83232` (`accentFill`) only for filled
+  primary buttons and chrome; `#FF6868` (`accent2`) for active nav, tonal
+  buttons, snackbar action. In content, red means CRITICAL and nothing else.
+  State is never colour alone (icon or label with it).
+- Touch targets ≥ 48 dp; text contrast ≥ 4.5:1 (use the token pairs of
+  STYLEKIT §2; `Contrast.ratio` exists for unit tests).
+- No emoji. French micro-typography in `values-fr` (narrow no-break space
+  ` ` before `%`, `:`, `?`, `!`; `« … »`).
+
+## 6. Per-module notes
+
+- **access** — `SignInForm` (internal) already implements address → password →
+  2FA with `AuthRepository`; replace freely. `ScopeSheet` / `ReauthSheet` are
+  `ModalBottomSheet`s; their contents are `internal` composables
+  (`ScopeSheetContent`, `ReauthContent`) so the screenshot tests can capture
+  them (Robolectric does not capture dialog windows with `onRoot()`). S02 SSO:
+  WebView on `${origin}/auth/sso-redirect` (cookies are shared, see §3).
+- **triage** — `onOpenDevice(serverId, deviceId)`: the device id comes from the
+  alert's `navigateTo` (`/devices/:id`) resolved against the alert's OWN server.
+  Approvals: `alerts.approve/deny` inside `ActionRunner` (T2, the confirmation
+  names the server: "… — PC-ATELIER-02 · Obliance Prod › ACME").
+- **devices** — reload the list on `tenants.scope` (`serverId`,
+  `currentTenantId`) changes; merge `signals()` for live status. The detail's
+  `serverId` is the active server when the app opens it.
+- **fleet** — `summary()` + any extra fleet call (`/api/devices/group-stats`,
+  `/api/devices/disk-saturated`, `/api/devices/fleet-timeseries`…) implemented
+  privately (§7); poll every 60 s while visible (§2.3 rule 3).
+- **more** — `onOpenServers`, `onOpenScope`; sign-out of the active server via
+  `auth.signOut(id)` (the app then shows `ReauthSheet`).
+
+## 7. An API call that is not in `:obliance:api`
+
+Implement it privately in your module, over the session of the right server:
+
+```kotlin
+/** GET on THIS server, `{data}` envelope unwrapped, 401 → session expired. */
+internal suspend fun <T> ServerSession.getTyped(path: String, serializer: KSerializer<T>): ApiOutcome<T> =
+    http.call(ObliHttp.Method.GET, path, decode = ApiJson.unwrapped(serializer))
+        .also { if (it == ApiOutcome.SessionExpired) markExpired() }
+
+// usage: services.sessions.session(serverId)?.getTyped("/api/devices/disk-saturated", MyDto.serializer())
+// where MyDto is YOUR @Serializable class whose fields are copied from the route's code.
+```
+
+Read the server code (`server/src/routes/*.ts`, `shared/src/types.ts`) for the
+exact shape; never invent fields. Declare every field with a default (tolerant
+decoding: `ApiJson` ignores unknown keys, accepts numbers sent as strings). If
+you need `@Serializable`, add `alias(libs.plugins.kotlin.serialization)` to your
+module's `plugins { }`. Socket event names: `ObliEvents` (values of shared
+`SocketEvents`); the socket only surfaces the names in `ObliEvents.LISTENED`.
+
+## 8. Strings
+
+- Every visible string (including content descriptions) lives in
+  `src/main/res/values/strings.xml` (English) AND `values-fr/strings.xml`
+  (French, formal "vous" or neutral phrasing, never "tu").
+- Prefix every name with the module: `access_`, `triage_`, `devices_`,
+  `fleet_`, `more_` (the app uses `app_`). Resources of all modules merge into
+  one APK: an unprefixed name WILL clash.
+- `:obliance:app:lintDebug` runs with `checkDependencies = true`: a missing
+  translation in your module fails the build.
+
+## 9. Screenshot tests (Roborazzi on Robolectric)
+
+Your module's `build.gradle.kts` already has the setup (copied from
+`core:designsystem`): record mode on, images in
+`obliance/<module>/build/outputs/roborazzi/`. Template (see
+`obliance/<module>/src/test/.../*ScreenshotTest.kt`):
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")   // tablet: "fr-rFR-w1280dp-h800dp-land-mdpi"
+class MyScreenshotTest {
+    @get:Rule val compose = androidx.compose.ui.test.junit4.v2.createComposeRule()
+    private fun shot(name: String) = (System.getProperty("roborazzi.output.dir") ?: "build/outputs/roborazzi") + "/" + name
+
+    @Test fun list() {
+        compose.setContent {
+            ObliTheme { CompositionLocalProvider(LocalObliServices provides SampleObliServices()) { DeviceListScreen(onOpenDevice = { _, _ -> }) } }
+        }
+        compose.onRoot().captureRoboImage(shot("devices_list.png"))
+    }
+}
+```
+
+Always put `@Config(sdk = [35])` (class or method level): Robolectric has no
+offline image for the compile SDK. Prefix image names with your module.
+
+## 10. Verify before you hand over
+
+```
+./gradlew --no-daemon :obliance:<module>:testDebugUnitTest :obliance:app:assembleDebug :obliance:app:lintDebug
+```
+
+The APK is `obliance/app/build/outputs/apk/debug/app-debug.apk`
+(applicationId `tools.obli.obliance.next`, "Obliance Next", installs next to
+the WebView app). Report exactly what you compiled and tested.
+
+## 11. Known gaps of the foundation (not yours unless listed in your module)
+
+- Obligate SSO (S02) not wired (access agent).
+- Activité (S55): placeholder in the app.
+- Server switch does not restore the last tenant of that server yet, and back
+  stacks are not remembered per server (§2.10 item 2).
+- No notifications, no app shortcuts, no search palette (S82), no shared
+  `ActionPrompter` host.

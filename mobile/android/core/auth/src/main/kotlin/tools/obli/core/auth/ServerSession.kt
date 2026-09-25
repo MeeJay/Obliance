@@ -3,6 +3,7 @@ package tools.obli.core.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import tools.obli.core.model.ServerId
@@ -58,13 +59,22 @@ class ServerSession(
         return state
     }
 
-    /** Any call of this server that answered 401 Authentication required. */
+    /**
+     * Any call of this server that answered 401 Authentication required. A
+     * signed-out session stays signed out: a stray 401 (or a refused socket
+     * handshake) after "Se déconnecter" must not turn it into an expired one.
+     */
     fun markExpired() {
-        _auth.value = AuthState.Expired
+        _auth.update { if (it == AuthState.SignedOut) it else AuthState.Expired }
     }
 
     fun markSignedOut() {
         _auth.value = AuthState.SignedOut
+    }
+
+    /** A `/api/auth/me` answer obtained elsewhere (sign-in flow, previews and tests). */
+    fun markSignedIn(probe: SessionProbe) {
+        _auth.value = AuthState.SignedIn(probe)
     }
 
     companion object {

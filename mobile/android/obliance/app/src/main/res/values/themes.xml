@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark only (design doc §8.1); Compose draws everything, edge to edge. -->
+    <style name="Theme.ObliNext" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/app_window_background</item>
+        <item name="android:colorBackground">@color/app_window_background</item>
+    </style>
+</resources>

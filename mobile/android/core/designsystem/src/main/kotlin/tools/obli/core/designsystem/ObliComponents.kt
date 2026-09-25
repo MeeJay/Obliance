@@ -5,7 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -74,10 +74,11 @@ fun ObliStatusPill(status: ObliTokens.Status, label: String, modifier: Modifier 
     val c = status.argb.toColor()
     Row(
         modifier = modifier
-            .height(20.dp)
+            // Grows with large text (§7.11) instead of cutting the label.
+            .heightIn(min = 20.dp)
             .clip(CircleShape)
             .background(c.copy(alpha = 0.12f))
-            .padding(start = 6.dp, end = 8.dp),
+            .padding(start = 6.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
