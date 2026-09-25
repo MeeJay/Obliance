@@ -145,11 +145,15 @@ router.post('/relay/validate-agent', async (req, res, next) => {
       return res.status(400).json({ valid: false, error: 'missing fields' });
     }
 
-    // Look up the session and the device's API key together
+    // Look up the session and the device's API key together. agent_api_keys
+    // has no device_id: a device points at its key via devices.api_key_id
+    // (a device whose key was deleted — api_key_id NULL — is refused).
     const row = await db('remote_sessions as rs')
-      .join('agent_api_keys as k', 'k.device_id', 'rs.device_id')
+      .join('devices as d', 'd.id', 'rs.device_id')
+      .join('agent_api_keys as k', 'k.id', 'd.api_key_id')
       .where('rs.session_token', sessionToken)
       .where('k.key', apiKey)
+      .where('k.is_active', true)
       .whereIn('rs.status', ['waiting', 'connecting', 'active'])
       .select('rs.session_token', 'rs.protocol')
       .first();
