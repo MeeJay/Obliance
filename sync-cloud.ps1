@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Continue'
 $repo = 'D:\Obliance'
 Set-Location $repo
 
-function Git { & git @args; return $LASTEXITCODE }
+function Invoke-GitStep { & git.exe @args | Out-Host; return $LASTEXITCODE }
 
 if (Test-Path "$repo\000-RegularUpdate.lock") { Write-Host 'A RegularUpdate is running (lock present). Try again later.' -ForegroundColor Red; exit 1 }
 if ((Test-Path "$repo\.git\MERGE_HEAD") -or (Test-Path "$repo\.git\rebase-merge") -or (Test-Path "$repo\.git\rebase-apply")) {
@@ -34,7 +34,7 @@ $current = (& git rev-parse --abbrev-ref HEAD).Trim()
 Write-Host "Local branch: $current" -ForegroundColor Cyan
 
 Write-Host 'Fetching origin...' -ForegroundColor Cyan
-if ((Git fetch origin --prune) -ne 0) { Write-Host 'git fetch failed (network / SSH key?).' -ForegroundColor Red; exit 1 }
+if ((Invoke-GitStep fetch origin --prune) -ne 0) { Write-Host 'git fetch failed (network / SSH key?).' -ForegroundColor Red; exit 1 }
 
 Write-Host "`nRemote branches, most recent first (cloud sessions usually push to claude/*):" -ForegroundColor Cyan
 & git for-each-ref --sort=-committerdate --count=15 --format='  %(committerdate:relative)  %(refname:short)  -  %(subject)' refs/remotes/origin
@@ -53,13 +53,13 @@ $stashed = $false
 $dirty = (& git status --porcelain)
 if ($dirty) {
   $msg = "sync-cloud autostash $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-  if ((Git stash push --include-untracked -m $msg) -ne 0) { Write-Host 'git stash failed; nothing was changed.' -ForegroundColor Red; exit 1 }
+  if ((Invoke-GitStep stash push --include-untracked -m $msg) -ne 0) { Write-Host 'git stash failed; nothing was changed.' -ForegroundColor Red; exit 1 }
   $stashed = $true
   Write-Host "Local changes stashed ($msg)." -ForegroundColor Yellow
 }
 
 Write-Host "`nMerging $target into $current..." -ForegroundColor Cyan
-if ((Git merge --no-edit $target) -ne 0) {
+if ((Invoke-GitStep merge --no-edit $target) -ne 0) {
   Write-Host "`nMERGE CONFLICT. Nothing was lost." -ForegroundColor Red
   Write-Host '  - Fix the conflicted files, then: git add -A ; git commit --no-edit'
   Write-Host '  - Or cancel the merge:          git merge --abort'
@@ -68,7 +68,7 @@ if ((Git merge --no-edit $target) -ne 0) {
 }
 
 if ($stashed) {
-  if ((Git stash pop) -ne 0) {
+  if ((Invoke-GitStep stash pop) -ne 0) {
     Write-Host "`nThe merge succeeded, but re-applying your local changes conflicted." -ForegroundColor Red
     Write-Host '  Your changes are still safe in the stash (git stash list). Resolve the files, then: git stash drop'
     exit 3
@@ -77,5 +77,5 @@ if ($stashed) {
 }
 
 Write-Host "`nDone: $current now contains $target." -ForegroundColor Green
-Write-Host 'Reminder: client i18n keys waiting in client/src/i18n/_pending must be merged before any client build (see CLAUDE.md, App mobile).'
+Write-Host 'Next: read docs/mobile/README.md (state), then build/verify locally before any release.'
 exit 0

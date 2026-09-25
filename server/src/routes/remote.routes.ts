@@ -153,7 +153,7 @@ router.post('/relay/validate-agent', async (req, res, next) => {
       .join('agent_api_keys as k', 'k.id', 'd.api_key_id')
       .where('rs.session_token', sessionToken)
       .where('k.key', apiKey)
-      .where('k.is_active', true)
+      .where((q) => q.whereNull('k.is_active').orWhere('k.is_active', true)) // NULL = legacy key (see agentAuth)
       .whereIn('rs.status', ['waiting', 'connecting', 'active'])
       .select('rs.session_token', 'rs.protocol')
       .first();
