@@ -204,6 +204,9 @@ tasks.withType<Test>().configureEach {
 }
 
 dependencies {
+    // JVM utilities shared with the native modules (origins, server URL, JSON, live alerts).
+    implementation(project(":core:common"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)

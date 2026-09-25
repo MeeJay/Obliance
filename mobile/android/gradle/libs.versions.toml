@@ -25,8 +25,8 @@ browser = "1.10.0"
 biometric = "1.1.0"
 
 # --- Third party -------------------------------------------------------------
-# Only the JsonElement tree API is used (no compiler plugin, no reflection),
-# which keeps parsing pure-Kotlin and therefore testable on the JVM.
+# The WebView shell only uses the JsonElement tree API; the native modules also
+# use the compiler plugin (@Serializable), proven with built-in Kotlin 2.2.10.
 kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 
@@ -54,11 +54,18 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+# Pure JVM modules (core:model, core:common, core:auth, core:network,
+# obliance:domain). Same Kotlin as AGP's built-in one: never kotlin.android.
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# Phase 0 proof: the serialization compiler plugin with AGP 9 built-in Kotlin.
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 [bundles]

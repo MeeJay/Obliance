@@ -17,3 +17,13 @@ dependencyResolutionManagement {
 rootProject.name = "obli-shell-android"
 
 include(":app")
+
+// Platform, app-agnostic: no Obliance type may appear here (design doc §10.2).
+include(":core:common")
+include(":core:model")
+include(":core:network")
+include(":core:auth")
+include(":core:designsystem")
+
+// Obliance.
+include(":obliance:domain")
