@@ -18,8 +18,8 @@ android {
         applicationId = "tools.obli.obliance.next"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0-alpha"
+        versionCode = 2
+        versionName = "0.2.0-alpha"
     }
 
     buildTypes {
@@ -87,6 +87,9 @@ dependencies {
     implementation(project(":obliance:devices"))
     implementation(project(":obliance:fleet"))
     implementation(project(":obliance:more"))
+    // 0.2.0 "Agir": terminal, ObliReach, sessions; scripts, batches, scenarios, Activité.
+    implementation(project(":obliance:remote"))
+    implementation(project(":obliance:automations"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

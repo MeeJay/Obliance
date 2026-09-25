@@ -7,9 +7,11 @@
     <string name="app_nav_fleet">Fleet</string>
     <string name="app_nav_more">More</string>
     <string name="app_nav_triage_badge">Triage, %1$d to handle</string>
-    <string name="app_activity_title">Activity</string>
-    <string name="app_activity_soon">Coming soon</string>
-    <string name="app_activity_soon_body">Running sessions, script batches and schedules will show up here.</string>
+    <string name="app_select_activity">Select a batch or a session</string>
+    <string name="app_notifications_title">Allow notifications</string>
+    <string name="app_notifications_body">Open remote sessions stay connected while you use another app. A notification lists them and lets you end them all; without it, Android hides it.</string>
+    <string name="app_notifications_allow">Continue</string>
+    <string name="app_notifications_later">Not now</string>
     <string name="app_scope_global_view">Global view</string>
     <string name="app_scope_label">Scope: %1$s</string>
     <string name="app_scope_unknown">Scope</string>

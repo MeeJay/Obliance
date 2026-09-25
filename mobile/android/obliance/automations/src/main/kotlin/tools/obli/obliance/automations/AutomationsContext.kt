@@ -87,7 +87,7 @@ internal object AutoEvents {
     const val APPROVAL_CREATED = "APPROVAL_CREATED"
     const val APPROVAL_UPDATED = "APPROVAL_UPDATED"
 
-    /** Not in `ObliEvents.LISTENED` yet: never surfaced by the socket today, polled instead. */
+    /** In `ObliEvents.LISTENED` since 0.2.0: S58 refreshes on them, polling stays as the fallback. */
     const val SCENARIO_RUN_UPDATED = "SCENARIO_RUN_UPDATED"
     const val SCENARIO_NODE_UPDATED = "SCENARIO_NODE_UPDATED"
 }

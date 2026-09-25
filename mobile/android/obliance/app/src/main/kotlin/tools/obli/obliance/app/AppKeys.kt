@@ -33,6 +33,45 @@ data class DeviceKey(val serverId: String, val deviceId: Long) : AppKey
 @Serializable
 data class WebKey(val serverId: String, val path: String, val title: String) : AppKey
 
+/*
+ * 0.2.0 "Agir": pushed on the CURRENT destination's stack (device flows on the
+ * stack of the device detail, usually Appareils; Activité flows on Activité).
+ * Full screen on phones; detail pane on wide windows, except ObliReach.
+ */
+
+/** S60 terminal: [wtsSessionId] null = SYSTEM; [resumeId] = a live session to resume (pill, notification, Activité). */
+@Serializable
+data class TerminalKey(
+    val serverId: String,
+    val deviceId: Long,
+    val protocol: String,
+    val wtsSessionId: Int? = null,
+    val resumeId: String? = null,
+) : AppKey
+
+/** S62 ObliReach viewer, always full screen. */
+@Serializable
+data class ReachKey(val serverId: String, val deviceId: Long) : AppKey
+
+/** S50 script picker; [deviceIds] may be empty (from Activité: targets chosen in S51). */
+@Serializable
+data class ScriptPickerKey(val serverId: String, val deviceIds: List<Long>) : AppKey
+
+/** S51 run preparation; [rerunOf] = the batch whose failures are re-run. */
+@Serializable
+data class RunScriptKey(val serverId: String, val scriptId: Long, val deviceIds: List<Long>, val rerunOf: String? = null) : AppKey
+
+/** S52/S53 batch in flight and outputs. */
+@Serializable
+data class BatchKey(val serverId: String, val batchId: String) : AppKey
+
+/** S57 schedules and S58 scenarios of the active server. */
+@Serializable
+data object SchedulesKey : AppKey
+
+@Serializable
+data object ScenariosKey : AppKey
+
 /** S92 and S93, pushed on the Plus stack. */
 @Serializable
 data object ServersKey : AppKey

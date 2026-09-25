@@ -62,8 +62,8 @@ internal class ScenarioTexts(
 /**
  * S58: scenarios of the ACTIVE server (`GET /api/scenarios`), the runs of one
  * (`GET /api/scenarios/:id/runs`) and a run's node timeline
- * (`GET /api/scenarios/runs/:runId`, polled every 5 s while it runs: the
- * `SCENARIO_*` events are not surfaced by the socket yet). Actions: enable /
+ * (`GET /api/scenarios/runs/:runId`, polled every 5 s while it runs; the
+ * `SCENARIO_*` events of the socket refresh it at once). Actions: enable /
  * disable (T1), start a manual run on chosen devices (`start-graph-run`, T2),
  * cancel the running ones (T2). Creation and edition open the web editor.
  */
@@ -124,8 +124,22 @@ internal class ScenariosViewModel(
         }
     }
 
-    /** While visible: refresh the open run (and the runs list) every [pollMs] while something runs. */
+    /**
+     * While visible: `SCENARIO_RUN_UPDATED` / `SCENARIO_NODE_UPDATED` of the
+     * active server's socket refresh the open run and the runs list at once;
+     * polling every [pollMs] while something runs stays as the fallback.
+     */
     suspend fun follow() = coroutineScope {
+        val id = serverId
+        if (id != null) {
+            launch {
+                facts.events(id, AutoEvents.SCENARIO_RUN_UPDATED, AutoEvents.SCENARIO_NODE_UPDATED).collect {
+                    val s = _state.value
+                    s.openRun?.let { run -> loadRun(run.id) }
+                    if (s.openScenario != null) loadRuns(s.openScenario) else refresh()
+                }
+            }
+        }
         while (true) {
             delay(pollMs)
             val s = _state.value

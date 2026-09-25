@@ -27,11 +27,17 @@
 - **ObliReach** (visionneuse web en v1, natif en v1.1) et **terminal** (PowerShell / CMD / SSH).
 - Activité, enrôlements, notifications (Worker + canaux), filtre de la vue globale, réglages de l'app, recherche.
 
-## En cours — incrément 0.2.0 « Agir »
+## Livré — alpha 0.2.0 « Agir » (APK de debug, versionCode 2)
 
-1. Socle des actions : hôte des confirmations (paliers T1–T3, biométrie, maintien), vérification 2FA, demande d'approbation envoyée, confidentialité ; vue web intégrée (S90) qui partage la session.
-2. Feuille « Agir » sur la fiche appareil : redémarrer l'agent, redémarrer, éteindre, services, processus, exécuter un script, ouvrir un terminal, voir l'écran.
-3. Scripts et automations : choix du script, préparation (paramètres, cibles), lot en direct, sortie ; scénarios (liste, exécutions, lancement ; édition dans la vue web) ; écran Activité.
-4. Accès distant : terminal natif (termlib 0.2.1 sur le tunnel) et ObliReach par la visionneuse web.
+Vérifié : `./gradlew test :obliance:app:assembleDebug :obliance:app:lintDebug lintOblianceDebug` vert (1 091 tests, captures Robolectric). **Pas vérifié : aucun essai sur un vrai téléphone ni contre un vrai serveur** (bibliothèque native du terminal, biométrie, WebView, tunnels).
 
-Chaque étape : build + tests + captures, puis APK envoyé au propriétaire.
+- Confirmations par palier (simple / empreinte / maintien 1,5 s + empreinte, alternative TalkBack), code 2FA, « demande envoyée pour approbation », déverrouillage de confidentialité ; vue web intégrée qui partage la session.
+- Fiche appareil : barre d'actions selon l'OS et l'état, feuille « Agir » (redémarrer l'agent, redémarrer, veille, éteindre, analyses, isolement réseau), onglets Services, Processus (en direct, terminer), Tâches (annuler) ; sélection multiple dans la liste.
+- Terminal natif PowerShell / CMD / SSH (choix de la session Windows, barre de touches, sessions conservées en arrière-plan avec notification « Tout terminer ») ; ObliReach par la visionneuse web intégrée (`/devices/:id?remote=reach`, **nécessite le prochain build client** pour s'ouvrir tout seul).
+- Scripts : choix, paramètres, lot en direct, sortie, relance sur les échecs ; planifications (lecture, pause) ; scénarios (liste, exécutions, chronologie, lancement, activer / désactiver ; édition dans la vue web) ; écran Activité.
+
+### Reste à faire (prochains incréments)
+- Notifications de fond (Worker multi-serveurs, canaux par serveur), enrôlements, filtre de la vue globale, recherche / palette, réglages de l'app (forcer un thème), BitLocker, mise à jour / désinstallation de l'agent, maintenance.
+- Tablette : dock de sessions ; badge de sessions sur Activité.
+- ObliReach natif (v1.1), push UnifiedPush (v1.1, modification serveur S6).
+- Serveur : `approvalService.sweepExpired()` jamais appelé ; approbations de gestion équipes / utilisateurs jamais exécutées ; lien direct vers un scénario dans l'éditeur web.

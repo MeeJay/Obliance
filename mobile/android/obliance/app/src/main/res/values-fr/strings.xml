@@ -7,9 +7,11 @@
     <string name="app_nav_fleet">Flotte</string>
     <string name="app_nav_more">Plus</string>
     <string name="app_nav_triage_badge">À traiter, %1$d à traiter</string>
-    <string name="app_activity_title">Activité</string>
-    <string name="app_activity_soon">Bientôt disponible</string>
-    <string name="app_activity_soon_body">Les sessions ouvertes, les lots de scripts et les planifications s\'afficheront ici.</string>
+    <string name="app_select_activity">Sélectionnez un lot ou une session</string>
+    <string name="app_notifications_title">Autoriser les notifications</string>
+    <string name="app_notifications_body">Les sessions distantes ouvertes restent connectées pendant que vous utilisez une autre application. Une notification les liste et permet de toutes les terminer ; sans autorisation, Android la masque.</string>
+    <string name="app_notifications_allow">Continuer</string>
+    <string name="app_notifications_later">Plus tard</string>
     <string name="app_scope_global_view">Vue globale</string>
     <string name="app_scope_label">Périmètre : %1$s</string>
     <string name="app_scope_unknown">Périmètre</string>

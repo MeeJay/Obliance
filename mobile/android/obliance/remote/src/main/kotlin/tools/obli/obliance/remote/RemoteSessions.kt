@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -64,6 +65,14 @@ object RemoteAccess {
 
     internal val httpClient: OkHttpClient
         get() = client ?: defaultClient
+
+    /** Live sessions (not ended), most recent first: the app places the pill and asks for notifications with it. */
+    val liveSessions: StateFlow<List<RemoteSessionRef>> by lazy {
+        SessionManager.live.map { list -> list.map { it.ref } }.stateIn(SessionManager.scope, SharingStarted.Eagerly, emptyList())
+    }
+
+    /** The session [id] the app holds (live or ended), e.g. from the notification's `EXTRA_SESSION_ID`; null when unknown. */
+    fun session(id: String?): RemoteSessionRef? = SessionManager.find(id)?.ref
 
     private val defaultClient: OkHttpClient by lazy { OkHttpClient.Builder().retryOnConnectionFailure(false).followRedirects(false).build() }
 

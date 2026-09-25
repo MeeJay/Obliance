@@ -105,7 +105,7 @@ fun TerminalScreen(
     LaunchedEffect(Unit) { SessionManager.bind(context) }
     // A new session once the device is known (its label is in the confirmation).
     LaunchedEffect(ui.deviceLoaded, ui.sessionId, ui.start) {
-        if (ui.deviceLoaded && ui.sessionId == null && ui.start == StartState.Idle) vm.start(runner, texts)
+        if (ui.deviceLoaded && ui.sessionId == null && ui.start == StartState.Idle) vm.begin(runner, texts)
     }
     // Cancelled confirmation: nothing was opened, leave.
     LaunchedEffect(ui.start) {

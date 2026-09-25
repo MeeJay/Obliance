@@ -87,6 +87,14 @@ internal class TerminalViewModel(
         return listOfNotNull(server.takeIf { reg.isMultiServer }, tenant).joinToString(" › ").ifEmpty { server.orEmpty() }
     }
 
+    /**
+     * [start] in the ViewModel's scope: the screen's effect restarts when `start`
+     * turns to Starting, which would otherwise cancel the pending T1 confirmation.
+     */
+    fun begin(runner: ActionRunner, texts: TerminalTexts) {
+        viewModelScope.launch { start(runner, texts) }
+    }
+
     /** Opens a new session: T1 confirmation, then `POST /api/remote/sessions`, then the tunnel. */
     suspend fun start(runner: ActionRunner, texts: TerminalTexts) {
         if (_ui.value.start == StartState.Starting) return

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -156,6 +157,86 @@ class MainActivityShellTest {
         launch(FakeObliance(expired = setOf(SampleData.PROD)))
         waitText("a expiré", substring = true)
         shot("phone_8_session_expired_reauth.png")
+    }
+
+    private fun click(text: String, substring: Boolean = false) {
+        waitText(text, substring)
+        compose.onAllNodesWithText(text, substring = substring).onFirst().performClick()
+        compose.waitForIdle()
+    }
+
+    private fun back() {
+        scenario!!.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
+    /**
+     * 0.2.0 "Agir" through the real shell: device detail with its action bar,
+     * the Agir sheet, S61 then S60 (T1 confirmation, then the agent offline),
+     * Activité and a batch in flight.
+     */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneAgirTour() {
+        val f = launch(FakeObliance())
+        assertAggregated(f)
+        nav("Appareils")
+        click("PC-COMPTA-03")
+        waitText("IDENTITÉ")
+        compose.waitForIdle()
+        shot("phone_10_device_detail_action_bar.png")
+
+        click("Agir")
+        waitText("Terminal PowerShell")
+        shot("phone_11_agir_sheet.png")
+
+        // Windows shell: S61 first (the agent cannot list its sessions here: SYSTEM only).
+        click("Terminal PowerShell")
+        waitText("Session SYSTÈME (aucun utilisateur)")
+        waitText("La session SYSTÈME reste disponible", substring = true)
+        shot("phone_12_session_choice.png")
+
+        click("Session SYSTÈME (aucun utilisateur)")
+        // T1 sheet: its button carries the action's title.
+        waitText("Ouvrir PowerShell")
+        compose.waitForIdle()
+        shot("phone_13_terminal_confirm.png")
+        compose.onAllNodesWithText("Ouvrir PowerShell").onLast().performClick()
+        waitFor { f.requests(SampleData.PROD).contains("POST /api/remote/sessions") }
+        waitText("Réessayer")
+        compose.waitForIdle()
+        shot("phone_14_terminal_agent_offline.png")
+
+        // Fermer → the device detail, back → the list (bar visible again).
+        click("Fermer")
+        waitText("IDENTITÉ")
+        back()
+        waitFor { compose.onAllNodes(hasContentDescription("Activité") and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)).fetchSemanticsNodes().isNotEmpty() }
+        nav("Activité")
+        waitText("Nettoyer les fichiers temporaires")
+        compose.waitForIdle()
+        shot("phone_15_activity.png")
+
+        click("Nettoyer les fichiers temporaires")
+        waitText("PC-COMPTA-02")
+        compose.waitForIdle()
+        shot("phone_16_batch.png")
+        // Activité calls are the ACTIVE server's only.
+        assertFalse(f.requests(SampleData.DEV).any { it.startsWith("GET /api/executions") })
+    }
+
+    /** Tablet: Activité | batch (list-detail scene), app bar and rail kept. */
+    @Config(sdk = [35], application = ShellTestApplication::class, qualifiers = "fr-rFR-w1280dp-h800dp-land-mdpi")
+    @Test fun tabletActivityAndBatch() {
+        val f = launch(FakeObliance())
+        assertAggregated(f)
+        nav("Activité")
+        waitText("Nettoyer les fichiers temporaires")
+        compose.waitForIdle()
+        shot("tablet_10_activity.png")
+        click("Nettoyer les fichiers temporaires")
+        waitText("PC-COMPTA-02")
+        compose.waitForIdle()
+        shot("tablet_11_activity_batch.png")
     }
 
     private companion object {

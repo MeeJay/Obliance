@@ -200,6 +200,27 @@ internal class FakeObliance(
         const val DISKS = """{"count":2,"threshold":0,"top":[{"deviceId":15,"hostname":"BOB01","pct":94,"mountpoint":"/","warn":85},{"deviceId":30,"hostname":"SRV-FILES01","pct":72,"mountpoint":"D:","warn":85}]}"""
         const val UPDATES = """{"available":47,"critical":6,"important":12,"approved":20,"installed":310,"failed":1}"""
 
+        /** 0.2.0 "Agir" on Obliance Prod: scripts, batches, schedules, scenarios (shapes of execution/script/schedule/scenario routes). */
+        const val BATCH = "6f1d2c3b-4a5e-4f60-8b7c-9d0e1f2a3b4c"
+        const val BATCH_DONE = "0a9b8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c6d"
+        const val SCRIPTS = """[
+            {"id":41,"tenantId":1,"categoryId":2,"name":"Nettoyer les fichiers temporaires","description":"Supprime les fichiers temporaires de plus de N jours.","tags":[],"platform":"windows","runtime":"powershell","content":"x","timeoutSeconds":120,"expectedExitCode":0,"runAs":"system","scriptType":"user","purpose":"execute","isBuiltin":false,"usage":{"scenarios":2,"schedules":1}},
+            {"id":60,"tenantId":1,"categoryId":3,"name":"Vérifier la sauvegarde","description":null,"tags":[],"platform":"windows","runtime":"powershell","content":"x","timeoutSeconds":300,"expectedExitCode":0,"runAs":"system","scriptType":"user","purpose":"execute","isBuiltin":false},
+            {"id":72,"tenantId":1,"categoryId":2,"name":"Espace disque par volume","description":null,"tags":[],"platform":"linux","runtime":"bash","content":"x","timeoutSeconds":60,"expectedExitCode":0,"runAs":"system","scriptType":"user","purpose":"execute","isBuiltin":false}
+        ]"""
+        const val CATEGORIES = """[{"id":2,"tenantId":null,"name":"Nettoyage","icon":null,"color":"#888","sortOrder":1},{"id":3,"tenantId":null,"name":"Sauvegarde","icon":null,"color":"#888","sortOrder":2}]"""
+        const val BATCHES = """{"items":[
+            {"batchId":"$BATCH","scriptId":41,"scriptName":"Nettoyer les fichiers temporaires","scheduleId":null,"scheduleName":null,"triggeredBy":"manual","triggeredByUsername":"Karim Benali","triggeredAt":"2026-09-25T01:14:02.000Z","totalCount":3,"successCount":1,"failureCount":1,"pendingCount":0,"runningCount":1},
+            {"batchId":"$BATCH_DONE","scriptId":60,"scriptName":"Vérifier la sauvegarde","scheduleId":7,"scheduleName":"Vérif sauvegarde","triggeredBy":"schedule","triggeredByUsername":null,"triggeredAt":"2026-09-25T00:00:05.000Z","totalCount":12,"successCount":12,"failureCount":0,"pendingCount":0,"runningCount":0}
+        ],"total":2}"""
+        const val BATCH_ROWS = """[
+            {"id":"9001","deviceId":185,"hostname":"PC-COMPTA-01","osType":"windows","status":"success","exitCode":0,"stdout":"1 284 fichiers supprimés (2,1 Go)","stderr":null,"triggeredAt":"2026-09-25T01:14:02.000Z","startedAt":"2026-09-25T01:14:03.100Z","finishedAt":"2026-09-25T01:14:21.000Z"},
+            {"id":"9002","deviceId":186,"hostname":"PC-COMPTA-02","osType":"windows","status":"running","exitCode":null,"stdout":null,"stderr":null,"triggeredAt":"2026-09-25T01:14:02.000Z","startedAt":"2026-09-25T01:14:03.400Z","finishedAt":null},
+            {"id":"9003","deviceId":187,"hostname":"PC-COMPTA-03","osType":"windows","status":"failure","exitCode":1,"stdout":null,"stderr":"Accès refusé : C:\\Windows\\Temp\\compta.lock","triggeredAt":"2026-09-25T01:14:02.000Z","startedAt":"2026-09-25T01:14:03.200Z","finishedAt":"2026-09-25T01:14:08.000Z"}
+        ]"""
+        const val SCHEDULES = """[{"id":7,"tenantId":4,"scriptId":60,"name":"Vérif sauvegarde","targetType":"group","targetIds":[30],"cronExpression":"0 2 * * *","timezone":"Europe/Paris","enabled":true,"lastRunAt":"2026-09-25T00:00:05.000Z","nextRunAt":"2026-09-26T00:00:00.000Z","resolvedDeviceCount":12}]"""
+        const val SCENARIOS = """{"items":[{"id":3,"tenantId":1,"name":"Déployer Obliview (Windows)","triggerType":"agent_approved","status":"active","nodeCount":4,"stepCount":4,"activeRunCount":1,"triggerCounts":{"agent_approved":1}}],"total":1}"""
+
         fun hourly(): JsonArray = buildJsonArray {
             for (h in 0 until 24) {
                 val offline = if (h >= 22) 16 else 11 + h % 3
@@ -232,6 +253,14 @@ internal class FakeObliance(
                     path == "/api/updates/stats" -> ok(ApiJson.json.parseToJsonElement(UPDATES))
                     path == "/api/devices/fleet-hourly" -> ok(if (prod) hourly() else JsonArray(emptyList()))
                     path == "/api/groups" -> ok(JsonArray(emptyList()))
+                    prod && path == "/api/scripts" -> ok(ApiJson.json.parseToJsonElement(SCRIPTS))
+                    prod && path == "/api/scripts/categories" -> ok(ApiJson.json.parseToJsonElement(CATEGORIES))
+                    prod && path == "/api/executions/batches" -> ok(ApiJson.json.parseToJsonElement(BATCHES))
+                    prod && path == "/api/executions/batches/$BATCH" -> ok(ApiJson.json.parseToJsonElement(BATCH_ROWS))
+                    prod && path == "/api/schedules" -> ok(ApiJson.json.parseToJsonElement(SCHEDULES))
+                    prod && path == "/api/scenarios" -> ok(ApiJson.json.parseToJsonElement(SCENARIOS))
+                    // The agent is not reachable from the fake: a session start answers 503 (agent offline).
+                    method == "POST" && path == "/api/remote/sessions" -> 503 to """{"success":false,"error":"Agent offline"}"""
                     method == "POST" && path.endsWith("/live-metrics") -> ok(LiveMetricsAck.serializer(), LiveMetricsAck(sent = true, mode = "live", windowSec = 60))
                     deviceId != null -> devices.find { it.id == deviceId }?.let { ok(Device.serializer(), it) }
                     else -> null

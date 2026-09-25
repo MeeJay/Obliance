@@ -24,7 +24,9 @@ screens, §7 interaction, §8 visual language, §10 architecture). Mockups:
 | `:obliance:devices` | screens | devices agent | S20 device list, S21 filters, S30/S31 device detail |
 | `:obliance:fleet` | screens | fleet agent | S70 Flotte |
 | `:obliance:more` | screens | more agent | S80 Plus, S83 app settings, S85 profile |
-| `:obliance:app` | application | foundation | shell, navigation, top bar, Activity placeholder, `AppGraph` |
+| `:obliance:remote` | screens | remote agent | S60 terminal, S61 session choice, S62 ObliReach viewer, sessions pill / Activité section, `RemoteSessionService` |
+| `:obliance:automations` | screens | automations agent | S50 script picker, S51 run, S52/S53 batch, S55 Activité, S57 schedules, S58 scenarios |
+| `:obliance:app` | application | foundation | shell, navigation, top bar, `AppGraph` |
 
 **A screen agent may only create or modify files under its own
 `obliance/<module>/` directory** (sources, resources, tests, and its own
@@ -54,8 +56,28 @@ depends on the screen modules.
 @Composable fun TriageScreen(onOpenDevice: (ServerId, Long) -> Unit)
 
 // :obliance:devices (package tools.obli.obliance.devices)
-@Composable fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit)
-@Composable fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit)
+@Composable fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit, onRunScript: (ServerId, List<Long>) -> Unit = …)
+@Composable fun DeviceDetailScreen(serverId: ServerId, deviceId: Long, onBack: () -> Unit,
+    onOpenTerminal: (ServerId, Long, protocol: String) -> Unit = …, onOpenReach: (ServerId, Long) -> Unit = …,
+    onRunScript: (ServerId, List<Long>) -> Unit = …, onOpenAutomations: (ServerId, Long) -> Unit = …)
+
+// :obliance:remote (package tools.obli.obliance.remote)
+@Composable fun TerminalScreen(serverId: ServerId, deviceId: Long, protocol: String, onMinimize: () -> Unit, modifier: Modifier = Modifier, wtsSessionId: Int? = null, resumeId: String? = null)
+@Composable fun ReachScreen(serverId: ServerId, deviceId: Long, onClose: () -> Unit, modifier: Modifier = Modifier)
+@Composable fun SessionChoiceSheet(serverId: ServerId, deviceId: Long, protocol: String, onChoose: (wtsSessionId: Int?) -> Unit, onDismiss: () -> Unit)
+@Composable fun SessionsPill(onOpen: (RemoteSessionRef) -> Unit, modifier: Modifier = Modifier)
+@Composable fun RemoteSessionsSection(onOpen: (RemoteSessionRef) -> Unit, modifier: Modifier = Modifier)
+object RemoteAccess { fun configure(client, userAgent, cookieHeader?); val liveSessions: StateFlow<List<RemoteSessionRef>>; fun session(id: String?): RemoteSessionRef? }
+class RemoteSessionService { companion object { const val EXTRA_SESSION_ID } }
+
+// :obliance:automations (package tools.obli.obliance.automations)
+@Composable fun ActivityScreen(onRunScript: () -> Unit, onOpenScript: (ServerId, Long) -> Unit, onOpenScripts: () -> Unit,
+    onOpenSchedules: () -> Unit, onOpenScenarios: () -> Unit, onOpenBatch: (ServerId, String) -> Unit, sessions: @Composable () -> Unit = {})
+@Composable fun ScriptPickerScreen(serverId: ServerId, deviceIds: List<Long>, onBack: () -> Unit, onPicked: (scriptId: Long) -> Unit)
+@Composable fun RunScriptScreen(serverId: ServerId, scriptId: Long, deviceIds: List<Long>, onBack: () -> Unit, onStarted: (batchId: String) -> Unit, onChangeScript: () -> Unit = onBack, rerunOf: String? = null)
+@Composable fun BatchScreen(serverId: ServerId, batchId: String, onBack: () -> Unit, onRerunFailures: (ServerId, Long, List<Long>, String) -> Unit, onOpenTerminal: ((ServerId, Long) -> Unit)? = null)
+@Composable fun SchedulesScreen(onBack: () -> Unit)
+@Composable fun ScenariosScreen(onBack: () -> Unit)
 
 // :obliance:fleet   (package tools.obli.obliance.fleet)
 @Composable fun FleetScreen(onOpenDevices: () -> Unit)
@@ -74,7 +96,7 @@ Everything else in a screen module should be `internal` or `private`.
   `SignInScreen` (see §6 access).
 - **Shell**: `NavigationSuiteScaffold` (bottom bar on compact width, rail from
   600 dp) with 5 destinations in this order: À traiter, Appareils, Activité
-  (placeholder "Bientôt disponible" owned by the app), Flotte, Plus. Each
+  (`ActivityScreen` with `RemoteSessionsSection` in its sessions slot), Flotte, Plus. Each
   destination has its own Navigation 3 back stack; re-selecting a destination
   pops it to its root; back on a non-Triage root goes to À traiter.
 - **Top bar**: on top-level screens the app draws the FIRST row (56 dp, chrome):
@@ -100,6 +122,33 @@ Everything else in a screen module should be `internal` or `private`.
   `ServersScreen` on the Plus stack; `onAddServer` pushes `AddServerScreen`;
   `AddServerScreen.onDone` pops back to the servers list.
 - `FleetScreen.onOpenDevices` selects the Appareils destination.
+- **0.2.0 routes** (NavKeys in `AppKeys.kt`, `@Serializable`), always pushed on
+  the CURRENT destination's stack (device flows on the stack of the device
+  detail, usually Appareils; Activité flows on Activité). Phones: full screen,
+  top and bottom bars hidden. From 600 dp: detail pane next to the list of
+  À traiter / Appareils / Activité (Activité is a list pane too, placeholder
+  "Sélectionnez un lot ou une session"); `ReachKey` is always full screen.
+
+  | Key | Screen | Opened by |
+  |---|---|---|
+  | `TerminalKey(serverId, deviceId, protocol, wtsSessionId?, resumeId?)` | `TerminalScreen` (`onMinimize` pops) | detail `onOpenTerminal`: `ssh` directly; `powershell` / `cmd` after `SessionChoiceSheet` (SYSTEM first); batch "Ouvrir PowerShell" (`powershell`, SYSTEM, no sheet); resume |
+  | `ReachKey(serverId, deviceId)` | `ReachScreen` (`onClose` pops) | detail `onOpenReach`; resume of an `oblireach` session |
+  | `ScriptPickerKey(serverId, deviceIds)` | `ScriptPickerScreen` | detail / list `onRunScript`; Activité FAB and Scripts "Tout voir" (active server, no targets) |
+  | `RunScriptKey(serverId, scriptId, deviceIds, rerunOf?)` | `RunScriptScreen` | picker `onPicked`; Activité script chip; batch `onRerunFailures`. `onChangeScript` returns to the picker (or replaces the run by one) |
+  | `BatchKey(serverId, batchId)` | `BatchScreen` | `onStarted` (the picker and the run are REPLACED by the batch); Activité `onOpenBatch` |
+  | `SchedulesKey` / `ScenariosKey` | `SchedulesScreen` / `ScenariosScreen` | Activité "Tout voir"; detail `onOpenAutomations` → `ScenariosKey` |
+
+  Resume (`RemoteSessionRef`): `protocol == "oblireach"` → `ReachKey`, else
+  `TerminalKey(…, resumeId = ref.id)`. Sources: `SessionsPill` (phone and
+  tablet, 8 dp above the navigation bar, only on screens that show the bar and
+  not on Activité), `RemoteSessionsSection` (Activité), and the sessions
+  notification (`MainActivity` reads `RemoteSessionService.EXTRA_SESSION_ID`
+  in `onCreate`/`onNewIntent` and resumes on the current destination).
+  Opening a device from a list clears its stack above the root first.
+- **Remote transport**: `AppGraph` calls `RemoteAccess.configure(client,
+  USER_AGENT, cookieJar::headerFor)` (one OkHttp client, one cookie store).
+  Android 13+: POST_NOTIFICATIONS is asked once, when the first remote session
+  opens, after a short rationale dialog ("Plus tard" also counts as asked).
 - **Insets**: the app pads the status bar (chrome colour) and the navigation
   bar. Screens do not add system-bar insets (IME insets are yours).
 - Dark theme only: everything is inside `ObliTheme { }`.
@@ -255,6 +304,8 @@ decoding: `ApiJson` ignores unknown keys, accepts numbers sent as strings). If
 you need `@Serializable`, add `alias(libs.plugins.kotlin.serialization)` to your
 module's `plugins { }`. Socket event names: `ObliEvents` (values of shared
 `SocketEvents`); the socket only surfaces the names in `ObliEvents.LISTENED`.
+(0.2.0 adds `SCENARIO_RUN_UPDATED` and `SCENARIO_NODE_UPDATED`: S58 refreshes on
+them, with its 5 s polling kept as the fallback.)
 
 ## 8. Strings
 
@@ -307,11 +358,12 @@ the WebView app). Report exactly what you compiled and tested.
 ## 11. Known gaps of the foundation (not yours unless listed in your module)
 
 - Obligate SSO (S02) not wired (access agent).
-- Activité (S55): placeholder in the app.
 - Server switch does not restore the last tenant of that server yet, and back
   stacks are not remembered per server (§2.10 item 2).
-- No notifications, no app shortcuts, no search palette (S82).
-- Action host: S43 has no "Suivre dans Activité" (no Activité yet); S44 only
+- No alert notifications (only the remote-sessions notification), no app
+  shortcuts, no search palette (S82). No tablet session dock (§2.6): the pill
+  stands in for it; no mini chip in pushed screens' top bars.
+- Action host: S43 has no "Suivre dans Activité"; S44 only
   covers the unlock route (`/privacy/unlock`): the "disable privacy mode with
   the password" variant (`/privacy/disable-with-password`) is the device
   screen's own call; the 2FA sheet has no Obligate-SSO wording variant; the

@@ -20,12 +20,13 @@ import tools.obli.core.realtime.SocketIoRealtimeClient
 import tools.obli.obliance.api.ObliEvents
 import tools.obli.obliance.data.DefaultObliServices
 import tools.obli.obliance.data.ObliServices
+import tools.obli.obliance.remote.RemoteAccess
 
 /**
  * The manual dependency graph of the application (design doc §10.3): ONE
  * OkHttp client (shared cookie jar = the WebView CookieManager), the persisted
- * server registry, one session per server with its Socket.IO client, and the
- * repositories. Built once in [ObliNextApplication].
+ * server registry, one session per server with its Socket.IO client, the
+ * repositories, and the transport of the remote-access tunnels. Built once in [ObliNextApplication].
  */
 class AppGraph(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -52,6 +53,11 @@ class AppGraph(context: Context) {
         },
         scope,
     )
+
+    init {
+        // Terminal and ObliReach tunnels: the same client, user agent and cookie session (design doc §10.4).
+        RemoteAccess.configure(client, USER_AGENT, cookieJar::headerFor)
+    }
 
     private val defaultServices = DefaultObliServices(
         registry = registry,
