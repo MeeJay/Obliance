@@ -14,6 +14,8 @@ screens, §7 interaction, §8 visual language, §10 architecture). Mockups:
 | Module | Kind | Owner | Contents |
 |---|---|---|---|
 | `:core:*` | platform | foundation | models, HTTP (`ObliHttp`), auth (`ServerRegistry`, `ServerSessions`), realtime, security (`ActionRunner`), design system |
+| `:core:security-ui` | platform | foundation | `ObliActionHost` (S41–S44 sheets, biometric, tenant switch), `LocalActionRunner`, `LocalActionFeedback`, `ActionMessages` (§12) |
+| `:core:webfallback` | platform | foundation | S90 `ObliWebView`, `WebUrlPolicy`, `LocalWebPageOpener` (§13) |
 | `:obliance:api` | JVM | foundation | typed server calls + tolerant DTOs (`AuthApi`, `TenantsApi`, `AlertsApi`, `ApprovalsApi`, `DevicesApi`, `ObliEvents`, `ApiJson`) |
 | `:obliance:domain` | JVM | foundation | alert classification, multi-server triage aggregation, site outages |
 | `:obliance:data` | Android lib | foundation | `ObliServices`, `LocalObliServices`, repositories, `SampleObliServices` |
@@ -117,6 +119,7 @@ composable needs several instances of the same ViewModel class, pass `key =`.
 |---|---|
 | `registry: ServerRegistry` | `state: StateFlow<ServerRegistryState>` (`profiles` in user order, `activeId`, `active`, `isMultiServer`, `byId`, `byUrl`); `add`, `remove`, `rename`, `recolor`, `setNotify`, `setIncludeInTriage`, `setLastTenant`, `reorder`. 1..8 servers, unique https origins. |
 | `sessions: ServerSessions` | `active: StateFlow<ServerSession?>`, `session(id)`, `all()`, `activate(id)`. A `ServerSession` has `http: ObliHttp` (bound to its origin), `auth: StateFlow<AuthState>` (`Unknown`, `SignedIn(probe)`, `Expired`, `Unreachable`, `SignedOut`), `probe()`, `markExpired()`, `realtime: RealtimeClient` (only the active server's socket is connected). |
+| `LocalObliNavigator` (composition local, not a member) | `ObliNavigator { openWeb(path, title); openDevice(serverId, deviceId) }` provided by the app: S90 web page of the ACTIVE server pushed on the current destination (full screen on phones, detail pane on tablets); S30 with the implicit switch. Default in tests: `ObliNavigator.None` (does nothing). |
 | `suspend fun openOn(serverId): ServerId?` | Implicit switch: activates `serverId` if needed; returns the previously active id when a switch happened, null otherwise (already active or unknown). The app uses it; screens rarely need it (ScopeSheet does). |
 
 ### `auth: AuthRepository` (steps take an ORIGIN: a new server has no profile yet)
@@ -192,8 +195,7 @@ names** (no real organisation names anywhere: code, tests, docs).
   (`Preflight.NeedsTenantSwitch` of `ActionRunner`).
 - Every mutating call goes through `core:security` `ActionRunner` (tiers
   T0–T3, step-up 2FA, pending approval, privacy lock, never replayed after a
-  401). There is no shared `ActionPrompter` host yet: implement a
-  module-private one (sheets) if your screen performs guarded actions.
+  401), taken from `LocalActionRunner` (§12). Do not write your own prompter.
 
 ## 5. UI rules (design doc §7–§8)
 
@@ -308,5 +310,84 @@ the WebView app). Report exactly what you compiled and tested.
 - Activité (S55): placeholder in the app.
 - Server switch does not restore the last tenant of that server yet, and back
   stacks are not remembered per server (§2.10 item 2).
-- No notifications, no app shortcuts, no search palette (S82), no shared
-  `ActionPrompter` host.
+- No notifications, no app shortcuts, no search palette (S82).
+- Action host: S43 has no "Suivre dans Activité" (no Activité yet); S44 only
+  covers the unlock route (`/privacy/unlock`): the "disable privacy mode with
+  the password" variant (`/privacy/disable-with-password`) is the device
+  screen's own call; the 2FA sheet has no Obligate-SSO wording variant; the
+  trust-window line "Confirmé par empreinte il y a 12 s" is not shown.
+- Web view: no file upload (`<input type=file>`), no `ObliNative` bridge.
+
+## 12. Running an action (`:core:security-ui`)
+
+Add `implementation(project(":core:security-ui"))` to your module. The app
+places `ObliActionHost` once at the root (under `ObliTheme`); it provides:
+
+```kotlin
+val LocalActionRunner: ProvidableCompositionLocal<ActionRunner>   // wired to the host's sheets
+val LocalActionFeedback: ProvidableCompositionLocal<ActionFeedback> // fun show(result: ActionResult<*>, done: String)
+object ActionMessages { fun describe(resources, result, done: String): ActionMessage? ; fun failure(resources, outcome): String }
+```
+
+A screen (or its ViewModel, given the runner) does, for an item of `serverId`:
+
+```kotlin
+val runner = LocalActionRunner.current
+val feedback = LocalActionFeedback.current
+val services = LocalObliServices.current
+scope.launch {
+    val session = services.sessions.session(device.serverId) ?: return@launch   // the ITEM's server, never another origin
+    val spec = ActionSpec(
+        key = "device.reboot", tier = Tier.T2,
+        title = "Redémarrer", target = device.label,
+        scope = "Obliance Prod › ACME",            // server shown when 2+ servers (§7.6)
+        consequence = "Le poste redémarrera immédiatement.",
+        targetCount = 1,                           // > 1 for bulk; T3 with >= 10 asks to type it
+        endpoints = session.actionEndpoints(device.id),   // S43 "Annuler la demande", S44 unlock (obliance:data)
+    )
+    val result = runner.run(spec, preflight = {
+        when {
+            !device.online -> Preflight.Blocked("PC-COMPTA-03 est hors ligne")        // shown as is, nothing sent
+            needsSwitch -> Preflight.NeedsTenantSwitch("ACME") { services.tenants.switchTo(acmeId, device.serverId) is ApiOutcome.Ok }
+            else -> Preflight.Ok
+        }
+    }) { extra ->
+        // SAME body on each attempt + `extra` (twoFactorCode, trustIp) merged in.
+        session.http.post("/api/commands", buildJsonObject { put("deviceId", device.id); put("type", "reboot"); extra.forEach { (k, v) -> put(k, v) } })
+            .also { if (it == ApiOutcome.SessionExpired) session.markExpired() }
+    }
+    feedback.show(result, done = "Redémarrage demandé")
+}
+```
+
+What the host shows (all over the current screen, one prompt at a time):
+tenant switch ("Pour agir sur X, Obliance doit passer sur le tenant Y."
+[Basculer et continuer]); S41 per tier — T1 compact sheet, T2 sheet then
+`BiometricPrompt` (BIOMETRIC_STRONG or device credential, subtitle "target ·
+scope"; without a screen lock the sheet alone confirms and says so), T3 hold
+1.5 s with haptic ticks (two buttons under TalkBack / switch access) then
+biometric, bulk T3 ≥ 10 types the count; S42 (6 boxes, paste, trust IP with
+the current IP, error after a wrong code, 3 attempts); S43 (never a success;
+"Annuler la demande" when `endpoints` is set); S44 (feature chips + privacy
+password → `POST /api/devices/:id/privacy/unlock`, one retry). A 401 session
+calls the app's hook (S03 shows again). `ActionResult`s: `Done`,
+`AwaitingApproval` (amber, never a tick), `Cancelled` (say nothing),
+`Blocked(reason)`, `SessionExpired`, `Failed(outcome)` — `feedback.show` or
+`ActionMessages.describe` give the French text (403 capability « Votre équipe
+n'a pas le droit « Alimentation » sur cet appareil. », 409 legacy, 503 offline,
+network, 429…). Screenshot tests: the host is not needed to render a screen;
+to test a flow, wrap in `ObliActionHost(ActionHostState(...)) { }` and drive
+`state.prompt`.
+
+## 13. Opening a web page (`:core:webfallback`, S90)
+
+From any screen: `LocalObliNavigator.current.openWeb("/admin/users", "Utilisateurs et équipes")`
+(or `LocalWebPageOpener.current.openWeb(path, title)` from a platform module).
+`path` is same-origin and starts with `/`; the page opens on the ACTIVE server
+with the shared cookie session (same tenant as native calls). Chrome: Fermer,
+title + "Vue web", Actualiser, Ouvrir dans le navigateur. Other origins open in
+a Custom Tab; `mailto:`/`tel:` go to Android; `javascript:`/`file:`/`intent:`
+are refused; downloads go to DownloadManager with the cookie (same origin
+only). `/devices/:id` and `/` inside the page come back to S30 / Flotte. On
+close the app re-probes `/api/auth/me` (tenant changed in the page → scope
+follows, socket reconnects). Direct use: `ObliWebView(origin, path, title, onClose, onInAppPath = { false })`.

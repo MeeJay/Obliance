@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="secui_cancel">Cancel</string>
+    <string name="secui_close">Close</string>
+    <string name="secui_selected">Selected</string>
+
+    <!-- Tenant switch (S40 global view) -->
+    <string name="secui_switch_title">Switch to tenant %1$s?</string>
+    <string name="secui_switch_body">To act on %1$s, Obliance must switch to tenant %2$s.</string>
+    <string name="secui_switch_continue">Switch and continue</string>
+
+    <!-- S41 confirmation -->
+    <string name="secui_confirm_question">%1$s %2$s?</string>
+    <string name="secui_confirm_biometric_next">You will then confirm with your fingerprint or the device screen lock.</string>
+    <string name="secui_confirm_no_lock">No screen lock is set on this phone: this sheet is the only confirmation.</string>
+    <string name="secui_confirm_auth_failed">Verification cancelled. Try again or cancel.</string>
+    <string name="secui_confirm_hold">Hold 1.5 s to confirm</string>
+    <string name="secui_confirm_hold_a11y">%1$s. Hold for 1.5 seconds to confirm.</string>
+    <string name="secui_confirm_type_count">Type %1$d to confirm</string>
+    <string name="secui_confirm_button">Confirm</string>
+    <string name="secui_confirm_final">Confirm permanently</string>
+    <string name="secui_confirm_final_note">This action cannot be undone from the app.</string>
+
+    <!-- S42 2FA -->
+    <string name="secui_2fa_title">Verification required</string>
+    <string name="secui_2fa_body">This action is protected. Enter the 6-digit code from your authenticator app.</string>
+    <string name="secui_2fa_wrong">Incorrect code. Check your phone\'s clock.</string>
+    <string name="secui_2fa_code_label">6-digit code</string>
+    <string name="secui_2fa_paste">Paste the code</string>
+    <string name="secui_2fa_paste_missed">The clipboard does not contain a 6-digit code.</string>
+    <string name="secui_2fa_trust_ip">Don\'t ask again from this IP address for 24 h</string>
+    <string name="secui_2fa_current_ip">Current IP: %1$s — on a mobile network it changes often.</string>
+    <string name="secui_2fa_submit">Verify</string>
+
+    <!-- S43 approval sent -->
+    <string name="secui_approval_title">Request sent for approval</string>
+    <string name="secui_approval_body">A second administrator must approve “%1$s” on %2$s (%3$s).</string>
+    <string name="secui_approval_waiting">Awaiting approval · request #%1$d</string>
+    <string name="secui_approval_cancelled">Request cancelled</string>
+    <string name="secui_approval_cancel">Cancel the request</string>
+    <string name="secui_approval_cancel_failed">The request could not be cancelled (already handled or expired).</string>
+    <string name="secui_approval_ok">Got it</string>
+
+    <!-- S44 privacy -->
+    <string name="secui_privacy_title">Privacy mode is on for %1$s</string>
+    <string name="secui_privacy_body">The user protected this device. Enter the privacy password to unlock “%1$s” for 15 minutes.</string>
+    <string name="secui_privacy_password">Privacy password</string>
+    <string name="secui_privacy_unlock">Unlock</string>
+    <string name="secui_privacy_unlocking">Unlocking…</string>
+    <string name="secui_privacy_wrong">Incorrect password.</string>
+    <string name="secui_privacy_rate">Too many attempts. Wait a minute.</string>
+    <string name="secui_privacy_offline">The device is offline.</string>
+    <string name="secui_privacy_failed">The unlock failed.</string>
+    <string name="secui_privacy_admin_only">Only an administrator can disable privacy mode.</string>
+    <string name="secui_privacy_password_route">A privacy password is set on this device: privacy mode can only be disabled with that password.</string>
+    <string name="secui_feature_scripts">Scripts</string>
+    <string name="secui_feature_remote">Remote access</string>
+    <string name="secui_feature_processes">Processes</string>
+    <string name="secui_feature_files">Files</string>
+
+    <!-- Results -->
+    <string name="secui_result_pending">Request sent: awaiting approval.</string>
+    <string name="secui_result_switch_failed">The tenant switch failed. Nothing was sent.</string>
+    <string name="secui_result_session">Session expired: sign in again. The action was not run.</string>
+    <string name="secui_result_capability">Your team does not have the “%1$s” right on this device.</string>
+    <string name="secui_result_no_totp">This action requires two-factor authentication, which is not enabled on your account.</string>
+    <string name="secui_result_no_approval_path">This action is restricted and no approval path is configured.</string>
+    <string name="secui_result_forbidden">The server refused this action.</string>
+    <string name="secui_result_unsupported">Not available on this device\'s agent (legacy agent), or no longer applicable.</string>
+    <string name="secui_result_offline">The device is offline: nothing was sent.</string>
+    <string name="secui_result_rate_limited">Too many requests. Try again in a minute.</string>
+    <plurals name="secui_result_rate_limited_in">
+        <item quantity="one">Too many requests. Try again in %1$d second.</item>
+        <item quantity="other">Too many requests. Try again in %1$d seconds.</item>
+    </plurals>
+    <string name="secui_result_validation">The server rejected the request (invalid data).</string>
+    <string name="secui_result_code_rejected">Incorrect code: the action was not run.</string>
+    <string name="secui_result_privacy">Privacy mode is on: the action was not run.</string>
+    <string name="secui_result_network">No answer from the server. Check the device state before trying again.</string>
+    <string name="secui_result_not_found">Not found on the server.</string>
+    <string name="secui_result_server">Server error (%1$d).</string>
+    <string name="secui_result_unexpected">Unexpected answer from the server.</string>
+    <string name="secui_cap_power">Power</string>
+    <string name="secui_cap_execute">Execute</string>
+    <string name="secui_cap_remote">Remote access</string>
+    <string name="secui_cap_files">Files</string>
+    <string name="secui_cap_unknown">required</string>
+</resources>

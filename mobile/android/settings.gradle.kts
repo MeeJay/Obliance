@@ -27,6 +27,9 @@ include(":core:designsystem")
 include(":core:realtime")
 include(":core:security")
 include(":core:data")
+// Action host (S41–S44 prompts, biometric, results) and the S90 web view.
+include(":core:security-ui")
+include(":core:webfallback")
 
 // Obliance.
 include(":obliance:domain")

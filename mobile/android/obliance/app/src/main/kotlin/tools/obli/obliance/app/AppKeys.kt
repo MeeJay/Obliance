@@ -29,6 +29,10 @@ data object MoreKey : AppKey
 @Serializable
 data class DeviceKey(val serverId: String, val deviceId: Long) : AppKey
 
+/** S90: a same-origin page of [serverId] in the web view, pushed on the current destination. */
+@Serializable
+data class WebKey(val serverId: String, val path: String, val title: String) : AppKey
+
 /** S92 and S93, pushed on the Plus stack. */
 @Serializable
 data object ServersKey : AppKey

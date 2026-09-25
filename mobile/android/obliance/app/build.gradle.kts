@@ -78,6 +78,9 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":core:realtime"))
+    // Action prompts (S41–S44, biometric) and the S90 web view.
+    implementation(project(":core:security-ui"))
+    implementation(project(":core:webfallback"))
     implementation(project(":obliance:data"))
     implementation(project(":obliance:access"))
     implementation(project(":obliance:triage"))
@@ -87,6 +90,8 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    // FragmentActivity + AppCompat theme for BiometricPrompt (its API < 28 dialog needs it).
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)

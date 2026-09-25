@@ -75,7 +75,16 @@ import tools.obli.obliance.access.ReauthSheet
 import tools.obli.obliance.access.ScopeSheet
 import tools.obli.obliance.access.ServersScreen
 import tools.obli.obliance.access.SignInScreen
+import tools.obli.obliance.data.LocalObliNavigator
 import tools.obli.obliance.data.LocalObliServices
+import tools.obli.obliance.data.ObliNavigator
+import tools.obli.obliance.data.ObliServices
+import tools.obli.core.security.ui.ObliActionHost
+import tools.obli.core.webfallback.LocalWebPageOpener
+import tools.obli.core.webfallback.ObliWebView
+import tools.obli.core.webfallback.WebPageOpener
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
 import tools.obli.obliance.devices.DeviceDetailScreen
 import tools.obli.obliance.devices.DeviceListScreen
 import tools.obli.obliance.fleet.FleetScreen
@@ -87,11 +96,16 @@ import tools.obli.obliance.triage.TriageScreen
 fun ObliNextApp(ready: Boolean) {
     val services = LocalObliServices.current
     val registry by services.registry.state.collectAsStateWithLifecycle()
-    Box(Modifier.fillMaxSize().background(ObliTheme.colors.bg)) {
-        when {
-            !ready -> Unit
-            registry.profiles.isEmpty() -> SignInScreen(onSignedIn = {})
-            else -> Shell()
+    /** Bumped when an action met an expired session: S03 shows again even if it was dismissed. */
+    var reauthRequests by remember { mutableIntStateOf(0) }
+    // The action host (S41–S44, biometric, result snackbars) sits over everything (design doc §10.4).
+    ObliActionHost(onSessionExpired = { reauthRequests++ }) {
+        Box(Modifier.fillMaxSize().background(ObliTheme.colors.bg)) {
+            when {
+                !ready -> Unit
+                registry.profiles.isEmpty() -> SignInScreen(onSignedIn = {})
+                else -> Shell(reauthRequests)
+            }
         }
     }
 }
@@ -104,7 +118,7 @@ fun ObliNextApp(ready: Boolean) {
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-internal fun Shell() {
+internal fun Shell(reauthRequests: Int = 0) {
     val services = LocalObliServices.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -137,7 +151,10 @@ internal fun Shell() {
     }
 
     fun pop() {
-        if (stack.size > 1) stack.removeAt(stack.lastIndex)
+        if (stack.size > 1) {
+            val closed = stack.removeAt(stack.lastIndex)
+            if (closed is WebKey) scope.launch { afterWebView(services, ServerId(closed.serverId)) }
+        }
     }
 
     fun openDevice(from: Destination, serverId: ServerId, deviceId: Long) {
@@ -166,9 +183,27 @@ internal fun Shell() {
         }
     }
 
+    val navigator = remember(stacks) {
+        object : ObliNavigator {
+            override fun openWeb(path: String, title: String) {
+                val active = services.registry.state.value.activeId ?: return
+                val target = stacks.getValue(current)
+                target.removeAll { it is WebKey }
+                target.add(WebKey(active.value, path, title))
+            }
+
+            override fun openDevice(serverId: ServerId, deviceId: Long) {
+                openDevice(if (current == Destination.TRIAGE) Destination.TRIAGE else Destination.DEVICES, serverId, deviceId)
+                current = if (current == Destination.TRIAGE) Destination.TRIAGE else Destination.DEVICES
+            }
+        }
+    }
+    val webOpener = remember(navigator) { WebPageOpener(navigator::openWeb) }
+
     // Back on the root of another destination goes to "À traiter" first.
     BackHandler(enabled = !pushed && current != Destination.TRIAGE) { current = Destination.TRIAGE }
 
+    val registryState by services.registry.state.collectAsStateWithLifecycle()
     val alerts by services.alerts.snapshot.collectAsStateWithLifecycle()
     val badge = alerts.badgeCount
     val barColors = NavigationBarItemDefaults.colors(
@@ -191,6 +226,7 @@ internal fun Shell() {
     val triageA11y = stringResource(R.string.app_nav_triage_badge, badge)
     val itemColors = NavigationSuiteDefaults.itemColors(navigationBarItemColors = barColors, navigationRailItemColors = railColors)
 
+    CompositionLocalProvider(LocalObliNavigator provides navigator, LocalWebPageOpener provides webOpener) {
     NavigationSuiteScaffold(
         layoutType = layoutType,
         navigationSuiteColors = NavigationSuiteDefaults.colors(
@@ -252,6 +288,27 @@ internal fun Shell() {
                         entry<DeviceKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
                             DeviceDetailScreen(ServerId(key.serverId), key.deviceId, onBack = ::pop)
                         }
+                        entry<WebKey>(metadata = ListDetailSceneStrategy.detailPane()) { key ->
+                            val origin = registryState.byId(ServerId(key.serverId))?.origin
+                            if (origin == null) {
+                                DetailPlaceholder()
+                            } else {
+                                ObliWebView(
+                                    origin = origin,
+                                    path = key.path,
+                                    title = key.title,
+                                    onClose = ::pop,
+                                    onInAppPath = { path -> webPathToNative(path)?.let { native ->
+                                        pop()
+                                        when (native) {
+                                            is NativeTarget.Device -> navigator.openDevice(ServerId(key.serverId), native.id)
+                                            NativeTarget.Fleet -> select(Destination.FLEET)
+                                        }
+                                        true
+                                    } ?: false },
+                                )
+                            }
+                        }
                         entry<ServersKey> {
                             ServersScreen(onAddServer = { stacks.getValue(Destination.MORE).add(AddServerKey) }, onBack = ::pop)
                         }
@@ -292,6 +349,8 @@ internal fun Shell() {
         }
     }
 
+    }
+
     if (scopeSheet) {
         ScopeSheet(
             onDismiss = { scopeSheet = false },
@@ -304,18 +363,44 @@ internal fun Shell() {
         )
     }
 
-    SessionExpiredSheet()
+    SessionExpiredSheet(reauthRequests)
+}
+
+/** Same-origin web paths the app shows natively (design doc §2.8): `/devices/:id` → S30, `/` → Flotte. */
+internal sealed interface NativeTarget {
+    data class Device(val id: Long) : NativeTarget
+    data object Fleet : NativeTarget
+}
+
+internal fun webPathToNative(path: String): NativeTarget? {
+    val clean = path.substringBefore('#').substringBefore('?')
+    Regex("^/devices/(\\d+)/?$").find(clean)?.let { m -> return m.groupValues[1].toLongOrNull()?.let(NativeTarget::Device) }
+    return if (clean == "/") NativeTarget.Fleet else null
+}
+
+/**
+ * After the web view closes (§2.8): re-probe `/api/auth/me` of its server; if
+ * the page switched the session tenant, the tenants scope follows the probe
+ * (screens reload) and the socket of the active server reconnects.
+ */
+private suspend fun afterWebView(services: ObliServices, serverId: ServerId) {
+    val session = services.sessions.session(serverId) ?: return
+    val before = (session.auth.value as? AuthState.SignedIn)?.probe?.currentTenantId
+    val after = (session.probe() as? AuthState.SignedIn)?.probe?.currentTenantId
+    if (before != after && services.registry.state.value.activeId == serverId) session.realtime.reconnect()
 }
 
 /** S03 over the current screen when the ACTIVE server's session expired or was signed out (§2.10 item 5). */
 @Composable
-private fun SessionExpiredSheet() {
+private fun SessionExpiredSheet(reauthRequests: Int) {
     val services = LocalObliServices.current
     val active by services.sessions.active.collectAsStateWithLifecycle()
     val session = active ?: return
     val auth by session.auth.collectAsStateWithLifecycle()
     var dismissedFor by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(auth) { if (auth is AuthState.SignedIn) dismissedFor = null }
+    // An action met an expired session: show S03 again even if it was dismissed.
+    LaunchedEffect(reauthRequests) { if (reauthRequests > 0) dismissedFor = null }
     val lost = auth == AuthState.Expired || auth == AuthState.SignedOut
     if (lost && dismissedFor != session.id.value) {
         ReauthSheet(session.id, onDone = { dismissedFor = session.id.value })
