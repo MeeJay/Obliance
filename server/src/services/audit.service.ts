@@ -1,3 +1,4 @@
+import { clientIp as resolveClientIp } from '../utils/clientIp';
 import { db } from '../db';
 import type { Request } from 'express';
 import { isMasterTenant } from '@obliance/shared';
@@ -87,9 +88,8 @@ const RESOURCE_NAME_SELECT = db.raw(`
 
 function clientIpFromReq(req: Request | undefined): string | undefined {
   if (!req) return undefined;
-  // Trust the standard forwarded-for header chain, fall back to socket address.
-  const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
-  return fwd || req.socket?.remoteAddress || undefined;
+  // Through OUR proxies only (utils/clientIp.ts), never the left-most XFF value.
+  return resolveClientIp(req) || undefined;
 }
 
 export const auditService = {

@@ -40,7 +40,7 @@ export const userService = {
   /** List users. When `tenantId` is provided, restrict to users that have
    *  a membership row in `user_tenants` for that tenant — used by the
    *  /admin/users page when the caller is browsing a non-default tenant
-   *  (so a Pimkie admin doesn't see BA&SH users by accident). Pass `null`
+   *  (so a Contoso admin doesn't see ACME users by accident). Pass `null`
    *  / undefined to get every user (only used from the default tenant
    *  where admins legitimately want the global view). */
   async getAll(tenantId?: number | null): Promise<User[]> {

@@ -32,7 +32,7 @@ function rowToTeam(row: TeamRow): UserTeam {
     // Always exposed when the row was joined with `tenants` (the
     // god-view query does this). The /admin/users page renders it
     // both in the team-list rows and in the create-team selector
-    // so admins see "BASH" / "PIMKIE" instead of "Tenant 2".
+    // so admins see "ACME" / "CONTOSO" instead of "Tenant 2".
     tenantName: row.tenant_name ?? undefined,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),

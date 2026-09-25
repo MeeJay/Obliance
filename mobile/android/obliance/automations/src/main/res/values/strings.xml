@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated list; keep values and values-fr in sync. -->
+<resources>
+    <string name="automations_activity_title">Activity</string>
+    <string name="automations_live">Live</string>
+    <string name="automations_updated_at">Updated %1$s</string>
+    <string name="automations_polling">Refreshed every 5 s</string>
+    <string name="automations_section_running">In progress</string>
+    <string name="automations_section_approvals">My approval requests</string>
+    <string name="automations_section_automations">Automations</string>
+    <string name="automations_section_history">History</string>
+    <string name="automations_history_mine">My runs</string>
+    <string name="automations_history_all">All</string>
+    <string name="automations_history_empty_mine">You have not run any script recently.</string>
+    <string name="automations_history_empty">No recent runs.</string>
+    <string name="automations_run_script">Run a script</string>
+    <string name="automations_open_batch">Open the batch</string>
+    <string name="automations_entry_scripts">Scripts</string>
+    <string name="automations_entry_schedules">Schedules</string>
+    <string name="automations_entry_scenarios">Scenarios</string>
+    <string name="automations_see_all">See all</string>
+    <string name="automations_see_all_count">See all (%1$d)</string>
+    <string name="automations_schedules_none">No active schedule.</string>
+    <string name="automations_scenarios_none_active">No active scenario.</string>
+    <string name="automations_kind_manual">Manual</string>
+    <string name="automations_kind_schedule">Schedule</string>
+    <string name="automations_approval_pending">Pending</string>
+    <string name="automations_approval_pending_until">Pending · expires at %1$s</string>
+    <string name="automations_approval_approved">Approved by %1$s</string>
+    <string name="automations_approval_denied">Denied by %1$s</string>
+    <string name="automations_approval_expired">Expired</string>
+    <string name="automations_approval_cancelled_state">Withdrawn</string>
+    <string name="automations_approval_script_run">Run “%1$s” · %2$s</string>
+    <string name="automations_approval_cancel">Withdraw the request</string>
+    <string name="automations_approval_cancel_consequence">The request will no longer be offered to approvers.</string>
+    <string name="automations_approval_cancelled">Request withdrawn</string>
+    <string name="automations_error_forbidden">Your account cannot see this list on this server.</string>
+    <string name="automations_retry">Retry</string>
+    <string name="automations_back">Back</string>
+    <string name="automations_close">Close</string>
+    <string name="automations_loading">Loading…</string>
+    <string name="automations_yes">yes</string>
+    <string name="automations_no">no</string>
+    <string name="automations_param_line">%1$s = %2$s</string>
+    <string name="automations_picker_title">Choose a script</string>
+    <string name="automations_picker_subtitle">Script library</string>
+    <string name="automations_search_script">Search for a script</string>
+    <string name="automations_clear_search">Clear the search</string>
+    <string name="automations_chip_recent">Recent</string>
+    <string name="automations_platform_windows">Windows</string>
+    <string name="automations_platform_linux">Linux</string>
+    <string name="automations_platform_macos">macOS</string>
+    <string name="automations_platform_all">All platforms</string>
+    <string name="automations_picker_empty">No script on this server.</string>
+    <string name="automations_picker_no_match">No script matches “%1$s”.</string>
+    <string name="automations_picker_select">Select a script to preview it.</string>
+    <string name="automations_preview">Preview</string>
+    <string name="automations_tag_system">System</string>
+    <string name="automations_managed_by_master">Managed by the main tenant</string>
+    <string name="automations_timeout_s">%1$d s</string>
+    <string name="automations_timeout_label">timeout %1$d s</string>
+    <string name="automations_params">Parameters</string>
+    <string name="automations_no_params">No parameter.</string>
+    <string name="automations_param_default">default: %1$s</string>
+    <string name="automations_used_by">Used by %1$s, %2$s</string>
+    <string name="automations_show_code">Show the code</string>
+    <string name="automations_hide_code">Hide the code</string>
+    <string name="automations_continue">Continue</string>
+    <string name="automations_ptype_text">Text</string>
+    <string name="automations_ptype_number">Number</string>
+    <string name="automations_ptype_boolean">Switch</string>
+    <string name="automations_ptype_secret">Secret</string>
+    <string name="automations_ptype_select">List</string>
+    <string name="automations_ptype_multiselect">Multiple list</string>
+    <string name="automations_run_title">Run a script</string>
+    <string name="automations_script">Script</string>
+    <string name="automations_change_script">Change script</string>
+    <string name="automations_param_required">Required</string>
+    <string name="automations_param_required_error">This field is required.</string>
+    <string name="automations_param_number_error">Enter a number.</string>
+    <string name="automations_param_option_error">Choose one of the values.</string>
+    <string name="automations_show_secret">Show the value</string>
+    <string name="automations_hide_secret">Hide the value</string>
+    <string name="automations_targets">Targets</string>
+    <string name="automations_add">Add</string>
+    <string name="automations_add_targets">Add devices</string>
+    <string name="automations_targets_empty">No device yet.</string>
+    <string name="automations_remove_target">Remove %1$s</string>
+    <string name="automations_search_devices">Search for a device</string>
+    <string name="automations_no_device_match">No matching device.</string>
+    <string name="automations_device_online">Online</string>
+    <string name="automations_device_warning">Warning</string>
+    <string name="automations_device_critical">Critical</string>
+    <string name="automations_device_offline">Offline</string>
+    <string name="automations_device_pending">Pending enrolment</string>
+    <string name="automations_device_other">Unavailable</string>
+    <string name="automations_prechecks">Pre-checks</string>
+    <string name="automations_check_clear">Nothing blocking</string>
+    <string name="automations_check_warnings">To check before running</string>
+    <string name="automations_check_blocked">Cannot run</string>
+    <string name="automations_check_mixed_tenants">Actions run in one tenant at a time: keep devices of a single tenant.</string>
+    <string name="automations_check_mixed_tenants_detail">These devices belong to several tenants (%1$s): actions run in one tenant at a time.</string>
+    <string name="automations_check_no_runnable">No valid target device.</string>
+    <string name="automations_check_platform">%1$s skipped: %2$s script for %3$s.</string>
+    <string name="automations_check_not_approved">%1$s skipped: not an approved device.</string>
+    <string name="automations_check_privacy">%1$s is in privacy mode: unlock required.</string>
+    <string name="automations_check_legacy">%1$s runs the legacy agent: check that the script is compatible.</string>
+    <string name="automations_check_switch">These devices are in %1$s: when you run, your session will switch to %1$s.</string>
+    <string name="automations_notice_approval">Request sent for approval. You can follow it in Activity.</string>
+    <string name="automations_notice_no_targets">No valid target device.</string>
+    <string name="automations_tier_t1">Simple confirmation</string>
+    <string name="automations_tier_t2">Fingerprint confirmation</string>
+    <string name="automations_tier_t3">Hold, type the count, then fingerprint</string>
+    <string name="automations_run">Run</string>
+    <string name="automations_confirm_run_title">Run “%1$s”</string>
+    <string name="automations_run_started">Script started</string>
+    <string name="automations_not_active_server">Switch to %1$s to run this action.</string>
+    <string name="automations_batch_title">Batch</string>
+    <string name="automations_batch_empty">This batch has no execution you can see.</string>
+    <string name="automations_batch_finished">Finished</string>
+    <string name="automations_started_at">started at %1$s</string>
+    <string name="automations_started_by_you">started at %1$s by you</string>
+    <string name="automations_started_by">started at %1$s by %2$s</string>
+    <string name="automations_output_honesty">Each device\'s output appears when its run ends.</string>
+    <string name="automations_filter_all">All</string>
+    <string name="automations_filter_failed">Failures</string>
+    <string name="automations_filter_running">Running</string>
+    <string name="automations_filter_queued">Queued</string>
+    <string name="automations_filter_empty_failed">No failed device.</string>
+    <string name="automations_filter_empty_running">No device running.</string>
+    <string name="automations_filter_empty_queued">No device queued.</string>
+    <string name="automations_code">code %1$d</string>
+    <string name="automations_open_output">Open the output</string>
+    <string name="automations_open_powershell">Open PowerShell on %1$s</string>
+    <string name="automations_open_terminal">Open a terminal on %1$s</string>
+    <string name="automations_stop">Stop</string>
+    <string name="automations_cancel">Cancel</string>
+    <string name="automations_stop_title">Stop the script</string>
+    <string name="automations_cancel_title">Cancel the run</string>
+    <string name="automations_stop_consequence">The agent stops the script; what it already did stays done.</string>
+    <string name="automations_cancel_consequence">The script will not be sent to the device.</string>
+    <string name="automations_stop_done">Request sent</string>
+    <string name="automations_share">Share</string>
+    <string name="automations_share_report">Share the report</string>
+    <string name="automations_output_select">Select a device to read its output.</string>
+    <string name="automations_tab_output">Output</string>
+    <string name="automations_tab_errors">Errors</string>
+    <string name="automations_no_stdout">No standard output for this device.</string>
+    <string name="automations_no_stderr">No error output for this device.</string>
+    <string name="automations_copy">Copy</string>
+    <string name="automations_show_run_code">Code that ran</string>
+    <string name="automations_hide_run_code">Hide the code that ran</string>
+    <string name="automations_step_queued">Queued</string>
+    <string name="automations_step_sent">Sent</string>
+    <string name="automations_step_running">Running</string>
+    <string name="automations_step_success">Succeeded</string>
+    <string name="automations_step_failure">Failed</string>
+    <string name="automations_step_timeout">No answer from the agent</string>
+    <string name="automations_step_cancelled">Cancelled</string>
+    <string name="automations_step_skipped">Skipped</string>
+    <string name="automations_schedules_title">Schedules</string>
+    <string name="automations_schedules_empty">No schedule on this server.</string>
+    <string name="automations_schedules_empty_body">Schedules are created in the web view.</string>
+    <string name="automations_edit_in_web">Edit in the web view</string>
+    <string name="automations_web_automations">Automations</string>
+    <string name="automations_schedule_pause">Pause the schedule</string>
+    <string name="automations_schedule_resume">Resume the schedule</string>
+    <string name="automations_schedule_pause_consequence">It will not run until you resume it.</string>
+    <string name="automations_schedule_paused">Schedule paused</string>
+    <string name="automations_schedule_resumed">Schedule resumed</string>
+    <string name="automations_schedule_paused_state">Paused</string>
+    <string name="automations_schedule_next">Next: %1$s</string>
+    <string name="automations_schedule_last">Last:</string>
+    <string name="automations_cron_hourly">Every hour at :%1$s</string>
+    <string name="automations_cron_daily">Every day at %1$s</string>
+    <string name="automations_cron_weekdays">Weekdays at %1$s</string>
+    <string name="automations_cron_weekly">%1$s at %2$s</string>
+    <string name="automations_cron_monthly">Day %1$d of each month at %2$s</string>
+    <string name="automations_cron_once">Once at %1$s</string>
+    <string name="automations_scenarios_title">Scenarios</string>
+    <string name="automations_scenarios_empty">No scenario on this server.</string>
+    <string name="automations_scenarios_empty_body">Scenarios are created and edited in the web view.</string>
+    <string name="automations_scenarios_truncated">First %1$d scenarios shown</string>
+    <string name="automations_web_scenarios">Scenarios</string>
+    <string name="automations_scenario_create">Create a scenario (web view)</string>
+    <string name="automations_scenario_edit">Edit in the web view</string>
+    <string name="automations_scenario_active">Active</string>
+    <string name="automations_scenario_draft">Draft</string>
+    <string name="automations_scenario_disabled">Disabled</string>
+    <string name="automations_scenario_enable">Enable</string>
+    <string name="automations_scenario_disable">Disable</string>
+    <string name="automations_scenario_disable_consequence">Its triggers stop starting runs; runs in progress continue.</string>
+    <string name="automations_scenario_enabled">Scenario enabled</string>
+    <string name="automations_scenario_disabled_done">Scenario disabled</string>
+    <string name="automations_scenario_start">Start the scenario</string>
+    <string name="automations_scenario_start_ellipsis">Start on…</string>
+    <string name="automations_scenario_start_on">Start “%1$s” on…</string>
+    <string name="automations_scenario_start_consequence">One run starts on each chosen device.</string>
+    <string name="automations_scenario_started">Scenario started</string>
+    <string name="automations_scenario_cancel_runs">Cancel the runs</string>
+    <string name="automations_scenario_runs_cancelled">Runs cancelled</string>
+    <string name="automations_scenario_runs">Runs</string>
+    <string name="automations_scenario_no_runs">No run yet.</string>
+    <string name="automations_scenario_open_runs">Open the runs</string>
+    <string name="automations_scenario_open_run">Open the run</string>
+    <string name="automations_run_no_nodes">No step recorded for this run.</string>
+    <string name="automations_show_output">Show the output</string>
+    <string name="automations_hide_output">Hide the output</string>
+    <string name="automations_trigger_times">%1$s × %2$d</string>
+    <string name="automations_trigger_manual">Manual</string>
+    <string name="automations_trigger_schedule">Scheduled</string>
+    <string name="automations_trigger_agent_approved">Agent approved</string>
+    <string name="automations_trigger_session_login">Session sign-in</string>
+    <string name="automations_trigger_boot">Machine start</string>
+    <string name="automations_trigger_group_join">Joins a group</string>
+    <string name="automations_trigger_schedule_failure">Schedule failure</string>
+    <string name="automations_trigger_back_online">Back online</string>
+    <string name="automations_trigger_metric_warning">Metric warning</string>
+    <string name="automations_trigger_metric_critical">Metric critical</string>
+    <string name="automations_trigger_metric_custom">Custom metric</string>
+    <string name="automations_node_run_script">Run a script</string>
+    <string name="automations_node_run_command">Run a command</string>
+    <string name="automations_node_notify">Send a notification</string>
+    <string name="automations_node_wait">Wait</string>
+    <string name="automations_node_tag">Tag the device</string>
+    <string name="automations_node_move">Move to a group</string>
+    <string name="automations_node_branch">Branch</string>
+    <string name="automations_node_cooldown">Cooldown</string>
+    <string name="automations_node_end_success">End: success</string>
+    <string name="automations_node_end_failure">End: failure</string>
+    <plurals name="automations_devices">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
+    <plurals name="automations_count_success">
+        <item quantity="one">%1$d succeeded</item>
+        <item quantity="other">%1$d succeeded</item>
+    </plurals>
+    <plurals name="automations_count_failure">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+    <plurals name="automations_count_running">
+        <item quantity="one">%1$d running</item>
+        <item quantity="other">%1$d running</item>
+    </plurals>
+    <plurals name="automations_count_queued">
+        <item quantity="one">%1$d queued</item>
+        <item quantity="other">%1$d queued</item>
+    </plurals>
+    <plurals name="automations_see_all_active">
+        <item quantity="one">See all (%1$d active)</item>
+        <item quantity="other">See all (%1$d active)</item>
+    </plurals>
+    <plurals name="automations_scenarios_count">
+        <item quantity="one">%1$d scenario</item>
+        <item quantity="other">%1$d scenarios</item>
+    </plurals>
+    <plurals name="automations_schedules_count">
+        <item quantity="one">%1$d schedule</item>
+        <item quantity="other">%1$d schedules</item>
+    </plurals>
+    <plurals name="automations_schedules_active">
+        <item quantity="one">%1$d active</item>
+        <item quantity="other">%1$d active</item>
+    </plurals>
+    <plurals name="automations_more_devices">
+        <item quantity="one">%1$d more: refine the search</item>
+        <item quantity="other">%1$d more: refine the search</item>
+    </plurals>
+    <plurals name="automations_add_n">
+        <item quantity="one">Add %1$d device</item>
+        <item quantity="other">Add %1$d devices</item>
+    </plurals>
+    <plurals name="automations_run_on">
+        <item quantity="one">Run on %1$d device</item>
+        <item quantity="other">Run on %1$d devices</item>
+    </plurals>
+    <plurals name="automations_confirm_run_consequence">
+        <item quantity="one">The %1$s script runs on %2$d device.</item>
+        <item quantity="other">The %1$s script runs on %2$d devices.</item>
+    </plurals>
+    <plurals name="automations_check_offline">
+        <item quantity="one">%1$d device offline: the run waits until it is back and may expire.</item>
+        <item quantity="other">%1$d devices offline: the run waits until they are back and may expire.</item>
+    </plurals>
+    <plurals name="automations_check_reachable">
+        <item quantity="one">%1$d device reachable: immediate run</item>
+        <item quantity="other">%1$d devices reachable: immediate run</item>
+    </plurals>
+    <plurals name="automations_check_compatible">
+        <item quantity="one">%1$s compatible with %2$d target</item>
+        <item quantity="other">%1$s compatible with the %2$d targets</item>
+    </plurals>
+    <plurals name="automations_sum_online">
+        <item quantity="one">%1$d online</item>
+        <item quantity="other">%1$d online</item>
+    </plurals>
+    <plurals name="automations_sum_warning">
+        <item quantity="one">%1$d warning</item>
+        <item quantity="other">%1$d warning</item>
+    </plurals>
+    <plurals name="automations_sum_critical">
+        <item quantity="one">%1$d critical</item>
+        <item quantity="other">%1$d critical</item>
+    </plurals>
+    <plurals name="automations_sum_offline">
+        <item quantity="one">%1$d offline</item>
+        <item quantity="other">%1$d offline</item>
+    </plurals>
+    <plurals name="automations_targets_missing">
+        <item quantity="one">%1$d device could not be read and was left out.</item>
+        <item quantity="other">%1$d devices could not be read and were left out.</item>
+    </plurals>
+    <plurals name="automations_rerun_failed">
+        <item quantity="one">Rerun on failures (%1$d)</item>
+        <item quantity="other">Rerun on failures (%1$d)</item>
+    </plurals>
+    <plurals name="automations_see_devices">
+        <item quantity="one">See the %1$d device</item>
+        <item quantity="other">See the %1$d devices</item>
+    </plurals>
+    <plurals name="automations_report_succeeded">
+        <item quantity="one">%1$d/%2$d succeeded</item>
+        <item quantity="other">%1$d/%2$d succeeded</item>
+    </plurals>
+    <plurals name="automations_cron_every_minutes">
+        <item quantity="one">Every %1$d minute</item>
+        <item quantity="other">Every %1$d minutes</item>
+    </plurals>
+    <plurals name="automations_nodes">
+        <item quantity="one">%1$d step</item>
+        <item quantity="other">%1$d steps</item>
+    </plurals>
+    <plurals name="automations_scenario_cancel_n">
+        <item quantity="one">Cancel %1$d run in progress</item>
+        <item quantity="other">Cancel the %1$d runs in progress</item>
+    </plurals>
+    <plurals name="automations_scenario_cancel_consequence">
+        <item quantity="one">%1$d run in progress stops.</item>
+        <item quantity="other">The %1$d runs in progress stop.</item>
+    </plurals>
+    <plurals name="automations_scenario_start_n">
+        <item quantity="one">Start on %1$d device</item>
+        <item quantity="other">Start on %1$d devices</item>
+    </plurals>
+</resources>

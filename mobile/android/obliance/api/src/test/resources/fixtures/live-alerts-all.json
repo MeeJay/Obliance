@@ -1,0 +1,6 @@
+{"alerts":[
+{"id":9812,"tenantId":4,"tenantName":"ACME","severity":"critical","title":"SRV-AD2: Hors ligne","message":"Aucun push reçu depuis 4 min.","navigateTo":"/devices/211","stableKey":"device:211:offline","readAt":null,"createdAt":"2026-09-25T01:12:04.000Z"},
+{"id":9807,"tenantId":4,"tenantName":"ACME","severity":"critical","title":"PC-COMPTA-03: Critique","message":"CPU 98 % (seuil 90 %)","navigateTo":"/devices/187","stableKey":"device:187:metric:critical","readAt":null,"createdAt":"2026-09-25T01:05:31.000Z"},
+{"id":9790,"tenantId":1,"tenantName":"Default","severity":"warning","title":"BOB01: Alerte","message":"Disque / 94 % (seuil 90 %)","navigateTo":"/devices/15","stableKey":"device:15:metric:warning","readAt":null,"createdAt":"2026-09-25T00:47:10.000Z"},
+{"id":9771,"tenantId":1,"tenantName":"Default","severity":"info","title":"140: De retour en ligne","message":"","navigateTo":"/devices/140","stableKey":null,"readAt":"2026-09-25T01:00:12.000Z","createdAt":"2026-09-24T22:58:40.000Z"}
+],"tenants":[{"id":1,"name":"Default"},{"id":4,"name":"ACME"}]}

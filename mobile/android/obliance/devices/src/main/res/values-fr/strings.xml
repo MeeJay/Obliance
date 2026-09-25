@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- S20 liste des appareils -->
+    <string name="devices_title">Appareils</string>
+    <string name="devices_live">En direct</string>
+    <string name="devices_updated_at">Mis à jour à %1$s</string>
+    <string name="devices_data_of">Données de %1$s</string>
+    <string name="devices_search_label">Rechercher un appareil</string>
+    <string name="devices_search_hint">Nom, IP, MAC, utilisateur…</string>
+    <string name="devices_search_clear">Effacer la recherche</string>
+    <string name="devices_chip_problems_first">Problèmes d\'abord</string>
+    <string name="devices_os_windows">Windows</string>
+    <string name="devices_os_linux">Linux</string>
+    <string name="devices_os_macos">macOS</string>
+    <string name="devices_section_all">Appareils</string>
+    <string name="devices_section_other">Autres</string>
+    <string name="devices_section_header">%1$s · %2$s</string>
+    <string name="devices_count_at_least">%1$d+</string>
+    <string name="devices_tag_legacy">legacy</string>
+    <string name="devices_privacy_a11y">Mode confidentialité actif</string>
+    <string name="devices_update_a11y">Mise à jour d\'agent disponible</string>
+    <string name="devices_metric_cpu">CPU</string>
+    <string name="devices_metric_ram">RAM</string>
+    <string name="devices_offline_since_time">Hors ligne depuis %1$s (%2$s)</string>
+    <string name="devices_offline_since_date">Hors ligne depuis le %1$s (%2$s)</string>
+    <string name="devices_offline_never">Hors ligne, jamais vu</string>
+    <string name="devices_pending_approval">En attente d\'approbation</string>
+    <string name="devices_no_metrics">Aucune mesure pour l\'instant</string>
+    <string name="devices_empty_tenant">Aucun appareil dans ce tenant.</string>
+    <string name="devices_empty_search">Aucun appareil ne correspond à « %1$s ».</string>
+    <string name="devices_empty_search_filter">Aucun appareil ne correspond à « %1$s » avec le filtre %2$s.</string>
+    <string name="devices_empty_filter">Aucun appareil ne correspond au filtre %1$s.</string>
+    <string name="devices_clear_filters">Effacer les filtres</string>
+    <string name="devices_refresh_order">Actualiser l\'ordre</string>
+    <string name="devices_load_more_failed">La suite de la liste n\'a pas pu être chargée.</string>
+    <string name="devices_loading">Chargement des appareils</string>
+    <plurals name="devices_changes">
+        <item quantity="one">%1$d changement</item>
+        <item quantity="many">%1$d changements</item>
+        <item quantity="other">%1$d changements</item>
+    </plurals>
+    <plurals name="devices_member_scope">
+        <item quantity="one">Affichage de %1$d appareil accessible</item>
+        <item quantity="many">Affichage de vos %1$d appareils accessibles</item>
+        <item quantity="other">Affichage de vos %1$d appareils accessibles</item>
+    </plurals>
+
+    <!-- Erreurs (document de conception §5 états standard, §7.8) -->
+    <string name="devices_error_network">Le serveur est injoignable.</string>
+    <string name="devices_error_server">Le serveur a répondu de façon inattendue. Réessayez.</string>
+    <string name="devices_error_session">Votre session a expiré.</string>
+    <string name="devices_error_forbidden">Votre équipe n\'a pas accès à ces appareils.</string>
+    <string name="devices_error_rate">Trop de tentatives. Réessayez dans un instant.</string>
+    <string name="devices_error_no_server">Aucun serveur actif.</string>
+    <string name="devices_error_detail">HTTP %1$d · %2$s</string>
+    <string name="devices_retry">Réessayer</string>
+    <string name="devices_not_found">Cet appareil n\'existe plus ou vous n\'y avez plus accès.</string>
+
+    <!-- Durées -->
+    <string name="devices_age_now">à l\'instant</string>
+    <string name="devices_age_min">%1$d min</string>
+    <string name="devices_age_hour">%1$d h</string>
+    <string name="devices_age_day">%1$d j</string>
+    <string name="devices_ago">il y a %1$s</string>
+
+    <!-- S30 / S31 détail d'appareil -->
+    <string name="devices_back">Retour</string>
+    <string name="devices_device_fallback">Appareil %1$d</string>
+    <string name="devices_loading_device">Chargement de l\'appareil</string>
+    <string name="devices_seen_now">Vu à l\'instant</string>
+    <string name="devices_seen_ago">Vu il y a %1$s</string>
+    <string name="devices_seen_never">Jamais vu</string>
+    <string name="devices_last_user">Dernier utilisateur : %1$s</string>
+    <string name="devices_agent_version">agent %1$s</string>
+    <string name="devices_agent_legacy">legacy %1$s</string>
+    <string name="devices_agent_with_state">%1$s · %2$s</string>
+    <string name="devices_agent_up_to_date">à jour</string>
+    <string name="devices_agent_update">mise à jour disponible</string>
+    <string name="devices_build">build %1$s</string>
+    <string name="devices_privacy_banner">Mode confidentialité actif — scripts, accès distant, processus et fichiers verrouillés.</string>
+    <string name="devices_legacy_banner">Agent legacy — accès distant et certaines actions indisponibles.</string>
+    <string name="devices_metrics">Métriques</string>
+    <string name="devices_metrics_live">Métriques en direct</string>
+    <string name="devices_polling">Actualisation toutes les 15 s</string>
+    <string name="devices_cpu">Processeur</string>
+    <string name="devices_ram">Mémoire</string>
+    <string name="devices_disk">Disque %1$s</string>
+    <string name="devices_network">Réseau</string>
+    <string name="devices_network_a11y">Réseau : reçu %1$s, envoyé %2$s</string>
+    <string name="devices_rate_kb">%1$s Ko/s</string>
+    <string name="devices_rate_mb">%1$s Mo/s</string>
+    <string name="devices_size_gb">%1$s / %2$s Go</string>
+    <string name="devices_threshold">seuil %1$d %%</string>
+    <string name="devices_percent">%1$d %%</string>
+    <string name="devices_no_value">Aucune valeur</string>
+    <string name="devices_values_at">Valeurs au %1$s</string>
+    <string name="devices_no_metrics_yet">Aucune mesure reçue pour l\'instant.</string>
+    <string name="devices_push_requested">Mesures demandées…</string>
+    <plurals name="devices_cores">
+        <item quantity="one">%1$d cœur</item>
+        <item quantity="many">%1$d cœurs</item>
+        <item quantity="other">%1$d cœurs</item>
+    </plurals>
+    <string name="devices_identity">Identité</string>
+    <string name="devices_id_hostname">Nom d\'hôte</string>
+    <string name="devices_id_os">Système</string>
+    <string name="devices_id_version">Version</string>
+    <string name="devices_id_arch">Architecture</string>
+    <string name="devices_id_ip_local">IP locale</string>
+    <string name="devices_id_ip_public">IP publique</string>
+    <string name="devices_id_mac">MAC</string>
+    <string name="devices_id_agent">Agent</string>
+    <string name="devices_id_last_seen">Dernier contact</string>
+    <string name="devices_id_reboot">Redémarrage</string>
+    <string name="devices_id_timezone">Fuseau horaire</string>
+    <string name="devices_reboot_pending">en attente</string>
+    <string name="devices_act">Agir</string>
+
+    <!-- Statuts (document de conception §7.8) -->
+    <string name="devices_status_online">En ligne</string>
+    <string name="devices_status_offline">Hors ligne</string>
+    <string name="devices_status_warning">Attention</string>
+    <string name="devices_status_critical">Critique</string>
+    <string name="devices_status_pending">En attente</string>
+    <string name="devices_status_updating">Mise à jour</string>
+    <string name="devices_status_maintenance">Maintenance</string>
+    <string name="devices_status_suspended">Suspendu</string>
+    <string name="devices_status_pending_uninstall">Désinstallation en cours</string>
+    <string name="devices_status_update_error">Erreur de mise à jour</string>
+    <string name="devices_status_unknown">Inconnu</string>
+</resources>

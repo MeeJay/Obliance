@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="secui_cancel">Annuler</string>
+    <string name="secui_close">Fermer</string>
+    <string name="secui_selected">Sélectionné</string>
+
+    <string name="secui_switch_title">Basculer sur le tenant %1$s ?</string>
+    <string name="secui_switch_body">Pour agir sur %1$s, Obliance doit passer sur le tenant %2$s.</string>
+    <string name="secui_switch_continue">Basculer et continuer</string>
+
+    <string name="secui_confirm_question">%1$s %2$s ?</string>
+    <string name="secui_confirm_biometric_next">Vous confirmerez ensuite par empreinte ou avec le verrouillage de l\'appareil.</string>
+    <string name="secui_confirm_no_lock">Aucun verrouillage d\'écran n\'est configuré sur ce téléphone : cette feuille est la seule confirmation.</string>
+    <string name="secui_confirm_auth_failed">Vérification annulée. Réessayez ou annulez.</string>
+    <string name="secui_confirm_hold">Maintenir 1,5 s pour confirmer</string>
+    <string name="secui_confirm_hold_a11y">%1$s. Maintenez 1,5 seconde pour confirmer.</string>
+    <string name="secui_confirm_type_count">Saisissez %1$d pour confirmer</string>
+    <string name="secui_confirm_button">Confirmer</string>
+    <string name="secui_confirm_final">Confirmer définitivement</string>
+    <string name="secui_confirm_final_note">Cette action ne peut pas être annulée depuis l\'app.</string>
+
+    <string name="secui_2fa_title">Vérification requise</string>
+    <string name="secui_2fa_body">Cette action est protégée. Saisissez le code à 6 chiffres de votre application d\'authentification.</string>
+    <string name="secui_2fa_wrong">Code incorrect. Vérifiez l\'heure de votre téléphone.</string>
+    <string name="secui_2fa_code_label">Code à 6 chiffres</string>
+    <string name="secui_2fa_paste">Coller le code</string>
+    <string name="secui_2fa_paste_missed">Le presse-papiers ne contient pas de code à 6 chiffres.</string>
+    <string name="secui_2fa_trust_ip">Ne plus demander depuis cette adresse IP pendant 24 h</string>
+    <string name="secui_2fa_current_ip">IP actuelle : %1$s — sur réseau mobile, elle change souvent.</string>
+    <string name="secui_2fa_submit">Valider</string>
+
+    <string name="secui_approval_title">Demande envoyée pour approbation</string>
+    <string name="secui_approval_body">Un second administrateur doit valider « %1$s » sur %2$s (%3$s).</string>
+    <string name="secui_approval_waiting">En attente d\'approbation · demande nº %1$d</string>
+    <string name="secui_approval_cancelled">Demande annulée</string>
+    <string name="secui_approval_cancel">Annuler la demande</string>
+    <string name="secui_approval_cancel_failed">La demande n\'a pas pu être annulée (déjà traitée ou expirée).</string>
+    <string name="secui_approval_ok">Compris</string>
+
+    <string name="secui_privacy_title">Mode confidentialité actif sur %1$s</string>
+    <string name="secui_privacy_body">L\'utilisateur a protégé ce poste. Saisissez le mot de passe de confidentialité pour déverrouiller « %1$s » pendant 15 minutes.</string>
+    <string name="secui_privacy_password">Mot de passe de confidentialité</string>
+    <string name="secui_privacy_unlock">Déverrouiller</string>
+    <string name="secui_privacy_unlocking">Déverrouillage…</string>
+    <string name="secui_privacy_wrong">Mot de passe incorrect.</string>
+    <string name="secui_privacy_rate">Trop d\'essais. Patientez une minute.</string>
+    <string name="secui_privacy_offline">L\'appareil est hors ligne.</string>
+    <string name="secui_privacy_failed">Le déverrouillage a échoué.</string>
+    <string name="secui_privacy_admin_only">Seul un administrateur peut désactiver le mode confidentialité.</string>
+    <string name="secui_privacy_password_route">Un mot de passe de confidentialité est défini sur ce poste : le mode ne peut être désactivé qu\'avec ce mot de passe.</string>
+    <string name="secui_feature_scripts">Scripts</string>
+    <string name="secui_feature_remote">Accès distant</string>
+    <string name="secui_feature_processes">Processus</string>
+    <string name="secui_feature_files">Fichiers</string>
+
+    <string name="secui_result_pending">Demande envoyée : en attente d\'approbation.</string>
+    <string name="secui_result_switch_failed">La bascule de tenant a échoué. Rien n\'a été envoyé.</string>
+    <string name="secui_result_session">Session expirée : reconnectez-vous. L\'action n\'a pas été exécutée.</string>
+    <string name="secui_result_capability">Votre équipe n\'a pas le droit « %1$s » sur cet appareil.</string>
+    <string name="secui_result_no_totp">Cette action exige la double authentification, qui n\'est pas activée sur votre compte.</string>
+    <string name="secui_result_no_approval_path">Cette action est restreinte et aucun circuit d\'approbation n\'est configuré.</string>
+    <string name="secui_result_forbidden">Le serveur a refusé cette action.</string>
+    <string name="secui_result_unsupported">Indisponible avec l\'agent de cet appareil (agent ancien), ou plus applicable.</string>
+    <string name="secui_result_offline">L\'appareil est hors ligne : rien n\'a été envoyé.</string>
+    <string name="secui_result_rate_limited">Trop de demandes. Réessayez dans une minute.</string>
+    <plurals name="secui_result_rate_limited_in">
+        <item quantity="one">Trop de demandes. Réessayez dans %1$d seconde.</item>
+        <item quantity="many">Trop de demandes. Réessayez dans %1$d secondes.</item>
+        <item quantity="other">Trop de demandes. Réessayez dans %1$d secondes.</item>
+    </plurals>
+    <string name="secui_result_validation">Le serveur a rejeté la demande (données invalides).</string>
+    <string name="secui_result_code_rejected">Code incorrect : l\'action n\'a pas été exécutée.</string>
+    <string name="secui_result_privacy">Mode confidentialité actif : l\'action n\'a pas été exécutée.</string>
+    <string name="secui_result_network">Pas de réponse du serveur. Vérifiez l\'état de l\'appareil avant de réessayer.</string>
+    <string name="secui_result_not_found">Introuvable sur le serveur.</string>
+    <string name="secui_result_server">Erreur du serveur (%1$d).</string>
+    <string name="secui_result_unexpected">Réponse inattendue du serveur.</string>
+    <string name="secui_cap_power">Alimentation</string>
+    <string name="secui_cap_execute">Exécution</string>
+    <string name="secui_cap_remote">Accès distant</string>
+    <string name="secui_cap_files">Fichiers</string>
+    <string name="secui_cap_unknown">requis</string>
+</resources>

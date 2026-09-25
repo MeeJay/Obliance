@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Obliance Next</string>
+    <string name="app_nav_triage">À traiter</string>
+    <string name="app_nav_devices">Appareils</string>
+    <string name="app_nav_activity">Activité</string>
+    <string name="app_nav_fleet">Flotte</string>
+    <string name="app_nav_more">Plus</string>
+    <string name="app_nav_triage_badge">À traiter, %1$d à traiter</string>
+    <string name="app_select_activity">Sélectionnez un lot ou une session</string>
+    <string name="app_notifications_title">Autoriser les notifications</string>
+    <string name="app_notifications_body">Les sessions distantes ouvertes restent connectées pendant que vous utilisez une autre application. Une notification les liste et permet de toutes les terminer ; sans autorisation, Android la masque.</string>
+    <string name="app_notifications_allow">Continuer</string>
+    <string name="app_notifications_later">Plus tard</string>
+    <string name="app_scope_global_view">Vue globale</string>
+    <string name="app_scope_label">Périmètre : %1$s</string>
+    <string name="app_scope_unknown">Périmètre</string>
+    <string name="app_account">Compte de %1$s — %2$s</string>
+    <string name="app_realtime_connected">temps réel connecté</string>
+    <string name="app_realtime_reconnecting">temps réel en reconnexion</string>
+    <string name="app_realtime_disconnected">temps réel déconnecté</string>
+    <string name="app_switched_to">Passé sur %1$s pour ouvrir %2$s</string>
+    <string name="app_switch_back">Revenir</string>
+    <string name="app_select_device">Sélectionnez un appareil</string>
+    <string name="app_device_fallback">l\'appareil %1$d</string>
+</resources>

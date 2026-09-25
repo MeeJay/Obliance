@@ -127,7 +127,7 @@ export function AuditLogPage({ embedded = false }: { embedded?: boolean } = {}) 
  const isMaster = useIsMasterTenant();
  // Master narrow filter — single-select via the chip row. The
  // querystring keeps the selection across reloads / colleague-shared
- // links ("here's the Pimkie audit feed for the past 24h").
+ // links ("here's the Contoso audit feed for the past 24h").
  const tenantFilter = useTenantFilter();
  const filterTenantId = tenantFilter.value.size === 1 ? [...tenantFilter.value][0] : undefined;
 

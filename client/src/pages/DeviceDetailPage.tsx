@@ -5497,10 +5497,27 @@ export function DeviceDetailPage() {
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, []);
 
+
  // Quick-action state (header buttons — visible on every tab)
  const [headerPending, setHeaderPending] = useState<Set<string>>(new Set());
  // null = loading, false = not installed, true = installed+online
  const [headerOrInstalled, setHeaderOrInstalled] = useState<boolean | null>(null);
+ // `?remote=reach` (used by the Android app's ObliReach screen, which opens
+ // this page in a WebView): open the ObliReach viewer once the Oblireach
+ // install status is known, then drop the parameter so a reload doesn't
+ // start another session.
+ const autoReachDone = useRef(false);
+ useEffect(() => {
+ if (autoReachDone.current || headerOrInstalled === null) return;
+ const params = new URLSearchParams(window.location.search);
+ if (params.get('remote') !== 'reach') return;
+ autoReachDone.current = true;
+ params.delete('remote');
+ const qs = params.toString();
+ window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+ handleHeaderRemote('oblireach');
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [headerOrInstalled]);
  const [headerOrVersion, setHeaderOrVersion] = useState<string | null>(null);
  const [headerOrLatestVersion, setHeaderOrLatestVersion] = useState<string | null>(null);
  const [headerRemoteOpen, setHeaderRemoteOpen] = useState(false);

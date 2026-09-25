@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Router } from 'express';
 import { scriptService } from '../services/script.service';
 import { scheduleService } from '../services/schedule.service';
@@ -205,7 +206,16 @@ router.post('/:id/execute', async (req, res, next) => {
       deviceIds,
       approvalRequestType: 'batch_command',
       approvalDescription: `Manually run script #${scriptId} on ${deviceIds.length} device(s)`,
-      approvalPayload: { action: 'run_script', deviceIds, params: { scriptId, parameterValues: parameterValues || {} } },
+      // `source` marks a manual script run (vs a raw run_script command
+      // approval from POST /api/commands); the content hash pins what the
+      // approver reviewed — a later edit of the script refuses execution.
+      approvalPayload: {
+        action: 'run_script', deviceIds,
+        params: {
+          source: 'script_execute', scriptId, parameterValues: parameterValues || {},
+          contentSha256: createHash('sha256').update(String(script.content ?? '')).digest('hex'),
+        },
+      },
     });
     if (!approved) return;
 

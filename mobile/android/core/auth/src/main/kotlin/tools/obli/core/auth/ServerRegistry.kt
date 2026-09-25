@@ -147,6 +147,9 @@ class ServerRegistry(
 
     suspend fun setLastTenant(id: ServerId, tenantId: Long?): Boolean = updateProfile(id) { it.copy(lastTenantId = tenantId) }
 
+    /** Remembers the user's web theme on this server (see ServerProfile.theme). */
+    suspend fun setTheme(id: ServerId, theme: String?): Boolean = updateProfile(id) { it.copy(theme = theme) }
+
     /** New order of the profiles (drives Alt+1..8 and the chip order); [ids] must be a permutation. */
     suspend fun reorder(ids: List<ServerId>): Boolean = mutex.withLock {
         val current = _state.value

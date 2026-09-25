@@ -22,7 +22,7 @@ Obliance pour Android est un **poste d'astreinte de poche** qui devient un **ét
 - **Sur téléphone**, l'application s'ouvre sur « À traiter » : ce qui demande une personne, trié par urgence. Un technicien passe d'une notification à une décision en une dizaine de secondes, et corrige d'une main : ouvrir l'appareil, redémarrer un service, terminer un processus, lancer un script, ouvrir un shell.
 - **Sur tablette**, la même application affiche plusieurs volets (liste, détail, panneau secondaire), gère clavier et souris, et garde les sessions distantes (shells, ObliReach) ouvertes dans un dock.
 - **La configuration** (éditeurs de scripts, de planifications et de scénarios, politiques, utilisateurs) reste dans le web, ouvert dans une vue web intégrée clairement signalée, qui partage la session.
-- **Plusieurs serveurs, une seule app.** Un technicien qui travaille sur plusieurs instances Obliance (Karim : BinaryHearts, Atelier et Client Durand) les ajoute toutes dans l'app, sans clone. Les notifications et « À traiter » couvrent **tous** les serveurs en permanence ; un appui sur la puce de périmètre passe d'un serveur à l'autre en moins d'une seconde, comme on change de tenant. Chaque serveur a sa couleur et son monogramme, visibles partout où l'on agit.
+- **Plusieurs serveurs, une seule app.** Un technicien qui travaille sur plusieurs instances Obliance (Karim : Obliance Prod, Obliance Dev et Obliance Qual) les ajoute toutes dans l'app, sans clone. Les notifications et « À traiter » couvrent **tous** les serveurs en permanence ; un appui sur la puce de périmètre passe d'un serveur à l'autre en moins d'une seconde, comme on change de tenant. Chaque serveur a sa couleur et son monogramme, visibles partout où l'on agit.
 - **Le socle** (authentification et registre des serveurs, réseau, temps réel, design system, coquille de navigation, garde-fous d'action, notifications, mise à jour, vue web, tunnel, terminal) ne contient aucun type Obliance. Obliview et les autres apps Obli pourront démarrer dessus, multi-serveurs compris.
 
 Charpente retenue : la proposition **« astreinte »**, première pour les trois jurys (8,6 terrain · 8,0 faisabilité · 8,5 marque). Greffes principales :
@@ -61,7 +61,7 @@ ps = personne-semaine. Les travaux serveur avancent en parallèle (§10.12).
 | Gravité des alertes | Classement par **règles explicites** (catégorie déduite du titre, appareil serveur, surveillé) en attendant un champ `category` serveur | Tri par la gravité brute du serveur | Le serveur envoie « Hors ligne » en `info` sauf si le groupe est « Toujours actif ». |
 | Cache et outillage | v1 : cache mémoire + instantanés JSON chiffrés ; injection manuelle (`AppGraph`) ; Room en v1.1 (**preuve faite** avec KSP 2.3.12, `docs/mobile/phase0-proofs.md`) | Room, Hilt et KSP d'emblée | La chaîne AGP 9.3.1 à Kotlin intégré 2.2.10 est contrainte. |
 | Taille de la v1 | ≈ 34 ps centrées sur la boucle d'astreinte, dont ≈ 3 ps de multi-serveurs (sans lui, le propriétaire ne peut pas faire son astreinte sur ses trois serveurs) | 44 ps (« flotte »), 42 ps à 3 développeurs (« tablette ») | La boucle alerte → appareil → correction doit arriver tôt. |
-| Thèmes | Sombre « Operator » par défaut + variante **Nuit** ; clair « Daylight » en v2 avec jetons corrigés | Trois thèmes dès la v1 | Triple la surface de recette ; le Daylight actuel échoue AA. |
+| Thèmes | **Le thème de l'utilisateur sur le serveur actif** : Operator (défaut), **Neon**, Modern (repris du web, textes corrigés pour l'AA) ; variante **Nuit** locale ; clair « Daylight » en v2 (repli Operator d'ici là) | Un seul thème pour tous les serveurs | Demande du propriétaire (25/09) : sa prod est en Operator, sa dev en Neon — l'app doit ressembler au web du serveur affiché, ce qui aide aussi à ne pas confondre les instances. |
 
 ---
 
@@ -84,7 +84,7 @@ L'application doit rendre trois moments excellents :
 | P1 | **Les problèmes d'abord** | Démarrage sur À traiter. Toute liste d'appareils est triée « Problèmes d'abord » (critique → attention → mise à jour → autres → hors ligne → en ligne, soit `sortBy=status`). Une flotte saine s'affiche en une phrase calme : « Rien à traiter. » |
 | P2 | **Tri en dix secondes** | Une carte ou une notification répond sans toucher à quatre questions : quoi, où (appareil, tenant, groupe), depuis quand, est-ce que ça dure encore. L'écran de l'appareil ajoute le **contexte d'incident** : ce qui a changé ces 6 dernières heures, les voisins hors ligne, la maintenance en cours. |
 | P3 | **Un pouce** | Les actions principales sont dans les 40 % bas de l'écran : barre de navigation, barre d'actions de l'appareil, feuilles, bouton flottant. La barre supérieure ne porte que du contexte. |
-| P4 | **Le contexte est toujours visible** | Le serveur (dès que l'utilisateur en a deux), le tenant et l'identité de l'appareil (nom, OS, IP) figurent sur chaque surface d'action et dans chaque confirmation : « Redémarrer SRV-AD2 (BinaryHearts › BASH) ? ». Agir chez le mauvais client, ou sur la mauvaise instance, est l'erreur la plus coûteuse d'un MSP. |
+| P4 | **Le contexte est toujours visible** | Le serveur (dès que l'utilisateur en a deux), le tenant et l'identité de l'appareil (nom, OS, IP) figurent sur chaque surface d'action et dans chaque confirmation : « Redémarrer SRV-AD2 (Obliance Prod › ACME) ? ». Agir chez le mauvais client, ou sur la mauvaise instance, est l'erreur la plus coûteuse d'un MSP. |
 | P5 | **Sûr par construction** | La prudence croît avec le rayon d'impact (§7.6). Les garde-fous du serveur (vérification 2FA, approbation à deux, confidentialité) sont des états natifs, jamais des messages d'erreur. Aucune action n'est optimiste. |
 | P6 | **Un état honnête** | Chaque écran dit la fraîcheur de ses données (« En direct », « il y a 3 min », « Hors ligne — données de 03:02 »). La connexion temps réel est visible. Une action désactivée dit toujours pourquoi. La sortie d'un script n'est jamais présentée comme un flux : elle arrive quand l'appareil a fini. |
 | P7 | **Fait pour la nuit** | Sombre par défaut, variante Nuit, pas de flash blanc, vibrations plutôt que sons, mode astreinte qui laisse passer les critiques et fait taire le reste. |
@@ -97,10 +97,10 @@ L'application doit rendre trois moments excellents :
 
 | Persona | Rôle dans Obliance | Contexte | Tâches principales | Conséquences pour la conception |
 |---|---|---|---|---|
-| **Karim Benali**, technicien N2 d'astreinte (principal) | **Trois serveurs Obliance** (§4) : sur **BinaryHearts** (l'instance du MSP) et **Atelier** (l'instance de l'atelier de préparation), compte Obligate `og_karim.benali`, **administrateur de plateforme**, comme la plupart des techniciens du MSP ; sur BinaryHearts, travaille sur le tenant maître Default (vue globale) et bascule vers les tenants clients pour agir. Sur **Client Durand** (instance auto-hébergée d'un client), compte local `karim.benali`, simple membre d'équipe | Une semaine sur quatre d'astreinte, pour les trois serveurs. Galaxy S23, Gboard AZERTY. Réveillé à 03:12 par « SRV-AD2: Hors ligne ». Parfois passager en voiture sur 4G. | Savoir en quelques secondes si c'est réel, sur quel serveur, et quelle est l'ampleur ; corriger ou escalader en 5 min ; se rendormir en sachant que l'appareil est revenu | Notifications actionnables des trois serveurs, À traiter agrégé, bascule de serveur en un appui, contexte d'incident, « Surveiller », thème Nuit, biométrie plutôt que mots de passe, collage du code 2FA (un code par serveur) |
-| **Julien Moreau**, technicien terrain (secondaire) | Serveurs BinaryHearts et Atelier ; sur BinaryHearts, `og_julien.moreau`, **pas administrateur de plateforme** ; membre de BASH (rôle de tenant avec `devices.manage`), `rw` sur Siège › Serveurs et Siège › Comptabilité, capacités `execute`, `power`, `remote` ; ses actions restreintes passent par une approbation | Galaxy Tab S9 avec clavier et souris Bluetooth, en paysage, en sous-sol avec un réseau faible | PowerShell sur les serveurs, SSH, ObliReach pour aider une comptable, script sur 12 postes, numéros de série, clés BitLocker | Volets liste-détail, raccourcis clavier, sessions persistantes, dock, cache hors ligne |
-| **Sophie Martin**, responsable technique du MSP (secondaire) | Serveurs BinaryHearts et Atelier ; `og_sophie.martin`, **administratrice de plateforme** sur le tenant maître Default (vue globale) ; seconde approbatrice | Réunions, trajets ; Pixel 9 | Approuver ou refuser les demandes à deux avant expiration, surveiller la santé par tenant, terminer une session distante suspecte | Approbations dans À traiter avec compte à rebours, notification prioritaire, approbation biométrique, vue par tenant |
-| **Nadia Roux**, informaticienne chez le client BASH (tertiaire) | Compte local `nroux`, admin du tenant BASH (`user_tenants.role='admin'`), pas administratrice de plateforme ; lecture seule sur la plupart des groupes, `rw` sur Siège › Comptabilité | Usage occasionnel en journée | Vérifier ses machines, redémarrer un service, lancer un script approuvé, approuver un enrôlement | Actions filtrées par rôle et par niveau, messages de refus clairs, indicateurs calculés sur **ses** appareils (« Vos appareils ») |
+| **Karim Benali**, technicien N2 d'astreinte (principal) | **Trois serveurs Obliance** (§4) : sur **Obliance Prod** (l'instance du MSP) et **Obliance Dev** (l'instance de l'atelier de préparation), compte Obligate `og_karim.benali`, **administrateur de plateforme**, comme la plupart des techniciens du MSP ; sur Obliance Prod, travaille sur le tenant maître Default (vue globale) et bascule vers les tenants clients pour agir. Sur **Obliance Qual** (instance auto-hébergée d'un client), compte local `karim.benali`, simple membre d'équipe | Une semaine sur quatre d'astreinte, pour les trois serveurs. Galaxy S23, Gboard AZERTY. Réveillé à 03:12 par « SRV-AD2: Hors ligne ». Parfois passager en voiture sur 4G. | Savoir en quelques secondes si c'est réel, sur quel serveur, et quelle est l'ampleur ; corriger ou escalader en 5 min ; se rendormir en sachant que l'appareil est revenu | Notifications actionnables des trois serveurs, À traiter agrégé, bascule de serveur en un appui, contexte d'incident, « Surveiller », thème Nuit, biométrie plutôt que mots de passe, collage du code 2FA (un code par serveur) |
+| **Julien Moreau**, technicien terrain (secondaire) | Serveurs Obliance Prod et Obliance Dev ; sur Obliance Prod, `og_julien.moreau`, **pas administrateur de plateforme** ; membre de ACME (rôle de tenant avec `devices.manage`), `rw` sur Siège › Serveurs et Siège › Comptabilité, capacités `execute`, `power`, `remote` ; ses actions restreintes passent par une approbation | Galaxy Tab S9 avec clavier et souris Bluetooth, en paysage, en sous-sol avec un réseau faible | PowerShell sur les serveurs, SSH, ObliReach pour aider une comptable, script sur 12 postes, numéros de série, clés BitLocker | Volets liste-détail, raccourcis clavier, sessions persistantes, dock, cache hors ligne |
+| **Sophie Martin**, responsable technique du MSP (secondaire) | Serveurs Obliance Prod et Obliance Dev ; `og_sophie.martin`, **administratrice de plateforme** sur le tenant maître Default (vue globale) ; seconde approbatrice | Réunions, trajets ; Pixel 9 | Approuver ou refuser les demandes à deux avant expiration, surveiller la santé par tenant, terminer une session distante suspecte | Approbations dans À traiter avec compte à rebours, notification prioritaire, approbation biométrique, vue par tenant |
+| **Nadia Roux**, informaticienne chez le client ACME (tertiaire) | Compte local `nroux`, admin du tenant ACME (`user_tenants.role='admin'`), pas administratrice de plateforme ; lecture seule sur la plupart des groupes, `rw` sur Siège › Comptabilité | Usage occasionnel en journée | Vérifier ses machines, redémarrer un service, lancer un script approuvé, approuver un enrôlement | Actions filtrées par rôle et par niveau, messages de refus clairs, indicateurs calculés sur **ses** appareils (« Vos appareils ») |
 
 ### 1.4 Tâches, fréquence et format
 
@@ -134,11 +134,11 @@ L'application doit rendre trois moments excellents :
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ [▣ BASH ▾]          À traiter           ⌕   (KB)●│
+│ [▣ ACME ▾]          À traiter           ⌕   (KB)●│
 └──────────────────────────────────────────────────┘
 ```
 
-- **À gauche : puce de périmètre** (`building-2`, nom, chevron). Ouvre S81 « Serveur et tenant ». Sur le tenant maître : « Default · Vue globale ». Si un filtre de vue globale est actif : « BASH · filtre » avec un point `#FF6868` de 6 dp. **Dès que deux serveurs sont configurés**, la puce commence par la tuile monogramme du serveur actif (`[BH] Default · Vue globale ▾`, §2.10) ; sur tablette étendue, le bouton de périmètre du rail porte la même tuile.
+- **À gauche : puce de périmètre** (`building-2`, nom, chevron). Ouvre S81 « Serveur et tenant ». Sur le tenant maître : « Default · Vue globale ». Si un filtre de vue globale est actif : « ACME · filtre » avec un point `#FF6868` de 6 dp. **Dès que deux serveurs sont configurés**, la puce commence par la tuile monogramme du serveur actif (`[OP] Default · Vue globale ▾`, §2.10) ; sur tablette étendue, le bouton de périmètre du rail porte la même tuile.
 - **Titre** : Rajdhani 600, 24 sp ; se replie au défilement.
 - **À droite** :
   - recherche `⌕` (S82) ;
@@ -158,14 +158,14 @@ L'application doit rendre trois moments excellents :
 
 | Fonction | Qui | Effet | Affichage |
 |---|---|---|---|
-| **Filtrer la vue globale** | Session sur Default | Ajoute `tenantIds=` aux requêtes de liste. Session et socket inchangés. | Puce « BASH · filtre » |
-| **Travailler dans un tenant** | Tout utilisateur avec 2 tenants ou plus | `POST /api/tenant/switch` → reconnexion Socket.IO → invalidation des caches du périmètre → rechargement de l'écran courant. Change aussi le tenant de la vue web. | Puce « BASH », barre d'annonce « Vous travaillez maintenant dans BASH » |
+| **Filtrer la vue globale** | Session sur Default | Ajoute `tenantIds=` aux requêtes de liste. Session et socket inchangés. | Puce « ACME · filtre » |
+| **Travailler dans un tenant** | Tout utilisateur avec 2 tenants ou plus | `POST /api/tenant/switch` → reconnexion Socket.IO → invalidation des caches du périmètre → rechargement de l'écran courant. Change aussi le tenant de la vue web. | Puce « ACME », barre d'annonce « Vous travaillez maintenant dans ACME » |
 
 **Règles :**
 1. **Ouverture d'un appareil d'un autre tenant** (notification, lien, alerte) : `GET /api/tenants/locate-device/:id`.
    - Administrateur de plateforme en session maître (Default) : l'appareil s'ouvre en vue globale, sans bascule.
-   - Autres cas : bascule automatique, barre d'annonce « Basculé sur BASH pour ouvrir SRV-AD2 » avec **Revenir** pendant 5 s.
-2. **Agir depuis la vue globale** sur un appareil d'un tenant enfant : la feuille « Agir » affiche une ligne « Pour agir sur SRV-AD2, Obliance doit passer sur le tenant BASH. » et le bouton **Basculer et continuer**. L'action reprend là où elle était. Ensuite, une puce persistante « Revenir à la vue globale » reste dans la barre supérieure. Un réglage permet « Toujours basculer automatiquement ».
+   - Autres cas : bascule automatique, barre d'annonce « Basculé sur ACME pour ouvrir SRV-AD2 » avec **Revenir** pendant 5 s.
+2. **Agir depuis la vue globale** sur un appareil d'un tenant enfant : la feuille « Agir » affiche une ligne « Pour agir sur SRV-AD2, Obliance doit passer sur le tenant ACME. » et le bouton **Basculer et continuer**. L'action reprend là où elle était. Ensuite, une puce persistante « Revenir à la vue globale » reste dans la barre supérieure. Un réglage permet « Toujours basculer automatiquement ».
 3. **Temps réel en vue globale** : un écran d'appareil d'un tenant enfant ouvert depuis Default affiche « Vue globale — actualisation toutes les 15 s » et interroge le REST. La Flotte interroge `summary` et `group-stats` toutes les 60 s tant qu'elle est visible.
 4. **Sessions distantes** : elles survivent à la bascule (elles sont authentifiées par jeton). Leurs onglets gardent une puce du tenant d'origine.
 5. **Au-dessus du tenant, le serveur** : le périmètre complet est « Serveur › Tenant ». Le tenant se choisit toujours **dans** le serveur actif ; changer de serveur restaure le dernier tenant utilisé sur ce serveur (§2.10).
@@ -195,7 +195,7 @@ Classes de fenêtre M3 : compacte < 600 dp, moyenne 600–839, étendue 840–11
 
 ```
 ┌────┬──────────────────────┬───────────────────────────────────┬──────────────────────┐
-│ ⚑  │ À traiter       5    │ SRV-AD2 · BASH › Siège › Serveurs  │ PowerShell · PC-C…03 │
+│ ⚑  │ À traiter       5    │ SRV-AD2 · ACME › Siège › Serveurs  │ PowerShell · PC-C…03 │
 │ ▭  │ ▌CRITIQUE · 03:12    │ ● Hors ligne  vu il y a 14 min     │ PS C:\> Get-Process… │
 │ ≋  │ ▌SRV-AD2: Hors ligne │ ┌ CONTEXTE ───────────────────────┐ │                      │
 │ ▦  │ ▌CRITIQUE · 03:05    │ │ 4 autres appareils de Serveurs  │ │                      │
@@ -232,8 +232,8 @@ Les shells et les sessions ObliReach vivent dans un `SessionManager` au niveau d
   2. **Actions** selon le contexte : « Ouvrir PowerShell sur PC-COMPTA-03 », « Redémarrer l'agent de 140 » ;
   3. **Scripts** : « Exécuter « Vider le cache DNS »… » ;
   4. **Aller à** (destinations, onglets) ;
-  5. **Tenants** : « Passer sur BASH » ;
-  6. **Serveurs** (avec deux serveurs ou plus) : « Passer sur Atelier ». La recherche d'appareils ne porte que sur le serveur actif ; sans résultat, la palette propose « Chercher « NAS » sur les autres serveurs » (une requête par serveur connecté, résultats groupés par serveur, appui = bascule puis S30).
+  5. **Tenants** : « Passer sur ACME » ;
+  6. **Serveurs** (avec deux serveurs ou plus) : « Passer sur Obliance Dev ». La recherche d'appareils ne porte que sur le serveur actif ; sans résultat, la palette propose « Chercher « NAS » sur les autres serveurs » (une requête par serveur connecté, résultats groupés par serveur, appui = bascule puis S30).
 - Si le presse-papiers contient une IP ou un nom d'hôte : suggestion « Rechercher « 10.0.0.12 » copié ».
 - Clavier : flèches, Entrée pour exécuter, Tab pour changer de groupe.
 - Une action proposée par la palette passe par les mêmes garde-fous que partout ailleurs (§7.6).
@@ -276,13 +276,13 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 | Tout autre chemin du serveur | S90 |
 | `obli-obliance://setup?server=…` | S01 pré-rempli ; si un autre serveur est déjà configuré : S93 pré-rempli ; si ce serveur est déjà connu : bascule vers lui |
 | `obli-obliance://open?path=/devices/123` | Comme le chemin, sur le serveur actif |
-| `obli-obliance://open?server=atelier.binaryhearts.me&path=/devices/123` | Comme le chemin, **sur le serveur désigné** (bascule annoncée si ce n'est pas le serveur actif) ; hôte inconnu → « Ce lien vise un serveur qui n'est pas configuré. » [Ajouter ce serveur] |
+| `obli-obliance://open?server=obliance-dev.example.org&path=/devices/123` | Comme le chemin, **sur le serveur désigné** (bascule annoncée si ce n'est pas le serveur actif) ; hôte inconnu → « Ce lien vise un serveur qui n'est pas configuré. » [Ajouter ce serveur] |
 
 **Chaque lien est résolu contre un serveur.** Une notification ou une alerte porte l'identifiant local du serveur qui l'a produite ; son `navigateTo` est résolu contre ce serveur, jamais contre le serveur actif. Un App Link se résout par son hôte. Les liens sortants (partage, « Ouvrir dans le navigateur ») portent toujours `server=`.
 
 ### 2.10 Plusieurs serveurs (une app, plusieurs instances Obliance)
 
-**Besoin.** Le propriétaire administre trois instances Obliance (BinaryHearts, Atelier, Client Durand, §4) et doit être alerté par les trois en même temps, sur un seul téléphone, sans cloner l'app. Plusieurs techniciens d'un MSP sont dans le même cas (instance du MSP + instances auto-hébergées de clients).
+**Besoin.** Le propriétaire administre trois instances Obliance (Obliance Prod, Obliance Dev, Obliance Qual, §4) et doit être alerté par les trois en même temps, sur un seul téléphone, sans cloner l'app. Plusieurs techniciens d'un MSP sont dans le même cas (instance du MSP + instances auto-hébergées de clients).
 
 **Modèle.**
 
@@ -297,7 +297,7 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 
 | Surface | Portée | Détail |
 |---|---|---|
-| Notifications | Tous les serveurs connectés | Un groupe de canaux Android par serveur (§9), mêmes catégories dans chaque groupe ; titre préfixé du serveur dès qu'il y en a deux (« CRITIQUE · Client Durand › Default — SRV-DURAND01 ») ; regroupement par serveur puis par tenant. |
+| Notifications | Tous les serveurs connectés | Un groupe de canaux Android par serveur (§9), mêmes catégories dans chaque groupe ; titre préfixé du serveur dès qu'il y en a deux (« CRITIQUE · Obliance Qual › Default — SRV-QUAL01 ») ; regroupement par serveur puis par tenant. |
 | À traiter (S10) | Tous les serveurs connectés, filtrable | Puce « Tous les serveurs ▾ » avant la puce de tenant ; chaque carte porte la tuile de son serveur dans le surtitre ; la carte de corrélation ne regroupe jamais deux serveurs. Approbations et enrôlements : agrégés de la même façon. |
 | Badge d'À traiter, tuile Réglages rapides, widget | Tous les serveurs connectés | Somme des critiques et attentions non lues. |
 | Appareils, Flotte, Activité (lots, planifications), recherche | **Serveur actif** | Les listes restent lisibles et les indicateurs justes ; la palette propose de chercher ailleurs (§2.7). |
@@ -305,29 +305,29 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 | Surveillances (« Surveiller ») | Chacune liée à son serveur | Listées dans Activité avec la tuile ; elles continuent quel que soit le serveur actif. |
 
 **Bascule de serveur.**
-1. **Explicite** : puce de périmètre → S81 › section « Serveurs » → appui sur « Atelier ». Aussi par la palette (« Passer sur Atelier »), le raccourci d'app du serveur, `Alt+1…8` avec un clavier physique.
-2. Effets, dans l'ordre : l'écran courant affiche l'instantané du serveur cible s'il existe (bascule perçue < 1 s) → le socket du serveur quitté se ferme, celui du serveur cible s'ouvre → `GET /api/auth/me` du serveur cible → rechargement de l'écran courant → vibration de confirmation → barre « Vous travaillez maintenant sur Atelier ». Les piles de navigation sont **mémorisées par serveur** : revenir sur BinaryHearts rend l'écran d'appareil laissé ouvert.
-3. **Implicite** : ouvrir une carte, une notification ou un lien d'un autre serveur bascule automatiquement, avec la barre « Passé sur Client Durand pour ouvrir SRV-DURAND01 » et **Revenir** pendant 5 s (même modèle que la bascule implicite de tenant, §2.3). Si le tenant de l'élément diffère aussi, une seule barre annonce les deux (« Passé sur Client Durand › Default… »).
-4. **Actions de boîte sans bascule** : marquer lu, supprimer, surveiller, approuver ou refuser un enrôlement (T1) depuis À traiter ou une notification partent vers le serveur de l'élément avec son propre cookie, sans changer le serveur actif. Toute autre action (T1 sur un appareil, T2, T3) exige que l'élément soit sur le serveur actif : la feuille « Agir » ne peut pas s'ouvrir sur un appareil d'un autre serveur.
+1. **Explicite** : puce de périmètre → S81 › section « Serveurs » → appui sur « Obliance Dev ». Aussi par la palette (« Passer sur Obliance Dev »), le raccourci d'app du serveur, `Alt+1…8` avec un clavier physique.
+2. Effets, dans l'ordre : l'écran courant affiche l'instantané du serveur cible s'il existe (bascule perçue < 1 s) → le socket du serveur quitté se ferme, celui du serveur cible s'ouvre → `GET /api/auth/me` du serveur cible → rechargement de l'écran courant → vibration de confirmation → barre « Vous travaillez maintenant sur Obliance Dev ». Les piles de navigation sont **mémorisées par serveur** : revenir sur Obliance Prod rend l'écran d'appareil laissé ouvert.
+3. **Implicite** : ouvrir une carte, une notification ou un lien d'un autre serveur bascule automatiquement, avec la barre « Passé sur Obliance Qual pour ouvrir SRV-QUAL01 » et **Revenir** pendant 5 s (même modèle que la bascule implicite de tenant, §2.3). Si le tenant de l'élément diffère aussi, une seule barre annonce les deux (« Passé sur Obliance Qual › Default… »).
+4. **Actions de boîte sans bascule** : marquer lu, supprimer, surveiller, approuver ou refuser un enrôlement (T1), et **approuver ou refuser une demande à deux** (T2 biométrie, la confirmation nomme le serveur : « Approuver la désinstallation de l'agent — PC-ATELIER-02 · Obliance Prod › ACME ») depuis À traiter ou une notification partent vers le serveur de l'élément avec son propre cookie, sans changer le serveur actif. Toute autre action (T1 sur un appareil, T2, T3) exige que l'élément soit sur le serveur actif : la feuille « Agir » ne peut pas s'ouvrir sur un appareil d'un autre serveur.
 5. **Session expirée sur un serveur non actif** : pas de feuille S03 intempestive ; sa ligne dans S81 et S92 passe à « Session expirée · Se reconnecter », ses cartes À traiter sont grisées avec la même mention, et une notification du canal « Compte » de son groupe le signale **une fois**. S03 ne s'affiche que pour le serveur actif.
 
 **Identité visuelle d'un serveur.**
 - **Tuile monogramme** : carré arrondi (20 dp dans les puces et surtitres, 28 dp dans les listes ; rayon 5 dp), fond de la couleur à 18 % **posé sur un fond `chrome` opaque** (sinon le violet et l'indigo tombent sous 4,5:1 sur `hover` et `active`), bordure 1 dp à 40 %, deux lettres JetBrains Mono 600 dans la couleur. La forme (tuile à lettres) distingue une identité d'un état (point, pastille).
 - **Palette fermée** de 8 couleurs (§8.2), hors rouge de marque et hors couleurs d'état ; attribuée automatiquement dans l'ordre à l'ajout, modifiable dans S92.
-- **Où elle apparaît** (dès deux serveurs) : puce de périmètre, bouton de périmètre du rail, surtitre des cartes d'À traiter, en-tête de S30 (sous-titre « BinaryHearts › BASH › Siège › Serveurs »), **feuilles de confirmation S41 et invites biométriques** (« Redémarrer SRV-AD2 (BinaryHearts › BASH) ? »), onglets de sessions et pastille, notifications (icône large), raccourcis d'app.
-- **Jamais** : recoloration de l'accent, du chrome ou de l'indicateur de destination par serveur.
+- **Où elle apparaît** (dès deux serveurs) : puce de périmètre, bouton de périmètre du rail, surtitre des cartes d'À traiter, en-tête de S30 (sous-titre « Obliance Prod › ACME › Siège › Serveurs »), **feuilles de confirmation S41 et invites biométriques** (« Redémarrer SRV-AD2 (Obliance Prod › ACME) ? »), onglets de sessions et pastille, notifications (icône large), raccourcis d'app.
+- **Thème du serveur (décision du 25/09)** : l'app applique le **thème choisi par l'utilisateur sur le serveur actif** (`preferences.preferredTheme` de `GET /api/auth/me` : `obli-operator`, `neon`, `modern`, `obli-daylight`), comme le web de ce serveur ; changer de serveur change l'apparence (fondu de 200 ms). Le thème porte les surfaces, le texte et l'accent ; les **couleurs d'état et de gravité restent constantes** dans tous les thèmes (§8.2, §8.3 : le rouge du contenu signifie toujours critique). Réglage local S83 « Thème : suivre le serveur (défaut) / Operator / Nuit ». La tuile du serveur reste affichée.
 - **Un seul serveur configuré** : aucune tuile, aucune section « Serveurs » dans S81, aucune puce « Tous les serveurs » ; l'app est identique à la conception mono-serveur.
 
 **Ajout, retrait, déconnexion.**
 - **Ajouter** : Plus › Serveurs (S92) › **Ajouter un serveur** (S93), ou lien `obli-obliance://setup?server=…` / QR. Même parcours que S01 ; une session Obligate déjà ouverte dans la WebView pour le même fournisseur est réutilisée (connexion sans saisie).
-- **Deux profils ne peuvent pas partager une origine** (le pot à cookies est indexé par hôte) : « Ce serveur est déjà configuré (BinaryHearts). »
+- **Deux profils ne peuvent pas partager une origine** (le pot à cookies est indexé par hôte) : « Ce serveur est déjà configuré (Obliance Prod). »
 - **Se déconnecter de ce serveur** : déconnexion de ce seul serveur (§10.5) ; le profil reste, ses notifications s'arrêtent, ses cartes disparaissent d'À traiter.
 - **Retirer ce serveur** (T1, nomme le serveur) : déconnexion + suppression des cookies de son origine, de ses caches et instantanés, de ses surveillances, de son groupe de canaux et de ses raccourcis. Le dernier serveur ne peut pas être retiré (seulement déconnecté).
 - **Serveur actif retiré ou déconnecté** : l'app passe sur le serveur connecté suivant ; sans serveur connecté, S01.
 
 **Mise à jour de l'application.** Chaque serveur publie `GET /api/mobile/android/version`. L'app retient le **plus haut `versionCode`** offert par un serveur connecté, télécharge depuis ce serveur et vérifie comme aujourd'hui le SHA-256 et le **signataire** (empreinte figée dans l'app) : un serveur ne peut pas pousser un APK signé par une autre clé.
 
-**Raccourcis d'app.** Un raccourci dynamique par serveur (« Atelier », icône = tuile), qui ouvre À traiter filtré sur ce serveur et le rend actif ; les raccourcis d'appareils récents portent leur serveur.
+**Raccourcis d'app.** Un raccourci dynamique par serveur (« Obliance Dev », icône = tuile), qui ouvre À traiter filtré sur ce serveur et le rend actif ; les raccourcis d'appareils récents portent leur serveur.
 
 ---
 
@@ -383,7 +383,7 @@ Les identifiants sont stables : ils servent aux maquettes, aux tickets, aux test
 | S80 | Plus | Liste | Liste \| contenu | N | `GET /api/auth/me` | v1 |
 | S81 | Serveur et tenant (périmètre) | Feuille | Menu ancré 320 dp | N | Registre local des serveurs, `GET /api/tenants`, `POST /api/tenant/switch`, `GET /api/live-alerts/all` (par serveur) | v1 |
 | S82 | Recherche et palette de commandes | Plein écran | Dialogue 640 dp | N | `GET /api/devices?search=`, scripts en cache, `GET /api/tenants` | v1 |
-| S83 | Réglages de l'application | Écran | Liste \| détail | N | `PUT /api/profile` (langue) | v1 |
+| S83 | Réglages de l'application | Écran | Liste \| détail | N | `PUT /api/profile` (langue), thème lu dans `GET /api/auth/me` (`preferences.preferredTheme`) | v1 |
 | S84 | Notifications et astreinte | Écran | Liste \| détail | N | Local ; `POST /api/mobile/push/subscriptions` (v1.1) | v1 |
 | S85 | Profil et sécurité | Écran | Liste \| détail | N/W | `GET /api/profile`, `/profile/2fa/status`, `GET/DELETE /api/profile/trusted-ips`, `/auth/connected-apps`, `/auth/sso-logout-url`, `POST /api/auth/logout` | v1 |
 | S86 | À propos et mises à jour | Écran | Liste \| détail | N | `GET /health`, `GET /api/mobile/android/version` | v1 |
@@ -404,14 +404,14 @@ Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maqu
 
 | Serveur | Adresse | Version | Tuile | Couleur | Compte de Karim | Tenants | Appareils |
 |---|---|---|---|---|---|---|---|
-| **BinaryHearts** (principal, l'instance du MSP) | `https://obliance.binaryhearts.me` ; Obligate `id.binaryhearts.me` | 5.1.110 | BH | violet `#A78BFA` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default, BASH | 312 |
-| **Atelier** (préparation des postes) | `https://atelier.binaryhearts.me` ; même Obligate | 5.1.108 | AT | sarcelle `#2DD4BF` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default | 18 |
-| **Client Durand** (instance auto-hébergée d'un client) | `https://rmm.durand-associes.fr` ; pas d'Obligate | 5.0.94 | CD | fuchsia `#E879F9` | `karim.benali` (compte local, membre d'équipe, 2FA par application) | Default | 42 |
+| **Obliance Prod** (principal, l'instance du MSP) | `https://obliance-prod.example.org` ; Obligate `id.example.org` | 5.1.110 | OP | violet `#A78BFA` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default, ACME | 312 |
+| **Obliance Dev** (préparation des postes) | `https://obliance-dev.example.org` ; même Obligate | 5.1.108 | OD | sarcelle `#2DD4BF` | `og_karim.benali` (Obligate, administrateur de plateforme) | Default | 18 |
+| **Obliance Qual** (instance auto-hébergée d'un client) | `https://obliance-qual.example.org` ; pas d'Obligate | 5.0.94 | OQ | fuchsia `#E879F9` | `karim.benali` (compte local, membre d'équipe, 2FA par application) | Default | 42 |
 
-- Serveur actif par défaut dans les planches : **BinaryHearts**. Sauf mention contraire, tout ce qui suit (tenants, appareils, totaux, scripts) concerne BinaryHearts.
+- Serveur actif par défaut dans les planches : **Obliance Prod**. Sauf mention contraire, tout ce qui suit (tenants, appareils, totaux, scripts) concerne Obliance Prod.
 - Dernière version d'agent : 4.5.79 ; ObliReach : 1.8.2.
-- Utilisateurs : Karim Benali (`og_karim.benali`, administrateur de plateforme, d'astreinte), Julien Moreau (`og_julien.moreau`, technicien BASH, non admin), Sophie Martin (`og_sophie.martin`, administratrice de plateforme), Nadia Roux (`nroux`, compte local, admin du tenant BASH).
-- Les planches de maquette montrent la session de **Karim** (serveur actif BinaryHearts, tenant Default, vue globale, trois serveurs configurés), sauf mention contraire.
+- Utilisateurs : Karim Benali (`og_karim.benali`, administrateur de plateforme, d'astreinte), Julien Moreau (`og_julien.moreau`, technicien ACME, non admin), Sophie Martin (`og_sophie.martin`, administratrice de plateforme), Nadia Roux (`nroux`, compte local, admin du tenant ACME).
+- Les planches de maquette montrent la session de **Karim** (serveur actif Obliance Prod, tenant Default, vue globale, trois serveurs configurés), sauf mention contraire.
 - IP publique de Karim en 4G : 92.184.107.21.
 
 **Tenants**
@@ -419,7 +419,7 @@ Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maqu
 | Tenant | id | Appareils | Hors ligne | Critique | Attention | Groupes |
 |---|---|---|---|---|---|---|
 | **Default** (maître, « Vue globale ») | 1 | 64 | 2 | 0 | 2 | Infra › Linux, Infra › Stockage, Infra › Virtualisation |
-| **BASH** (client) | 4 | 248 | 14 | 1 | 3 | Siège › Serveurs (« Toujours actif »), Siège › Comptabilité, Siège › Direction, Siège › Accueil, Siège › Atelier |
+| **ACME** (client) | 4 | 248 | 14 | 1 | 3 | Siège › Serveurs (« Toujours actif »), Siège › Comptabilité, Siège › Direction, Siège › Accueil, Siège › Atelier |
 
 **Totaux de flotte (vue globale)** : 312 appareils · 296 connectés (289 en ligne, 5 attention, 1 critique, 1 en mise à jour) · 16 hors ligne · 3 en attente d'enrôlement (hors total) · 47 appareils avec mises à jour en attente, dont 9 critiques · agents à jour 293/312 · 5 injoignables depuis plus de 72 h · 2 sessions distantes actives · 14 planifications dans les 24 h. Deltas : appareils ↑ 3 vs hier, hors ligne ↑ 5 vs hier, mises à jour en attente ↓ 12 vs semaine dernière.
 
@@ -427,42 +427,42 @@ Ces noms et valeurs sont utilisés **partout** : spécifications, parcours, maqu
 
 | Appareil | Tenant › Groupe | OS | IP locale | État | Détails |
 |---|---|---|---|---|---|
-| **SRV-AD2** | BASH › Siège › Serveurs | Windows Server 2022 Standard (build 20348) | 10.0.0.12 | Hors ligne depuis 03:08 | agent 4.5.79, ObliReach 1.8.2 ; planification « Vérif sauvegarde » en échec à 02:00 (code 1) |
-| **PC-COMPTA-03** | BASH › Siège › Comptabilité | Windows 11 Pro 23H2 | 10.0.12.43 | Critique : CPU 98 % depuis 03:05 | Dell OptiPlex 7010, n° de série 7FJ2KX3 ; agent 4.5.79 ; ObliReach 1.8.2 ; dernier utilisateur `SIEGE\m.durand` ; redémarrage en attente |
-| PC-COMPTA-01 / PC-COMPTA-02 | BASH › Siège › Comptabilité | Windows 11 Pro 23H2 | 10.0.12.41 / .42 | En ligne | — |
-| **KIOSK-ACCUEIL-02** | BASH (clé « Site Siège » → Siège › Accueil) | Windows 11 IoT Enterprise | 10.0.3.41 | En attente d'enrôlement depuis 02:59 | — |
-| **PC-ATELIER-02** | BASH › Siège › Atelier | Windows 10 Pro 22H2 | 10.0.14.22 | Hors ligne depuis 3 j | cible d'une demande de désinstallation |
-| **SRV-LEGACY** | BASH › Siège › Serveurs | Windows Server 2008 R2 | 10.0.0.30 | En ligne | agent legacy 1.4 |
-| **MAC-DIRECTION** | BASH › Siège › Direction | macOS 14.6 Sonoma | 10.0.12.20 | En ligne | mode confidentialité actif, avec mot de passe |
+| **SRV-AD2** | ACME › Siège › Serveurs | Windows Server 2022 Standard (build 20348) | 10.0.0.12 | Hors ligne depuis 03:08 | agent 4.5.79, ObliReach 1.8.2 ; planification « Vérif sauvegarde » en échec à 02:00 (code 1) |
+| **PC-COMPTA-03** | ACME › Siège › Comptabilité | Windows 11 Pro 23H2 | 10.0.12.43 | Critique : CPU 98 % depuis 03:05 | Dell OptiPlex 7010, n° de série 7FJ2KX3 ; agent 4.5.79 ; ObliReach 1.8.2 ; dernier utilisateur `SIEGE\m.durand` ; redémarrage en attente |
+| PC-COMPTA-01 / PC-COMPTA-02 | ACME › Siège › Comptabilité | Windows 11 Pro 23H2 | 10.0.12.41 / .42 | En ligne | — |
+| **KIOSK-ACCUEIL-02** | ACME (clé « Site Siège » → Siège › Accueil) | Windows 11 IoT Enterprise | 10.0.3.41 | En attente d'enrôlement depuis 02:59 | — |
+| **PC-ATELIER-02** | ACME › Siège › Atelier | Windows 10 Pro 22H2 | 10.0.14.22 | Hors ligne depuis 3 j | cible d'une demande de désinstallation |
+| **SRV-LEGACY** | ACME › Siège › Serveurs | Windows Server 2008 R2 | 10.0.0.30 | En ligne | agent legacy 1.4 |
+| **MAC-DIRECTION** | ACME › Siège › Direction | macOS 14.6 Sonoma | 10.0.12.20 | En ligne | mode confidentialité actif, avec mot de passe |
 | **140** | Default › Infra › Linux | Debian 12 | 10.20.0.140 | En ligne | revenu en ligne à 00:58 après 6 min |
 | **BOB01** | Default › Infra › Linux | Ubuntu 22.04.4 LTS | 10.20.0.15 | Attention : disque `/` à 94 % | 12,1 Go libres sur 200 Go ; agent 4.5.61 (obsolète) |
 | **SRV-FILES01** | Default › Infra › Stockage | Windows Server 2019 | 10.20.0.30 | Attention : santé disque | disque 1 Seagate Exos 7E8 4 To, 5 secteurs réalloués |
 | **HV-01** | Default › Infra › Virtualisation | Windows Server 2022 Datacenter | 10.20.0.10 | En ligne | hôte Hyper-V |
 
-**Atelier** : NAS-ATELIER (Default, Debian 12, 10.40.0.20) — Attention : disque `/volume1` à 91 %. **Client Durand** : SRV-DURAND01 (Default › Serveurs, groupe « Toujours actif », Windows Server 2019, 192.168.10.5) — hors ligne depuis 02:53.
+**Obliance Dev** : NAS-DEV01 (Default, Debian 12, 10.40.0.20) — Attention : disque `/volume1` à 91 %. **Obliance Qual** : SRV-QUAL01 (Default › Serveurs, groupe « Toujours actif », Windows Server 2019, 192.168.10.5) — hors ligne depuis 02:53.
 
 **Chronologie de la nuit du 25 septembre 2026 (utilisée dans les parcours)**
-- 01:50 — Atelier : alerte NAS-ATELIER (disque `/volume1` à 91 %).
+- 01:50 — Obliance Dev : alerte NAS-DEV01 (disque `/volume1` à 91 %).
 - 02:00 — la planification « Vérif sauvegarde » échoue sur SRV-AD2 (code 1).
 - 02:40 — correctif KB5043145 installé sur PC-COMPTA-03.
 - 02:47 — alerte BOB01 (disque `/` à 94 %).
-- 02:58 — Client Durand : alerte « SRV-DURAND01: Hors ligne » (critique).
+- 02:58 — Obliance Qual : alerte « SRV-QUAL01: Hors ligne » (critique).
 - 03:05 — alerte PC-COMPTA-03 critique (CPU 98 %) : `EBP.Compta.exe` bloqué dans la session restée ouverte de m.durand.
-- 03:07–03:09 — cinq serveurs de BASH › Siège › Serveurs cessent de répondre (coupure du site).
+- 03:07–03:09 — cinq serveurs de ACME › Siège › Serveurs cessent de répondre (coupure du site).
 - 03:12 — alerte « SRV-AD2: Hors ligne » (groupe « Toujours actif », donc `critical`).
-- 03:21 — Julien Moreau, parti sur le site de BASH pour la coupure, remplace PC-ATELIER-02 et demande la désinstallation de son agent (action restreinte, expire à 03:51) ; Karim approuve à 03:24.
+- 03:21 — Julien Moreau, parti sur le site de ACME pour la coupure, remplace PC-ATELIER-02 et demande la désinstallation de son agent (action restreinte, expire à 03:51) ; Karim approuve à 03:24.
 
 **Alertes** (titres et messages tels que le serveur les produit ; la carte native ajoute la catégorie)
 
 | Heure | Titre serveur | Message serveur | Gravité serveur | Catégorie app | Serveur › Tenant |
 |---|---|---|---|---|---|
-| 03:12 | SRV-AD2: Hors ligne | Aucun push reçu depuis 4 min. | critical | Hors ligne | BinaryHearts › BASH |
-| 03:05 | PC-COMPTA-03: Critique | CPU 98 % (seuil 90 %) | critical | Métrique | BinaryHearts › BASH |
-| 02:58 | SRV-DURAND01: Hors ligne | Aucun push reçu depuis 5 min. | critical | Hors ligne | Client Durand › Default |
-| 02:47 | BOB01: Alerte | Disque / 94 % (seuil 90 %) | warning | Métrique | BinaryHearts › Default |
-| 01:50 | NAS-ATELIER: Alerte | Disque /volume1 91 % (seuil 90 %) | warning | Métrique | Atelier › Default |
-| 01:30 | SRV-FILES01: santé disque à surveiller | Disque 1 : 5 secteurs réalloués | warning | Santé disque | BinaryHearts › Default |
-| 00:58 | 140: De retour en ligne | — | info | Rétablissement | BinaryHearts › Default |
+| 03:12 | SRV-AD2: Hors ligne | Aucun push reçu depuis 4 min. | critical | Hors ligne | Obliance Prod › ACME |
+| 03:05 | PC-COMPTA-03: Critique | CPU 98 % (seuil 90 %) | critical | Métrique | Obliance Prod › ACME |
+| 02:58 | SRV-QUAL01: Hors ligne | Aucun push reçu depuis 5 min. | critical | Hors ligne | Obliance Qual › Default |
+| 02:47 | BOB01: Alerte | Disque / 94 % (seuil 90 %) | warning | Métrique | Obliance Prod › Default |
+| 01:50 | NAS-DEV01: Alerte | Disque /volume1 91 % (seuil 90 %) | warning | Métrique | Obliance Dev › Default |
+| 01:30 | SRV-FILES01: santé disque à surveiller | Disque 1 : 5 secteurs réalloués | warning | Santé disque | Obliance Prod › Default |
+| 00:58 | 140: De retour en ligne | — | info | Rétablissement | Obliance Prod › Default |
 
 **Processus de PC-COMPTA-03 (03:06)** : 212 processus · CPU 97 % · 11,4 Go.
 
@@ -512,8 +512,8 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
 #### S01 — Connexion (écran progressif)
 - **Rôle** : saisir le serveur une fois, puis se connecter par Obligate ou par un compte local, puis valider la 2FA locale. Les trois étapes vivent sur un seul écran qui se déroule.
 - **Téléphone** :
-  1. Marque (wordmark sombre, « ance » en blanc). Champ « Adresse du serveur », texte indicatif `obliance.binaryhearts.me`, aide « HTTPS obligatoire », bouton **Continuer**, bouton tonal **Scanner un QR code** (la page profil web affiche `obli-obliance://setup?server=…`).
-  2. Une fois validé, le champ se replie en puce « obliance.binaryhearts.me · Changer » et une carte de résultat apparaît : « Obliance 5.1.110 · Connexion Obligate disponible (id.binaryhearts.me) ».
+  1. Marque (wordmark sombre, « ance » en blanc). Champ « Adresse du serveur », texte indicatif `obliance-prod.example.org`, aide « HTTPS obligatoire », bouton **Continuer**, bouton tonal **Scanner un QR code** (la page profil web affiche `obli-obliance://setup?server=…`).
+  2. Une fois validé, le champ se replie en puce « obliance-prod.example.org · Changer » et une carte de résultat apparaît : « Obliance 5.1.110 · Connexion Obligate disponible (id.example.org) ».
   3. Bouton principal **Se connecter avec Obligate** (si `obligateEnabled`), séparateur « ou », section repliable **Connexion locale** : « Identifiant », « Mot de passe » (remplissage automatique, gestionnaires de mots de passe), **Se connecter**.
   4. Étape 2FA (si `requires2fa`) : contrôle segmenté « Application d'authentification | E-mail », 6 cases (JetBrains Mono 24, focus automatique, envoi automatique au 6e chiffre), puce « Coller 482 913 » si le presse-papiers contient 6 chiffres, **Renvoyer le code** (e-mail, délai 30 s), **Valider**.
 - **Tablette** : deux moitiés. Gauche : panneau de marque (dégradé accent 10 % → `#131728`, « Supervision et gestion à distance »). Droite : carte de formulaire de 440 dp.
@@ -533,7 +533,7 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
 - **Serveurs suivants** : S01 ne sert qu'au premier serveur ; les suivants passent par S93, qui reprend les mêmes étapes.
 
 #### S02 — Connexion Obligate (feuille SSO)
-- Feuille WebView plein écran (tablette : dialogue 720 × 640) sur `/auth/sso-redirect`, avec barre native « Obligate · id.binaryhearts.me », barre de progression et **Annuler**.
+- Feuille WebView plein écran (tablette : dialogue 720 × 640) sur `/auth/sso-redirect`, avec barre native « Obligate · id.example.org », barre de progression et **Annuler**.
 - Le flux **reste dans la WebView** : `oauthState` vit dans la session, un Custom Tab ne partage pas les cookies.
 - Quand la WebView atteint `https://<serveur>/` après `/auth/callback`, l'app intercepte la navigation, ferme la feuille sans jamais afficher l'app web, et lit `connect.sid` dans le `CookieManager` partagé.
 - `/login?error=sso_failed` → message natif « La connexion via Obligate a échoué. Réessayez ou utilisez la connexion locale. »
@@ -543,7 +543,7 @@ Chaque écran précise : rôle, disposition téléphone et tablette, contenu d'e
 - **Texte** : « Votre session a expiré » / « Reconnectez-vous pour continuer. Vos écrans restent ouverts. Vos 2 sessions distantes restent actives. »
 - **Comportement** : d'abord un **SSO silencieux** (WebView cachée sur `/auth/sso-redirect`, délai 8 s) ; Obligate a souvent encore une session. Sinon, le contenu de S01 s'affiche dans la feuille. Actions : **Se reconnecter**, **Changer de compte**.
 - **Après** : la navigation en attente continue ; les lectures sont rejouées ; **une action n'est jamais rejouée automatiquement**, l'utilisateur la confirme à nouveau. Les données en cache restent lisibles sous un bandeau.
-- **Plusieurs serveurs** : S03 ne concerne que le serveur actif et nomme le serveur (« Votre session sur Client Durand a expiré ») ; un serveur non actif expiré est signalé dans S81, S92 et À traiter (§2.10).
+- **Plusieurs serveurs** : S03 ne concerne que le serveur actif et nomme le serveur (« Votre session sur Obliance Qual a expiré ») ; un serveur non actif expiré est signalé dans S81, S92 et À traiter (§2.10).
 - **Prévention** : l'app note l'heure du dernier `Set-Cookie`, par serveur. Six jours après, un bandeau apparaît : « Votre session expire demain. Reconnectez-vous maintenant pour ne pas être interrompu pendant l'astreinte. » [Se reconnecter]
 
 #### S04 — Premier lancement
@@ -561,20 +561,20 @@ Trois étapes passables, rouvrables depuis S84 :
 
 ```
 ┌────────────────────────────────────────────┐
-│ [BH Default · Vue globale ▾] À traiter ⌕ (KB)│
+│ [OP Default · Vue globale ▾] À traiter ⌕ (KB)│
 ├────────────────────────────────────────────┤
 │ (Alertes 7) (Approbations 1) (Enrôlements 1) │
 │ [Tous les serveurs ▾] [Tous les tenants ▾] … │
 │ ┌ Possible coupure de site ───────────────┐  │
-│ │ 5 appareils de BASH › Siège › Serveurs   │  │
+│ │ 5 appareils de ACME › Siège › Serveurs   │  │
 │ │ hors ligne entre 03:07 et 03:09. [Voir]  │  │
 │ └─────────────────────────────────────────┘  │
 │ NON LUES                                     │
-│ ▌[BH] CRITIQUE · BASH · 03:12 · il y a 4 min │
+│ ▌[OP] CRITIQUE · ACME · 03:12 · il y a 4 min │
 │ ▌SRV-AD2 — Hors ligne               [ ◎ ]    │
 │ ▌Aucun push reçu depuis 4 min.               │
 │ ▌● Toujours hors ligne                       │
-│ ▌[BH] CRITIQUE · BASH · 03:05                │
+│ ▌[OP] CRITIQUE · ACME · 03:05                │
 │ ▌PC-COMPTA-03 — Métrique critique   [ ≡ ]    │
 │ ▌CPU 98 % (seuil 90 %)                       │
 │ ▌● Critique · 97 % en direct                 │
@@ -587,7 +587,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - **Régions** :
   1. Barre supérieure (§2.2).
   2. Contrôle segmenté avec compteurs en mono : **Alertes** (tous) ; **Approbations** (administrateurs de plateforme ; le demandeur suit ses demandes dans Activité) ; **Enrôlements** (admins ou `agent_config:approval`). Un segment sans droit est masqué.
-  3. Puces de filtre : **serveurs** (« Tous les serveurs », puis un par serveur avec sa tuile ; présente dès deux serveurs), périmètre des tenants du serveur actif (« Tous les tenants », « Default », « BASH » ; `/live-alerts/all` couvre toutes les appartenances) et gravité.
+  3. Puces de filtre : **serveurs** (« Tous les serveurs », puis un par serveur avec sa tuile ; présente dès deux serveurs), périmètre des tenants du serveur actif (« Tous les tenants », « Default », « ACME » ; `/live-alerts/all` couvre toutes les appartenances) et gravité.
   4. **Carte de corrélation** (calculée côté client) : au moins 3 alertes « Hors ligne » du même tenant en moins de 5 min ; groupe résolu depuis le cache d'appareils du tenant concerné. Formulation prudente et horodatée : « Possible coupure de site ». Bouton **Voir les 5** → S20 filtrée.
   5. Liste en sections : « NON LUES » triées par **priorité calculée** puis par heure ; « LUES — DERNIÈRES 24 H » repliée.
 - **Priorité calculée (règles, en attendant un champ `category` serveur)** :
@@ -602,15 +602,16 @@ Trois étapes passables, rouvrables depuis S84 :
   - les alertes répétées d'un même appareil se regroupent : « 3 alertes · BOB01 » ;
   - **fusion de rétablissement** : quand une alerte de rétablissement arrive pour un appareil qui a une carte critique ou attention non lue, la carte d'origine passe au vert (« Rétabli à 03:19 ») au lieu d'empiler une nouvelle carte ;
   - marqueur non lu : point `#60A5FA` (jamais le rouge de marque).
-- **Contenu d'exemple (Alertes)** : les 7 alertes du §4, tous serveurs confondus, dans l'ordre SRV-AD2, PC-COMPTA-03, SRV-DURAND01 (Client Durand), BOB01, NAS-ATELIER (Atelier), SRV-FILES01, 140 ; action rapide respective : Surveiller, Processus, Surveiller, Scripts, Scripts, Disques, aucune.
-- **Plusieurs serveurs** : une seule liste triée par priorité calculée, toutes origines confondues ; la carte de corrélation ne mélange jamais deux serveurs ; appui sur une carte d'un autre serveur → bascule implicite (§2.10) ; balayages et « Surveiller » partent vers le serveur de la carte sans bascule ; « Tout marquer comme lu » agit sur **chaque** serveur affiché (un appel par serveur, libellé « Tout marquer comme lu (3 serveurs) »). Un serveur injoignable ajoute en tête une ligne discrète « Atelier injoignable depuis 03:02 — alertes jusqu'à 03:02 » ; un serveur dont la session a expiré : « Session expirée sur Client Durand · Se reconnecter ».
-- **Segment Approbations** : carte « Désinstaller l'agent — PC-ATELIER-02 », « Demandé par Julien Moreau · BASH · 03:21 », **anneau d'expiration** « expire dans 27 min » (ambre sous 10 min, rouge sous 3 min), boutons **Refuser** (tonal) et **Examiner** (plein) → S11. Jamais d'approbation depuis la liste.
+- **Contenu d'exemple (Alertes)** : les 7 alertes du §4, tous serveurs confondus, dans l'ordre SRV-AD2, PC-COMPTA-03, SRV-QUAL01 (Obliance Qual), BOB01, NAS-DEV01 (Obliance Dev), SRV-FILES01, 140 ; action rapide respective : Surveiller, Processus, Surveiller, Scripts, Scripts, Disques, aucune.
+- **Plusieurs serveurs** : une seule liste triée par priorité calculée, toutes origines confondues ; la carte de corrélation ne mélange jamais deux serveurs ; appui sur une carte d'un autre serveur → bascule implicite (§2.10) ; balayages et « Surveiller » partent vers le serveur de la carte sans bascule ; « Tout marquer comme lu » agit sur **chaque** serveur affiché (un appel par serveur, libellé « Tout marquer comme lu (3 serveurs) »). Un serveur injoignable ajoute en tête une ligne discrète « Obliance Dev injoignable depuis 03:02 — alertes jusqu'à 03:02 » ; un serveur dont la session a expiré : « Session expirée sur Obliance Qual · Se reconnecter ».
+- **Escalades de droits (demandes à deux)** : jamais mêlées aux incidents machine. Dans le segment Alertes, une section épinglée en tête « ESCALADES DE DROITS · 1 » (icône `shield-alert`, surtitre `#60A5FA`, fond `surface2`, tuile du serveur) résume les demandes en attente de tous les serveurs ; la liste complète vit dans le segment Approbations. Une demande à deux produit toujours une notification poussée du canal « Escalades de droits » (§9).
+- **Segment Approbations** : carte « Désinstaller l'agent — PC-ATELIER-02 », « Demandé par Julien Moreau · ACME · 03:21 », **anneau d'expiration** « expire dans 27 min » (ambre sous 10 min, rouge sous 3 min), boutons **Refuser** (tonal) et **Examiner** (plein) → S11. Jamais d'approbation depuis la liste.
 - **Segment Enrôlements** : « KIOSK-ACCUEIL-02 · Windows 11 IoT Enterprise · clé « Site Siège » · 10.0.3.41 · il y a 12 min », **Refuser** et **Approuver** en ligne ; en-tête **Tout approuver (3)** (T1).
 - **Actions** :
   - appui sur une carte → S30 en mode incident (téléphone) ou dans le panneau appareil (tablette) ;
   - balayage vers la droite → **Marquer comme lu** (immédiat, vibration de seuil) ;
   - balayage vers la gauche → **Supprimer**, barre « Alerte supprimée — Annuler » pendant 5 s avant l'appel ;
-  - menu : « Tout marquer comme lu (BASH) » (le serveur n'agit que sur le tenant courant, le libellé le dit ; avec plusieurs serveurs, voir ci-dessus), « Effacer les alertes lues » ;
+  - menu : « Tout marquer comme lu (ACME) » (le serveur n'agit que sur le tenant courant, le libellé le dit ; avec plusieurs serveurs, voir ci-dessus), « Effacer les alertes lues » ;
   - appui long → sélection multiple (lu, supprimer). Chaque balayage a une action TalkBack équivalente.
 - **Tablette** : liste 380 dp | **panneau appareil intégré** : carte d'alerte, en-tête de S30, contexte d'incident, métriques en direct, actions rapides (Processus, Services, Terminal, Voir l'écran, Redémarrer l'agent). Le technicien agit sans quitter la boîte. Touches : J/K pour naviguer, E pour marquer lu, Entrée pour ouvrir l'appareil complet.
 - **États** :
@@ -623,7 +624,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - **Rôle** : décider sans risque, avant expiration.
 - **Disposition** :
   1. En-tête : icône et « Désinstallation d'agent » ; pastille « En attente » ; **anneau d'expiration** et « Expire dans 27:14 » (compte à rebours en direct).
-  2. **Demandeur** : avatar, « Julien Moreau (og_julien.moreau) », « 03:21 », puce tenant « BASH ».
+  2. **Demandeur** : avatar, « Julien Moreau (og_julien.moreau) », « 03:21 », puce tenant « ACME ».
   3. **Cible** : ligne d'appareil en direct « PC-ATELIER-02 · Windows 10 Pro 22H2 · ● Hors ligne depuis 3 j · 10.0.14.22 ». Appui → S30 en lecture.
   4. **Ce qui sera exécuté**, en français clair :
      - `device_uninstall` : « L'agent Obliance sera désinstallé. L'appareil disparaîtra de la flotte après 10 min. »
@@ -631,13 +632,13 @@ Trois étapes passables, rouvrables depuis S84 :
      - `setting_change` : « Planification « Nettoyage hebdo C: » : contourner le mode confidentialité → activé ».
      - section repliable « Détails techniques » (charge utile formatée).
   5. « Motif (facultatif) » avec puces : « Validé par téléphone », « Hors fenêtre de maintenance », « Mauvaise cible ».
-  6. Barre basse : **Refuser** (tonal ; le motif devient obligatoire) et **Approuver** (T2 : invite biométrique « Approuver la désinstallation de l'agent », sous-titre « PC-ATELIER-02 · BASH »).
+  6. Barre basse : **Refuser** (tonal ; le motif devient obligatoire) et **Approuver** (T2 : invite biométrique « Approuver la désinstallation de l'agent », sous-titre « PC-ATELIER-02 · ACME »).
 - **Résultats** :
   - succès : « Approuvée et exécutée à 03:24 » (coche verte) ;
   - 403 propre demande : « Vous ne pouvez pas approuver votre propre demande. » ;
   - 409 : « Déjà traitée par Sophie Martin à 03:23. » (ou par tout autre administrateur) ;
   - 410 : « Cette demande a expiré. » ;
-  - 404 autre tenant : « Cette demande concerne le tenant BASH. » + **Basculer et continuer**.
+  - 404 autre tenant : « Cette demande concerne le tenant ACME. » + **Basculer et continuer**.
 - **Vue demandeur** (depuis Activité) : même écran, un seul bouton **Annuler ma demande**.
 - **Sources** : `GET /api/approvals?includeResolved=true`, `POST /api/approvals/:id/approve|deny|cancel`, `APPROVAL_UPDATED`, `GET /api/devices/:id`.
 
@@ -654,7 +655,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - **Téléphone** :
   1. Barre : « Appareils », recherche, **Groupes** (`folder-tree` → S22), filtre (badge = nombre de filtres actifs).
   2. Puces rapides défilantes : « Problèmes d'abord » (tri, actif par défaut), « Hors ligne 16 », « Critique 1 », « Attention 5 », « En attente 3 », « Windows », « Linux », « macOS ». Compteurs de `/devices/summary` pour les admins, calcul local pour les non-admins.
-  3. Fil d'Ariane du groupe actif : « BASH › Siège › Serveurs ✕ ».
+  3. Fil d'Ariane du groupe actif : « ACME › Siège › Serveurs ✕ ».
   4. En-têtes de section collants en surtitre mono : « CRITIQUE · 1 », « ATTENTION · 5 », « HORS LIGNE · 16 », « EN LIGNE · 289 ».
   5. Lignes `DeviceRow` (72 dp confort, 56 dp compact) : tuile OS 36 dp avec point d'état ; nom + icônes de mode (isolement `wifi-off` bleu, confidentialité `shield` orange, étiquette « legacy », mise à jour d'agent `arrow-up`) ; ligne mono « IP · OS · version d'agent » ; mini-barres « CPU 12 % · RAM 61 % · C: 78 % », ou « Hors ligne depuis 03:08 (14 min) » ; pastille d'état à droite. En vue globale, puce de tenant.
 - **Lignes d'exemple** :
@@ -671,7 +672,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - **Actions** :
   - appui → S30 (tablette : volet de détail) ;
   - balayage vers la gauche → **Agir** (ouvre S40 pour cette ligne ; n'exécute rien) ; vers la droite → **Surveiller** ;
-  - appui long → sélection multiple ; barre contextuelle « 3 sélectionnés · BASH » avec **Exécuter un script**, **Redémarrer l'agent**, **Plus** (Analyser, Redémarrer, Changer de groupe, Approuver) → aperçu d'impact (§7.7) ;
+  - appui long → sélection multiple ; barre contextuelle « 3 sélectionnés · ACME » avec **Exécuter un script**, **Redémarrer l'agent**, **Plus** (Analyser, Redémarrer, Changer de groupe, Approuver) → aperçu d'impact (§7.7) ;
   - tirer pour actualiser.
 - **Tablette** : arbre des groupes (264 dp, repliable avec `[`) | liste 360 dp | détail. Menu contextuel (clic droit ou appui long) : Ouvrir · Terminal · Voir l'écran · Redémarrer l'agent · Copier le nom · Copier l'IP · Épingler · Partager la fiche. Au survol : icônes Terminal, Voir l'écran et ⋮ (équivalent tactile : appui long). Sélection : cases à cocher, Maj+clic, Ctrl+A.
 - **Pagination** : admins `pageSize=100` avec défilement infini ; **non-admins `pageSize=2000`** puis pagination locale (le serveur filtre la visibilité après `LIMIT`).
@@ -686,7 +687,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - Les filtres sont mémorisés par tenant.
 
 #### S22 — Arbre des groupes
-- Lignes : icône `server`, nom, compteurs cumulés en points mono « Serveurs 6 · ●0 ●0 ●5 » ; chevrons ; « Sans groupe (3) » ; en vue globale, en-têtes de tenant « DEFAULT », « BASH » en surtitre.
+- Lignes : icône `server`, nom, compteurs cumulés en points mono « Serveurs 6 · ●0 ●0 ●5 » ; chevrons ; « Sans groupe (3) » ; en vue globale, en-têtes de tenant « DEFAULT », « ACME » en surtitre.
 - Appui → filtre S20 (avec sous-groupes). Appui long → S23. Création, déplacement, réordonnancement → S90.
 - Le serveur n'émet pas d'événements de groupe : l'arbre est rechargé à l'affichage et au tirer-pour-actualiser.
 
@@ -695,7 +696,7 @@ Trois étapes passables, rouvrables depuis S84 :
 - Actions : **Exécuter un script sur ce groupe** → S51 ; **Mettre en maintenance** (admin de plateforme, v1.1) ; **Modifier (vue web)**.
 
 #### S24 — Vues enregistrées (v1.1)
-- Une vue = nom, filtres, tri, densité, filtre de tenant éventuel. Exemples : « Serveurs hors ligne BASH », « Postes avec MAJ critiques », « Agents legacy ». Vues fournies : « Problèmes », « En attente d'enrôlement », « Surveillés ».
+- Une vue = nom, filtres, tri, densité, filtre de tenant éventuel. Exemples : « Serveurs hors ligne ACME », « Postes avec MAJ critiques », « Agents legacy ». Vues fournies : « Problèmes », « En attente d'enrôlement », « Surveillés ».
 - Stockage local (DataStore, par serveur et utilisateur). Épinglable en raccourci d'écran d'accueil ou en widget.
 
 ### Détail d'appareil
@@ -706,7 +707,7 @@ Trois étapes passables, rouvrables depuis S84 :
 ```
 ┌────────────────────────────────────────────┐
 │ ←  PC-COMPTA-03                    ☆   ⋮   │
-│    BASH · Siège › Comptabilité             │
+│    ACME · Siège › Comptabilité             │
 ├────────────────────────────────────────────┤
 │ ▌Alerte 03:05 · Métrique critique           │  bandeau d'incident
 │ ▌CPU 98 % (seuil 90 %)  [Marquer lu][Masquer]│
@@ -775,7 +776,7 @@ Cartes, dans l'ordre :
 - **Rôle** : la correction d'astreinte n° 1, redémarrer un service bloqué.
 - **Disposition** : recherche « Filtrer les services » ; segmenté « Tous · En cours · Arrêtés · **Auto. arrêtés** » (services automatiques arrêtés, **par défaut quand l'appareil est en attention ou critique**) ; ligne d'instantané « Liste de 03:14 · Actualiser » ; lignes : nom affiché « Spouleur d'impression », nom technique mono « Spooler », type de démarrage « Automatique », pastille d'état (« Arrêté » en ambre si automatique), menu de ligne **Démarrer / Redémarrer / Arrêter**. Tablette : tableau triable.
 - **Exemple Linux** : `nginx.service` (arrêté, activé), `cron.service`, `ssh.service`.
-- **Flux (redémarrer)** : T1 « Redémarrer « Spouleur d'impression » sur PC-COMPTA-03 (BASH) ? » → `POST /api/commands {deviceId, type:'restart_service', payload:{name:'Spooler'}}` → suivi de commande dans la ligne « Envoyé → En cours → Redémarré (1,8 s) » → rafraîchissement automatique par `list_services`. **Arrêter** est T2.
+- **Flux (redémarrer)** : T1 « Redémarrer « Spouleur d'impression » sur PC-COMPTA-03 (ACME) ? » → `POST /api/commands {deviceId, type:'restart_service', payload:{name:'Spooler'}}` → suivi de commande dans la ligne « Envoyé → En cours → Redémarré (1,8 s) » → rafraîchissement automatique par `list_services`. **Arrêter** est T2.
 - **Raisons de désactivation** : « L'appareil est hors ligne », « Votre équipe n'a pas le droit « Exécution » sur cet appareil ».
 - **Sources** : `GET /api/devices/:id/services`, `POST /api/commands` (`list_services`, `start_service`, `stop_service`, `restart_service`), socket `DEVICE_SERVICES_UPDATED`, `COMMAND_UPDATED`. Onglet masqué si l'agent n'a jamais remonté de services.
 
@@ -784,7 +785,7 @@ Cartes, dans l'ordre :
 - **Disposition** : en-tête « En direct · actualisé toutes les 5 s » avec **Figer** (fige l'affichage sans se désabonner) ; résumé « 212 processus · CPU 97 % · 11,4 Go » ; segmenté « CPU · Mémoire · Nom » ; recherche ; regroupement par nom avec compteur (« chrome.exe × 18 ») ; ligne : nom mono, « PID 7312 · SIEGE\m.durand », barre CPU avec %, mémoire.
 - **Exemple** : tableau des processus du §4.
 - **Appui sur une ligne** : feuille avec ligne de commande complète, utilisateur, **Terminer le processus** (bouton de danger).
-- **Confirmations** : T1 « Terminer EBP.Compta.exe (PID 7312) sur PC-COMPTA-03 (BASH) ? Les données non enregistrées de m.durand seront perdues. » ; **T2** avec l'avertissement « Terminer ce processus peut arrêter ou déstabiliser le système. » pour la liste critique : `lsass.exe`, `csrss.exe`, `wininit.exe`, `services.exe`, `winlogon.exe`, `smss.exe`, `systemd`, `init`, `sshd` (si session SSH).
+- **Confirmations** : T1 « Terminer EBP.Compta.exe (PID 7312) sur PC-COMPTA-03 (ACME) ? Les données non enregistrées de m.durand seront perdues. » ; **T2** avec l'avertissement « Terminer ce processus peut arrêter ou déstabiliser le système. » pour la liste critique : `lsass.exe`, `csrss.exe`, `wininit.exe`, `services.exe`, `winlogon.exe`, `smss.exe`, `systemd`, `init`, `sshd` (si session SSH).
 - **Confidentialité** : « Les processus sont verrouillés par le mode confidentialité. » + **Déverrouiller** (S44).
 - **Cycle de vie** : `PROCESS_SUBSCRIBE` quand l'onglet est visible ; `PROCESS_UNSUBSCRIBE` en le quittant, en arrière-plan, ou après 2 min sur réseau mobile en économie de données (« Actualisation en pause (données mobiles) — Reprendre »).
 - **Sources** : socket `PROCESS_SUBSCRIBE`, `DEVICE_PROCESSES_UPDATED`, `PROCESS_UNSUBSCRIBE` ; `POST /api/commands {type:'kill_process', payload:{pid, name}}`. **Jamais** `/api/processes/:id/kill`, qui contourne restrictions et confidentialité.
@@ -839,7 +840,7 @@ Cartes, dans l'ordre :
 
 #### S40 — Feuille « Agir »
 - **Rôle** : toutes les actions d'un appareil, au même endroit, à portée de pouce, groupées par intention.
-- **En-tête** : « PC-COMPTA-03 · BASH · ● Critique » et « Dernière action : Redémarrer le service Spooler (03:17) ».
+- **En-tête** : « PC-COMPTA-03 · ACME · ● Critique » et « Dernière action : Redémarrer le service Spooler (03:17) ».
 - **Groupes** (icône, libellé, conséquence en une ligne) :
 
 | Groupe | Éléments |
@@ -853,19 +854,19 @@ Cartes, dans l'ordre :
 | ZONE SENSIBLE (séparée, libellés `#F87171`) | Isoler du réseau · Rétablir le réseau · Désactiver le mode confidentialité · Désinstaller l'agent |
 
 - **Visibilité** : masqué si jamais permis au rôle ou sans rapport avec l'OS ou l'agent ; affiché désactivé avec la raison si l'état bloque ; refus appris après un 403.
-- **Vue globale** : ligne « Pour agir sur PC-COMPTA-03, Obliance doit passer sur le tenant BASH. » + **Basculer et continuer**.
+- **Vue globale** : ligne « Pour agir sur PC-COMPTA-03, Obliance doit passer sur le tenant ACME. » + **Basculer et continuer**.
 - **Tablette** : feuille latérale ancrée au rail d'actions.
 
 #### S41 — Confirmation d'action
-Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`BASH · Windows 11 Pro 23H2 · 10.0.12.43`) ; le corps énonce la conséquence.
+Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`ACME · Windows 11 Pro 23H2 · 10.0.12.43`) ; le corps énonce la conséquence.
 
 | Action | Palier | Titre | Corps | Suite |
 |---|---|---|---|---|
-| Redémarrer un service | T1 | « Redémarrer « Spouleur d'impression » sur PC-COMPTA-03 (BASH) ? » | « Les impressions en cours seront interrompues. » | Un appui |
-| Redémarrer un appareil | T2 | « Redémarrer PC-COMPTA-03 (BASH) ? » | « Le poste redémarrera immédiatement. 1 utilisateur est connecté (m.durand). » | Biométrie « Confirmer le redémarrage — PC-COMPTA-03 · BASH » |
-| Éteindre un serveur | T3 | « Éteindre SRV-AD2 (BASH) ? » | « Obliance ne pourra pas le rallumer à distance. » | Maintenir 1,5 s puis biométrie |
+| Redémarrer un service | T1 | « Redémarrer « Spouleur d'impression » sur PC-COMPTA-03 (ACME) ? » | « Les impressions en cours seront interrompues. » | Un appui |
+| Redémarrer un appareil | T2 | « Redémarrer PC-COMPTA-03 (ACME) ? » | « Le poste redémarrera immédiatement. 1 utilisateur est connecté (m.durand). » | Biométrie « Confirmer le redémarrage — PC-COMPTA-03 · ACME » |
+| Éteindre un serveur | T3 | « Éteindre SRV-AD2 (ACME) ? » | « Obliance ne pourra pas le rallumer à distance. » | Maintenir 1,5 s puis biométrie |
 | Isoler du réseau | T2 | « Isoler PC-COMPTA-03 du réseau ? » | « Seul le serveur Obliance restera joignable. Le rétablissement peut exiger l'approbation d'un second administrateur. » | Biométrie |
-| Script sur 12 appareils | T3 | « Exécuter « Vider le cache DNS » sur 12 appareils (BASH) ? » | « 2 appareils sont hors ligne et resteront en attente. » | Saisir « 12 », puis biométrie |
+| Script sur 12 appareils | T3 | « Exécuter « Vider le cache DNS » sur 12 appareils (ACME) ? » | « 2 appareils sont hors ligne et resteront en attente. » | Saisir « 12 », puis biométrie |
 
 - Bouton de danger `#DC2626`, texte blanc, icône `triangle-alert` ; **Annuler** toujours présent ; le bouton de danger n'a jamais le focus par défaut.
 - **Accessibilité** : sous TalkBack ou accès par contacteur, le maintien est remplacé par un second bouton « Confirmer définitivement » sans délai.
@@ -879,7 +880,7 @@ Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`
 
 #### S43 — Demande d'approbation envoyée
 - **Déclencheur** : `202 {data:{approvalId, status:'pending_approval'}}`.
-- **Texte** : « Demande envoyée pour approbation » / « Un second administrateur doit valider « Désinstaller l'agent » sur PC-ATELIER-02 (BASH). La demande expire à 03:51. »
+- **Texte** : « Demande envoyée pour approbation » / « Un second administrateur doit valider « Désinstaller l'agent » sur PC-ATELIER-02 (ACME). La demande expire à 03:51. »
 - **Actions** : **Suivre dans Activité**, **Annuler la demande**.
 - Le bouton d'origine passe à l'état ambre « En attente d'approbation ». **Jamais de coche de succès pour un 202.**
 - Suivi local par `APPROVAL_UPDATED`, puis notification locale : « Votre demande a été approuvée par Sophie Martin et exécutée. » ou « …refusée : « Hors fenêtre de maintenance ». »
@@ -924,7 +925,7 @@ Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`
 ```
 ┌────────────────────────────────────────────┐
 │ ←  Nettoyer les fichiers temporaires    ⋮  │
-│    lancé à 10:42 par vous · BASH           │
+│    lancé à 10:42 par vous · ACME           │
 │  (◔ 2/3)  ✓ 2  ✗ 1  ⟳ 0  … 0               │
 │  La sortie de chaque appareil s'affiche    │
 │  à la fin de son exécution.                │
@@ -939,7 +940,7 @@ Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`
 │ [Relancer sur les échecs (1)] [Partager]   │
 └────────────────────────────────────────────┘
 ```
-- **En-tête** : nom du script, « lancé à 10:42 par vous · BASH », **anneau de progression** segmenté (réussi vert, échec rouge, en cours bleu, en file gris) avec « 2/3 » en mono.
+- **En-tête** : nom du script, « lancé à 10:42 par vous · ACME », **anneau de progression** segmenté (réussi vert, échec rouge, en cours bleu, en file gris) avec « 2/3 » en mono.
 - **Lignes** : pas à pas à 4 points (En file → Envoyé → En cours → terminal) ; code, durée, première ligne de sortie ; sur un échec, raccourci **Ouvrir PowerShell sur PC-COMPTA-03**.
 - **Honnêteté** : « La sortie de chaque appareil s'affiche à la fin de son exécution. » (le serveur ne diffuse pas la sortie ; `EXECUTION_OUTPUT` n'est jamais émis).
 - **Actions** : appui → S53 ; **Arrêter** (en cours), **Annuler** (en file) ; **Relancer sur les échecs** (S51 prérempli) ; **Partager le rapport** (texte).
@@ -990,7 +991,7 @@ Le titre nomme l'action, l'appareil et le tenant ; une ligne mono de contexte (`
 #### S60 — Terminal (PowerShell, CMD, SSH)
 ```
 ┌────────────────────────────────────────────┐
-│ ←  PowerShell · PC-COMPTA-03 · BASH  ●  ⚡ ⋮ │
+│ ←  PowerShell · PC-COMPTA-03 · ACME  ●  ⚡ ⋮ │
 │    SYSTÈME · connecté 00:04:12              │
 ├────────────────────────────────────────────┤
 │ PS C:\Windows\system32> Get-Process |       │
@@ -1084,7 +1085,7 @@ Panneau latéral de 320 dp sur tablette, feuille sur téléphone :
   5. **Disques saturés** : « BOB01 / 94 % », « SRV-FILES01 E: 91 % ».
   6. **Groupes** : cartes de santé « Siège · 94 % en ligne · conformité 91 », etc. ; appui → S23.
   7. **Contexte** : « 2 sessions distantes actives », « 14 planifications dans les 24 h ».
-  8. **Par tenant** (vue globale ou utilisateur multi-tenant) : « BASH · 248 appareils · 14 hors ligne · 1 critique », « Default · 64 · 2 hors ligne ». Appui : en vue globale **filtre**, sinon propose « Travailler dans BASH ».
+  8. **Par tenant** (vue globale ou utilisateur multi-tenant) : « ACME · 248 appareils · 14 hors ligne · 1 critique », « Default · 64 · 2 hors ligne ». Appui : en vue globale **filtre**, sinon propose « Travailler dans ACME ».
 - **Tablette (grille 3 colonnes)** : gauche : carte vedette + attention requise (10) ; centre : indicateurs, mises à jour par gravité, conformité par groupe ; droite : tenants et tendance 30 j.
 - **Non-admins** : les agrégats serveur ne sont pas filtrés par visibilité ; indicateurs et attention requise sont **calculés depuis la liste visible**, étiquetés « Vos appareils » ; graphiques masqués.
 - **Vue globale** : sondage de `summary` et `group-stats` toutes les 60 s tant que l'écran est visible.
@@ -1100,17 +1101,17 @@ Panneau latéral de 320 dp sur tablette, feuille sur téléphone :
 ### Plus
 
 #### S80 — Plus
-- Carte de compte : avatar, « Karim Benali », « og_karim.benali · Compte Obligate », puce « [BH] BinaryHearts › Default » (le compte affiché est celui du serveur actif).
-- Entrée **Serveurs** (`server`, « 3 serveurs · BinaryHearts actif ») → S92, sous la carte de compte ; avec un seul serveur, elle devient « Serveur · obliance.binaryhearts.me » et mène aussi à S92.
+- Carte de compte : avatar, « Karim Benali », « og_karim.benali · Compte Obligate », puce « [OP] Obliance Prod › Default » (le compte affiché est celui du serveur actif).
+- Entrée **Serveurs** (`server`, « 3 serveurs · Obliance Prod actif ») → S92, sous la carte de compte ; avec un seul serveur, elle devient « Serveur · obliance-prod.example.org » et mène aussi à S92.
 - Sections du §2.8 ; éléments masqués selon le rôle (jamais désactivés) ; badges (approbations en attente, mise à jour de l'app) ; la section « Administration — Vue web » porte l'icône `globe` et l'étiquette « Vue web » sur chaque ligne.
 
 #### S81 — Serveur et tenant
 - **Section « Serveurs »** (dès deux serveurs, en tête) : une ligne de 56 dp par serveur : tuile 28 dp, nom, hôte en mono, ligne d'état (« Actif · temps réel connecté », « Vérifié à 03:20 », « Injoignable depuis 03:02 », « Session expirée · Se reconnecter »), alertes non lues (« 5 non lues »), coche sur le serveur actif. Appui → bascule de serveur (§2.10). Dernière ligne : **Gérer les serveurs** → S92.
-- Les sections de tenant qui suivent portent le nom du serveur actif : « Tenants de BinaryHearts ». Un serveur à un seul tenant n'a pas de section tenant.
-- **Section « Filtrer la vue globale »** (session maître) : puces multi-sélection avec mini-ruban (« BASH 248 · 1 crit. », « Default 64 ») ; **Tous les tenants**.
-- **Section « Travailler dans un tenant »** : recherche au-delà de 8 tenants ; lignes « Default » (badge « Vue globale »), « BASH » (rôle en mono) ; point d'état (pire état) ; alertes non lues par tenant (« 5 alertes non lues ») ; coche sur le tenant courant.
+- Les sections de tenant qui suivent portent le nom du serveur actif : « Tenants de Obliance Prod ». Un serveur à un seul tenant n'a pas de section tenant.
+- **Section « Filtrer la vue globale »** (session maître) : puces multi-sélection avec mini-ruban (« ACME 248 · 1 crit. », « Default 64 ») ; **Tous les tenants**.
+- **Section « Travailler dans un tenant »** : recherche au-delà de 8 tenants ; lignes « Default » (badge « Vue globale »), « ACME » (rôle en mono) ; point d'état (pire état) ; alertes non lues par tenant (« 5 alertes non lues ») ; coche sur le tenant courant.
 - Pied : « Le changement recharge les données et le temps réel. Vos 2 sessions restent ouvertes. » ; avec plusieurs serveurs : « … Les alertes des 3 serveurs continuent d'arriver. »
-- **Bascule** : `POST /api/tenant/switch` → « Passage sur BASH… » → reconnexion socket → invalidation des caches → rechargement → vibration de confirmation → barre « Vous travaillez maintenant dans BASH ».
+- **Bascule** : `POST /api/tenant/switch` → « Passage sur ACME… » → reconnexion socket → invalidation des caches → rechargement → vibration de confirmation → barre « Vous travaillez maintenant dans ACME ».
 - Erreur 403 : « Vous n'êtes pas membre de ce tenant. »
 - **Tablette** : menu ancré de 320 dp depuis le bouton de périmètre du rail (Alt+T ; Alt+1…8 pour passer directement à un serveur).
 
@@ -1120,7 +1121,7 @@ Voir §2.7. Aucun résultat : « Aucun résultat pour « 10.0.0.99 ». La recher
 #### S83 — Réglages de l'application
 - **Notifications et astreinte** → S84.
 - **Sécurité** : verrou biométrique ; délai (immédiat / 1 / 5 / 15 min) ; « Bloquer les captures d'écran partout » (terminal, ObliReach, BitLocker toujours bloqués) ; « Confirmer par biométrie : actions sensibles (obligatoire) / toutes les actions ».
-- **Apparence** : Operator / Nuit / Système ; « Nuit automatique de 22:00 à 07:00 » ou avec le mode coucher d'Android ; densité (Auto, Confort, Compacte) ; deuxième ligne des appareils ; taille du terminal ; **mode anonyme** (masque noms d'hôte, IP, MAC et utilisateurs à l'écran, dans les widgets et les notifications).
+- **Apparence** : « Thème : suivre le serveur (défaut) / Operator / Nuit » (le thème suivi est celui de l'utilisateur sur le serveur actif, §2.10) ; « Nuit automatique de 22:00 à 07:00 » ou avec le mode coucher d'Android ; densité (Auto, Confort, Compacte) ; deuxième ligne des appareils ; taille du terminal ; **mode anonyme** (masque noms d'hôte, IP, MAC et utilisateurs à l'écran, dans les widgets et les notifications).
 - **Sessions** : barre de touches auto / toujours / jamais ; mode tactile ObliReach par défaut par format ; codec préféré.
 - **Langue** : Français / English / langue du système (langue par app, synchronisée avec `preferredLanguage`).
 - **Données** : « Économie de données sur réseau mobile » ; « Vider le cache hors ligne ».
@@ -1131,18 +1132,18 @@ Voir §2.7. Aucun résultat : « Aucun résultat pour « 10.0.0.99 ». La recher
 - **Carte d'acheminement** (une ligne par serveur quand il y en a plusieurs) : v1 « Vérification toutes les 15 min — Android peut retarder les alertes » ; v1.1 « Temps réel : UnifiedPush via ntfy — connecté » ; « Optimisation de batterie : désactivée ✓ ».
 - **Astreinte** : interrupteur (aussi tuile Réglages rapides) ; horaire ; tenants couverts ; « Les critiques ignorent Ne pas déranger » ; « Rappeler une alerte critique non lue toutes les 5 min (3 fois max) » ; hors astreinte : « Critiques seulement / Silencieuses / Aucune ».
 - **Matrice par catégorie** (Appareils critiques, Appareils en attention, Rétablissements, Approbations, Enrôlements, Automations, Sessions, Compte) : Son / Vibration / Silencieux / Désactivé, reflétant les canaux Android (les réglages système restent la référence).
-- **Par serveur** (dès deux serveurs) : une carte par serveur avec sa tuile : « Notifications : toutes / critiques seulement / aucune », tenants couverts (« Default ✓ · BASH ✓ »), « Inclus dans l'astreinte » ; lien vers les réglages Android du **groupe de canaux** du serveur. L'horaire d'astreinte reste commun.
-- **Par tenant** (un seul serveur) : « Recevoir les alertes de : Default ✓ · BASH ✓ ».
+- **Par serveur** (dès deux serveurs) : une carte par serveur avec sa tuile : « Notifications : toutes / critiques seulement / aucune », tenants couverts (« Default ✓ · ACME ✓ »), « Inclus dans l'astreinte » ; lien vers les réglages Android du **groupe de canaux** du serveur. L'horaire d'astreinte reste commun.
+- **Par tenant** (un seul serveur) : « Recevoir les alertes de : Default ✓ · ACME ✓ ».
 - **Diagnostic** : « Envoyer une notification de test ».
 
 #### S85 — Profil et sécurité
 - Nom affiché, identifiant (préfixe `og_` = « Compte Obligate »), e-mail ; 2FA « Application d'authentification : activée · E-mail : désactivé » (configuration dans la vue web) ; **Adresses IP de confiance** (**Révoquer**, **Tout révoquer**) ; « Session valide jusqu'au 02/10 10:42 » (déduit du dernier `Set-Cookie`) ; applications connectées ; **Gérer le profil (vue web)** ; **Se déconnecter** (URL de déconnexion Obligate d'abord, puis déconnexion locale, puis effacement des caches).
 
 #### S86 — À propos et mises à jour
-- Version de l'app, « BinaryHearts · Obliance 5.1.110 » (une ligne par serveur) ; la mise à jour proposée est la plus récente offerte par l'un des serveurs, avec sa source (« Proposée par BinaryHearts ») ; **Rechercher une mise à jour** (programme existant : vérification SHA-256 et signataire) ; notes de version ; licences (Inter, Rajdhani, JetBrains Mono sous OFL ; termlib Apache-2.0 ; libvterm MIT ; OkHttp) ; « Copier le diagnostic » (versions, état du socket et du push ; **jamais** de jetons, d'URL de tunnel, ni de noms d'hôte en mode anonyme).
+- Version de l'app, « Obliance Prod · Obliance 5.1.110 » (une ligne par serveur) ; la mise à jour proposée est la plus récente offerte par l'un des serveurs, avec sa source (« Proposée par Obliance Prod ») ; **Rechercher une mise à jour** (programme existant : vérification SHA-256 et signataire) ; notes de version ; licences (Inter, Rajdhani, JetBrains Mono sous OFL ; termlib Apache-2.0 ; libvterm MIT ; OkHttp) ; « Copier le diagnostic » (versions, état du socket et du push ; **jamais** de jetons, d'URL de tunnel, ni de noms d'hôte en mode anonyme).
 
 #### S87 — Supervision (v1.1)
-- **Sessions distantes** : actives d'abord (« Julien Moreau · PowerShell · PC-COMPTA-01 (BASH) · depuis 6 min »), puis historique ; **Terminer** (T2).
+- **Sessions distantes** : actives d'abord (« Julien Moreau · PowerShell · PC-COMPTA-01 (ACME) · depuis 6 min »), puis historique ; **Terminer** (T2).
 - **Historique** : chronologie fusionnée (commandes, lots, mises à jour, exécutions de scénarios), reconstituée côté client comme le fait le web (il n'existe pas d'endpoint unifié).
 - Les jetons `sessionToken` des événements `REMOTE_*` sont ignorés au décodage.
 
@@ -1159,13 +1160,13 @@ Voir §2.8. Erreur de page : « Cette page n'a pas pu être chargée. » [Réess
 #### S92 — Serveurs
 - **Rôle** : liste et réglages de chaque serveur. Accès : Plus › Serveurs, S81 › Gérer les serveurs, S83.
 - **Liste** : une carte par serveur : tuile 28 dp, nom, hôte (mono), « Obliance 5.1.110 », compte (« og_karim.benali · Obligate » / « karim.benali · compte local »), état (« Actif · temps réel connecté », « Vérifié à 03:20 », « Session expirée »), portée des notifications (« Toutes » / « Critiques seulement »). Poignée pour réordonner (l'ordre donne `Alt+1…8` et l'ordre des puces). Pied : « 3 serveurs sur 8 au plus ». Bouton tonal **Ajouter un serveur** → S93.
-- **Détail d'un serveur** (écran poussé ; volet de détail sur tablette) : nom affiché ; couleur (8 pastilles de 48 dp, libellées pour TalkBack : « Fuchsia, sélectionné ») et aperçu de la tuile ; « Recevoir les notifications » (Toutes / Critiques seulement / Aucune) ; « Inclure dans À traiter » ; tenants couverts ; « Ajouter un raccourci sur l'écran d'accueil » ; session (« Valide jusqu'au 29/09 ») et **Se reconnecter** ; **Se déconnecter de ce serveur** ; **Retirer ce serveur** (texte `#F87171` dans le menu de l'écran, T1 : « Retirer Client Durand ? Ses alertes, ses caches et ses raccourcis seront supprimés de ce téléphone. Rien n'est modifié sur le serveur. »).
+- **Détail d'un serveur** (écran poussé ; volet de détail sur tablette) : nom affiché ; couleur (8 pastilles de 48 dp, libellées pour TalkBack : « Fuchsia, sélectionné ») et aperçu de la tuile ; « Recevoir les notifications » (Toutes / Critiques seulement / Aucune) ; « Inclure dans À traiter » ; tenants couverts ; « Ajouter un raccourci sur l'écran d'accueil » ; session (« Valide jusqu'au 29/09 ») et **Se reconnecter** ; **Se déconnecter de ce serveur** ; **Retirer ce serveur** (texte `#F87171` dans le menu de l'écran, T1 : « Retirer Obliance Qual ? Ses alertes, ses caches et ses raccourcis seront supprimés de ce téléphone. Rien n'est modifié sur le serveur. »).
 - **États** : un seul serveur → la liste ne montre que lui, sans poignée ni couleur ; serveur injoignable → « Injoignable depuis 03:02 · Réessayer ».
 
 #### S93 — Ajouter un serveur
 - **Rôle** : S01 pour un serveur supplémentaire, sans quitter l'app.
-- **Déroulé** : « Adresse du serveur » (QR possible) → sonde `GET /health` et `GET /api/auth/sso-config` → carte « Obliance 5.1.108 · Connexion Obligate disponible (id.binaryhearts.me) » et, si une session Obligate existe déjà, « Votre session Obligate existante sera réutilisée. » → **Nom affiché** (prérempli par le nom de l'instance ou l'hôte), **couleur** (première couleur libre de la palette) et aperçu de la tuile → **Se connecter avec Obligate** ou connexion locale et 2FA (comme S01) → « Atelier est ajouté. Ses alertes arrivent désormais sur ce téléphone. » [Passer sur Atelier] [Rester sur BinaryHearts].
-- **Erreurs** : celles de S01, plus « Ce serveur est déjà configuré (BinaryHearts). » et « Vous avez atteint 8 serveurs. Retirez-en un pour en ajouter un autre. »
+- **Déroulé** : « Adresse du serveur » (QR possible) → sonde `GET /health` et `GET /api/auth/sso-config` → carte « Obliance 5.1.108 · Connexion Obligate disponible (id.example.org) » et, si une session Obligate existe déjà, « Votre session Obligate existante sera réutilisée. » → **Nom affiché** (prérempli par le nom de l'instance ou l'hôte), **couleur** (première couleur libre de la palette) et aperçu de la tuile → **Se connecter avec Obligate** ou connexion locale et 2FA (comme S01) → « Obliance Dev est ajouté. Ses alertes arrivent désormais sur ce téléphone. » [Passer sur Obliance Dev] [Rester sur Obliance Prod].
+- **Erreurs** : celles de S01, plus « Ce serveur est déjà configuré (Obliance Prod). » et « Vous avez atteint 8 serveurs. Retirez-en un pour en ajouter un autre. »
 - **Tablette** : dialogue de 560 dp.
 ---
 
@@ -1175,24 +1176,24 @@ Voir §2.8. Erreur de page : « Cette page n'a pas pu être chargée. » [Réess
 
 | Étape | Écran | Ce qui se passe | API |
 |---|---|---|---|
-| 1 | — | Karim scanne le QR de sa page profil web (`obli-obliance://setup?server=https://obliance.binaryhearts.me`) ou installe l'APK depuis `/api/mobile/android/download`. Un utilisateur de la coquille actuelle reçoit l'app native par le programme de mise à jour signé et garde son cookie. | — |
-| 2 | S01 | Adresse préremplie ; carte « Obliance 5.1.110 · Connexion Obligate disponible (id.binaryhearts.me) ». **Continuer**. | `GET /api/auth/sso-config`, `GET /health` |
+| 1 | — | Karim scanne le QR de sa page profil web (`obli-obliance://setup?server=https://obliance-prod.example.org`) ou installe l'APK depuis `/api/mobile/android/download`. Un utilisateur de la coquille actuelle reçoit l'app native par le programme de mise à jour signé et garde son cookie. | — |
+| 2 | S01 | Adresse préremplie ; carte « Obliance 5.1.110 · Connexion Obligate disponible (id.example.org) ». **Continuer**. | `GET /api/auth/sso-config`, `GET /health` |
 | 3 | S01 → S02 | **Se connecter avec Obligate** : Obligate demande mot de passe et TOTP ; le retour arrive sur `/` ; l'app ferme la feuille et récupère `connect.sid`. | `/auth/sso-redirect`, `/auth/callback` |
 | 3′ | S01 (local) | Variante Obligate indisponible : identifiant et mot de passe natifs → `requires2fa` → « Application d'authentification » → 6 chiffres. | `POST /api/auth/login`, `POST /api/profile/2fa/verify` |
-| 4 | — | Sonde de session : utilisateur, permissions, tenant courant (Default) ; tenants Default et BASH. | `GET /api/auth/me`, `GET /api/tenants` |
+| 4 | — | Sonde de session : utilisateur, permissions, tenant courant (Default) ; tenants Default et ACME. | `GET /api/auth/me`, `GET /api/tenants` |
 | 5 | S90 (si besoin) | `requires2faSetup` → page profil web après une carte d'explication ; nouvelle sonde au retour. | — |
 | 6 | S04 | Notifications, astreinte (« Tous les jours 19:00–08:00 », deux tenants), verrou biométrique, exemption de batterie, tuile Réglages rapides. | — |
 | 7 | S10 | Le socket se connecte (anneau de l'avatar vert). La boîte affiche 2 alertes non lues. | Socket.IO avec le cookie en `extraHeaders`, `GET /api/live-alerts/all` |
 
-Objectif : moins de 60 s du lancement à la boîte. Les serveurs Atelier et Client Durand s'ajoutent ensuite par S93 (F9).
+Objectif : moins de 60 s du lancement à la boîte. Les serveurs Obliance Dev et Obliance Qual s'ajoutent ensuite par S93 (F9).
 
 ### F2 — De l'alerte à la correction (Karim, 03:05, téléphone)
 
-1. **03:05:12** — notification du canal « Appareils critiques » (passe Ne pas déranger car l'astreinte est active ; trois longues vibrations). Titre « CRITIQUE · BASH — PC-COMPTA-03 », texte « Métrique critique : CPU 98 % (seuil 90 %) », actions **Processus** · **Surveiller** · **Marquer lu**.
+1. **03:05:12** — notification du canal « Appareils critiques » (passe Ne pas déranger car l'astreinte est active ; trois longues vibrations). Titre « CRITIQUE · ACME — PC-COMPTA-03 », texte « Métrique critique : CPU 98 % (seuil 90 %) », actions **Processus** · **Surveiller** · **Marquer lu**.
 2. Karim appuie sur **Processus** → S00 « Déverrouillez pour ouvrir les processus de PC-COMPTA-03 » → empreinte.
 3. Sa session est sur Default (vue globale) : `locate-device` → l'appareil s'ouvre en vue globale, sans bascule. S30 › Processus : bandeau d'incident ; contexte « Correctif KB5043145 installé à 02:40 · Redémarrage en attente · Aucune maintenance » ; CPU en direct 97 %. Métriques en direct actives, `PROCESS_SUBSCRIBE` envoyé.
 4. Tri par CPU : `EBP.Compta.exe` 71,4 %, `TiWorker.exe` 18,9 %. L'application comptable est bloquée.
-5. Appui sur la ligne → **Terminer le processus**. La feuille affiche « Pour agir sur PC-COMPTA-03, Obliance doit passer sur le tenant BASH. » → **Basculer et continuer** → T1 « Terminer EBP.Compta.exe (PID 7312) sur PC-COMPTA-03 (BASH) ? Les données non enregistrées de m.durand seront perdues. » → **Terminer**.
+5. Appui sur la ligne → **Terminer le processus**. La feuille affiche « Pour agir sur PC-COMPTA-03, Obliance doit passer sur le tenant ACME. » → **Basculer et continuer** → T1 « Terminer EBP.Compta.exe (PID 7312) sur PC-COMPTA-03 (ACME) ? Les données non enregistrées de m.durand seront perdues. » → **Terminer**.
 6. `POST /api/commands {type:'kill_process', payload:{pid:7312, name:'EBP.Compta.exe'}}` ; suivi « Envoyé → Terminé » ; vibration de confirmation.
 7. Environ 6 s plus tard, CPU en direct à 14 % ; barre « CPU revenu à 14 % ». L'alerte serveur « PC-COMPTA-03: retour à la normale » fait passer la carte d'incident au vert.
 8. **Marquer lu** sur le bandeau, puis la puce « Revenir à la vue globale ». S10 affiche « Rien à traiter. »
@@ -1200,7 +1201,7 @@ Objectif : moins de 60 s du lancement à la boîte. Les serveurs Atelier et Clie
 Durée : environ 45 s, d'une main.
 
 **Variante F2b — SRV-AD2 hors ligne (03:12).**
-- La carte de corrélation « Possible coupure de site : 5 appareils de BASH › Siège › Serveurs hors ligne entre 03:07 et 03:09 » est déjà visible dans S10.
+- La carte de corrélation « Possible coupure de site : 5 appareils de ACME › Siège › Serveurs hors ligne entre 03:07 et 03:09 » est déjà visible dans S10.
 - Le mode incident de S30 confirme « 4 autres appareils de Siège › Serveurs hors ligne depuis 03:07 ».
 - Karim ne tente pas de réparer le serveur : **Surveiller** (notification au retour) et **Ouvrir dans Obliview** pour vérifier le lien WAN du site.
 
@@ -1258,33 +1259,33 @@ Durée : environ 45 s, d'une main.
 ### F6 — Approuver une demande
 
 **A. Demande à deux (Julien demande, Karim approuve)** :
-1. **03:21** — sur le site de BASH, Julien (tablette) lance **Agir › Désinstaller l'agent** sur PC-ATELIER-02 → T3 → `POST /api/devices/:id/uninstall` → `202 pending_approval` → S43 « Demande envoyée pour approbation… La demande expire à 03:51. » Le serveur crée la demande.
-2. Téléphones des administrateurs de plateforme (Karim, Sophie) : v1 app ouverte → `APPROVAL_CREATED` → notification locale ; v1 arrière-plan → nécessite l'alerte serveur S1 (§10.12) pour que le sondage la voie ; v1.1 → push. Notification du canal « Approbations » : « Demande d'approbation — Désinstaller l'agent de PC-ATELIER-02 », « Par Julien Moreau · BASH · expire à 03:51 », action unique **Examiner**.
-3. Karim : **Examiner** → S00 → S11, anneau « 27:14 ». La demande concerne BASH alors que Karim est sur Default (la route d'approbation est liée au tenant) : l'app bascule automatiquement et l'annonce (« Passé sur BASH pour traiter la demande · Revenir »).
-4. Karim lit « L'agent Obliance sera désinstallé… », vérifie la cible (« Hors ligne depuis 3 j »), motif « Poste remplacé », **Approuver** → biométrie « Approuver la désinstallation de l'agent — PC-ATELIER-02 · BASH ».
+1. **03:21** — sur le site de ACME, Julien (tablette) lance **Agir › Désinstaller l'agent** sur PC-ATELIER-02 → T3 → `POST /api/devices/:id/uninstall` → `202 pending_approval` → S43 « Demande envoyée pour approbation… La demande expire à 03:51. » Le serveur crée la demande.
+2. Téléphones des administrateurs de plateforme (Karim, Sophie) : v1 app ouverte → `APPROVAL_CREATED` → notification locale ; v1 arrière-plan → nécessite l'alerte serveur S1 (§10.12) pour que le sondage la voie ; v1.1 → push. Notification du canal « Approbations » : « Demande d'approbation — Désinstaller l'agent de PC-ATELIER-02 », « Par Julien Moreau · ACME · expire à 03:51 », action unique **Examiner**.
+3. Karim : **Examiner** → S00 → S11, anneau « 27:14 ». La demande concerne ACME alors que Karim est sur Default (la route d'approbation est liée au tenant) : l'app bascule automatiquement et l'annonce (« Passé sur ACME pour traiter la demande · Revenir »).
+4. Karim lit « L'agent Obliance sera désinstallé… », vérifie la cible (« Hors ligne depuis 3 j »), motif « Poste remplacé », **Approuver** → biométrie « Approuver la désinstallation de l'agent — PC-ATELIER-02 · ACME ».
 5. `POST /api/approvals/:id/approve` → « Approuvée et exécutée à 03:24 ». L'entrée d'Activité de Julien passe au vert, avec une notification locale « Votre demande a été approuvée par Karim Benali et exécutée. »
 6. Sophie, qui ouvre la même demande une minute plus tard, voit « Déjà traitée par Karim Benali à 03:24. » (409).
 7. Autres cas limites : expirée (410), autre tenant (404 → **Basculer et continuer**).
 
-**B. Enrôlement (Nadia, admin du tenant BASH)** :
+**B. Enrôlement (Nadia, admin du tenant ACME)** :
 1. Notification « Nouvel appareil en attente — KIOSK-ACCUEIL-02 (clé « Site Siège ») », actions **Approuver** / **Refuser** (authentification requise). Le serveur ne produit cette alerte qu'avec la modification S1 ; sinon, visible dans S10 › Enrôlements.
 2. **Approuver** depuis la notification → authentification → `POST /api/devices/:id/approve`.
 3. La notification devient « KIOSK-ACCUEIL-02 approuvé — groupe Siège › Accueil · 2 scénarios déclenchés ».
 
 ### F7 — Changer de tenant
 
-**Filtrer la vue globale (Karim sur Default)** : puce de tenant → S81 › Filtrer › BASH → les listes se rechargent avec `tenantIds=4` ; la puce indique « BASH · filtre » ; session et socket inchangés.
+**Filtrer la vue globale (Karim sur Default)** : puce de tenant → S81 › Filtrer › ACME → les listes se rechargent avec `tenantIds=4` ; la puce indique « ACME · filtre » ; session et socket inchangés.
 
 **Basculer (Karim, administrateur de plateforme)** :
-1. Puce « Default · Vue globale » → S81 › Travailler dans un tenant › « BASH · 5 alertes non lues ».
-2. `POST /api/tenant/switch {tenantId:4}` → déconnexion et reconnexion du socket → caches du périmètre remplacés (le cache BASH s'affiche tout de suite s'il existe, puis se rafraîchit) → `GET /api/auth/me` pour les capacités du tenant.
-3. Badges et contenus se mettent à jour ; barre « Vous travaillez maintenant dans BASH ». Les sessions ouvertes restent actives et gardent leur puce de tenant.
+1. Puce « Default · Vue globale » → S81 › Travailler dans un tenant › « ACME · 5 alertes non lues ».
+2. `POST /api/tenant/switch {tenantId:4}` → déconnexion et reconnexion du socket → caches du périmètre remplacés (le cache ACME s'affiche tout de suite s'il existe, puis se rafraîchit) → `GET /api/auth/me` pour les capacités du tenant.
+3. Badges et contenus se mettent à jour ; barre « Vous travaillez maintenant dans ACME ». Les sessions ouvertes restent actives et gardent leur puce de tenant.
 
 **Implicite** : une notification ou un lien vers un appareil d'un autre tenant bascule avec annonce et **Revenir** pendant 5 s (hors session maître pour la simple lecture).
 
 **Cohérence web** : les pages S90 s'ouvrent dans le nouveau tenant ; une bascule faite dans une page web est détectée à la fermeture (`/auth/me`) et répercutée.
 
-**Changer de serveur (Karim, trois serveurs)** : puce « [BH] Default · Vue globale » → S81 › Serveurs › « Atelier · Vérifié à 03:20 · 1 non lue » → instantané d'Atelier affiché aussitôt → socket de BinaryHearts fermé, socket d'Atelier ouvert → `GET /api/auth/me` sur Atelier → barre « Vous travaillez maintenant sur Atelier ». La puce devient « [AT] Default ». Revenir sur BinaryHearts rend la vue globale et l'écran laissé ouvert.
+**Changer de serveur (Karim, trois serveurs)** : puce « [OP] Default · Vue globale » → S81 › Serveurs › « Obliance Dev · Vérifié à 03:20 · 1 non lue » → instantané d'Obliance Dev affiché aussitôt → socket de Obliance Prod fermé, socket d'Obliance Dev ouvert → `GET /api/auth/me` sur Obliance Dev → barre « Vous travaillez maintenant sur Obliance Dev ». La puce devient « [OD] Default ». Revenir sur Obliance Prod rend la vue globale et l'écran laissé ouvert.
 
 ### F8 — Session expirée au milieu de la nuit
 1. Karim appuie sur une notification ; `GET /api/auth/me` renvoie 401.
@@ -1297,19 +1298,19 @@ La veille, le bandeau « Votre session expire demain » lui avait proposé de se
 ### F9 — Astreinte sur trois serveurs (Karim, téléphone)
 
 **Mise en place (une fois)** :
-1. Plus › Serveurs › **Ajouter un serveur** (S93) → `atelier.binaryhearts.me` → « Obliance 5.1.108 · Connexion Obligate disponible » → nom « Atelier », couleur sarcelle proposée → **Se connecter avec Obligate** : la session Obligate existante est réutilisée, aucune saisie. « Atelier est ajouté. » **Rester sur BinaryHearts**.
-2. Idem pour `rmm.durand-associes.fr` : pas d'Obligate → compte local `karim.benali`, mot de passe, code TOTP → « Client Durand », fuchsia. Dans S92 › Client Durand : « Notifications : critiques seulement ».
+1. Plus › Serveurs › **Ajouter un serveur** (S93) → `obliance-dev.example.org` → « Obliance 5.1.108 · Connexion Obligate disponible » → nom « Obliance Dev », couleur sarcelle proposée → **Se connecter avec Obligate** : la session Obligate existante est réutilisée, aucune saisie. « Obliance Dev est ajouté. » **Rester sur Obliance Prod**.
+2. Idem pour `obliance-qual.example.org` : pas d'Obligate → compte local `karim.benali`, mot de passe, code TOTP → « Obliance Qual », fuchsia. Dans S92 › Obliance Qual : « Notifications : critiques seulement ».
 3. S84 affiche trois cartes d'acheminement et trois groupes de canaux dans les réglages Android.
 
 **La nuit** :
-1. **02:58** — notification du groupe « Client Durand », canal « Appareils critiques » : « CRITIQUE · Client Durand › Default — SRV-DURAND01 », « Hors ligne : aucun push reçu depuis 5 min. », actions **Ouvrir** · **Surveiller** · **Marquer lu**. Le serveur actif de l'app est BinaryHearts.
-2. Karim appuie sur **Surveiller** → authentification → la surveillance est créée sur Client Durand **sans bascule** ; la notification devient « Surveillance active — prévenu au retour ».
-3. **03:12** — SRV-AD2 (BinaryHearts) tombe. Karim ouvre l'app : À traiter montre 7 alertes des trois serveurs, tuiles BH, CD, AT dans les surtitres ; la surveillance de SRV-DURAND01 est listée dans Activité avec la tuile CD.
-4. Il traite SRV-AD2 comme en F2b, sur BinaryHearts.
-5. **03:31** — « SRV-DURAND01 de nouveau en ligne » (groupe Client Durand). Karim appuie sur la notification → bascule implicite : barre « Passé sur Client Durand pour ouvrir SRV-DURAND01 · Revenir » → S30 sur Client Durand (sous-titre « Client Durand › Default › Serveurs »). Il vérifie l'uptime, puis **Revenir** : retour sur BinaryHearts, à l'écran laissé.
-6. L'alerte NAS-ATELIER (attention, 01:50) reste dans À traiter ; elle n'a pas sonné (hors astreinte, attention).
+1. **02:58** — notification du groupe « Obliance Qual », canal « Appareils critiques » : « CRITIQUE · Obliance Qual › Default — SRV-QUAL01 », « Hors ligne : aucun push reçu depuis 5 min. », actions **Ouvrir** · **Surveiller** · **Marquer lu**. Le serveur actif de l'app est Obliance Prod.
+2. Karim appuie sur **Surveiller** → authentification → la surveillance est créée sur Obliance Qual **sans bascule** ; la notification devient « Surveillance active — prévenu au retour ».
+3. **03:12** — SRV-AD2 (Obliance Prod) tombe. Karim ouvre l'app : À traiter montre 7 alertes des trois serveurs, tuiles OP, OQ, OD dans les surtitres ; la surveillance de SRV-QUAL01 est listée dans Activité avec la tuile OQ.
+4. Il traite SRV-AD2 comme en F2b, sur Obliance Prod.
+5. **03:31** — « SRV-QUAL01 de nouveau en ligne » (groupe Obliance Qual). Karim appuie sur la notification → bascule implicite : barre « Passé sur Obliance Qual pour ouvrir SRV-QUAL01 · Revenir » → S30 sur Obliance Qual (sous-titre « Obliance Qual › Default › Serveurs »). Il vérifie l'uptime, puis **Revenir** : retour sur Obliance Prod, à l'écran laissé.
+6. L'alerte NAS-DEV01 (attention, 01:50) reste dans À traiter ; elle n'a pas sonné (hors astreinte, attention).
 
-**Cas limites** : Client Durand injoignable (VPN du client coupé) → ligne « Client Durand injoignable depuis 03:02 » en tête d'À traiter, sans notification répétée ; session locale expirée sur Client Durand → une seule notification « Session expirée sur Client Durand », ses cartes grisées, **aucune** feuille S03 tant que Karim reste sur BinaryHearts.
+**Cas limites** : Obliance Qual injoignable (VPN du client coupé) → ligne « Obliance Qual injoignable depuis 03:02 » en tête d'À traiter, sans notification répétée ; session locale expirée sur Obliance Qual → une seule notification « Session expirée sur Obliance Qual », ses cartes grisées, **aucune** feuille S03 tant que Karim reste sur Obliance Prod.
 
 ---
 
@@ -1388,15 +1389,15 @@ Toute action adossée à une commande affiche un suivi à l'endroit où elle a �
 - **Fenêtre de confiance** : 60 s après une biométrie T2 réussie sur le même appareil, les T2 suivantes ne redemandent pas (la feuille indique « Confirmé par empreinte il y a 12 s »). Jamais pour T3 ni pour les actions groupées.
 - **Pas de double demande** : une chaîne T2 suivie d'une vérification 2FA compte comme une seule confirmation.
 - **Les garde-fous serveur s'ajoutent toujours**, dans l'ordre : `401 twoFactorRequired` → S42 ; `202 pending_approval` → S43 ; `423` → S44 ; `409` legacy, `403` capacité, `503` hors ligne → messages clairs.
-- **Plusieurs serveurs** : toute confirmation (S41, invite biométrique, maintien) nomme le serveur dès que deux serveurs sont configurés : « Redémarrer SRV-AD2 (BinaryHearts › BASH) ? ». Une action n'est jamais envoyée à un autre serveur que celui de l'élément.
+- **Plusieurs serveurs** : toute confirmation (S41, invite biométrique, maintien) nomme le serveur dès que deux serveurs sont configurés : « Redémarrer SRV-AD2 (Obliance Prod › ACME) ? ». Une action n'est jamais envoyée à un autre serveur que celui de l'élément.
 - **Actions depuis une notification** : T0 ou T1 uniquement, toujours avec `setAuthenticationRequired(true)`. Tout T2 et au-delà ouvre l'écran de l'app. Jamais d'approbation de demande à deux depuis une notification.
 - **Hors ligne** : aucune action n'est mise en file, sauf « marquer lu » et la suppression d'une surveillance locale. Jamais d'action rejouée automatiquement après une reconnexion.
 
 ### 7.7 Actions groupées
 
-- Entrée par appui long ou « Sélectionner » ; barre supérieure « 5 sélectionnés · BASH », **Tout sélectionner (48)** (tout le résultat de la requête, pas seulement la page chargée), **×**.
-- **Un seul tenant par sélection** : en vue globale, une sélection mixte affiche « Les actions s'exécutent dans un seul tenant. Choisissez : BASH (9) · Default (3) ».
-- **Aperçu d'impact** avant toute action : « 12 appareils · BASH · 10 en ligne · 2 hors ligne (mis en file) · 1 agent legacy (ignoré) ».
+- Entrée par appui long ou « Sélectionner » ; barre supérieure « 5 sélectionnés · ACME », **Tout sélectionner (48)** (tout le résultat de la requête, pas seulement la page chargée), **×**.
+- **Un seul tenant par sélection** : en vue globale, une sélection mixte affiche « Les actions s'exécutent dans un seul tenant. Choisissez : ACME (9) · Default (3) ».
+- **Aperçu d'impact** avant toute action : « 12 appareils · ACME · 10 en ligne · 2 hors ligne (mis en file) · 1 agent legacy (ignoré) ».
 - Exécution : `POST /api/devices/batch` pour les administrateurs de plateforme ; sinon une `POST /api/commands` par appareil (4 en parallèle), avec une seule confirmation agrégée et réutilisation du code 2FA saisi.
 - **Résultat** : feuille « Suivi de l'action » par appareil (En file → Envoyé → En cours → Réussi / Échec / Expiré), **Relancer sur les échecs**.
 
@@ -1411,7 +1412,7 @@ Toute action adossée à une commande affiche un suivi à l'endroit où elle a �
 | `403 Capability 'x' not permitted` | Barre + refus appris | « Votre équipe n'a pas le droit « Alimentation » sur cet appareil. » |
 | `403` restreinte sans circuit | Dialogue | « Cette action est restreinte et aucun circuit d'approbation n'est configuré. Contactez un administrateur. » |
 | `202 pending_approval` | S43 | « Demande envoyée pour approbation » |
-| `404` depuis la vue globale sur une action | Ligne dans la feuille | « Cette action doit être faite depuis le tenant BASH. » + **Basculer et continuer** |
+| `404` depuis la vue globale sur une action | Ligne dans la feuille | « Cette action doit être faite depuis le tenant ACME. » + **Basculer et continuer** |
 | `409` legacy | Élément désactivé / dialogue | « Non disponible avec l'agent legacy. » |
 | `423` confidentialité | S44 | « Mode confidentialité actif — déverrouillage requis. » |
 | `503` | Barre | « L'appareil est hors ligne. » |
@@ -1458,7 +1459,7 @@ Pas de vibration aux changements d'onglet ni aux événements d'arrière-plan. A
 
 - Cibles ≥ 48 dp (touches de la barre du terminal : 44 dp visibles, zone d'appui étendue à 48 dp).
 - **L'état n'est jamais porté par la couleur seule** : libellé + point, plus `triangle-alert` (attention) et `circle-alert` (critique) à toutes les tailles de police.
-- TalkBack : étiquettes sur chaque bouton icône (« Surveiller SRV-AD2 ») ; une carte d'incident se lit en une phrase (« Critique, BASH, 3 h 12, SRV-AD2 hors ligne, toujours hors ligne ») ; actions personnalisées pour les balayages.
+- TalkBack : étiquettes sur chaque bouton icône (« Surveiller SRV-AD2 ») ; une carte d'incident se lit en une phrase (« Critique, ACME, 3 h 12, SRV-AD2 hors ligne, toujours hors ligne ») ; actions personnalisées pour les balayages.
 - Police jusqu'à 200 % : valeurs d'indicateurs en taille auto, lignes sur 3 lignes, barre de touches défilante.
 - « Supprimer les animations » : pulsations remplacées par un anneau fixe, clignotement de ligne remplacé par un marqueur fixe 3 s, transitions partagées désactivées.
 - Aucun motif à délai sans alternative : le maintien T3 a un chemin à deux boutons sous TalkBack ou contacteur.
@@ -1489,7 +1490,7 @@ Pas de vibration aux changements d'onglet ni aux événements d'arrière-plan. A
 | `divider` | `#2A3048` | `#1E2336` | `#C9D0DC` | Seul séparateur autorisé, au-dessus de la barre d'actions basse |
 | `text` | `#F0F4FC` | `#D6DBE8` | `#2E3440` | Texte principal |
 | `text2` | `#B4BCD7` | `#9EA6C2` | `#4C566A` | Texte secondaire |
-| `textMuted` | `#828CAF` (5,8:1 sur `bg`) | `#7C86A8` (5,6:1) | `#58637A` (5,0:1 sur `bg`) | Métadonnées, surtitres |
+| `textMuted` | `#8791B2` (6,1:1 sur `bg`, 4,7:1 sur `active`) | `#818BAC` (≥ 4,5:1 sur `active`) | `#58637A` (5,0:1 sur `bg`) | Métadonnées, surtitres |
 | `textFaint` | `#4B5273` | `#3A4060` | `#9AA3B5` | Désactivé **uniquement** |
 
 **Accent Obliance (injecté par flavor)**
@@ -1527,6 +1528,21 @@ Pastille = couleur à 12 % en fond + libellé de la couleur + point de 8 dp.
 
 **Identité de serveur** (palette fermée, constantes du socle, §2.10) : violet `#A78BFA` · sarcelle `#2DD4BF` · fuchsia `#E879F9` · indigo `#818CF8` · cyan `#67E8F9` · sable `#D6B98C` · lavande `#C4B5FD` · menthe `#5EEAD4`. Aucune n'est proche du rouge de marque, du rouge critique, de l'ambre, du vert ou du bleu d'information ; toutes dépassent 6:1 sur `bg` (indigo 6,5:1, les autres au-delà de 8:1). Elles ne s'emploient **que** dans la tuile monogramme (fond 18 % sur `chrome` opaque, bordure 40 %, lettres pleines ≥ 4,5:1), jamais comme fond de bouton, couleur de texte courant ou indicateur d'état.
 
+**Thèmes serveur** (repris de `client/src/index.css`, surfaces et texte ; les couleurs d'état ci-dessus ne changent pas) :
+
+| Jeton | Operator (`obli-operator`) | Neon (`neon`) | Modern (`modern`) |
+|---|---|---|---|
+| `bg` | `#0B0D1A` | `#07080A` | `#0E0B0C` |
+| `surface1` | `#131728` | `#0D0E11` | `#161112` |
+| `surface2` | `#181C30` | `#131418` | `#1E1819` |
+| `hover` / `active` | `#1D2238` / `#222740` | `#1B1B20` / `#24242A` | `#282021` / `#322628` |
+| `divider` | `#2A3048` | `#323339` | `#3E3234` |
+| `text` / `text2` | `#F0F4FC` / `#B4BCD7` | `#F0EAE2` / `#988A76` → **`#998B77`** (AA) | `#EBE4E4` / `#94888A` → **`#9A8F91`** (AA) |
+| `textMuted` | `#828CAF` → **`#8791B2`** (AA sur `active`) | `#6A5E4E` → **`#948B80`** (AA, 4,6:1) | `#706668` → **`#978F91`** (AA) |
+| `accentFill` / `accent2` | `#C83232` / `#FF6868` | `#C2001B` / `#E01E37` → **`#E43B51`** (AA) | `#C2001B` / `#E01E37` → **`#E54055`** (AA) |
+
+Les valeurs en gras corrigent le web là où le texte échoue au contraste AA sur son fond ; le test de contraste (§10.11) couvre les trois thèmes. Neon ajoute un liseré lumineux sous la barre supérieure et sur l'élément de navigation actif (comme le web), jamais sur les points d'état.
+
 **Réglage Material 3** : `surfaceTint = Transparent`, `tonalElevation = 0` partout (pas de teinte rouge sur les surfaces élevées).
 
 ### 8.3 Discipline du rouge (règle du design system)
@@ -1552,7 +1568,7 @@ Le rouge Obliance et le rouge « critique » sont proches. Dans une app d'incide
 | Titre de ligne | Inter 600 | 16/22 (confort), 14/20 (compact) | Noms d'appareils, titres d'incident |
 | Corps | Inter 400 | 14/20 ; 16/24 dans les champs | Texte, formulaires |
 | Libellé | Inter 500 | 14/20, 12/16 | Boutons, onglets, pastilles, navigation |
-| Surtitre | JetBrains Mono 400 | 11/14, MAJUSCULES, +0,14 em | « CRITIQUE · BASH · 03:12 », libellés de KPI, sections |
+| Surtitre | JetBrains Mono 400 | 11/14, MAJUSCULES, +0,14 em | « CRITIQUE · ACME · 03:12 », libellés de KPI, sections |
 | Légende mono | JetBrains Mono 400 | 12/16 | IP, versions, PID, horodatages, deltas |
 | Terminal et sortie | JetBrains Mono 400 | 13/19 (réglable 10–20) | S53, S60 |
 | Clé BitLocker | JetBrains Mono 500 | 28/36, chiffres tabulaires | S45 |
@@ -1641,7 +1657,7 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 
 | # | Fonctionnalité | Valeur | Spécification | Version | Travail serveur |
 |---|---|---|---|---|---|
-| 1 | **Notifications actionnables** | Agir sans ouvrir l'app | Canaux et actions ci-dessous ; `setAuthenticationRequired(true)` sur chaque action ; un rétablissement met à jour la notification d'origine (« Rétabli à 03:19 ») ; regroupement par serveur puis par tenant avec résumé (« BinaryHearts · 5 alertes », « BASH · 5 alertes ») ; un groupe de canaux par serveur ; écran verrouillé : `VISIBILITY_PRIVATE` avec version publique « Alerte critique · BASH » | v1 (sondage) / v1.1 (push) | v1 : alertes d'approbation et d'enrôlement + `category` (S1) ; v1.1 : abonnements push (S6) |
+| 1 | **Notifications actionnables** | Agir sans ouvrir l'app | Canaux et actions ci-dessous ; `setAuthenticationRequired(true)` sur chaque action ; un rétablissement met à jour la notification d'origine (« Rétabli à 03:19 ») ; regroupement par serveur puis par tenant avec résumé (« Obliance Prod · 5 alertes », « ACME · 5 alertes ») ; un groupe de canaux par serveur ; écran verrouillé : `VISIBILITY_PRIVATE` avec version publique « Alerte critique · ACME » | v1 (sondage) / v1.1 (push) | v1 : alertes d'approbation et d'enrôlement + `category` (S1) ; v1.1 : abonnements push (S6) |
 | 2 | **Mode astreinte** | Le bon bruit au bon moment | Horaire, tenants, canal critique autorisé à passer Ne pas déranger, rappels des critiques non lues (5 min, 3 fois, local), silence des autres canaux hors astreinte | v1 | — |
 | 3 | **Tuile Réglages rapides « Astreinte »** | Activer l'astreinte depuis le volet ; voir le nombre de critiques | `TileService` : actif = astreinte ; sous-titre « 1 critique » ; appui long → S84 ; `requestAddTileService` proposé dans S04 | v1 | — |
 | 4 | **Surveiller un appareil** | Redémarrer, poser le téléphone, être prévenu au retour | Surveillance locale (appareil, condition « de retour en ligne » ou « retour à la normale », expiration 30 min à 4 h), alimentée par les alertes de rétablissement que le serveur produit déjà (« De retour en ligne », « retour à la normale », « santé disque revenue à la normale ») et par le socket ; listée dans Activité ; **armée automatiquement** après un redémarrage ou une extinction | v1 (socket + sondage) / v1.1 (push, instantané) | — |
@@ -1663,14 +1679,14 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 
 **Canaux de notification**
 
-Les canaux ci-dessous existent **une fois par serveur**, dans un groupe de canaux Android au nom du serveur (`NotificationChannelGroup` « BinaryHearts », « Atelier », « Client Durand »). L'utilisateur peut ainsi, dans les réglages système, laisser passer les critiques de BinaryHearts en Ne pas déranger et rendre Client Durand silencieux. Avec un seul serveur, un seul groupe sans nom visible. Le canal « Sessions actives » reste unique (service de premier plan). Identifiants : `<serverId>.<catégorie>` ; retirer un serveur supprime son groupe.
+Les canaux ci-dessous existent **une fois par serveur**, dans un groupe de canaux Android au nom du serveur (`NotificationChannelGroup` « Obliance Prod », « Obliance Dev », « Obliance Qual »). L'utilisateur peut ainsi, dans les réglages système, laisser passer les critiques de Obliance Prod en Ne pas déranger et rendre Obliance Qual silencieux. Avec un seul serveur, un seul groupe sans nom visible. Le canal « Sessions actives » reste unique (service de premier plan). Identifiants : `<serverId>.<catégorie>` ; retirer un serveur supprime son groupe.
 
 | Canal (FR) | Sources | Importance | Actions |
 |---|---|---|---|
 | Appareils critiques | Hors ligne d'un appareil serveur ou d'un groupe « Toujours actif », métrique critique, santé disque critique | Haute ; peut passer Ne pas déranger en astreinte | Ouvrir · Surveiller · Marquer lu (+ Processus pour CPU/RAM) |
 | Appareils en attention | Métrique en attention, disque, santé disque à surveiller | Normale | Ouvrir · Marquer lu |
 | Rétablissements | « De retour en ligne », « retour à la normale » | Basse, silencieuse (met à jour la notification d'origine) | — |
-| Approbations | Demande à deux créée | Haute, sensible au temps (« expire à 03:51 ») | Examiner |
+| Escalades de droits | Demande à deux créée (action restreinte qui attend un second administrateur) ; distinct des incidents machine | Haute, sensible au temps (« expire à 03:51 »), icône `shield-alert` | Examiner |
 | Enrôlements | Nouvel appareil en attente | Normale | Approuver · Refuser |
 | Automations | Lot terminé (local) ; échec de planification ou de scénario (serveur, v1.1) | Normale | Voir la sortie |
 | Sessions actives | Service de premier plan | Basse, persistante | Tout terminer |
@@ -1782,7 +1798,7 @@ interface ServerRegistry {
 ### 10.4 Couche de données
 
 - **HTTP** : OkHttp 5, un seul client ; délais 10 s (connexion) / 20 s (lecture) ; `User-Agent` = UA actuel + ` ObliApp/<version> (obliance; Android)` ; HTTPS uniquement (option « Faire confiance aux autorités installées par l'utilisateur » désactivée par défaut, pour les MSP à AC interne) ; pas de nouvelle tentative automatique sur les POST.
-- **Un seul pot à cookies** : `CookieManagerJar : okhttp3.CookieJar` adossé à `android.webkit.CookieManager` (`getCookie`, `setCookie`, `flush`). Appels natifs, poignée de main Socket.IO et vue web partagent une session et un tenant **par origine** : le `CookieManager` indexe par hôte, donc plusieurs serveurs coexistent sans mélange, à condition que deux profils n'aient jamais la même origine (refusé à l'ajout). Obligate (`id.binaryhearts.me`) est partagé par BinaryHearts et Atelier, ce qui permet la réutilisation de session à l'ajout.
+- **Un seul pot à cookies** : `CookieManagerJar : okhttp3.CookieJar` adossé à `android.webkit.CookieManager` (`getCookie`, `setCookie`, `flush`). Appels natifs, poignée de main Socket.IO et vue web partagent une session et un tenant **par origine** : le `CookieManager` indexe par hôte, donc plusieurs serveurs coexistent sans mélange, à condition que deux profils n'aient jamais la même origine (refusé à l'ajout). Obligate (`id.example.org`) est partagé par Obliance Prod et Obliance Dev, ce qui permet la réutilisation de session à l'ajout.
 - **Garde de Content-Type** : une réponse 200 non JSON sur `/api/*` (le serveur peut renvoyer `index.html`) devient une erreur.
 - **Enveloppes déclarées par endpoint** : A `{success, data}`, B `{data}`, brut, 204 sans corps.
 - **Sérialisation** : kotlinx.serialization, plugin de compilation 2.2.10 appliqué comme le plugin Compose (preuve en phase 0 ; repli : décodeurs manuels `JsonElement` existants) ; `ignoreUnknownKeys`, `explicitNulls = false`, `coerceInputValues` ; sérialiseurs `LenientDouble` / `LenientLong` (les colonnes `numeric` arrivent en chaînes, par exemple `ramTotalGb: "15.87"`) ; correctifs `DEVICE_UPDATED` décodés en `JsonObject` et fusionnés.
@@ -1832,7 +1848,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 - **Local + 2FA** : natif (S01).
 - **Par serveur** : chaque profil a sa propre session, sa sonde et son bandeau de prévention ; `SessionExpired` sur un serveur non actif ne lève pas S03 (§2.10).
 - **Session** : sonde au démarrage et au retour après 5 min ; `SessionExpired` → S03 avec SSO silencieux (8 s) ; cookie valable 7 jours après le dernier `Set-Cookie` (une bascule de tenant le renouvelle) ; bandeau de prévention au 6e jour.
-- **Déconnexion** (d'un serveur ; « Se déconnecter » dans S85 vise le serveur actif, S92 propose aussi « Se déconnecter de tous les serveurs ») : `GET /api/auth/sso-logout-url` → `POST /api/auth/logout` → page de déconnexion Obligate dans une WebView cachée → effacement des cookies du serveur → purge des caches du serveur → déconnexion du socket → retrait du serveur de l'agrégation et des Workers → serveur connecté suivant, ou S01 s'il n'en reste aucun. La déconnexion Obligate peut fermer la session Obligate d'un autre serveur du même fournisseur : l'app le dit (« Atelier utilise aussi Obligate : vous devrez peut-être vous y reconnecter »).
+- **Déconnexion** (d'un serveur ; « Se déconnecter » dans S85 vise le serveur actif, S92 propose aussi « Se déconnecter de tous les serveurs ») : `GET /api/auth/sso-logout-url` → `POST /api/auth/logout` → page de déconnexion Obligate dans une WebView cachée → effacement des cookies du serveur → purge des caches du serveur → déconnexion du socket → retrait du serveur de l'agrégation et des Workers → serveur connecté suivant, ou S01 s'il n'en reste aucun. La déconnexion Obligate peut fermer la session Obligate d'un autre serveur du même fournisseur : l'app le dit (« Obliance Dev utilise aussi Obligate : vous devrez peut-être vous y reconnecter »).
 - `requires2faSetup` et `enrollmentVersion < 1` → vue web, avec carte d'explication native.
 
 ### 10.6 Temps réel
@@ -1935,7 +1951,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 | S17 | Reprise de session shell (l'agent garde le PTY N secondes) | Survivre au passage Wi-Fi ↔ 4G | 3–5 j | v2 |
 | S18 | Validation liée à l'appareil (clé Keystore enregistrée, défi signé accepté comme action sensible) | Biométrie au lieu de TOTP | 4–6 j + revue | v2 |
 | S19 | N° de série carte mère / BIOS et tag d'actif dans la recherche | Scan en salle serveur | 0,5 j | v2 |
-| S20 | `GET /health` expose un **identifiant d'instance** stable et le nom de l'instance (facultatif) | Détecter qu'une adresse différente mène à une instance déjà configurée ; préremplir le nom dans S93 | 0,5 j | v1 (confort) |
+| ~~S20~~ | ~~Identifiant d'instance dans `/health`~~ — abandonné (question 19) | — | — | — |
 
 S2, S3 et S4 corrigent aussi des défauts qui existent aujourd'hui sur le web.
 
@@ -2050,7 +2066,7 @@ Serveur : S15–S19 (~2 ps + revue de sécurité).
 | R12 | Charge de `DEVICE_METRICS_PUSHED` sur 2 000+ appareils | Batterie et données | Filtrage à l'écran, économie de données ; S14 |
 | R13 | Agir sur la mauvaise instance (même nom de tenant « Default » sur trois serveurs) | Action chez le mauvais client | Tuile et nom du serveur dans chaque confirmation et invite biométrique ; aucune action sur un autre serveur que l'actif (sauf T0/T1 de boîte) ; bascule toujours annoncée |
 | R14 | Alertes des serveurs non actifs retardées (sondage 60 s au premier plan, 15 min en arrière-plan) | Incident d'une instance cliente vu tard | Même parade que R1 ; push par serveur en v1.1 ; état d'acheminement par serveur dans S84 |
-| R15 | Déconnexion Obligate partagée (BinaryHearts et Atelier utilisent le même fournisseur) | Une déconnexion en coupe deux | Avertissement dans la confirmation ; SSO silencieux à la reprise |
+| R15 | Déconnexion Obligate partagée (Obliance Prod et Obliance Dev utilisent le même fournisseur) | Une déconnexion en coupe deux | Avertissement dans la confirmation ; SSO silencieux à la reprise |
 
 ---
 
@@ -2071,10 +2087,10 @@ Serveur : S15–S19 (~2 ps + revue de sécurité).
 13. **`script.execute_manual` sensible par défaut** : chaque exécution manuelle depuis le mobile demandera un TOTP (sauf IP de confiance, peu durable en 4G). Faut-il revoir ce défaut, ou attendre la validation liée à l'appareil (v2) ?
 14. **Équipe** : 2 développeurs (v1 à ~20 semaines du lancement) ou 3 ?
 15. **Seconde app sur le socle** : Obliview est-elle bien la prochaine app à passer en natif ?
-16. **Multi-serveurs — sondage des serveurs non actifs** : un seul socket (serveur actif) et un sondage de 60 s au premier plan pour les autres (proposition), ou un socket par serveur connecté (alertes instantanées partout, plus de batterie) ?
-17. **Multi-serveurs — actions sans bascule** : limiter aux actions de boîte T0/T1 (marquer lu, supprimer, surveiller, enrôlement) comme proposé, ou autoriser aussi l'approbation d'une demande à deux d'un autre serveur sans bascule ?
-18. **Multi-serveurs — couleurs** : palette fermée de 8 (proposée) ou couleur libre ? Et les noms « BinaryHearts », « Atelier », « Client Durand » vous conviennent-ils comme données d'exemple (« Atelier » est aussi le nom du groupe Siège › Atelier de BASH) ?
-19. **S20 (identifiant d'instance dans `/health`)** : à ajouter côté serveur, ou l'origine suffit-elle ?
+16. ~~Sondage des serveurs non actifs~~ — **Tranché (25/09)** : temps réel sur le serveur affiché seulement (métriques CPU / RAM / disque en direct, comme le web) ; les autres serveurs sont sondés (60 s au premier plan, 15 min en arrière-plan) puis, en v1.1, **chaque serveur pousse ses notifications** (UnifiedPush, modification serveur S6).
+17. ~~Actions sans bascule~~ — **Tranché (25/09)** : À traiter agrégé sur tous les serveurs connectés ; les demandes à deux **poussent une notification** et sont présentées comme des **escalades de droits**, distinctes des incidents machine (section et canal à part, §5 S10, §9) ; elles peuvent être approuvées depuis un autre serveur **sans bascule** (T2 biométrie, la confirmation nomme le serveur) — les administrateurs se concertent toujours pour ces actions.
+18. ~~Couleurs et noms~~ — **Tranché (25/09)** : palette fermée ; les serveurs sont nommés dans l'app (S92, S93). Données d'exemple neutres : « Obliance Prod », « Obliance Dev », « Obliance Qual » ; aucun nom réel d'organisation ou de client dans le dépôt.
+19. ~~S20 (identifiant d'instance)~~ — **Abandonné (25/09)** : il ne servait qu'à reconnaître une même instance jointe par deux adresses (IP et nom DNS, par exemple) ; l'origine suffit, un seul profil par adresse.
 
 ---
 
@@ -2085,9 +2101,9 @@ Prototype cliquable de 24 planches. Cadres : **téléphone 390 × 844** (portrai
 | ID | Fichier | Cadre | Titre | Écrans | Liens (prototype) |
 |---|---|---|---|---|---|
 | A01 | `SignIn.dc.html` | Téléphone 390 × 844 | Connexion : serveur, Obligate, compte local | S01 (serveur validé, Obligate, connexion locale repliée) | A02 (après connexion) |
-| A02 | `Main.dc.html` | Téléphone 390 × 844 | À traiter | S10 agrégé sur trois serveurs : segment Alertes (7), puce « Tous les serveurs », carte de corrélation, cartes d'incident avec tuiles de serveur (SRV-AD2, PC-COMPTA-03, SRV-DURAND01…), barre de navigation | A03 (carte SRV-AD2), A08 (carte PC-COMPTA-03, action Processus), A16 (segment Approbations), A19 (puce de tenant), A06 (nav Appareils), A11 (nav Activité), A05 (nav Flotte), A17 (nav Plus) |
+| A02 | `Main.dc.html` | Téléphone 390 × 844 | À traiter | S10 agrégé sur trois serveurs : segment Alertes (7), puce « Tous les serveurs », carte de corrélation, cartes d'incident avec tuiles de serveur (SRV-AD2, PC-COMPTA-03, SRV-QUAL01…), barre de navigation | A03 (carte SRV-AD2), A08 (carte PC-COMPTA-03, action Processus), A16 (segment Approbations), A19 (puce de tenant), A06 (nav Appareils), A11 (nav Activité), A05 (nav Flotte), A17 (nav Plus) |
 | A03 | `AlertDetail.dc.html` | Téléphone 390 × 844 | Incident : SRV-AD2 hors ligne | S30 en mode incident (bandeau, contexte, barre d'actions hors ligne) | A02 (retour), A06 (« Voir les 5 » → liste filtrée), A09 (Agir) |
-| A04 | `Notifications.dc.html` | Téléphone 390 × 844 | Exemples de notifications | Cartes nommant leur serveur (« Obliance · BinaryHearts ») : critique SRV-DURAND01 (Client Durand), résumés par serveur, puis critique SRV-AD2 (Ouvrir · Surveiller · Marquer lu), critique PC-COMPTA-03 (Processus), approbation PC-ATELIER-02 (Examiner, expire à 03:51), enrôlement KIOSK-ACCUEIL-02 (Approuver · Refuser), rétablissement 140, script terminé (2 réussis, 1 échec), session persistante, groupe « BASH · 5 alertes » | A03 (SRV-AD2), A08 (Processus), A16 (Examiner), A13 (Voir la sortie) |
+| A04 | `Notifications.dc.html` | Téléphone 390 × 844 | Exemples de notifications | Cartes nommant leur serveur (« Obliance · Obliance Prod ») : critique SRV-QUAL01 (Obliance Qual), résumés par serveur, puis critique SRV-AD2 (Ouvrir · Surveiller · Marquer lu), critique PC-COMPTA-03 (Processus), approbation PC-ATELIER-02 (Examiner, expire à 03:51), enrôlement KIOSK-ACCUEIL-02 (Approuver · Refuser), rétablissement 140, script terminé (2 réussis, 1 échec), session persistante, groupe « ACME · 5 alertes » | A03 (SRV-AD2), A08 (Processus), A16 (Examiner), A13 (Voir la sortie) |
 | A05 | `Fleet.dc.html` | Téléphone 390 × 844 | Flotte | S70 : carte vedette 312 et ruban, grille d'indicateurs, attention requise, activité 24 h, par tenant | A06 (tuiles et puces de légende), A08 (PC-COMPTA-03 dans Attention requise), A19 (puce de tenant), A02, A11, A17 (nav) |
 | A06 | `DeviceList.dc.html` | Téléphone 390 × 844 | Appareils | S20 : puces rapides, sections CRITIQUE / ATTENTION / HORS LIGNE / EN LIGNE, 6 lignes d'exemple, ligne BOB01 en balayage « Agir » | A07 (filtre), A08 (PC-COMPTA-03), A09 (balayage Agir), A02, A11, A05, A17 (nav) |
 | A07 | `DeviceFilters.dc.html` | Téléphone 390 × 844 | Filtres et tri | S21 en feuille pleine hauteur sur la liste assombrie | A06 (Afficher 12 appareils, Réinitialiser) |
@@ -2100,13 +2116,13 @@ Prototype cliquable de 24 planches. Cadres : **téléphone 390 × 844** (portrai
 | A14 | `Terminal.dc.html` | Téléphone 390 × 844 | PowerShell · PC-COMPTA-03 | S60 : sortie `Get-Process`, barre de touches page 1, clavier IME esquissé | A08 (réduire) |
 | A15 | `ReachPhone.dc.html` | Téléphone 390 × 844 | ObliReach · PC-COMPTA-03 | S62 natif (cible v1.1) : flux en letterbox, pilule d'outils, curseur trackpad, suggestion de rotation, étiquette de statistiques | A08 (réduire) |
 | A16 | `ApprovalDetail.dc.html` | Téléphone 390 × 844 | Approbation : désinstaller l'agent de PC-ATELIER-02 | S11 vu par Karim : anneau d'expiration 27:14, demandeur Julien Moreau, cible PC-ATELIER-02, conséquence, motif, Refuser / Approuver | A02 (après décision) |
-| A17 | `More.dc.html` | Téléphone 390 × 844 | Plus | S80 : carte de compte (« BinaryHearts › Default »), entrée Serveurs, sections, bloc « Administration — Vue web » | A23 (Serveurs), A18 (Réglages de l'application), A19 (tenant), A02, A06, A11, A05 (nav) |
+| A17 | `More.dc.html` | Téléphone 390 × 844 | Plus | S80 : carte de compte (« Obliance Prod › Default »), entrée Serveurs, sections, bloc « Administration — Vue web » | A23 (Serveurs), A18 (Réglages de l'application), A19 (tenant), A02, A06, A11, A05 (nav) |
 | A18 | `AppSettings.dc.html` | Téléphone 390 × 844 | Réglages de l'application | S83 : sécurité, apparence (Operator / Nuit), sessions, langue, données, section Serveurs (3 serveurs, Ajouter) | A17 (retour), A23, A24 |
-| A19 | `TenantSwitch.dc.html` | Téléphone 390 × 844 | Serveur et tenant | S81 : section Serveurs (BinaryHearts actif, Atelier, Client Durand), puis « Tenants de BinaryHearts » (filtrer, travailler dans un tenant), sessions préservées | A02 (après bascule), A23 (Gérer les serveurs) |
-| A20 | `TabletDeviceListDetail.dc.html` | Tablette 1280 × 800 | Appareils · arbre, liste et détail | S20 + S30 étendus : rail, arbre BASH, liste, détail PC-COMPTA-03 avec rail d'actions libellé, dock (PowerShell PC-COMPTA-03, SSH 140) | A21 (Voir l'écran ou onglet du dock), A22 (rail Flotte) |
+| A19 | `TenantSwitch.dc.html` | Téléphone 390 × 844 | Serveur et tenant | S81 : section Serveurs (Obliance Prod actif, Obliance Dev, Obliance Qual), puis « Tenants de Obliance Prod » (filtrer, travailler dans un tenant), sessions préservées | A02 (après bascule), A23 (Gérer les serveurs) |
+| A20 | `TabletDeviceListDetail.dc.html` | Tablette 1280 × 800 | Appareils · arbre, liste et détail | S20 + S30 étendus : rail, arbre ACME, liste, détail PC-COMPTA-03 avec rail d'actions libellé, dock (PowerShell PC-COMPTA-03, SSH 140) | A21 (Voir l'écran ou onglet du dock), A22 (rail Flotte) |
 | A21 | `TabletRemoteSession.dc.html` | Tablette 1280 × 800 | Session ObliReach · PC-COMPTA-03 (tablette) | S62 dans le volet de détail, panneau S63 ouvert, dock des sessions, minicarte des écrans | A20 (réduire) |
-| A23 | `ServerManage.dc.html` | Téléphone 390 × 844 | Serveurs | S92 : trois cartes de serveur, détail de Client Durand (nom, couleur, notifications, raccourci, déconnexion, retrait) | A17 (retour), A24 (Ajouter un serveur) |
-| A24 | `AddServer.dc.html` | Téléphone 390 × 844 | Ajouter un serveur | S93 : atelier.binaryhearts.me vérifié, session Obligate réutilisée, nom, couleur, tuile « AT » | A23 (retour) |
+| A23 | `ServerManage.dc.html` | Téléphone 390 × 844 | Serveurs | S92 : trois cartes de serveur, détail de Obliance Qual (nom, couleur, notifications, raccourci, déconnexion, retrait) | A17 (retour), A24 (Ajouter un serveur) |
+| A24 | `AddServer.dc.html` | Téléphone 390 × 844 | Ajouter un serveur | S93 : obliance-dev.example.org vérifié, session Obligate réutilisée, nom, couleur, tuile « OD » | A23 (retour) |
 | A22 | `TabletFleetDashboard.dc.html` | Tablette 1280 × 800 | Flotte (tablette) | S70 en 3 colonnes : carte vedette et attention requise, indicateurs et mises à jour, tenants et tendance 30 j | A20 (tuiles ou rail Appareils) |
 
 Enchaînement principal du prototype : A01 → A02 → A08 → A09 → A14, puis A02 → A03, A02 → A16, A11 → A12 → A13 ; multi-serveurs : A02 → A19 → A23 → A24 ; tablette : A22 → A20 → A21.

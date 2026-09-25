@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fleet_title">Flotte</string>
+    <string name="fleet_updated_at">Mis à jour à %1$s</string>
+    <string name="fleet_stale_at">Données de %1$s</string>
+
+    <!-- Carte vedette -->
+    <string name="fleet_devices">Appareils</string>
+    <string name="fleet_your_devices">Vos appareils</string>
+    <plurals name="fleet_connected_count">
+        <item quantity="one">%d connecté</item>
+        <item quantity="many">%d connectés</item>
+        <item quantity="other">%d connectés</item>
+    </plurals>
+    <string name="fleet_offline_count">%d hors ligne</string>
+    <string name="fleet_ribbon_a11y">Santé de la flotte : %1$s</string>
+    <string name="fleet_legend_a11y">Voir les appareils : %1$s %2$d</string>
+
+    <!-- États -->
+    <string name="fleet_status_critical">Critique</string>
+    <string name="fleet_status_warning">Attention</string>
+    <string name="fleet_status_updating">En mise à jour</string>
+    <string name="fleet_status_online">En ligne</string>
+    <string name="fleet_status_offline">Hors ligne</string>
+    <string name="fleet_status_pending">En attente</string>
+    <string name="fleet_status_update_error">Échec de mise à jour</string>
+
+    <!-- Écarts -->
+    <string name="fleet_delta_yesterday">%1$d vs hier</string>
+    <string name="fleet_delta_week">%1$d vs semaine</string>
+    <string name="fleet_delta_same_yesterday">Stable vs hier</string>
+    <string name="fleet_delta_same_week">Stable vs semaine</string>
+    <string name="fleet_delta_up_yesterday_a11y">%1$d de plus qu’hier</string>
+    <string name="fleet_delta_down_yesterday_a11y">%1$d de moins qu’hier</string>
+    <string name="fleet_delta_up_week_a11y">%1$d de plus que la semaine dernière</string>
+    <string name="fleet_delta_down_week_a11y">%1$d de moins que la semaine dernière</string>
+
+    <!-- Indicateurs -->
+    <string name="fleet_kpi_online">En ligne</string>
+    <string name="fleet_kpi_offline">Hors ligne</string>
+    <string name="fleet_kpi_critical">Critique</string>
+    <string name="fleet_kpi_warning">Attention</string>
+    <string name="fleet_kpi_pending_updates">MAJ en attente</string>
+    <string name="fleet_kpi_agents">Agents à jour</string>
+    <string name="fleet_kpi_out_of">/ %1$d</string>
+    <plurals name="fleet_kpi_critical_updates">
+        <item quantity="one">dont %d critique</item>
+        <item quantity="many">dont %d critiques</item>
+        <item quantity="other">dont %d critiques</item>
+    </plurals>
+    <string name="fleet_kpi_a11y">%1$s : %2$d</string>
+
+    <!-- Attention requise -->
+    <string name="fleet_attention">Attention requise</string>
+    <string name="fleet_see_all">Voir tout</string>
+    <string name="fleet_attention_none">Aucun appareil ne demande d’attention</string>
+    <string name="fleet_reason_cpu">CPU %1$d %%</string>
+    <string name="fleet_reason_ram">RAM %1$d %%</string>
+    <string name="fleet_reason_disk">Disque %1$s %2$d %%</string>
+    <string name="fleet_reason_disk_free">%1$s Go libres</string>
+    <string name="fleet_reason_offline_since">Hors ligne depuis %1$s</string>
+    <plurals name="fleet_reason_offline_days">
+        <item quantity="one">Hors ligne depuis %d j</item>
+        <item quantity="many">Hors ligne depuis %d j</item>
+        <item quantity="other">Hors ligne depuis %d j</item>
+    </plurals>
+
+    <!-- Graphique d’activité -->
+    <string name="fleet_activity">Activité</string>
+    <string name="fleet_activity_title">Connexions · 24 h</string>
+    <string name="fleet_chart_connected">Connectés</string>
+    <string name="fleet_chart_offline">Hors ligne</string>
+    <string name="fleet_chart_a11y">Dernières 24 heures : de %1$d à %2$d appareils connectés, de %3$d à %4$d hors ligne</string>
+
+    <!-- Disques saturés -->
+    <string name="fleet_disks">Disques saturés · %1$d</string>
+    <string name="fleet_disks_none">Aucun disque au-delà de son seuil</string>
+    <string name="fleet_disk_pct">%1$d %%</string>
+    <string name="fleet_disk_threshold">seuil %1$d %%</string>
+
+    <!-- Groupes -->
+    <string name="fleet_groups">Groupes</string>
+    <string name="fleet_group_online">%1$d/%2$d en ligne</string>
+    <plurals name="fleet_group_devices">
+        <item quantity="one">%d appareil</item>
+        <item quantity="many">%d appareils</item>
+        <item quantity="other">%d appareils</item>
+    </plurals>
+    <string name="fleet_group_compliance">conformité %1$d %%</string>
+    <string name="fleet_group_offline">%1$d hors ligne</string>
+    <string name="fleet_group_critical">%1$d critique</string>
+    <string name="fleet_group_warning">%1$d attention</string>
+
+    <!-- Contexte -->
+    <string name="fleet_context">Contexte</string>
+    <plurals name="fleet_ctx_sessions">
+        <item quantity="one">%d session distante active</item>
+        <item quantity="many">%d sessions distantes actives</item>
+        <item quantity="other">%d sessions distantes actives</item>
+    </plurals>
+    <plurals name="fleet_ctx_schedules">
+        <item quantity="one">%d planification dans les 24 h</item>
+        <item quantity="many">%d planifications dans les 24 h</item>
+        <item quantity="other">%d planifications dans les 24 h</item>
+    </plurals>
+    <plurals name="fleet_ctx_stale">
+        <item quantity="one">%d appareil injoignable depuis plus de 72 h</item>
+        <item quantity="many">%d appareils injoignables depuis plus de 72 h</item>
+        <item quantity="other">%d appareils injoignables depuis plus de 72 h</item>
+    </plurals>
+
+    <!-- États de l’écran -->
+    <string name="fleet_loading">Chargement de la flotte…</string>
+    <string name="fleet_error_offline">Aucune connexion — affichage des dernières données connues.</string>
+    <string name="fleet_error_offline_empty">Aucune connexion. La flotte se chargera dès que le serveur répondra.</string>
+    <string name="fleet_error_server">Le serveur a répondu de façon inattendue. Réessayez.</string>
+    <string name="fleet_error_forbidden">Vous n’avez pas accès aux indicateurs de la flotte.</string>
+    <string name="fleet_session_expired">Votre session a expiré.</string>
+    <string name="fleet_retry">Réessayer</string>
+    <string name="fleet_empty_title">Aucun appareil pour l’instant</string>
+    <string name="fleet_empty_body">Les appareils apparaissent ici une fois leur agent installé et approuvé.</string>
+    <string name="fleet_open_devices">Voir les appareils</string>
+</resources>

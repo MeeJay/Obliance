@@ -1,3 +1,4 @@
+import { regenerateSession } from '../utils/session';
 import type { Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { twoFactorService } from '../services/twoFactor.service';
@@ -174,7 +175,9 @@ export const twoFactorController = {
 
       if (!valid) throw new AppError(401, 'Invalid code');
 
-      // Complete the session
+      // Complete the session under a NEW id (session fixation): the pending
+      // state is dropped with the old id.
+      await regenerateSession(req);
       req.session.userId = row.id;
       req.session.username = row.username;
       req.session.role = row.role;

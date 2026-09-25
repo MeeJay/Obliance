@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="more_title">Plus</string>
+
+    <!-- Carte de compte -->
+    <string name="more_account_obligate">Compte Obligate</string>
+    <string name="more_account_local">Compte local</string>
+    <string name="more_account_expired">Session expirée</string>
+    <string name="more_account_signed_out">Déconnecté de ce serveur</string>
+    <string name="more_account_unknown">Vérification de la session…</string>
+    <string name="more_scope_label">Serveur et tenant</string>
+    <string name="more_scope_chip_a11y">Serveur et tenant : %1$s</string>
+
+    <!-- Entrées -->
+    <string name="more_servers">Serveurs</string>
+    <string name="more_server_single">Serveur</string>
+    <plurals name="more_servers_value">
+        <item quantity="one">%1$d serveur · %2$s actif</item>
+        <item quantity="many">%1$d serveurs · %2$s actif</item>
+        <item quantity="other">%1$d serveurs · %2$s actif</item>
+    </plurals>
+    <string name="more_section_account">Compte</string>
+    <string name="more_section_about">À propos</string>
+    <string name="more_profile">Profil et sécurité</string>
+    <string name="more_app_settings">Réglages de l’application</string>
+    <string name="more_soon">Bientôt disponible</string>
+    <string name="more_sign_out">Se déconnecter de ce serveur</string>
+    <string name="more_app_version">Version de l’application</string>
+
+    <!-- Confirmation de déconnexion -->
+    <string name="more_sign_out_confirm_title">Se déconnecter de %1$s ?</string>
+    <string name="more_sign_out_body_multi">Les alertes de %1$s n’arriveront plus sur ce téléphone. Le serveur reste configuré : vous pourrez vous reconnecter à tout moment.</string>
+    <string name="more_sign_out_body_single">Vous devrez vous reconnecter à %1$s pour continuer à utiliser l’application. Le serveur reste configuré.</string>
+    <string name="more_sign_out_confirm">Se déconnecter</string>
+    <string name="more_cancel">Annuler</string>
+</resources>

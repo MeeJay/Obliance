@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Obliance Next</string>
+    <string name="app_nav_triage">Triage</string>
+    <string name="app_nav_devices">Devices</string>
+    <string name="app_nav_activity">Activity</string>
+    <string name="app_nav_fleet">Fleet</string>
+    <string name="app_nav_more">More</string>
+    <string name="app_nav_triage_badge">Triage, %1$d to handle</string>
+    <string name="app_select_activity">Select a batch or a session</string>
+    <string name="app_notifications_title">Allow notifications</string>
+    <string name="app_notifications_body">Open remote sessions stay connected while you use another app. A notification lists them and lets you end them all; without it, Android hides it.</string>
+    <string name="app_notifications_allow">Continue</string>
+    <string name="app_notifications_later">Not now</string>
+    <string name="app_scope_global_view">Global view</string>
+    <string name="app_scope_label">Scope: %1$s</string>
+    <string name="app_scope_unknown">Scope</string>
+    <string name="app_account">Account of %1$s — %2$s</string>
+    <string name="app_realtime_connected">real time connected</string>
+    <string name="app_realtime_reconnecting">real time reconnecting</string>
+    <string name="app_realtime_disconnected">real time disconnected</string>
+    <string name="app_switched_to">Switched to %1$s to open %2$s</string>
+    <string name="app_switch_back">Switch back</string>
+    <string name="app_select_device">Select a device</string>
+    <string name="app_device_fallback">device %1$d</string>
+</resources>

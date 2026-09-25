@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="more_title">More</string>
+
+    <!-- Account card -->
+    <string name="more_account_obligate">Obligate account</string>
+    <string name="more_account_local">Local account</string>
+    <string name="more_account_expired">Session expired</string>
+    <string name="more_account_signed_out">Signed out of this server</string>
+    <string name="more_account_unknown">Checking the session…</string>
+    <string name="more_scope_label">Server and tenant</string>
+    <string name="more_scope_chip_a11y">Server and tenant: %1$s</string>
+
+    <!-- Entries -->
+    <string name="more_servers">Servers</string>
+    <string name="more_server_single">Server</string>
+    <plurals name="more_servers_value">
+        <item quantity="one">%1$d server · %2$s active</item>
+        <item quantity="other">%1$d servers · %2$s active</item>
+    </plurals>
+    <string name="more_section_account">Account</string>
+    <string name="more_section_about">About</string>
+    <string name="more_profile">Profile and security</string>
+    <string name="more_app_settings">App settings</string>
+    <string name="more_soon">Coming soon</string>
+    <string name="more_sign_out">Sign out of this server</string>
+    <string name="more_app_version">App version</string>
+
+    <!-- Sign-out confirmation -->
+    <string name="more_sign_out_confirm_title">Sign out of %1$s?</string>
+    <string name="more_sign_out_body_multi">Alerts from %1$s will stop reaching this phone. The server stays configured: you can sign in again at any time.</string>
+    <string name="more_sign_out_body_single">You will need to sign in to %1$s again to keep using the app. The server stays configured.</string>
+    <string name="more_sign_out_confirm">Sign out</string>
+    <string name="more_cancel">Cancel</string>
+</resources>

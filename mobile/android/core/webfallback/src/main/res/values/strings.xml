@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="web_label">Web view</string>
+    <string name="web_close">Close</string>
+    <string name="web_reload">Refresh</string>
+    <string name="web_open_browser">Open in the browser</string>
+    <string name="web_error">This page could not be loaded.</string>
+    <string name="web_error_body">Check the connection to the server, then try again.</string>
+    <string name="web_retry">Try again</string>
+    <string name="web_no_app">No app can open this link.</string>
+    <string name="web_download_started">Downloading %1$s…</string>
+    <string name="web_download_failed">The download could not start.</string>
+</resources>

@@ -20,7 +20,7 @@ class RoomProofTest {
         dao.upsert(listOf(
             DeviceSnapshot("bh", 12, "SRV-AD2", "offline", 1),
             DeviceSnapshot("bh", 43, "PC-COMPTA-03", "critical", 1),
-            DeviceSnapshot("cd", 5, "SRV-DURAND01", "offline", 1),
+            DeviceSnapshot("cd", 5, "SRV-QUAL01", "offline", 1),
         ))
         assertEquals(listOf("PC-COMPTA-03", "SRV-AD2"), dao.forServer("bh").map { it.name })
         dao.purgeServer("bh")

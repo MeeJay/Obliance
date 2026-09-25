@@ -40,15 +40,15 @@ class DesignSystemScreenshotTest {
         ) {
             Text("À traiter", style = ObliTypography.screenTitle, color = c.text)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                ObliServerTile(ServerColor.VIOLET, "BH", "BinaryHearts")
+                ObliServerTile(ServerColor.VIOLET, "OP", "Obliance Prod")
                 Text("Default · Vue globale", style = ObliTypography.label, color = c.text)
             }
             Column(Modifier.fillMaxWidth().background(c.surface1).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ObliServerTile(ServerColor.FUCHSIA, "CD", "Client Durand")
+                    ObliServerTile(ServerColor.FUCHSIA, "OQ", "Obliance Qual")
                     Text("CRITIQUE · DEFAULT · 02:58", style = ObliTypography.overline, color = c.textMuted)
                 }
-                Text("SRV-DURAND01 — Hors ligne", style = ObliTypography.rowTitle, color = c.text)
+                Text("SRV-QUAL01 — Hors ligne", style = ObliTypography.rowTitle, color = c.text)
                 Text("Aucun push reçu depuis 5 min.", style = ObliTypography.body, color = c.text2)
                 ObliStatusPill(ObliTokens.Status.OFFLINE, "Hors ligne")
             }
@@ -66,6 +66,16 @@ class DesignSystemScreenshotTest {
     @Test fun operator() {
         compose.setContent { Sample(ObliThemeVariant.OPERATOR) }
         compose.onRoot().captureRoboImage(shot("designsystem_operator.png"))
+    }
+
+    @Test fun neon() {
+        compose.setContent { Sample(ObliThemeVariant.NEON) }
+        compose.onRoot().captureRoboImage(shot("designsystem_neon.png"))
+    }
+
+    @Test fun modern() {
+        compose.setContent { Sample(ObliThemeVariant.MODERN) }
+        compose.onRoot().captureRoboImage(shot("designsystem_modern.png"))
     }
 
     @Test fun night() {

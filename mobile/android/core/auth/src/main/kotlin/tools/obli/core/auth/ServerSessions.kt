@@ -45,7 +45,8 @@ class ServerSessions(
         if (!registry.activate(id)) return null
         val next = sessionFor(registry.state.value.byId(id)!!)
         if (previous != null && previous != id) synchronized(sessions) { sessions[previous] }?.realtime?.disconnect()
-        next.realtime.connect()
+        // A signed-out server has no cookie: its handshake could only be refused.
+        if (next.auth.value != AuthState.SignedOut) next.realtime.connect()
         return next
     }
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="web_label">Vue web</string>
+    <string name="web_close">Fermer</string>
+    <string name="web_reload">Actualiser</string>
+    <string name="web_open_browser">Ouvrir dans le navigateur</string>
+    <string name="web_error">Cette page n\'a pas pu être chargée.</string>
+    <string name="web_error_body">Vérifiez la connexion au serveur, puis réessayez.</string>
+    <string name="web_retry">Réessayer</string>
+    <string name="web_no_app">Aucune application ne peut ouvrir ce lien.</string>
+    <string name="web_download_started">Téléchargement de %1$s…</string>
+    <string name="web_download_failed">Le téléchargement n\'a pas pu démarrer.</string>
+</resources>

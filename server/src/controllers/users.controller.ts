@@ -18,8 +18,8 @@ export const usersController = {
   // customer workspace, so we scope the listing to users that actually
   // have access to it (i.e. own a row in `user_tenants` for it). This
   // makes the /admin/users page double as a "who can see this tenant?"
-  // glance card and stops a Pimkie admin from accidentally browsing
-  // BA&SH users.
+  // glance card and stops a Contoso admin from accidentally browsing
+  // ACME users.
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const tenantId = (req as any).tenantId as number | undefined;

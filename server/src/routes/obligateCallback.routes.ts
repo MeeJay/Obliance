@@ -1,3 +1,4 @@
+import { regenerateSession } from '../utils/session';
 import { Router } from 'express';
 import crypto from 'crypto';
 import { db } from '../db';
@@ -214,7 +215,9 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     }
   }
 
-  // Set session
+  // Set session, under a NEW id (session fixation). Only the cross-app tenant
+  // hint survives from the pre-login session.
+  await regenerateSession(req, ['requestedTenantSlug']);
   req.session.userId = localUserId;
   const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
   if (user) {
@@ -310,7 +313,7 @@ router.get('/callback', async (req, res) => {
     // is fully processed by the browser before navigation occurs.
     req.session.save((err) => {
       if (err) { logger.error(err, 'Session save failed'); res.redirect('/login?error=sso_failed'); return; }
-      logger.info({ sessionId: req.sessionID, userId: req.session.userId }, 'Session saved, redirecting to /');
+      logger.info({ userId: req.session.userId }, 'Session saved, redirecting to /');
       res.setHeader('Content-Type', 'text/html');
       res.end(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;color:#8b949e;font-family:-apple-system,BlinkMacSystemFont,sans-serif}.s{text-align:center}.d{width:28px;height:28px;border:2.5px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:r .6s linear infinite;margin:0 auto 14px}@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div class="s"><div class="d"></div><div>Signing in...</div></div></body></html>`);
     });

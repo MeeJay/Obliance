@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
  * Reads/writes to the URL querystring (`?tenants=1,2,3`) so the
  * selection survives page reloads, deep-links, and back-button
  * navigation — admins regularly bookmark "audit log filtered to
- * tenant Pimkie" or paste links to colleagues.
+ * tenant Contoso" or paste links to colleagues.
  *
  * Returns the same shape as a useState pair plus an array form
  * already de-duped, ready to pass to API calls (`tenantIds: ids.length

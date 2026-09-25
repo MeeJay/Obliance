@@ -73,6 +73,11 @@ services:
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123}
+      # Proxies whose X-Forwarded-For entries are believed (client IP for audit,
+      # 2FA "trust this IP", SSH button). Default: loopback + this container's
+      # own networks + Docker's 172.16/12 pool. See .env.example.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-loopback, self, 172.16.0.0/12}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}
       # SSH bastion (off by default) — see .env.example
       SSH_BASTION_ENABLED: ${SSH_BASTION_ENABLED:-false}
       SSH_BASTION_PORT: ${SSH_BASTION_PORT:-2222}

@@ -1,0 +1,1 @@
+{"success":true,"data":[{"id":1,"name":"Default","slug":"default","twoStepApproval":false,"createdAt":"2025-06-01T10:00:00.000Z","updatedAt":"2025-06-01T10:00:00.000Z"},{"id":4,"name":"ACME","slug":"acme","twoStepApproval":true,"createdAt":"2025-09-14T08:30:00.000Z","updatedAt":"2026-02-03T16:45:12.000Z","role":"admin"}]}

@@ -186,7 +186,7 @@ export function AdminUsersPage() {
  // ONLY context where cross-tenant management is allowed — on any
  // child tenant we restrict the picker to the current tenant only,
  // even if the admin happens to be a member of others. (Otherwise an
- // admin connected to Pimkie could create a team scoped to BA&SH, which
+ // admin connected to Contoso could create a team scoped to ACME, which
  // breaks the per-tenant isolation rule.) Built from `allTenants` (the
  // full list /api/tenants returns to admins) so a tenant with zero
  // existing teams isn't missing from the picker. Names come from the

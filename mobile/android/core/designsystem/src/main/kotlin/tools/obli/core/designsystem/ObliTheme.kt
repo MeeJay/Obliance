@@ -1,5 +1,7 @@
 package tools.obli.core.designsystem
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -11,7 +13,22 @@ import androidx.compose.ui.graphics.Color
 
 fun Long.toColor(): Color = Color(this.toInt())
 
-enum class ObliThemeVariant { OPERATOR, NIGHT }
+/**
+ * OPERATOR / NEON / MODERN mirror the web themes a user picks on each server
+ * (`preferences.preferredTheme`); NIGHT is the app's own low-light variant.
+ */
+enum class ObliThemeVariant {
+    OPERATOR, NIGHT, NEON, MODERN;
+
+    companion object {
+        /** Web theme id -> variant. `obli-daylight` (light) falls back to Operator until the light theme ships. */
+        fun fromServerTheme(id: String?): ObliThemeVariant = when (id?.trim()?.lowercase()) {
+            "neon" -> NEON
+            "modern" -> MODERN
+            else -> OPERATOR
+        }
+    }
+}
 
 /** Semantic colours of the Obli design system (design doc §8.2), per variant. */
 @Immutable
@@ -58,13 +75,30 @@ fun ObliTheme(
     accentNight: AccentTokens = ObliTokens.oblianceNight,
     content: @Composable () -> Unit,
 ) {
-    val colors = when (variant) {
+    val target = when (variant) {
         ObliThemeVariant.OPERATOR -> ObliColors.of(ObliTokens.operator, accentOperator)
         ObliThemeVariant.NIGHT -> ObliColors.of(ObliTokens.night, accentNight)
+        ObliThemeVariant.NEON -> ObliColors.of(ObliTokens.neon, ObliTokens.neonAccent)
+        ObliThemeVariant.MODERN -> ObliColors.of(ObliTokens.modern, ObliTokens.modernAccent)
     }
+    // Switching server switches theme: fade the colours (200 ms) instead of a jump.
+    val colors = animateColors(target)
     CompositionLocalProvider(LocalObliColors provides colors) {
         MaterialTheme(colorScheme = colors.toMaterial(), typography = ObliTypography.material, content = content)
     }
+}
+
+@Composable
+private fun animateColors(t: ObliColors): ObliColors {
+    val spec = tween<Color>(durationMillis = 200)
+    @Composable fun a(c: Color) = animateColorAsState(c, spec, label = "obliTheme").value
+    return ObliColors(
+        bg = a(t.bg), chrome = a(t.chrome), surface1 = a(t.surface1), surface2 = a(t.surface2),
+        hover = a(t.hover), active = a(t.active), divider = a(t.divider), text = a(t.text),
+        text2 = a(t.text2), textMuted = a(t.textMuted), textFaint = a(t.textFaint), brand = a(t.brand),
+        accentFill = a(t.accentFill), accentFillPressed = a(t.accentFillPressed), accent2 = a(t.accent2),
+        onAccentFill = t.onAccentFill,
+    )
 }
 
 object ObliTheme {

@@ -64,7 +64,7 @@ Follow the LifeTrack pattern (`D:\LifeTrack\apps\android`: Kotlin + Compose, AGP
     ObliApp("oblihub","Oblihub","#2d4ec9","#5a78e8", ...))
   flavorDimensions += "app"
   productFlavors { obliApps.forEach { a -> create(a.id) {
-    dimension = "app"; applicationId = "fr.binaryhearts.${a.id}"
+    dimension = "app"; applicationId = "com.example.${a.id}"
     resValue("string", "app_name", a.name); resValue("color", "obli_accent", a.accent); resValue("color", "obli_accent2", a.accent2)
     buildConfigField("String", "OBLI_APP", "\"${a.id}\"")
     buildConfigField("String", "DEFAULT_SERVER_URL", "\"${secret("obli.${a.id}.server.url") ?: a.defaultUrl}\"")
@@ -81,7 +81,7 @@ Follow the LifeTrack pattern (`D:\LifeTrack\apps\android`: Kotlin + Compose, AGP
   - an APK update check against `/downloads/`, like LifeTrack. Obliance already has a `/download` page to host the APK.
 - **Navigation policy** in `shouldOverrideUrlLoading`, so the web code stays unchanged:
   - the configured host and the Obligate host stay in the WebView;
-  - an app pill that points to another Obli domain launches `fr.binaryhearts.<app>` with the URL if that app is installed, otherwise opens a Custom Tab;
+  - an app pill that points to another Obli domain launches `com.example.<app>` with the URL if that app is installed, otherwise opens a Custom Tab;
   - everything else opens externally.
 - **JS bridge contract.** Inject at document start with `androidx.webkit.WebViewCompat.addDocumentStartJavaScript`:
   `window.__obli_native = { platform: 'android', app: '<id>', version: '<x.y.z>' }` plus a `ObliNative` `@JavascriptInterface` (`notify(type)`, `share(text)`, `openExternal(url)`). The shell forwards the existing `<app>:notify` CustomEvent to `ObliNative.notify`.

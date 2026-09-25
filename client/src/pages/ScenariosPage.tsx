@@ -242,7 +242,7 @@ export function ScenariosPage({ embedded }: { embedded?: boolean } = {}) {
  };
  // Master narrow filter — chip row above the list. URL-synced via
  // useTenantFilter so admins can deep-link to "scenarios filtered to
- // Pimkie".
+ // Contoso".
  const tenantFilter = useTenantFilter();
  // JSON import flow state — `importPreview` holds the parsed file +
  // server-returned conflicts so the user can resolve script-uuid

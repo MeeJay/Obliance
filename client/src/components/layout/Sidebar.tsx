@@ -467,7 +467,7 @@ export function Sidebar({ variant = 'default', onRequestClose }: SidebarProps = 
   const [navMenuOpen, setNavMenuOpen] = usePersisted<boolean>('sidebar:nav-open', true);
   // Per-tenant collapse state for the master/god view buckets. We share
   // the same localStorage key as the /devices GroupSidePanel + the
-  // DeviceTable so collapsing "Pimkie" once folds it everywhere — one
+  // DeviceTable so collapsing "Contoso" once folds it everywhere — one
   // mental model for "this tenant is currently not interesting".
   const [collapsedTenants, setCollapsedTenants] = usePersisted<number[]>('obliance:groupPanelCollapsedTenants', []);
   const isTenantCollapsed = (id: number) => collapsedTenants.includes(id);

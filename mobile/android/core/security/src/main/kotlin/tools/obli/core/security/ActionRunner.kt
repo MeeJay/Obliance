@@ -30,7 +30,36 @@ data class ActionSpec(
     val consequence: String? = null,
     /** > 1 for bulk actions: disables the trust window. */
     val targetCount: Int = 1,
+    /**
+     * Calls the prompts may make on the ITEM'S server (S43 "Annuler la
+     * demande", S44 unlock). Null: those buttons are not offered.
+     */
+    val endpoints: ActionEndpoints? = null,
 )
+
+/**
+ * Server calls a prompt may need, bound to the server (and device) the action
+ * targets. Built by the app over that server's session, never another origin.
+ */
+interface ActionEndpoints {
+    /** S43: the requester withdraws their own pending approval. */
+    suspend fun cancelApproval(approvalId: Long): ApiOutcome<Unit>
+
+    /** S44: unlocks [feature] (`scripts`, `remote`, `processes`, `files`) with the device's privacy password. */
+    suspend fun unlockPrivacy(feature: String, password: String): PrivacyUnlockResult
+}
+
+sealed interface PrivacyUnlockResult {
+    data class Unlocked(val ttlSeconds: Int) : PrivacyUnlockResult
+    data object WrongPassword : PrivacyUnlockResult
+
+    /** The device has no privacy password: only an administrator can disable privacy mode. */
+    data object NoPasswordSet : PrivacyUnlockResult
+    data object TooManyAttempts : PrivacyUnlockResult
+    data object DeviceOffline : PrivacyUnlockResult
+    data object SessionExpired : PrivacyUnlockResult
+    data class Failed(val outcome: ApiOutcome<Nothing>) : PrivacyUnlockResult
+}
 
 sealed interface Preflight {
     data object Ok : Preflight
@@ -97,7 +126,7 @@ class ActionRunner(
             is Preflight.Blocked -> return ActionResult.Blocked(p.reason)
             is Preflight.NeedsTenantSwitch -> {
                 if (!prompter.confirmTenantSwitch(spec, p.tenantName)) return ActionResult.Cancelled
-                if (!p.switch()) return ActionResult.Blocked("tenant switch failed")
+                if (!p.switch()) return ActionResult.Blocked(TENANT_SWITCH_FAILED)
             }
             Preflight.Ok -> Unit
         }
@@ -161,5 +190,8 @@ class ActionRunner(
     companion object {
         const val MAX_CODE_ATTEMPTS = 3
         const val TRUST_WINDOW_MS = 60_000L
+
+        /** [ActionResult.Blocked] reason when "Basculer et continuer" could not switch the tenant. */
+        const val TENANT_SWITCH_FAILED = "tenant switch failed"
     }
 }
