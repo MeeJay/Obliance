@@ -30,3 +30,6 @@ include(":core:data")
 
 // Obliance.
 include(":obliance:domain")
+
+// Phase 0 technical proofs (design doc §11): compiled and tested, never shipped.
+include(":proofs")

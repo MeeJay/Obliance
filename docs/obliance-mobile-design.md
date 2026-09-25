@@ -59,7 +59,7 @@ ps = personne-semaine. Les travaux serveur avancent en parallèle (§10.12).
 | Balayages | Ne changent que l'état local ou de la boîte (lu, supprimé avec annulation, surveiller, masquer) | Balayage qui ouvre un shell (« tablette ») | Un geste ne doit jamais créer d'activité distante. |
 | Retour depuis un terminal ou ObliReach | Retour = **réduire** ; « Terminer » est une action explicite | Question « Réduire ou terminer ? » à chaque retour | Le geste le plus fréquent ne doit pas ouvrir de dialogue. |
 | Gravité des alertes | Classement par **règles explicites** (catégorie déduite du titre, appareil serveur, surveillé) en attendant un champ `category` serveur | Tri par la gravité brute du serveur | Le serveur envoie « Hors ligne » en `info` sauf si le groupe est « Toujours actif ». |
-| Cache et outillage | v1 : cache mémoire + instantanés JSON chiffrés ; injection manuelle (`AppGraph`) ; Room seulement si la preuve KSP réussit, sinon SQLDelight | Room, Hilt et KSP d'emblée | La chaîne AGP 9.3.1 à Kotlin intégré 2.2.10 est contrainte. |
+| Cache et outillage | v1 : cache mémoire + instantanés JSON chiffrés ; injection manuelle (`AppGraph`) ; Room en v1.1 (**preuve faite** avec KSP 2.3.12, `docs/mobile/phase0-proofs.md`) | Room, Hilt et KSP d'emblée | La chaîne AGP 9.3.1 à Kotlin intégré 2.2.10 est contrainte. |
 | Taille de la v1 | ≈ 34 ps centrées sur la boucle d'astreinte, dont ≈ 3 ps de multi-serveurs (sans lui, le propriétaire ne peut pas faire son astreinte sur ses trois serveurs) | 44 ps (« flotte »), 42 ps à 3 développeurs (« tablette ») | La boucle alerte → appareil → correction doit arriver tôt. |
 | Thèmes | Sombre « Operator » par défaut + variante **Nuit** ; clair « Daylight » en v2 avec jetons corrigés | Trois thèmes dès la v1 | Triple la surface de recette ; le Daylight actuel échoue AA. |
 
@@ -1822,7 +1822,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 - **Pagination** : admins pagination serveur (100) ; non-admins une requête `pageSize=2000` puis pagination locale.
 - **Cache** :
   - v1 : mémoire (stale-while-revalidate, clé `(serverId, utilisateur, tenant, requête)`) + `SnapshotStore` : instantanés JSON chiffrés (AES-GCM, clé Keystore) dans `noBackupFilesDir` pour la liste d'appareils, l'arbre, le résumé et les alertes ;
-  - v1.1 : 20 derniers détails ; Room si la preuve KSP2 sur AGP 9 réussit, sinon SQLDelight (plugin Gradle, sans KSP) ;
+  - v1.1 : 20 derniers détails ; **Room** avec KSP 2.3.12 (preuve P5 : KSP 2.2.10-2.0.2 est refusé par Kotlin intégré, KSP 2.3.x fonctionne) ;
   - **jamais sur disque** : clés BitLocker ou Windows, sorties de scripts, paramètres secrets, jetons de tunnel, codes OTP, déverrouillages de confidentialité ;
   - purge à la déconnexion d'un serveur (ses données seulement), à son retrait, à la perte d'un tenant ; durée de vie 7 jours. Instantanés rangés par `serverId`.
 
@@ -1838,7 +1838,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 ### 10.6 Temps réel
 
 - **Client** : `io.socket:socket.io-client` 2.x (Engine.IO v4, compatible Socket.IO 4.7 du serveur), `transports=["websocket"]`, `extraHeaders = {Cookie: connect.sid=…}`, reconnexion avec attente croissante (1 → 30 s). Le serveur ignore `handshake.auth.userId` et utilise la session.
-  - Risque : dépendance OkHttp 3/4 de la bibliothèque contre OkHttp 5 → preuve en phase 0.
+  - Risque : dépendance OkHttp 3/4 de la bibliothèque contre OkHttp 5 → **preuve faite** (P2) : 2.1.2 forcé sur OkHttp 5.5.0 fonctionne contre un serveur Socket.IO 4.8.
   - Repli : client Engine.IO v4 / Socket.IO v5 minimal sur WebSocket OkHttp (ouverture, `40`, `42[...]`, accusés, ping/pong ; environ 400 lignes) dans le socle.
 - **`RealtimeClient`** : `state: StateFlow<Connecting|Connected|Reconnecting|Disconnected>`, `events(name)`, `emit(name, payload, ack)` ; `connect_error 'Unauthorized'` → `SessionExpired` ; **reconnexion à chaque changement de tenant** ; fermeture et ouverture sur le nouveau serveur à chaque changement de serveur.
 - **Un seul socket, celui du serveur actif.** Les serveurs non actifs sont **sondés** : `GET /api/live-alerts/all` (au-delà de leur repère) et, pour les admins, `GET /api/approvals?limit=50`, toutes les 60 s tant que l'app est au premier plan, par le `AlertsWorker` en arrière-plan (v1) puis par push (v1.1). Un socket par serveur a été écarté : batterie, et aucun écran n'en a besoin (les listes restent sur le serveur actif).
@@ -1863,7 +1863,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 ### 10.7 Navigation et mises en page adaptatives
 
 - **Navigation 3** (`androidx.navigation3`) avec les scènes adaptatives Material 3 : liste-détail pour À traiter, Appareils et Activité ; volet secondaire pour les panneaux en direct ; scène `SessionDockScene` pour le dock. `NavigationSuiteScaffold` choisit barre ou rail selon `currentWindowAdaptiveInfo()`.
-- **Repli** si les versions ne s'alignent pas avec le BOM 2026.08 : Navigation Compose 2.9 à routes typées + `ListDetailPaneScaffold`. Décision en phase 0.
+- **Décision (preuve P4)** : Navigation 3 1.2.0 + adaptive-navigation3 1.3.0 avec le BOM 2026.08 ; le repli Navigation Compose 2.9 est abandonné.
 - **Clés de route** `@Serializable` : `TriageKey(segment, selectedId?)`, `DevicesKey(filter)`, `DeviceKey(id, tab, fromAlertId?)`, `SessionKey(localId)`, `BatchKey(batchId)`, `WebKey(path, title)`…
 - **Pile par destination** conservée : changer d'onglet ne perd jamais un écran d'appareil.
 - **Liens profonds** : un seul point d'entrée (schéma, App Links, intents de notification, `OPEN_URL`) → `resolveDeepLink` → `locate-device` si besoin → bascule de tenant → pile synthétique (`[DevicesKey, DeviceKey(123, Processes)]`).
@@ -1879,7 +1879,7 @@ Un 202 est distingué par la forme de `data` (`approvalId` + `pending_approval` 
 ### 10.9 Accès distant
 
 - **`core:tunnel`** : WebSocket OkHttp vers `/api/remote/tunnel/<token>` (cookie et UA envoyés quand même, prêt pour la liaison du jeton) ; `pingInterval` 20 s ; machine à états `connecting → waiting → paired → open → closed/error` ; **rien n'est envoyé avant `paired`** ; file de trames bornée ; le jeton n'est jamais journalisé ni envoyé dans un rapport de plantage.
-- **`core:terminal`** : SPI `TerminalEngine` (`feed(bytes)`, `resize(cols, rows)`, `keystrokes: Flow<ByteArray>`, `dispatchKey`, `paste`, `@Composable Render()`) ; implémentation **`org.connectbot:termlib` 0.2.0** figée (métadonnées Kotlin lisibles par 2.2.10) ; plan B : fork des modules `terminal-emulator` / `terminal-view` de Termux (Apache-2.0) ; plan C : xterm.js dans une WebView locale pour ce seul écran. Décodage UTF-8 incrémental (trames de 4 096 octets qui coupent des caractères) ; redimensionnement après `paired` ; touches spéciales encodées par l'émulateur (respect de DECCKM) ; `SessionManager` au niveau du processus + service `specialUse`. `abiFilters` : `arm64-v8a`, `armeabi-v7a`, `x86_64` (Chromebooks) ; la bibliothèque native ajoute ~3 Mo par ABI.
+- **`core:terminal`** : SPI `TerminalEngine` (`feed(bytes)`, `resize(cols, rows)`, `keystrokes: Flow<ByteArray>`, `dispatchKey`, `paste`, `@Composable Render()`) ; implémentation **`org.connectbot:termlib` 0.2.1** figée (dernière version compilée en Kotlin 2.3, lisible par 2.2.10 ; les 0.3.x sont en Kotlin 2.4 — preuve P3) ; plan B : fork des modules `terminal-emulator` / `terminal-view` de Termux (Apache-2.0) ; plan C : xterm.js dans une WebView locale pour ce seul écran. Décodage UTF-8 incrémental (trames de 4 096 octets qui coupent des caractères) ; redimensionnement après `paired` ; touches spéciales encodées par l'émulateur (respect de DECCKM) ; `SessionManager` au niveau du processus + service `specialUse`. `abiFilters` : `arm64-v8a`, `armeabi-v7a`, `x86_64` (Chromebooks) ; la bibliothèque native ajoute ~3 Mo par ABI.
 - **`feature:reach` (v1.1)** : H.264 Annex B par MediaCodec asynchrone vers `AndroidExternalSurface` ; configuration au premier IDR (SPS/PPS) ; clés basse latence ; **abandon des trames P jusqu'au prochain IDR** en cas de retard ; chemin JPEG obligatoire avec passage automatique `set_codec jpeg` après 3 s sans image (agents Linux et macOS) ; audio PCM s16le 48 kHz par `AudioTrack` basse latence ; `InputMapper` qui reprend les constantes de `useRemotePointer` (16 ms, 500 ms, 400 ms / 24 px, 40 px par cran, × 1,25, zoom 5×) ; `InputConnection` dédiée (`VISIBLE_PASSWORD`, `NO_SUGGESTIONS`, `NO_PERSONALIZED_LEARNING`) ; table evdev → `code` DOM ; séquence Ctrl+Alt+Suppr identique au web ; reconnexion par nouvelle session (5 × 2 s) ; libération du décodeur en arrière-plan, attente du prochain IDR au retour ; `FLAG_SECURE` et écran allumé pendant le flux.
 - **Console de VM Hyper-V** : même visionneuse avec `protocol:'vmconsole'` et `vmId` (v1.1).
 
@@ -1955,7 +1955,7 @@ S2, S3 et S4 corrigent aussi des défauts qui existent aujourd'hui sur le web.
 | `core:realtime` + preuve Socket.IO contre OkHttp 5 avec le cookie | 0,5 |
 | Preuves : termlib 0.2.0 dans la chaîne (IME, ConPTY, taille) ; Navigation 3 adaptative contre 2.9 ; plugin kotlinx-serialization et KSP2 sur AGP 9 ; décodage H.264 sur 3 SoC | 1,0 |
 
-**Sortie** : rapport de preuves avec décision sur termlib, la bibliothèque temps réel, Navigation 3 et Room / SQLDelight.
+**Sortie** : rapport de preuves avec décision sur termlib, la bibliothèque temps réel, Navigation 3 et Room / SQLDelight — **fait** : `docs/mobile/phase0-proofs.md` (termlib 0.2.1, socket.io-client sur OkHttp 5, Navigation 3, Room + KSP 2.3.12, Roborazzi).
 
 ### v1 — « Astreinte » (≈ 17 semaines · ≈ 34 ps)
 
