@@ -3,7 +3,7 @@
 > CLAUDE.md est local (ignoré par git). Ce fichier porte ce qu'une session **cloud** doit savoir pour reprendre le chantier mobile. Le lire en entier avant de coder.
 
 ## Règles du projet à respecter
-- Branche de travail : `dev` (la prod sort de `main` via le script de promotion local). En cloud : travailler sur une branche `claude/...` et ouvrir une PR vers `dev` ; le propriétaire redescend le travail en local avec `sync-cloud.ps1`.
+- Branche de travail : `dev` (la prod sort de `main` via le script de promotion local). En cloud : travailler sur une branche `mobileappdev/...` (ou `claude/...`) et ouvrir une PR vers `dev` ; le propriétaire redescend le travail en local avec `sync-cloud.ps1`.
 - Ne jamais ajouter `Co-Authored-By` dans les commits. Ne jamais committer de secret (clé de signature, mots de passe, `local.properties`).
 - Les fichiers `*.bat` sont exclus du dépôt ; ne jamais retirer cette règle.
 - i18n obligatoire : tout texte visible passe par `t('ns.cle', 'Repli anglais')` (forme à 2 arguments : avec la config i18next du projet, `t(k) || repli` ne marche pas). Clés au minimum en `en` et `fr`. Français : **vouvoiement ou tournure neutre, jamais de tutoiement**.
@@ -53,9 +53,14 @@ restructure en modules `core:*` + `obliance:*`.
   SDK `D:\LifeTrack\.android-sdk` (dans `local.properties`, ignoré par git).
   Release signée : `mobile/build-android.ps1` (clé `D:\keys\obli-release.jks`,
   empreinte `8c7e67f8…6d82ac8d`, mot de passe hors dépôt).
-- Cloud (Claude Code web) : coller `mobile/android/cloud-setup.sh` dans le
-  script d'installation de l'environnement, accès réseau « Custom » +
-  `dl.google.com`. Puis `cd mobile/android && chmod +x gradlew &&
+- Cloud (Claude Code web) : coller le **contenu** de `mobile/android/cloud-setup.sh`
+  (pas son chemin) dans le script d'installation de l'environnement, accès
+  réseau « Custom » + `dl.google.com` (fait par le propriétaire le 25/09).
+  Le nouveau `sdkmanager` liste `platforms/android-37.x` (barre oblique) : le
+  script le gère depuis le 25/09. Maven Central peut répondre 429 derrière le
+  proxy : réessayer, ou ajouter localement (hors dépôt) un script d'init Gradle
+  qui place le miroir `https://maven-central.storage-download.googleapis.com/maven2/`
+  en premier. Puis `cd mobile/android && chmod +x gradlew &&
   ./gradlew testOblianceDebugUnitTest assembleOblianceDebug`. **Jamais de clé de
   signature dans le cloud** : le cloud livre du code (branche + PR), la release
   signée se fait sur le poste Windows.
@@ -63,7 +68,85 @@ restructure en modules `core:*` + `obliance:*`.
   hors émulateur (Roborazzi/Paparazzi) ; la vraie recette se fait sur le
   téléphone du propriétaire.
 
-## ÉTAT AU MOMENT DE LA BASCULE CLOUD (2026-09-25, tâches locales arrêtées)
+## ÉTAT APRÈS LA SESSION CLOUD DU 2026-09-25 (branche `mobileappdev/multiserver-web-phase0`)
+
+Tout ce qui suit est sur la branche de la PR vers `dev`, **rien n'est déployé**.
+
+### D. Multi-serveurs — FAIT (à relire par le propriétaire)
+- `docs/obliance-mobile-design.md` révision v1.1 complète : §2.10 (modèle,
+  agrégé / serveur actif, bascule explicite et implicite, actions de boîte sans
+  bascule, tuile monogramme, ajout / retrait, mise à jour « plus haut
+  versionCode », raccourcis), barre du haut, S10, S80, S81 « Serveur et tenant »,
+  S83, S84, S86, **S92 Serveurs**, **S93 Ajouter un serveur**, routeur de liens
+  (`server=`), §4 (BinaryHearts / Atelier / Client Durand, alertes SRV-DURAND01
+  et NAS-ATELIER), confirmations nommant le serveur, palette serveur (§8.2),
+  groupes de canaux par serveur (§9), architecture (`ServerRegistry`,
+  `ServerSession`, un socket = serveur actif + sondage des autres), plan (v1
+  ≈ 34 ps), risques R13–R15, questions 16–19, serveur S20.
+- Maquette `docs/mobile/mockup/` : Main, TenantSwitch (« Serveur et tenant »),
+  AppSettings, Notifications, More modifiés ; **ServerManage (A23)** et
+  **AddServer (A24)** ajoutés ; hôtes `votre-msp` remplacés partout ;
+  `canvas.json` à jour. **Le canevas en ligne (Artifact) n'a PAS été mis à
+  jour** : republier depuis les fichiers.
+- Tuile serveur : teinte 18 % posée sur `chrome` opaque (sinon violet / indigo
+  < 4,5:1 sur `hover`) — doc, STYLEKIT et code alignés.
+
+### A. Passe responsive web — FAITE
+- A.1 : 56 clés manquantes en `en`, 59 en `fr` (appels statiques), + clés
+  dynamiques (`agents.notifType.*`, `privacy.feature.*`,
+  `devices.addModal.freebsd`, `terminalKeys.key.f1..f12`) ajoutées ;
+  vérification = 0 manquante. Reste de l'anglais en dur dans l'onglet distant de
+  `DeviceDetailPage` et dans `ProfilePage` (hors périmètre).
+- A.2 : bundle esbuild OK (sans `--external:@xyflow/react` une fois les
+  dépendances installées) ; `npm run build` du client OK.
+- A.3 : variantes Tailwind compilées ; motifs interdits restants tous légitimes
+  (passent par les utilitaires) — rien à remplacer.
+- A.4 : relecture « desktop identique » : pas de régression nette trouvée
+  (restent les écarts connus d'en-tête de `Modal`).
+- `tsc --noEmit` : client 0 erreur ; serveur 0 erreur **une fois `shared`
+  construit** (`npm run build` dans `shared/`).
+
+### B. Tunnels distants — côté client FAIT, build serveur + client PRÊT
+- Client : « Voir » / « Ouvrir » masqués sur les sessions d'un autre ;
+  jamais d'onglet ni de visionneuse sans `sessionToken` (session orpheline
+  terminée + message) ; 409 de la console VM affichée ; planification : message
+  quand le contournement de confidentialité attend une approbation.
+- Serveur : `/relay/validate-agent` corrigé (jointure via `devices.api_key_id`,
+  clés actives seulement ; l'ancienne jointure sur `agent_api_keys.device_id`
+  inexistant renvoyait 500 à chaque appel).
+- **Build à lancer par le propriétaire : server + client** (S2/S3 du commit
+  6c90079 + ce correctif + les changements client). Non testé contre une vraie
+  base ni un vrai agent.
+- Défauts connus toujours ouverts : exécution manuelle de script approuvée sans
+  contenu de script (`approval.service._executeBatch`) ; un non-admin peut
+  créer / activer des scénarios sur des machines sans `execute` (non revérifié) ;
+  `PATCH /schedules/:id` : quand le contournement est restreint, le reste du
+  formulaire n'est pas enregistré (202 et retour).
+
+### C. App Android — Phase 0 COMMENCÉE
+- Vérifié dans le cloud : SDK installé, `./gradlew test testOblianceDebugUnitTest
+  assembleOblianceDebug lintOblianceDebug` **vert** (la coquille existante
+  compris : ses 97 tests passent toujours).
+- Modules créés : `core:common` (utilitaires JVM de la coquille déplacés,
+  paquets inchangés), `core:model`, `core:network` (`ApiOutcome` +
+  `ApiResponses`), `core:auth` (`ServerRegistry` multi-serveurs),
+  `core:designsystem` (jetons Operator / Nuit, `ObliTheme`, typographie,
+  `ObliServerTile`, pastille d'état, tests de contraste), `obliance:domain`
+  (classement des alertes, À traiter multi-serveurs, corrélation « coupure de
+  site »). Règles du graphe de modules vérifiées à chaque build.
+- Preuve faite : plugin kotlinx.serialization avec Kotlin intégré 2.2.10.
+- Relevés pour les preuves restantes : `socket.io-client` 2.1.2 dépend
+  d'OkHttp **3.12** (OkHttp courant 5.5.0) → conflit à prouver (R5) ;
+  `termlib` est en **0.3.5** (le doc fige 0.2.0) ; Navigation 3 publiée
+  (1.3.0-alpha01 la plus récente, adaptatif 1.4.0-alpha02).
+- **Reste de la Phase 0** : déplacer updater / verrou / WebHost / Worker dans
+  `core:*` ; `core:network` côté Android (OkHttp 5, `CookieManagerJar`,
+  `ActionRunner`) ; `ServerSession` et stockage DataStore du registre ;
+  `core:realtime` + preuve Socket.IO / OkHttp 5 ; preuves termlib, Navigation 3
+  vs 2.9, KSP2 ; polices embarquées (Inter, Rajdhani, JetBrains Mono : fichiers
+  à ajouter dans `res/font`, `ObliFonts.install`) ; captures Roborazzi.
+
+## ÉTAT AU MOMENT DE LA BASCULE CLOUD (2026-09-25, historique)
 
 État vérifié à l'arrêt : `npx tsc --noEmit -p .` **propre** dans `client/` (hors
 bruit connu `@xyflow`, module non installé localement) et dans `server/` (hors
