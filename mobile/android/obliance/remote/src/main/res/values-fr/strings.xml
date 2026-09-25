@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- S60 terminal -->
+    <string name="remote_minimize">Réduire — la session continue</string>
+    <string name="remote_more">Plus d\'options</string>
+    <string name="remote_paste">Coller</string>
+    <string name="remote_key_bar_toggle">Afficher ou masquer la barre de touches</string>
+    <string name="remote_end">Terminer</string>
+    <string name="remote_end_session">Terminer la session</string>
+    <string name="remote_cancel">Annuler</string>
+    <string name="remote_retry">Réessayer</string>
+    <string name="remote_close">Fermer</string>
+    <string name="remote_reopen">Rouvrir</string>
+    <string name="remote_new_session">Nouvelle session</string>
+    <string name="remote_resume">Reprendre</string>
+    <string name="remote_terminal_output">Sortie du terminal %1$s</string>
+    <string name="remote_header_a11y">%1$s, %2$s, %3$s</string>
+    <string name="remote_state_connecting">Connexion au serveur…</string>
+    <string name="remote_state_waiting">En attente de l\'appareil (jusqu\'à 6 min)…</string>
+    <string name="remote_status_connecting">connexion</string>
+    <string name="remote_status_waiting">en attente de l\'appareil</string>
+    <string name="remote_status_connected">connecté</string>
+    <string name="remote_status_connected_for">connecté %1$s</string>
+    <string name="remote_status_lost">connexion perdue</string>
+    <string name="remote_status_ended">terminée</string>
+    <string name="remote_status_not_started">non ouverte</string>
+    <string name="remote_context_system">SYSTÈME</string>
+    <string name="remote_context_session">session %1$d</string>
+    <string name="remote_ended_shell">Session terminée — le shell s\'est fermé.</string>
+    <string name="remote_ended_lost">Connexion perdue. Le shell distant a été fermé ; une commande en cours a pu être interrompue.</string>
+    <string name="remote_ended_lost_tip">Pour les commandes longues, utilisez tmux/screen ou un script Obliance.</string>
+    <string name="remote_ended_user">Session terminée.</string>
+    <string name="remote_ended_timeout">L\'appareil n\'a pas répondu à temps. La session a été annulée.</string>
+    <string name="remote_ended_expired">Votre session a expiré. Reconnectez-vous, puis ouvrez un nouveau terminal.</string>
+    <string name="remote_ended_refused">Le serveur a refusé cette session (elle est fermée ou appartient à quelqu\'un d\'autre).</string>
+    <string name="remote_start_powershell">Ouvrir PowerShell</string>
+    <string name="remote_start_cmd">Ouvrir l\'invite de commandes</string>
+    <string name="remote_start_ssh">Ouvrir un shell SSH</string>
+    <string name="remote_start_consequence">Un shell distant s\'ouvre sur l\'appareil. Il reste ouvert jusqu\'à ce que vous le terminiez, même en arrière-plan.</string>
+    <string name="remote_blocked_offline">L\'appareil est hors ligne.</string>
+    <string name="remote_blocked_legacy">Le terminal n\'est pas disponible avec l\'agent legacy.</string>
+    <string name="remote_forbidden">Votre équipe n\'a pas le droit « Accès distant » sur cet appareil.</string>
+    <string name="remote_no_token">Le serveur n\'a pas renvoyé de jeton de connexion pour cette session.</string>
+    <string name="remote_start_failed">La session n\'a pas pu être ouverte.</string>
+
+    <!-- Key bar -->
+    <string name="remote_key_esc">Échap</string>
+    <string name="remote_key_esc_a11y">Échap</string>
+    <string name="remote_key_tab_a11y">Tabulation</string>
+    <string name="remote_key_up_a11y">Flèche haut</string>
+    <string name="remote_key_down_a11y">Flèche bas</string>
+    <string name="remote_key_left_a11y">Flèche gauche</string>
+    <string name="remote_key_right_a11y">Flèche droite</string>
+    <string name="remote_key_pipe_a11y">Barre verticale</string>
+    <string name="remote_key_tilde_a11y">Tilde</string>
+    <string name="remote_key_slash_a11y">Barre oblique</string>
+    <string name="remote_key_dash_a11y">Tiret</string>
+    <string name="remote_key_home">Début</string>
+    <string name="remote_key_end">Fin</string>
+    <string name="remote_key_pgup">PgPréc</string>
+    <string name="remote_key_pgup_a11y">Page précédente</string>
+    <string name="remote_key_pgdn">PgSuiv</string>
+    <string name="remote_key_pgdn_a11y">Page suivante</string>
+    <string name="remote_key_ins">Inser</string>
+    <string name="remote_key_ins_a11y">Insertion</string>
+    <string name="remote_key_del">Suppr</string>
+    <string name="remote_key_del_a11y">Supprimer</string>
+    <string name="remote_key_ctrl_combo">Contrôle %1$s</string>
+    <string name="remote_key_latched_once">actif pour la touche suivante</string>
+    <string name="remote_key_latched_locked">verrouillé</string>
+    <string name="remote_key_page">Page de touches %1$d sur %2$d</string>
+
+    <!-- S61 session choice -->
+    <string name="remote_choice_list_title">Lister les sessions Windows</string>
+    <string name="remote_choice_title">Sur quelle session ouvrir ?</string>
+    <string name="remote_choice_system">Session SYSTÈME (aucun utilisateur)</string>
+    <string name="remote_choice_system_detail">S\'exécute en tant que NT AUTHORITY\\SYSTEM</string>
+    <string name="remote_choice_loading">Interrogation des sessions Windows…</string>
+    <string name="remote_choice_unavailable">Les sessions utilisateur n\'ont pas pu être listées. La session SYSTÈME reste disponible.</string>
+    <string name="remote_choice_none">Aucun utilisateur n\'est connecté sur cet appareil.</string>
+    <string name="remote_choice_state_active">active</string>
+    <string name="remote_choice_state_disconnected">déconnectée</string>
+    <string name="remote_choice_session_detail">Session %1$d · %2$s</string>
+
+    <!-- S62 ObliReach (web viewer, v1) -->
+    <string name="remote_reach_web_viewer">Visionneuse web</string>
+    <string name="remote_reach_hint">La visionneuse ObliReach s\'ouvre dans la page. Si elle ne s\'ouvre pas (serveur pas encore à jour), touchez « Remote » puis « Oblireach ». Retour réduit la visionneuse sans la terminer.</string>
+    <string name="remote_reach_hint_dismiss">Masquer l\'indication</string>
+
+    <!-- Sessions pill, Activité section, notification -->
+    <plurals name="remote_pill">
+        <item quantity="one">%1$d session · %2$s %3$s</item>
+        <item quantity="many">%1$d sessions · %2$s %3$s</item>
+        <item quantity="other">%1$d sessions · %2$s %3$s</item>
+    </plurals>
+    <string name="remote_pill_a11y">%1$s. Reprendre la dernière session</string>
+    <string name="remote_sessions_title">Sessions ouvertes</string>
+    <plurals name="remote_notification_title">
+        <item quantity="one">%1$d session active</item>
+        <item quantity="many">%1$d sessions actives</item>
+        <item quantity="other">%1$d sessions actives</item>
+    </plurals>
+    <string name="remote_notification_end_all">Tout terminer</string>
+    <string name="remote_notification_channel">Sessions distantes</string>
+    <string name="remote_notification_channel_description">Terminaux et écrans distants ouverts, maintenus en arrière-plan.</string>
+</resources>
