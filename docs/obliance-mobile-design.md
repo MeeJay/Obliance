@@ -1490,7 +1490,7 @@ Pas de vibration aux changements d'onglet ni aux événements d'arrière-plan. A
 | `divider` | `#2A3048` | `#1E2336` | `#C9D0DC` | Seul séparateur autorisé, au-dessus de la barre d'actions basse |
 | `text` | `#F0F4FC` | `#D6DBE8` | `#2E3440` | Texte principal |
 | `text2` | `#B4BCD7` | `#9EA6C2` | `#4C566A` | Texte secondaire |
-| `textMuted` | `#828CAF` (5,8:1 sur `bg`) | `#7C86A8` (5,6:1) | `#58637A` (5,0:1 sur `bg`) | Métadonnées, surtitres |
+| `textMuted` | `#8791B2` (6,1:1 sur `bg`, 4,7:1 sur `active`) | `#818BAC` (≥ 4,5:1 sur `active`) | `#58637A` (5,0:1 sur `bg`) | Métadonnées, surtitres |
 | `textFaint` | `#4B5273` | `#3A4060` | `#9AA3B5` | Désactivé **uniquement** |
 
 **Accent Obliance (injecté par flavor)**
@@ -1537,9 +1537,9 @@ Pastille = couleur à 12 % en fond + libellé de la couleur + point de 8 dp.
 | `surface2` | `#181C30` | `#131418` | `#1E1819` |
 | `hover` / `active` | `#1D2238` / `#222740` | `#1B1B20` / `#24242A` | `#282021` / `#322628` |
 | `divider` | `#2A3048` | `#323339` | `#3E3234` |
-| `text` / `text2` | `#F0F4FC` / `#B4BCD7` | `#F0EAE2` / `#988A76` → **`#A89A86`** (AA) | `#EBE4E4` / `#94888A` → **`#A0949A`** (AA) |
-| `textMuted` | `#828CAF` | `#6A5E4E` → **`#8C7F6C`** (AA, 4,6:1) | `#706668` → **`#8A8082`** (AA) |
-| `accentFill` / `accent2` | `#C83232` / `#FF6868` | `#C2001B` / `#E01E37` | `#C2001B` / `#E01E37` |
+| `text` / `text2` | `#F0F4FC` / `#B4BCD7` | `#F0EAE2` / `#988A76` → **`#998B77`** (AA) | `#EBE4E4` / `#94888A` → **`#9A8F91`** (AA) |
+| `textMuted` | `#828CAF` → **`#8791B2`** (AA sur `active`) | `#6A5E4E` → **`#948B80`** (AA, 4,6:1) | `#706668` → **`#978F91`** (AA) |
+| `accentFill` / `accent2` | `#C83232` / `#FF6868` | `#C2001B` / `#E01E37` → **`#E43B51`** (AA) | `#C2001B` / `#E01E37` → **`#E54055`** (AA) |
 
 Les valeurs en gras corrigent le web là où le texte échoue au contraste AA sur son fond ; le test de contraste (§10.11) couvre les trois thèmes. Neon ajoute un liseré lumineux sous la barre supérieure et sur l'élément de navigation actif (comme le web), jamais sur les points d'état.
 

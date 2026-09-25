@@ -30,17 +30,39 @@ object ObliTokens {
     val operator = SurfaceTokens(
         bg = 0xFF0B0D1A, chrome = 0xFF0F1220, surface1 = 0xFF131728, surface2 = 0xFF181C30,
         hover = 0xFF1D2238, active = 0xFF222740, divider = 0xFF2A3048,
-        text = 0xFFF0F4FC, text2 = 0xFFB4BCD7, textMuted = 0xFF828CAF, textFaint = 0xFF4B5273,
+        // textMuted #8791B2 (was #828CAF): >= 4.5:1 on `active` too (4.69:1).
+        text = 0xFFF0F4FC, text2 = 0xFFB4BCD7, textMuted = 0xFF8791B2, textFaint = 0xFF4B5273,
     )
 
     val night = SurfaceTokens(
         bg = 0xFF05060C, chrome = 0xFF080A14, surface1 = 0xFF0C0F1C, surface2 = 0xFF111526,
         hover = 0xFF161A2E, active = 0xFF1B2036, divider = 0xFF1E2336,
-        text = 0xFFD6DBE8, text2 = 0xFF9EA6C2, textMuted = 0xFF7C86A8, textFaint = 0xFF3A4060,
+        text = 0xFFD6DBE8, text2 = 0xFF9EA6C2, textMuted = 0xFF818BAC, textFaint = 0xFF3A4060,
+    )
+
+    /**
+     * Server themes (design doc §8.2 "Thèmes serveur"), taken from the web
+     * client's index.css. Text tokens are lightened where the web fails AA on
+     * its own surfaces (Neon muted 2.4:1, Modern text2 4.3:1): same hue.
+     */
+    val neon = SurfaceTokens(
+        bg = 0xFF07080A, chrome = 0xFF0A0B0D, surface1 = 0xFF0D0E11, surface2 = 0xFF131418,
+        hover = 0xFF1B1B20, active = 0xFF24242A, divider = 0xFF323339,
+        text = 0xFFF0EAE2, text2 = 0xFF998B77, textMuted = 0xFF948B80, textFaint = 0xFF41414A,
+    )
+
+    val modern = SurfaceTokens(
+        bg = 0xFF0E0B0C, chrome = 0xFF120E0F, surface1 = 0xFF161112, surface2 = 0xFF1E1819,
+        hover = 0xFF282021, active = 0xFF322628, divider = 0xFF3E3234,
+        text = 0xFFEBE4E4, text2 = 0xFF9A8F91, textMuted = 0xFF978F91, textFaint = 0xFF4E4446,
     )
 
     val oblianceOperator = AccentTokens(brand = 0xFFE03A3A, fill = 0xFFC83232, fillPressed = 0xFFB41E1E, accent2 = 0xFFFF6868)
     val oblianceNight = AccentTokens(brand = 0xFFC23434, fill = 0xFFC23434, fillPressed = 0xFF8E1A1A, accent2 = 0xFFE25A5A)
+
+    /** Neon / Modern accent (web --c-accent 194 0 27); accent2 lightened to 4.6:1 on chrome. */
+    val neonAccent = AccentTokens(brand = 0xFFC2001B, fill = 0xFFC2001B, fillPressed = 0xFF96001A, accent2 = 0xFFE43B51)
+    val modernAccent = AccentTokens(brand = 0xFFC2001B, fill = 0xFFC2001B, fillPressed = 0xFF96001A, accent2 = 0xFFE54055)
 
     const val ON_FILL = 0xFFFFFFFF
 

@@ -16,6 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import tools.obli.core.designsystem.ObliTheme
+import tools.obli.core.designsystem.ObliThemeVariant
 import tools.obli.obliance.data.LocalObliServices
 import tools.obli.obliance.data.sample.SampleObliServices
 
@@ -28,9 +29,9 @@ class ShellScreenshotTest {
 
     private fun shot(name: String) = (System.getProperty("roborazzi.output.dir") ?: "build/outputs/roborazzi") + "/" + name
 
-    private fun app(services: SampleObliServices = SampleObliServices()) {
+    private fun app(services: SampleObliServices = SampleObliServices(), variant: ObliThemeVariant = ObliThemeVariant.OPERATOR) {
         compose.setContent {
-            ObliTheme {
+            ObliTheme(variant = variant) {
                 CompositionLocalProvider(LocalObliServices provides services) { ObliNextApp(ready = true) }
             }
         }
@@ -40,6 +41,13 @@ class ShellScreenshotTest {
     @Test fun phoneTriage() {
         app()
         compose.onRoot().captureRoboImage(shot("app_shell_phone_triage.png"))
+    }
+
+    /** Active server whose user picked Neon UI on the web (design doc §2.10). */
+    @Config(sdk = [35], qualifiers = "fr-rFR-w390dp-h844dp-xxhdpi")
+    @Test fun phoneTriageNeon() {
+        app(variant = ObliThemeVariant.NEON)
+        compose.onRoot().captureRoboImage(shot("app_shell_phone_triage_neon.png"))
     }
 
     @Config(sdk = [35], qualifiers = "fr-rFR-w1280dp-h800dp-land-mdpi")

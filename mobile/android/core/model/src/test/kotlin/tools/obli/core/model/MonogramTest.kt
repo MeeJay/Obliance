@@ -25,3 +25,18 @@ class MonogramTest {
         assertEquals(true, json.contains("\"id\":\"7f1c\""))
     }
 }
+
+class ObliUserThemeTest {
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    private fun user(prefs: String) = json.decodeFromString(ObliUser.serializer(), """{"id":3,"username":"og_karim.benali","preferences":$prefs}""")
+
+    @Test fun themeFromObject() = assertEquals("neon", user("""{"preferredTheme":"neon","toastEnabled":true}""").preferredTheme)
+    @Test fun themeFromJsonString() = assertEquals("modern", user("\"{\\\"preferredTheme\\\":\\\"modern\\\"}\"").preferredTheme)
+    @Test fun noOrOddPreferences() {
+        assertEquals(null, user("null").preferredTheme)
+        assertEquals(null, user("{}").preferredTheme)
+        assertEquals(null, user("\"not json\"").preferredTheme)
+        assertEquals(null, user("""{"preferredTheme":42}""").preferredTheme)
+        assertEquals(null, json.decodeFromString(ObliUser.serializer(), """{"id":1,"username":"a"}""").preferredTheme)
+    }
+}

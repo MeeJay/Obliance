@@ -68,6 +68,16 @@ class DesignSystemScreenshotTest {
         compose.onRoot().captureRoboImage(shot("designsystem_operator.png"))
     }
 
+    @Test fun neon() {
+        compose.setContent { Sample(ObliThemeVariant.NEON) }
+        compose.onRoot().captureRoboImage(shot("designsystem_neon.png"))
+    }
+
+    @Test fun modern() {
+        compose.setContent { Sample(ObliThemeVariant.MODERN) }
+        compose.onRoot().captureRoboImage(shot("designsystem_modern.png"))
+    }
+
     @Test fun night() {
         compose.setContent { Sample(ObliThemeVariant.NIGHT) }
         compose.onRoot().captureRoboImage(shot("designsystem_night.png"))

@@ -18,8 +18,8 @@ class ContrastTest {
     }
 
     @Test fun textOnSurfaces() {
-        for ((name, t) in listOf("operator" to ObliTokens.operator, "night" to ObliTokens.night)) {
-            for ((sName, bg) in listOf("bg" to t.bg, "chrome" to t.chrome, "surface1" to t.surface1, "surface2" to t.surface2)) {
+        for ((name, t) in THEMES) {
+            for ((sName, bg) in listOf("bg" to t.bg, "chrome" to t.chrome, "surface1" to t.surface1, "surface2" to t.surface2, "active" to t.active)) {
                 assertAtLeast(4.5, t.text, bg, "$name text on $sName")
                 assertAtLeast(4.5, t.text2, bg, "$name text2 on $sName")
                 assertAtLeast(4.5, t.textMuted, bg, "$name textMuted on $sName")
@@ -34,21 +34,47 @@ class ContrastTest {
         assertTrue(Contrast.ratio(ObliTokens.ON_FILL, ObliTokens.oblianceOperator.brand) < 4.5)
     }
 
+    @Test fun serverThemeAccents() {
+        for ((name, accent, surfaces) in listOf(
+            Triple("neon", ObliTokens.neonAccent, ObliTokens.neon), Triple("modern", ObliTokens.modernAccent, ObliTokens.modern),
+        )) {
+            assertAtLeast(4.5, ObliTokens.ON_FILL, accent.fill, "$name white on fill")
+            assertAtLeast(4.5, accent.accent2, surfaces.chrome, "$name accent2 on chrome")
+            assertAtLeast(4.5, accent.accent2, surfaces.surface1, "$name accent2 on surface1")
+        }
+    }
+
+    @Test fun serverThemeMapping() {
+        assertEquals(ObliThemeVariant.NEON, ObliThemeVariant.fromServerTheme("neon"))
+        assertEquals(ObliThemeVariant.MODERN, ObliThemeVariant.fromServerTheme(" Modern "))
+        assertEquals(ObliThemeVariant.OPERATOR, ObliThemeVariant.fromServerTheme("obli-operator"))
+        assertEquals(ObliThemeVariant.OPERATOR, ObliThemeVariant.fromServerTheme("obli-daylight"))
+        assertEquals(ObliThemeVariant.OPERATOR, ObliThemeVariant.fromServerTheme(null))
+    }
+
     @Test fun accent2OnChrome() {
         assertAtLeast(4.5, ObliTokens.oblianceOperator.accent2, ObliTokens.operator.chrome, "accent2 on chrome")
         assertAtLeast(4.5, ObliTokens.oblianceNight.accent2, ObliTokens.night.chrome, "night accent2 on chrome")
     }
 
     @Test fun statusLabelsOnTheirPill() {
-        for (s in ObliTokens.Status.entries) {
-            val pill = Contrast.blend(Contrast.withAlpha(s.argb, 0.12), ObliTokens.operator.surface1)
-            assertAtLeast(4.5, s.argb, pill, "status ${s.name} on its pill")
+        // Status colours are constant across themes (§8.3): check them on every theme's cards.
+        for ((name, t) in THEMES) for (s in ObliTokens.Status.entries) {
+            val pill = Contrast.blend(Contrast.withAlpha(s.argb, 0.12), t.surface1)
+            assertAtLeast(4.5, s.argb, pill, "$name status ${s.name} on its pill")
         }
+    }
+
+    private companion object {
+        val THEMES = listOf(
+            "operator" to ObliTokens.operator, "night" to ObliTokens.night,
+            "neon" to ObliTokens.neon, "modern" to ObliTokens.modern,
+        )
     }
 
     @Test fun serverMonogramsOnTheirTile() {
         // The tile has an opaque chrome base under the 18 % tint, whatever it sits on.
-        for ((name, t) in listOf("operator" to ObliTokens.operator, "night" to ObliTokens.night)) {
+        for ((name, t) in THEMES) {
             for (c in ServerColor.entries) {
                 val tile = Contrast.blend(Contrast.withAlpha(c.argb, 0.18), t.chrome)
                 assertAtLeast(4.5, c.argb, tile, "$name server ${c.name} monogram on its tile")

@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         val host = application as ObliServicesHost
         setContent {
             val ready by host.ready.collectAsStateWithLifecycle()
-            ObliTheme {
+            ObliTheme(variant = rememberActiveServerTheme(host.services)) {
                 CompositionLocalProvider(LocalObliServices provides host.services) {
                     ObliNextApp(ready = ready)
                 }

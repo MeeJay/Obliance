@@ -52,4 +52,6 @@ data class ServerProfile(
     val notify: NotifyScope = NotifyScope.ALL,
     val includeInTriage: Boolean = true,
     val lastTenantId: Long? = null,
+    /** Last web theme seen for the signed-in user on this server (applied at cold start, no flash). */
+    val theme: String? = null,
 )
