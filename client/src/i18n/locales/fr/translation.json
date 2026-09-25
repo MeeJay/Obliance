@@ -141,7 +141,9 @@
     "expandNav": "Déplier la navigation",
     "collapseAdmin": "Replier l'administration",
     "expandAdmin": "Déplier l'administration",
-    "administration": "Administration"
+    "administration": "Administration",
+    "scenarios": "Scénarios",
+    "softwareCompliance": "Politiques logicielles"
   },
   "login": {
     "title": "Tableau de bord de surveillance",
@@ -355,7 +357,13 @@
     "tooltipNoCompliance": "Aucune policy de conformité appliquée",
     "tooltipCompliance": "Conformité : {{pct}}% sur {{count}} policy(ies)",
     "tooltipNoUpdates": "Aucune MAJ en attente",
-    "tooltipUpdates": "{{count}} appareil(s) avec MAJ en attente"
+    "tooltipUpdates": "{{count}} appareil(s) avec MAJ en attente",
+    "tabOverview": "Vue d'ensemble",
+    "historyAvailableHours_one": "{{count}} h disponible",
+    "historyAvailableHours_other": "{{count}} h disponibles",
+    "historyAvailable_one": "{{count}} j disponible",
+    "historyAvailable_other": "{{count}} j disponibles",
+    "notEnoughForRange": "Historique insuffisant ({{have}}/{{need}})"
   },
   "monitors": {
     "new": "Ajouter un moniteur",
@@ -591,7 +599,9 @@
     "searchPlaceholder": "Rechercher un groupe...",
     "notFoundOrDenied": "Groupe introuvable ou accès refusé",
     "position": "Position",
-    "addSubgroup": "Ajouter un sous-groupe"
+    "addSubgroup": "Ajouter un sous-groupe",
+    "attachmentsTitle": "Automatisations rattachées",
+    "deviceGroup": "Groupe d'appareils"
   },
   "notifications": {
     "title": "Notifications",
@@ -904,7 +914,10 @@
       "scopeExclude": "Tous sauf ceux-ci",
       "searchDevices": "Rechercher des appareils…",
       "devicesTruncated": "Affichage des {{count}} premiers appareils — affinez la recherche pour trouver les autres."
-    }
+    },
+    "permissionSets": "Ensembles de permissions",
+    "tabPermissionSets": "Permissions",
+    "tabRestrictions": "Restrictions"
   },
   "agents": {
     "tabKeys": "Clés API",
@@ -949,7 +962,15 @@
       "alert": "Alerte",
       "alertDesc": "Notify when a threshold is breached",
       "update": "Mise à jour",
-      "updateDesc": "Notify when the agent starts a self-update"
+      "updateDesc": "Notify when the agent starts a self-update",
+      "online": "En ligne",
+      "onlineDesc": "Notifier lorsque l'agent revient en ligne",
+      "offline": "Hors ligne",
+      "offlineDesc": "Notifier lorsque l'agent passe hors ligne",
+      "warning": "Avertissement",
+      "warningDesc": "Notifier lorsqu'un seuil d'avertissement est dépassé",
+      "critical": "Critique",
+      "criticalDesc": "Notifier lorsqu'un seuil critique est dépassé"
     }
   },
   "remediations": {
@@ -1225,7 +1246,8 @@
     "toggleRole": "Cliquer pour basculer entre admin et membre",
     "roleAdmin": "admin",
     "switchWorkspace": "Changer d'espace de travail",
-    "label": "Tenant"
+    "label": "Tenant",
+    "twoStepApproval": "Exiger l'approbation d'un second administrateur pour les actions destructrices"
   },
   "devices": {
     "title": "Appareils",
@@ -1298,7 +1320,8 @@
       "macosSilicon": "macOS (Apple Silicon)",
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
-      "close": "Fermer"
+      "close": "Fermer",
+      "freebsd": "FreeBSD"
     },
     "approveSuccess": "Appareil approuvé",
     "refuseSuccess": "Appareil refusé",
@@ -1323,7 +1346,21 @@
       "masterSuffix": "(maître)",
       "showResults_one": "Afficher {{count}} appareil",
       "showResults_other": "Afficher {{count}} appareils",
-      "tenant": "Tenant"
+      "tenant": "Tenant",
+      "osNames": "Filtrer par version",
+      "osNamesCount_one": "{{count}} version",
+      "osNamesCount_other": "{{count}} versions",
+      "allOsNames": "Toutes les versions",
+      "builds": "Filtrer par build",
+      "buildsCount_one": "{{count}} build",
+      "buildsCount_other": "{{count}} builds",
+      "allBuilds": "Tous les builds",
+      "tags": "Filtrer par tag",
+      "tagsLabel": "Tags",
+      "osNamesTitle": "Versions",
+      "buildsTitle": "Builds",
+      "tagsTitle": "Tags appliqués",
+      "noTags": "Aucun tag dans le parc"
     },
     "table": {
       "device": "Appareil",
@@ -1364,7 +1401,15 @@
       "runScriptConfirm": "Exécuter",
       "runScriptDispatched": "Script envoyé à {{count}} appareils",
       "updateAgent": "Mettre à jour l'agent",
-      "clearSelection": "Effacer la sélection"
+      "clearSelection": "Effacer la sélection",
+      "changeGroup": "Changer de groupe",
+      "transferTenant": "Transférer vers un autre tenant",
+      "groupChanged_one": "{{count}} appareil déplacé",
+      "groupChanged_other": "{{count}} appareils déplacés",
+      "changeGroupTitle_one": "Changer le groupe de {{count}} appareil",
+      "changeGroupTitle_other": "Changer le groupe de {{count}} appareils",
+      "moveHere": "Déplacer",
+      "changeGroupHint": "Choisissez un groupe cible, ou laissez vide pour déplacer vers « Sans groupe »."
     },
     "action": {
       "updateAgent": "Mettre à jour l'agent",
@@ -1428,6 +1473,18 @@
       "title": "Transférer vers un autre tenant",
       "warningPrefix": "Cette action transfère",
       "warningSuffix": "vers un autre tenant. Le groupe, les métriques personnalisées, les alertes de planification et les résultats de conformité du tenant actuel seront effacés. La clé API de l'agent sera remplacée via une commande en file d'attente lors de son prochain push."
+    },
+    "lastReboot": "Dernier redémarrage",
+    "columns": {
+      "title": "Colonnes affichées",
+      "button": "Colonnes"
+    },
+    "selection": {
+      "exit": "Quitter le mode sélection",
+      "enter": "Activer le mode sélection — cliquez sur une ligne pour la sélectionner",
+      "active": "Sélection en cours",
+      "select": "Sélectionner",
+      "modeLabel": "Mode sélection"
     }
   },
   "compliance": {
@@ -1719,7 +1776,10 @@
     },
     "remote": {
       "chooseSession": "Choisir la session",
-      "chooseContext": "Choisir le contexte"
+      "chooseContext": "Choisir le contexte",
+      "startFailed": "Impossible de démarrer la session distante",
+      "reachStartFailed": "Impossible de démarrer la session Oblireach",
+      "open": "Ouvrir"
     },
     "veeam": {
       "stopJob": "Arrêter le job"
@@ -1921,6 +1981,13 @@
       "subtitle": "Saisissez le mot de passe de l'appareil pour accéder à",
       "title": "Déverrouillage du mode confidentialité",
       "unlocked": "{{feature}} déverrouillé"
+    },
+    "feature": {
+      "scripts": "Scripts",
+      "remote": "Accès distant",
+      "files": "Explorateur de fichiers",
+      "processes": "Processus",
+      "chat": "Discussion"
     }
   },
   "fileExplorer": {
@@ -2040,7 +2107,8 @@
     "privacyBypass": {
       "label": "Passer à travers le mode privacy",
       "hint": "Désactivée (par défaut), les appareils en mode privacy sont silencieusement ignorés. Activée, la planification s'exécute aussi sur ces appareils — outrepasse le choix explicite de l'utilisateur. L'activation peut exiger une validation administrateur selon la matrice de restrictions du tenant.",
-      "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur"
+      "pendingApprovalToast": "Planification enregistrée — le passage en privacy attend la validation d'un second administrateur",
+      "createdPendingApproval": "Planification créée : le contournement du mode confidentialité attend l'approbation d'un administrateur"
     },
     "exportCsv": "Exporter CSV",
     "exportHistory": "Exporter cette exécution en CSV (stdout/stderr complet)",
@@ -2052,7 +2120,8 @@
     "notifyOnceTooltip": "Déduplique les notifications d'échec répétées par appareil : une alerte au premier échec, puis silence jusqu'au rétablissement. S'applique aux alertes Assert pass.",
     "deleteConfirmNamed": "Supprimer la planification « {{name}} » ?",
     "pauseSchedule": "Mettre en pause la planification",
-    "activateSchedule": "Activer la planification"
+    "activateSchedule": "Activer la planification",
+    "created": "Planification créée"
   },
   "veeam": {
     "title": "Tâches de sauvegarde Veeam",
@@ -2177,7 +2246,8 @@
     "installConsole": "Installer la console",
     "interactiveConsole": "Console interactive",
     "consoleZoomOut": "Touchez l'écran pour l'ajuster à la fenêtre.",
-    "consoleZoomIn": "Touchez l'écran pour l'afficher en taille réelle (faites défiler pour vous déplacer)."
+    "consoleZoomIn": "Touchez l'écran pour l'afficher en taille réelle (faites défiler pour vous déplacer).",
+    "consoleHostUnreachable": "L'agent de l'hôte n'est pas connecté : la console de la VM nécessite une connexion active à l'agent."
   },
   "policies": {
     "title": "Politiques",
@@ -2433,7 +2503,8 @@
     "updateError": "Erreur MAJ",
     "refused": "Refusé",
     "scheduleError": "Erreur planification",
-    "updateAvailable": "Mise à jour dispo"
+    "updateAvailable": "Mise à jour dispo",
+    "update_error": "Erreur de mise à jour"
   },
   "commands": {
     "unsupportedOnAgent": "Non supporté par cette version d'agent"
@@ -2489,7 +2560,10 @@
     "newGroupName": "Nom du nouveau groupe",
     "rootLevel": "Niveau racine (sans parent)",
     "rootNoParent": "(racine — sans parent)",
-    "settings": "Paramètres du groupe"
+    "settings": "Paramètres du groupe",
+    "ungrouped": "Sans groupe",
+    "ungroupedHint": "Appareils qui n'appartiennent encore à aucun groupe",
+    "tenantEmpty": "Aucun groupe pour le moment"
   },
   "sort": {
     "name": "Nom",
@@ -2497,7 +2571,8 @@
     "lastSeen": "Vu en dernier",
     "os": "SE",
     "version": "Version",
-    "group": "Groupe"
+    "group": "Groupe",
+    "disk": "Disque"
   },
   "softwareCompliance": {
     "title": "Conformité logicielle",
@@ -2713,7 +2788,10 @@
     "enableFailed": "Failed to enable airgap",
     "disableFailed": "Failed to disable airgap",
     "bannerTitle": "AIRGAP — Appareil isolé du réseau",
-    "bannerMessage": "Cet appareil est en mode Airgap suite à un incident de sécurité. Ne désactivez pas l’Airgap sans vérification préalable de l’équipe sécurité."
+    "bannerMessage": "Cet appareil est en mode Airgap suite à un incident de sécurité. Ne désactivez pas l’Airgap sans vérification préalable de l’équipe sécurité.",
+    "disableSent": "Commande de désactivation de l'isolement réseau envoyée",
+    "confirmEnable": "Cet appareil sera isolé de tout le trafic réseau, à l'exception des communications avec le serveur Obliance. Continuer ?",
+    "enableSent": "Commande d'isolement réseau envoyée"
   },
   "duplicateAgentId": {
     "bannerTitle": "ID agent dupliqué suspecté",
@@ -3224,7 +3302,15 @@
       "critShort": "Crit.",
       "warnTitle": "Seuil d'alerte (%)",
       "critTitle": "Seuil critique (%)"
-    }
+    },
+    "saved": "Seuils mis à jour",
+    "failedSave": "Échec de la mise à jour des seuils",
+    "failedLoad": "Échec du chargement des seuils",
+    "titleGroup": "Seuils",
+    "globalTitle": "Seuils métriques globaux",
+    "globalHelp": "Valeurs par défaut appliquées à TOUS les tenants. Chaque tenant peut les remplacer dans /policies → Seuils. Laissez un champ vide pour utiliser la valeur système par défaut (indication en gris).",
+    "tenantTitle": "Seuils par défaut du tenant",
+    "tenantHelp": "Chaque groupe et chaque appareil de ce tenant hérite de ces valeurs si rien n'est défini à son propre niveau. Laissez un champ vide pour hériter du niveau global (indication en gris)."
   },
   "desktopUpdate": {
     "appName": "L'application de bureau",
@@ -3665,7 +3751,8 @@
     "tabHistory": "Historique",
     "title": "Sessions distantes",
     "user": "Utilisateur",
-    "view": "Voir"
+    "view": "Voir",
+    "noToken": "Le serveur n'a pas renvoyé de jeton de connexion pour cette session."
   },
   "sshTerminal": {
     "connectionLost": "Connexion perdue — le tunnel a été fermé de façon inattendue",
@@ -3711,10 +3798,31 @@
       "pgup": "Page précédente",
       "right": "Flèche droite",
       "tab": "Tab",
-      "up": "Flèche haut"
+      "up": "Flèche haut",
+      "f1": "F1",
+      "f2": "F2",
+      "f3": "F3",
+      "f4": "F4",
+      "f5": "F5",
+      "f6": "F6",
+      "f7": "F7",
+      "f8": "F8",
+      "f9": "F9",
+      "f10": "F10",
+      "f11": "F11",
+      "f12": "F12"
     },
     "nav": "Nav",
     "showKeyboard": "Afficher le clavier",
     "title": "Touches"
+  },
+  "os": {
+    "other": "Autres"
+  },
+  "security": {
+    "title": "Sécurité",
+    "description": "Journal d'audit et approbations en attente.",
+    "tabAudit": "Journal d'audit",
+    "tabApprovals": "Approbations"
   }
 }

@@ -141,7 +141,9 @@
     "expandNav": "Expand navigation",
     "collapseAdmin": "Collapse administration",
     "expandAdmin": "Expand administration",
-    "administration": "Administration"
+    "administration": "Administration",
+    "scenarios": "Scenarios",
+    "softwareCompliance": "Software policies"
   },
   "login": {
     "title": "Monitoring Dashboard",
@@ -355,7 +357,13 @@
     "tooltipNoCompliance": "No compliance policy applied",
     "tooltipCompliance": "Compliance: {{pct}}% across {{count}} policy(ies)",
     "tooltipNoUpdates": "No pending updates",
-    "tooltipUpdates": "{{count}} device(s) with pending updates"
+    "tooltipUpdates": "{{count}} device(s) with pending updates",
+    "tabOverview": "Overview",
+    "historyAvailableHours_one": "{{count}} h available",
+    "historyAvailableHours_other": "{{count}} h available",
+    "historyAvailable_one": "{{count}} day available",
+    "historyAvailable_other": "{{count}} days available",
+    "notEnoughForRange": "Not enough history ({{have}}/{{need}})"
   },
   "monitors": {
     "new": "Add Monitor",
@@ -591,7 +599,9 @@
     "searchPlaceholder": "Search groups...",
     "notFoundOrDenied": "Group not found or access denied",
     "position": "Position",
-    "addSubgroup": "Add sub-group"
+    "addSubgroup": "Add sub-group",
+    "attachmentsTitle": "Attached automations",
+    "deviceGroup": "Device Group"
   },
   "notifications": {
     "title": "Notifications",
@@ -904,7 +914,10 @@
       "scopeExclude": "All except these",
       "searchDevices": "Search devices…",
       "devicesTruncated": "Showing the first {{count}} devices — refine the search to find others."
-    }
+    },
+    "permissionSets": "Permission Sets",
+    "tabPermissionSets": "Permissions",
+    "tabRestrictions": "Restrictions"
   },
   "agents": {
     "tabKeys": "API Keys",
@@ -945,7 +958,15 @@
       "alert": "Alert",
       "alertDesc": "Notify when a threshold is breached",
       "update": "Update",
-      "updateDesc": "Notify when the agent starts a self-update"
+      "updateDesc": "Notify when the agent starts a self-update",
+      "online": "Online",
+      "onlineDesc": "Notify when the agent comes back online",
+      "offline": "Offline",
+      "offlineDesc": "Notify when the agent goes offline",
+      "warning": "Warning",
+      "warningDesc": "Notify when a warning threshold is breached",
+      "critical": "Critical",
+      "criticalDesc": "Notify when a critical threshold is breached"
     },
     "title": "Agents",
     "subtitle": "Manage agents and API keys",
@@ -1225,7 +1246,8 @@
     "toggleRole": "Click to toggle admin / member role",
     "roleAdmin": "admin",
     "switchWorkspace": "Switch workspace",
-    "label": "Tenant"
+    "label": "Tenant",
+    "twoStepApproval": "Require 2nd-admin approval for destructive actions"
   },
   "devices": {
     "title": "Devices",
@@ -1298,7 +1320,8 @@
       "macosSilicon": "macOS (Apple Silicon)",
       "macosIntel": "macOS (Intel)",
       "windows": "Windows (PowerShell, Admin)",
-      "close": "Close"
+      "close": "Close",
+      "freebsd": "FreeBSD"
     },
     "approveSuccess": "Device approved",
     "refuseSuccess": "Device refused",
@@ -1323,7 +1346,21 @@
       "masterSuffix": "(master)",
       "showResults_one": "Show {{count}} device",
       "showResults_other": "Show {{count}} devices",
-      "tenant": "Tenant"
+      "tenant": "Tenant",
+      "osNames": "Filter by version",
+      "osNamesCount_one": "{{count}} version",
+      "osNamesCount_other": "{{count}} versions",
+      "allOsNames": "All versions",
+      "builds": "Filter by build",
+      "buildsCount_one": "{{count}} build",
+      "buildsCount_other": "{{count}} builds",
+      "allBuilds": "All builds",
+      "tags": "Filter by tag",
+      "tagsLabel": "Tags",
+      "osNamesTitle": "Versions",
+      "buildsTitle": "Builds",
+      "tagsTitle": "Applied tags",
+      "noTags": "No tags in the fleet"
     },
     "table": {
       "device": "Device",
@@ -1364,7 +1401,15 @@
       "runScriptConfirm": "Run",
       "runScriptDispatched": "Script dispatched to {{count}} devices",
       "updateAgent": "Update agent",
-      "clearSelection": "Clear selection"
+      "clearSelection": "Clear selection",
+      "changeGroup": "Change group",
+      "transferTenant": "Transfer to another tenant",
+      "groupChanged_one": "Moved {{count}} device",
+      "groupChanged_other": "Moved {{count}} devices",
+      "changeGroupTitle_one": "Change group for {{count}} device",
+      "changeGroupTitle_other": "Change group for {{count}} devices",
+      "moveHere": "Move",
+      "changeGroupHint": "Pick a target group, or leave blank to move to \"Ungrouped\"."
     },
     "action": {
       "updateAgent": "Update agent",
@@ -1428,6 +1473,18 @@
       "title": "Transfer to another tenant",
       "warningPrefix": "This transfers",
       "warningSuffix": "to another tenant. Group assignment, custom metrics, schedule alerts, and compliance results from the current tenant will be cleared. The agent's API key will be swapped via a queued command on its next push."
+    },
+    "lastReboot": "Last reboot",
+    "columns": {
+      "title": "Visible columns",
+      "button": "Columns"
+    },
+    "selection": {
+      "exit": "Exit selection mode",
+      "enter": "Enter selection mode — click any row to select",
+      "active": "Selecting",
+      "select": "Select",
+      "modeLabel": "Selection mode"
     }
   },
   "compliance": {
@@ -1719,7 +1776,10 @@
     },
     "remote": {
       "chooseSession": "Choose Session",
-      "chooseContext": "Choose Context"
+      "chooseContext": "Choose Context",
+      "startFailed": "Failed to start remote session",
+      "reachStartFailed": "Failed to start Oblireach session",
+      "open": "Open"
     },
     "veeam": {
       "stopJob": "Stop job"
@@ -1947,6 +2007,13 @@
       "subtitle": "Enter the device password to access",
       "title": "Privacy mode unlock",
       "unlocked": "{{feature}} unlocked"
+    },
+    "feature": {
+      "scripts": "Scripts",
+      "remote": "Remote access",
+      "files": "File explorer",
+      "processes": "Processes",
+      "chat": "Chat"
     }
   },
   "fileExplorer": {
@@ -2066,7 +2133,8 @@
     "privacyBypass": {
       "label": "Bypass privacy mode",
       "hint": "When off (default), devices in privacy mode are skipped silently. When on, the schedule runs on them too — overrides the user's explicit privacy choice. Enabling this may require admin approval depending on the tenant's restriction settings.",
-      "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval"
+      "pendingApprovalToast": "Schedule saved — privacy-bypass toggle awaiting admin approval",
+      "createdPendingApproval": "Schedule created — the privacy-mode bypass is awaiting admin approval"
     },
     "exportCsv": "Export CSV",
     "exportHistory": "Export this run to CSV (full stdout/stderr)",
@@ -2078,7 +2146,8 @@
     "notifyOnceTooltip": "Dedupe repeated failure notifications per device: one alert when it starts failing, silence until it recovers. Applies to Assert Pass alerts.",
     "deleteConfirmNamed": "Delete schedule \"{{name}}\"?",
     "pauseSchedule": "Pause schedule",
-    "activateSchedule": "Activate schedule"
+    "activateSchedule": "Activate schedule",
+    "created": "Schedule created"
   },
   "veeam": {
     "title": "Veeam backup jobs",
@@ -2203,7 +2272,8 @@
     "installConsole": "Install console",
     "interactiveConsole": "Interactive console",
     "consoleZoomOut": "Tap the screen to fit it to the window.",
-    "consoleZoomIn": "Tap the screen to view it at full size (scroll to pan)."
+    "consoleZoomIn": "Tap the screen to view it at full size (scroll to pan).",
+    "consoleHostUnreachable": "The host agent is not connected — the VM console needs a live agent connection."
   },
   "policies": {
     "title": "Policies",
@@ -2459,7 +2529,8 @@
     "updateError": "Update Error",
     "refused": "Refused",
     "scheduleError": "Schedule Error",
-    "updateAvailable": "Update available"
+    "updateAvailable": "Update available",
+    "update_error": "Update error"
   },
   "commands": {
     "unsupportedOnAgent": "Not supported by this agent build"
@@ -2515,7 +2586,10 @@
     "newGroupName": "New group name",
     "rootLevel": "Root level (no parent)",
     "rootNoParent": "(root — no parent)",
-    "settings": "Group settings"
+    "settings": "Group settings",
+    "ungrouped": "Ungrouped",
+    "ungroupedHint": "Devices that don't belong to any group yet",
+    "tenantEmpty": "No groups yet"
   },
   "sort": {
     "name": "Name",
@@ -2523,7 +2597,8 @@
     "lastSeen": "Last seen",
     "os": "OS",
     "version": "Version",
-    "group": "Group"
+    "group": "Group",
+    "disk": "Disk"
   },
   "softwareCompliance": {
     "title": "Software Compliance",
@@ -3225,7 +3300,15 @@
       "critShort": "Crit",
       "warnTitle": "Warning threshold (%)",
       "critTitle": "Critical threshold (%)"
-    }
+    },
+    "saved": "Thresholds updated",
+    "failedSave": "Failed to update thresholds",
+    "failedLoad": "Failed to load thresholds",
+    "titleGroup": "Thresholds",
+    "globalTitle": "Global metric thresholds",
+    "globalHelp": "Default applied to ALL tenants. Each tenant can override it under /policies → Thresholds. Leave a field empty to use the system default (grey placeholder).",
+    "tenantTitle": "Tenant default thresholds",
+    "tenantHelp": "Every group and device of this tenant inherits these values unless set at its own level. Leave a field empty to inherit from the global layer (grey placeholder)."
   },
   "desktopUpdate": {
     "appName": "Desktop app",
@@ -3666,7 +3749,8 @@
     "tabHistory": "History",
     "title": "Remote Sessions",
     "user": "User",
-    "view": "View"
+    "view": "View",
+    "noToken": "The server did not return a connection token for this session."
   },
   "sshTerminal": {
     "connectionLost": "Connection lost — the tunnel was closed unexpectedly",
@@ -3712,10 +3796,31 @@
       "pgup": "Page Up",
       "right": "Right arrow",
       "tab": "Tab",
-      "up": "Up arrow"
+      "up": "Up arrow",
+      "f1": "F1",
+      "f2": "F2",
+      "f3": "F3",
+      "f4": "F4",
+      "f5": "F5",
+      "f6": "F6",
+      "f7": "F7",
+      "f8": "F8",
+      "f9": "F9",
+      "f10": "F10",
+      "f11": "F11",
+      "f12": "F12"
     },
     "nav": "Nav",
     "showKeyboard": "Show keyboard",
     "title": "Keys"
+  },
+  "os": {
+    "other": "Other"
+  },
+  "security": {
+    "title": "Security",
+    "description": "Audit trail and pending approvals.",
+    "tabAudit": "Audit log",
+    "tabApprovals": "Approvals"
   }
 }
