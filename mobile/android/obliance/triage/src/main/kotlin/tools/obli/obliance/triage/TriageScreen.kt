@@ -51,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -96,14 +97,24 @@ import tools.obli.core.security.ActionSpec
 import tools.obli.obliance.data.LocalObliServices
 
 /**
- * S10 "À traiter" (design doc §5 S10): alerts and two-person approvals of every
- * connected server, sorted by computed priority. [onOpenDevice] opens a device
- * of ANY server: the application switches server when needed (§2.10).
+ * S10 "À traiter" (design doc §5 S10): alerts, two-person approvals and
+ * enrolments of every connected server, sorted by computed priority.
+ * [onOpenDevice] opens a device of ANY server: the application switches server
+ * when needed (§2.10). [request] (a notification tap…) is handled once, then
+ * [onRequestHandled] is called; the caller clears it.
  */
 @Composable
-fun TriageScreen(onOpenDevice: (ServerId, Long) -> Unit) = TriageRoute(onOpenDevice)
+fun TriageScreen(
+    onOpenDevice: (ServerId, Long) -> Unit,
+    request: TriageRequest? = null,
+    onRequestHandled: () -> Unit = {},
+) = TriageRoute(onOpenDevice, request = request, onRequestHandled = onRequestHandled)
 
-/** [clock], [zone] and [tick] are injected by the screenshot tests (fixed night of 25 September). */
+/**
+ * [clock], [zone] and [tick] are injected by the screenshot tests (fixed night
+ * of 25 September); [enrolments] too (null = the real servers, or the §4 sample
+ * behind SampleObliServices).
+ */
 @Composable
 internal fun TriageRoute(
     onOpenDevice: (ServerId, Long) -> Unit,
@@ -111,11 +122,20 @@ internal fun TriageRoute(
     zone: ZoneId = ZoneId.systemDefault(),
     tick: Boolean = true,
     initialSegment: TriageSegment? = null,
+    request: TriageRequest? = null,
+    onRequestHandled: () -> Unit = {},
+    enrolments: EnrolmentsSource? = null,
 ) {
     val services = LocalObliServices.current
-    val vm = viewModel { TriageViewModel(services, clock).also { vm -> initialSegment?.let(vm::selectSegment) } }
+    val vm = viewModel {
+        TriageViewModel(services, clock, enrolmentsSource = enrolments ?: defaultEnrolmentsSource(services))
+            .also { vm -> initialSegment?.let(vm::selectSegment) }
+    }
     val ui by vm.ui.collectAsStateWithLifecycle()
     val review by vm.review.collectAsStateWithLifecycle()
+    val enrolReview by vm.enrolReview.collectAsStateWithLifecycle()
+    // Enrolment actions run through the app's ActionRunner (S41 T1, tenant switch, S42…).
+    val runner = actionRunnerOrNull()
     // Relative ages refresh every 5 s (§7.3).
     val now by produceState(clock(), tick) {
         while (tick) {
@@ -126,6 +146,13 @@ internal fun TriageRoute(
     val time = TriageTime(now, zone)
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
+    val wording = remember(res) { ResourceEnrolmentWording(res) }
+
+    // A request (notification tap) is handled once; the same instance is never reported twice.
+    val requestHandled by rememberUpdatedState(onRequestHandled)
+    LaunchedEffect(vm, request) {
+        if (request != null && vm.handle(request)) requestHandled()
+    }
 
     LaunchedEffect(vm) {
         vm.events.collect { e ->
@@ -141,6 +168,13 @@ internal fun TriageRoute(
                 is TriageEvent.MarkedAllRead -> launch { snackbar.showSnackbar(res.getString(R.string.triage_marked_all_read)) }
                 is TriageEvent.ApprovalDone -> launch {
                     snackbar.showSnackbar(res.getString(if (e.approved) R.string.triage_approval_done_approved else R.string.triage_approval_done_denied))
+                }
+                is TriageEvent.Enrolment -> launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    snackbar.showSnackbar(enrolmentMessage(res, e.outcome))
+                }
+                is TriageEvent.RequestGone -> launch {
+                    snackbar.showSnackbar(res.getString(if (e.enrolment) R.string.triage_request_enrolment_gone else R.string.triage_request_approval_gone))
                 }
             }
         }
@@ -165,8 +199,28 @@ internal fun TriageRoute(
             onMarkAllRead = vm::markAllRead,
             onReconnect = vm::reconnect,
             onReview = vm::openReview,
+            onEnrolOpen = vm::openEnrolment,
+            onEnrolApprove = { item -> runner?.let { vm.approveEnrolment(item, it, wording) } },
+            onEnrolRefuse = { item -> runner?.let { vm.refuseEnrolment(item, it, wording) } },
+            onEnrolApproveAll = { group -> runner?.let { vm.approveAllEnrolments(group, it, wording) } },
         ),
     )
+
+    enrolReview?.let { state ->
+        // The live card when it is still listed (busy, greyed…), else the one it was opened from.
+        val live = state.copy(item = ui.enrolment(state.key) ?: state.item)
+        EnrolmentSheet(
+            state = live,
+            time = time,
+            multiServer = ui.multiServer,
+            onApprove = { runner?.let { vm.approveEnrolment(live.item, it, wording) } },
+            onRefuse = { runner?.let { vm.refuseEnrolment(live.item, it, wording) } },
+            onPickGroup = { vm.enrolmentStep(EnrolmentStep.PICK_GROUP) },
+            onMove = { group -> runner?.let { vm.approveAndMove(live.item, group, it, wording) } },
+            onBack = { vm.enrolmentStep(EnrolmentStep.DETAILS) },
+            onClose = vm::closeEnrolment,
+        )
+    }
 
     review?.let { state ->
         ReviewSheet(
@@ -206,6 +260,31 @@ private fun ReviewSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EnrolmentSheet(
+    state: EnrolmentReviewState,
+    time: TriageTime,
+    multiServer: Boolean,
+    onApprove: () -> Unit,
+    onRefuse: () -> Unit,
+    onPickGroup: () -> Unit,
+    onMove: (GroupChoice) -> Unit,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val c = ObliTheme.colors
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = c.surface1,
+        contentColor = c.text,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+    ) {
+        EnrolmentReviewContent(state, time, multiServer, onApprove, onRefuse, onPickGroup, onMove, onBack, onClose)
+    }
+}
+
 internal class TriageActions(
     val onOpenDevice: (ServerId, Long) -> Unit = { _, _ -> },
     val onSegment: (TriageSegment) -> Unit = {},
@@ -221,6 +300,10 @@ internal class TriageActions(
     val onMarkAllRead: (List<ServerId>) -> Unit = {},
     val onReconnect: (ServerId) -> Unit = {},
     val onReview: (EscalationUi) -> Unit = {},
+    val onEnrolOpen: (EnrolmentItemUi) -> Unit = {},
+    val onEnrolApprove: (EnrolmentItemUi) -> Unit = {},
+    val onEnrolRefuse: (EnrolmentItemUi) -> Unit = {},
+    val onEnrolApproveAll: (EnrolmentGroupUi) -> Unit = {},
 )
 
 private fun failureText(outcome: ApiOutcome<Nothing>): Int = when (outcome) {
@@ -252,18 +335,24 @@ internal fun TriageContent(ui: TriageUi, time: TriageTime, actions: TriageAction
         )
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxHeight().widthIn(max = 720.dp).fillMaxWidth()) {
-                if (ui.showApprovals) {
+                if (ui.showApprovals || ui.showEnrolments) {
                     SegmentedControl(ui, actions.onSegment, Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp))
                 }
-                if (ui.segment == TriageSegment.ALERTS) FilterChips(ui, actions)
+                when (ui.segment) {
+                    TriageSegment.ALERTS -> FilterChips(ui, actions)
+                    // The server chip also filters enrolments (2+ servers).
+                    TriageSegment.ENROLMENTS -> if (ui.multiServer) FilterChips(ui, actions, severities = false)
+                    TriageSegment.APPROVALS -> Unit
+                }
                 PullToRefreshBox(
-                    isRefreshing = ui.refreshing,
+                    isRefreshing = if (ui.segment == TriageSegment.ENROLMENTS) ui.enrolmentRefreshing else ui.refreshing,
                     onRefresh = actions.onRefresh,
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     when (ui.segment) {
                         TriageSegment.ALERTS -> AlertsList(ui, time, listState, actions)
                         TriageSegment.APPROVALS -> ApprovalsList(ui, time, actions)
+                        TriageSegment.ENROLMENTS -> EnrolmentsList(ui, time, actions)
                     }
                     androidx.compose.animation.AnimatedVisibility(
                         visible = ui.heldBack > 0 && ui.segment == TriageSegment.ALERTS,
@@ -331,7 +420,7 @@ private fun OverflowMenu(ui: TriageUi, actions: TriageActions) {
     }
 }
 
-/** Alertes / Approbations (STYLEKIT segmented): selected #222740 + 600, counts in mono. */
+/** Alertes / Approbations / Enrôlements (STYLEKIT segmented): selected #222740 + 600, counts in mono; segments without the right are hidden. */
 @Composable
 private fun SegmentedControl(ui: TriageUi, onSelect: (TriageSegment) -> Unit, modifier: Modifier = Modifier) {
     val c = ObliTheme.colors
@@ -339,9 +428,10 @@ private fun SegmentedControl(ui: TriageUi, onSelect: (TriageSegment) -> Unit, mo
         modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).background(c.surface1).padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        listOf(
+        listOfNotNull(
             Triple(TriageSegment.ALERTS, stringResource(R.string.triage_segment_alerts), ui.alertCount),
-            Triple(TriageSegment.APPROVALS, stringResource(R.string.triage_segment_approvals), ui.approvalCount),
+            if (ui.showApprovals) Triple(TriageSegment.APPROVALS, stringResource(R.string.triage_segment_approvals), ui.approvalCount) else null,
+            if (ui.showEnrolments) Triple(TriageSegment.ENROLMENTS, stringResource(R.string.triage_segment_enrolments), ui.enrolmentCount) else null,
         ).forEach { (segment, label, count) ->
             val selected = ui.segment == segment
             Row(
@@ -367,7 +457,7 @@ private fun SegmentedControl(ui: TriageUi, onSelect: (TriageSegment) -> Unit, mo
 
 /** Server dropdown (2+ servers) then severity toggles with counts (STYLEKIT chip-filter). */
 @Composable
-private fun FilterChips(ui: TriageUi, actions: TriageActions) {
+private fun FilterChips(ui: TriageUi, actions: TriageActions, severities: Boolean = true) {
     val c = ObliTheme.colors
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -375,7 +465,7 @@ private fun FilterChips(ui: TriageUi, actions: TriageActions) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (ui.multiServer) ServerChip(ui, actions.onServer)
-        ui.severityChips.forEach { chip ->
+        if (severities) ui.severityChips.forEach { chip ->
             val look = SeverityLook.of(chip.severity)
             val label = stringResource(look.label)
             val on = stringResource(R.string.triage_filter_on)
@@ -438,7 +528,8 @@ private fun ServerChip(ui: TriageUi, onServer: (ServerId?) -> Unit) {
                     text = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(chip.profile.displayName, style = ObliTypography.label, color = c.text)
-                            Text(chip.unread.toString(), style = ObliTypography.monoCaption, color = c.textMuted)
+                            val count = if (ui.segment == TriageSegment.ENROLMENTS) chip.pending else chip.unread
+                            Text(count.toString(), style = ObliTypography.monoCaption, color = c.textMuted)
                         }
                     },
                     trailingIcon = { if (chip.selected) Icon(ObliIcons.Check, null, tint = c.text, modifier = Modifier.size(16.dp)) },
@@ -588,7 +679,7 @@ private fun FilteredOut(onClear: () -> Unit) {
 }
 
 @Composable
-private fun ErrorCard(onRetry: () -> Unit) {
+internal fun ErrorCard(onRetry: () -> Unit) {
     val c = ObliTheme.colors
     Column(
         Modifier.padding(16.dp).fillMaxWidth().obliCard(color = c.surface1).padding(16.dp),

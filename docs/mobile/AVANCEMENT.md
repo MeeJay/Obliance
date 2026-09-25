@@ -55,7 +55,7 @@ Vérifié : `./gradlew test :obliance:app:assembleDebug :obliance:app:lintDebug 
 
 ### À faire côté propriétaire
 - **Build server + client** (`000-RegularUpdate.bat` + promotion) : embarque tout le point 4 et le paramètre ObliReach. Non testé contre une vraie base.
-- Tester l'APK 0.2.0 sur le téléphone (premier essai réel : SSO Obligate, temps réel, terminal natif, WebView).
+- ~~Tester l'APK 0.2.0 sur le téléphone~~ **Fait le 25/09/2026 : l'APK 0.2.0 construite par le cloud est installée sur le téléphone du propriétaire et fonctionne bien** (premier essai réel).
 - Décider : purge de l'historique git ; localisation visible dans `docs/screenshots/device-overview.png` (« Ormesson-sur-Marne »).
 - Défauts serveur signalés, non corrigés : édition d'un script utilisé par le scénario d'un admin (hors contrôle `execute`), approbations équipes/utilisateurs jamais exécutées, `sweepExpired()` jamais appelé, responsable de scénario supprimé = pas de contrôle.
 

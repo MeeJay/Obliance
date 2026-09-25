@@ -10,11 +10,18 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,6 +31,7 @@ import org.robolectric.annotation.GraphicsMode
 import tools.obli.core.designsystem.ObliTheme
 import tools.obli.core.network.ApiOutcome
 import tools.obli.core.network.FailureKind
+import tools.obli.obliance.api.DevicePage
 import tools.obli.obliance.data.LocalObliServices
 import tools.obli.obliance.data.sample.SampleData
 import tools.obli.obliance.data.sample.SampleObliServices
@@ -100,6 +108,62 @@ class DevicesScreenshotTest {
     @Test fun listEmptyTenant() {
         val s = services().also { it.recording.pageAnswer = { q, _ -> ApiOutcome.Ok(tools.obli.obliance.api.DevicePage(emptyList(), 0, q.page, q.pageSize)) } }
         capture("devices_list_empty.png", s) { DeviceListScreen(onOpenDevice = { _, _ -> }) }
+    }
+
+    // "Filtrer la vue globale" (§2.3) ---------------------------------------------
+
+    private fun acmeFiltered(): TestServices = services().also { runBlocking { it.base.tenants.setViewFilter(setOf(SampleData.ACME_TENANT)) } }
+
+    @Test fun listFiltered() {
+        val s = acmeFiltered()
+        capture("devices_list_filtered.png", s) { DeviceListScreen(onOpenDevice = { _, _ -> }) }
+        assertEquals(listOf(SampleData.ACME_TENANT), s.recording.pages.last().first.tenantIds)
+        compose.onNodeWithText("Filtre : ACME").assertExists()
+        // Quick-chip counts hidden (the summary covers every tenant): "Hors ligne" without "16".
+        compose.onNodeWithText("16").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Effacer le filtre de la vue globale").performClick()
+        compose.waitForIdle()
+        assertEquals(emptyList<Long>(), s.base.registry.state.value.byId(SampleData.PROD)!!.viewFilter)
+        compose.onNodeWithText("Filtre : ACME").assertDoesNotExist()
+        assertEquals(emptyList<Long>(), s.recording.pages.last().first.tenantIds)
+    }
+
+    @Test fun listFilteredEmpty() {
+        val s = acmeFiltered().also { it.recording.pageAnswer = { q, _ -> ApiOutcome.Ok(DevicePage(emptyList(), 0, q.page, q.pageSize)) } }
+        capture("devices_list_filtered_empty.png", s) { DeviceListScreen(onOpenDevice = { _, _ -> }) }
+        compose.onNodeWithText("Aucun appareil de ACME ne correspond.").assertExists()
+        compose.onNodeWithText("Effacer le filtre").performClick()
+        compose.waitForIdle()
+        assertEquals(emptyList<Long>(), s.base.registry.state.value.byId(SampleData.PROD)!!.viewFilter)
+        compose.onNodeWithText("Aucun appareil dans ce tenant.").assertExists()
+    }
+
+    @Test @Config(qualifiers = "en-rUS-w390dp-h844dp-xxhdpi")
+    fun listFilteredEnglish() = capture("devices_list_filtered_en.png", acmeFiltered()) { DeviceListScreen(onOpenDevice = { _, _ -> }) }
+
+    // Notification routing: the detail opens on a given tab --------------------------
+
+    @Test fun detailOpensOnProcesses() {
+        capture("devices_detail_compta03_processes.png") { DeviceDetailScreen(SampleData.PROD, 187, onBack = {}, initialTab = "processes") }
+        compose.onNode(hasText("Processus") and isSelected()).assertExists()
+        compose.onNode(hasText("Aperçu") and isSelected()).assertDoesNotExist()
+    }
+
+    @Test fun detailWithoutInitialTabOpensOnOverview() {
+        compose.setContent {
+            ObliTheme {
+                CompositionLocalProvider(
+                    LocalObliServices provides services(),
+                    LocalDevicesClock provides MutableClock().clock,
+                    LocalDeviceRemote provides FakeRemote(),
+                    LocalCommandRemote provides FakeCommandRemote(),
+                    tools.obli.core.security.ui.LocalActionRunner provides testRunner(),
+                ) { DeviceDetailScreen(SampleData.PROD, 187, onBack = {}, initialTab = "unknown") }
+            }
+        }
+        compose.waitForIdle()
+        compose.onNode(hasText("Aperçu") and isSelected()).assertExists()
     }
 
     // Large text (§7.11: up to 200 %; §9: font 1.0 / 2.0 matrix) ----------------

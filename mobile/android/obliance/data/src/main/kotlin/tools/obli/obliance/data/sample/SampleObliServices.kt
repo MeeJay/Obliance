@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -146,16 +147,35 @@ class SampleObliServices(
     }
 
     private inner class SampleTenants : TenantsRepository {
-        private val state = MutableStateFlow(TenantScope(SampleData.PROD, SampleData.tenants, SampleData.DEFAULT_TENANT))
+        private val state = MutableStateFlow(withFilter(TenantScope(SampleData.PROD, SampleData.tenants, SampleData.DEFAULT_TENANT)))
         override val scope: StateFlow<TenantScope> = state.asStateFlow()
+
+        init {
+            // A filter written straight into the registry (another screen, a test) shows too.
+            this@SampleObliServices.scope.launch { registry.state.collect { state.update(::withFilter) } }
+        }
+
+        /** The scope with its server's stored global-view filter (TenantScope rules). */
+        private fun withFilter(s: TenantScope): TenantScope =
+            s.withStoredViewFilter(s.serverId?.let { registry.state.value.byId(it) }?.viewFilter.orEmpty())
+
         override suspend fun refresh(): ApiOutcome<List<Tenant>> = ApiOutcome.Ok(state.value.tenants)
         override suspend fun switchTo(tenantId: Long, serverId: ServerId?): ApiOutcome<Unit> {
             val id = serverId ?: registry.state.value.activeId ?: return ApiOutcome.Failure(null, FailureKind.CLIENT, "no such server")
             val session = sessions.session(id) ?: return ApiOutcome.Failure(null, FailureKind.CLIENT, "no such server")
             val probe = (session.auth.value as? AuthState.SignedIn)?.probe ?: SampleData.probe(id)
             session.markSignedIn(probe.copy(currentTenantId = tenantId))
-            if (id == state.value.serverId) state.update { it.copy(currentTenantId = tenantId) }
+            if (id == state.value.serverId) state.update { withFilter(it.copy(currentTenantId = tenantId)) }
             return ApiOutcome.Ok(Unit)
+        }
+
+        override suspend fun setViewFilter(tenantIds: Set<Long>, serverId: ServerId?): Boolean {
+            val id = serverId ?: registry.state.value.activeId ?: return false
+            val all = if (id == state.value.serverId) state.value.tenants.mapTo(HashSet()) { it.id } else emptySet()
+            val ids = if (all.isNotEmpty() && tenantIds.containsAll(all)) emptySet() else tenantIds
+            if (!registry.setViewFilter(id, ids)) return false
+            state.update(::withFilter)
+            return true
         }
     }
 
@@ -210,7 +230,10 @@ class SampleObliServices(
         override suspend fun page(query: DeviceQuery, serverId: ServerId?): ApiOutcome<DevicePage> {
             val all = devicesOf(serverId).filter { d ->
                 (query.search.isNullOrBlank() || d.label.contains(query.search!!.trim(), ignoreCase = true) || d.ipLocal.orEmpty().contains(query.search!!.trim())) &&
-                    (query.status.isNullOrBlank() || d.status == query.status)
+                    (query.status.isNullOrBlank() || d.status == query.status) &&
+                    (query.approvalStatus.isNullOrBlank() || d.approvalStatus == query.approvalStatus) &&
+                    // Like device.service.ts on the master tenant: `tenantIds` narrows the global view.
+                    (query.tenantIds.isEmpty() || query.tenantIds.contains(d.tenantId ?: -1L))
             }
             val from = ((query.page - 1) * query.pageSize).coerceAtMost(all.size)
             return ApiOutcome.Ok(DevicePage(all.drop(from).take(query.pageSize), all.size, query.page, query.pageSize))

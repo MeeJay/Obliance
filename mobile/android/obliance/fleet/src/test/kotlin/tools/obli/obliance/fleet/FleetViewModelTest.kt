@@ -177,6 +177,81 @@ class FleetViewModelTest {
         assertNull(data.groups)
     }
 
+    @Test fun `filtered global view - figures from the filtered devices, unfilterable cards for the whole view`() = runTest(dispatcher) {
+        val services = ScopedServices()
+        val source = SampleFleetSource()
+        val vm = FleetViewModel(services, source)
+        collect(vm)
+        runCurrent()
+        source.calls.clear()
+        services.scope.update { it.withStoredViewFilter(listOf(SampleData.ACME_TENANT)) }
+        runCurrent()
+
+        val ui = vm.ui.value
+        val data = ui.data!!
+        val acme = FleetFilter(listOf(SampleData.ACME_TENANT), listOf("ACME"))
+        assertEquals(acme, data.filter)
+        assertEquals(acme, ui.filter)
+        assertEquals(listOf(SampleData.ACME_TENANT), source.tenantFilters.last())
+        // §4 sample, ACME: 7 managed devices (KIOSK-ACCUEIL-02 waits for approval), 4 online, 2 offline, 1 critical.
+        assertEquals(7, data.summary.total)
+        assertEquals(4, data.summary.online)
+        assertEquals(2, data.summary.offline)
+        assertEquals(1, data.summary.critical)
+        assertEquals(listOf("PC-COMPTA-03", "SRV-AD2", "PC-ATELIER-02"), data.attention.map { it.label })
+        // Indicators computed from that list only (no server-only tiles mixed in).
+        assertEquals(listOf(KpiKind.ONLINE, KpiKind.OFFLINE, KpiKind.CRITICAL, KpiKind.WARNING), FleetMapper.kpis(data).map { it.kind })
+        assertEquals(listOf(4, 2, 1, 0), FleetMapper.kpis(data).map { it.value })
+        // The cards the server cannot filter stay, for the whole global view.
+        assertTrue(data.serverAggregates)
+        assertEquals(2, data.disks!!.count)
+        assertEquals(24, data.hourly!!.size)
+        assertNotNull(data.groups)
+        assertEquals(312, data.globalSummary!!.total)
+        assertEquals(47, FleetMapper.unfilteredUpdates(data)!!.value)
+        assertEquals(9, FleetMapper.unfilteredUpdates(data)!!.criticalUpdates)
+        assertTrue(source.calls.all { it.second == SampleData.PROD })
+
+        // Filter cleared: back to the server summary, no `tenantIds`.
+        services.scope.update { it.copy(viewFilter = emptySet()) }
+        runCurrent()
+        val back = vm.ui.value.data!!
+        assertNull(back.filter)
+        assertNull(vm.ui.value.filter)
+        assertEquals(312, back.summary.total)
+        assertEquals(emptyList<Long>(), source.tenantFilters.last())
+        assertNull(FleetMapper.unfilteredUpdates(back))
+        assertEquals(6, FleetMapper.kpis(back).size)
+    }
+
+    @Test fun `filtered global view of a non-admin - only the filtered devices are asked`() = runTest(dispatcher) {
+        val services = ScopedServices()
+        services.scope.update { it.withStoredViewFilter(listOf(SampleData.DEFAULT_TENANT)) }
+        val source = SampleFleetSource(admin = false)
+        val vm = FleetViewModel(services, source)
+        collect(vm)
+        runCurrent()
+        val data = vm.ui.value.data!!
+        assertEquals(setOf("devices"), source.calls.map { it.first }.toSet())
+        assertEquals(listOf(SampleData.DEFAULT_TENANT), source.tenantFilters.single())
+        assertFalse(data.serverAggregates)
+        assertEquals(4, data.summary.total)
+        assertNull(data.groups)
+        assertNull(FleetMapper.unfilteredUpdates(data))
+    }
+
+    @Test fun `working in ACME is never filtered`() = runTest(dispatcher) {
+        val services = ScopedServices()
+        // The stored filter does not apply outside the global view (TenantScope rules).
+        services.scope.update { it.copy(currentTenantId = SampleData.ACME_TENANT).withStoredViewFilter(listOf(SampleData.ACME_TENANT)) }
+        val source = SampleFleetSource()
+        val vm = FleetViewModel(services, source)
+        collect(vm)
+        runCurrent()
+        assertNull(vm.ui.value.data!!.filter)
+        assertEquals(listOf(emptyList<Long>()), source.tenantFilters)
+    }
+
     @Test fun `no active server`() = runTest(dispatcher) {
         val services = ScopedServices(scope = MutableStateFlow(TenantScope(serverId = null)))
         // The registry still has an active server: the scope's server wins only when set.

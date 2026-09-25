@@ -38,12 +38,16 @@ internal class FleetViewModel(
     private val state = MutableStateFlow(FleetUi())
     private val manual = Channel<Unit>(Channel.CONFLATED)
 
-    private data class ScopeKey(val serverId: ServerId?, val tenantId: Long?, val globalView: Boolean)
+    private data class ScopeKey(val serverId: ServerId?, val tenantId: Long?, val globalView: Boolean, val filter: FleetFilter? = null)
 
     val ui: StateFlow<FleetUi> = channelFlow {
         launch { state.collect { send(it) } }
         services.tenants.scope
-            .map { ScopeKey(it.serverId ?: services.registry.state.value.activeId, it.currentTenantId, it.isGlobalView) }
+            .map {
+                // "Filtrer la vue globale" (§2.3): empty outside the global view (TenantScope rules).
+                val filter = if (it.viewFiltered) FleetFilter(it.listTenantIds, it.filterTenants.map { t -> t.name }) else null
+                ScopeKey(it.serverId ?: services.registry.state.value.activeId, it.currentTenantId, it.isGlobalView, filter)
+            }
             .distinctUntilChanged()
             .collectLatest { key ->
                 val serverId = key.serverId
@@ -51,11 +55,11 @@ internal class FleetViewModel(
                     state.value = FleetUi(loading = false, noServer = true)
                     return@collectLatest
                 }
-                // Another server or tenant: never keep showing the previous scope's figures.
-                if (key != shownScope) state.value = FleetUi(loading = true)
+                // Another server, tenant or filter: never keep showing the previous scope's figures.
+                if (key != shownScope) state.value = FleetUi(loading = true, filter = key.filter)
                 shownScope = key
                 while (true) {
-                    load(serverId, key.globalView)
+                    load(serverId, key.globalView, key.filter)
                     // Next poll, or earlier on pull to refresh.
                     withTimeoutOrNull(pollMs) { manual.receive() }
                 }
@@ -71,11 +75,15 @@ internal class FleetViewModel(
         manual.trySend(Unit)
     }
 
-    private suspend fun load(serverId: ServerId, globalView: Boolean) {
+    private suspend fun load(serverId: ServerId, globalView: Boolean, filter: FleetFilter?) {
         val admin = source.isPlatformAdmin(serverId)
-        val result = if (admin) loadAggregates(serverId, globalView) else loadVisible(serverId, globalView)
+        val result = when {
+            filter != null -> loadFiltered(serverId, globalView, filter, admin)
+            admin -> loadAggregates(serverId, globalView)
+            else -> loadVisible(serverId, globalView)
+        }
         when (result) {
-            is Loaded.Data -> state.value = FleetUi(loading = false, data = result.data, updatedAt = clock())
+            is Loaded.Data -> state.value = FleetUi(loading = false, data = result.data, updatedAt = clock(), filter = filter)
             is Loaded.Failed -> state.update {
                 it.copy(loading = false, refreshing = false, problem = FleetMapper.problemOf(result.outcome))
             }
@@ -124,6 +132,40 @@ internal class FleetViewModel(
                 serverAggregates = false,
                 attention = items.needingAttention(ATTENTION_ROWS),
                 showTenants = globalView,
+            ),
+        )
+    }
+
+    /**
+     * The global view filtered on some tenants (§2.3): indicators and attention
+     * are computed from the filtered device list, like the non-admin path
+     * (`/devices/summary` ignores `tenantIds`). For admins, the cards the server
+     * cannot filter (group stats, full disks, updates, 24 h activity) still load,
+     * for the whole global view; the screen captions them so.
+     */
+    private suspend fun loadFiltered(serverId: ServerId, globalView: Boolean, filter: FleetFilter, admin: Boolean): Loaded = coroutineScope {
+        val page = async { source.byPriority(serverId, VISIBLE_PAGE, filter.tenantIds) }
+        val summary = if (admin) async { source.summary(serverId) } else null
+        val groups = if (admin) async { source.groupStats(serverId) } else null
+        val disks = if (admin) async { source.diskSaturation(serverId) } else null
+        val updates = if (admin) async { source.updateStats(serverId) } else null
+        val hourly = if (admin) async { source.hourly(serverId) } else null
+        val p = page.await()
+        if (p !is ApiOutcome.Ok) return@coroutineScope Loaded.Failed(p)
+        val items = p.value.items
+        Loaded.Data(
+            FleetData(
+                serverId = serverId,
+                summary = FleetMapper.summaryOf(items),
+                serverAggregates = admin,
+                attention = items.needingAttention(ATTENTION_ROWS),
+                groups = (groups?.await() as? ApiOutcome.Ok)?.value,
+                disks = (disks?.await() as? ApiOutcome.Ok)?.value,
+                updates = (updates?.await() as? ApiOutcome.Ok)?.value,
+                hourly = (hourly?.await() as? ApiOutcome.Ok)?.value,
+                showTenants = globalView,
+                filter = filter,
+                globalSummary = (summary?.await() as? ApiOutcome.Ok)?.value,
             ),
         )
     }

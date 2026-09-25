@@ -28,11 +28,21 @@ internal class SampleFleetSource(
         return ApiOutcome.Ok(if (serverId == SampleData.PROD) SampleData.summary else FleetMapper.summaryOf(devicesOf(serverId)))
     }
 
-    override suspend fun byPriority(serverId: ServerId, pageSize: Int): ApiOutcome<DevicePage> {
+    /** `tenantIds` of every devices request, in order (empty list = no filter). */
+    val tenantFilters = mutableListOf<List<Long>>()
+
+    override suspend fun byPriority(serverId: ServerId, pageSize: Int, tenantIds: List<Long>): ApiOutcome<DevicePage> {
         calls += "devices" to serverId
-        val list = devicesOf(serverId)
+        tenantFilters += tenantIds
+        // Like the route: approved devices only, narrowed to the tenants of the global-view filter.
+        val list = devicesOf(serverId).filter { d ->
+            (tenantIds.isEmpty() || tenantIds.contains(d.tenantId ?: -1L)) && (!approvedOnly || d.approvalStatus != "pending")
+        }
         return ApiOutcome.Ok(DevicePage(list.take(pageSize), list.size, 1, pageSize))
     }
+
+    /** Leave pending devices out like `approvalStatus=approved` (off by default: the 0.2.0 tests count them). */
+    var approvedOnly: Boolean = false
 
     override suspend fun groupStats(serverId: ServerId): ApiOutcome<List<GroupStat>> {
         calls += "group-stats" to serverId

@@ -42,6 +42,10 @@ internal data class ListContext(
     val auth: AuthKind,
     val admin: Boolean,
     val globalView: Boolean,
+    /** Global-view filter of the active server (TenantScope.listTenantIds): a change reloads. */
+    val viewTenantIds: List<Long> = emptyList(),
+    /** Names of the filtered tenants (the "Filtre : ACME" row). */
+    val filterNames: List<String> = emptyList(),
 )
 
 internal enum class AuthKind { UNKNOWN, SIGNED_IN, LOST, UNREACHABLE }
@@ -81,7 +85,14 @@ internal data class DeviceListState(
     val updatedAt: Long? = null,
     /** Rows whose status changed section since the load: "N changements · Actualiser l'ordre". */
     val pendingChanges: Int = 0,
+    /** Global-view filter sent as `tenantIds=` (§2.3 "Filtrer la vue globale"); empty = none. */
+    val viewTenantIds: List<Long> = emptyList(),
+    /** Names of the filtered tenants, in tenant-list order. */
+    val filterNames: List<String> = emptyList(),
 ) {
+    /** The global view is narrowed to some tenants. */
+    val viewFiltered: Boolean get() = viewTenantIds.isNotEmpty()
+
     val sections: List<SectionUi>
         get() = buildSections(
             devices = devices,
@@ -89,13 +100,20 @@ internal data class DeviceListState(
             problemsFirst = filters.problemsFirst,
             total = total,
             hasMore = hasMore,
-            // Summary counts describe the list only without search nor OS filter.
-            summary = summary?.takeIf { admin && filters.search.isBlank() && filters.os == null },
+            // Summary counts describe the list only without search, OS filter nor tenant filter
+            // (`/devices/summary` ignores `tenantIds`).
+            summary = summary?.takeIf { admin && filters.search.isBlank() && filters.os == null && !viewFiltered },
         )
 
-    /** Count shown on a status chip: summary for admins, local otherwise (§5 S20). */
-    fun chipCount(chip: StatusChip): Int? =
-        if (admin) summary?.count(DeviceSection.of(chip.status)) else localCounts?.get(chip.status)
+    /**
+     * Count shown on a status chip: summary for admins, local otherwise (§5 S20).
+     * Hidden while the global view is filtered: the summary covers every tenant.
+     */
+    fun chipCount(chip: StatusChip): Int? = when {
+        viewFiltered -> null
+        admin -> summary?.count(DeviceSection.of(chip.status))
+        else -> localCounts?.get(chip.status)
+    }
 
     /** Status chips offered: enrolment requests only for admins (non-admins only see approved devices). */
     val statusChips: List<StatusChip> get() = if (admin) StatusChip.entries else StatusChip.entries - StatusChip.PENDING
@@ -103,7 +121,8 @@ internal data class DeviceListState(
 
 /**
  * S20: devices of the ACTIVE server, in its session tenant. Reloads on server,
- * tenant and sign-in changes; merges live status changes and metrics pushed on
+ * tenant, global-view filter (`tenantIds=`, §2.3) and sign-in changes; merges
+ * live status changes and metrics pushed on
  * the active server's socket while [followRealtime] runs (screen visible).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -154,6 +173,9 @@ internal class DeviceListViewModel(
             // non-admin reloads with the server maximum page size as soon as the probe arrives.
             admin = probe?.user?.isPlatformAdmin ?: true,
             globalView = tenantId == tools.obli.obliance.api.MASTER_TENANT_ID,
+            // The scope's filter is empty outside the global view (TenantScope rules).
+            viewTenantIds = if (scope.serverId == id) scope.listTenantIds else emptyList(),
+            filterNames = if (scope.serverId == id) scope.filterTenants.map { it.name } else emptyList(),
         )
     }.distinctUntilChanged()
 
@@ -162,11 +184,18 @@ internal class DeviceListViewModel(
         // A tenant that just became known (cold start: /me answered after the
         // first page) is the one the server already used: same scope.
         val sameScope = before.serverId == ctx.serverId && (before.tenantId == ctx.tenantId || before.tenantId == null)
+        val filterChanged = before.viewTenantIds != ctx.viewTenantIds
         _state.value = if (sameScope) {
-            before.copy(tenantId = ctx.tenantId, admin = ctx.admin, globalView = ctx.globalView)
+            before.copy(
+                tenantId = ctx.tenantId, admin = ctx.admin, globalView = ctx.globalView,
+                viewTenantIds = ctx.viewTenantIds, filterNames = ctx.filterNames,
+            )
         } else {
             // Another server or tenant: nothing of the previous one may stay on screen.
-            DeviceListState(serverId = ctx.serverId, tenantId = ctx.tenantId, admin = ctx.admin, globalView = ctx.globalView, filters = before.filters)
+            DeviceListState(
+                serverId = ctx.serverId, tenantId = ctx.tenantId, admin = ctx.admin, globalView = ctx.globalView, filters = before.filters,
+                viewTenantIds = ctx.viewTenantIds, filterNames = ctx.filterNames,
+            )
         }
         when {
             ctx.serverId == null -> {
@@ -179,8 +208,16 @@ internal class DeviceListViewModel(
                 _state.update { it.copy(loading = false, refreshing = false, filtering = false, problem = LoadProblem(ProblemKind.SESSION_EXPIRED, 401)) }
             }
             !sameScope || !before.loaded -> load(Mode.INITIAL)
+            // "Filtrer la vue globale" changed (§2.3): reload like a filter chip, rows stay meanwhile.
+            filterChanged -> load(Mode.FILTER)
             before.admin != ctx.admin || before.problem != null -> load(Mode.REFRESH)
         }
+    }
+
+    /** "Effacer le filtre" of the list (§2.3): clears the global-view filter of the list's server. */
+    fun clearViewFilter() {
+        val serverId = _state.value.serverId ?: return
+        viewModelScope.launch { services.tenants.setViewFilter(emptySet(), serverId) }
     }
 
     private enum class Mode { INITIAL, REFRESH, FILTER }
@@ -205,14 +242,16 @@ internal class DeviceListViewModel(
         }
         val filters = s.filters
         val admin = s.admin
+        val tenantIds = s.viewTenantIds
         loadJob = viewModelScope.launch {
             coroutineScope {
-                val summary = if (admin) async { services.devices.summary(serverId) } else null
-                val out = services.devices.page(filters.toQuery(1, admin), serverId)
+                // The summary ignores `tenantIds`: not asked while the global view is filtered.
+                val summary = if (admin && tenantIds.isEmpty()) async { services.devices.summary(serverId) } else null
+                val out = services.devices.page(filters.toQuery(1, admin, tenantIds), serverId)
                 val sum = (summary?.await() as? ApiOutcome.Ok)?.value
                 _state.update { st ->
-                    // A late answer of another server or filter set is dropped.
-                    if (st.serverId != serverId || st.filters != filters) return@update st
+                    // A late answer of another server, filter set or tenant filter is dropped.
+                    if (st.serverId != serverId || st.filters != filters || st.viewTenantIds != tenantIds) return@update st
                     when (out) {
                         is ApiOutcome.Ok -> {
                             val rows = out.value.items.distinctBy { it.id }
@@ -228,7 +267,7 @@ internal class DeviceListViewModel(
                                 total = out.value.total,
                                 hasMore = out.value.hasMore,
                                 summary = sum ?: st.summary,
-                                localCounts = if (!filters.narrowed) rows.groupingBy { it.statusKind }.eachCount() else st.localCounts,
+                                localCounts = if (!filters.narrowed && tenantIds.isEmpty()) rows.groupingBy { it.statusKind }.eachCount() else st.localCounts,
                                 problem = null,
                                 updatedAt = clock.now(),
                                 pendingChanges = 0,
@@ -257,11 +296,12 @@ internal class DeviceListViewModel(
         if (!s.hasMore || s.loadingMore || loadJob?.isActive == true || !s.loaded) return
         _state.update { it.copy(loadingMore = true, moreFailed = false) }
         val filters = s.filters
+        val tenantIds = s.viewTenantIds
         val next = s.page + 1
         moreJob = viewModelScope.launch {
-            val out = services.devices.page(filters.toQuery(next, s.admin), serverId)
+            val out = services.devices.page(filters.toQuery(next, s.admin, tenantIds), serverId)
             _state.update { st ->
-                if (st.serverId != serverId || st.filters != filters || st.page != next - 1) return@update st.copy(loadingMore = false)
+                if (st.serverId != serverId || st.filters != filters || st.viewTenantIds != tenantIds || st.page != next - 1) return@update st.copy(loadingMore = false)
                 when (out) {
                     is ApiOutcome.Ok -> {
                         val known = st.devices.mapTo(HashSet()) { it.id }

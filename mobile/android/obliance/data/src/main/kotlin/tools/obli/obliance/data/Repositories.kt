@@ -110,6 +110,15 @@ data class TenantScope(
     val loading: Boolean = false,
     /** Last failure of the tenant list, if any. */
     val error: ApiOutcome<Nothing>? = null,
+    /**
+     * Global-view filter (design doc §2.3 "Filtrer la vue globale"): the active
+     * profile's stored filter (ServerProfile.viewFilter) restricted to the ids
+     * present in [tenants]. EMPTY when the session is not on the master tenant
+     * ([isGlobalView] false) or when it would select every tenant. Build it with
+     * [effectiveViewFilter] / [withStoredViewFilter]. Session and socket are not
+     * involved: only list requests change ([listTenantIds]).
+     */
+    val viewFilter: Set<Long> = emptySet(),
 ) {
     val current: Tenant? get() = tenants.firstOrNull { it.id == currentTenantId }
 
@@ -118,6 +127,33 @@ data class TenantScope(
 
     /** The scope sheet only offers "Travailler dans un tenant" with 2 tenants or more. */
     val canSwitch: Boolean get() = tenants.size >= 2
+
+    /** A global-view filter is applied (top bar chip "ACME · filtre"). */
+    val viewFiltered: Boolean get() = viewFilter.isNotEmpty()
+
+    /** The filtered tenants, in [tenants] order (empty without a filter). */
+    val filterTenants: List<Tenant> get() = if (viewFilter.isEmpty()) emptyList() else tenants.filter { it.id in viewFilter }
+
+    /** What list screens pass as `DeviceQuery.tenantIds`: the sorted filter, or empty (no `tenantIds=`). */
+    val listTenantIds: List<Long> get() = viewFilter.sorted()
+
+    /** This scope with [stored] (the profile's filter) applied by the rules of [viewFilter]. */
+    fun withStoredViewFilter(stored: Collection<Long>): TenantScope =
+        copy(viewFilter = effectiveViewFilter(stored, tenants, currentTenantId))
+
+    companion object {
+        /**
+         * The rules of [viewFilter]: [stored] ids restricted to [tenants]; empty
+         * outside the master tenant, and empty when every tenant would be selected
+         * (that is "Tous les tenants", not a filter).
+         */
+        fun effectiveViewFilter(stored: Collection<Long>, tenants: List<Tenant>, currentTenantId: Long?): Set<Long> {
+            if (stored.isEmpty() || currentTenantId != MASTER_TENANT_ID) return emptySet()
+            val known = tenants.mapTo(HashSet()) { it.id }
+            val kept = stored.filterTo(LinkedHashSet()) { it in known }
+            return if (kept.size >= known.size) emptySet() else kept
+        }
+    }
 }
 
 interface TenantsRepository {
@@ -136,6 +172,20 @@ interface TenantsRepository {
      * [TenantScope.currentTenantId] changes.
      */
     suspend fun switchTo(tenantId: Long, serverId: ServerId? = null): ApiOutcome<Unit>
+
+    /**
+     * "Filtrer la vue globale" (design doc §2.3, §5 S81): stores [tenantIds] as
+     * the global-view filter of [serverId] (null = the active server) in its
+     * profile; [scope] re-emits at once with [TenantScope.viewFilter]. No server
+     * call: session, tenant and socket stay as they are; list screens reload with
+     * `tenantIds=` ([TenantScope.listTenantIds]). An empty set, or every tenant of
+     * the loaded list, clears the filter. The filter is kept per server and
+     * survives tenant switches (it applies again back on the master tenant).
+     * Returns false when the server is unknown.
+     *
+     * The default (for test fakes) stores nothing.
+     */
+    suspend fun setViewFilter(tenantIds: Set<Long>, serverId: ServerId? = null): Boolean = false
 }
 
 // ---------------------------------------------------------------------------

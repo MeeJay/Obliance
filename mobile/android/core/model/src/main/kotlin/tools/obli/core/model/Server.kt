@@ -54,4 +54,13 @@ data class ServerProfile(
     val lastTenantId: Long? = null,
     /** Last web theme seen for the signed-in user on this server (applied at cold start, no flash). */
     val theme: String? = null,
+    /**
+     * Tenant ids of the global-view filter on this server (design doc §2.3
+     * "Filtrer la vue globale"): list screens send them as `tenantIds=`.
+     * Empty = no filter. Only meaningful while the session is on the master
+     * tenant (the server ignores `tenantIds` elsewhere). Kept distinct and
+     * sorted by the registry. A registry written before this field existed
+     * decodes with an empty filter.
+     */
+    val viewFilter: List<Long> = emptyList(),
 )

@@ -85,7 +85,16 @@ internal data class ScopeUi(
     val currentTenantName: String?,
     val globalView: Boolean,
     val userLabel: String?,
+    /** The active server (the tenant counts are loaded from it). */
+    val activeId: ServerId? = null,
+    /** "Filtrer la vue globale" is offered: session on the master tenant with 2 tenants or more (§5 S81). */
+    val showViewFilter: Boolean = false,
+    /** Tenant ids of the global-view filter; empty = "Tous les tenants". */
+    val viewFilter: Set<Long> = emptySet(),
 ) {
+    /** Names of the filtered tenants, in list order ("· filtre ACME"). */
+    val filterNames: List<String> get() = tenants.filter { it.tenant.id in viewFilter }.map { it.tenant.name }
+
     companion object {
         /** Pure mapping of the services' state (unit-tested). */
         fun build(
@@ -117,6 +126,9 @@ internal data class ScopeUi(
                 .groupingBy { it.alert.tenantId }
                 .eachCount()
             val user = (auth[activeId ?: ServerId("none")] as? AuthState.SignedIn)?.probe?.user?.label
+            // Filtering only exists in the global view (§2.3): other sessions only see their tenant.
+            val showFilter = tenants.isGlobalView && tenantList.size >= 2
+            val listed = tenantList.mapTo(HashSet()) { it.id }
             return ScopeUi(
                 servers = servers,
                 activeName = registry.active?.displayName,
@@ -129,6 +141,9 @@ internal data class ScopeUi(
                 currentTenantName = tenantList.firstOrNull { it.id == tenants.currentTenantId }?.name,
                 globalView = tenants.isGlobalView,
                 userLabel = user,
+                activeId = activeId,
+                showViewFilter = showFilter,
+                viewFilter = if (showFilter) tenants.viewFilter.filterTo(LinkedHashSet()) { it in listed } else emptySet(),
             )
         }
     }
@@ -190,8 +205,15 @@ internal fun ScopeSheetContent(onDone: () -> Unit, onManageServers: () -> Unit) 
     val scope = rememberCoroutineScope()
     var switching by remember { mutableStateOf<String?>(null) }
     var problem by remember { mutableStateOf<SwitchProblem?>(null) }
+    val counts = rememberTenantCounts(services, ui)
     ScopeSheetBody(
         ui = ui,
+        counts = counts,
+        // A tap applies at once (no server call); the sheet stays open.
+        onViewFilter = { tenantId ->
+            val next = ViewFilterChoice.next(ui.viewFilter, ui.tenants.map { it.tenant.id }, tenantId)
+            if (next != ui.viewFilter) scope.launch { services.tenants.setViewFilter(next) }
+        },
         switchingTo = switching,
         problem = when (problem) {
             SwitchProblem.NOT_MEMBER -> stringResource(R.string.access_scope_not_member)
@@ -242,6 +264,10 @@ internal fun ScopeSheetBody(
     onTenant: (ScopeTenantRow) -> Unit,
     onRetryTenants: () -> Unit,
     onManageServers: () -> Unit,
+    /** Device counts of the filter chips, by tenant id (missing = not shown). */
+    counts: Map<Long, TenantCount> = emptyMap(),
+    /** Tap on a filter chip: a tenant id, or null for "Tous les tenants". */
+    onViewFilter: (Long?) -> Unit = {},
 ) {
     val c = ObliTheme.colors
     Column(
@@ -279,6 +305,8 @@ internal fun ScopeSheetBody(
                     LinkButton(stringResource(R.string.access_retry), onRetryTenants)
                 }
                 else -> {
+                    // "Filtrer la vue globale" (§2.3, §5 S81): between the servers and the switch.
+                    if (ui.showViewFilter) ViewFilterSection(ui, counts, enabled, onViewFilter)
                     Text(
                         stringResource(R.string.access_scope_work_in),
                         style = ObliTypography.labelSmall,
@@ -322,6 +350,8 @@ private fun scopeSubtitle(ui: ScopeUi): String? {
     val parts = mutableListOf<String>()
     val place = listOfNotNull(if (ui.multiServer) ui.activeName else null, ui.currentTenantName).joinToString(" › ")
     if (place.isNotEmpty()) parts += if (ui.globalView && ui.currentTenantName != null) place + " · " + stringResource(R.string.access_scope_global_view_lower) else place
+    // "Obliance Prod › Default · vue globale · filtre ACME".
+    viewFilterLabel(ui.filterNames)?.let { parts += it }
     ui.userLabel?.let { parts += it }
     return parts.joinToString(" · ").ifEmpty { null }
 }

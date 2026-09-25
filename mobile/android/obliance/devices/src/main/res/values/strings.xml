@@ -31,6 +31,18 @@
     <string name="devices_empty_search_filter">No device matches “%1$s” with the %2$s filter.</string>
     <string name="devices_empty_filter">No device matches the %1$s filter.</string>
     <string name="devices_clear_filters">Clear filters</string>
+    <string name="devices_view_filter_one">Filter: %1$s</string>
+    <string name="devices_view_filter_clear">Clear the global view filter</string>
+    <string name="devices_empty_view_filter_one">No device of %1$s matches.</string>
+    <string name="devices_clear_view_filter">Clear the filter</string>
+    <plurals name="devices_view_filter_many">
+        <item quantity="one">Filter: %d tenant</item>
+        <item quantity="other">Filter: %d tenants</item>
+    </plurals>
+    <plurals name="devices_empty_view_filter_many">
+        <item quantity="one">No device of the %d filtered tenant matches.</item>
+        <item quantity="other">No device of the %d filtered tenants matches.</item>
+    </plurals>
     <string name="devices_refresh_order">Refresh the order</string>
     <string name="devices_load_more_failed">The rest of the list could not be loaded.</string>
     <string name="devices_loading">Loading devices</string>

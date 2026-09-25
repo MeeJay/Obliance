@@ -97,7 +97,12 @@ internal fun FleetRoute(
 internal fun FleetContent(ui: FleetUi, time: FleetTime, onOpenDevices: () -> Unit, onRefresh: () -> Unit) {
     val c = ObliTheme.colors
     Column(Modifier.fillMaxSize().background(c.bg)) {
-        ObliScreenHeader(stringResource(R.string.fleet_title), freshness = freshnessOf(ui, time))
+        val filter = ui.filter ?: ui.data?.filter
+        ObliScreenHeader(
+            stringResource(R.string.fleet_title),
+            freshness = freshnessOf(ui, time),
+            trailing = { if (filter != null) FilterScope(filter) },
+        )
         PullToRefreshBox(isRefreshing = ui.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             val data = ui.data
             when {
@@ -206,6 +211,49 @@ private fun ProblemBanner(problem: FleetProblem, onRetry: () -> Unit) {
     }
 }
 
+// --- Global-view filter (§2.3) ---------------------------------------------------
+
+/** Header scope while the global view is filtered: "ACME · filtre" with the 6 dp #FF6868 dot (STYLEKIT tenant-chip-filter). */
+@Composable
+private fun FilterScope(filter: FleetFilter) {
+    val c = ObliTheme.colors
+    val single = filter.names.singleOrNull()
+    val label = single?.let { stringResource(R.string.fleet_scope_filter_one, it) }
+        ?: pluralStringResource(R.plurals.fleet_scope_filter_many, filter.tenantIds.size, filter.tenantIds.size)
+    val a11y = single?.let { stringResource(R.string.fleet_scope_filter_a11y_one, it) }
+        ?: pluralStringResource(R.plurals.fleet_scope_filter_a11y_many, filter.tenantIds.size, filter.tenantIds.size)
+    Row(
+        Modifier.widthIn(max = 160.dp).height(32.dp).clip(RoundedCornerShape(8.dp)).background(c.surface2).padding(horizontal = 10.dp)
+            .clearAndSetSemantics { contentDescription = a11y },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(ObliIcons.Building2, contentDescription = null, tint = c.text2, modifier = Modifier.size(14.dp))
+        Text(label, style = ObliTypography.labelSmall, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(c.accent2))
+    }
+}
+
+/** Under the title of a card the server cannot filter: "Toute la vue globale (filtre non appliqué)". */
+@Composable
+private fun UnfilteredCaption(modifier: Modifier = Modifier) {
+    val c = ObliTheme.colors
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(ObliIcons.Info, contentDescription = null, tint = c.textMuted, modifier = Modifier.size(14.dp))
+        Text(stringResource(R.string.fleet_unfiltered), style = ObliTypography.labelSmall, color = c.textMuted)
+    }
+}
+
+/** "MAJ en attente" of the whole global view while it is filtered (captioned, never mixed with the filtered figures). */
+@Composable
+private fun UnfilteredUpdates(kpi: Kpi, onOpenDevices: () -> Unit) {
+    Column {
+        SectionHeader(stringResource(R.string.fleet_updates))
+        UnfilteredCaption(Modifier.padding(bottom = 8.dp))
+        KpiTile(kpi, onOpenDevices, Modifier.fillMaxWidth())
+    }
+}
+
 // --- Layout --------------------------------------------------------------------
 
 @Composable
@@ -215,14 +263,19 @@ private fun FleetBody(ui: FleetUi, data: FleetData, time: FleetTime, onOpenDevic
     val attention = remember(data, time.now) { FleetMapper.attention(data.attention, time.now) }
     val groups = remember(data) { data.groups?.let { FleetMapper.groups(it) }.orEmpty() }
     val hours = remember(data) { data.hourly?.let(FleetMapper::hours).orEmpty() }
+    val unfilteredUpdates = remember(data) { FleetMapper.unfilteredUpdates(data) }
+    // Global view filtered: the cards below cover every tenant (the server cannot filter them).
+    val filtered = data.filter != null
     val banner: @Composable () -> Unit = { ui.problem?.let { ProblemBanner(it, onRefresh) } }
     val featuredCard: @Composable () -> Unit = { FeaturedCard(featured, data.serverAggregates, onOpenDevices) }
     val kpiGrid: @Composable () -> Unit = { KpiGrid(kpis, onOpenDevices) }
     val attentionSection: @Composable () -> Unit = { AttentionSection(attention, data.showTenants, time, onOpenDevices) }
-    val activity: @Composable () -> Unit = { if (data.serverAggregates && hours.size >= 2) ActivityCard(hours, time) }
-    val disks: @Composable () -> Unit = { if (data.serverAggregates) data.disks?.let { DisksSection(it, onOpenDevices) } }
-    val groupsSection: @Composable () -> Unit = { if (data.serverAggregates && groups.isNotEmpty()) GroupsSection(groups, data.showTenants, onOpenDevices) }
-    val context: @Composable () -> Unit = { if (data.serverAggregates) ContextSection(data, onOpenDevices) }
+    val updates: @Composable () -> Unit = { unfilteredUpdates?.let { UnfilteredUpdates(it, onOpenDevices) } }
+    val activity: @Composable () -> Unit = { if (data.serverAggregates && hours.size >= 2) ActivityCard(hours, time, filtered) }
+    val disks: @Composable () -> Unit = { if (data.serverAggregates) data.disks?.let { DisksSection(it, onOpenDevices, filtered) } }
+    val groupsSection: @Composable () -> Unit = { if (data.serverAggregates && groups.isNotEmpty()) GroupsSection(groups, data.showTenants, onOpenDevices, filtered) }
+    // Sessions, schedules and stale devices describe the whole server: not shown while filtered.
+    val context: @Composable () -> Unit = { if (data.serverAggregates && !filtered) ContextSection(data, onOpenDevices) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scroll = rememberScrollState()
@@ -232,7 +285,7 @@ private fun FleetBody(ui: FleetUi, data: FleetData, time: FleetTime, onOpenDevic
                 banner()
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) { featuredCard(); attentionSection() }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) { kpiGrid(); groupsSection() }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) { kpiGrid(); updates(); groupsSection() }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) { activity(); disks(); context() }
                 }
             }
@@ -242,7 +295,7 @@ private fun FleetBody(ui: FleetUi, data: FleetData, time: FleetTime, onOpenDevic
                     Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    banner(); featuredCard(); kpiGrid(); attentionSection(); activity(); disks(); groupsSection(); context()
+                    banner(); featuredCard(); kpiGrid(); attentionSection(); updates(); activity(); disks(); groupsSection(); context()
                 }
             }
         }
@@ -578,17 +631,19 @@ private fun AttentionRowView(row: AttentionRow, showTenants: Boolean, time: Flee
 // --- 4. Activity 24 h --------------------------------------------------------------------
 
 @Composable
-private fun ActivityCard(points: List<HourPoint>, time: FleetTime) {
+private fun ActivityCard(points: List<HourPoint>, time: FleetTime, unfiltered: Boolean = false) {
     val c = ObliTheme.colors
     val onMin = points.minOf { it.online }
     val onMax = points.maxOf { it.online }
     val offMin = points.minOf { it.offline }
     val offMax = points.maxOf { it.offline }
-    val a11y = stringResource(R.string.fleet_chart_a11y, onMin, onMax, offMin, offMax)
+    val chart = stringResource(R.string.fleet_chart_a11y, onMin, onMax, offMin, offMax)
+    val a11y = if (unfiltered) chart + ". " + stringResource(R.string.fleet_unfiltered) else chart
     Card(padding = 16) {
         Column(Modifier.clearAndSetSemantics { contentDescription = a11y }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Overline(stringResource(R.string.fleet_activity))
             Text(stringResource(R.string.fleet_activity_title), style = ObliTypography.cardTitle, color = c.text)
+            if (unfiltered) UnfilteredCaption()
             Spacer(Modifier.height(2.dp))
             SeriesLabel(stringResource(R.string.fleet_chart_connected), points.last().online, CHART_GREEN, dashed = false)
             FleetSparkline(points.map { it.online }, CHART_GREEN, dashed = false, height = 56)
@@ -629,10 +684,11 @@ private fun SeriesLabel(label: String, value: Int, color: Color, dashed: Boolean
 // --- 5. Full disks -------------------------------------------------------------------
 
 @Composable
-private fun DisksSection(disks: DiskSaturation, onOpenDevices: () -> Unit) {
+private fun DisksSection(disks: DiskSaturation, onOpenDevices: () -> Unit, unfiltered: Boolean = false) {
     val c = ObliTheme.colors
     Column {
         SectionHeader(stringResource(R.string.fleet_disks, disks.count))
+        if (unfiltered) UnfilteredCaption(Modifier.padding(bottom = 8.dp))
         Card {
             if (disks.top.isEmpty()) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -678,9 +734,10 @@ private fun DiskRow(disk: SaturatedDisk, onOpenDevices: () -> Unit) {
 // --- 6. Groups -------------------------------------------------------------------------
 
 @Composable
-private fun GroupsSection(groups: List<GroupRow>, showTenants: Boolean, onOpenDevices: () -> Unit) {
+private fun GroupsSection(groups: List<GroupRow>, showTenants: Boolean, onOpenDevices: () -> Unit, unfiltered: Boolean = false) {
     Column {
         SectionHeader(stringResource(R.string.fleet_groups))
+        if (unfiltered) UnfilteredCaption(Modifier.padding(bottom = 8.dp))
         Card { groups.forEach { GroupRowView(it, showTenants, onOpenDevices) } }
     }
 }

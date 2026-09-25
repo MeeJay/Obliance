@@ -102,6 +102,10 @@
     <string name="access_scope_not_member">You are not a member of this tenant.</string>
     <string name="access_scope_switch_failed">The switch failed. Try again.</string>
     <string name="access_scope_footer">Switching reloads the data and the real-time connection.</string>
+    <string name="access_scope_filter_title">Filter the global view</string>
+    <string name="access_scope_filter_group">Tenants shown</string>
+    <string name="access_scope_filter_all">All tenants</string>
+    <string name="access_scope_filter_one">filter %1$s</string>
     <string name="access_status_active_live">Active · real time connected</string>
     <string name="access_status_live">Real time connected</string>
     <string name="access_status_active_connecting">Active · real time connecting</string>
@@ -181,5 +185,22 @@
     <plurals name="access_servers_count">
         <item quantity="one">%1$d server of %2$d at most</item>
         <item quantity="other">%1$d servers of %2$d at most</item>
+    </plurals>
+    <!-- Mini-ribbon of a filter chip: devices of the tenant, then how many are critical ("248 · 1 crit."). -->
+    <plurals name="access_scope_filter_count_critical">
+        <item quantity="one">%1$d · %2$d crit.</item>
+        <item quantity="other">%1$d · %2$d crit.</item>
+    </plurals>
+    <plurals name="access_scope_filter_many">
+        <item quantity="one">filter %d tenant</item>
+        <item quantity="other">filter %d tenants</item>
+    </plurals>
+    <plurals name="access_scope_filter_devices">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
+    <plurals name="access_scope_filter_critical">
+        <item quantity="one">including %1$d critical</item>
+        <item quantity="other">including %1$d critical</item>
     </plurals>
 </resources>

@@ -102,6 +102,10 @@
     <string name="access_scope_not_member">Vous n\'êtes pas membre de ce tenant.</string>
     <string name="access_scope_switch_failed">Le changement a échoué. Réessayez.</string>
     <string name="access_scope_footer">Le changement recharge les données et le temps réel.</string>
+    <string name="access_scope_filter_title">Filtrer la vue globale</string>
+    <string name="access_scope_filter_group">Tenants affichés</string>
+    <string name="access_scope_filter_all">Tous les tenants</string>
+    <string name="access_scope_filter_one">filtre %1$s</string>
     <string name="access_status_active_live">Actif · temps réel connecté</string>
     <string name="access_status_live">Temps réel connecté</string>
     <string name="access_status_active_connecting">Actif · temps réel en cours de connexion</string>
@@ -185,5 +189,26 @@
         <item quantity="one">%1$d serveur sur %2$d au plus</item>
         <item quantity="many">%1$d serveurs sur %2$d au plus</item>
         <item quantity="other">%1$d serveurs sur %2$d au plus</item>
+    </plurals>
+    <!-- Mini-ruban d'une puce de filtre : appareils du tenant, puis combien sont critiques (« 248 · 1 crit. »). -->
+    <plurals name="access_scope_filter_count_critical">
+        <item quantity="one">%1$d · %2$d crit.</item>
+        <item quantity="many">%1$d · %2$d crit.</item>
+        <item quantity="other">%1$d · %2$d crit.</item>
+    </plurals>
+    <plurals name="access_scope_filter_many">
+        <item quantity="one">filtre %d tenant</item>
+        <item quantity="many">filtre %d tenants</item>
+        <item quantity="other">filtre %d tenants</item>
+    </plurals>
+    <plurals name="access_scope_filter_devices">
+        <item quantity="one">%1$d appareil</item>
+        <item quantity="many">%1$d appareils</item>
+        <item quantity="other">%1$d appareils</item>
+    </plurals>
+    <plurals name="access_scope_filter_critical">
+        <item quantity="one">dont %1$d critique</item>
+        <item quantity="many">dont %1$d critiques</item>
+        <item quantity="other">dont %1$d critiques</item>
     </plurals>
 </resources>

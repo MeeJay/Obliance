@@ -96,6 +96,10 @@ import tools.obli.obliance.data.LocalObliServices
  * call [onOpenTerminal] (`protocol` = `powershell`, `cmd` or `ssh`, as the web
  * RemoteSession protocols), [onOpenReach], [onRunScript] (the device ids of
  * [serverId]) and [onOpenAutomations]; the defaults do nothing.
+ *
+ * [initialTab] opens the screen on a tab (notification routing, e.g. the
+ * "Processus" action): `overview`, `services`, `processes` or `tasks`; null or
+ * anything else opens Aperçu. It is only the initial value of the saved tab.
  */
 @Composable
 fun DeviceDetailScreen(
@@ -106,6 +110,7 @@ fun DeviceDetailScreen(
     onOpenReach: (ServerId, Long) -> Unit = { _, _ -> },
     onRunScript: (ServerId, List<Long>) -> Unit = { _, _ -> },
     onOpenAutomations: (ServerId, Long) -> Unit = { _, _ -> },
+    initialTab: String? = null,
 ) {
     val services = LocalObliServices.current
     val clock = LocalDevicesClock.current
@@ -140,7 +145,7 @@ fun DeviceDetailScreen(
     }
     val place = DevicePlace(registry.byId(serverId), registry.isMultiServer, tenantName)
 
-    var tab by rememberSaveable { mutableStateOf(DeviceTab.OVERVIEW) }
+    var tab by rememberSaveable { mutableStateOf(DeviceTab.fromRoute(initialTab)) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
     var openProcess by remember { mutableStateOf<ProcessInfo?>(null) }
     var openTask by remember { mutableStateOf<CommandDto?>(null) }

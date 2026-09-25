@@ -150,6 +150,61 @@ class ServerRegistryTest {
         assertNull(r.state.value.byUrl("https://evil.example.org/devices/12"))
     }
 
+    @Test fun viewFilterIsCleanedAndPersisted() = runBlocking {
+        val store = MemoryStore()
+        val r = registry(store)
+        val prod = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        val dev = r.addOk("obliance-dev.example.org", "Obliance Dev")
+        val savesBefore = store.saves
+        assertTrue(r.setViewFilter(prod.id, listOf(4L, 1L, 4L, 0L, -3L)))
+        assertEquals(listOf(1L, 4L), r.state.value.byId(prod.id)!!.viewFilter)
+        assertEquals(listOf(1L, 4L), store.saved!!.byId(prod.id)!!.viewFilter)
+        assertEquals(savesBefore + 1, store.saves)
+        // Per server: the other profile is untouched.
+        assertEquals(emptyList<Long>(), r.state.value.byId(dev.id)!!.viewFilter)
+        // Same value again: nothing to persist.
+        assertTrue(r.setViewFilter(prod.id, setOf(4L, 1L)))
+        assertEquals(savesBefore + 1, store.saves)
+        // Unknown server.
+        assertFalse(r.setViewFilter(ServerId("nope"), listOf(4L)))
+        // Cleared.
+        assertTrue(r.setViewFilter(prod.id, emptyList()))
+        assertEquals(emptyList<Long>(), r.state.value.byId(prod.id)!!.viewFilter)
+    }
+
+    @Test fun viewFilterIsCappedAt64() = runBlocking {
+        val r = registry()
+        val prod = r.addOk("obliance-prod.example.org")
+        r.setViewFilter(prod.id, (200L downTo 1L).toList())
+        assertEquals((1L..64L).toList(), r.state.value.byId(prod.id)!!.viewFilter)
+    }
+
+    @Test fun viewFilterSurvivesRenameRecolorReorderAndLeavesWithTheProfile() = runBlocking {
+        val r = registry()
+        val prod = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        val qual = r.addOk("obliance-qual.example.org", "Obliance Qual")
+        r.setViewFilter(prod.id, listOf(4L))
+        r.rename(prod.id, "Obliance Production")
+        r.recolor(prod.id, ServerColor.SAND)
+        r.reorder(listOf(qual.id, prod.id))
+        r.setLastTenant(prod.id, 1L)
+        assertEquals(listOf(4L), r.state.value.byId(prod.id)!!.viewFilter)
+
+        r.remove(prod.id)
+        val again = r.addOk("obliance-prod.example.org", "Obliance Prod")
+        assertEquals("a removed profile takes its filter away", emptyList<Long>(), again.viewFilter)
+    }
+
+    @Test fun storedViewFilterIsSanitisedOnLoad() = runBlocking {
+        val store = MemoryStore(
+            ServerRegistryState(
+                profiles = listOf(ServerProfile(ServerId("a"), "https://a.example.org", "A", ServerColor.VIOLET, "A", 0, viewFilter = listOf(9L, 4L, 4L, 0L))),
+                activeId = ServerId("a"),
+            ),
+        )
+        assertEquals(listOf(4L, 9L), registry(store).load().active!!.viewFilter)
+    }
+
     @Test fun stateSurvivesJsonRoundTrip() = runBlocking {
         val r = registry()
         r.addOk("obliance-prod.example.org", "Obliance Prod"); r.addOk("obliance-dev.example.org", "Obliance Dev")
@@ -180,5 +235,46 @@ class ServerRegistryCodecTest {
         r.add("obliance-prod.example.org", "Obliance Prod")
         r.add("obliance-qual.example.org", "Obliance Qual", ServerColor.FUCHSIA)
         assertEquals(r.state.value, ServerRegistry(store).load())
+    }
+
+    /** A registry written by the 0.2.0 app: no `viewFilter` field anywhere. */
+    private val registry020 = """{"profiles":[""" +
+        """{"id":"p","origin":"https://obliance-prod.example.org","displayName":"Obliance Prod","color":"VIOLET","monogram":"OP","order":0,"notify":"ALL","includeInTriage":true,"lastTenantId":1,"theme":"operator"},""" +
+        """{"id":"d","origin":"https://obliance-dev.example.org","displayName":"Obliance Dev","color":"TEAL","monogram":"OD","order":1,"notify":"CRITICAL_ONLY","includeInTriage":true,"lastTenantId":null,"theme":"neon"}""" +
+        """],"activeId":"p","version":1}"""
+
+    @Test fun registryOf020DecodesWithAnEmptyViewFilter() = runBlocking {
+        val state = ServerRegistryCodec.decode(registry020)!!
+        assertEquals(listOf("Obliance Prod", "Obliance Dev"), state.profiles.map { it.displayName })
+        assertEquals(listOf(emptyList<Long>(), emptyList()), state.profiles.map { it.viewFilter })
+        assertEquals("neon", state.profiles[1].theme)
+        // And the registry loads it as is.
+        val store = object : ServerRegistryStore {
+            var text: String? = registry020
+            override suspend fun load() = ServerRegistryCodec.decode(text)
+            override suspend fun save(state: ServerRegistryState) { text = ServerRegistryCodec.encode(state) }
+        }
+        val r = ServerRegistry(store)
+        assertEquals(ServerId("p"), r.load().activeId)
+        assertTrue(r.setViewFilter(ServerId("p"), listOf(4L)))
+        assertTrue(store.text!!.contains("\"viewFilter\":[4]"))
+    }
+
+    @Test fun viewFilterRoundTripsThroughTheCodec() = runBlocking {
+        val store = object : ServerRegistryStore {
+            var text: String? = null
+            override suspend fun load() = ServerRegistryCodec.decode(text)
+            override suspend fun save(state: ServerRegistryState) { text = ServerRegistryCodec.encode(state) }
+        }
+        val r = ServerRegistry(store)
+        val prod = (r.add("obliance-prod.example.org", "Obliance Prod") as AddServerResult.Added).profile
+        r.add("obliance-dev.example.org", "Obliance Dev")
+        r.setViewFilter(prod.id, listOf(4L, 7L))
+        val reloaded = ServerRegistry(store).load()
+        assertEquals(r.state.value, reloaded)
+        assertEquals(listOf(4L, 7L), reloaded.byId(prod.id)!!.viewFilter)
+        // A null written by hand is tolerated (empty filter), not a lost registry.
+        val nulled = ServerRegistryCodec.decode(store.text!!.replace("\"viewFilter\":[4,7]", "\"viewFilter\":null"))!!
+        assertEquals(emptyList<Long>(), nulled.byId(prod.id)!!.viewFilter)
     }
 }

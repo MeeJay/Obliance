@@ -55,27 +55,54 @@ import tools.obli.core.designsystem.ObliIcons
 import tools.obli.core.designsystem.ObliScreenHeader
 import tools.obli.core.designsystem.ObliServerTile
 import tools.obli.core.designsystem.ObliTheme
+import tools.obli.core.designsystem.ObliTokens
 import tools.obli.core.designsystem.ObliTypography
+import tools.obli.core.designsystem.toColor
 import tools.obli.obliance.data.LocalObliServices
 
 /** Shown when the package manager has no version name (tests, previews). Same as the app's `versionName`. */
-internal const val FALLBACK_APP_VERSION = "0.1.0-alpha"
+internal const val FALLBACK_APP_VERSION = "0.3.0-alpha"
 
-/** S80: account, servers, scope and settings entries (design doc §5 S80). */
+/** Shown when the package manager has no version code (tests, previews). Same as the app's `versionCode`. */
+internal const val FALLBACK_APP_VERSION_CODE = 3
+
+/**
+ * S80: account, servers, scope and the "Compte" entries (design doc §5 S80,
+ * mockup More.dc.html). [notificationsSummary] is the S84 state line
+ * ("Astreinte active · 19:00–08:00"); without it the row says "Alertes de vos serveurs".
+ */
 @Composable
-fun MoreScreen(onOpenServers: () -> Unit, onOpenScope: () -> Unit) {
+fun MoreScreen(
+    onOpenServers: () -> Unit,
+    onOpenScope: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
+    notificationsSummary: String? = null,
+) {
     val context = LocalContext.current
     val version = remember(context) { appVersion(context) }
-    MoreRoute(onOpenServers, onOpenScope, version)
+    val offer by AppUpdates.offer.collectAsStateWithLifecycle()
+    MoreRoute(
+        MoreActions(onOpenServers, onOpenScope, onOpenSettings = onOpenSettings, onOpenNotifications = onOpenNotifications, onOpenAbout = onOpenAbout),
+        version,
+        notificationsSummary = notificationsSummary,
+        updateAvailable = offer != null,
+    )
 }
 
 @Composable
-internal fun MoreRoute(onOpenServers: () -> Unit, onOpenScope: () -> Unit, appVersion: String) {
+internal fun MoreRoute(
+    actions: MoreActions,
+    appVersion: String,
+    notificationsSummary: String? = null,
+    updateAvailable: Boolean = false,
+) {
     val services = LocalObliServices.current
     val vm = viewModel { MoreViewModel(services) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     val confirm by vm.confirm.collectAsStateWithLifecycle()
-    MoreContent(ui, appVersion, MoreActions(onOpenServers, onOpenScope, vm::askSignOut))
+    MoreContent(ui, appVersion, actions.copy(onSignOut = vm::askSignOut), notificationsSummary, updateAvailable)
     confirm?.let { SignOutSheet(it, ui.multiServer, vm::answer) }
 }
 
@@ -83,6 +110,9 @@ internal data class MoreActions(
     val onOpenServers: () -> Unit = {},
     val onOpenScope: () -> Unit = {},
     val onSignOut: () -> Unit = {},
+    val onOpenSettings: () -> Unit = {},
+    val onOpenNotifications: () -> Unit = {},
+    val onOpenAbout: () -> Unit = {},
 )
 
 /** The version name of the installed app (the application module's `versionName`). */
@@ -97,8 +127,18 @@ internal fun appVersion(context: Context): String = runCatching {
     info.versionName
 }.getOrNull()?.takeIf { it.isNotBlank() } ?: FALLBACK_APP_VERSION
 
+/** The version code of the installed app (the application module's `versionCode`). */
+internal fun appVersionCode(context: Context): Int =
+    AppUpdates.installedVersionCode(context).takeIf { it > 0 } ?: FALLBACK_APP_VERSION_CODE
+
 @Composable
-internal fun MoreContent(ui: MoreUi, appVersion: String, actions: MoreActions) {
+internal fun MoreContent(
+    ui: MoreUi,
+    appVersion: String,
+    actions: MoreActions,
+    notificationsSummary: String? = null,
+    updateAvailable: Boolean = false,
+) {
     val c = ObliTheme.colors
     Column(Modifier.fillMaxSize().background(c.bg)) {
         ObliScreenHeader(stringResource(R.string.more_title), trailing = {
@@ -122,17 +162,23 @@ internal fun MoreContent(ui: MoreUi, appVersion: String, actions: MoreActions) {
                 // The account card's chip already opens the scope sheet (S81): no second "Serveur et tenant" row.
                 SectionTitle(stringResource(R.string.more_section_account))
                 Card {
-                    // S85 and S83 are not in the alpha: listed, clearly marked, not tappable.
-                    val soon = stringResource(R.string.more_soon)
-                    EntryRow(MoreIcons.ShieldCheck, stringResource(R.string.more_profile), soon, onClick = null)
-                    EntryRow(MoreIcons.Settings, stringResource(R.string.more_app_settings), soon, onClick = null)
+                    // S85 is not in this version: listed, clearly marked, not tappable.
+                    EntryRow(MoreIcons.ShieldCheck, stringResource(R.string.more_profile), stringResource(R.string.more_soon), onClick = null)
+                    EntryRow(
+                        MoreIcons.Bell,
+                        stringResource(R.string.more_notifications),
+                        notificationsSummary ?: stringResource(R.string.more_notifications_value),
+                        actions.onOpenNotifications,
+                    )
+                    EntryRow(MoreIcons.Settings, stringResource(R.string.more_app_settings), stringResource(R.string.more_app_settings_value), actions.onOpenSettings)
+                    if (updateAvailable) {
+                        EntryRow(ObliIcons.Info, stringResource(R.string.more_about), stringResource(R.string.more_update_available), actions.onOpenAbout, badge = true)
+                    } else {
+                        EntryRow(ObliIcons.Info, stringResource(R.string.more_about), appVersion, actions.onOpenAbout, monoValue = true)
+                    }
                     if (ui.account != AccountState.SIGNED_OUT && ui.server != null) {
                         EntryRow(ObliIcons.LogOut, stringResource(R.string.more_sign_out), ui.server.displayName, actions.onSignOut, chevron = false)
                     }
-                }
-                SectionTitle(stringResource(R.string.more_section_about))
-                Card {
-                    EntryRow(ObliIcons.Info, stringResource(R.string.more_app_version), appVersion, onClick = null, monoValue = true)
                 }
                 if (ui.server != null) {
                     Text(
@@ -253,16 +299,6 @@ private fun Card(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text.uppercase(),
-        style = ObliTypography.overline,
-        color = ObliTheme.colors.textMuted,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 18.dp, bottom = 6.dp).semantics { heading() },
-    )
-}
-
-@Composable
 private fun EntryRow(
     icon: ImageVector,
     title: String,
@@ -270,6 +306,7 @@ private fun EntryRow(
     onClick: (() -> Unit)?,
     chevron: Boolean = true,
     monoValue: Boolean = false,
+    badge: Boolean = false,
 ) {
     val c = ObliTheme.colors
     Row(
@@ -285,13 +322,17 @@ private fun EntryRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = ObliTypography.label.copy(fontSize = 16.sp, lineHeight = 22.sp), color = c.text)
             if (!value.isNullOrEmpty()) {
-                Text(
-                    value,
-                    style = if (monoValue) ObliTypography.monoCaption.copy(fontSize = 13.sp, lineHeight = 18.sp) else ObliTypography.body,
-                    color = c.textMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Info dot (STYLEKIT: the Plus badge), never colour alone: the text says it.
+                    if (badge) Box(Modifier.size(8.dp).clip(CircleShape).background(ObliTokens.UNREAD.toColor()))
+                    Text(
+                        value,
+                        style = if (monoValue) ObliTypography.monoCaption.copy(fontSize = 13.sp, lineHeight = 18.sp) else ObliTypography.body,
+                        color = if (badge) c.text2 else c.textMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         if (onClick != null && chevron) Icon(ObliIcons.ChevronRight, contentDescription = null, tint = c.textMuted, modifier = Modifier.size(20.dp))

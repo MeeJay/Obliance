@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Channels: one set per server, inside the server's channel group (design doc §9). -->
+    <string name="notif_channel_critical">Critical devices</string>
+    <string name="notif_channel_critical_desc">A device is down or past a critical threshold. May ring during on-call.</string>
+    <string name="notif_channel_attention">Devices needing attention</string>
+    <string name="notif_channel_attention_desc">Warning thresholds: disks, disk health, metrics.</string>
+    <string name="notif_channel_recovery">Recoveries</string>
+    <string name="notif_channel_recovery_desc">A device is back online or back to normal. Silent.</string>
+    <string name="notif_channel_escalations">Privilege escalations</string>
+    <string name="notif_channel_escalations_desc">A restricted action is waiting for a second administrator.</string>
+    <string name="notif_channel_enrolments">Enrolments</string>
+    <string name="notif_channel_enrolments_desc">A new device is waiting for approval.</string>
+    <string name="notif_channel_account">Account</string>
+    <string name="notif_channel_account_desc">The session on this server has expired.</string>
+
+    <!-- Alert notifications -->
+    <string name="notif_severity_critical">CRITICAL</string>
+    <string name="notif_severity_warning">WARNING</string>
+    <string name="notif_severity_recovered">RECOVERED</string>
+    <string name="notif_category_offline">Offline</string>
+    <string name="notif_category_metric_critical">Critical metric</string>
+    <string name="notif_category_metric">Metric</string>
+    <string name="notif_category_disk_health">Disk health</string>
+    <string name="notif_category_identity">Agent identity</string>
+    <string name="notif_category_recovery">Recovery</string>
+    <string name="notif_text_format">%1$s: %2$s</string>
+    <string name="notif_recovered_at">Recovered at %1$s</string>
+    <string name="notif_public_critical">Critical alert · %1$s</string>
+    <string name="notif_public_critical_bare">Critical alert</string>
+    <string name="notif_public_warning">Alert · %1$s</string>
+    <string name="notif_public_warning_bare">Alert</string>
+    <string name="notif_public_recovery">Recovery · %1$s</string>
+    <string name="notif_public_recovery_bare">Recovery</string>
+    <string name="notif_public_approval">Approval request</string>
+    <string name="notif_public_enrolment">New device pending</string>
+    <string name="notif_public_expired">Session expired</string>
+    <string name="notif_public_summary">Obliance alerts</string>
+
+    <!-- Actions (T0/T1 only, design doc §7.6) -->
+    <string name="notif_action_open">Open</string>
+    <string name="notif_action_mark_read">Mark read</string>
+    <string name="notif_action_processes">Processes</string>
+    <string name="notif_action_review">Review</string>
+    <string name="notif_action_approve">Approve</string>
+    <string name="notif_action_refuse">Refuse</string>
+    <string name="notif_action_sign_in">Sign in again</string>
+
+    <!-- Escalations (two-person approvals) -->
+    <string name="notif_approval_title">Approval request — %1$s</string>
+    <string name="notif_approval_by">By %1$s</string>
+    <string name="notif_approval_expires">expires at %1$s</string>
+    <string name="notif_approval_type_batch">Batch command</string>
+    <string name="notif_approval_type_uninstall">Agent uninstall</string>
+    <string name="notif_approval_type_setting">Setting change</string>
+    <string name="notif_approval_type_other">Restricted action</string>
+
+    <!-- Enrolments -->
+    <string name="notif_enrolment_title">New device pending</string>
+    <string name="notif_enrolment_approved">%1$s approved</string>
+    <string name="notif_enrolment_refused">%1$s refused</string>
+    <string name="notif_enrolment_open_app">Open Obliance to finish</string>
+    <string name="notif_enrolment_failed_text">%1$s could not be handled from the notification.</string>
+
+    <!-- Account -->
+    <string name="notif_expired_title">Session expired on %1$s</string>
+    <string name="notif_expired_text">Sign in again to keep receiving its alerts.</string>
+
+    <!-- Group summary, one per server -->
+    <plurals name="notif_summary_tenant">
+        <item quantity="one">%1$s · %2$d alert</item>
+        <item quantity="other">%1$s · %2$d alerts</item>
+    </plurals>
+    <plurals name="notif_summary_overflow">
+        <item quantity="one">+%1$d other</item>
+        <item quantity="other">+%1$d others</item>
+    </plurals>
+    <plurals name="notif_summary_count">
+        <item quantity="one">%1$d unread alert</item>
+        <item quantity="other">%1$d unread alerts</item>
+    </plurals>
+    <string name="notif_summary_no_tenant">No tenant</string>
+
+    <string name="notif_test_title">Test notification — %1$s</string>
+    <string name="notif_test_text">Alerts from this server will arrive like this.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="notif_tile_label">On-call</string>
+    <plurals name="notif_tile_critical">
+        <item quantity="one">%1$d critical</item>
+        <item quantity="other">%1$d critical</item>
+    </plurals>
+
+    <!-- On-call summary (S83 row, S80) -->
+    <string name="notif_oncall_summary_active">On-call on · %1$s–%2$s</string>
+    <string name="notif_oncall_summary_off">On-call off</string>
+
+    <!-- Permission and battery (S04 steps 1-2) -->
+    <string name="notif_perm_title">Allow notifications</string>
+    <string name="notif_perm_body">Obliance tells you when a device goes down, an approval is waiting or a session expires, on each of your servers.</string>
+    <string name="notif_allow">Allow</string>
+    <string name="notif_later">Later</string>
+    <string name="notif_battery_title">Let Obliance run in the background</string>
+    <string name="notif_battery_body">Without it, Android may delay your alerts by several hours.</string>
+
+    <!-- S84 Notifications and on-call -->
+    <string name="notif_settings_title">Notifications and on-call</string>
+    <string name="notif_back">Back</string>
+    <string name="notif_denied_title">Notifications are off</string>
+    <string name="notif_denied_body">Obliance cannot tell you about your servers until notifications are allowed.</string>
+    <string name="notif_open_settings">Open Android settings</string>
+    <string name="notif_section_delivery">Delivery</string>
+    <string name="notif_delivery_poll">Checked every 15 min — Android may delay alerts</string>
+    <string name="notif_server_checked">Checked at %1$s</string>
+    <string name="notif_server_expired">Session expired · Sign in again</string>
+    <string name="notif_server_unreachable">Unreachable since %1$s</string>
+    <string name="notif_server_disabled">Notifications off</string>
+    <string name="notif_server_signed_out">Signed out</string>
+    <string name="notif_server_pending">Not checked yet</string>
+    <string name="notif_battery_off">Battery optimisation: off</string>
+    <string name="notif_battery_on">Battery optimisation: on</string>
+    <string name="notif_section_oncall">On-call</string>
+    <string name="notif_oncall_switch">On-call</string>
+    <string name="notif_oncall_switch_off">Critical alerts ring during the schedule</string>
+    <string name="notif_oncall_every_day">Every day</string>
+    <string name="notif_oncall_days">Days</string>
+    <string name="notif_oncall_start">Start</string>
+    <string name="notif_oncall_end">End</string>
+    <string name="notif_oncall_start_title">On-call starts at</string>
+    <string name="notif_oncall_end_title">On-call ends at</string>
+    <string name="notif_oncall_outside">Outside on-call</string>
+    <string name="notif_outside_critical">Critical only</string>
+    <string name="notif_outside_silent">Silent</string>
+    <string name="notif_outside_none">None</string>
+    <string name="notif_oncall_remind">Remind an unread critical alert every 5 min (3 times max)</string>
+    <string name="notif_dnd_title">Critical alerts bypass Do Not Disturb</string>
+    <string name="notif_dnd_allowed">Allowed</string>
+    <string name="notif_dnd_denied">Not allowed · Set it in Android</string>
+    <string name="notif_ok">OK</string>
+    <string name="notif_cancel">Cancel</string>
+    <string name="notif_section_servers">Per server</string>
+    <string name="notif_receive">Receive notifications</string>
+    <string name="notif_scope_all">All</string>
+    <string name="notif_scope_critical">Critical only</string>
+    <string name="notif_scope_none">None</string>
+    <string name="notif_tenants_covered">Tenants covered</string>
+    <string name="notif_tenants_unknown">Tenants appear after the first check.</string>
+    <string name="notif_in_oncall">Included in on-call</string>
+    <string name="notif_android_settings">Android settings</string>
+    <string name="notif_receive_from">Receive alerts from</string>
+    <string name="notif_section_categories">Categories</string>
+    <string name="notif_categories_of">Channels of %1$s</string>
+    <string name="notif_level_sound">Sound</string>
+    <string name="notif_level_vibrate">Vibration</string>
+    <string name="notif_level_silent">Silent</string>
+    <string name="notif_level_off">Off</string>
+    <string name="notif_level_unknown">Not created yet</string>
+    <string name="notif_section_diagnostic">Diagnostic</string>
+    <string name="notif_send_test">Send a test notification</string>
+    <string name="notif_send_test_sub">Attention channel of %1$s</string>
+    <string name="notif_check_now">Check now</string>
+    <string name="notif_check_now_sub">Checks every server in the background</string>
+    <string name="notif_selected">Selected</string>
+    <string name="notif_not_selected">Not selected</string>
+</resources>

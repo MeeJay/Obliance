@@ -302,7 +302,7 @@ private fun ExpiryLine(expiresAt: java.time.Instant?, time: TriageTime) {
 }
 
 @Composable
-private fun Fact(label: String, value: String) {
+internal fun Fact(label: String, value: String) {
     val c = ObliTheme.colors
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label.uppercase(), style = ObliTypography.overline, color = c.textMuted)

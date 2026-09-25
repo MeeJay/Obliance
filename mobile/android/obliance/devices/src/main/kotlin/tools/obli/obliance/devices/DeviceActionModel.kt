@@ -164,4 +164,15 @@ internal fun barSlots(device: Device): List<BarSlot> {
 }
 
 /** Tabs of the device detail in this increment (§5 S30 item 7). */
-internal enum class DeviceTab { OVERVIEW, SERVICES, PROCESSES, TASKS }
+internal enum class DeviceTab(val route: String) {
+    OVERVIEW("overview"),
+    SERVICES("services"),
+    PROCESSES("processes"),
+    TASKS("tasks"),
+    ;
+
+    companion object {
+        /** The tab named by a route (DeviceDetailScreen `initialTab`); unknown or null = Aperçu. */
+        fun fromRoute(route: String?): DeviceTab = entries.firstOrNull { it.route == route?.trim()?.lowercase() } ?: OVERVIEW
+    }
+}

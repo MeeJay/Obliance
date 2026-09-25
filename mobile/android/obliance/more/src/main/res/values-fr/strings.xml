@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="more_title">Plus</string>
+    <string name="more_brand_name">Obliance</string>
+    <string name="more_back">Retour</string>
 
     <!-- Carte de compte -->
     <string name="more_account_obligate">Compte Obligate</string>
@@ -23,9 +25,13 @@
     <string name="more_section_about">À propos</string>
     <string name="more_profile">Profil et sécurité</string>
     <string name="more_app_settings">Réglages de l’application</string>
+    <string name="more_app_settings_value">Sécurité, apparence</string>
+    <string name="more_notifications">Notifications et astreinte</string>
+    <string name="more_notifications_value">Alertes de vos serveurs</string>
+    <string name="more_about">À propos et mises à jour</string>
+    <string name="more_update_available">Mise à jour disponible</string>
     <string name="more_soon">Bientôt disponible</string>
     <string name="more_sign_out">Se déconnecter de ce serveur</string>
-    <string name="more_app_version">Version de l’application</string>
 
     <!-- Confirmation de déconnexion -->
     <string name="more_sign_out_confirm_title">Se déconnecter de %1$s ?</string>
@@ -33,4 +39,93 @@
     <string name="more_sign_out_body_single">Vous devrez vous reconnecter à %1$s pour continuer à utiliser l’application. Le serveur reste configuré.</string>
     <string name="more_sign_out_confirm">Se déconnecter</string>
     <string name="more_cancel">Annuler</string>
+
+    <!-- S83 Réglages de l'application -->
+    <string name="more_settings_title">Réglages de l’application</string>
+    <string name="more_settings_subtitle">Préférences de ce téléphone</string>
+    <string name="more_settings_section_servers">Serveurs</string>
+    <string name="more_settings_active_tag">Actif</string>
+    <string name="more_settings_server_a11y">%1$s, %2$s</string>
+    <string name="more_settings_server_active_a11y">%1$s, %2$s, serveur actif</string>
+    <string name="more_settings_add_server">Ajouter un serveur</string>
+    <string name="more_settings_add_server_value">%1$d sur %2$d</string>
+    <string name="more_settings_add_server_limit">Vous avez atteint 8 serveurs. Retirez-en un pour en ajouter un autre.</string>
+    <string name="more_settings_section_security">Sécurité</string>
+    <string name="more_settings_lock">Verrou biométrique</string>
+    <string name="more_settings_lock_subtitle_immediate">Au démarrage et dès le passage en arrière-plan</string>
+    <string name="more_settings_lock_subtitle_delay">Au démarrage et après %1$s en arrière-plan</string>
+    <string name="more_settings_lock_unavailable">Définissez un verrouillage d’écran dans les réglages Android pour activer le verrou.</string>
+    <string name="more_settings_lock_confirm_title">Activer le verrou d’Obliance</string>
+    <string name="more_settings_lock_after">Verrouiller après</string>
+    <string name="more_settings_lock_after_subtitle">Temps passé en arrière-plan</string>
+    <string name="more_settings_lock_after_off">Activez le verrou biométrique pour choisir le délai.</string>
+    <string name="more_lock_timeout_immediate">Immédiat</string>
+    <string name="more_lock_timeout_1">1 min</string>
+    <string name="more_lock_timeout_5">5 min</string>
+    <string name="more_lock_timeout_15">15 min</string>
+    <string name="more_settings_screenshots">Bloquer les captures d’écran partout</string>
+    <string name="more_settings_screenshots_subtitle">ObliReach et sorties de scripts : toujours bloqués</string>
+    <string name="more_settings_section_appearance">Apparence</string>
+    <string name="more_settings_theme">Thème</string>
+    <string name="more_settings_theme_subtitle">Nuit : plus sombre, pour les heures d’astreinte</string>
+    <string name="more_theme_server">Serveur</string>
+    <string name="more_theme_operator">Operator</string>
+    <string name="more_theme_night">Nuit</string>
+    <string name="more_settings_theme_helper">Serveur : le thème choisi sur le web du serveur actif (Operator, Neon, Modern).</string>
+    <string name="more_settings_auto_night">Nuit automatique</string>
+    <string name="more_settings_auto_night_subtitle">De 22:00 à 07:00</string>
+    <string name="more_settings_footer">Obliance pour Android · %1$s</string>
+    <string name="more_settings_footer_server">Obliance pour Android · %1$s · %2$s %3$s</string>
+
+    <!-- S00 Verrouillage -->
+    <string name="more_lock_title">Obliance est verrouillé</string>
+    <string name="more_lock_unlock">Déverrouiller</string>
+    <string name="more_lock_prompt_title">Déverrouiller Obliance</string>
+
+    <!-- S86 À propos et mises à jour -->
+    <string name="more_about_title">À propos et mises à jour</string>
+    <string name="more_about_app_name">Obliance pour Android</string>
+    <string name="more_about_version">%1$s (%2$d)</string>
+    <string name="more_about_section_servers">Serveurs</string>
+    <string name="more_about_server_version">Obliance %1$s</string>
+    <string name="more_about_server_checking">Vérification…</string>
+    <string name="more_about_server_unknown">Version indisponible</string>
+    <string name="more_about_section_update">Mise à jour</string>
+    <string name="more_update_checking">Recherche d’une mise à jour…</string>
+    <string name="more_update_up_to_date">Obliance est à jour.</string>
+    <string name="more_update_offer">Version %1$s proposée par %2$s</string>
+    <string name="more_update_required">Cette version n’est plus prise en charge par %1$s : installez la mise à jour.</string>
+    <string name="more_update_notes">Notes de version</string>
+    <string name="more_update_nothing">Aucune mise à jour de cette app n’est publiée sur vos serveurs.</string>
+    <string name="more_update_no_server">Connectez-vous à un serveur pour rechercher une mise à jour.</string>
+    <string name="more_update_failed">Les serveurs n’ont pas pu être joints. Réessayez plus tard.</string>
+    <string name="more_update_install">Télécharger et installer</string>
+    <string name="more_update_check">Rechercher une mise à jour</string>
+    <string name="more_update_downloading">Téléchargement de la version %1$s…</string>
+    <string name="more_update_verifying">Vérification de l’empreinte et de la signature…</string>
+    <string name="more_update_ready">La version %1$s est vérifiée et prête à être installée.</string>
+    <string name="more_update_install_now">Installer</string>
+    <string name="more_update_permission">Autorisez Obliance à installer des applications, puis revenez ici : l’installation continuera.</string>
+    <string name="more_update_problem_refused">Cette adresse de téléchargement est refusée : elle n’appartient pas au serveur qui propose la mise à jour.</string>
+    <string name="more_update_problem_not_started">Le téléchargement n’a pas pu démarrer.</string>
+    <string name="more_update_problem_failed">Le téléchargement a échoué.</string>
+    <string name="more_update_problem_integrity">Le fichier téléchargé n’a pas passé la vérification (empreinte ou signature). Il a été supprimé.</string>
+    <string name="more_update_problem_not_newer">Le fichier téléchargé n’est pas plus récent que l’application installée.</string>
+    <string name="more_update_install_failed">L’installateur n’a pas pu s’ouvrir.</string>
+    <string name="more_update_download_title">Obliance %1$s</string>
+    <string name="more_about_section_licences">Licences</string>
+    <string name="more_licence_fonts">Inter, Rajdhani, JetBrains Mono</string>
+    <string name="more_licence_ofl">SIL Open Font License 1.1</string>
+    <string name="more_licence_apache">Licence Apache 2.0</string>
+    <string name="more_licence_mit">Licence MIT</string>
+    <string name="more_licence_androidx">AndroidX, Jetpack Compose, Kotlin</string>
+    <string name="more_licence_termlib">termlib</string>
+    <string name="more_licence_libvterm">libvterm</string>
+    <string name="more_licence_okhttp">OkHttp</string>
+    <string name="more_licence_socketio">Client Java Socket.IO</string>
+    <string name="more_about_section_diagnostic">Diagnostic</string>
+    <string name="more_diagnostic_copy">Copier le diagnostic</string>
+    <string name="more_diagnostic_subtitle">Versions et états, sans jetons, cookies ni adresses de serveurs</string>
+    <string name="more_diagnostic_copied">Diagnostic copié</string>
+    <string name="more_diagnostic_label">Diagnostic Obliance</string>
 </resources>

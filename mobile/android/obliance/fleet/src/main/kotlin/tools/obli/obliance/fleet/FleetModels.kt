@@ -21,7 +21,19 @@ internal data class FleetData(
     val hourly: List<FleetHour>? = null,
     /** Show the tenant of each row (master tenant session: rows come from every tenant). */
     val showTenants: Boolean = false,
+    /**
+     * Global-view filter applied to the device figures (§2.3): [summary] and
+     * [attention] come from the filtered device list; [groups], [disks],
+     * [updates], [hourly] and [globalSummary] still cover the whole global view
+     * (the server cannot filter them) and are captioned so. Null: no filter.
+     */
+    val filter: FleetFilter? = null,
+    /** While filtered: the server summary of the whole global view ("MAJ en attente" card). */
+    val globalSummary: FleetSummary? = null,
 )
+
+/** The global-view filter of the Fleet screen: ids sent as `tenantIds=`, names for the header. */
+internal data class FleetFilter(val tenantIds: List<Long>, val names: List<String>)
 
 internal enum class FleetProblem {
     /** 401: the app shows S03 for the active server; the screen stays calm. */
@@ -48,6 +60,8 @@ internal data class FleetUi(
     val problem: FleetProblem? = null,
     /** No active server (should not happen inside the shell). */
     val noServer: Boolean = false,
+    /** The global-view filter of the current scope (header "ACME · filtre", also while loading). */
+    val filter: FleetFilter? = null,
 )
 
 // --- Presentation values computed from FleetData (pure, unit-tested) ----------
@@ -205,15 +219,11 @@ internal object FleetMapper {
             Kpi(KpiKind.CRITICAL, s.critical, fraction = frac(s.critical), status = colored(s.critical, ObliTokens.Status.CRITICAL)),
             Kpi(KpiKind.WARNING, s.warning, fraction = frac(s.warning), status = colored(s.warning, ObliTokens.Status.WARNING)),
         )
-        if (!data.serverAggregates) return base
+        // Figures of a device list (non-admin, or the global view filtered): no server-only indicators.
+        if (!data.serverAggregates || data.filter != null) return base
         val agents = s.agentUpToDate + s.agentOutdated
         return base + listOf(
-            Kpi(
-                KpiKind.PENDING_UPDATES, s.pendingUpdates,
-                criticalUpdates = data.updates?.critical?.takeIf { it > 0 && s.pendingUpdates > 0 },
-                delta = s.deltas.pendingUpdatesVsWeek?.let { Delta(it, trend(it, higherIsBetter = false), DeltaPeriod.WEEK) },
-                fraction = frac(s.pendingUpdates), status = null,
-            ),
+            pendingUpdates(s, data.updates),
             Kpi(
                 KpiKind.AGENTS_UP_TO_DATE, s.agentUpToDate, outOf = if (agents > 0) agents else total,
                 fraction = if (agents > 0) (s.agentUpToDate.toFloat() / agents).coerceIn(0f, 1f) else 0f,
@@ -221,6 +231,25 @@ internal object FleetMapper {
             ),
         )
     }
+
+    /** "MAJ en attente 47 (dont 9 critiques)" of the server summary [s]. */
+    private fun pendingUpdates(s: FleetSummary, updates: UpdateStats?): Kpi {
+        val total = s.total.coerceAtLeast(0)
+        return Kpi(
+            KpiKind.PENDING_UPDATES, s.pendingUpdates,
+            criticalUpdates = updates?.critical?.takeIf { it > 0 && s.pendingUpdates > 0 },
+            delta = s.deltas.pendingUpdatesVsWeek?.let { Delta(it, trend(it, higherIsBetter = false), DeltaPeriod.WEEK) },
+            fraction = if (total > 0) (s.pendingUpdates.toFloat() / total).coerceIn(0f, 1f) else 0f, status = null,
+        )
+    }
+
+    /**
+     * While the global view is filtered (admins): the pending updates of the
+     * WHOLE global view (the server cannot filter them), shown apart and
+     * captioned; null otherwise.
+     */
+    fun unfilteredUpdates(data: FleetData): Kpi? =
+        if (data.filter == null || !data.serverAggregates) null else data.globalSummary?.let { pendingUpdates(it, data.updates) }
 
     /** Figures of the devices the user can see (non-admins: server aggregates are not filtered by visibility). */
     fun summaryOf(devices: List<Device>): FleetSummary {

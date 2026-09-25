@@ -94,8 +94,11 @@ internal data class FleetHour(
 internal interface FleetSource {
     suspend fun summary(serverId: ServerId): ApiOutcome<FleetSummary>
 
-    /** Devices sorted by the server's visual priority (critical first), approved only. */
-    suspend fun byPriority(serverId: ServerId, pageSize: Int): ApiOutcome<DevicePage>
+    /**
+     * Devices sorted by the server's visual priority (critical first), approved
+     * only; [tenantIds] = the global-view filter (`tenantIds=`, master tenant only).
+     */
+    suspend fun byPriority(serverId: ServerId, pageSize: Int, tenantIds: List<Long> = emptyList()): ApiOutcome<DevicePage>
 
     suspend fun groupStats(serverId: ServerId): ApiOutcome<List<GroupStat>>
 
@@ -113,9 +116,9 @@ internal interface FleetSource {
 internal class ServicesFleetSource(private val services: ObliServices) : FleetSource {
     override suspend fun summary(serverId: ServerId): ApiOutcome<FleetSummary> = services.devices.summary(serverId)
 
-    override suspend fun byPriority(serverId: ServerId, pageSize: Int): ApiOutcome<DevicePage> =
+    override suspend fun byPriority(serverId: ServerId, pageSize: Int, tenantIds: List<Long>): ApiOutcome<DevicePage> =
         services.devices.page(
-            DeviceQuery(pageSize = pageSize, sortBy = DeviceSort.STATUS, sortOrder = SortOrder.ASC, approvalStatus = "approved"),
+            DeviceQuery(pageSize = pageSize, sortBy = DeviceSort.STATUS, sortOrder = SortOrder.ASC, approvalStatus = "approved", tenantIds = tenantIds),
             serverId,
         )
 

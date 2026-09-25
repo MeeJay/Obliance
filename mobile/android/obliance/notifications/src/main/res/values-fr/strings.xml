@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Canaux : un jeu par serveur, dans le groupe de canaux du serveur (conception §9). -->
+    <string name="notif_channel_critical">Appareils critiques</string>
+    <string name="notif_channel_critical_desc">Un appareil est tombé ou a franchi un seuil critique. Peut sonner pendant l’astreinte.</string>
+    <string name="notif_channel_attention">Appareils en attention</string>
+    <string name="notif_channel_attention_desc">Seuils d’attention : disques, santé des disques, métriques.</string>
+    <string name="notif_channel_recovery">Rétablissements</string>
+    <string name="notif_channel_recovery_desc">Un appareil est de retour en ligne ou revenu à la normale. Silencieux.</string>
+    <string name="notif_channel_escalations">Escalades de droits</string>
+    <string name="notif_channel_escalations_desc">Une action restreinte attend un second administrateur.</string>
+    <string name="notif_channel_enrolments">Enrôlements</string>
+    <string name="notif_channel_enrolments_desc">Un nouvel appareil attend d’être approuvé.</string>
+    <string name="notif_channel_account">Compte</string>
+    <string name="notif_channel_account_desc">La session sur ce serveur a expiré.</string>
+
+    <!-- Notifications d’alerte -->
+    <string name="notif_severity_critical">CRITIQUE</string>
+    <string name="notif_severity_warning">ATTENTION</string>
+    <string name="notif_severity_recovered">RÉTABLI</string>
+    <string name="notif_category_offline">Hors ligne</string>
+    <string name="notif_category_metric_critical">Métrique critique</string>
+    <string name="notif_category_metric">Métrique</string>
+    <string name="notif_category_disk_health">Santé disque</string>
+    <string name="notif_category_identity">Identité de l’agent</string>
+    <string name="notif_category_recovery">Rétablissement</string>
+    <string name="notif_text_format">%1$s : %2$s</string>
+    <string name="notif_recovered_at">Rétabli à %1$s</string>
+    <string name="notif_public_critical">Alerte critique · %1$s</string>
+    <string name="notif_public_critical_bare">Alerte critique</string>
+    <string name="notif_public_warning">Alerte · %1$s</string>
+    <string name="notif_public_warning_bare">Alerte</string>
+    <string name="notif_public_recovery">Rétablissement · %1$s</string>
+    <string name="notif_public_recovery_bare">Rétablissement</string>
+    <string name="notif_public_approval">Demande d’approbation</string>
+    <string name="notif_public_enrolment">Nouvel appareil en attente</string>
+    <string name="notif_public_expired">Session expirée</string>
+    <string name="notif_public_summary">Alertes Obliance</string>
+
+    <!-- Actions (T0/T1 uniquement, conception §7.6) -->
+    <string name="notif_action_open">Ouvrir</string>
+    <string name="notif_action_mark_read">Marquer lu</string>
+    <string name="notif_action_processes">Processus</string>
+    <string name="notif_action_review">Examiner</string>
+    <string name="notif_action_approve">Approuver</string>
+    <string name="notif_action_refuse">Refuser</string>
+    <string name="notif_action_sign_in">Se reconnecter</string>
+
+    <!-- Escalades (demandes à deux) -->
+    <string name="notif_approval_title">Demande d’approbation — %1$s</string>
+    <string name="notif_approval_by">Par %1$s</string>
+    <string name="notif_approval_expires">expire à %1$s</string>
+    <string name="notif_approval_type_batch">Commande groupée</string>
+    <string name="notif_approval_type_uninstall">Désinstallation de l’agent</string>
+    <string name="notif_approval_type_setting">Modification d’un réglage</string>
+    <string name="notif_approval_type_other">Action restreinte</string>
+
+    <!-- Enrôlements -->
+    <string name="notif_enrolment_title">Nouvel appareil en attente</string>
+    <string name="notif_enrolment_approved">%1$s approuvé</string>
+    <string name="notif_enrolment_refused">%1$s refusé</string>
+    <string name="notif_enrolment_open_app">Ouvrez Obliance pour terminer</string>
+    <string name="notif_enrolment_failed_text">%1$s n’a pas pu être traité depuis la notification.</string>
+
+    <!-- Compte -->
+    <string name="notif_expired_title">Session expirée sur %1$s</string>
+    <string name="notif_expired_text">Reconnectez-vous pour continuer à recevoir ses alertes.</string>
+
+    <!-- Résumé du groupe, un par serveur -->
+    <plurals name="notif_summary_tenant">
+        <item quantity="one">%1$s · %2$d alerte</item>
+        <item quantity="many">%1$s · %2$d alertes</item>
+        <item quantity="other">%1$s · %2$d alertes</item>
+    </plurals>
+    <plurals name="notif_summary_overflow">
+        <item quantity="one">+%1$d autre</item>
+        <item quantity="many">+%1$d autres</item>
+        <item quantity="other">+%1$d autres</item>
+    </plurals>
+    <plurals name="notif_summary_count">
+        <item quantity="one">%1$d alerte non lue</item>
+        <item quantity="many">%1$d alertes non lues</item>
+        <item quantity="other">%1$d alertes non lues</item>
+    </plurals>
+    <string name="notif_summary_no_tenant">Sans tenant</string>
+
+    <string name="notif_test_title">Notification de test — %1$s</string>
+    <string name="notif_test_text">Les alertes de ce serveur arriveront ainsi.</string>
+
+    <!-- Tuile Réglages rapides -->
+    <string name="notif_tile_label">Astreinte</string>
+    <plurals name="notif_tile_critical">
+        <item quantity="one">%1$d critique</item>
+        <item quantity="many">%1$d critiques</item>
+        <item quantity="other">%1$d critiques</item>
+    </plurals>
+
+    <!-- Résumé de l’astreinte (ligne de S83, S80) -->
+    <string name="notif_oncall_summary_active">Astreinte active · %1$s–%2$s</string>
+    <string name="notif_oncall_summary_off">Astreinte désactivée</string>
+
+    <!-- Autorisation et batterie (S04, étapes 1 et 2) -->
+    <string name="notif_perm_title">Autoriser les notifications</string>
+    <string name="notif_perm_body">Obliance vous prévient quand un appareil tombe, qu’une approbation vous attend ou qu’une session expire, sur chacun de vos serveurs.</string>
+    <string name="notif_allow">Autoriser</string>
+    <string name="notif_later">Plus tard</string>
+    <string name="notif_battery_title">Autoriser Obliance à fonctionner en arrière-plan</string>
+    <string name="notif_battery_body">Sans cela, Android peut retarder vos alertes de plusieurs heures.</string>
+
+    <!-- S84 Notifications et astreinte -->
+    <string name="notif_settings_title">Notifications et astreinte</string>
+    <string name="notif_back">Retour</string>
+    <string name="notif_denied_title">Les notifications sont désactivées</string>
+    <string name="notif_denied_body">Obliance ne peut pas vous prévenir pour vos serveurs tant que les notifications ne sont pas autorisées.</string>
+    <string name="notif_open_settings">Ouvrir les réglages Android</string>
+    <string name="notif_section_delivery">Acheminement</string>
+    <string name="notif_delivery_poll">Vérification toutes les 15 min — Android peut retarder les alertes</string>
+    <string name="notif_server_checked">Vérifié à %1$s</string>
+    <string name="notif_server_expired">Session expirée · Se reconnecter</string>
+    <string name="notif_server_unreachable">Injoignable depuis %1$s</string>
+    <string name="notif_server_disabled">Notifications désactivées</string>
+    <string name="notif_server_signed_out">Déconnecté</string>
+    <string name="notif_server_pending">Pas encore vérifié</string>
+    <string name="notif_battery_off">Optimisation de batterie : désactivée</string>
+    <string name="notif_battery_on">Optimisation de batterie : active</string>
+    <string name="notif_section_oncall">Astreinte</string>
+    <string name="notif_oncall_switch">Astreinte</string>
+    <string name="notif_oncall_switch_off">Les alertes critiques sonnent pendant l’horaire</string>
+    <string name="notif_oncall_every_day">Tous les jours</string>
+    <string name="notif_oncall_days">Jours</string>
+    <string name="notif_oncall_start">Début</string>
+    <string name="notif_oncall_end">Fin</string>
+    <string name="notif_oncall_start_title">Début de l’astreinte</string>
+    <string name="notif_oncall_end_title">Fin de l’astreinte</string>
+    <string name="notif_oncall_outside">Hors astreinte</string>
+    <string name="notif_outside_critical">Critiques seulement</string>
+    <string name="notif_outside_silent">Silencieuses</string>
+    <string name="notif_outside_none">Aucune</string>
+    <string name="notif_oncall_remind">Rappeler une alerte critique non lue toutes les 5 min (3 fois max)</string>
+    <string name="notif_dnd_title">Les critiques ignorent Ne pas déranger</string>
+    <string name="notif_dnd_allowed">Autorisé</string>
+    <string name="notif_dnd_denied">Non autorisé · À régler dans Android</string>
+    <string name="notif_ok">OK</string>
+    <string name="notif_cancel">Annuler</string>
+    <string name="notif_section_servers">Par serveur</string>
+    <string name="notif_receive">Recevoir les notifications</string>
+    <string name="notif_scope_all">Toutes</string>
+    <string name="notif_scope_critical">Critiques seulement</string>
+    <string name="notif_scope_none">Aucune</string>
+    <string name="notif_tenants_covered">Tenants couverts</string>
+    <string name="notif_tenants_unknown">Les tenants apparaissent après la première vérification.</string>
+    <string name="notif_in_oncall">Inclus dans l’astreinte</string>
+    <string name="notif_android_settings">Réglages Android</string>
+    <string name="notif_receive_from">Recevoir les alertes de</string>
+    <string name="notif_section_categories">Catégories</string>
+    <string name="notif_categories_of">Canaux de %1$s</string>
+    <string name="notif_level_sound">Son</string>
+    <string name="notif_level_vibrate">Vibration</string>
+    <string name="notif_level_silent">Silencieux</string>
+    <string name="notif_level_off">Désactivé</string>
+    <string name="notif_level_unknown">Pas encore créé</string>
+    <string name="notif_section_diagnostic">Diagnostic</string>
+    <string name="notif_send_test">Envoyer une notification de test</string>
+    <string name="notif_send_test_sub">Canal « Appareils en attention » de %1$s</string>
+    <string name="notif_check_now">Vérifier maintenant</string>
+    <string name="notif_check_now_sub">Vérifie chaque serveur en arrière-plan</string>
+    <string name="notif_selected">Sélectionné</string>
+    <string name="notif_not_selected">Non sélectionné</string>
+</resources>

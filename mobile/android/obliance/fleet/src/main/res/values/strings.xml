@@ -114,4 +114,18 @@
     <string name="fleet_empty_title">No devices yet</string>
     <string name="fleet_empty_body">Devices appear here once their agent is installed and approved.</string>
     <string name="fleet_open_devices">Show the devices</string>
+
+    <!-- Global view filtered on some tenants (design doc §2.3) -->
+    <string name="fleet_scope_filter_one">%1$s · filter</string>
+    <string name="fleet_scope_filter_a11y_one">Global view filtered on %1$s</string>
+    <string name="fleet_unfiltered">Whole global view (filter not applied)</string>
+    <string name="fleet_updates">Updates</string>
+    <plurals name="fleet_scope_filter_many">
+        <item quantity="one">%d tenant · filter</item>
+        <item quantity="other">%d tenants · filter</item>
+    </plurals>
+    <plurals name="fleet_scope_filter_a11y_many">
+        <item quantity="one">Global view filtered on %d tenant</item>
+        <item quantity="other">Global view filtered on %d tenants</item>
+    </plurals>
 </resources>

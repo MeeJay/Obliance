@@ -150,6 +150,15 @@ class ServerRegistry(
     /** Remembers the user's web theme on this server (see ServerProfile.theme). */
     suspend fun setTheme(id: ServerId, theme: String?): Boolean = updateProfile(id) { it.copy(theme = theme) }
 
+    /**
+     * Global-view tenant filter of [id] (see ServerProfile.viewFilter, design
+     * doc §2.3): stored distinct and sorted, ids > 0 only, at most
+     * [MAX_VIEW_FILTER]; an empty collection clears it. Persisted like the
+     * other settings of the profile; false when [id] does not exist.
+     */
+    suspend fun setViewFilter(id: ServerId, tenantIds: Collection<Long>): Boolean =
+        updateProfile(id) { it.copy(viewFilter = cleanViewFilter(tenantIds)) }
+
     /** New order of the profiles (drives Alt+1..8 and the chip order); [ids] must be a permutation. */
     suspend fun reorder(ids: List<ServerId>): Boolean = mutex.withLock {
         val current = _state.value
@@ -192,6 +201,13 @@ class ServerRegistry(
         const val MAX_SERVERS = 8
         const val MAX_NAME = 40
 
+        /** Most tenant ids one global-view filter keeps (ServerProfile.viewFilter). */
+        const val MAX_VIEW_FILTER = 64
+
+        /** The stored form of a global-view filter: ids > 0, distinct, sorted, at most [MAX_VIEW_FILTER]. */
+        fun cleanViewFilter(tenantIds: Collection<Long>): List<Long> =
+            tenantIds.filter { it > 0 }.distinct().sorted().take(MAX_VIEW_FILTER)
+
         /** First palette colour not used yet, in palette order; cycles when all are taken. */
         fun nextColor(existing: List<ServerProfile>): ServerColor {
             val used = existing.map { it.color }.toSet()
@@ -204,7 +220,8 @@ class ServerRegistry(
         private fun renumber(list: List<ServerProfile>) = list.mapIndexed { i, p -> if (p.order == i) p else p.copy(order = i) }
 
         /** Drops what a corrupted or hand-edited store could contain: duplicate ids or
-         *  origins, invalid origins, more than MAX_SERVERS, an unknown active id. */
+         *  origins, invalid origins, more than MAX_SERVERS, an unknown active id. The
+         *  global-view filter of each profile is kept, in its clean form. */
         internal fun sanitize(state: ServerRegistryState): ServerRegistryState {
             val seenIds = HashSet<ServerId>()
             val seenOrigins = HashSet<String>()
@@ -216,6 +233,7 @@ class ServerRegistry(
                 }
                 .take(MAX_SERVERS)
                 .let(::renumber)
+                .map { p -> cleanViewFilter(p.viewFilter).let { f -> if (f == p.viewFilter) p else p.copy(viewFilter = f) } }
             val active = state.activeId?.takeIf { id -> profiles.any { it.id == id } } ?: profiles.firstOrNull()?.id
             return ServerRegistryState(profiles, active)
         }

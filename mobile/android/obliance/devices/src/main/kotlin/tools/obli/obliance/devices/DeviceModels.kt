@@ -146,8 +146,10 @@ internal data class ListFilters(
      * infinite scroll; non-admins ask the server's maximum at once because the
      * server filters visibility AFTER its LIMIT (and reports only what is left
      * as `total`), and are pinned to approved devices like the web.
+     * [tenantIds] is the global-view filter (TenantScope.listTenantIds, §2.3):
+     * `tenantIds=` only when it is not empty.
      */
-    fun toQuery(page: Int, admin: Boolean): DeviceQuery = DeviceQuery(
+    fun toQuery(page: Int, admin: Boolean, tenantIds: List<Long> = emptyList()): DeviceQuery = DeviceQuery(
         page = page,
         pageSize = if (admin) ADMIN_PAGE_SIZE else MEMBER_PAGE_SIZE,
         search = search.trim().takeIf { it.isNotEmpty() },
@@ -155,6 +157,7 @@ internal data class ListFilters(
         sortBy = if (problemsFirst) DeviceSort.STATUS else DeviceSort.NAME,
         approvalStatus = if (admin) null else "approved",
         osType = os?.wire,
+        tenantIds = tenantIds,
     )
 
     companion object {

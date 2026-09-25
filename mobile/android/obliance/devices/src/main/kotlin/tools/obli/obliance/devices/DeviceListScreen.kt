@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -140,6 +141,7 @@ fun DeviceListScreen(onOpenDevice: (ServerId, Long) -> Unit, onRunScript: (Serve
             onClearFilters = vm::clearFilters,
             onRefresh = vm::refresh,
             onLoadMore = vm::loadMore,
+            onClearViewFilter = vm::clearViewFilter,
         ),
     )
 }
@@ -159,6 +161,8 @@ internal class ListActions(
     val onClearFilters: () -> Unit = {},
     val onRefresh: () -> Unit = {},
     val onLoadMore: () -> Unit = {},
+    /** Clears the global-view filter ("Filtre : ACME" ×, filtered empty state). */
+    val onClearViewFilter: () -> Unit = {},
 )
 
 /** Current time, refreshed every 5 s while visible (§7.3 relative ages). */
@@ -191,6 +195,7 @@ internal fun DeviceListContent(state: DeviceListState, live: Boolean, now: Long,
             SelectionBar(selection, state, actions)
         }
         SearchField(state.filters.search, actions.onSearch, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
+        if (state.viewFiltered) ViewFilterRow(state, actions.onClearViewFilter)
         QuickChips(state, actions)
         Box(Modifier.fillMaxWidth().height(2.dp)) {
             if (state.filtering) LinearProgressIndicator(Modifier.fillMaxWidth(), color = c.text2, trackColor = Color.Transparent)
@@ -530,28 +535,67 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit, do
     }
 }
 
-/** Empty states of §5 S20: empty tenant, or no match for the search / filter. */
+/** Empty states of §5 S20: empty tenant, no match for the search / filter, or for the global-view filter. */
 @Composable
 private fun EmptyState(state: DeviceListState, actions: ListActions) {
     val f = state.filters
     val filterLabel = f.status?.let { stringResource(it.status.label()) } ?: f.os?.let { stringResource(it.label()) }
     val search = f.search.trim()
+    // Only the tenant filter narrows the list: say so and offer to clear it (§2.3).
+    val tenantFilterOnly = !f.narrowed && state.viewFiltered
     val title = when {
         search.isNotEmpty() && filterLabel != null -> stringResource(R.string.devices_empty_search_filter, search, filterLabel)
         search.isNotEmpty() -> stringResource(R.string.devices_empty_search, search)
         filterLabel != null -> stringResource(R.string.devices_empty_filter, filterLabel)
+        tenantFilterOnly -> state.filterNames.singleOrNull()?.let { stringResource(R.string.devices_empty_view_filter_one, it) }
+            ?: pluralStringResource(R.plurals.devices_empty_view_filter_many, state.viewTenantIds.size, state.viewTenantIds.size)
         else -> stringResource(R.string.devices_empty_tenant)
     }
     ObliCalmState(
         title = title,
-        icon = if (f.narrowed) DeviceIcons.SlidersHorizontal else ObliIcons.Monitor,
-        action = if (f.narrowed) {
-            { SecondaryButton(stringResource(R.string.devices_clear_filters), actions.onClearFilters) }
-        } else {
-            null
+        icon = if (f.narrowed || tenantFilterOnly) DeviceIcons.SlidersHorizontal else ObliIcons.Monitor,
+        action = when {
+            f.narrowed -> {
+                { SecondaryButton(stringResource(R.string.devices_clear_filters), actions.onClearFilters) }
+            }
+            tenantFilterOnly -> {
+                { SecondaryButton(stringResource(R.string.devices_clear_view_filter), actions.onClearViewFilter) }
+            }
+            else -> null
         },
     )
 }
+
+/**
+ * "Filtre : ACME" under the search field while the global view is filtered
+ * (§2.3): the chip (STYLEKIT tenant-chip-filter, 6 dp #FF6868 dot) and a 48 dp
+ * button that clears the filter. The quick-chip counts are hidden meanwhile.
+ */
+@Composable
+private fun ViewFilterRow(state: DeviceListState, onClear: () -> Unit) {
+    val c = ObliTheme.colors
+    val label = state.filterNames.singleOrNull()?.let { stringResource(R.string.devices_view_filter_one, it) }
+        ?: pluralStringResource(R.plurals.devices_view_filter_many, state.viewTenantIds.size, state.viewTenantIds.size)
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            Modifier.weight(1f, fill = false).height(36.dp).clip(RoundedCornerShape(8.dp)).background(c.active).padding(horizontal = 12.dp)
+                .semantics(mergeDescendants = true) { },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(ObliIcons.Building2, contentDescription = null, tint = c.text2, modifier = Modifier.size(16.dp))
+            SingleLine(label, ObliTypography.label.copy(fontWeight = FontWeight.SemiBold), c.text, Modifier.weight(1f, fill = false))
+            Box(Modifier.size(6.dp).clip(CircleShape).background(c.accent2))
+        }
+        ObliIconButton(ObliIcons.X, stringResource(R.string.devices_view_filter_clear), onClick = onClear, modifier = Modifier.testTag(TAG_CLEAR_VIEW_FILTER))
+    }
+}
+
+internal const val TAG_CLEAR_VIEW_FILTER = "devices_clear_view_filter"
 
 /** Cached rows with a failed refresh (§5 "Hors ligne": cache kept, cause said). */
 @Composable

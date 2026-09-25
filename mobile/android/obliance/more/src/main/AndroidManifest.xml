@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- S86: signed in-app updates from the signed-in servers (never silent:
+         Android shows its installer, which re-checks the signature). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- content:// URIs of the VERIFIED update APK (getExternalFilesDir("updates"))
+             for the system installer. The authority follows the applicationId. -->
+        <provider
+            android:name=".UpdateFileProvider"
+            android:authorities="${applicationId}.obliupdates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/more_update_paths" />
+        </provider>
+
+        <!-- DOWNLOAD_COMPLETE is sent by the download provider (another uid): the
+             receiver must be exported. It only acts on the download id this app
+             enqueued, re-reads its status from DownloadManager and verifies
+             SHA-256 + signing certificate before offering anything. -->
+        <receiver
+            android:name=".UpdateDownloadReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

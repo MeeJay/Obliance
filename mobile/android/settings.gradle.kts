@@ -44,6 +44,7 @@ include(":obliance:fleet")
 include(":obliance:more")
 include(":obliance:remote")
 include(":obliance:automations")
+include(":obliance:notifications")
 include(":obliance:app")
 
 // Phase 0 technical proofs (design doc §11): compiled and tested, never shipped.

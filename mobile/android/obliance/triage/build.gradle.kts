@@ -5,6 +5,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
+    // Private DTOs of the enrolment calls (CONTRACT §7).
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -46,6 +48,9 @@ kotlin {
 dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":obliance:data"))
+    // LocalActionRunner / ActionMessages for the enrolment actions (CONTRACT §12).
+    implementation(project(":core:security-ui"))
+    implementation(libs.kotlinx.serialization.json)
     implementation(platform(libs.compose.bom))
     implementation(libs.bundles.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -59,5 +64,6 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
     debugImplementation(libs.compose.ui.test.manifest)
 }

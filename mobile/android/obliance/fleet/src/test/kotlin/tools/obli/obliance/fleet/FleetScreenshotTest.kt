@@ -3,9 +3,14 @@ package tools.obli.obliance.fleet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.time.ZoneId
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +22,7 @@ import tools.obli.core.network.ApiOutcome
 import tools.obli.core.network.FailureKind
 import tools.obli.obliance.api.FleetSummary
 import tools.obli.obliance.data.LocalObliServices
+import tools.obli.obliance.data.ObliServices
 import tools.obli.obliance.data.sample.SampleData
 import tools.obli.obliance.data.sample.SampleObliServices
 
@@ -35,10 +41,10 @@ class FleetScreenshotTest {
 
     private fun shot(name: String) = (System.getProperty("roborazzi.output.dir") ?: "build/outputs/roborazzi") + "/" + name
 
-    private fun capture(name: String, source: FleetSource = SampleFleetSource(), content: @Composable () -> Unit) {
+    private fun capture(name: String, source: FleetSource = SampleFleetSource(), services: ObliServices = SampleObliServices(), content: @Composable () -> Unit) {
         compose.setContent {
             ObliTheme {
-                CompositionLocalProvider(LocalObliServices provides SampleObliServices(), LocalFleetSource provides source) { content() }
+                CompositionLocalProvider(LocalObliServices provides services, LocalFleetSource provides source) { content() }
             }
         }
         compose.waitForIdle()
@@ -77,6 +83,24 @@ class FleetScreenshotTest {
     }
 
     @Test fun loading() = capture("fleet_phone_loading.png") { FleetContent(FleetUi(loading = true), time, {}, {}) }
+
+    /** Global view filtered on ACME (§2.3): figures of the ACME devices, the other cards captioned. */
+    private fun acmeFiltered(): ObliServices = SampleObliServices().also { runBlocking { it.tenants.setViewFilter(setOf(SampleData.ACME_TENANT)) } }
+
+    @Config(qualifiers = "fr-rFR-w390dp-h2600dp-xxhdpi")
+    @Test fun filteredFullPage() {
+        capture("fleet_phone_filtered_full.png", services = acmeFiltered()) { Route() }
+        // Updates, full disks and groups say they cover the whole view (the 24 h card says it in its description).
+        compose.onAllNodesWithText("Toute la vue globale (filtre non appliqué)").assertCountEquals(3)
+        compose.onNodeWithContentDescription("Vue globale filtrée sur ACME").assertExists()
+        compose.onNodeWithContentDescription("Dernières 24 heures", substring = true)
+            .assert(androidx.compose.ui.test.hasContentDescription("filtre non appliqué", substring = true))
+    }
+
+    @Test fun filtered() = capture("fleet_phone_filtered.png", services = acmeFiltered()) { Route() }
+
+    @Config(qualifiers = "fr-rFR-w1280dp-h800dp-land-mdpi")
+    @Test fun filteredTablet() = capture("fleet_tablet_filtered.png", services = acmeFiltered()) { Route() }
 
     @Test fun serverError() = capture("fleet_phone_error.png", SampleFleetSource(summaryAnswer = { ApiOutcome.Failure(502, FailureKind.SERVER) })) { Route() }
 

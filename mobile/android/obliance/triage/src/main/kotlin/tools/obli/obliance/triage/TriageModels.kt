@@ -22,7 +22,7 @@ import tools.obli.shell.alerts.AlertSeverity
  * JVM; the composables only format and draw.
  */
 
-internal enum class TriageSegment { ALERTS, APPROVALS }
+internal enum class TriageSegment { ALERTS, APPROVALS, ENROLMENTS }
 
 /** Identity of an alert across servers: ids are only unique per server. */
 internal data class AlertKey(val serverId: ServerId, val id: Long)
@@ -98,7 +98,13 @@ internal data class OutageUi(
     val devices: List<Pair<String, Long?>>,
 )
 
-internal data class ServerChipUi(val profile: ServerProfile, val unread: Int, val selected: Boolean)
+internal data class ServerChipUi(
+    val profile: ServerProfile,
+    val unread: Int,
+    val selected: Boolean,
+    /** Devices waiting for enrolment on this server (the menu shows it in the Enrôlements segment). */
+    val pending: Int = 0,
+)
 
 internal data class SeverityChipUi(val severity: AlertSeverity, val count: Int, val selected: Boolean)
 
@@ -155,7 +161,19 @@ internal data class TriageUi(
     val markAllServers: List<ServerId> = emptyList(),
     /** Session tenant of the active server (menu label with one server). */
     val sessionTenantName: String? = null,
-)
+    /** « Enrôlements » segment: shown when at least one server allows approval (§5 S10). */
+    val showEnrolments: Boolean = false,
+    val enrolmentCount: Int = 0,
+    /** « Serveur › Tenant » sections, filtered by the server chip. */
+    val enrolmentGroups: List<EnrolmentGroupUi> = emptyList(),
+    val enrolmentNotices: List<FeedNotice> = emptyList(),
+    val enrolmentState: ListState = ListState.EMPTY,
+    val enrolmentRefreshing: Boolean = false,
+) {
+    /** The pending device [key] as listed now (null when it left the list). */
+    fun enrolment(key: EnrolmentKey): EnrolmentItemUi? =
+        enrolmentGroups.firstNotNullOfOrNull { g -> g.items.firstOrNull { it.key == key } }
+}
 
 /** Screen-local choices kept by the ViewModel. */
 internal data class LocalState(
@@ -186,6 +204,7 @@ internal object TriageMapper {
         local: LocalState,
         devices: Map<DeviceRef, Device>,
         now: Long,
+        enrolments: EnrolmentsState = EnrolmentsState(),
     ): TriageUi {
         val multi = registry.isMultiServer
         val profiles = registry.profiles
@@ -293,13 +312,26 @@ internal object TriageMapper {
         }
 
         val unreadByServer = serverScoped.unreadByServer
+        val enrol = EnrolmentMapper.map(enrolments, registry, scope, snapshot, serverFilter)
+        // A segment without the right is hidden (§5 S10): its choice falls back to Alertes.
+        val segment = when (local.segment) {
+            TriageSegment.ALERTS -> TriageSegment.ALERTS
+            TriageSegment.APPROVALS -> if (isPlatformAdmin) TriageSegment.APPROVALS else TriageSegment.ALERTS
+            TriageSegment.ENROLMENTS -> if (enrol.show) TriageSegment.ENROLMENTS else TriageSegment.ALERTS
+        }
         return TriageUi(
             multiServer = multi,
             showApprovals = isPlatformAdmin,
-            segment = if (isPlatformAdmin) local.segment else TriageSegment.ALERTS,
+            segment = segment,
             alertCount = filtered.unread.size,
             approvalCount = approvals.size,
-            serverChips = if (multi) profiles.filter { it.includeInTriage }.map { ServerChipUi(it, Triage(alerts, setOf(it.id), null).unread.size, it.id == serverFilter) } else emptyList(),
+            serverChips = if (multi) {
+                profiles.filter { it.includeInTriage }.map {
+                    ServerChipUi(it, Triage(alerts, setOf(it.id), null).unread.size, it.id == serverFilter, enrol.pendingByServer[it.id] ?: 0)
+                }
+            } else {
+                emptyList()
+            },
             serverFilter = serverFilter?.let { registry.byId(it) },
             severityChips = listOf(AlertSeverity.CRITICAL, AlertSeverity.WARNING, AlertSeverity.INFO).map { s ->
                 SeverityChipUi(s, serverScoped.unread.count { it.alert.severity == s }, s in local.severities)
@@ -320,6 +352,12 @@ internal object TriageMapper {
             refreshing = snapshot.refreshing,
             markAllServers = profiles.map { it.id }.filter { (unreadByServer[it] ?: 0) > 0 },
             sessionTenantName = scope.current?.name,
+            showEnrolments = enrol.show,
+            enrolmentCount = enrol.count,
+            enrolmentGroups = enrol.groups,
+            enrolmentNotices = enrol.notices,
+            enrolmentState = enrol.listState,
+            enrolmentRefreshing = enrol.refreshing,
         )
     }
 

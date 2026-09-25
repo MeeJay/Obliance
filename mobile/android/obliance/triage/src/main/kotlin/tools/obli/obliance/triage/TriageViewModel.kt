@@ -19,13 +19,16 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import tools.obli.core.auth.AuthState
 import tools.obli.core.model.ServerId
 import tools.obli.core.network.ApiOutcome
@@ -57,6 +60,12 @@ internal sealed interface TriageEvent {
     data class MarkedAllRead(val servers: Int) : TriageEvent
 
     data class ApprovalDone(val approved: Boolean) : TriageEvent
+
+    /** An enrolment action ended (approved, refused, not applied, refused by the server...). */
+    data class Enrolment(val outcome: EnrolmentOutcome) : TriageEvent
+
+    /** A [TriageRequest] named an item that did not show up in time ("no longer pending"). */
+    data class RequestGone(val enrolment: Boolean) : TriageEvent
 }
 
 internal enum class FailedAction { MARK_READ, DELETE, MARK_ALL_READ, APPROVE, DENY }
@@ -102,7 +111,15 @@ internal class TriageViewModel(
     private val undoDelayMs: Long = UNDO_MS,
     /** Where deletions still waiting for their undo delay are sent when the screen goes away. */
     private val detachedScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    /** Enrolments of every server (the screen passes the real one; None = no segment). */
+    enrolmentsSource: EnrolmentsSource = EnrolmentsSource.None,
+    private val enrolmentPollMs: Long = ENROLMENT_POLL_MS,
+    /** How long a [TriageRequest] waits for its item to show up. */
+    private val requestWaitMs: Long = REQUEST_WAIT_MS,
 ) : ViewModel() {
+    private val enrolFeed = EnrolmentsFeed(services, enrolmentsSource, clock)
+    private val enrolActions = EnrolmentActions(services, enrolFeed)
+
     private val local = MutableStateFlow(LocalState())
     private val devices = MutableStateFlow<Map<DeviceRef, Device>>(emptyMap())
     private val deleteJobs = LinkedHashMap<AlertKey, Pair<ServerAlert, Job>>()
@@ -136,9 +153,9 @@ internal class TriageViewModel(
         platformAdmin,
         realtimeConnected,
         local,
-        devices,
-    ) { (snapshot, registry, scope), admin, live, l, devs ->
-        TriageMapper.map(snapshot, registry, scope, admin, live, l, devs, clock()).also { ui ->
+        combine(devices, enrolFeed.state, ::Pair),
+    ) { (snapshot, registry, scope), admin, live, l, (devs, enrol) ->
+        TriageMapper.map(snapshot, registry, scope, admin, live, l, devs, clock(), enrol).also { ui ->
             lastUnreadKeys = ui.unread.map { it.key }.toSet()
         }
     }
@@ -162,6 +179,27 @@ internal class TriageViewModel(
                         else -> map
                     }
                 }
+            }
+        }
+        if (enrolFeed.enabled) {
+            // Every included server: reloaded when its session or tenant changes, then every 60 s.
+            launch {
+                enrolFeed.serverKeys().collectLatest {
+                    enrolFeed.refreshAll()
+                    while (enrolFeed.source.polls) {
+                        delay(enrolmentPollMs)
+                        enrolFeed.refreshAll()
+                    }
+                }
+            }
+            // DEVICE_APPROVED / DELETED / UPDATED of the active server (a new agent, a device handled elsewhere).
+            launch {
+                services.devices.signals()
+                    .mapNotNull { signal -> services.registry.state.value.activeId?.takeIf { enrolFeed.onSignal(it, signal) } }
+                    .collectLatest { id ->
+                        delay(SIGNAL_DEBOUNCE_MS)
+                        enrolFeed.refresh(id)
+                    }
             }
         }
         core.collect { send(it) }
@@ -207,6 +245,7 @@ internal class TriageViewModel(
 
     fun refresh() {
         viewModelScope.launch { services.alerts.refresh() }
+        if (enrolFeed.enabled) viewModelScope.launch { enrolFeed.refreshAll(user = true) }
     }
 
     fun markRead(item: IncidentUi) {
@@ -382,6 +421,119 @@ internal class TriageViewModel(
             ?.alert?.tenantName
     }
 
+    // --- Enrolments (segment Enrôlements + S12) ----------------------------------
+
+    private val _enrolReview = MutableStateFlow<EnrolmentReviewState?>(null)
+    val enrolReview: StateFlow<EnrolmentReviewState?> = _enrolReview.asStateFlow()
+
+    /** S12 over À traiter; its groups load at once (key's group path, « Approuver et déplacer vers… »). */
+    fun openEnrolment(item: EnrolmentItemUi) {
+        _enrolReview.value = EnrolmentReviewState(item)
+        loadGroups(item)
+    }
+
+    private fun loadGroups(item: EnrolmentItemUi) {
+        viewModelScope.launch {
+            // Read-only, on the device's OWN server.
+            val out = enrolFeed.source.groups(item.key.serverId)
+            val load = if (out is ApiOutcome.Ok) GroupsLoad.Loaded(out.value) else GroupsLoad.Failed
+            _enrolReview.update { r -> if (r?.key == item.key) r.copy(groups = load) else r }
+        }
+    }
+
+    fun enrolmentStep(step: EnrolmentStep) {
+        val r = _enrolReview.value ?: return
+        _enrolReview.value = r.copy(step = step, problem = null)
+        if (step == EnrolmentStep.PICK_GROUP && r.groups == GroupsLoad.Failed) {
+            _enrolReview.update { it?.copy(groups = GroupsLoad.Loading) }
+            loadGroups(r.item)
+        }
+    }
+
+    fun closeEnrolment() {
+        _enrolReview.value = null
+    }
+
+    fun approveEnrolment(item: EnrolmentItemUi, runner: ActionRunner, wording: EnrolmentWording) =
+        enrolmentAction(item.key) { enrolActions.approve(item, runner, wording) }
+
+    fun refuseEnrolment(item: EnrolmentItemUi, runner: ActionRunner, wording: EnrolmentWording) =
+        enrolmentAction(item.key) { enrolActions.refuse(item, runner, wording) }
+
+    fun approveAndMove(item: EnrolmentItemUi, group: GroupChoice, runner: ActionRunner, wording: EnrolmentWording) =
+        enrolmentAction(item.key) { enrolActions.approveAndMove(item, group, runner, wording) }
+
+    /** « Tout approuver (n) » of one « Serveur › Tenant » section (it reloads its server itself). */
+    fun approveAllEnrolments(group: EnrolmentGroupUi, runner: ActionRunner, wording: EnrolmentWording) {
+        viewModelScope.launch {
+            enrolActions.approveAll(group, runner, wording)?.let { eventChannel.trySend(TriageEvent.Enrolment(it)) }
+        }
+    }
+
+    /**
+     * Runs one enrolment action; its outcome goes to S12 when it was sent from
+     * there and did not succeed (the screen snackbar is hidden behind the
+     * sheet), else to a snackbar. The item's server is reloaded afterwards.
+     */
+    private fun enrolmentAction(key: EnrolmentKey, block: suspend () -> EnrolmentOutcome?) {
+        viewModelScope.launch {
+            val fromSheet = _enrolReview.value?.key == key
+            if (fromSheet) _enrolReview.update { it?.copy(problem = null) }
+            val outcome = block() ?: return@launch
+            when {
+                outcome.succeeded -> {
+                    if (_enrolReview.value?.key == key) _enrolReview.value = null
+                    eventChannel.trySend(TriageEvent.Enrolment(outcome))
+                }
+                fromSheet && _enrolReview.value?.key == key ->
+                    _enrolReview.update { it?.copy(problem = outcome, step = EnrolmentStep.DETAILS) }
+                else -> eventChannel.trySend(TriageEvent.Enrolment(outcome))
+            }
+            enrolFeed.refresh(key.serverId)
+        }
+    }
+
+    // --- Requests from outside (notification taps) --------------------------------
+
+    private var lastRequest: TriageRequest? = null
+    private var requestJob: Job? = null
+
+    /**
+     * Handles [request] once: the segment (and server chip) at once, then the
+     * review sheet of its item as soon as the feed contains it ([requestWaitMs]
+     * at most). Returns false when this very request was already handled (the
+     * screen then does not report it again).
+     */
+    fun handle(request: TriageRequest): Boolean {
+        if (request === lastRequest) return false
+        lastRequest = request
+        requestJob?.cancel()
+        when (request) {
+            is TriageRequest.Alerts -> local.update { it.copy(segment = TriageSegment.ALERTS, serverFilter = request.serverId) }
+            is TriageRequest.Approval -> {
+                local.update { it.copy(segment = TriageSegment.APPROVALS, serverFilter = it.serverFilter?.takeIf { f -> f == request.serverId }) }
+                requestJob = viewModelScope.launch {
+                    launch { services.alerts.refresh() }
+                    val match = { u: TriageUi ->
+                        u.escalations.firstOrNull { it.item.serverId == request.serverId && it.item.approval.id == request.approvalId }
+                    }
+                    val found = withTimeoutOrNull(requestWaitMs) { ui.first { match(it) != null } }?.let(match)
+                    if (found != null) openReview(found) else eventChannel.trySend(TriageEvent.RequestGone(enrolment = false))
+                }
+            }
+            is TriageRequest.Enrolment -> {
+                local.update { it.copy(segment = TriageSegment.ENROLMENTS, serverFilter = it.serverFilter?.takeIf { f -> f == request.serverId }) }
+                val key = EnrolmentKey(request.serverId, request.deviceId)
+                requestJob = viewModelScope.launch {
+                    if (enrolFeed.enabled) launch { enrolFeed.refresh(request.serverId) }
+                    val found = withTimeoutOrNull(requestWaitMs) { ui.first { it.enrolment(key) != null } }?.enrolment(key)
+                    if (found != null) openEnrolment(found) else eventChannel.trySend(TriageEvent.RequestGone(enrolment = true))
+                }
+            }
+        }
+        return true
+    }
+
     override fun onCleared() {
         // Deletions still in their undo window were confirmed by leaving: send them.
         val waiting = deleteJobs.values.map { it.first }
@@ -396,6 +548,15 @@ internal class TriageViewModel(
         const val MAX_REASON = 500
         const val KEY_APPROVE = "approval.approve"
         const val KEY_DENY = "approval.deny"
+
+        /** Enrolments are polled every 60 s while the screen is started (design doc S10). */
+        const val ENROLMENT_POLL_MS = 60_000L
+
+        /** A notification's item may reach the feed a little after the tap. */
+        const val REQUEST_WAIT_MS = 10_000L
+
+        /** Device signals come in bursts (a registration also updates the device). */
+        const val SIGNAL_DEBOUNCE_MS = 1_000L
 
         fun problemOf(outcome: ApiOutcome<Nothing>): ReviewProblem = when {
             outcome is ApiOutcome.Unsupported -> ReviewProblem.ALREADY_RESOLVED

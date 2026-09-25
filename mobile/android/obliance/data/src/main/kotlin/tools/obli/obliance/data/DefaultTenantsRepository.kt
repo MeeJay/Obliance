@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -52,7 +53,9 @@ internal class DefaultTenantsRepository(
             if (s == null) {
                 flowOf(TenantScope())
             } else {
-                combine(s.auth, lists.map { it[s.id] }) { auth, loaded ->
+                // The profile's global-view filter: a change re-emits at once.
+                val stored = registry.state.map { it.byId(s.id)?.viewFilter.orEmpty() }.distinctUntilChanged()
+                combine(s.auth, lists.map { it[s.id] }, stored) { auth, loaded, filter ->
                     val probe = (auth as? AuthState.SignedIn)?.probe
                     // Never show another account's tenants (expired sessions keep the last list).
                     val mine = loaded?.takeIf { probe == null || it.userId == probe.user.id }
@@ -62,7 +65,7 @@ internal class DefaultTenantsRepository(
                         currentTenantId = probe?.currentTenantId,
                         loading = mine?.loading == true,
                         error = mine?.error,
-                    )
+                    ).withStoredViewFilter(filter)
                 }
             }
         }
@@ -129,6 +132,14 @@ internal class DefaultTenantsRepository(
         // Runs in the application scope: once the server applied the switch, the
         // probe and the socket must follow even if the calling screen goes away.
         return appScope.async { doSwitch(s, tenantId) }.await()
+    }
+
+    override suspend fun setViewFilter(tenantIds: Set<Long>, serverId: ServerId?): Boolean {
+        val id = serverId ?: registry.state.value.activeId ?: return false
+        // Every tenant of the loaded list selected is "Tous les tenants": store no filter.
+        val known = lists.value[id]?.tenants.orEmpty().mapTo(HashSet()) { it.id }
+        val ids = if (known.isNotEmpty() && tenantIds.containsAll(known)) emptySet() else tenantIds
+        return registry.setViewFilter(id, ids)
     }
 
     private suspend fun doSwitch(s: ServerSession, tenantId: Long): ApiOutcome<Unit> =

@@ -147,4 +147,77 @@
     <string name="triage_review_switch_body">To handle it, Obliance must switch %1$s to the tenant %2$s (for the whole app), then picks up where it left off.</string>
     <string name="triage_review_switch_continue">Switch and continue</string>
     <string name="triage_review_problem_switch">Could not switch to this tenant. Nothing was sent.</string>
+    <!-- Enrolments (segment Enrôlements of S10, S12) -->
+    <string name="triage_segment_enrolments">Enrolments</string>
+    <string name="triage_enrol_pending">Pending</string>
+    <string name="triage_enrol_approve">Approve</string>
+    <string name="triage_enrol_refuse">Refuse</string>
+    <string name="triage_enrol_approve_cd">Approve %1$s</string>
+    <string name="triage_enrol_refuse_cd">Refuse %1$s</string>
+    <string name="triage_enrol_approve_all">Approve all (%1$d)</string>
+    <plurals name="triage_enrol_approve_all_cd">
+        <item quantity="one">Approve all: %1$d device of %2$s</item>
+        <item quantity="other">Approve all: %1$d devices of %2$s</item>
+    </plurals>
+    <string name="triage_enrol_group_header">%1$s · %2$d</string>
+    <string name="triage_enrol_key">key “%1$s”</string>
+    <string name="triage_enrol_age">%1$s ago</string>
+    <string name="triage_enrol_age_now">just now</string>
+    <string name="triage_enrol_duplicate_cd">Several machines may share this agent</string>
+    <string name="triage_enrol_open">Review the enrolment</string>
+    <string name="triage_enrol_empty">No device waiting for enrolment.</string>
+    <string name="triage_enrol_empty_body">New agents of every connected server show up here.</string>
+    <string name="triage_enrol_stale_expired">Session expired · Sign in again</string>
+    <string name="triage_enrol_stale_unreachable">Unreachable since %1$s</string>
+    <string name="triage_enrol_stale_unreachable_unknown">Server unreachable</string>
+    <string name="triage_enrol_notice_unreachable_since">%1$s unreachable since %2$s</string>
+    <string name="triage_enrol_tenant_unknown">Tenant no. %1$d</string>
+    <string name="triage_enrol_tenant_none">No tenant</string>
+    <string name="triage_enrol_review_overline">Enrolment review</string>
+    <string name="triage_enrol_fact_hostname">Host name</string>
+    <string name="triage_enrol_fact_os">Operating system</string>
+    <string name="triage_enrol_fact_ip_local">Local IP</string>
+    <string name="triage_enrol_fact_ip_public">Public IP</string>
+    <string name="triage_enrol_fact_key">Enrolment key</string>
+    <string name="triage_enrol_fact_first_seen">First seen</string>
+    <string name="triage_enrol_first_seen_value">%1$s · %2$s</string>
+    <string name="triage_enrol_key_group">Key “%1$s” → group %2$s</string>
+    <string name="triage_enrol_key_no_group">Key “%1$s” · no default group</string>
+    <string name="triage_enrol_key_unknown">Unknown key</string>
+    <string name="triage_enrol_duplicate_banner">Several machines seem to share this agent. Check before approving.</string>
+    <string name="triage_enrol_note_scenarios">Approving runs the “Agent approved” scenarios of this tenant.</string>
+    <string name="triage_enrol_approve_move">Approve and move to…</string>
+    <string name="triage_enrol_pick_title">Move to a group</string>
+    <string name="triage_enrol_pick_body">Choose the group of %2$s where %1$s goes once approved.</string>
+    <string name="triage_enrol_pick_key_default">Key\'s group</string>
+    <string name="triage_enrol_pick_loading">Loading the groups…</string>
+    <string name="triage_enrol_pick_failed">Could not load the groups. Go back, then try again.</string>
+    <string name="triage_enrol_pick_empty">This tenant has no group.</string>
+    <string name="triage_back">Back</string>
+    <string name="triage_enrol_spec_approve">Approve the enrolment</string>
+    <string name="triage_enrol_spec_refuse">Refuse the enrolment</string>
+    <plurals name="triage_enrol_spec_bulk">
+        <item quantity="one">Approve %1$d device</item>
+        <item quantity="other">Approve %1$d devices</item>
+    </plurals>
+    <string name="triage_enrol_spec_move">Approve and move to %1$s</string>
+    <plurals name="triage_enrol_count">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
+    <string name="triage_enrol_consequence_approve">The agent will join the fleet; the “Agent approved” scenarios of this tenant will run.</string>
+    <string name="triage_enrol_consequence_refuse">The agent will be refused and suspended.</string>
+    <string name="triage_enrol_consequence_bulk">The agents will join the fleet; the “Agent approved” scenarios of this tenant will run for each of them.</string>
+    <string name="triage_enrol_consequence_move">The agent will join the fleet in the group %1$s; the “Agent approved” scenarios of this tenant will run.</string>
+    <string name="triage_enrol_done_approved">%1$s approved</string>
+    <string name="triage_enrol_done_refused">%1$s refused</string>
+    <plurals name="triage_enrol_done_bulk">
+        <item quantity="one">%1$d device approved</item>
+        <item quantity="other">%1$d devices approved</item>
+    </plurals>
+    <string name="triage_enrol_done_moved">%1$s approved · group %2$s</string>
+    <string name="triage_enrol_not_moved">%1$s approved, but not moved: %2$s</string>
+    <string name="triage_enrol_not_applied">The server did not apply the request. Try again.</string>
+    <string name="triage_request_approval_gone">This request is no longer pending.</string>
+    <string name="triage_request_enrolment_gone">This device is no longer waiting for enrolment.</string>
 </resources>

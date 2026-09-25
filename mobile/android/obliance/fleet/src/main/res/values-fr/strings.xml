@@ -120,4 +120,20 @@
     <string name="fleet_empty_title">Aucun appareil pour l’instant</string>
     <string name="fleet_empty_body">Les appareils apparaissent ici une fois leur agent installé et approuvé.</string>
     <string name="fleet_open_devices">Voir les appareils</string>
+
+    <!-- Vue globale filtrée sur des tenants (document de conception §2.3) -->
+    <string name="fleet_scope_filter_one">%1$s · filtre</string>
+    <string name="fleet_scope_filter_a11y_one">Vue globale filtrée sur %1$s</string>
+    <string name="fleet_unfiltered">Toute la vue globale (filtre non appliqué)</string>
+    <string name="fleet_updates">Mises à jour</string>
+    <plurals name="fleet_scope_filter_many">
+        <item quantity="one">%d tenant · filtre</item>
+        <item quantity="many">%d tenants · filtre</item>
+        <item quantity="other">%d tenants · filtre</item>
+    </plurals>
+    <plurals name="fleet_scope_filter_a11y_many">
+        <item quantity="one">Vue globale filtrée sur %d tenant</item>
+        <item quantity="many">Vue globale filtrée sur %d tenants</item>
+        <item quantity="other">Vue globale filtrée sur %d tenants</item>
+    </plurals>
 </resources>
