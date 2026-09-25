@@ -1,198 +1,248 @@
 {
   "v": 3,
-  "createdOnFiles": {
-    "v": 1,
-    "at": "2026-09-24T21:00:00Z"
+  "attachments": {},
+  "boards": {
+    "ActionSheet.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A09 · Agir sur PC-COMPTA-03",
+      "w": 390,
+      "x": 1410,
+      "y": 1484
+    },
+    "Activity.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A11 · Activité et automations",
+      "w": 390,
+      "x": 940,
+      "y": 2708
+    },
+    "AlertDetail.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A03 · Incident : SRV-AD2 hors ligne",
+      "w": 390,
+      "x": 0,
+      "y": 2708
+    },
+    "AppSettings.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A18 · Réglages de l’application",
+      "w": 390,
+      "x": 2350,
+      "y": 3932
+    },
+    "ApprovalDetail.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A16 · Approbation : désinstaller l’agent de PC-ATELIER-02",
+      "w": 390,
+      "x": 940,
+      "y": 3932
+    },
+    "DeviceFilters.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A07 · Filtres et tri",
+      "w": 390,
+      "x": 470,
+      "y": 1484
+    },
+    "DeviceInventory.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A10 · PC-COMPTA-03 · Inventaire",
+      "w": 390,
+      "x": 1880,
+      "y": 1484
+    },
+    "DeviceList.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A06 · Appareils",
+      "w": 390,
+      "x": 0,
+      "y": 1484
+    },
+    "DeviceOverview.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A08 · PC-COMPTA-03 · Aperçu",
+      "w": 390,
+      "x": 940,
+      "y": 1484
+    },
+    "Fleet.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A05 · Flotte",
+      "w": 390,
+      "x": 940,
+      "y": 260
+    },
+    "Kit.dc.html": {
+      "h": 8000,
+      "is_interactive": true,
+      "title": "Kit de composants",
+      "w": 390,
+      "x": 0,
+      "y": 6336
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A02 · À traiter",
+      "w": 390,
+      "x": 470,
+      "y": 260
+    },
+    "More.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A17 · Plus",
+      "w": 390,
+      "x": 1410,
+      "y": 3932
+    },
+    "Notifications.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A04 · Exemples de notifications",
+      "w": 390,
+      "x": 470,
+      "y": 2708
+    },
+    "ReachPhone.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A15 · ObliReach · PC-COMPTA-03",
+      "w": 390,
+      "x": 0,
+      "y": 3932
+    },
+    "RunLive.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A13 · Lot en direct · 2 réussis, 1 échec",
+      "w": 390,
+      "x": 1880,
+      "y": 2708
+    },
+    "RunScriptSetup.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A12 · Exécuter « Nettoyer les fichiers temporaires »",
+      "w": 390,
+      "x": 1410,
+      "y": 2708
+    },
+    "SignIn.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A01 · Connexion",
+      "w": 390,
+      "x": 0,
+      "y": 260
+    },
+    "TabletDeviceListDetail.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "A20 · Appareils : arbre, liste et détail (tablette)",
+      "w": 1280,
+      "x": 1360,
+      "y": 5156
+    },
+    "TabletFleetDashboard.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "A22 · Flotte (tablette)",
+      "w": 1280,
+      "x": 0,
+      "y": 5156
+    },
+    "TabletRemoteSession.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "A21 · Session ObliReach · PC-COMPTA-03 (tablette)",
+      "w": 1280,
+      "x": 2720,
+      "y": 5156
+    },
+    "TenantSwitch.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A19 · Périmètre et tenant",
+      "w": 390,
+      "x": 1880,
+      "y": 3932
+    },
+    "Terminal.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A14 · PowerShell · PC-COMPTA-03",
+      "w": 390,
+      "x": 470,
+      "y": 3932
+    }
   },
-  "title": "Obliance Mobile — maquette",
+  "createdOnFiles": {
+    "at": "2026-09-24T21:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
   "launch": {
     "view": "canvas"
   },
-  "pages": [],
-  "boards": {
-    "SignIn.dc.html": {
+  "notes": {
+    "row1": {
+      "kind": "title1",
+      "maxW": 1330,
+      "text": "1 · Connexion, À traiter et Flotte",
+      "w": 240,
       "x": 0,
-      "y": 260,
-      "w": 390,
-      "h": 844,
-      "title": "A01 · Connexion",
-      "is_interactive": true
+      "y": 10
     },
-    "Main.dc.html": {
-      "x": 470,
-      "y": 260,
-      "w": 390,
-      "h": 844,
-      "title": "A02 · À traiter",
-      "is_interactive": true
-    },
-    "Fleet.dc.html": {
-      "x": 940,
-      "y": 260,
-      "w": 390,
-      "h": 844,
-      "title": "A05 · Flotte",
-      "is_interactive": true
-    },
-    "DeviceList.dc.html": {
+    "row2": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "2 · Appareils : liste, filtres, détail et actions",
+      "w": 240,
       "x": 0,
-      "y": 1484,
-      "w": 390,
-      "h": 844,
-      "title": "A06 · Appareils",
-      "is_interactive": true
+      "y": 1234
     },
-    "DeviceFilters.dc.html": {
-      "x": 470,
-      "y": 1484,
-      "w": 390,
-      "h": 844,
-      "title": "A07 · Filtres et tri",
-      "is_interactive": true
-    },
-    "DeviceOverview.dc.html": {
-      "x": 940,
-      "y": 1484,
-      "w": 390,
-      "h": 844,
-      "title": "A08 · PC-COMPTA-03 · Aperçu",
-      "is_interactive": true
-    },
-    "ActionSheet.dc.html": {
-      "x": 1410,
-      "y": 1484,
-      "w": 390,
-      "h": 844,
-      "title": "A09 · Agir sur PC-COMPTA-03",
-      "is_interactive": true
-    },
-    "DeviceInventory.dc.html": {
-      "x": 1880,
-      "y": 1484,
-      "w": 390,
-      "h": 844,
-      "title": "A10 · PC-COMPTA-03 · Inventaire",
-      "is_interactive": true
-    },
-    "AlertDetail.dc.html": {
+    "row3": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "3 · Alertes, activité et exécution de scripts",
+      "w": 240,
       "x": 0,
-      "y": 2708,
-      "w": 390,
-      "h": 844,
-      "title": "A03 · Incident : SRV-AD2 hors ligne",
-      "is_interactive": true
+      "y": 2458
     },
-    "Notifications.dc.html": {
-      "x": 470,
-      "y": 2708,
-      "w": 390,
-      "h": 844,
-      "title": "A04 · Exemples de notifications",
-      "is_interactive": true
-    },
-    "Activity.dc.html": {
-      "x": 940,
-      "y": 2708,
-      "w": 390,
-      "h": 844,
-      "title": "A11 · Activité et automations",
-      "is_interactive": true
-    },
-    "RunScriptSetup.dc.html": {
-      "x": 1410,
-      "y": 2708,
-      "w": 390,
-      "h": 844,
-      "title": "A12 · Exécuter « Nettoyer les fichiers temporaires »",
-      "is_interactive": true
-    },
-    "RunLive.dc.html": {
-      "x": 1880,
-      "y": 2708,
-      "w": 390,
-      "h": 844,
-      "title": "A13 · Lot en direct · 2 réussis, 1 échec",
-      "is_interactive": true
-    },
-    "ReachPhone.dc.html": {
+    "row4": {
+      "kind": "title1",
+      "maxW": 2740,
+      "text": "4 · Accès distant, shell, approbations, Plus et réglages",
+      "w": 240,
       "x": 0,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A15 · ObliReach · PC-COMPTA-03",
-      "is_interactive": true
+      "y": 3682
     },
-    "Terminal.dc.html": {
-      "x": 470,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A14 · PowerShell · PC-COMPTA-03",
-      "is_interactive": true
-    },
-    "ApprovalDetail.dc.html": {
-      "x": 940,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A16 · Approbation : désinstaller l’agent de PC-ATELIER-02",
-      "is_interactive": true
-    },
-    "More.dc.html": {
-      "x": 1410,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A17 · Plus",
-      "is_interactive": true
-    },
-    "TenantSwitch.dc.html": {
-      "x": 1880,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A19 · Périmètre et tenant",
-      "is_interactive": true
-    },
-    "AppSettings.dc.html": {
-      "x": 2350,
-      "y": 3932,
-      "w": 390,
-      "h": 844,
-      "title": "A18 · Réglages de l’application",
-      "is_interactive": true
-    },
-    "TabletFleetDashboard.dc.html": {
+    "row5": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "5 · Tablette 1280 × 800 : flotte, appareils, session ObliReach",
+      "w": 240,
       "x": 0,
-      "y": 5156,
-      "w": 1280,
-      "h": 800,
-      "title": "A22 · Flotte (tablette)",
-      "is_interactive": true
+      "y": 4906
     },
-    "TabletDeviceListDetail.dc.html": {
-      "x": 1360,
-      "y": 5156,
-      "w": 1280,
-      "h": 800,
-      "title": "A20 · Appareils : arbre, liste et détail (tablette)",
-      "is_interactive": true
-    },
-    "TabletRemoteSession.dc.html": {
-      "x": 2720,
-      "y": 5156,
-      "w": 1280,
-      "h": 800,
-      "title": "A21 · Session ObliReach · PC-COMPTA-03 (tablette)",
-      "is_interactive": true
-    },
-    "Kit.dc.html": {
+    "row6": {
+      "kind": "title1",
+      "maxW": 390,
+      "text": "Kit de composants (référence STYLEKIT)",
+      "w": 240,
       "x": 0,
-      "y": 6336,
-      "w": 390,
-      "h": 11904,
-      "title": "Kit de composants",
-      "is_interactive": true
+      "y": 6086
     }
   },
   "order": [
@@ -220,49 +270,6 @@
     "TabletRemoteSession.dc.html",
     "Kit.dc.html"
   ],
-  "notes": {
-    "row1": {
-      "x": 0,
-      "y": 10,
-      "maxW": 1330,
-      "kind": "title1",
-      "text": "1 · Connexion, À traiter et Flotte"
-    },
-    "row2": {
-      "x": 0,
-      "y": 1234,
-      "maxW": 2270,
-      "kind": "title1",
-      "text": "2 · Appareils : liste, filtres, détail et actions"
-    },
-    "row3": {
-      "x": 0,
-      "y": 2458,
-      "maxW": 2270,
-      "kind": "title1",
-      "text": "3 · Alertes, activité et exécution de scripts"
-    },
-    "row4": {
-      "x": 0,
-      "y": 3682,
-      "maxW": 2740,
-      "kind": "title1",
-      "text": "4 · Accès distant, shell, approbations, Plus et réglages"
-    },
-    "row5": {
-      "x": 0,
-      "y": 4906,
-      "maxW": 4000,
-      "kind": "title1",
-      "text": "5 · Tablette 1280 × 800 : flotte, appareils, session ObliReach"
-    },
-    "row6": {
-      "x": 0,
-      "y": 6086,
-      "maxW": 390,
-      "kind": "title1",
-      "text": "Kit de composants (référence STYLEKIT)"
-    }
-  },
-  "designSystems": []
+  "pages": [],
+  "title": "Obliance Mobile — maquette"
 }

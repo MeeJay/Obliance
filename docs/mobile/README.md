@@ -63,26 +63,116 @@ restructure en modules `core:*` + `obliance:*`.
   hors émulateur (Roborazzi/Paparazzi) ; la vraie recette se fait sur le
   téléphone du propriétaire.
 
-**Travail en cours au moment de la bascule cloud (2026-09-25)**
-1. **Passe responsive web** (`client/`) : partiellement faite (shell, primitives
-   `components/common/*`, pont `native/bridge.ts`, utilitaires, zones communes /
-   graph / admin / devices / automations). Restent : fiche machine
-   (`DeviceDetailPage`, hyperv, veeam…), accès distant (`ObliReachViewer`,
-   `FileExplorerTab`, `RemoteSessionsPage`), politiques, balayage global.
-   **Avant tout build client** : `npx tsc --noEmit -p .` dans `client/` propre
-   (hors bruit `@xyflow`) ET fusion des clés `client/src/i18n/_pending/*.json`
-   dans `locales/en` et `locales/fr` puis suppression de `_pending` (sinon des clés
-   brutes s'affichent). Le motif de repli dvh correct est
-   `h-dvh supports-[not(height:100dvh)]:h-screen` (PAS `h-screen h-dvh`).
-2. **Sécurité tunnels S2/S3** (`server/`) : fait, **non déployé**. Le build
-   serveur doit partir AVEC ces ajustements client : masquer « Voir »/« Ouvrir »
-   sur les sessions distantes lancées par un autre utilisateur
-   (`RemoteSessionsPage`, onglet distant de `DeviceDetailPage`), ne pas relancer
-   de connexion sans `sessionToken` (`ObliReachViewer`, `GlobalShellPanel`),
-   afficher l'erreur 409 de la console VM.
-3. **App native** : conception + maquette faites ; mise à jour « multi-serveurs »
-   du design doc et de la maquette en cours ; prochaine étape = **Phase 0** du
-   design doc (§10–11).
+## ÉTAT AU MOMENT DE LA BASCULE CLOUD (2026-09-25, tâches locales arrêtées)
+
+État vérifié à l'arrêt : `npx tsc --noEmit -p .` **propre** dans `client/` (hors
+bruit connu `@xyflow`, module non installé localement) et dans `server/` (hors
+bruit connu exceljs, bcryptjs, cron-parser, multer, playwright-chromium,
+softwareRepo.routes.ts). Rien de ce qui suit n'est déployé, sauf mention.
+
+### A. Passe responsive web (`client/`) — ≈ 95 %, reste la vérification finale
+- **Fait** (implémenté, relu par un agent adversarial, correctifs appliqués) :
+  fondations (`native/bridge.ts`, `utils/download|openExternal|clipboard`, hooks
+  `useMediaQuery|useNativeBack|useDndSensors|useClickOutside`, primitives
+  `components/common/{Modal,Drawer,ConfirmDialog,IconButton,TableScroll,
+  SegmentedTabs,Tip,ActionMenu,MasterDetail,PageContainer}`), shell (tiroir sous
+  1024 px, header dégradé, `FloatingDock`), et les 8 zones : composants communs +
+  connexion, parc (Dashboard, Devices…), fiche machine (+ hyperv, veeam…), accès
+  distant (ObliReachViewer tactile, `components/remote/*`, FileExplorer…),
+  éditeur de scénarios (xyflow tactile), automatisations, politiques, admin ;
+  puis un balayage global des motifs interdits.
+- **Traductions** : les 13 paires `client/src/i18n/_pending/*.json` sont
+  fusionnées dans `locales/en` et `locales/fr` (1 092 clés) et `_pending` est
+  supprimé. Un seul désaccord, tranché en gardant l'existant :
+  `groupPicker.title`.
+- **Reste à faire (tâche « final-verify » non exécutée)** :
+  1. **79 clés `t('…')` utilisées dans `client/src` sans entrée dans
+     `locales/en/translation.json`** (82 côté fr ; plusieurs sont antérieures au
+     chantier, ex. `devices.filters.*`, `cves.*`, `deviceStatus.update_error`).
+     Les appels `t('clé', 'Repli')` affichent le repli ; ceux sans repli affichent
+     la clé brute. Ajouter les clés manquantes en en + fr (vouvoiement).
+  2. Test de bundle : `npx esbuild client/src/main.tsx --bundle
+     --outfile=/tmp/b.js --loader:.svg=file --loader:.png=file
+     --external:@xyflow/react --alias:@=client/src
+     --alias:@obliance/shared=shared/src --define:__APP_VERSION__='"0"'
+     --target=es2020 --jsx=automatic` (erreurs d'import/export que tsc rate).
+  3. Compilation Tailwind (classes `coarse:`, `can-hover:`, `supports-[…]`,
+     `max-*`) et comptage des motifs restants (`confirm(`, `prompt(`,
+     `createObjectURL`, `navigator.clipboard`, `target="_blank"`, `window.open`,
+     `opacity-0 group-hover`, `onDoubleClick`, `h-screen`, `100vh`).
+  4. Relecture « desktop identique » du diff `client/` (≥ 1024 px + souris).
+- **Laissé volontairement** : pas de découpage des routes en `React.lazy`
+  (flash de chargement sur desktop + « Failed to fetch dynamically imported
+  module » sur les WebViews longues après un redéploiement). `Modal` n'a pas de
+  prop `headerClassName` : quelques en-têtes de dialogues diffèrent légèrement du
+  look d'avant. Tablettes tactiles ≥ 1280 px : colonne groupes inline conservée.
+- **Règles** : repli dvh = `h-dvh supports-[not(height:100dvh)]:h-screen`
+  (PAS `h-screen h-dvh`, Tailwind trie les classes et vh gagne) ; i18n en forme
+  `t('clé', 'Repli')`.
+
+### B. Sécurité des tunnels distants S2/S3 (`server/`) — code fait, NON déployé
+- Tunnel navigateur : authentification par cookie, seul `started_by` s'y
+  connecte ; token jamais diffusé au tenant ni renvoyé dans les commandes / listes /
+  logs (`services/remoteSessionSecurity.ts`, `remote.service.ts`, `index.ts`).
+- Tunnel agent : la clé API doit être celle de l'appareil de la session, un seul
+  agent par session, sessions fermées refusées. Canal ObliReach : uuid lié à la clé.
+- S3 : capability `execute` par appareil + script du tenant sur `/scripts/:id/execute`,
+  planifications (POST/PATCH) et lancements manuels de scénarios.
+- Vérifié : compilation + 20 contrôles sur base simulée (pas de vraie base).
+- **À faire AVANT le build serveur** (côté client, sinon régression admin) :
+  masquer « Voir » / « Ouvrir » sur les sessions distantes dont
+  `startedBy !== utilisateur courant` (`RemoteSessionsPage`, onglet distant de
+  `DeviceDetailPage`) ; ne pas relancer de connexion ni ajouter d'onglet sans
+  `sessionToken` (`ObliReachViewer` `onReconnect`, `GlobalShellPanel`) ; afficher
+  l'erreur 409 de `startSession` pour la console VM (hôte injoignable) ; option :
+  afficher `bypassPrivacyApproval` à la création d'une planification.
+- **Défauts connus non traités** : un non-admin peut encore créer/activer des
+  scénarios qui s'exécutent sur des machines sans `execute` ; une exécution
+  manuelle de script approuvée ne transmet pas le contenu du script (ne peut pas
+  aboutir) ; `/relay/validate-agent` joint sur `agent_api_keys.device_id` (colonne
+  probablement inexistante).
+- Build : le propriétaire lance lui-même `000-RegularUpdate.bat` + promotion en
+  local (fichiers `.bat` hors dépôt). Le lui signaler, avec le contenu.
+
+### C. App Android (`mobile/`)
+- Coquille WebView actuelle : construite, testée (96 tests JVM), **APK release
+  signé 1.0.0 (versionCode 10000)** produit en local ; `mobile/release/manifest.json`
+  le décrit (l'APK lui-même est ignoré par git et reste sur le poste Windows).
+  `mobile/build-android.ps1` + `RELEASE-FINGERPRINT.txt` = pipeline de release.
+- **App native** : conception validée (`docs/obliance-mobile-design.md`) et
+  maquette validée (`docs/mobile/mockup/`). **Prochaine étape = Phase 0**
+  (design doc §10–11) : modules `core:*` agnostiques + `obliance:*`, design system
+  Compose aux jetons de `docs/mobile/mockup/STYLEKIT.md`, réseau/auth/temps réel,
+  preuves (terminal, navigation adaptative, sérialisation, KSP) — **en intégrant
+  le multi-serveurs dès le socle** (`ServerRegistry`, session par serveur).
+
+### D. Multi-serveurs dans la conception et la maquette — à REFAIRE (à peine commencé)
+- Exigence : voir « Arbitrages validés » ci-dessus (3 serveurs, une seule app,
+  bascule « Serveur › Tenant », notifications des 3 serveurs en permanence avec un
+  groupe de canaux par serveur, « À traiter » agrégé avec une puce couleur par
+  serveur et un filtre serveur, les listes Appareils/Flotte restent sur le serveur
+  actif, raccourcis lanceur par serveur, mise à jour = plus haut versionCode
+  offert par un serveur).
+- `docs/obliance-mobile-design.md` contient une **édition partielle** (16 lignes
+  ajoutées / 10 retirées) laissée par l'agent interrompu : la relire et la
+  compléter (nouvelle section « Multi-serveurs » dans le chapitre navigation +
+  mise à jour cohérente : barre du haut, À traiter, notifications, routeur de
+  liens, réglages, sécurité, architecture, plan, questions ouvertes).
+- Maquette à mettre à jour dans `docs/mobile/mockup/` (et sur le canevas en ligne
+  si l'outil Artifact est disponible) : modifier `Main` (À traiter agrégé),
+  `TenantSwitch` (devient « Serveur et tenant »), `AppSettings` (section
+  Serveurs), `Notifications` (plusieurs serveurs), `More` (entrée Serveurs) ;
+  ajouter `ServerManage` (liste et réglages par serveur) et `AddServer` (URL,
+  vérification, SSO). Données d'exemple : serveur principal « BinaryHearts »
+  (https://obliance.binaryhearts.me, tenants Default et BASH) + « Atelier » et
+  « Client Durand » avec leurs couleurs (distinctes du rouge de marque et des
+  couleurs de statut). Format des artboards : `docs/mobile/mockup/mockup-format.md`.
+
+### Ordre conseillé pour la session cloud
+1. D (multi-serveurs doc + maquette) — le propriétaire veut le voir.
+2. A.1 à A.4 (finir la passe web) puis B (ajustements client) → prévenir le
+   propriétaire qu'un build **server + client** est prêt.
+3. C : Phase 0 de l'app native.
 
 **Synchronisation cloud → local** : `powershell -ExecutionPolicy Bypass -File
 D:\Obliance\sync-cloud.ps1` (option `-Branch claude/xxx` pour une branche de
