@@ -32,7 +32,10 @@ SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
 yes | "$SM" --sdk_root="$SDK" --licenses >/dev/null 2>&1 || true
 # compileSdk 37 + build-tools 37 (the project's app/build.gradle.kts). Install
 # every android-37 platform revision the index offers (e.g. android-37.0).
-PLATFORMS=$("$SM" --sdk_root="$SDK" --list 2>/dev/null | grep -o 'platforms;android-37[^ ]*' | sort -u | tr '\n' ' ')
+# Newer sdkmanager builds list packages as "platforms/android-37.0" instead of
+# "platforms;android-37.0": accept both, skip previews, install with ";".
+PLATFORMS=$("$SM" --sdk_root="$SDK" --list 2>/dev/null | grep -oE 'platforms[;/]android-37[^ ]*' \
+            | grep -vE -- '-(beta|rc|preview)' | sed 's#/#;#' | sort -u | tr '\n' ' ')
 "$SM" --sdk_root="$SDK" "platform-tools" "build-tools;37.0.0" $PLATFORMS >/dev/null || true
 
 cat > /etc/profile.d/android.sh <<EOF
