@@ -1,3 +1,4 @@
+import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { getIO } from '../socket';
@@ -761,12 +762,12 @@ export const scenarioService = {
     // Pass 1: detect script-uuid conflicts against the target tenant.
     const isMaster = isMasterTenant(tenantId);
     const importedUuids = scripts.map((s) => s.uuid).filter(Boolean);
-    let existingByUuid = new Map<string, { id: number; name: string }>();
+    let existingByUuid = new Map<string, { id: number; name: string; tenantId: number | null }>();
     if (importedUuids.length > 0) {
       const q = db('scripts').whereIn('uuid', importedUuids);
       if (!isMaster) q.where(function () { this.where({ tenant_id: tenantId }).orWhereNull('tenant_id'); });
-      const existing = await q.select('id', 'uuid', 'name');
-      for (const r of existing) existingByUuid.set(r.uuid, { id: r.id, name: r.name });
+      const existing = await q.select('id', 'uuid', 'name', 'tenant_id');
+      for (const r of existing) existingByUuid.set(r.uuid, { id: r.id, name: r.name, tenantId: r.tenant_id ?? null });
     }
 
     if (!opts.commit) {
@@ -783,6 +784,21 @@ export const scenarioService = {
 
     // Pass 2: commit. Walk script resolutions, then create scenario + nodes + edges in one transaction.
     const resolutions = opts.conflictResolutions ?? {};
+    // "Overwrite" rewrites the existing script's content. Only a script of the
+    // importing tenant may be overwritten by a non-admin: system scripts
+    // (tenant_id NULL) are shared by every tenant, and on the master tenant the
+    // conflict lookup spans all tenants — both would let an import change what
+    // other tenants' schedules and runs execute.
+    const importer = opts.userId
+      ? await db('users').where({ id: opts.userId }).first('role') as { role: string } | undefined
+      : undefined;
+    const importerIsAdmin = importer?.role === 'admin';
+    for (const s of scripts) {
+      const conflict = s.uuid ? existingByUuid.get(s.uuid) : undefined;
+      if (conflict && resolutions[s.uuid as string] === 'overwrite' && !importerIsAdmin && conflict.tenantId !== tenantId) {
+        throw new AppError(403, `Script "${conflict.name}" belongs to another tenant or is a system script: only a platform administrator can overwrite it`);
+      }
+    }
     return db.transaction(async (trx) => {
       // Build a uuid → final-script-id map: existing-after-resolution
       // OR newly-created from the import's content.
