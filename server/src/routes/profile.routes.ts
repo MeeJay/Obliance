@@ -149,9 +149,10 @@ router.post('/ssh-authorize-ip', async (req, res, next) => {
       return next(new AppError(400, 'Could not determine your IP address'));
     }
     const { bastionGate, isInfraIp } = await import('../services/sshBastion/bastionGate.service');
+    const { clientAddress } = await import('../utils/clientIp');
     // The web side only sees a relay (reverse proxy / Docker) address: granting
     // it would authorize every user behind that relay. Fail closed.
-    if (isInfraIp(ip)) {
+    if (isInfraIp(ip) || clientAddress(req).relay) {
       const { AppError } = await import('../middleware/errorHandler');
       return next(new AppError(400, `Obliance sees your IP as ${ip}, an internal relay address — your real IP cannot be authorized. Ask an administrator to fix the reverse-proxy X-Forwarded-For configuration.`));
     }

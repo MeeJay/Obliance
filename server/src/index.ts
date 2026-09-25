@@ -34,6 +34,11 @@ async function main() {
   // Ensure default admin exists
   await ensureDefaultAdmin();
 
+  // Scenario accountability epoch (scenarioPermission.service): recorded
+  // before any request can save / enable a scenario or a trigger can fire.
+  const { initScenarioAccountability } = await import('./services/scenarioPermission.service');
+  await initScenarioAccountability();
+
   // Create Express app and HTTP server
   const app = createApp();
   const server = http.createServer(app);

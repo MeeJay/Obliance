@@ -1,6 +1,7 @@
 import cronParser from 'cron-parser';
 import { db } from '../db';
 import { logger } from '../utils/logger';
+import { validDbIds } from '../utils/dbId';
 import { scenarioGraphService } from './scenarioGraph.service';
 import { permissionService } from './permission.service';
 
@@ -107,7 +108,10 @@ class ScenarioGraphCron {
     });
   }
 
-  private async resolveTargetDevices(tenantId: number, targetType: string, targetIds: number[]): Promise<number[]> {
+  private async resolveTargetDevices(tenantId: number, targetType: string, rawTargetIds: unknown[]): Promise<number[]> {
+    // Stored ids are used strictly (utils/dbId.ts): an entry Postgres would
+    // read differently from the permission check is dropped, never run.
+    const targetIds = validDbIds(Array.isArray(rawTargetIds) ? rawTargetIds : []);
     // 'all' → every approved device in the tenant
     if (targetType === 'all') {
       const rows = await db('devices')

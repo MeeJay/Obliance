@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { logger } from '../utils/logger';
 import { permissionService } from './permission.service';
+import { toDbId } from '../utils/dbId';
 
 /**
  * Who may make a scenario run where.
@@ -15,7 +16,15 @@ import { permissionService } from './permission.service';
  * Manual runs are checked against the requesting user (routes). Automatic runs
  * (triggers, cron) are checked at run start against the ACCOUNTABLE user: the
  * last person who saved or enabled the scenario (`updated_by`, else
- * `created_by`). Admin-owned scenarios are unrestricted, as before.
+ * `created_by`). Platform-admin-owned scenarios are unrestricted, as before
+ * (also once that admin is deactivated: their automations keep running, like
+ * when the account is deleted and the FK nulls the column).
+ *
+ * Only scenarios saved or enabled since this rule exists are checked (see
+ * initScenarioAccountability): before it, enabling a scenario and saving its
+ * graph did not record who did it, so the stored `updated_by` of an older row
+ * may name someone else. Those rows run as before until someone saves or
+ * enables them again — which records that person, after checking their rights.
  */
 
 type ScenarioRef = { id: number; tenant_id: number };
@@ -69,6 +78,12 @@ export async function scenarioDenialFor(
   onlyNodeId?: number,
   pendingNodes?: ScenarioNodeLike[],
 ): Promise<ScenarioDenial | null> {
+  // An id that is not a plain positive integer cannot be checked — and the
+  // query that would run on it may read it differently (utils/dbId.ts).
+  // Callers normalise first; anything left over is a denial, never a pass.
+  for (const id of runDeviceIds) {
+    if (toDbId(id) == null) return { capability: 'execute', deviceId: Number(id) };
+  }
   const { execIds, writeIds } = await devicesTouched(scenario, runDeviceIds, onlyNodeId, pendingNodes);
   const lacking = await permissionService.devicesLackingCapability(userId, execIds, 'execute');
   if (lacking.length) return { capability: 'execute', deviceId: lacking[0] };
@@ -78,48 +93,93 @@ export async function scenarioDenialFor(
   return null;
 }
 
+// ── Accountability epoch ─────────────────────────────────────────────────────
+// First boot of a version with the gate below, stored once in app_config.
+// A scenario whose updated_at is older was last saved / enabled by code that
+// did not record who did it: it is not checked (runs as before).
+const EPOCH_KEY = 'scenario_accountability_since';
+let epochMs: number | null = null;
+
+/** Called at boot, before the HTTP server accepts requests (index.ts). */
+export async function initScenarioAccountability(): Promise<void> {
+  await db('app_config').insert({ key: EPOCH_KEY, value: new Date().toISOString() }).onConflict('key').ignore();
+  const row = await db('app_config').where({ key: EPOCH_KEY }).first('value') as { value: string | null } | undefined;
+  const parsed = Date.parse(row?.value ?? '');
+  epochMs = Number.isFinite(parsed) ? parsed : Date.now();
+}
+
 // Automatic triggers fire on agent pushes: cache the verdicts briefly. The key
 // includes updated_at, so any save or enable of the scenario invalidates it.
 const VERDICT_TTL_MS = 60_000;
-const verdicts = new Map<string, { ok: boolean; at: number }>();
-const roles = new Map<number, { admin: boolean; active: boolean; at: number }>();
+const verdicts = new Map<string, { denial: string | null; at: number }>();
+const roles = new Map<number, { admin: boolean; active: boolean; username: string; at: number }>();
 
-async function roleOf(userId: number): Promise<{ admin: boolean; active: boolean }> {
+async function roleOf(userId: number): Promise<{ admin: boolean; active: boolean; username: string }> {
   const cached = roles.get(userId);
   if (cached && Date.now() - cached.at < VERDICT_TTL_MS) return cached;
-  const row = await db('users').where({ id: userId }).first('role', 'is_active') as { role: string; is_active: boolean } | undefined;
-  const value = { admin: row?.role === 'admin', active: !!row?.is_active, at: Date.now() };
+  const row = await db('users').where({ id: userId }).first('role', 'is_active', 'username') as
+    { role: string; is_active: boolean; username: string } | undefined;
+  const value = { admin: row?.role === 'admin', active: !!row?.is_active, username: row?.username ?? `#${userId}`, at: Date.now() };
   roles.set(userId, value);
   return value;
 }
 
 /**
- * Gate of AUTOMATIC runs: may the accountable user of [scenario] make it run
- * on [deviceId]? No accountable user (legacy / system rows) = allowed, like
- * before; a deactivated accountable non-admin = refused.
+ * Gate of AUTOMATIC runs: why the accountable user of [scenario] may NOT make
+ * it run on [deviceId], or null when the run is allowed. No accountable user
+ * (legacy / system rows), a scenario last saved before the accountability
+ * epoch, or a platform admin = allowed, like before; a deactivated non-admin =
+ * refused.
  */
-export async function accountableUserMayRun(
+export async function accountableUserDenial(
   scenario: ScenarioRef & { updated_by?: number | null; created_by?: number | null; updated_at?: Date | string | null },
   deviceId: number,
-): Promise<boolean> {
+): Promise<string | null> {
   const userId = scenario.updated_by ?? scenario.created_by ?? null;
-  if (userId == null) return true;
-  const role = await roleOf(userId);
-  if (role.admin && role.active) return true;
-  if (!role.active) return false;
-
+  if (userId == null) return null;
+  if (epochMs == null) await initScenarioAccountability();
   const stamp = scenario.updated_at ? new Date(scenario.updated_at).getTime() : 0;
+  if (!(stamp >= (epochMs as number))) return null;
+
+  const role = await roleOf(userId);
+  if (role.admin) return null;
+
   const key = `${scenario.id}:${stamp}:${userId}:${deviceId}`;
   const hit = verdicts.get(key);
-  if (hit && Date.now() - hit.at < VERDICT_TTL_MS) return hit.ok;
+  if (hit && Date.now() - hit.at < VERDICT_TTL_MS) return hit.denial;
 
-  const denial = await scenarioDenialFor(userId, scenario, [deviceId]);
-  const ok = denial == null;
-  if (verdicts.size > 10_000) verdicts.clear();
-  verdicts.set(key, { ok, at: Date.now() });
-  if (!ok) {
-    logger.warn({ scenarioId: scenario.id, deviceId, userId, denial },
-      'scenario run skipped: the user accountable for this scenario lacks the capability on the device');
+  let reason: string | null = null;
+  let denial: ScenarioDenial | null = null;
+  if (!role.active) {
+    reason = `Not run: ${role.username}, the user accountable for this scenario (last to save or enable it), is deactivated. `
+      + 'Someone allowed to run it on this device must enable it again.';
+  } else {
+    denial = await scenarioDenialFor(userId, scenario, [deviceId]);
+    if (denial) {
+      reason = `Not run: ${role.username}, the user accountable for this scenario (last to save or enable it), lacks `
+        + `${denial.capability === 'execute' ? "the 'execute' capability" : 'write access'} on device #${denial.deviceId}. `
+        + 'Grant it to their team, or have someone allowed on this device enable the scenario again.';
+    }
   }
-  return ok;
+  if (verdicts.size > 10_000) verdicts.clear();
+  verdicts.set(key, { denial: reason, at: Date.now() });
+  if (reason) {
+    logger.warn({ scenarioId: scenario.id, deviceId, userId, active: role.active, denial },
+      'scenario run skipped: the user accountable for this scenario may not run it on the device');
+  }
+  return reason;
+}
+
+// A skipped automatic run is recorded in the scenario's run history, at most
+// once per scenario and device per hour (metric triggers can fire on every
+// push).
+const SKIP_RECORD_INTERVAL_MS = 60 * 60 * 1000;
+const skipRecordedAt = new Map<string, number>();
+export function shouldRecordSkippedRun(scenarioId: number, deviceId: number): boolean {
+  const key = `${scenarioId}:${deviceId}`;
+  const last = skipRecordedAt.get(key);
+  if (last != null && Date.now() - last < SKIP_RECORD_INTERVAL_MS) return false;
+  if (skipRecordedAt.size > 20_000) skipRecordedAt.clear();
+  skipRecordedAt.set(key, Date.now());
+  return true;
 }

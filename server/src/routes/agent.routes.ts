@@ -1,4 +1,4 @@
-import { clientIp } from '../utils/clientIp';
+import { clientAddress } from '../utils/clientIp';
 import { Router } from 'express';
 import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
@@ -65,13 +65,15 @@ router.post('/register', agentAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'uuid and hostname required' });
     }
 
+    // A relay address (see the push route) is never recorded as the public IP.
+    const client = clientAddress(req);
     const result = await deviceService.registerDevice({
       uuid, hostname,
       osType: osType || 'other',
       osName, osVersion, osBuild, osArch,
       cpuModel, cpuCores, ramTotalGb,
       ipLocal,
-      ipPublic: clientIp(req),
+      ipPublic: client.relay ? undefined : client.ip,
       agentVersion,
       apiKeyId: req.agentApiKeyId!,
       tenantId: req.agentTenantId!,
@@ -190,8 +192,11 @@ router.post('/push', agentAuth, async (req, res, next) => {
       .first();
 
     // Real WAN IP as seen through OUR proxies (utils/clientIp.ts): the
-    // left-most X-Forwarded-For value is whatever the caller wrote.
-    const ipPublic = clientIp(req);
+    // left-most X-Forwarded-For value is whatever the caller wrote. A relay
+    // address (edge proxy missing from TRUSTED_PROXIES…) is the same for
+    // every agent: keep the stored value instead of overwriting the fleet.
+    const client = clientAddress(req);
+    const ipPublic = client.relay ? '' : client.ip;
 
     if (!device) {
       // ── First contact: auto-register the device ──────────────────────────────
@@ -204,7 +209,7 @@ router.post('/push', agentAuth, async (req, res, next) => {
         osArch: osInfo?.arch,
         agentVersion,
         agentFlavor: inferredFlavor,
-        ipPublic,
+        ipPublic: ipPublic || undefined,
         ipLocal,
         macAddress,
         apiKeyId: req.agentApiKeyId!,

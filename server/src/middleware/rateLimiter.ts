@@ -71,6 +71,28 @@ export const mfaLimiter = rateLimit({
   },
 });
 
+// MFA verify limiter keyed on the ACCOUNT (the pending 2FA user), not the IP.
+// An IP-keyed limit alone does not bound a TOTP / email-code brute force: the
+// attacker already knows the password and can open a new pending session at
+// will, from as many addresses as they have. 10 wrong codes per 15 minutes
+// per account keeps a 6-digit code out of reach; the worst an attacker can do
+// with it is delay that one account's sign-in (and they hold its password).
+// Applied to /profile/2fa/verify only, after mfaLimiter.
+export const mfaAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // No pending 2FA user: the controller answers 400, nothing to guess.
+  skip: (req) => !req.session?.pendingMfaUserId,
+  keyGenerator: (req) => `mfa-user:${req.session?.pendingMfaUserId}`,
+  message: {
+    success: false,
+    error: 'Too many verification attempts, please try again later',
+  },
+});
+
 // Login-specific limiter — stricter window to slow down brute-force attempts.
 //
 // Key = IP + username so that:

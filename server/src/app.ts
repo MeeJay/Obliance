@@ -1,4 +1,3 @@
-import { isTrustedProxy, trustedProxyHops } from './utils/clientIp';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -35,14 +34,15 @@ export function getSessionMiddleware(): express.RequestHandler | null {
 export function createApp() {
   const app = express();
 
-  // req.ip = the first X-Forwarded-For hop (from the right) that is not one of
-  // OUR proxies (utils/clientIp.ts, env TRUSTED_PROXIES). A fixed hop count
-  // ('trust proxy', 1) returned the proxy's own address behind two proxies
-  // and a client-chosen value when the client container is reached directly.
-  // Express's own walk has no hop cap: trust the addresses it may consume
-  // (index 0 = socket peer … index trustedProxyHops-1) and no further, so
-  // req.ip always equals clientIp(req).
-  app.set('trust proxy', (addr: string, i: number) => i < trustedProxyHops && isTrustedProxy(addr));
+  // Trust the first hop only (the client container's nginx): X-Forwarded-Proto
+  // for the `secure` session cookie, and req.ip = the address that nginx saw.
+  // req.ip is the RATE-LIMIT key: a client can never choose it (behind an
+  // edge proxy every user shares it, as before). The client's real address
+  // (audit, 2FA "trust this IP", SSH button, agent public IP) comes from
+  // clientIp(req) (utils/clientIp.ts), which walks further through
+  // TRUSTED_PROXIES — a walk a client can steer when it reaches the client
+  // container from a trusted range, so it must never key a rate limit.
+  app.set('trust proxy', 1);
 
   // Security headers
   app.use(

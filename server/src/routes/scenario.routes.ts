@@ -5,6 +5,7 @@ import { permissionService } from '../services/permission.service';
 import { scenarioService } from '../services/scenario.service';
 import { isMasterTenant } from '@obliance/shared';
 import { scenarioDenialFor, type ScenarioNodeLike } from '../services/scenarioPermission.service';
+import { toDbIds } from '../utils/dbId';
 
 const router = Router();
 
@@ -32,6 +33,22 @@ async function assertMayRunScenarioOn(
 }
 
 /**
+ * targetIds of a scenario create / update, normalised in place to plain
+ * integers (utils/dbId.ts) so the activation check and the stored target —
+ * later read by the cron and the triggers — name the same devices / groups.
+ * false = invalid (400). Absent or null = left as sent, like before.
+ */
+function normaliseTargetIds(req: any): boolean {
+  const raw: unknown = req.body?.targetIds;
+  if (raw == null) return true;
+  if (!Array.isArray(raw)) return false;
+  const ids = toDbIds(raw);
+  if (ids == null) return false;
+  req.body.targetIds = ids;
+  return true;
+}
+
+/**
  * A non-admin who makes a scenario ACTIVE (enable, create/update with status
  * 'active', graph save of an active scenario) becomes accountable for its
  * automatic runs. Checked BEFORE anything is written: the tenant capability
@@ -43,7 +60,7 @@ async function assertMayRunScenarioOn(
 async function assertMayActivateScenario(
   req: any,
   scenario: { id: number; tenant_id: number },
-  target?: { targetType: string; targetIds: number[] },
+  target?: { targetType: string; targetIds: unknown[] },
   pendingNodes?: ScenarioNodeLike[],
 ): Promise<void> {
   if (req.session.role === 'admin') return;
@@ -349,10 +366,11 @@ router.get('/:id/export', async (req, res, next) => {
 // POST / — create scenario
 router.post('/', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
+    if (!normaliseTargetIds(req)) return res.status(400).json({ error: 'targetIds must be positive integers' });
     if (req.body?.status === 'active') {
       // New scenario: no graph yet (v1 steps carry no per-node targets).
       await assertMayActivateScenario(req, { id: 0, tenant_id: req.tenantId! },
-        { targetType: req.body.targetType ?? 'all', targetIds: Array.isArray(req.body.targetIds) ? req.body.targetIds.map(Number) : [] }, []);
+        { targetType: req.body.targetType ?? 'all', targetIds: req.body.targetIds ?? [] }, []);
     }
     const scenario = await scenarioService.create(req.tenantId!, req.body, req.session.userId!);
     // v2: convert the freshly created scenario into the graph model so
@@ -377,6 +395,7 @@ router.post('/', requireTenantCapability('scripts.manage'), async (req, res, nex
 router.put('/:id', requireTenantCapability('scripts.manage'), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
+    if (!normaliseTargetIds(req)) return res.status(400).json({ error: 'targetIds must be positive integers' });
     // Bypass-privacy-mode toggle is restriction-gated. Only fire the gate
     // on the false→true transition so re-saving an already-bypassing
     // scenario (or untoggling it) doesn't require fresh 2FA / a second
@@ -408,7 +427,7 @@ router.put('/:id', requireTenantCapability('scripts.manage'), async (req, res, n
         const storedIds = (typeof current.target_ids === 'string' ? JSON.parse(current.target_ids) : current.target_ids) ?? [];
         await assertMayActivateScenario(req, current, {
           targetType: req.body?.targetType ?? current.target_type,
-          targetIds: (Array.isArray(req.body?.targetIds) ? req.body.targetIds : storedIds).map(Number),
+          targetIds: Array.isArray(req.body?.targetIds) ? req.body.targetIds : (Array.isArray(storedIds) ? storedIds : []),
         });
       }
     }
@@ -470,15 +489,21 @@ router.post('/:id/disable', requireTenantCapability('scripts.execute'), async (r
 // POST /:id/trigger — manual trigger on specified devices
 router.post('/:id/trigger', requireTenantCapability('scripts.execute'), async (req, res, next) => {
   try {
-    const { deviceIds } = req.body;
+    // Normalised ONCE (utils/dbId.ts) and the same list is checked and run:
+    // a raw '1_000' would be skipped by the check yet run on device 1000.
+    // Absent / empty = the scenario's own target; anything but an array of ids
+    // is refused (never widened to the whole target).
+    const bodyIds: unknown = req.body?.deviceIds;
+    const deviceIds = bodyIds == null ? [] : Array.isArray(bodyIds) ? toDbIds(bodyIds) : null;
+    if (deviceIds == null) return res.status(400).json({ error: 'deviceIds must be positive integers' });
     const scenarioId = parseInt(req.params.id);
     if (req.session.role !== 'admin') {
       // Same scenario + device set triggerManual will use (strict tenant
       // scope; empty deviceIds = the scenario's own target, e.g. all devices).
       const scenario = await db('scenarios').where({ id: scenarioId, tenant_id: req.tenantId! }).first('id', 'tenant_id');
       if (!scenario) return res.status(404).json({ error: 'Scenario not found' });
-      const runIds: number[] = Array.isArray(deviceIds) && deviceIds.length
-        ? deviceIds.map((d: unknown) => Number(d)).filter((n: number) => Number.isInteger(n) && n > 0)
+      const runIds: number[] = deviceIds.length
+        ? deviceIds
         : await scenarioService.resolveTargetDevices(scenarioId, req.tenantId!);
       await assertMayRunScenarioOn(req, scenario, runIds);
     }
@@ -607,7 +632,7 @@ router.put('/:id/graph', requireTenantCapability('scripts.manage'), async (req, 
 
     await db.transaction(async (trx) => {
       // The saving user becomes accountable for the automatic runs of the
-      // new graph (scenarioPermission.accountableUserMayRun).
+      // new graph (scenarioPermission.accountableUserDenial).
       await trx('scenarios').where({ id: scenarioId }).update({ updated_by: req.session.userId, updated_at: new Date() });
       // Wipe and rewrite — simplest semantics for a save-the-whole-graph
       // editor. Cascade deletes scenario_edges via FK.

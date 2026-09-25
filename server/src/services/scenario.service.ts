@@ -1,6 +1,7 @@
 import { AppError } from '../middleware/errorHandler';
 import { db } from '../db';
 import { logger } from '../utils/logger';
+import { validDbIds } from '../utils/dbId';
 import { getIO } from '../socket';
 import { SocketEvents, isMasterTenant } from '@obliance/shared';
 import { commandService } from './command.service';
@@ -1553,8 +1554,10 @@ export const scenarioService = {
 
   /** Devices a scenario with this target would run on today (also used to
    *  check a target BEFORE it is saved). */
-  async resolveTargetsFor(tenantId: number, targetType: string, targetIds: number[]): Promise<number[]> {
-    const scenario = { targetType, targetIds };
+  async resolveTargetsFor(tenantId: number, targetType: string, rawTargetIds: unknown[]): Promise<number[]> {
+    // Strict ids only (utils/dbId.ts): the permission checks and the runs
+    // built on this list must see the same devices.
+    const scenario = { targetType, targetIds: validDbIds(Array.isArray(rawTargetIds) ? rawTargetIds : []) };
     if (scenario.targetType === 'all') {
       const rows = await db('devices').where({ tenant_id: tenantId }).select('id');
       return rows.map((r: any) => r.id);

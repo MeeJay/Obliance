@@ -312,12 +312,13 @@ export const restrictionService = {
       // If the user previously completed a TOTP step-up from this IP AND
       // checked "Trust this IP for 24h" in the prompt, skip the 2FA prompt
       // for the rest of the trust window. See tfaTrust.service.ts.
-      const { tfaTrustService, clientIp } = await import('./tfaTrust.service');
-      const ip = clientIp(req);
-      // A relay address (our proxy / Docker gateway) is shared by everyone
-      // behind it: never honour nor grant an IP trust for it.
-      const { isRelayAddress } = await import('../utils/clientIp');
-      const ipTrustUsable = !isRelayAddress(ip);
+      const { tfaTrustService } = await import('./tfaTrust.service');
+      // A relay address (our proxy / Docker gateway, or an edge proxy missing
+      // from TRUSTED_PROXIES) is shared by everyone behind it: never honour
+      // nor grant an IP trust for it.
+      const { clientAddress } = await import('../utils/clientIp');
+      const { ip, relay } = clientAddress(req);
+      const ipTrustUsable = !relay;
       if (ipTrustUsable && await tfaTrustService.isTrusted(userId, ip)) {
         return { ok: true };
       }

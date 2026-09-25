@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { logger } from '../utils/logger';
+import { toDbId } from '../utils/dbId';
 import { commandService } from './command.service';
 import { getIO } from '../socket';
 import { SocketEvents } from '@obliance/shared';
@@ -224,6 +225,14 @@ export const scenarioGraphService = {
     /** Stop with success after the entry node completes (one-shot test). */
     singleNode?: boolean;
   }): Promise<string> {
+    // Every run goes through here: normalise the device id ONCE, strictly, so
+    // the permission gates below and the queries / the run row use the same
+    // device (Postgres 16 reads '1_000' as 1000, Number() as NaN).
+    const rawDeviceId: unknown = deviceId;
+    const strictDeviceId = toDbId(rawDeviceId);
+    if (strictDeviceId == null) throw new Error(`Invalid device id ${JSON.stringify(rawDeviceId)}`);
+    deviceId = strictDeviceId;
+
     const scenario = await db('scenarios').where({ id: scenarioId }).first();
     if (!scenario) throw new Error(`Scenario ${scenarioId} not found`);
 
@@ -242,10 +251,35 @@ export const scenarioGraphService = {
     // Automatic runs (triggers, cron) execute with the authority of the user
     // accountable for the scenario: a non-admin's scenario never runs on a
     // device where that user lacks `execute` (manual runs are checked on the
-    // requesting user by the routes). Skipped like the privacy gate above.
+    // requesting user by the routes). Unlike the privacy skip above (the
+    // device user's own choice), a refusal is recorded in the run history —
+    // as 'cancelled', so no failure notification and no agent_approved dedup —
+    // at most once per scenario and device per hour.
     if (opts.triggerType !== 'manual') {
-      const { accountableUserMayRun } = await import('./scenarioPermission.service');
-      if (!(await accountableUserMayRun(scenario, deviceId))) return '';
+      const { accountableUserDenial, shouldRecordSkippedRun } = await import('./scenarioPermission.service');
+      const denial = await accountableUserDenial(scenario, deviceId);
+      if (denial) {
+        if (shouldRecordSkippedRun(scenarioId, deviceId)) {
+          try {
+            const now = new Date();
+            const [skipped] = await db('scenario_runs').insert({
+              tenant_id: scenario.tenant_id,
+              scenario_id: scenarioId,
+              device_id: deviceId,
+              trigger_type: opts.triggerType,
+              trigger_source: opts.triggerSource ?? null,
+              status: 'cancelled',
+              started_at: now,
+              finished_at: now,
+              error_message: denial,
+            }).returning('*');
+            if (skipped) emitRunUpdate(skipped);
+          } catch (err) {
+            logger.error({ err, scenarioId, deviceId }, 'could not record the skipped scenario run');
+          }
+        }
+        return '';
+      }
     }
 
     // Compose the trigger_source carrier so _advance can detect single-
