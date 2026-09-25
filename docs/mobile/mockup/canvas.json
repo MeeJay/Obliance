@@ -18,6 +18,14 @@
       "x": 940,
       "y": 2708
     },
+    "AddServer.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A24 · Ajouter un serveur",
+      "w": 390,
+      "x": 3290,
+      "y": 3932
+    },
     "AlertDetail.dc.html": {
       "h": 844,
       "is_interactive": true,
@@ -138,6 +146,14 @@
       "x": 1410,
       "y": 2708
     },
+    "ServerManage.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "A23 · Serveurs",
+      "w": 390,
+      "x": 2820,
+      "y": 3932
+    },
     "SignIn.dc.html": {
       "h": 844,
       "is_interactive": true,
@@ -173,7 +189,7 @@
     "TenantSwitch.dc.html": {
       "h": 844,
       "is_interactive": true,
-      "title": "A19 · Périmètre et tenant",
+      "title": "A19 · Serveur et tenant",
       "w": 390,
       "x": 1880,
       "y": 3932
@@ -222,8 +238,8 @@
     },
     "row4": {
       "kind": "title1",
-      "maxW": 2740,
-      "text": "4 · Accès distant, shell, approbations, Plus et réglages",
+      "maxW": 3680,
+      "text": "4 · Accès distant, shell, approbations, Plus, réglages et serveurs",
       "w": 240,
       "x": 0,
       "y": 3682
@@ -265,6 +281,8 @@
     "More.dc.html",
     "TenantSwitch.dc.html",
     "AppSettings.dc.html",
+    "ServerManage.dc.html",
+    "AddServer.dc.html",
     "TabletFleetDashboard.dc.html",
     "TabletDeviceListDetail.dc.html",
     "TabletRemoteSession.dc.html",

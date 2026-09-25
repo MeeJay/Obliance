@@ -312,7 +312,7 @@ Les alertes serveur portent un chemin web relatif (`navigateTo`). L'app reçoit 
 5. **Session expirée sur un serveur non actif** : pas de feuille S03 intempestive ; sa ligne dans S81 et S92 passe à « Session expirée · Se reconnecter », ses cartes À traiter sont grisées avec la même mention, et une notification du canal « Compte » de son groupe le signale **une fois**. S03 ne s'affiche que pour le serveur actif.
 
 **Identité visuelle d'un serveur.**
-- **Tuile monogramme** : carré arrondi (20 dp dans les puces et surtitres, 28 dp dans les listes ; rayon 5 dp), fond de la couleur à 18 %, bordure 1 dp à 40 %, deux lettres JetBrains Mono 600 dans la couleur. La forme (tuile à lettres) distingue une identité d'un état (point, pastille).
+- **Tuile monogramme** : carré arrondi (20 dp dans les puces et surtitres, 28 dp dans les listes ; rayon 5 dp), fond de la couleur à 18 % **posé sur un fond `chrome` opaque** (sinon le violet et l'indigo tombent sous 4,5:1 sur `hover` et `active`), bordure 1 dp à 40 %, deux lettres JetBrains Mono 600 dans la couleur. La forme (tuile à lettres) distingue une identité d'un état (point, pastille).
 - **Palette fermée** de 8 couleurs (§8.2), hors rouge de marque et hors couleurs d'état ; attribuée automatiquement dans l'ordre à l'ajout, modifiable dans S92.
 - **Où elle apparaît** (dès deux serveurs) : puce de périmètre, bouton de périmètre du rail, surtitre des cartes d'À traiter, en-tête de S30 (sous-titre « BinaryHearts › BASH › Siège › Serveurs »), **feuilles de confirmation S41 et invites biométriques** (« Redémarrer SRV-AD2 (BinaryHearts › BASH) ? »), onglets de sessions et pastille, notifications (icône large), raccourcis d'app.
 - **Jamais** : recoloration de l'accent, du chrome ou de l'indicateur de destination par serveur.
@@ -1525,7 +1525,7 @@ Pastille = couleur à 12 % en fond + libellé de la couleur + point de 8 dp.
 
 **Deltas** : amélioration `#4ADE80`, dégradation `#FACC15`, neutre `textMuted`, toujours avec une flèche. Jamais le rouge de marque.
 
-**Identité de serveur** (palette fermée, constantes du socle, §2.10) : violet `#A78BFA` · sarcelle `#2DD4BF` · fuchsia `#E879F9` · indigo `#818CF8` · cyan `#67E8F9` · sable `#D6B98C` · lavande `#C4B5FD` · menthe `#5EEAD4`. Aucune n'est proche du rouge de marque, du rouge critique, de l'ambre, du vert ou du bleu d'information ; toutes dépassent 7:1 sur `bg` et `surface1`. Elles ne s'emploient **que** dans la tuile monogramme (fond 18 %, bordure 40 %, lettres pleines), jamais comme fond de bouton, couleur de texte courant ou indicateur d'état.
+**Identité de serveur** (palette fermée, constantes du socle, §2.10) : violet `#A78BFA` · sarcelle `#2DD4BF` · fuchsia `#E879F9` · indigo `#818CF8` · cyan `#67E8F9` · sable `#D6B98C` · lavande `#C4B5FD` · menthe `#5EEAD4`. Aucune n'est proche du rouge de marque, du rouge critique, de l'ambre, du vert ou du bleu d'information ; toutes dépassent 6:1 sur `bg` (indigo 6,5:1, les autres au-delà de 8:1). Elles ne s'emploient **que** dans la tuile monogramme (fond 18 % sur `chrome` opaque, bordure 40 %, lettres pleines ≥ 4,5:1), jamais comme fond de bouton, couleur de texte courant ou indicateur d'état.
 
 **Réglage Material 3** : `surfaceTint = Transparent`, `tonalElevation = 0` partout (pas de teinte rouge sur les surfaces élevées).
 
@@ -1610,7 +1610,7 @@ Les couleurs ConPTY et PSReadLine passent telles quelles ; le « noir vif » (pr
 | `ObliTopBar` | Puce de périmètre (tuile de serveur + tenant), titre Rajdhani, recherche, avatar avec anneau temps réel ; repli au défilement | Socle |
 | `ObliNavigationSuite` | Barre (compacte) ou rail (moyenne et plus), fond `chrome`, badges | Socle |
 | `ObliTenantChip` | Fond `hover`, `building-2` 16 dp (remplacé par la tuile du serveur dès deux serveurs), nom, chevron ; variante maître avec micro-badge « Vue globale » ; variante filtre avec point `accent2` 6 dp | Socle |
-| `ObliServerTile` | Carré arrondi 20 / 28 dp (rayon 5), fond couleur 18 %, bordure 1 dp 40 %, deux lettres JetBrains Mono 600 ; description TalkBack = nom du serveur ; absent avec un seul serveur | Socle |
+| `ObliServerTile` | Carré arrondi 20 / 28 dp (rayon 5), fond `chrome` opaque + couleur 18 %, bordure 1 dp 40 %, deux lettres JetBrains Mono 600 ; description TalkBack = nom du serveur ; absent avec un seul serveur | Socle |
 | `ServerRow` | Tuile 28 dp · nom · hôte mono · ligne d'état · compteur de non lues · coche ; 56 dp ; utilisé par S81 et S92 | Socle |
 | `IncidentCard` | Barre de gravité 3 dp · surtitre mono · titre · message serveur · ligne d'état en direct avec pulsation · action rapide 48 dp · affordances de balayage ; `surface1`, rayon 12 ; marqueur non lu `#60A5FA` | Obliance |
 | `ContextCard` | Carte imbriquée `surface2`, surtitre « CONTEXTE », jusqu'à 4 faits avec icône (`git-commit` changement, `network` voisins, `wrench` maintenance, `rotate-ccw` redémarrage), chacun cliquable | Obliance |
