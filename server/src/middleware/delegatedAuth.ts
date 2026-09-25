@@ -1,3 +1,4 @@
+import { clientIp as resolveClientIp } from '../utils/clientIp';
 import type { Request, Response, NextFunction } from 'express';
 import { MASTER_TENANT_ID } from '@obliance/shared';
 import { auditService } from '../services/audit.service';
@@ -155,8 +156,7 @@ const MESSAGE_BY_REASON: Record<MiddlewareFailureReason, string> = {
 };
 
 function clientIp(req: Request): string | undefined {
-  const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
-  return fwd || req.socket?.remoteAddress || undefined;
+  return resolveClientIp(req) || undefined;
 }
 
 /** Device id from the request path, for audit correlation only. Never used to

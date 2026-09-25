@@ -1,3 +1,4 @@
+import { regenerateSession } from '../utils/session';
 import { Router } from 'express';
 import crypto from 'crypto';
 import { db } from '../db';
@@ -214,7 +215,9 @@ async function provisionObligateUser(assertion: import('../services/obligate.ser
     }
   }
 
-  // Set session
+  // Set session, under a NEW id (session fixation). Only the cross-app tenant
+  // hint survives from the pre-login session.
+  await regenerateSession(req, ['requestedTenantSlug']);
   req.session.userId = localUserId;
   const user = await db('users').where({ id: localUserId }).first() as { username: string; role: string } | undefined;
   if (user) {

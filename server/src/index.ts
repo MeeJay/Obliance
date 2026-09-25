@@ -1,4 +1,5 @@
 import './env';
+import { clientIp } from './utils/clientIp';
 import http from 'http';
 import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
@@ -62,9 +63,7 @@ async function main() {
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
 
-    const clientIpOf = () =>
-      (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim()
-      ?? request.socket.remoteAddress;
+    const clientIpOf = () => clientIp(request);
 
     // ── Browser remote tunnel ──────────────────────────────────────────────
     // SECURITY: the token in the URL is NOT a credential on its own. The
@@ -202,11 +201,7 @@ async function main() {
           }
 
           if (!device) { ws.close(4004, 'Device not found'); return; }
-          const clientIp =
-            (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ??
-            request.socket.remoteAddress ??
-            '';
-          await agentHub.register(device.id, device.tenant_id, ws, keyRow.id, device.uuid, clientIp);
+          await agentHub.register(device.id, device.tenant_id, ws, keyRow.id, device.uuid, clientIp(request));
         } catch (err) {
           logger.error(err, 'Agent command channel setup error');
           ws.close(4000, 'Internal error');

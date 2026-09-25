@@ -1,17 +1,17 @@
 import { db } from '../db';
 import type { Request } from 'express';
+import { clientIp as resolveClientIp } from '../utils/clientIp';
 
 // Fallback window when no tenant setting is available (matches the
 // historical 24h default). The effective duration is configurable per
 // tenant via the `tfaTrustHours` general setting; 0 disables IP trust.
 const DEFAULT_TRUST_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
 
+/** Client IP as seen through OUR proxies only (utils/clientIp.ts): never the
+ *  client-controlled left-most X-Forwarded-For value. IPv4-mapped IPv6 is
+ *  normalised so v4 and v6 hits of one machine share a trust entry. */
 export function clientIp(req: Request): string {
-  const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
-  const raw = fwd || req.socket?.remoteAddress || '';
-  // IPv6-mapped IPv4 — normalise so a user hitting us over v4 + v6 on the
-  // same machine doesn't get two separate trust entries.
-  return raw.replace(/^::ffff:/i, '').trim();
+  return resolveClientIp(req);
 }
 
 /** Effective "Trust this IP" window for a tenant, in ms (0 = IP trust

@@ -1,3 +1,4 @@
+import { clientIp } from '../utils/clientIp';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireTenant } from '../middleware/tenant';
@@ -171,8 +172,7 @@ router.put('/:id', async (req, res, next) => {
           resourceType: 'tenant',
           resourcePath: String(id),
           details: changes,
-          ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
-            || req.socket?.remoteAddress || undefined,
+          ipAddress: clientIp(req) || undefined,
         });
       }
     } catch {}

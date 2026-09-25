@@ -1296,10 +1296,11 @@ export const scenarioService = {
     };
   },
 
-  async enable(id: number, tenantId: number): Promise<Scenario | null> {
+  /** [userId] (the enabling user) becomes accountable for the automatic runs. */
+  async enable(id: number, tenantId: number, userId?: number): Promise<Scenario | null> {
     const [row] = await db('scenarios')
       .where({ id, tenant_id: tenantId })
-      .update({ status: 'active', updated_at: new Date() })
+      .update({ status: 'active', updated_at: new Date(), ...(userId ? { updated_by: userId } : {}) })
       .returning('*');
     bustTriggerExistCache(); // a scenario just became active — re-evaluate on next push
     return row ? rowToScenario(row) : null;

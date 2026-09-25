@@ -1,3 +1,4 @@
+import { clientIp } from '../utils/clientIp';
 import { Router } from 'express';
 import { agentAuth } from '../middleware/agentAuth';
 import { db } from '../db';
@@ -188,8 +189,9 @@ router.post('/push', agentAuth, async (req, res, next) => {
       .where({ uuid: deviceUuid, tenant_id: tenantId })
       .first();
 
-    // Extract real WAN IP: first entry in X-Forwarded-For beats req.ip when behind proxies
-    const ipPublic = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+    // Real WAN IP as seen through OUR proxies (utils/clientIp.ts): the
+    // left-most X-Forwarded-For value is whatever the caller wrote.
+    const ipPublic = clientIp(req);
 
     if (!device) {
       // ── First contact: auto-register the device ──────────────────────────────

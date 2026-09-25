@@ -239,6 +239,15 @@ export const scenarioGraphService = {
       return '';
     }
 
+    // Automatic runs (triggers, cron) execute with the authority of the user
+    // accountable for the scenario: a non-admin's scenario never runs on a
+    // device where that user lacks `execute` (manual runs are checked on the
+    // requesting user by the routes). Skipped like the privacy gate above.
+    if (opts.triggerType !== 'manual') {
+      const { accountableUserMayRun } = await import('./scenarioPermission.service');
+      if (!(await accountableUserMayRun(scenario, deviceId))) return '';
+    }
+
     // Compose the trigger_source carrier so _advance can detect single-
     // node test runs. Format: "<base>|__single_node" with empty base ok.
     const baseSource = opts.triggerSource ?? null;

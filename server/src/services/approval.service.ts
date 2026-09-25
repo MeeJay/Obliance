@@ -248,6 +248,15 @@ export const approvalService = {
   // ── Private executors ────────────────────────────────────────────────────
 
   async _executeBatch(tenantId: number, userId: number, payload: BatchCommandPayload): Promise<void> {
+    // Manual script run (POST /api/scripts/:id/execute): the bare `run_script`
+    // command below would carry only {scriptId, parameterValues} — the agent
+    // needs the script content, interpreter and timeout, and the run must
+    // appear as a script execution. Go through the same path as the direct
+    // (non-restricted) run, as the requester.
+    if (payload.action === 'run_script' && payload.params?.scriptId != null) {
+      await this._executeManualScript(tenantId, userId, payload);
+      return;
+    }
     for (const deviceId of payload.deviceIds) {
       try {
         await commandService.enqueue({
@@ -262,6 +271,31 @@ export const approvalService = {
         logger.error({ err, deviceId }, 'batch approval execution: enqueue failed');
       }
     }
+  },
+
+  async _executeManualScript(tenantId: number, userId: number, payload: BatchCommandPayload): Promise<void> {
+    const scriptId = Number(payload.params?.scriptId);
+    if (!Number.isInteger(scriptId) || scriptId <= 0) throw new Error('run_script approval without a valid scriptId');
+    const parameterValues = (payload.params?.parameterValues && typeof payload.params.parameterValues === 'object')
+      ? payload.params.parameterValues as Record<string, unknown>
+      : {};
+    let deviceIds = (payload.deviceIds ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    deviceIds = await db('devices').where({ tenant_id: tenantId }).whereIn('id', deviceIds).pluck('id');
+    // Rights may have changed while the request waited for its approver: the
+    // requester still needs `execute` on each device (admins are unrestricted).
+    const requester = await db('users').where({ id: userId }).first('role', 'is_active') as { role: string; is_active: boolean } | undefined;
+    if (!requester?.is_active) throw new Error('requester is no longer active');
+    if (requester.role !== 'admin') {
+      const { permissionService } = await import('./permission.service');
+      const lacking = new Set(await permissionService.devicesLackingCapability(userId, deviceIds, 'execute'));
+      if (lacking.size) {
+        logger.warn({ scriptId, lacking: [...lacking] }, 'approved script run: requester lost execute on some devices — skipped');
+        deviceIds = deviceIds.filter((id) => !lacking.has(id));
+      }
+    }
+    if (!deviceIds.length) throw new Error('approved script run: no device left to run on');
+    const { scheduleService } = await import('./schedule.service');
+    await scheduleService.executeNow(scriptId, deviceIds, tenantId, parameterValues, userId);
   },
 
   async _executeUninstall(tenantId: number, userId: number, payload: DeviceUninstallPayload): Promise<void> {

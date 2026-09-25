@@ -1,3 +1,5 @@
+import { regenerateSession } from '../utils/session';
+import { clientIp } from '../utils/clientIp';
 import type { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
 import { appConfigService } from '../services/appConfig.service';
@@ -27,6 +29,10 @@ export const authController = {
       }
 
       const hasMfa = user.totpEnabled || user.emailOtpEnabled;
+
+      // New session id once the password is proven (session fixation): an id
+      // planted before sign-in never reaches the pending-2FA or signed-in state.
+      await regenerateSession(req);
 
       if (hasMfa) {
         // Step 1: store pending MFA, don't create real session yet
@@ -72,8 +78,7 @@ export const authController = {
             resourceType: 'user',
             resourcePath: String(user.id),
             details: { username: user.username, via: 'password' },
-            ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
-              || req.socket?.remoteAddress || undefined,
+            ipAddress: clientIp(req) || undefined,
           });
         }
       } catch {}
@@ -99,8 +104,7 @@ export const authController = {
             const { auditService } = await import('../services/audit.service');
             await auditService.log({
               tenantId, userId, action: 'auth.logout', resourceType: 'user', resourcePath: String(userId),
-              ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
-                || req.socket?.remoteAddress || undefined,
+              ipAddress: clientIp(req) || undefined,
             });
           }
         } catch {}

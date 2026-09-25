@@ -1,3 +1,4 @@
+import { isTrustedProxy } from './utils/clientIp';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -34,9 +35,11 @@ export function getSessionMiddleware(): express.RequestHandler | null {
 export function createApp() {
   const app = express();
 
-  // Trust the first reverse proxy hop so req.ip uses X-Forwarded-For.
-  // Required for accurate rate limiting when behind Nginx / Nginx Proxy Manager.
-  app.set('trust proxy', 1);
+  // req.ip = the first X-Forwarded-For hop (from the right) that is not one of
+  // OUR proxies (utils/clientIp.ts, env TRUSTED_PROXIES). A fixed hop count
+  // ('trust proxy', 1) returned the proxy's own address behind two proxies
+  // and a client-chosen value when the client container is reached directly.
+  app.set('trust proxy', (addr: string) => isTrustedProxy(addr));
 
   // Security headers
   app.use(
